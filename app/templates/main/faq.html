@@ -1,0 +1,12 @@
+{% extends "main/menu.html" %}
+
+{% block header %}Frequently Asked Questions{% endblock %}
+{% block info %}{% endblock %}
+
+{% block content %}
+   <p>Why is the real-time sensor value (in the gauge) the same as the one logged to the database(in the graph)?</p>
+   <p>
+      Real-time sensor values are generated every minute while the logged sensors value are computed every 10 (for environmental sensors) or 15 (for plant sensors) minutes. 
+      The logged value correspond to the median of the last three measures read by the sensors. This allow to remove incorrect sensor reads and to smoothen the data.
+   </p>
+{% endblock %}

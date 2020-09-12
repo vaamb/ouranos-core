@@ -1,0 +1,204 @@
+{% extends 'base.html' %}
+
+{% block body %}
+<nav>
+  <div class="topBox">
+    <div class="helloGAIA">GAIA</div>
+    <div class="userBox">
+      {% if current_user.is_authenticated %}
+      <img src="{{url_for('static', filename='ico/users/valentin/user_icon.png')}}" alt="User avatar" class="userAvatar">
+      <div class="welcome">
+        <div class="flexItem">Welcome,</div>
+        <div class="flexItem">{{current_user.firstname}}</div>
+      </div>
+      {% else %}
+      <img src="{{url_for('static', filename='ico/users/valentin/user_icon.png')}}" alt="User avatar" class="userAvatar">
+      <div class="welcome">
+        <div class="flexItem">Welcome</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <ul class="accordion-menu">
+    <li>
+      <a href="{{url_for('main.home')}}">
+        <div class="nodrop">
+          <i class="fa fa-home leftico"></i>Home
+        </div>
+      </a>
+    </li>
+
+    <li>
+      <a href="{{url_for('main.weather')}}">
+        <div class="nodrop">
+          <i class="fa fa-cloud leftico"></i>Weather
+        </div>
+      </a>
+    </li>
+
+    {% if ecosystems['with_environment_sensors'] != [] %}
+    <li>
+      <div class="dropdownlink">
+        <i class="fa fa-thermometer-half leftico"></i>Environments<i class="fa fa-chevron-right rightico" aria-hidden="true"></i>
+      </div>
+      <ul class="submenuItems">
+        {% if outside %}
+        <li><a href="#">Outside</a></li>
+        {% endif %}
+        {% for ecosystem in ecosystems['with_environment_sensors'] %}
+        <li><a href="{{url_for('main.environment', ecosystem_name=tag_to_name[ecosystem])}}">{{tag_to_name[ecosystem]}}</a></li> 
+        {% endfor %}
+      </ul>
+    </li>
+    {% endif %}
+
+    {% if ecosystems['with_plant_sensors'] != [] %}
+    <li>
+      <div class="dropdownlink">
+        <i class="fa fa-seedling leftico"></i>Plants<i class="fa fa-chevron-right rightico" aria-hidden="true"></i>
+      </div>
+      <ul class="submenuItems">
+        {% for ecosystem in ecosystems['with_plant_sensors'] %}
+        <li><a href="{{url_for('main.plants', ecosystem_name=tag_to_name[ecosystem])}}">{{tag_to_name[ecosystem]}}</a></li>
+        {% endfor %}
+      </ul>
+    </li>
+    {% endif %}
+
+    {% if ecosystems['with_webcam'] != [] %}
+    <li>
+      <div class="dropdownlink">
+        <i class="fa fa-heartbeat leftico"></i>Plants health<i class="fa fa-chevron-right rightico" aria-hidden="true"></i>
+      </div>
+      <ul class="submenuItems">
+        {% for ecosystem in ecosystems['with_webcam'] %}
+        <li><a href="{{url_for('main.health', ecosystem_name=tag_to_name[ecosystem])}}">{{tag_to_name[ecosystem]}}</a></li> 
+        {% endfor %}
+      </ul>
+    </li>
+    {% endif %}
+
+    {% if ecosystems['with_actuators'] != [] %}
+    <li>
+      <div class="dropdownlink">
+        <i class="fa fa-power-off leftico"></i>Switches<i class="fa fa-chevron-right rightico" aria-hidden="true"></i>
+      </div>
+      <ul class="submenuItems">
+        {% for ecosystem in ecosystems['with_actuators'] %}
+        <li><a href="{{url_for('main.switches', ecosystem_name=tag_to_name[ecosystem])}}">{{tag_to_name[ecosystem]}}</a></li> 
+        {% endfor %}
+      </ul>
+    </li>
+    {% endif %}
+
+    {% if ecosystems['with_webcam'] != [] %}
+    <li>
+      <div class="dropdownlink">
+        <i class="fa fa-video leftico"></i>Webcam<i class="fa fa-chevron-right rightico" aria-hidden="true"></i>
+      </div>
+      <ul class="submenuItems">
+        {% for ecosystem in ecosystems['with_webcam'] %}
+        <li><a href="#">{{tag_to_name[ecosystem]}}</a></li> 
+        {% endfor %}
+      </ul>
+    </li>
+    {% endif %}
+
+    <li>
+      <div class="dropdownlink">
+        <i class="fa fa-cog leftico"></i>Settings<i class="fa fa-chevron-right rightico" aria-hidden="true"></i>
+      </div>
+      <ul class="submenuItems">
+        {% for ecosystem in ecosystems['active'] %}
+        <li><a href="#">{{tag_to_name[ecosystem]}}</a></li> 
+        {% endfor %}
+      </ul>
+    </li>
+
+    {% if plants_in_wiki != [] %}
+    <li>
+      <div class="dropdownlink">
+        <i class="fa fa-book-medical leftico"></i>Plant care<i class="fa fa-chevron-right rightico" aria-hidden="true"></i>
+      </div>
+      <ul class="submenuItems">
+        <li><a href="{{url_for('main.care', species='general')}}">General</a></li>
+        {% for species in plants_in_wiki %}
+        <li><a href="{{url_for('main.care', species=species)}}">{{species.capitalize()}}</a></li>
+        {% endfor %}
+        {% if current_user.is_authenticated %}
+        <li><a href="#"><i class="fas fa-plus"></i></a></li>
+        {% endif %}
+      </ul>
+    </li>
+    {% endif %}
+
+    {% if current_user.is_administrator %}
+    <li>
+      <div class="dropdownlink">
+        <i class="fa fa-user-cog leftico"></i>Admin<i class="fa fa-chevron-right rightico" aria-hidden="true"></i>
+      </div>
+      <ul class="submenuItems">
+        <li><a href="{{url_for('admin.system')}}">System</a></li>
+        <li><a href="{{url_for('admin.log_home')}}">Logs</a></li>
+        <li><a href="{{url_for('admin.mem_snapshot')}}">Memory snapshot</a></li>
+      </ul>
+    </li>
+    {% endif %}
+
+  </ul>
+  
+  <div class="botbox">
+    <div><a href="{{url_for('main.about')}}" title="About the author"><i class="fa fa-address-card"></i></a></div>
+    <div><a href="{{url_for('main.myLicense')}}" title="License"><i class="fab fa-creative-commons"></i></a></div>
+    <div><a href="#" title="Preferences"><i class="fa fa-user-cog"></i></a></div>
+    <div><a href="#" title="Shutdown GAIA"><i class="fa fa-power-off"></i></a></div>
+  </div>
+</nav>
+
+<div class="maincontainer">
+  {% block topbar %}
+  <div class="topbar">
+
+    {% if current_user.is_administrator %}
+    <p>Logged as Admin</p>
+    {% else %}
+    <p></p>
+    {% endif %}
+
+    <div class="push-right">
+      {% if current_user.is_anonymous %}
+      <a href="{{url_for('auth.login')}}">Log in</a>
+      {% else %}
+      <a href="{{url_for('auth.logout')}}">Log out</a>
+      <a href="{{url_for('main.user', username=current_user.username)}}">Profile</a>
+      {% endif %}
+    </div>
+    <div class="warning">
+      {% if current_user.is_authenticated %}
+      {% if (warnings['weather'] is not none or 
+             warnings['environment'] is not none or
+             warnings['plants'] is not none) %}
+      <a href="{{url_for('main.warning')}}">
+        <i class="fas fa-exclamation-triangle"></i>
+      </a>
+      {% endif %}
+      {% endif %}
+    </div>  
+  </div>
+  <div class="contentContainer">
+    {% if self.header() %}
+    <div class="topLine">
+      <h1 style="float: left">
+        {% block header %}{% endblock %}
+      </h1>
+      <h3 style="float: right">
+        {% block info %}{% endblock %}
+      </h3>
+    </div>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </div>
+  {% endblock %}
+</div>
+{% endblock %}

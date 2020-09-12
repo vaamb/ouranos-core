@@ -1,0 +1,126 @@
+{% extends 'main/menu.html' %}
+
+{% block header %}System performance{% endblock %}
+{% block info %}{% endblock %}
+
+{% block content %}
+  {% for measure in ['CPU', 'RAM_used', 'DISK_used'] %}
+    <div class="board" style="height: 230px;">
+      <div class="boardHeader">     
+        <i class="{{parameters['server']['icon'][measure]}} leftico"></i>
+        {{parameters["server"]["measure"][measure]}}
+      </div> 
+      <div class="boardRowContainer" style="height: 183px;">
+        <div class="sensorGauge">
+          <canvas id="{{measure}}Gauge"></canvas> {{system_data[measure]}}{{parameters['server']['unit'][measure]}}
+        </div>
+        <div class="graph">
+          <canvas id="{{measure}}Chart" style="width:100%; height:100%;"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var gaugeOpts = {
+        lines: 12,
+        angle: -0.11,            // The span of the gauge arc
+        lineWidth: 0.25,         // The line thickness
+        radiusScale: 0.7,        // Relative radius
+        pointer: {
+          length: 0.6,           // Relative to gauge radius
+          strokeWidth: 0.035,    // The thickness
+          color: "#000000"       // Fill color
+        },
+        limitMax: true,          // If false, max value increases automatically if value > maxValue
+        limitMin: true,          // If true, the min value of the gauge will be fixed
+        colorStart: '#6FADCF',   // Colors
+        colorStop: '#8FC0DA',    // just experiment with them
+        strokeColor: '#E0E0E0',  // to see which ones work best for you
+        generateGradient: true,
+        highDpiSupport: true,    // High resolution support
+      };
+      var target = document.getElementById('{{measure}}Gauge');  // your canvas element
+      var gauge = new Gauge(target).setOptions(gaugeOpts);       // create sexy gauge!
+      gauge.maxValue = 
+        {% if measure == 'CPU' %}
+          100
+        {% elif measure == 'RAM_used' %}
+          {{system_data['RAM_total']}}
+        {% elif measure == 'DISK_used' %}
+          {{system_data['DISK_total']}}
+        {% endif %};                                             // set max gauge value
+      gauge.animationSpeed = 32;                                 // set animation speed (32 is default value)
+      gauge.setMinValue(0);
+      gauge.set({{system_data[measure]}});                       // set actual value
+
+      var {{measure}}ChartData = {
+        labels: [{% for item in data %}
+                   "{{item[0]}}",
+                 {% endfor %}],
+        datasets: [{
+          {% if measure == 'CPU' %}
+            label: "CPU usage",
+          {% elif measure == 'RAM_used' %}
+            label: "RAM usage"
+          {% elif measure == 'DISK_used' %}
+            label: "DISK space usage"
+          {% endif %}
+          data: [{% for item in data %}
+                   {{item[parameters['server']['list_index'][measure]]}},
+                 {% endfor %}],
+          backgroundColor: "rgba(255,255,255,0)",
+          radius: 0,
+          hitRadius: 4,
+          borderColor: "#f0341f",
+          borderJoinStyle: "round",
+          borderWidth: 2,
+        }]
+      };
+      var {{measure}}chartLayout = {
+        legend:{
+          display: false
+        },
+        scales: {
+          xAxes: [{
+            type: "time",
+            time: {
+              unit: "day",
+              unitStepSize: 1,
+              displayFormats: {"day": "ddd DD MMM"}
+            }
+          }],
+          yAxes: [{
+            display: true,
+            ticks: {
+              beginAtZero: true,
+              suggestedMax: 
+                {% if measure == 'CPU' %}
+                  100
+                {% elif measure == 'RAM_used' %}
+                  {{system_data['RAM_total']}}
+                {% elif measure == 'DISK_used' %}
+                  {{system_data['DISK_total']}}
+                {% endif %},
+              steps:
+                {% if measure == 'CPU' %}
+                  10
+                {% elif measure == 'RAM_used' %}
+                  {{system_data['RAM_total']/10}}
+                {% elif measure == 'DISK_used' %}
+                  {{system_data['DISK_total']/10}}
+                {% endif %},
+            }
+          }]
+        }
+      };
+      var {{measure}}ctx = document.getElementById("{{measure}}Chart");
+      var {{measure}}Chart = new Chart({{measure}}ctx, {
+        type: "line",
+        data: {{measure}}ChartData,
+        options: {{measure}}chartLayout,
+        responsive:true,
+        maintainAspectRatio: false,
+      });
+    </script>
+  {% endfor %}
+{% endblock %}

@@ -1,0 +1,127 @@
+{% extends 'main/menu.html' %}
+
+{% block header %}Weather in {{home_city}}{% endblock %}
+{% block info %}Last update at {{weather_data['currently']['time']|getTime}} | <a href="https://darksky.net/poweredby/">Powered by Dark Sky</a>{% endblock %}
+
+{% block content %}
+  <!--Weather icons are from Ladalle CS https://www.iconfinder.com/ambo_dalle, with slight modifications at the thunder icons + night
+  wind icon from Pixel Bazaar https://www.iconfinder.com/zlaten -->
+  <div class="board" style="height: 315px;">
+    <div class="boardHeader">     
+      Daily forecast
+    </div> 
+    <div class="boardRowContainer" style="height: 268px;">
+      <div class="weatherToday">
+        <div class="boardColumnTitle">{{weather_data['currently']['time']|getDay}}</div>
+        <div class="boardColumnItem">{{weather_data['currently']['temperature']|round(1)}}°C</div>
+        <div class="weatherIcon" style="height: 115px; line-height: 115px; font-size: 70px;"><i class="{{weather_data['currently']['icon']|getWeatherIcon}}"></i></div>
+        <div class="boardColumnItem" style="flex: 2">{{weather_data['currently']['summary']}}</div>
+        <div class="boardColumnItem">Wind: {{weather_data['currently']['windSpeed']}}km/h</div>
+        <div class="boardColumnItem">Precipitation: {{(weather_data['currently']['precipProbability']*100)|round|int}}%</div>
+        <div class="boardColumnItem">Humidity: {{(weather_data['currently']['humidity']*100)|round|int}}%</div>
+        <div class="boardColumnItem">Cloud cover: {{(weather_data['currently']['cloudCover']*100)|round|int}}%</div>
+        <div class="boardColumnItem"></div>
+            </div>
+      <div class="graph">
+        <button id="data1" class="weatherButton">Temperature</button><button id="data3" class="weatherButton">Precipitation</button><button id="data2" class="weatherButton">Humidity</button>
+        <canvas id="Chart" style="width:100%; height:242px;"></canvas>
+      </div>
+    </div>
+  </div>
+  <br>
+  <div class="board" style="height: 315px;">
+    <div class="boardHeader">     
+      Week forecast
+    </div> 
+    <div class="boardRowContainer" style="height: 268px;">
+      {% for day in range(1,7) %}
+      <div class="boardRowItem">
+        <div class="boardColumnTitle">{{weather_data['daily'][day]['time']|getDay}}</div>
+        <div class="boardColumnItem">{{weather_data['daily'][day]['temperatureLow']|round(1)}} to {{weather_data['daily'][day]['temperatureHigh']|round(1)}}°C</div>
+        <div class="weatherIcon"><i class="{{weather_data['daily'][day]['icon']|getWeatherIcon}}"></i></div>
+        <div class="boardColumnItem" style="flex: 2">{{weather_data['daily'][day]['summary']}}</div>
+        <div class="boardColumnItem">Wind: {{weather_data['daily'][day]['windSpeed']}}km/h</div>
+        <div class="boardColumnItem">Precipitation: {{(weather_data['daily'][day]['precipProbability']*100)|round|int}}%</div>
+        <div class="boardColumnItem">Humidity: {{(weather_data['daily'][day]['humidity']*100)|round|int}}%</div>
+        <div class="boardColumnItem">Cloud cover: {{(weather_data['daily'][day]['cloudCover']*100)|round|int}}%</div>
+        <div class="boardColumnItem">
+          <i class="fas fa-sun" ></i> {{weather_data['daily'][day]['sunriseTime']|getTime}} &emsp; 
+          <i class="fas fa-moon"></i> {{weather_data['daily'][day]['sunsetTime']|getTime}}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var data = {
+        labels: [{% for hour in range(0, 25) %}
+                  {{weather_data['hourly'][hour]['time'] * 1000}},
+                {% endfor %}],
+        datasets: [{
+                label: "Temperature",
+                data: [{% for hour in range(0, 25) %}
+                        {{weather_data['hourly'][hour]['temperature']}},
+                      {% endfor %}],
+                borderColor: "#f0341f",
+                backgroundColor: "rgba(255,255,255,0)",
+                radius: 0,
+                hitRadius: 4,
+                type: "line",
+        }]
+    };
+    var chartLayout = {
+      scales: {
+          xAxes: [{
+            type: "time",
+            barPercentage: 1.27,
+            time: {
+              unit: "hour",
+              unitStepSize: 1,
+              displayFormats: {"hour": "H:mm"}
+            }
+          }],
+          yAxes: [{
+            ticks: {
+              suggestedMin: 0,
+            }
+          }]
+        },
+      legend: {
+        display: false
+      },
+    };
+    var ctx = document.getElementById("Chart");
+    var myChart = new Chart(ctx, {
+        type: "line",
+        data: data,
+        options: chartLayout
+    });
+
+    $("#data1").click(function() {
+      data.datasets[0].label = "Temperature";
+      data.datasets[0].data = [{% for hour in range(0, 25) %}
+                                  {{weather_data['hourly'][hour]['temperature']}},
+                                {% endfor %}];
+      data.datasets[0].borderColor = "#f0341f";                         
+      myChart.update();
+    });
+    $("#data2").click(function() {
+      data.datasets[0].label = "Humidity";
+      data.datasets[0].data = [{% for hour in range(0, 25) %}
+                                  {{weather_data['hourly'][hour]['humidity']*100}},
+                                {% endfor %}];
+      data.datasets[0].borderColor = "#226ba3";
+      myChart.update();
+    });
+    $("#data3").click(function() {
+      myChart.type = "bar";
+      data.datasets[0].label = "Precipitation";
+      data.datasets[0].data = [{% for hour in range(0, 25) %}
+                                  {{weather_data['hourly'][hour]['precipProbability']*100}},
+                                {% endfor %}];
+      data.datasets[0].borderColor = "#226ba3";
+      myChart.update();
+    });
+  </script>
+{% endblock %}

@@ -1,0 +1,18 @@
+{% extends "main/menu.html" %}
+
+{% block header %}
+  {% if metadata["title"][0] %}
+    {{metadata["title"][0]}}
+  {% endif %}
+{% endblock %}
+
+{% block info %}
+  {% if metadata["authors"] %}
+    By {{metadata["authors"]|humanizeList}}
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+  <div class='subtitleFix'></div>
+  {{content|safe}}
+{% endblock %}

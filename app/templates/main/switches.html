@@ -1,0 +1,30 @@
+{% extends 'main/menu.html' %}
+
+{% block header %}Switches in {{ecosystem_name}}{% endblock %}
+{% block info %}{% endblock %}
+
+{% block content %}
+  <button id="On" class="weatherButton">On</button>
+  <button id="Off" class="weatherButton">Off</button>
+  <button id="Auto" class="weatherButton">Auto</button>
+
+  <script type="text/javascript">
+    $(document).ready(function() {
+      namespace = "/test";
+      var socket = io(namespace);
+
+      $("button#On").click(function() {
+          socket.emit("light_on", {ecosystem: "{{ecosystem|safe}}" });
+          return false;
+      });
+      $("button#Off").click(function() {
+          socket.emit("light_off", {ecosystem: "{{ecosystem|safe}}"});
+          return false;
+      });
+      $("button#Auto").click(function() {
+          socket.emit("light_auto", {ecosystem: "{{ecosystem|safe}}"});
+          return false;
+      });
+    });
+  </script>
+{% endblock %}

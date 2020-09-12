@@ -1,0 +1,46 @@
+{% extends "main/menu.html" %}
+
+{% block header %}Warnings{% endblock %}
+{% block info %}{% endblock %}
+
+{% block content %}
+  <div class = "warnings">
+    {% if (warnings["weather"] is not none or 
+          warnings["environment"] is not none or
+          warnings["plants"] is not none) %}
+
+      {% if warnings["weather"] is not none %}
+        Weather warning: 
+        <ul>
+          {% for warning in warnings["weather"] %}
+            <li>{{warning}}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+  <!--
+      {% for ecosystem in order %}
+        {{ecosystem}}
+        {% if warnings["environment"] is not none %}
+          Environment warning: 
+          <ul>
+            {% for warning in warnings["environment"] %}
+              <li>{{warning}}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+
+        {% if warnings["plants"] is not none %}
+          Plants warning: 
+          <ul>
+            {% for warning in warnings["plants"] %}
+              <li>{{warning}}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      {% endfor %}
+  -->
+    {% else %}
+      There is no warning currently
+    {% endif %}
+  </div>
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends 'main/menu.html' %}
+
+{% block header %}{{log_type.capitalize()}} logs{% endblock %}
+{% block info %}{% endblock %}
+
+{% block content %}
+  <table style="table-layout: auto; width: 100%;">
+      <tr>
+        <td>Date and time</td>
+        <td>Logger</td>
+        <td>Level</td>
+        <td>Message</td>
+    {% for line in log %}
+      </tr>
+        {% set col = line.split('--') %}
+        <td>{{col[0]}}</td>
+        <td>{{col[1]}}</td>
+        <td>{{col[2]}}</td>
+        <td>{{col[3]}}</td>
+      </tr>
+    {% endfor %}
+  </table>
+{% endblock %}

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta name="robots" content="noindex,nofollow">
+    <meta name="googlebot" content="noindex,nofollow">
+    <meta name="googlebot-news" content="noindex,nofollow">
+    <meta charset="utf-8">
+
+    <title>
+      {% if title %}
+        {{title}} - GAIA
+      {% else %}
+        Welcome to GAIA
+      {% endif %}
+    </title>
+    <link rel="icon" href="{{url_for('static', filename='ico/GAIA.gif')}}" type="image/gif", sizes="64x64">
+
+    <link rel="stylesheet" href="{{url_for('static', filename='css/dashboard.css')}}">
+    <link rel="stylesheet" href="{{url_for('static', filename='ico/lib/weather-icons-master/css/weather-icons.min.css')}}">
+    <link rel="stylesheet" href="{{url_for('static', filename='ico/lib/weather-icons-master/css/weather-icons-wind.min.css')}}">
+
+    <script src= "/static/js/lib/Gauge.min.js"></script>
+
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Tenor+Sans">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Raleway">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.3/Chart.bundle.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.js" integrity="sha256-yr4fRk/GU1ehYJPAs8P4JlTgu0Hdsp4ZKrx8bDEDC3I=" crossorigin="anonymous"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.2/themes/smoothness/jquery-ui.css"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.2/jquery-ui.min.js"></script>
+
+    <link rel="stylesheet" href="{{url_for('static', filename='ico/lib/fontawesome-free-5.13.0/css/all.css')}}">
+    <!--
+      <link rel="stylesheet" href="{{url_for('static', filename='fonts/TenorSans_latin.woff2')}}">
+      <link rel="stylesheet" href="{{url_for('static', filename='fonts/Roboto_latin.woff2')}}">
+      <link rel="stylesheet" href="{{url_for('static', filename='fonts/OpenSans_latin.woff2')}}">
+    -->
+    <script src="/static/js/lib/jquery.3.5.1.min.js"></script>    
+    <!--
+       <script src="/static/js/lib/Chart.2.8.0.bundle.min.js"></script>
+    -->
+    <script src="/static/js/accordion.js"></script>
+    <script src="/static/js/events.js"></script>    
+  </head>
+  <body>
+    {% block body %}{% endblock %}
+  </body>
+</html>
