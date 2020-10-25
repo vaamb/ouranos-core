@@ -1,103 +1,86 @@
-from datetime import datetime
-import logging
-import logging.config
-from logging.handlers import SMTPHandler, RotatingFileHandler
 import os
+import logging
 
-from flask import Flask
-from flask_socketio import SocketIO
-#from flask_sqlalchemy import SQLAlchemy
+from flask import Flask, request
 from flask_migrate import Migrate
 from flask_login import LoginManager
+from flask_socketio import SocketIO
+from flask_apscheduler import APScheduler
+from flask_moment import Moment
 
 from config import Config
-from app.gaiaDatabase import gaiaDatabase
-from app.database import db_session, init_db
-from gaiaConfig import LOGGING_CONFIG
+from app.database import sqlalchemy_wrapper
 
-socketio = SocketIO()
-
-db2 = gaiaDatabase()
-
-#db = SQLAlchemy()
+db = sqlalchemy_wrapper()
 
 migrate = Migrate()
 login_manager = LoginManager()
 login_manager.login_view = 'auth.login'
+sio = SocketIO()
+scheduler = APScheduler()
+moment = Moment()
 
-#Load after as it requires login_manager and need to use insert_roles()
-from app.models import Role, Measure
 
-def create_app(test_config = None, debug = False):
-    app = Flask(__name__, instance_relative_config = True)
-    app.config.from_object(Config)
-    app.START_TIME = datetime.now()
+def create_app(config_class=Config):
+    app = Flask(__name__)
+    app.config.from_object(config_class)
+    app.jinja_env.lstrip_blocks = True
+    app.jinja_env.trim_blocks = True
 
     if not os.path.exists('logs'):
         os.mkdir('logs')
-    logging.config.dictConfig(LOGGING_CONFIG)
-    app.logger = logging.getLogger("gaia")
-    app.logger.info('gaiaWeb startup')
 
+    db.init_app(app)
 
+    @app.teardown_appcontext
+    def shutdown_session(exception=None):
+        db.session.remove()
 
-    
-    app.logger.info("Initialising SQLAlchemy")
-    init_db()
-    Role.insert_roles() #Create or update users roles
-    Measure.insert_measures()
-    app.logger.info("SQLAlchemy initialised")
-
-#    logger.info("Initialising Alambic")
 #    migrate.init_app(app, db)
-#    logger.info("Alembic initialised")
-
     login_manager.init_app(app)
+    sio.init_app(app)
+    scheduler.init_app(app)
+    scheduler.start()
+    moment.init_app(app)
 
-    app.logger.info("Initializing soketIO")
-    socketio.init_app(app)
+    from app.models import Role
+    Role.insert_roles()
 
-    app.debug = debug
-    if not app.debug:
-        if app.config['MAIL_SERVER']:
-            auth = None
-            if app.config['MAIL_USERNAME'] or app.config['MAIL_PASSWORD']:
-                auth = (app.config['MAIL_USERNAME'], app.config['MAIL_PASSWORD'])
-            secure = None
-            if app.config['MAIL_USE_TLS']:
-                secure = ()
-                mail_handler = SMTPHandler(
-                mailhost = (app.config['MAIL_SERVER'], app.config['MAIL_PORT']),
-                fromaddr = 'no-reply@' + app.config['MAIL_SERVER'],
-                toaddrs = app.config['ADMINS'], subject = 'GaiaWeb Failure',
-                credentials=auth, secure=secure)
-            mail_handler.setLevel(logging.ERROR)
-            app.logger.addHandler(mail_handler)
-
-
-        
+    from app import socketio_events
 
     @app.route("/eegg")
     def hello():
-        return (app.start)
+        return "eegg"
+
+    from app.errors import bp as errors_bp
+    app.register_blueprint(errors_bp)
 
     from .auth import bp as auth_bp
     app.register_blueprint(auth_bp)
 
     from app.main import bp as main_bp
     app.register_blueprint(main_bp)
-    
-    from app.errors import bp as errors_bp
-    app.register_blueprint(errors_bp)
 
     from app.admin import bp as admin_bp
     app.register_blueprint(admin_bp)
 
-    END_LOADING = datetime.now()
-    load_time = END_LOADING - app.START_TIME
-    app.logger.info('gaiaWeb loaded in {},{:02d} seconds'
-                    .format(str(load_time.seconds),
-                            int(round(load_time.microseconds/10**4))
-                            ))
-    
+#    from app.api import bp as api_bp
+#    app.register_blueprint(api_bp)
+
     return app
+
+# from app import notifications
+
+logger = logging.getLogger("ouranos.socketio")
+
+@sio.on("connect")
+def connect():
+    remote_addr = request.environ["REMOTE_ADDR"]
+    remote_port = request.environ["REMOTE_PORT"]
+    logger.info(f"Connection established with {remote_addr}:{remote_port}")
+
+@sio.on("disconnect")
+def disconnect():
+    remote_addr = request.environ["REMOTE_ADDR"]
+    remote_port = request.environ["REMOTE_PORT"]
+    logger.info(f"Connection established with {remote_addr}:{remote_port}")

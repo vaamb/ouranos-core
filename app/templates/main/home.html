@@ -4,117 +4,98 @@
 {% block info %}{% endblock %}
 
 {% block content %}
-  <div class="subtitleFix"></div>
-  <h2>Global overview</h2>
-  <div class="row">
-    <div class="board" style="min-height: 255px;">
-      <a>
-        <div class="boardHeader">
-          Calendar
-        </div> 
-        <div class="boardColumnContainer">
-          <div class="boardColumnTitle">{{weather_data['currently']['time']|getDay}}</div>
-          <div class="boardColumnItem">{{time_of_day}}</div>
-        </div>
-      </a>
-    </div>
- 
-    <div class="board" style="min-height: 255px;">
-      <a href="{{url_for('main.weather')}}">
-        <div class="boardHeader">
-          Current weather
-        </div> 
-        <div class="boardColumnContainer">
-          <div class="weatherIcon" style="height: 115px; line-height: 115px; font-size: 70px;"><i class="{{weather_data['currently']['icon']|getWeatherIcon}}"></i></div>
-          <div class="boardColumnTitle" style="flex: 2">{{weather_data['currently']['summary']}}</div>
-          <div class="boardColumnItem">Temperature: {{weather_data['currently']['temperature']|round(1)}}°C</div>
-          <div class="boardColumnItem">Wind: {{weather_data['currently']['windSpeed']}}km/h</div>
-          <div class="boardColumnItem">Precipitation: {{(weather_data['currently']['precipProbability']*100)|round|int}}%</div>
-          <div class="boardColumnItem">Humidity: {{(weather_data['currently']['humidity']*100)|round|int}}%</div>
-          <div class="boardColumnItem">Cloud cover: {{(weather_data['currently']['cloudCover']*100)|round|int}}%</div>
-        </div>
-      </a>
-    </div>
-
-    <div class="board" style="min-height: 255px;">
-        <div class="boardHeader">
-          Server info
-        </div> 
-        <div class="boardColumnContainer">
-          <div class="boardColumnTitle">Uptime</div>
-          <div class="boardColumnItem"><span id="uptime"></span></div>
-          <div class="boardColumnTitle" style="margin-top: 10px;">Average latency</div>
-          <div class="boardColumnItem"><span id="ping-pong"></span>ms</div>
-          <div class="boardColumnTitle" style="margin-top: 10px;">System utilization</div>
-          <div class="boardColumnItem">CPU load: <span id="CPU_used"></span>%</div>
-          {% if platform == 'Linux' %}
-            <div class="boardColumnItem">CPU temperature: <span id="CPU_temp"></span>°C</div>
-          {% endif %}
-          <div class="boardColumnItem">RAM use: <span id="RAM_used"></span>GB</div>
-          <div class="boardColumnItem">Disk used: <span id="DISK_used"></span>GB</div>
-        </div>
-    </div>
-
-    <div class="board" style="min-height: 255px;">
-      <a href="{{url_for('main.warning')}}">
-        <div class="boardHeader">
-          Warning overview
-        </div> 
-        <div class="boardColumnContainer">
-          {% if (warnings['weather'] is not none or 
-                warnings['environment'] is not none or
-                warnings['plants'] is not none) %}
-            {% for warning in range(2) %}
-              <div class="boardColumnItem">{{warnings['weather'][warning]}}</div>
-            {% endfor %}
-          {% endif %}
-        </div>
-      </a>
-    </div>
-  </div>
-
-  <h2>Ecosystems overview</h2>
-  <div>
-    {% for ecosystem in ecosystems['active'] %}
-      <div class="inlineBoard" style="min-height: 255px;">
-          <div class="boardHeader" style="text-align: center;">
-            {{ecosystems['status'][ecosystem]['name']}} &emsp; 
-            <i class="fa fa-circle {{ecosystems['status'][ecosystem]['status']}}" style="margin-left: auto;"></i>
-          </div> 
-          <div class="boardColumnContainer" style="text-align: left;">
-            <div class="boardColumnItem">Light mode: {{light_mode[ecosystem]}}</div>
-            <div class="boardColumnItem">Light status: {{light_status[ecosystem]}}</div>
-            <div class="boardColumnItem">
-              Morning light: 
-              {% if light_hours[ecosystem]['morning_start'] < light_hours[ecosystem]['morning_end'] %}
-                from {{light_hours[ecosystem]['morning_start'].strftime('%H:%M')}} to {{light_hours[ecosystem]['morning_end'].strftime('%H:%M')}}
-              {% else %}
-                no lighting
-              {% endif %}
+          <div class="subtitleFix"></div>
+          <h2>Global overview</h2>
+          <div class="row">
+            <div class="board" style="min-height: 255px;">
+              <a>
+                <div class="boardHeader">
+                  Calendar
+                </div>
+                <div class="boardColumnContainer">
+                  <div class="boardColumnTitle">{{today|getDay}}</div>
+                  <div class="boardColumnItem">
+                      sunrise: {{moment(moments["sunrise"]).format("HH:mm:ss")}} -
+                      sunset: {{moment(moments["sunset"]).format("HH:mm:ss")}}
+                  </div>
+                </div>
+              </a>
             </div>
-            <div class="boardColumnItem">
-              Evening light: 
-              {% if light_hours[ecosystem]['evening_start'] < light_hours[ecosystem]['evening_end'] %}
-                from {{light_hours[ecosystem]['evening_start'].strftime('%H:%M')}} to {{light_hours[ecosystem]['evening_end'].strftime('%H:%M')}}
-              {% else %}
-                no lighting
-              {% endif %}
+
+            <div class="board" style="min-height: 255px;">
+              <a href="{{ url_for('main.weather') }}">
+                <div class="boardHeader">
+                  Current weather
+                </div>
+                <div class="boardColumnContainer">
+                  <div class="weatherIcon" style="height: 115px; line-height: 115px; font-size: 70px;"><i class='{{weather_data["currently"]["icon"]|getWeatherIcon}}'></i></div>
+                  <div class="boardColumnTitle" style="flex: 2">{{weather_data["currently"]["summary"]}}</div>
+                  <div class="boardColumnItem">Temperature: {{weather_data["currently"]["temperature"]|round(1)}}°C</div>
+                  <div class="boardColumnItem">Wind: {{weather_data["currently"]["windSpeed"]}}km/h</div>
+                  <div class="boardColumnItem">Precipitation: {{(weather_data["currently"]["precipProbability"]*100)|round|int}}%</div>
+                  <div class="boardColumnItem">Humidity: {{(weather_data["currently"]["humidity"]*100)|round|int}}%</div>
+                  <div class="boardColumnItem">Cloud cover: {{(weather_data["currently"]["cloudCover"]*100)|round|int}}%</div>
+                </div>
+              </a>
             </div>
-            <div class="boardColumnItem">Plants: {{plants[ecosystem]|humanizeList }}</div>
-            <br/>
-            {% for measure in average[ecosystem] %}
-              <div class="boardColumnItem">Average {{measure}}: {{average[ecosystem][measure]}}
-                {% if measure == 'temperature' %}
-                  °C
-                {% elif measure == 'humidity' %}
-                  %
-                {% elif measure == 'light' %}
-                  lux
-                {% endif %}
-              </div>
-            {% endfor %}
+            {% if current_user.is_authenticated %}
+            <div class="board" style="min-height: 255px;">
+              <a href="{{url_for('main.warnings_list')}}">
+                <div class="boardHeader">
+                  Warning overview
+                </div>
+                <div class="boardColumnContainer">
+                  {% if warning %}
+                  {% for w in warnings %}
+                  <div class="boardColumnItem"></div>
+                  {% endfor %}
+                  {% endif %}
+                </div>
+              </a>
+            </div>
+            {% endif %}
           </div>
-      </div>
-    {% endfor %}
-  </div>
+
+          {% if ecosystems %}
+          <h2>Ecosystems overview</h2>
+          <div>
+            {% for ecosystem in ecosystems %}
+            <div class="inlineBoard" style="min-height: 255px;">
+              <div class="boardHeader" style="text-align: center;">
+                {{ecosystems[ecosystem]["name"]}} &emsp;
+                <i class='fa fa-circle {{ecosystems[ecosystem]["status"]}}' style="margin-left: auto;"></i>
+              </div>
+              <div class="boardColumnContainer" style="text-align: left;">
+                <div class="boardColumnItem">Light mode: {{light_data[ecosystem]["mode"]}}</div>
+                <div class="boardColumnItem">Light status: {{light_data[ecosystem]["status"]}}</div>
+                {% if light_data[ecosystem]["mode"] != "NA" %}
+                {% if light_data[ecosystem]["method"] == "fixed" %}
+                <div class="boardColumnItem">
+                  Light: from {{light_data[ecosystem]["morning_start"].strftime("%H:%M")}} to {{light_data[ecosystem]["evening_end"].strftime("%H:%M")}}
+                </div>
+                {% elif light_data[ecosystem]["method"] == "elongate" %}
+                <div class="boardColumnItem">
+                  Morning light:
+                  {% if light_data[ecosystem]["morning_start"] < light_data[ecosystem]["morning_end"] %}
+                  from {{light_data[ecosystem]["morning_start"].strftime("%H:%M")}} to {{light_data[ecosystem]["morning_end"].strftime("%H:%M")}}
+                  {% else %}
+                  no lighting
+                  {% endif %}
+                </div>
+                <div class="boardColumnItem">
+                  Evening light:
+                  {% if light_data[ecosystem]["evening_start"] < light_data[ecosystem]["evening_end"] %}
+                  from {{light_data[ecosystem]["evening_start"].strftime("%H:%M")}} to {{light_data[ecosystem]["evening_end"].strftime("%H:%M")}}
+                  {% else %}
+                  no lighting
+                  {% endif %}
+                </div>
+                {% endif %}
+                {% endif %}
+                <div class="boardColumnItem">Plants: #TODO</div>
+              </div>
+            </div>
+            {% endfor %}
+            {% endif %}
+          </div>
 {% endblock %}

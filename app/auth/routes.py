@@ -3,7 +3,6 @@ from flask import render_template, flash, redirect, url_for, request
 from flask_login import login_user, current_user, logout_user
 from werkzeug.urls import url_parse
 
-from app.database import db_session
 from app.models import User
 from app.auth import bp
 from app.auth.forms import LoginForm, RegistrationForm
@@ -41,8 +40,8 @@ def register():
                     username=form.username.data,
                     email=form.email.data)
         user.set_password(form.password.data)
-        db_session.add(user)
-        db_session.commit()
+        db.session.add(user)
+        db.session.commit()
         flash('You are now registered user!')
         return redirect(url_for('auth.login'))
     return render_template('auth/register.html', title='Register', form=form)

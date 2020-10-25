@@ -1,0 +1,117 @@
+{% extends 'main/menu.html' %}
+
+{% block header %}{{level.capitalize()}} sensors in {{ecosystem_ids[1]}}{% endblock %}
+{% block info %}{% if last_data %}Last sensors update at {{last_data["datetime"]}}{% endif %}{% endblock %}
+
+{% block content %}
+  <div class="subtitleFix"></div>
+  {% for measure in data %}
+    <h2>{{measure.capitalize()}}</h2>
+    {% for sensor_id in data[measure] %}
+      {% if data[measure][sensor_id]["values"]|length > 1 %}
+      <div class="board" style="height: 230px;">
+        <div class="boardHeader">
+            <i class="{{parameters[level]["icon"][measure]}} leftico"></i>
+            {{data[measure][sensor_id]["name"]}}
+        </div>
+        <div class="boardRowContainer" style="height: 183px;">
+          {% if last_data %}
+          <div class="sensorGauge">
+            <canvas id="{{measure}}{{sensor_id}}Gauge"></canvas>
+            {{last_data["data"][sensor_id][measure]}}{{parameters[level]['unit'][measure]}}
+          </div>
+          {% endif %}
+          <div class="graph">
+            <canvas id="{{measure}}{{sensor_id}}Chart" style="width:100%; height:100%;"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <script type="text/javascript">
+        {% if last_data %}
+        var gaugeOpts = {
+          lines: 12,
+          angle: -0.11,            // The span of the gauge arc
+          lineWidth: 0.25,         // The line thickness
+          radiusScale: 0.7,        // Relative radius
+          pointer: {
+            length: 0.6,           // Relative to gauge radius
+            strokeWidth: 0.035,    // The thickness
+            color: "#000000"       // Fill color
+          },
+          limitMax: true,          // If false, max value increases automatically if value > maxValue
+          limitMin: true,          // If true, the min value of the gauge will be fixed
+          colorStart: "#6FADCF",   // Colors
+          colorStop: "#8FC0DA",    // just experiment with them
+          strokeColor: "#E0E0E0",  // to see which ones work best for you
+          generateGradient: true,
+          highDpiSupport: true,    // High resolution support
+        };
+        var target = document.getElementById("{{measure}}{{sensor_id}}Gauge");    // your canvas element
+        var gauge = new Gauge(target).setOptions(gaugeOpts);                   // create sexy gauge!
+        gauge.maxValue = {{parameters[level]['max_value'][measure]}};  // set max gauge value
+        gauge.animationSpeed = 32;                                             // set animation speed (32 is default value)
+        gauge.setMinValue(0);
+        gauge.set({{last_data["data"][sensor_id][measure]}});   // set actual value
+        {% endif %}
+
+        var {{measure}}{{sensor_id}}ChartData = {
+          labels: [{% for item in data[measure][sensor_id]["values"] %}
+                   "{{item[0]}}",
+                   {% endfor %}],
+          datasets: [{
+            label: "{{measure.capitalize()}}",
+            data: [{% for item in data[measure][sensor_id]["values"] %}
+                  {{item[1]}},
+                  {% endfor %}],
+            backgroundColor: 'rgba(255,255,255,0)',
+            radius: 0,
+            hitRadius: 2,
+            borderColor: "{{parameters[level]['color'][measure]}}",
+            borderJoinStyle: "round",
+            borderWidth: 2,
+          }]
+        };
+        var {{measure}}chartLayout = {
+          legend:{
+            display: false
+          },
+          scales: {
+            xAxes: [{
+              type: "time",
+              time: {
+                unit: "day",
+                unitStepSize: 1,
+                displayFormats: {"day": "ddd DD MMM"}
+              }
+            }],
+            yAxes: [{
+              display: true,
+              ticks: {
+                beginAtZero: true,
+                {{'max' if measure in ('humidity', 'moisture') else 'suggestedMax'}}:
+                  {{parameters[level]['max_value'][measure]}},
+                steps: {{parameters[level]['max_value'][measure] /10}},
+              }
+            }]
+          }
+        }
+        var {{measure}}{{sensor_id}}ctx = document.getElementById("{{measure}}{{sensor_id}}Chart");
+        var {{measure}}{{sensor_id}}Chart = new Chart({{measure}}{{sensor_id}}ctx, {
+          type: "line",
+          data: {{measure}}{{sensor_id}}ChartData,
+          options: {{measure}}chartLayout,
+          responsive:true,
+          maintainAspectRatio: false,
+        });
+      </script>
+
+      {% else %}
+        <p>
+          Sorry, GAIA does not have enough {{measure}} data from {{data[measure][sensor_id]["name"]}}
+          to build a nice graph yet. Come back later to see your graph.
+        </p>
+      {% endif %}
+    {% endfor %}
+  {% endfor %}
+{% endblock %}

@@ -20,7 +20,7 @@ parameters = {
         "color": {"green": "#307a41", "necrosis": "#913639", "index": "#e9c429"},
         "icon": {"green": "fas fa-leaf", "necrosis": "fas fa-dizzy", "index": "fas fa-heartbeat"},
         "list_index": {"green": 2, "necrosis": 3, "index": 1},
-        "max_value": {"green": 8081920, "necrosis": 100, "index": 100},
+        "max_value": {"green": 1000, "necrosis": 100, "index": 100},
     },
     "server": {
         "measure": {"CPU": "CPU load", "RAM_used": "RAM usage", "DISK_used": "Disk space used"},

@@ -1,6 +1,6 @@
 {% extends 'main/menu.html' %}
 
-{% block header %}Global plants health in {{ecosystem_name}}{% endblock %}
+{% block header %}Global plants health in {{ecosystem_ids[1]}}{% endblock %}
 {% block info %}{% endblock %}
 
 {% block content %}
@@ -28,7 +28,7 @@
         datasets: [{
           label: "CPU usage",
           data: [{% for item in data %}
-                   {{item[parameters['plants_health']['list_index'][measure]]}},
+                   {{item[parameters["plants_health"]["list_index"][measure]]}},
                  {% endfor %}],
           backgroundColor: "rgba(255,255,255,0)",
           radius: 0,

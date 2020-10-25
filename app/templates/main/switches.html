@@ -1,6 +1,6 @@
 {% extends 'main/menu.html' %}
 
-{% block header %}Switches in {{ecosystem_name}}{% endblock %}
+{% block header %}Switches in {{ecosystem_ids[1]}}{% endblock %}
 {% block info %}{% endblock %}
 
 {% block content %}
@@ -10,19 +10,19 @@
 
   <script type="text/javascript">
     $(document).ready(function() {
-      namespace = "/test";
+      namespace = "/browser";
       var socket = io(namespace);
 
       $("button#On").click(function() {
-          socket.emit("light_on", {ecosystem: "{{ecosystem|safe}}" });
+          socket.emit("light_on", {ecosystem: "{{ecosystem_ids[0]|safe}}" });
           return false;
       });
       $("button#Off").click(function() {
-          socket.emit("light_off", {ecosystem: "{{ecosystem|safe}}"});
+          socket.emit("light_off", {ecosystem: "{{ecosystem_ids[0]|safe}}"});
           return false;
       });
       $("button#Auto").click(function() {
-          socket.emit("light_auto", {ecosystem: "{{ecosystem|safe}}"});
+          socket.emit("light_auto", {ecosystem: "{{ecosystem_ids[0]|safe}}"});
           return false;
       });
     });

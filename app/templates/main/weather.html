@@ -84,6 +84,7 @@
           yAxes: [{
             ticks: {
               suggestedMin: 0,
+              suggestedMax: 25,
             }
           }]
         },
@@ -103,7 +104,8 @@
       data.datasets[0].data = [{% for hour in range(0, 25) %}
                                   {{weather_data['hourly'][hour]['temperature']}},
                                 {% endfor %}];
-      data.datasets[0].borderColor = "#f0341f";                         
+      data.datasets[0].borderColor = "#f0341f";
+      chartLayout.scales.yAxes[0].ticks.suggestedMax[20];
       myChart.update();
     });
     $("#data2").click(function() {
@@ -112,6 +114,7 @@
                                   {{weather_data['hourly'][hour]['humidity']*100}},
                                 {% endfor %}];
       data.datasets[0].borderColor = "#226ba3";
+      chartLayout.scales.yAxes[0].ticks.suggestedMax[100];
       myChart.update();
     });
     $("#data3").click(function() {
@@ -121,6 +124,7 @@
                                   {{weather_data['hourly'][hour]['precipProbability']*100}},
                                 {% endfor %}];
       data.datasets[0].borderColor = "#226ba3";
+      chartLayout.scales.yAxes[0].ticks.suggestedMax[20];
       myChart.update();
     });
   </script>

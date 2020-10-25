@@ -9,12 +9,12 @@
 
     <title>
       {% if title %}
-        {{title}} - GAIA
+      {{title}} - GAIA
       {% else %}
-        Welcome to GAIA
+      Welcome to GAIA
       {% endif %}
     </title>
-    <link rel="icon" href="{{url_for('static', filename='ico/GAIA.gif')}}" type="image/gif", sizes="64x64">
+    <link rel="icon" href="{{url_for('static', filename='ico/GAIA.gif')}}" type="image/gif" sizes="64x64">
 
     <link rel="stylesheet" href="{{url_for('static', filename='css/dashboard.css')}}">
     <link rel="stylesheet" href="{{url_for('static', filename='ico/lib/weather-icons-master/css/weather-icons.min.css')}}">
@@ -38,12 +38,11 @@
       <link rel="stylesheet" href="{{url_for('static', filename='fonts/OpenSans_latin.woff2')}}">
     -->
     <script src="/static/js/lib/jquery.3.5.1.min.js"></script>    
-    <!--
-       <script src="/static/js/lib/Chart.2.8.0.bundle.min.js"></script>
-    -->
+    {{ moment.include_moment() }}
     <script src="/static/js/accordion.js"></script>
     <script src="/static/js/events.js"></script>    
   </head>
+
   <body>
     {% block body %}{% endblock %}
   </body>

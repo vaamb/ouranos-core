@@ -1,15 +1,14 @@
 # -*- coding: utf-8 -*-
+import datetime
+
 from flask import render_template
 from flask_login import login_required
 
 from app.models import Permission
 from app.admin import bp
-from app.main import aggregates, layout
-from app.main.decorators import permission_required
+from app.common.decorators import permission_required
+from app.main import layout
 
-from app import db2
-
-import datetime
 
 import tracemalloc
 tracemalloc.start()
@@ -45,7 +44,7 @@ def mem_snapshot():
 @permission_required(Permission.ADMIN)
 def system():
    return render_template("admin/system.html", title="Server monitoring",
-                           data = db2.get_data("", "system", 7),
+                           data = [],
                            parameters = layout.parameters,
                            )
 
@@ -62,10 +61,7 @@ def log_home():
 @permission_required(Permission.ADMIN)
 def log(log_type):
     title = "{} logs".format(log_type.capitalize())
-    return render_template("admin/log.html", title=title,
-                           log_type = log_type,
-                           log = aggregates.get_log(log_type),
-                           )
+    return render_template("admin/log.html", title=title)
 
 @bp.route("/admin/db_management")
 @login_required

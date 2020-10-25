@@ -1,31 +1,34 @@
 {% extends 'main/menu.html' %}
 
 {% block header %}Environmental sensors in {{ecosystem_name}}{% endblock %}
-{% block info %}Last sensors update at {{last_data[ecosystem]['datetime'].strftime('%H:%M:%S')}}{% endblock %}
+{% block info %}{% if last_data %}Last sensors update at {{last_data["datetime"]}}{% endif %}{% endblock %}
 
 {% block content %}
   <div class="subtitleFix"></div>
-  {% for measure in last_data[ecosystem]["environment"] %}
+  {% for measure in data %}
     <h2>{{measure.capitalize()}}</h2>
-    {% for sensor in week_data[measure] %}
-      {% if week_data[measure][sensor]|length > 10 %}
+    {% for sensor_id in data[measure] %}
+      {% if data[measure][sensor_id]["values"]|length > 1 %}
       <div class="board" style="height: 230px;">
         <div class="boardHeader">
             <i class="{{parameters["environment"]["icon"][measure]}} leftico"></i>
-            {{address_to_name[ecosystem][sensor]}}
-        </div> 
+            {{data[measure][sensor_id]["name"]}}
+        </div>
         <div class="boardRowContainer" style="height: 183px;">
+          {% if last_data %}
           <div class="sensorGauge">
-            <canvas id="{{measure}}{{sensor}}Gauge"></canvas>
-            {{last_data[ecosystem]["environment"][measure][sensor]|roundDecimals}}{{parameters["environment"]["unit"][measure]}}
+            <canvas id="{{measure}}{{sensor_id}}Gauge"></canvas>
+            {{last_data["data"][sensor_id][measure]}}{{parameters['environment']['unit'][measure]}}
           </div>
+          {% endif %}
           <div class="graph">
-            <canvas id="{{measure}}{{sensor}}Chart" style="width:100%; height:100%;"></canvas>
+            <canvas id="{{measure}}{{sensor_id}}Chart" style="width:100%; height:100%;"></canvas>
           </div>
         </div>
       </div>
 
       <script type="text/javascript">
+        {% if last_data %}
         var gaugeOpts = {
           lines: 12,
           angle: -0.11,            // The span of the gauge arc
@@ -44,20 +47,21 @@
           generateGradient: true,
           highDpiSupport: true,    // High resolution support
         };
-        var target = document.getElementById("{{measure}}{{sensor}}Gauge");    // your canvas element
+        var target = document.getElementById("{{measure}}{{sensor_id}}Gauge");    // your canvas element
         var gauge = new Gauge(target).setOptions(gaugeOpts);                   // create sexy gauge!
         gauge.maxValue = {{parameters['environment']['max_value'][measure]}};  // set max gauge value
         gauge.animationSpeed = 32;                                             // set animation speed (32 is default value)
-        gauge.setMinValue(0); 
-        gauge.set({{last_data[ecosystem]['environment'][measure][sensor]}});   // set actual value
+        gauge.setMinValue(0);
+        gauge.set({{last_data["data"][sensor_id][measure]}});   // set actual value
+        {% endif %}
 
-        var {{measure}}{{sensor}}ChartData = {
-          labels: [{% for item in week_data[measure][sensor] %}
+        var {{measure}}{{sensor_id}}ChartData = {
+          labels: [{% for item in data[measure][sensor_id]["values"] %}
                      "{{item[0]}}",
                    {% endfor %}],
           datasets: [{
             label: "{{measure.capitalize()}}",
-            data: [{% for item in week_data[measure][sensor] %}
+            data: [{% for item in data[measure][sensor_id]["values"] %}
                   {{item[1]}},
                   {% endfor %}],
             backgroundColor: 'rgba(255,255,255,0)',
@@ -85,17 +89,17 @@
               display: true,
               ticks: {
                 beginAtZero: true,
-                {{'max' if measure in ('humidity', 'moisture') else 'suggestedMax'}}: 
+                {{'max' if measure in ('humidity', 'moisture') else 'suggestedMax'}}:
                   {{parameters['environment']['max_value'][measure]}},
                 steps: {{parameters['environment']['max_value'][measure] /10}},
               }
             }]
           }
-        };
-        var {{measure}}{{sensor}}ctx = document.getElementById("{{measure}}{{sensor}}Chart");
-        var {{measure}}{{sensor}}Chart = new Chart({{measure}}{{sensor}}ctx, {
+        }
+        var {{measure}}{{sensor_id}}ctx = document.getElementById("{{measure}}{{sensor_id}}Chart");
+        var {{measure}}{{sensor_id}}Chart = new Chart({{measure}}{{sensor_id}}ctx, {
           type: "line",
-          data: {{measure}}{{sensor}}ChartData,
+          data: {{measure}}{{sensor_id}}ChartData,
           options: {{measure}}chartLayout,
           responsive:true,
           maintainAspectRatio: false,
@@ -104,7 +108,7 @@
 
       {% else %}
         <p>
-          Sorry, GAIA does not have enough {{measure}} data from {{address_to_name[ecosystem][sensor]}} 
+          Sorry, GAIA does not have enough {{measure}} data from {{data[measure][sensor_id]["name"]}}
           to build a nice graph yet. Come back later to see your graph.
         </p>
       {% endif %}
