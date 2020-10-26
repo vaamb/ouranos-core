@@ -1,0 +1,16 @@
+__pycache__
+
+venv
+static
+instance
+logs
+cache
+
+*.pyc
+
+app.db
+*private*
+
+*test*
+*old*
+remoteLauncher.py
