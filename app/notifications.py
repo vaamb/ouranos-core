@@ -1,59 +1,79 @@
 # -*- coding: utf-8 -*-
 import logging
 from time import sleep
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 import requests
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
+from sqlalchemy.orm.exc import NoResultFound
 
 from config import Config
-from app.models import User, Data
-from app import scheduler
+from app.models import User, Data, Ecosystem, Hardware
+
 
 base_logger = logging.getLogger("notification")
 
+engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
+
 
 class baseNotification:
-    def __init__(self):
-        self.recipients_id = []
-        self.message = ""
-
-    def get_recipients(self):
-        recipients = User.query.filter(User.notifications == True).all()
+    @staticmethod
+    def get_notification_recipients_id():
+        recipients_id = []
+        session = Session(engine)
+        recipients = session.query(User).filter(User.notifications == True).all()
         for recipient in recipients:
-            self.recipients_id.append(recipient.id)
+            recipients_id.append(recipient.id)
+        session.close()
+        return recipients_id
 
-    def summarize_data(self):
-        pass
+    @staticmethod
+    def summarize_data():
+        last_24h = datetime.now(timezone.utc) - timedelta(days=1)
+        session = Session(engine)
+        for ecosystem in session.query(Ecosystem).filter(Ecosystem.status == True):
+            #TODO: average the sensors data for last 24h
+            #TODO: average weather data
+            pass
 
-    def format_message(self):
-        base_message =  """
+    @staticmethod
+    def create_recap_message(summarized_data):
+        #TODO: take averages from summarized data and inject them in the template
+        #add spaces before - temperature ... equal to length ecosystem_name + 1
+        template = """
 GAIA daily recap'
--------------------------------
+===============================
 Yesterday sensors average: 
-B612 - temperature: 18.6°C 
-   - humidity: 58% 
+B612 - temperature: 17.9°C 
+   - humidity: 57% 
+-------------------------------
 Kalahary - blbablabla
--------------------------------
-Today's weather will be 8°C in
-the morning, 14°C in the afternoon
-and 5°C during the night.
--------------------------------
+===============================
+Today's weather will be 11°C in
+the morning, 12°C in the afternoon
+and 6°C during the night. It will
+mostly sunny.
+===============================
 Don't forget to water and feed
 your plants
--------------------------------
-No warnings to display
--------------------------------
+===============================
+Great, you have no warnings
+===============================
 Have a nice day!
 """
+        message = template
+        return message
 
 
 class telegramBot(baseNotification):
+    METHOD = "Telegram"
+
     def __init__(self):
         super(telegramBot, self).__init__()
         self.logger = logging.getLogger("notification.telegram")
         self.token = None
         self.token_configuration()
-        self.chat_ids = []
 
     def token_configuration(self):
         try:
@@ -64,24 +84,37 @@ class telegramBot(baseNotification):
                                  "provide it to use telegram notification")
         self.token = token
 
-    def get_chat_ids(self):
-        self.get_recipients()
-        for recipient_id in self.recipients_id:
-            chat_id = User.query.filter_by(id=recipient_id).one().telegram_chat_id
-            if chat_id:
-                self.chat_ids.append(chat_id)
+    @staticmethod
+    def get_telegram_chat_ids(user_ids):
+        chat_ids = []
+        session = Session(engine)
+        for recipient_id in user_ids:
+            try:
+                chat_id = session.query(User).filter_by(id=recipient_id).one().telegram_chat_id
+            except NoResultFound:  # If manually enter an incorrect user id
+                pass
+            else:
+                chat_ids.append(chat_id)
+        session.close()
+        return chat_ids
 
-    def send_message(self, message=None, retry=5):
+    def send_message(self, message=None, recipients_id=[], retry=5):
+        final_ack = {"delivered": [],
+                     "failed_delivery": [],
+                     }
+
         if not message:
             self.format_message()
             message = self.message
 
-        self.get_chat_ids()
-        final_ack = {"delivered": [],
-                     "failed_delivery": [],
-                     }
-        send_list = self.chat_ids
+        if recipients_id:
+            send_list = self.get_telegram_chat_ids(recipients_id)
+        else:
+            recipients_id = self.get_notification_recipients_id()
+            send_list = self.get_telegram_chat_ids(recipients_id)
+
         count = 0
+        session = Session(engine)
         while True:
             to_send = send_list
             for chat_id in to_send:
@@ -89,7 +122,7 @@ class telegramBot(baseNotification):
                             f"/sendMessage?chat_id={chat_id}&parse_mode=Markdown" +
                             f"&text={message}")
                 response = requests.get(sent_msg).json()
-                user_ids = (User.query.filter_by(telegram_chat_id=chat_id)
+                user_ids = (session.query(User).filter_by(telegram_chat_id=chat_id)
                                       .with_entities(User.id, User.username).one())
                 if response["ok"]:
                     final_ack["delivered"].append(user_ids)
@@ -104,11 +137,18 @@ class telegramBot(baseNotification):
             if count == retry:
                 break
             sleep(5)
-        return(f"Message '{message}' final status: {final_ack}")
+        session.close()
+        return f"Message '{message}' final status: {final_ack}"
 
-x = telegramBot()
 
-scheduler.add_job(func=x.send_message, args=("Without flask sqlalchemy",),
-                                trigger="cron", minute="*", misfire_grace_time=5*60,
-                                id="err")
+telegram = telegramBot()
+x = telegram.get_notification_recipients_id()
 
+notification_means = [telegram]
+
+
+def send_daily_recap():
+    summarized_data = baseNotification.summarize_data()
+    recap_message = baseNotification.create_recap_message(summarized_data)
+    for notif_mean in notification_means:
+        notif_mean.send_message(recap_message)

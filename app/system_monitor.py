@@ -56,3 +56,22 @@ class systemMonitor:
     @property
     def system_data(self):
         return self._data
+
+
+# ---------------------------------------------------------------------------
+#   System resources usage monitor
+# ---------------------------------------------------------------------------
+def log_resources_data():
+    data = systemMonitor.system_data
+    if data["datetime"].minute % Config.SYSTEM_LOGGING_FREQUENCY == 0:
+        system = System(
+            datetime=data["datetime"],
+            CPU_used=data["CPU"],
+            CPU_temp=data.get("CPU_temp", None),
+            RAM_total=data["RAM_total"],
+            RAM_used=data["RAM_used"],
+            DISK_total=data["DISK_total"],
+            DISK_used=data["DISK_used"],
+        )
+        db.session.add(system)
+        db.session.commit()

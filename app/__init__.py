@@ -1,7 +1,7 @@
 import os
-import logging
 
-from flask import Flask, request
+from flask import Flask
+from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager
 from flask_socketio import SocketIO
@@ -9,12 +9,12 @@ from flask_apscheduler import APScheduler
 from flask_moment import Moment
 
 from config import Config
-from app.database import sqlalchemy_wrapper
 
-db = sqlalchemy_wrapper()
-
-migrate = Migrate()
 login_manager = LoginManager()
+
+db = SQLAlchemy()
+migrate = Migrate()
+
 login_manager.login_view = 'auth.login'
 sio = SocketIO()
 scheduler = APScheduler()
@@ -32,21 +32,17 @@ def create_app(config_class=Config):
 
     db.init_app(app)
 
-    @app.teardown_appcontext
-    def shutdown_session(exception=None):
-        db.session.remove()
+    from app.models import Role
+    with app.app_context():
+        # db.create_all()
+        Role.insert_roles()
 
-#    migrate.init_app(app, db)
+    migrate.init_app(app, db)
     login_manager.init_app(app)
     sio.init_app(app)
     scheduler.init_app(app)
     scheduler.start()
     moment.init_app(app)
-
-    from app.models import Role
-    Role.insert_roles()
-
-    from app import socketio_events
 
     @app.route("/eegg")
     def hello():
@@ -69,18 +65,7 @@ def create_app(config_class=Config):
 
     return app
 
-# from app import notifications
 
-logger = logging.getLogger("ouranos.socketio")
-
-@sio.on("connect")
-def connect():
-    remote_addr = request.environ["REMOTE_ADDR"]
-    remote_port = request.environ["REMOTE_PORT"]
-    logger.info(f"Connection established with {remote_addr}:{remote_port}")
-
-@sio.on("disconnect")
-def disconnect():
-    remote_addr = request.environ["REMOTE_ADDR"]
-    remote_port = request.environ["REMOTE_PORT"]
-    logger.info(f"Connection established with {remote_addr}:{remote_port}")
+from app import models
+from app import notifications
+from app import socketio_events
