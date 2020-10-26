@@ -9,7 +9,7 @@ cache
 *.pyc
 
 app.db
-*private*
+**/*private*
 
 *test*
 *old*
