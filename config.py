@@ -2,8 +2,6 @@ import logging
 import logging.config
 import os
 
-base_dir = os.path.abspath(os.path.dirname(__file__))
-
 try:
     from private_config import privateConfig
 except ImportError:
@@ -13,6 +11,9 @@ except ImportError:
         HOME_COORDINATES = (0.0, 0.0)
         DARKSKY_API_KEY = None
         TELEGRAM_BOT_TOKEN = None
+
+
+base_dir = os.path.abspath(os.path.dirname(__file__))
 
 
 class Config(privateConfig):
@@ -27,6 +28,8 @@ class Config(privateConfig):
 
     # SQLALCHEMY_DATABASE_URI = "mysql://Sensors:Adansonia7!@localhost/Gaia"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_RECORD_QUERIES = True
+    SLOW_DB_QUERY_TIME = 0.5
 
     # Mail config
     MAIL_SERVER = os.environ.get("MAIL_SERVER")
@@ -38,6 +41,7 @@ class Config(privateConfig):
     # GAIA config
     GAIA_ADMIN = os.environ.get("GAIA_ADMIN") or privateConfig.ADMIN
     TEST_CONNECTION_IP = "one.one.one.one"
+    RECAP_SENDING_HOUR = 4
 
     # Data logging
     SYSTEM_LOGGING_FREQUENCY = 10
@@ -63,7 +67,7 @@ class ProductionConfig(Config):
 
 
 def configure_logging():
-    DEBUG = True
+    DEBUG = False
     LOG_TO_STDOUT = True
     handler = "streamHandler"
     if not LOG_TO_STDOUT:

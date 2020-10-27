@@ -1,13 +1,14 @@
 from datetime import date, datetime, timedelta
 import time
 
-from flask import render_template, url_for, redirect, abort
-from flask_login import login_required, current_user
+from flask import abort, current_app, redirect, render_template, url_for
+from flask_login import current_user, login_required
+from flask_sqlalchemy import get_debug_queries
 
 from app import db
-from app.models import User, Ecosystem, Hardware, Data, Health
-from app.dataspace import sensorsData, Outside
+from app.dataspace import Outside, sensorsData
 from app.main import bp, layout
+from app.models import Data, Ecosystem, Hardware, Health, User
 from app.wiki import simpleWiki
 
 
@@ -45,6 +46,16 @@ def get_sensors_data(level, ecosystem_uid, days=7):
             data[measure][sensor_id] = {"name": sensor_name,
                                         "values": _data}
     return data
+
+@bp.after_app_request
+def after_request(response):
+    for query in get_debug_queries():
+        if query.duration >= current_app.config["SLOW_DB_QUERY_TIME"]:
+            current_app.logger.warning(f"Slow query: {query.statement}\n" +
+                                       f"Parameters: {query.parameters}\n" +
+                                       f"Duration: {query.duration}\n" +
+                                       f"Context: {query.context}\n")
+    return response
 
 
 @bp.before_request

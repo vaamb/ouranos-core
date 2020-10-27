@@ -1,12 +1,13 @@
-from hashlib import md5
 from datetime import datetime, time
+from hashlib import md5
 
-from werkzeug.security import generate_password_hash, check_password_hash
 from flask import current_app
-from flask_login import UserMixin, AnonymousUserMixin
+from flask_login import AnonymousUserMixin, UserMixin
+import sqlalchemy as sa
+from sqlalchemy import orm
+from werkzeug.security import check_password_hash, generate_password_hash
 
-from app import login_manager
-from app import db
+from app import db, login_manager
 
 
 # ---------------------------------------------------------------------------
@@ -21,13 +22,13 @@ class Permission:
 
 class Role(db.Model):
     __tablename__ = "roles"
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(64), unique=True)
-    default = db.Column(db.Boolean, default=False, index=True)
-    permissions = db.Column(db.Integer)
+    id = sa.Column(sa.Integer, primary_key=True)
+    name = sa.Column(sa.String(64), unique=True)
+    default = sa.Column(sa.Boolean, default=False, index=True)
+    permissions = sa.Column(sa.Integer)
 
     # relationship
-    users = db.relationship("User", back_populates="role", lazy="dynamic")
+    users = orm.relationship("User", back_populates="role", lazy="dynamic")
 
     def __init__(self, **kwargs):
         super(Role, self).__init__(**kwargs)
@@ -75,19 +76,19 @@ class Role(db.Model):
 
 class User(UserMixin, db.Model):
     __tablename__ = "users"
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(64), index=True, unique=True)
-    email = db.Column(db.String(120), index=True, unique=True)
-    password_hash = db.Column(db.String(128))
-    role_id = db.Column(db.Integer, db.ForeignKey("roles.id"))
-    confirmed = db.Column(db.Boolean, default=False)
-    firstname = db.Column(db.String(64), unique=True)
-    lastname = db.Column(db.String(64), unique=True)
-    last_seen = db.Column(db.DateTime, default=datetime.utcnow)
-    notifications = db.Column(db.Boolean, default=False)
-    telegram_chat_id = db.Column(db.String(16), unique=True)
+    id = sa.Column(sa.Integer, primary_key=True)
+    username = sa.Column(sa.String(64), index=True, unique=True)
+    email = sa.Column(sa.String(120), index=True, unique=True)
+    password_hash = sa.Column(sa.String(128))
+    role_id = sa.Column(sa.Integer, sa.ForeignKey("roles.id"))
+    confirmed = sa.Column(sa.Boolean, default=False)
+    firstname = sa.Column(sa.String(64), unique=True)
+    lastname = sa.Column(sa.String(64), unique=True)
+    last_seen = sa.Column(sa.DateTime, default=datetime.utcnow)
+    notifications = sa.Column(sa.Boolean, default=False)
+    telegram_chat_id = sa.Column(sa.String(16), unique=True)
     # relationship
-    role = db.relationship("Role", back_populates="users")
+    role = orm.relationship("Role", back_populates="users")
 
     def __init__(self, **kwargs):
         super(User, self).__init__(**kwargs)
@@ -130,6 +131,7 @@ class AnonymousUser(AnonymousUserMixin):
 
 
 login_manager.anonymous_user = AnonymousUser
+login_manager.login_view = 'auth.login'
 
 
 @login_manager.user_loader
@@ -142,68 +144,69 @@ def load_user(id):
 # ---------------------------------------------------------------------------
 class Ecosystem(db.Model):
     __tablename__ = "ecosystems"
-    id = db.Column(db.String(8), primary_key=True)
-    name = db.Column(db.String(32))
-    status = db.Column(db.Boolean, default=False)
+    id = sa.Column(sa.String(8), primary_key=True)
+    name = sa.Column(sa.String(32))
+    status = sa.Column(sa.Boolean, default=False)
 
-    lighting = db.Column(db.Boolean, default=False)
-    watering = db.Column(db.Boolean, default=False)
-    climate = db.Column(db.Boolean, default=False)
-    health = db.Column(db.Boolean, default=False)
-    alarms = db.Column(db.Boolean, default=False)
+    lighting = sa.Column(sa.Boolean, default=False)
+    watering = sa.Column(sa.Boolean, default=False)
+    climate = sa.Column(sa.Boolean, default=False)
+    health = sa.Column(sa.Boolean, default=False)
+    alarms = sa.Column(sa.Boolean, default=False)
 
-    webcam = db.Column(db.String(8))
+    webcam = sa.Column(sa.String(8))
 
-    day_start = db.Column(db.Time, default=time(8, 00))
-    day_temperature = db.Column(db.Float(precision=1), default=22.0)
-    day_humidity = db.Column(db.Integer, default=70.0)
-    day_light = db.Column(db.Integer, default=0.0)
+    day_start = sa.Column(sa.Time, default=time(8, 00))
+    day_temperature = sa.Column(sa.Float(precision=1), default=22.0)
+    day_humidity = sa.Column(sa.Integer, default=70.0)
+    day_light = sa.Column(sa.Integer, default=0.0)
 
-    night_start = db.Column(db.Time, default=time(20, 00))
-    night_temperature = db.Column(db.Float(precision=1), default=17.0)
-    night_humidity = db.Column(db.Integer, default=40.0)
-    night_light = db.Column(db.Integer, default=0.0)
+    night_start = sa.Column(sa.Time, default=time(20, 00))
+    night_temperature = sa.Column(sa.Float(precision=1), default=17.0)
+    night_humidity = sa.Column(sa.Integer, default=40.0)
+    night_light = sa.Column(sa.Integer, default=0.0)
 
-    temperature_hysteresis = db.Column(db.Float(precision=1), default=1.0)
-    humidity_hysteresis = db.Column(db.Integer, default=1.0)
-    light_hysteresis = db.Column(db.Integer, default=0.0)
+    temperature_hysteresis = sa.Column(sa.Float(precision=1), default=1.0)
+    humidity_hysteresis = sa.Column(sa.Integer, default=1.0)
+    light_hysteresis = sa.Column(sa.Integer, default=0.0)
     # relationship
-    hardware = db.relationship("Hardware", back_populates="ecosystem", lazy="dynamic")
-    # plants = db.relationship("Plant", back_populates="ecosystem")
-    data = db.relationship("Data", back_populates="ecosystem", lazy="dynamic")
-    health_data = db.relationship("Health", back_populates="ecosystem", lazy="dynamic")
-    light = db.relationship("Light", back_populates="ecosystem", lazy="dynamic")
+    hardware = orm.relationship("Hardware", back_populates="ecosystem", lazy="dynamic")
+    # plants = orm.relationship("Plant", back_populates="ecosystem")
+    data = orm.relationship("Data", back_populates="ecosystem", lazy="dynamic")
+    health_data = orm.relationship("Health", back_populates="ecosystem", lazy="dynamic")
+    light = orm.relationship("Light", back_populates="ecosystem", lazy="dynamic")
 
 
 class Hardware(db.Model):
     __tablename__ = "hardware"
-    id = db.Column(db.String(32), primary_key=True)
-    ecosystem_id = db.Column(db.String(8), db.ForeignKey("ecosystems.id"))
-    name = db.Column(db.String(32))
-    level = db.Column(db.String(16))
-    pin = db.Column(db.Integer)
-    type = db.Column(db.String(16))
-    model = db.Column(db.String(32))
-    # plant_id = db.Column(db.String(8), db.ForeignKey("plants.id"))
+    id = sa.Column(sa.String(32), primary_key=True)
+    ecosystem_id = sa.Column(sa.String(8), sa.ForeignKey("ecosystems.id"))
+    name = sa.Column(sa.String(32))
+    level = sa.Column(sa.String(16))
+    pin = sa.Column(sa.Integer)
+    type = sa.Column(sa.String(16))
+    model = sa.Column(sa.String(32))
+    # plant_id = sa.Column(sa.String(8), sa.ForeignKey("plants.id"))
     # relationship
-    ecosystem = db.relationship("Ecosystem", back_populates="hardware")
-    # plants = db.relationship("Plant", back_populates="sensors")
-    data = db.relationship("Data", back_populates="sensor", lazy="dynamic")
+    ecosystem = orm.relationship("Ecosystem", back_populates="hardware")
+    # plants = orm.relationship("Plant", back_populates="sensors")
+    data = orm.relationship("Data", back_populates="sensor", lazy="dynamic")
 
-db.Index("idx_sensors_type", Hardware.type, Hardware.level)
+
+sa.Index("idx_sensors_type", Hardware.type, Hardware.level)
 
 
 """
 class Plant(db.Model):
     __tablename__ = "plants"
-    id = db.Column(db.String(16), primary_key=True)
-    name = db.Column(db.String(32))
-    ecosystem_id = db.Column(db.String(8), db.ForeignKey("ecosystems.id"))
-    species = db.Column(db.String(32), index=True, nullable=False)
-    sowing_date = db.Column(db.DateTime)
+    id = sa.Column(sa.String(16), primary_key=True)
+    name = sa.Column(sa.String(32))
+    ecosystem_id = sa.Column(sa.String(8), sa.ForeignKey("ecosystems.id"))
+    species = sa.Column(sa.String(32), index=True, nullable=False)
+    sowing_date = sa.Column(sa.DateTime)
     #relationship
-    ecosystem = db.relationship("Ecosystem", back_populates="plants")
-    sensors = db.relationship("Hardware", back_populates="plants")
+    ecosystem = orm.relationship("Ecosystem", back_populates="plants")
+    sensors = orm.relationship("Hardware", back_populates="plants")
 
     def __repr__(self):
         return "<Plant: {}, species: {}, sowing date: {}>".fdbat(
@@ -213,59 +216,59 @@ class Plant(db.Model):
 
 class Data(db.Model):
     __tablename__ = "data"
-    row_id = db.Column(db.Integer, primary_key=True)
-    ecosystem_id = db.Column(db.String(8), db.ForeignKey("ecosystems.id"), index=True)
-    sensor_id = db.Column(db.String(16), db.ForeignKey("hardware.id"), index=True)
-    measure = db.Column(db.Integer, index=True)
-    datetime = db.Column(db.DateTime, index=True)
-    value = db.Column(db.Float(precision=2))
+    row_id = sa.Column(sa.Integer, primary_key=True)
+    ecosystem_id = sa.Column(sa.String(8), sa.ForeignKey("ecosystems.id"), index=True)
+    sensor_id = sa.Column(sa.String(16), sa.ForeignKey("hardware.id"), index=True)
+    measure = sa.Column(sa.Integer, index=True)
+    datetime = sa.Column(sa.DateTime, index=True)
+    value = sa.Column(sa.Float(precision=2))
     # relationships
-    ecosystem = db.relationship("Ecosystem", back_populates="data")
-    sensor = db.relationship("Hardware", back_populates="data")
+    ecosystem = orm.relationship("Ecosystem", back_populates="data")
+    sensor = orm.relationship("Hardware", back_populates="data")
 
 
 class Light(db.Model):
     __tablename__ = "light"
-    ecosystem_id = db.Column(db.String(8), db.ForeignKey("ecosystems.id"), primary_key=True)
-    status = db.Column(db.Boolean)
-    mode = db.Column(db.String(12))
-    method = db.Column(db.String(12))
-    morning_start = db.Column(db.Time)
-    morning_end = db.Column(db.Time)
-    evening_start = db.Column(db.Time)
-    evening_end = db.Column(db.Time)
+    ecosystem_id = sa.Column(sa.String(8), sa.ForeignKey("ecosystems.id"), primary_key=True)
+    status = sa.Column(sa.Boolean)
+    mode = sa.Column(sa.String(12))
+    method = sa.Column(sa.String(12))
+    morning_start = sa.Column(sa.Time)
+    morning_end = sa.Column(sa.Time)
+    evening_start = sa.Column(sa.Time)
+    evening_end = sa.Column(sa.Time)
     # relationships
-    ecosystem = db.relationship("Ecosystem", back_populates="light")
+    ecosystem = orm.relationship("Ecosystem", back_populates="light")
 
 
 class Health(db.Model):
     __tablename__ = "health"
-    row_id = db.Column(db.Integer, primary_key=True)
-    ecosystem_id = db.Column(db.String(8), db.ForeignKey("ecosystems.id"))
-    datetime = db.Column(db.DateTime, nullable=False)
-    green = db.Column(db.Integer)
-    necrosis = db.Column(db.Integer)
-    health_index = db.Column(db.Float(precision=1))
+    row_id = sa.Column(sa.Integer, primary_key=True)
+    ecosystem_id = sa.Column(sa.String(8), sa.ForeignKey("ecosystems.id"))
+    datetime = sa.Column(sa.DateTime, nullable=False)
+    green = sa.Column(sa.Integer)
+    necrosis = sa.Column(sa.Integer)
+    health_index = sa.Column(sa.Float(precision=1))
     # relationships
-    ecosystem = db.relationship("Ecosystem", back_populates="health_data")
+    ecosystem = orm.relationship("Ecosystem", back_populates="health_data")
 
 
 class System(db.Model):
     __tablename__ = "system"
-    row_id = db.Column(db.Integer, primary_key=True)
-    datetime = db.Column(db.DateTime, nullable=False)
-    CPU_used = db.Column(db.Float(precision=1))
-    CPU_temp = db.Column(db.Integer)
-    RAM_total = db.Column(db.Float(precision=2))
-    RAM_used = db.Column(db.Float(precision=2))
-    DISK_total = db.Column(db.Float(precision=2))
-    DISK_used = db.Column(db.Float(precision=2))
+    row_id = sa.Column(sa.Integer, primary_key=True)
+    datetime = sa.Column(sa.DateTime, nullable=False)
+    CPU_used = sa.Column(sa.Float(precision=1))
+    CPU_temp = sa.Column(sa.Integer)
+    RAM_total = sa.Column(sa.Float(precision=2))
+    RAM_used = sa.Column(sa.Float(precision=2))
+    DISK_total = sa.Column(sa.Float(precision=2))
+    DISK_used = sa.Column(sa.Float(precision=2))
 
 
 """
 class Service(db.Model):
     __tablename__ = "services"
-    row_id = db.Column(db.Integer, primary_key=True)
-    webcam = db.Column(db.Boolean)
-    notifications = db.Column(db.String(16))
+    row_id = sa.Column(sa.Integer, primary_key=True)
+    webcam = sa.Column(sa.Boolean)
+    notifications = sa.Column(sa.String(16))
 """

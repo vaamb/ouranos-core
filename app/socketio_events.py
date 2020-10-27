@@ -1,18 +1,18 @@
-import logging
 from datetime import datetime, time, timedelta, timezone
+import logging
 
-from flask import request, current_app
+from flask import current_app, request
 from flask_socketio import join_room, leave_room
 
-from config import Config
-from app import db, sio, scheduler
-from app.models import Ecosystem, Hardware, Data, Light, Health, System
+from app import app_name, db, scheduler, sio
 from app.common.utils import human_delta_time
-from app.dataspace import healthData, sensorsData, systemMonitor, ecosystems_connected
+from app.dataspace import ecosystems_connected, healthData, sensorsData, systemMonitor
+from app.models import Data, Ecosystem, Hardware, Health, Light
+from config import Config
 
 
-logger = logging.getLogger("ouranos")
-collector = logging.getLogger("ouranos.collector")
+sio_logger = logging.getLogger(f"{app_name}.socketio")
+collector = logging.getLogger(f"{app_name}.collector")
 
 START_TIME = datetime.now(timezone.utc)
 SYSTEM_UPDATE_FREQUENCY = 5
@@ -24,28 +24,30 @@ _sid = {}
 # ---------------------------------------------------------------------------
 #   Background tasks
 # ---------------------------------------------------------------------------
-def request_config(room="engineManagers"):
-    collector.debug(f"Sending config request to {room}")
-    sio.emit("send_config", namespace="/gaia", room=room)
-
-
-@scheduler.task("cron", id="sensors_data", minute="*")
+@scheduler.scheduled_job(id="sensors_data", trigger="cron", minute="*",
+                         misfire_grace_time=10)
 def request_sensors_data(room="engineManagers"):
-    collector.debug(f"Sending sensors data request to {room}")
+    sio_logger.debug(f"Sending sensors data request to {room}")
     sio.emit("send_sensors_data", namespace="/gaia", room=room)
 
 
+def request_config(room="engineManagers"):
+    sio_logger.debug(f"Sending config request to {room}")
+    sio.emit("send_config", namespace="/gaia", room=room)
+
+
 def request_health_data(room="engineManagers"):
-    collector.debug(f"Sending health data request to {room}")
+    sio_logger.debug(f"Sending health data request to {room}")
     sio.emit("send_health_data", namespace="/gaia", room=room)
 
 
 def request_light_data(room="engineManagers"):
-    collector.debug(f"Sending light data request to {room}")
+    sio_logger.debug(f"Sending light data request to {room}")
     sio.emit("send_light_data", namespace="/gaia", room=room)
 
 
-@scheduler.task("cron", id="light_and_health", hour="1", misfire_grace_time=15 * 60)
+@scheduler.scheduled_job(id="light_and_health", trigger="cron",
+                         hour="1", misfire_grace_time=15*60)
 def request_light_and_health(room="engineManagers"):
     request_light_data(room=room)
     request_health_data(room=room)
@@ -53,12 +55,8 @@ def request_light_and_health(room="engineManagers"):
 
 def gaia_background_thread(app):
     with app.app_context():
-        global systemMonitor
-        collector.info("Starting ecosystems data collecting in the background")
         while True:
             sio.sleep(60)
-            request_sensors_data()
-            log_resources_data()
             for manager in list(_managers.keys()):
                 if _managers[manager]["last_seen"] < (datetime.now(timezone.utc) -
                                                       timedelta(minutes=2)):
@@ -67,6 +65,7 @@ def gaia_background_thread(app):
                 if sensorsData[ecosystem_uid]["datetime"] < (datetime.now(timezone.utc) -
                                                              timedelta(minutes=4)):
                     pass
+                    # TODO: remove ecosystem from sensorsData\
 
 
 # ---------------------------------------------------------------------------
@@ -89,14 +88,14 @@ def disconnect():
     remote_addr = request.environ["REMOTE_ADDR"]
     remote_port = request.environ["REMOTE_PORT"]
     leave_room("engineManagers")
-    logger.info(f"disconnect {remote_addr}:{remote_port}")
+    sio_logger.info(f"disconnect {remote_addr}:{remote_port}")
 
 
 @sio.on("register_manager", namespace="/gaia")
 def registerManager(data):
     remote_addr = request.environ["REMOTE_ADDR"]
     remote_port = request.environ["REMOTE_PORT"]
-    logger.info(f"Received manager registration request from manager {data['uid']} " +
+    sio_logger.info(f"Received manager registration request from manager {data['uid']} " +
                 f"from {remote_addr}:{remote_port}")
     _managers.update(
         {data["uid"]: {"sid": request.sid,
@@ -169,11 +168,14 @@ def update_cfg(config):
 def update_sensors_data(data):
     manager_uid = _sid[request.sid]
     _managers[manager_uid]["last_seen"] = datetime.now(timezone.utc)
+    # TODO: move the last seen in a ping-pong
     sensorsData.update(data)
     for ecosystem_id in data:
         dt = datetime.fromisoformat(data[ecosystem_id]["datetime"])
         sensorsData[ecosystem_id]["datetime"] = dt
         if dt.minute % Config.SENSORS_LOGGING_FREQUENCY == 0:
+            collector.debug("Logging sensors data from enginesManager " +
+                            f"{manager_uid}")
             for sensor_id in data[ecosystem_id]["data"]:
                 for measure in data[ecosystem_id]["data"][sensor_id]:
                     sensor = Data(
@@ -260,9 +262,10 @@ def connect_on_browser():
 def turn_light_on(message):
     ecosystem_id = message["ecosystem"]
     countdown = message.get("countdown", False)
-    logger.debug(f"Dispatching 'light_on' signal to ecosystem {ecosystem_id}")
+    sio_logger.debug(f"Dispatching 'light_on' signal to ecosystem {ecosystem_id}")
     sid = get_manager_sid(ecosystem_id)
-    sio.emit("light_on", {"ecosystem": ecosystem_id, "countdown": countdown}, namespace="/gaia", room=sid)
+    sio.emit("light_on", {"ecosystem": ecosystem_id, "countdown": countdown},
+             namespace="/gaia", room=sid)
     return False
 
 
@@ -270,16 +273,17 @@ def turn_light_on(message):
 def turn_light_off(message):
     ecosystem_id = message["ecosystem"]
     countdown = message.get("countdown", False)
-    logger.debug(f"Dispatching 'light_off' signal to ecosystem {ecosystem_id}")
+    sio_logger.debug(f"Dispatching 'light_off' signal to ecosystem {ecosystem_id}")
     sid = get_manager_sid(ecosystem_id)
-    sio.emit("light_off", {"ecosystem": ecosystem_id, "countdown": countdown}, namespace="/gaia", room=sid)
+    sio.emit("light_off", {"ecosystem": ecosystem_id, "countdown": countdown},
+             namespace="/gaia", room=sid)
     return False
 
 
 @sio.on("light_auto", namespace="/browser")
 def turn_light_auto(message):
     ecosystem_id = message["ecosystem"]
-    logger.debug(f"Dispatching 'light_auto' signal to ecosystem {ecosystem_id}")
+    sio_logger.debug(f"Dispatching 'light_auto' signal to ecosystem {ecosystem_id}")
     sid = get_manager_sid(ecosystem_id)
     sio.emit("light_off", {"ecosystem": ecosystem_id}, namespace="/gaia", room=sid)
     return False

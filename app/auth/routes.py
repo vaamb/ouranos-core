@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
-from flask import render_template, flash, redirect, url_for, request
-from flask_login import login_user, current_user, logout_user
+from flask import flash, redirect, render_template, request, url_for
+from flask_login import current_user, login_user, logout_user
 from werkzeug.urls import url_parse
 
-from app.models import User
 from app.auth import bp
 from app.auth.forms import LoginForm, RegistrationForm
+from app.models import User
+
 
 @bp.route('/login', methods=['GET', 'POST'])
 def login():
@@ -24,10 +25,12 @@ def login():
         return redirect(next_page)
     return render_template('auth/login.html',  title='Sign In', form=form)
 
+
 @bp.route('/logout')
 def logout():
     logout_user()
     return redirect(url_for('main.home'))
+
 
 @bp.route('/register', methods=['GET', 'POST'])
 def register():

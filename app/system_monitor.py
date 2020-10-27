@@ -1,9 +1,17 @@
+from datetime import datetime, timezone
 import logging
 import psutil
-from datetime import datetime, timezone
 from threading import Thread, Event
 
+from app import app_name, scheduler
+from app.database import out_of_Flask_db as db
+from app.models import System
+from config import Config
+
+
 SYSTEM_UPDATE_FREQUENCY = 5
+
+collector = logging.getLogger(f"{app_name}.collector")
 
 
 class systemMonitor:
@@ -18,15 +26,15 @@ class systemMonitor:
             _cache = {
                 "datetime": datetime.now(timezone.utc).replace(microsecond=0),
                 "CPU": psutil.cpu_percent(),
-                "RAM_total": round(psutil.virtual_memory()[0] / (1024 * 1024 * 1024), 2),
-                "RAM_used": round(psutil.virtual_memory()[3] / (1024 * 1024 * 1024), 2),
-                "DISK_total": round(psutil.disk_usage("/")[0] / (1024 * 1024 * 1024), 2),
-                "DISK_used": round(psutil.disk_usage("/")[1] / (1024 * 1024 * 1024), 2)
+                "RAM_total": round(psutil.virtual_memory()[0]/(1024*1024*1024), 2),
+                "RAM_used": round(psutil.virtual_memory()[3]/(1024*1024*1024), 2),
+                "DISK_total": round(psutil.disk_usage("/")[0]/(1024*1024*1024), 2),
+                "DISK_used": round(psutil.disk_usage("/")[1]/(1024*1024*1024), 2)
             }
             try:
                 _cache["CPU_temp"] = (psutil.sensors_temperatures()
-                                      .get("cpu-thermal", {})
-                                      .get(0, {}).get(1))
+                                            .get("cpu-thermal", {})
+                                            .get(0, {}).get(1))
             except AttributeError:
                 pass
             self._data = _cache
@@ -58,20 +66,30 @@ class systemMonitor:
         return self._data
 
 
+systemMonitor = systemMonitor()
+systemMonitor.start()
+
+
 # ---------------------------------------------------------------------------
 #   System resources usage monitor
 # ---------------------------------------------------------------------------
+@scheduler.scheduled_job(id="log_resources_data", trigger="cron",
+                         minute=f"*/{Config.SYSTEM_LOGGING_FREQUENCY}",
+                         second=1+SYSTEM_UPDATE_FREQUENCY,
+                         misfire_grace_time=1*60)
 def log_resources_data():
+    collector.debug("Logging system resources")
     data = systemMonitor.system_data
-    if data["datetime"].minute % Config.SYSTEM_LOGGING_FREQUENCY == 0:
-        system = System(
-            datetime=data["datetime"],
-            CPU_used=data["CPU"],
-            CPU_temp=data.get("CPU_temp", None),
-            RAM_total=data["RAM_total"],
-            RAM_used=data["RAM_used"],
-            DISK_total=data["DISK_total"],
-            DISK_used=data["DISK_used"],
-        )
-        db.session.add(system)
-        db.session.commit()
+    system = System(
+        datetime=data["datetime"],
+        CPU_used=data["CPU"],
+        CPU_temp=data.get("CPU_temp", None),
+        RAM_total=data["RAM_total"],
+        RAM_used=data["RAM_used"],
+        DISK_total=data["DISK_total"],
+        DISK_used=data["DISK_used"],
+    )
+
+    db.session.add(system)
+    db.session.commit()
+    db.close_scope()

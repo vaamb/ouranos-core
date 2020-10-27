@@ -1,14 +1,14 @@
-# -*- coding: utf-8 -*-
+import json
+import logging
 import os
-import time
 from pathlib import Path
 import socket
-import logging
-import json
+import time
 
-import requests
 from apscheduler.schedulers.background import BackgroundScheduler
+import requests
 
+from app import app_name
 from config import Config
 
 
@@ -30,7 +30,7 @@ def is_connected():
 
 class Outside:
     def __init__(self, trials=10):
-        self.logger = logging.getLogger("gaia.weather")
+        self.logger = logging.getLogger(f"{app_name}.weather")
         self.logger.info("Initializing weather module")
         self.trials = trials
         self._file_path = cache_dir/"weather.json"
@@ -39,7 +39,7 @@ class Outside:
         self.home_city = Config.HOME_CITY
         self.coordinates = Config.HOME_COORDINATES
         self.API_key = Config.DARKSKY_API_KEY
-        self.logger.info("Weather module has been initialized")
+        self.logger.debug("Weather module has been initialized")
 
     def update_weather_data(self):
         if is_connected():
@@ -78,7 +78,7 @@ class Outside:
         self.logger.error("ConnectionError, cannot update moments of the day")
 
     def _start_scheduler(self):
-        self.logger.debug("Starting the weather module background scheduler")
+        self.logger.info("Starting the weather module background scheduler")
         self._scheduler = BackgroundScheduler(daemon=True)
         self._scheduler.add_job(self.update_weather_data,
                                 "cron", minute="*/15", misfire_grace_time=5*60,

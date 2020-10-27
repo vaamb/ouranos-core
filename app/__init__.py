@@ -1,28 +1,33 @@
+import logging
 import os
 
+from apscheduler.schedulers.background import BackgroundScheduler
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
 from flask_login import LoginManager
-from flask_socketio import SocketIO
-from flask_apscheduler import APScheduler
+from flask_migrate import Migrate
 from flask_moment import Moment
+from flask_sqlalchemy import SQLAlchemy
+from flask_socketio import SocketIO
 
 from config import Config
 
-login_manager = LoginManager()
+# TODO: move app_name in config
+app_name = "gaiaWeb"
 
+logger = logging.getLogger(app_name)
+
+scheduler = BackgroundScheduler()
+login_manager = LoginManager()
 db = SQLAlchemy()
 migrate = Migrate()
-
-login_manager.login_view = 'auth.login'
 sio = SocketIO()
-scheduler = APScheduler()
 moment = Moment()
 
 
 def create_app(config_class=Config):
-    app = Flask(__name__)
+    logger.info(f"Initializing Flask app...")
+    app = Flask(app_name)
+
     app.config.from_object(config_class)
     app.jinja_env.lstrip_blocks = True
     app.jinja_env.trim_blocks = True
@@ -40,9 +45,8 @@ def create_app(config_class=Config):
     migrate.init_app(app, db)
     login_manager.init_app(app)
     sio.init_app(app)
-    scheduler.init_app(app)
-    scheduler.start()
     moment.init_app(app)
+    scheduler.start()
 
     @app.route("/eegg")
     def hello():
@@ -63,9 +67,10 @@ def create_app(config_class=Config):
 #    from app.api import bp as api_bp
 #    app.register_blueprint(api_bp)
 
+    from app import models
+    from app import database
+    from app import socketio_events
+
+    logger.info(f"Flask app successfully initialized")
+
     return app
-
-
-from app import models
-from app import notifications
-from app import socketio_events
