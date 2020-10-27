@@ -12,7 +12,7 @@ from flask_socketio import SocketIO
 
 from config import Config
 
-# TODO: move app_name in config
+
 app_name = Config.APP_NAME
 root_path = Path(__file__).absolute().parents[0]
 

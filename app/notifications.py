@@ -12,6 +12,7 @@ from app.dataspace import Outside
 from app.models import Data, Ecosystem, Hardware, User
 from config import Config
 
+
 base_logger = logging.getLogger(f"{app_name}.notification")
 
 
@@ -28,9 +29,6 @@ class Notification:
             for recipient in recipients:
                 recipients_id.append(recipient.id)
         return recipients_id
-
-    # TODO: average the sensors data for last 24h
-    # TODO: average weather data
 
     @staticmethod
     def get_ecosystem_measures_mean(db_session,
@@ -182,13 +180,12 @@ class Notification:
             message += f"\n{Notification.summary_sep}"
         return message
 
-    # TODO
+    # TODO format warnings message
     @staticmethod
     def format_warnings_recap(digested_warnings):
         if not digested_warnings:
             return f"Great, you have no warnings.\n{Notification.summary_sep}"
 
-    # TODO: add
     @staticmethod
     def format_recap_message(ecosystem_recap, weather_forecast,
                              warnings_recap):

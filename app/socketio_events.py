@@ -65,7 +65,7 @@ def gaia_background_thread(app):
                 if sensorsData[ecosystem_uid]["datetime"] < (datetime.now(timezone.utc) -
                                                              timedelta(minutes=4)):
                     pass
-                    # TODO: remove ecosystem from sensorsData\
+                    # TODO: remove ecosystem from sensorsData if not seen for Config.ECOSYSTEM_TIMEOUT
 
 
 # ---------------------------------------------------------------------------
