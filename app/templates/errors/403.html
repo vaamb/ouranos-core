@@ -4,16 +4,10 @@
   <div class="errors">
     <h1 class="error-number">403</h1>
     <p>
-      {% if description in ['1', '2', '4', '8'] %}
-        {% if description in ['1', '2'] %}
-          You need to be logged in to access this page.
-        {% elif description == '4' %}
-          You need to be at least an operating user to access this page.
-        {% elif description == '8' %}
-          You need to be an administrator to access this page.
-        {% else %}
-          It seems you don't have the permission to access this page.
-        {% endif %}
+      {% if description in ['1', '2'] %}
+      You need to be logged in to access this page.
+      {% else %}
+      You don't have the permission to access this page.
       {% endif %}
     </p>
       <button class="errorButton" onclick="goBack()">Go Back</button>

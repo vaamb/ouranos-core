@@ -17,6 +17,7 @@ base_dir = os.path.abspath(os.path.dirname(__file__))
 
 
 class Config(privateConfig):
+    APP_NAME = "gaiaWeb"
     # Flask config
     DEBUG = False
     TESTING = False

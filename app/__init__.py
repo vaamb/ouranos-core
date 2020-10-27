@@ -1,5 +1,6 @@
 import logging
 import os
+from pathlib import Path
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from flask import Flask
@@ -12,7 +13,8 @@ from flask_socketio import SocketIO
 from config import Config
 
 # TODO: move app_name in config
-app_name = "gaiaWeb"
+app_name = Config.APP_NAME
+root_path = Path(__file__).absolute().parents[0]
 
 logger = logging.getLogger(app_name)
 
@@ -26,7 +28,7 @@ moment = Moment()
 
 def create_app(config_class=Config):
     logger.info(f"Initializing Flask app...")
-    app = Flask(app_name)
+    app = Flask(app_name, root_path=root_path)
 
     app.config.from_object(config_class)
     app.jinja_env.lstrip_blocks = True
@@ -64,11 +66,12 @@ def create_app(config_class=Config):
     from app.admin import bp as admin_bp
     app.register_blueprint(admin_bp)
 
-#    from app.api import bp as api_bp
-#    app.register_blueprint(api_bp)
+    from app.api import bp as api_bp
+    app.register_blueprint(api_bp)
 
     from app import models
     from app import database
+    from app import notifications
     from app import socketio_events
 
     logger.info(f"Flask app successfully initialized")

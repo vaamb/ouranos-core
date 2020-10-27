@@ -1,12 +1,13 @@
 from flask import render_template
 
+from app import db
 from app.errors import bp
 
 
 @bp.app_errorhandler(403)
 def forbidden(e):
     return render_template('errors/403.html', title="Error 403",
-                           description = e.description), 403
+                           description=e.description), 403
 
 
 @bp.app_errorhandler(404)
