@@ -1,7 +1,7 @@
 {% extends 'main/menu.html' %}
 
 {% block header %}{{level.capitalize()}} sensors in {{ecosystem_ids[1]}}{% endblock %}
-{% block info %}{% if last_data %}Last sensors update at {{last_data["datetime"]}}{% endif %}{% endblock %}
+{% block info %}{% if last_data %}Last sensors update at {{moment(last_data["datetime"]).format("HH:mm:ss")}}{% endif %}{% endblock %}
 
 {% block content %}
   <div class="subtitleFix"></div>

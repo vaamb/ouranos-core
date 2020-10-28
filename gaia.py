@@ -1,8 +1,9 @@
+#!/usr/bin/python
 import eventlet
 
 eventlet.monkey_patch()
 
-from app import app_name, create_app, scheduler, sio
+from app import create_app, scheduler, sio
 
 
 app = create_app()
