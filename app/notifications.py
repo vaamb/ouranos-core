@@ -17,8 +17,8 @@ base_logger = logging.getLogger(f"{app_name}.notification")
 
 
 class Notification:
-    summary_sep = "=================================\n".lstrip()
-    ecosystem_summary_sep = "---------------------------------\n\n".rstrip()
+    summary_sep = "=================================\n"
+    ecosystem_summary_sep = "---------------------------------\n"
 
     @staticmethod
     def get_notification_recipients_id():
@@ -131,7 +131,10 @@ class Notification:
 
     @staticmethod
     def format_ecosystem_recap(summarized_measures):
-        measure_unit = {"temperature": "°C", "humidity": "% hum",
+        measure_unit = {"absolute_humidity": "g/m³",
+                        "dew_temperature": "°C",
+                        "temperature": "°C",
+                        "humidity": "% hum",
                         "light": "lux"}
         if not summarized_measures:
             return ""
@@ -145,7 +148,7 @@ class Notification:
                 else:
                     left = indent
                 ecosystems_summary += \
-                    (f"{left} - {measure}: " +
+                    (f"{left} - {measure}: ".replace("_", " ") +
                      f"{summarized_measures[ecosystem][measure]}{unit}\n")
             if i < len(summarized_measures) - 1:
                 ecosystems_summary += Notification.ecosystem_summary_sep
@@ -175,7 +178,7 @@ class Notification:
                 message += f"{digested_weather['night']}°C in the night"
             message += ". "
         if digested_weather["summary"]:
-            message += "It will be {digested_weather['summary'].lower()}."
+            message += f"It will be {digested_weather['summary'].lower()}."
         if message:
             message += f"\n{Notification.summary_sep}"
         return message
@@ -190,7 +193,7 @@ class Notification:
     def format_recap_message(ecosystem_recap, weather_forecast,
                              warnings_recap):
         today = datetime.now().strftime("%A %d %B")
-        calendar_message = f"Don't forget to water and feed your plants\n{Notification.summary_sep}"
+        calendar_message = f"Don't forget to water and feed your plants.\n{Notification.summary_sep}"
         message = f"GAIA daily recap for {today}\n{Notification.summary_sep}"
         message += ecosystem_recap
         message += weather_forecast
@@ -242,7 +245,7 @@ class telegramBot:
         if recipients_id:
             send_list = self.get_telegram_chat_ids(recipients_id)
         else:
-            recipients_id = self.get_notification_recipients_id()
+            recipients_id = Notification.get_notification_recipients_id()
             send_list = self.get_telegram_chat_ids(recipients_id)
 
         count = 0
@@ -254,23 +257,23 @@ class telegramBot:
                                 f"/sendMessage?chat_id={chat_id}&parse_mode=Markdown" +
                                 f"&text={message}")
                     response = requests.get(sent_msg).json()
-                    user_ids = (
+                    user_name = (
                         session.query(User).filter_by(telegram_chat_id=chat_id)
-                        .with_entities(User.id, User.username).one())
+                        .one().username)
                     if response["ok"]:
-                        final_ack["delivered"].append(user_ids)
+                        final_ack["delivered"].append(user_name)
                         send_list.remove(chat_id)
-                        if user_ids in final_ack["failed_delivery"]:
-                            final_ack["failed_delivery"].remove(user_ids)
+                        if user_name in final_ack["failed_delivery"]:
+                            final_ack["failed_delivery"].remove(user_name)
                     else:
-                        final_ack["failed_delivery"].append(user_ids)
+                        final_ack["failed_delivery"].append(user_name)
                 if len(send_list) == 0:
                     break
                 count += 1
                 if count == retry:
                     break
                 sleep(5)
-        return f"Message '{message}' final status: {final_ack}"
+        return {"message": message, "status": final_ack}
 
 
 telegram = telegramBot()
@@ -280,7 +283,7 @@ notification_means = [telegram]
 
 @scheduler.scheduled_job(id="daily_recap", trigger="cron",
                          hour=Config.RECAP_SENDING_HOUR,
-                         misfire_grace_time=1 * 60)
+                         misfire_grace_time=30*60)
 def send_daily_recap():
     start = datetime.combine(date.today() - timedelta(days=1), time())
     stop = datetime.combine(date.today(), time())
@@ -297,5 +300,7 @@ def send_daily_recap():
     recap_message = Notification.format_recap_message(
         ecosystem_recap, weather_forecast, warnings_recap)
 
+    base_logger.debug(f"Sending recap message: '''\n{recap_message}\n'''")
     for notif_mean in notification_means:
-        notif_mean.send_message(recap_message)
+        response = notif_mean.send_message(recap_message)
+        notif_mean.logger.debug(response["status"])

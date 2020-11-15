@@ -14,15 +14,15 @@
       var socket = io(namespace);
 
       $("button#On").click(function() {
-          socket.emit("light_on", {ecosystem: "{{ecosystem_ids[0]|safe}}" });
+          socket.emit("turn_light_on", {ecosystem: "{{ecosystem_ids[0]|safe}}" });
           return false;
       });
       $("button#Off").click(function() {
-          socket.emit("light_off", {ecosystem: "{{ecosystem_ids[0]|safe}}"});
+          socket.emit("turn_light_off", {ecosystem: "{{ecosystem_ids[0]|safe}}"});
           return false;
       });
       $("button#Auto").click(function() {
-          socket.emit("light_auto", {ecosystem: "{{ecosystem_ids[0]|safe}}"});
+          socket.emit("turn_light_auto", {ecosystem: "{{ecosystem_ids[0]|safe}}"});
           return false;
       });
     });

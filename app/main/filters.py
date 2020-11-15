@@ -7,10 +7,12 @@ from app.main import bp
 def get_day(s):
     return datetime.fromtimestamp(s).strftime("%A %d %B")
 
+
 @bp.app_template_filter('getTime')
 def get_time(s):
     x = datetime.fromtimestamp(s)
-    return"{}:{:02d}".format(x.hour, x.minute)#somehow, use .strftime("%H:%S") returns the same value for the whole page
+    return"{}:{:02d}".format(x.hour, x.minute)  # somehow, use .strftime("%H:%S") returns the same value for the whole page
+
 
 @bp.app_template_filter('getWeatherIcon')
 def get_weather_icon(weather):
