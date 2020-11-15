@@ -13,10 +13,10 @@
                   Calendar
                 </div>
                 <div class="boardColumnContainer">
-                  <div class="boardColumnTitle">{{today|getDay}}</div>
+                  <div class="boardColumnTitle">{{moment(today).format("dddd Do MMMM YYYY")}}</div>
                   <div class="boardColumnItem">
-                      sunrise: {{moment(moments["sunrise"]).format("HH:mm:ss")}} -
-                      sunset: {{moment(moments["sunset"]).format("HH:mm:ss")}}
+                    sunrise: {{moment(moments["sunrise"]).format("HH:mm")}} -
+                    sunset: {{moment(moments["sunset"]).format("HH:mm")}}
                   </div>
                 </div>
               </a>
@@ -38,6 +38,26 @@
                 </div>
               </a>
             </div>
+            {% if current_user.is_administrator %}
+            <div class="board" style="min-height: 255px;">
+              <div class="boardHeader">
+                Server info
+              </div>
+              <div class="boardColumnContainer">
+                <div class="boardColumnTitle">Uptime</div>
+                <div class="boardColumnItem"><span id="uptime"></span></div>
+                <div class="boardColumnTitle" style="margin-top: 10px;">Average latency</div>
+                <div class="boardColumnItem"><span id="ping-pong"></span>ms</div>
+                <div class="boardColumnTitle" style="margin-top: 10px;">System utilization</div>
+                <div class="boardColumnItem">CPU load: <span id="CPU_used"></span>%</div>
+                {% if platform == "Linux" %}
+                <div class="boardColumnItem">CPU temperature: <span id="CPU_temp"></span>°C</div>
+                {% endif %}
+                <div class="boardColumnItem">RAM use: <span id="RAM_used"></span>GB</div>
+                <div class="boardColumnItem">Disk used: <span id="DISK_used"></span>GB</div>
+              </div>
+            </div>
+            {% endif %}
             {% if current_user.is_authenticated %}
             <div class="board" style="min-height: 255px;">
               <a href="{{url_for('main.warnings_list')}}">
@@ -71,13 +91,15 @@
                 {% if light_data[ecosystem]["mode"] != "NA" %}
                 {% if light_data[ecosystem]["method"] == "fixed" %}
                 <div class="boardColumnItem">
-                  Light: from {{light_data[ecosystem]["morning_start"].strftime("%H:%M")}} to {{light_data[ecosystem]["evening_end"].strftime("%H:%M")}}
+                  Light: from {{moment(light_data[ecosystem]["morning_start"]).format("HH:mm")}}
+                  to {{moment(light_data[ecosystem]["evening_end"]).format("HH:mm")}}
                 </div>
                 {% elif light_data[ecosystem]["method"] == "elongate" %}
                 <div class="boardColumnItem">
                   Morning light:
                   {% if light_data[ecosystem]["morning_start"] < light_data[ecosystem]["morning_end"] %}
-                  from {{light_data[ecosystem]["morning_start"].strftime("%H:%M")}} to {{light_data[ecosystem]["morning_end"].strftime("%H:%M")}}
+                  from {{moment(light_data[ecosystem]["morning_start"]).format("HH:mm")}}
+                  to {{moment(light_data[ecosystem]["morning_end"]).format("HH:mm")}}
                   {% else %}
                   no lighting
                   {% endif %}
@@ -85,7 +107,8 @@
                 <div class="boardColumnItem">
                   Evening light:
                   {% if light_data[ecosystem]["evening_start"] < light_data[ecosystem]["evening_end"] %}
-                  from {{light_data[ecosystem]["evening_start"].strftime("%H:%M")}} to {{light_data[ecosystem]["evening_end"].strftime("%H:%M")}}
+                  from {{moment(light_data[ecosystem]["evening_start"]).format("HH:mm")}}
+                  to {{moment(light_data[ecosystem]["evening_end"]).format("HH:mm")}}
                   {% else %}
                   no lighting
                   {% endif %}
@@ -98,4 +121,10 @@
             {% endfor %}
             {% endif %}
           </div>
+          {% if current_user.is_administrator %}
+              <!-- Here add socketio to receive ask ping and server data-->
+          <script type="text/javascript">
+
+          </script>
+          {% endif %}
 {% endblock %}

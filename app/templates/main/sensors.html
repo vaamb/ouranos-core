@@ -56,9 +56,11 @@
         {% endif %}
 
         var {{measure}}{{sensor_id}}ChartData = {
-          labels: [{% for item in data[measure][sensor_id]["values"] %}
-                   "{{item[0]}}",
-                   {% endfor %}],
+          labels: [
+            {% for item in data[measure][sensor_id]["values"] %}
+              new Date("{{(item[0]).strftime("%Y-%m-%dT%H:%M:%SZ")}}"),  //formatting as ISO but with utc timezone added
+            {% endfor %}
+          ],
           datasets: [{
             label: "{{measure.capitalize()}}",
             data: [{% for item in data[measure][sensor_id]["values"] %}
@@ -82,7 +84,8 @@
               time: {
                 unit: "day",
                 unitStepSize: 1,
-                displayFormats: {"day": "ddd DD MMM"}
+                displayFormats: {"day": "ddd DD MMM"},
+                tooltipFormat: 'YYYY-MM-DD HH:mm',
               }
             }],
             yAxes: [{

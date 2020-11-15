@@ -1,5 +1,4 @@
-from datetime import date, datetime, timedelta
-import time
+from datetime import date, datetime, time, timedelta
 
 from flask import abort, current_app, redirect, render_template, url_for
 from flask_login import current_user, login_required
@@ -13,6 +12,12 @@ from app.wiki import simpleWiki
 
 
 warnings = {}
+
+
+def safe_t_to_dt(t):
+    if isinstance(t, time):
+        t = datetime.combine(date.today(), t)
+    return t
 
 
 def get_ecosystem_ids(ecosystem_name):
@@ -110,7 +115,6 @@ def menu_info():
 def to_home():
     return redirect(url_for("main.home"))
 
-
 @bp.route("/home")
 def home():
     def parse_moment(moment):
@@ -120,10 +124,10 @@ def home():
     light_data = {e.id: {"status": e.light.one().status,
                          "mode": e.light.one().mode,
                          "method": e.light.one().method,
-                         "morning_start": e.light.one().morning_start,
-                         "morning_end": e.light.one().morning_end,
-                         "evening_start" :e.light.one().evening_start,
-                         "evening_end": e.light.one().evening_end,
+                         "morning_start": safe_t_to_dt(e.light.one().morning_start),
+                         "morning_end": safe_t_to_dt(e.light.one().morning_end),
+                         "evening_start": safe_t_to_dt(e.light.one().evening_start),
+                         "evening_end": safe_t_to_dt(e.light.one().evening_end),
                          }
                   for e in logged_ecosystems}
     moments = {"sunrise": parse_moment(Outside.moments_data["sunrise"]),
@@ -132,7 +136,7 @@ def home():
     return render_template("main/home.html", title="Home",
                            weather_data=Outside.weather_data,
                            light_data=light_data,
-                           today=time.time(),
+                           today=date.today(),
                            moments=moments,
                            )
 
@@ -180,6 +184,8 @@ def switches(ecosystem_name):
         abort(404)
     ecosystem_ids = (Ecosystem.query.filter_by(name=ecosystem_name).
                      with_entities(Ecosystem.id, Ecosystem.name).one())
+    if ecosystem_ids[0] not in sensorsData:
+        abort(404)
     title = "{} switches control".format(ecosystem_ids[1])
     return render_template("main/switches.html", title=title,
                            ecosystem_ids=ecosystem_ids,
