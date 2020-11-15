@@ -53,8 +53,16 @@
                 {% if platform == "Linux" %}
                 <div class="boardColumnItem">CPU temperature: <span id="CPU_temp"></span>°C</div>
                 {% endif %}
-                <div class="boardColumnItem">RAM use: <span id="RAM_used"></span>GB</div>
-                <div class="boardColumnItem">Disk used: <span id="DISK_used"></span>GB</div>
+                <div class="boardColumnItem">
+                  RAM used:
+                    <span id="RAM_used"></span>GB /
+                    <span id="RAM_total"></span>GB
+                </div>
+                <div class="boardColumnItem">
+                  Disk used:
+                    <span id="DISK_used"></span>GB /
+                    <span id="DISK_total"></span>GB
+                </div>
               </div>
             </div>
             {% endif %}
@@ -122,9 +130,28 @@
             {% endif %}
           </div>
           {% if current_user.is_administrator %}
-              <!-- Here add socketio to receive ask ping and server data-->
           <script type="text/javascript">
+            $(document).ready(function() {
+              namespace = "/browser";
+              var socket = io(namespace);
 
+              function request_server_data() {
+                socket.emit('request_server_data');
+              };
+
+              request_server_data();
+              window.setInterval(request_server_data, 3000);
+
+              socket.on('server_data', function(msg) {
+                $('#CPU_used').text(Number(msg.CPU_used).toFixed(2));
+                $('#CPU_temp').text(Number(msg.CPU_temp).toFixed(2));
+                $('#RAM_total').text(Number(msg.RAM_total).toFixed(2));
+                $('#RAM_used').text(Number(msg.RAM_used).toFixed(2));
+                $('#DISK_total').text(Number(msg.DISK_total).toFixed(2));
+                $('#DISK_used').text(Number(msg.DISK_used).toFixed(2));
+                $('#uptime').text(msg.uptime);
+              });
+            });
           </script>
           {% endif %}
 {% endblock %}

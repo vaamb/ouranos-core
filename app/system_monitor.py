@@ -25,7 +25,7 @@ class systemMonitor:
         while True:
             _cache = {
                 "datetime": datetime.now(timezone.utc).replace(microsecond=0),
-                "CPU": psutil.cpu_percent(),
+                "CPU_used": psutil.cpu_percent(),
                 "RAM_total": round(psutil.virtual_memory()[0]/(1024*1024*1024), 2),
                 "RAM_used": round(psutil.virtual_memory()[3]/(1024*1024*1024), 2),
                 "DISK_total": round(psutil.disk_usage("/")[0]/(1024*1024*1024), 2),
@@ -82,7 +82,7 @@ def log_resources_data():
     data = systemMonitor.system_data
     system = System(
         datetime=data["datetime"],
-        CPU_used=data["CPU"],
+        CPU_used=data["CPU_used"],
         CPU_temp=data.get("CPU_temp", None),
         RAM_total=data["RAM_total"],
         RAM_used=data["RAM_used"],
