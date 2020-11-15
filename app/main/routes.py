@@ -1,4 +1,5 @@
 from datetime import date, datetime, time, timedelta
+import platform
 
 from flask import abort, current_app, redirect, render_template, url_for
 from flask_login import current_user, login_required
@@ -138,6 +139,7 @@ def home():
                            light_data=light_data,
                            today=date.today(),
                            moments=moments,
+                           platform=platform.system(),
                            )
 
 
