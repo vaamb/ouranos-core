@@ -4,9 +4,10 @@
 {% block info %}{% endblock %}
 
 {% block content %}
-  <button id="On" class="weatherButton">On</button>
-  <button id="Off" class="weatherButton">Off</button>
-  <button id="Auto" class="weatherButton">Auto</button>
+  {% if current_user.is_operator %}
+  <button id="On" title="Turn lights on">On</button>
+  <button id="Off" title="Turn lights on">Off</button>
+  <button id="Auto" title="Turn lights to automatic mode">Auto</button>
 
   <script type="text/javascript">
     $(document).ready(function() {
@@ -27,4 +28,9 @@
       });
     });
   </script>
+  {% else %}
+  <button id="On" disabled title="You need to be an operator to turn lights on">On</button>
+  <button id="Off" disabled title="You need to be an operator to turn lights off">Off</button>
+  <button id="Auto" disabled title="You need to be an operator to turn lights to automatic mode">Auto</button>
+  {% endif %}
 {% endblock %}

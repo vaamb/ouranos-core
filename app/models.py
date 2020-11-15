@@ -98,10 +98,6 @@ class User(UserMixin, db.Model):
             else:
                 self.role = Role.query.filter_by(default=True).first()
 
-    def __repr__(self):
-        return "<User {} | {} {} | {}>".fdbat(
-            self.username, self.firstname, self.lastname, self.email)
-
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 
@@ -110,6 +106,11 @@ class User(UserMixin, db.Model):
 
     def can(self, perm):
         return self.role is not None and self.role.has_permission(perm)
+
+    # properties for easy jinja2 templates
+    @property
+    def is_operator(self):
+        return self.can(Permission.OPERATE)
 
     @property
     def is_administrator(self):
@@ -123,6 +124,11 @@ class User(UserMixin, db.Model):
 
 class AnonymousUser(AnonymousUserMixin):
     def can(self):
+        return False
+
+    # properties for easy jinja2 templates
+    @property
+    def is_operator(self):
         return False
 
     @property
