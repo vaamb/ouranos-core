@@ -4,13 +4,13 @@
 {% block info %}{% endblock %}
 
 {% block content %}
-  {% for measure in ['CPU', 'CPU_temp', 'RAM_used', 'DISK_used'] %}
+  {% for measure in ['CPU_used', 'CPU_temp', 'RAM_used', 'DISK_used'] %}
     {% if measure in system_measures %}
     <div class="board" style="height: 230px;">
-      <div class="boardHeader">     
+      <div class="boardHeader">
         <i class="{{parameters['server']['icon'][measure]}} leftico"></i>
         {{parameters["server"]["measure"][measure]}}
-      </div> 
+      </div>
       <div class="boardRowContainer" style="height: 183px;">
         <div class="sensorGauge">
           <canvas id="{{measure}}Gauge"></canvas> {{system_data[measure]}}{{parameters['server']['unit'][measure]}}
@@ -43,7 +43,7 @@
       var target = document.getElementById('{{measure}}Gauge');  // your canvas element
       var gauge = new Gauge(target).setOptions(gaugeOpts);       // create sexy gauge!
       gauge.maxValue =
-        {% if measure == 'CPU' %}
+        {% if measure == 'CPU_used' %}
           100
         {% elif measure == 'CPU_temp' %}
           75
@@ -58,11 +58,11 @@
 
       var {{measure}}ChartData = {
         labels: [{% for item in data %}
-                   "{{item[0]}}",
+                   new Date("{{(item[0]).strftime("%Y-%m-%dT%H:%M:%SZ")}}"),
                  {% endfor %}],
         datasets: [{
           label:
-          {% if measure == 'CPU' %}
+          {% if measure == 'CPU_used' %}
             "CPU usage"
           {% elif measure == 'CPU_temp' %}
             "CPU temperature"
@@ -92,7 +92,8 @@
             time: {
               unit: "day",
               unitStepSize: 1,
-              displayFormats: {"day": "ddd DD MMM"}
+              displayFormats: {"day": "ddd DD MMM"},
+              tooltipFormat: 'YYYY-MM-DD HH:mm',
             }
           }],
           yAxes: [{
@@ -100,7 +101,7 @@
             ticks: {
               beginAtZero: true,
               suggestedMax:
-                {% if measure == 'CPU' %}
+                {% if measure == 'CPU_used' %}
                   100
                 {% elif measure == 'CPU_temp' %}
                   75
@@ -110,7 +111,7 @@
                   {{system_data['DISK_total']}}
                 {% endif %},
               steps:
-                {% if measure == 'CPU' %}
+                {% if measure == 'CPU_used' %}
                   10
                 {% elif measure == 'CPU_temp' %}
                   10

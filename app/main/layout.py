@@ -23,11 +23,11 @@ parameters = {
         "max_value": {"green": 1000, "necrosis": 100, "index": 100},
     },
     "server": {
-        "measure": {"CPU": "CPU load", "CPU_temp": "CPU temperature", "RAM_used": "RAM usage", "DISK_used": "Disk space used"},
-        "color": {"CPU": "#307a41", "CPU_temp": "#307a41", "RAM_used": "#913639", "DISK_used": "#e9c429"},
-        "icon": {"CPU": "fas fa-microchip", "CPU": "fas fa-fire", "RAM_used": "fas fa-memory", "DISK_used": "fas fa-database"},
-        "unit": {"CPU": "%", "CPU_temp": "°C", "RAM_used": "GB", "DISK_used": "GB"},
-        "list_index": {"CPU": 1, "CPU_temp": 2, "RAM_used": 3, "DISK_used": 5},
+        "measure": {"CPU_used": "CPU load", "CPU_temp": "CPU temperature", "RAM_used": "RAM usage", "DISK_used": "Disk space used"},
+        "color": {"CPU_used": "#307a41", "CPU_temp": "#307a41", "RAM_used": "#913639", "DISK_used": "#e9c429"},
+        "icon": {"CPU_used": "fas fa-microchip", "CPU_temp": "fas fa-fire", "RAM_used": "fas fa-memory", "DISK_used": "fas fa-database"},
+        "unit": {"CPU_used": "%", "CPU_temp": "°C", "RAM_used": "GB", "DISK_used": "GB"},
+        "list_index": {"CPU_used": 1, "CPU_temp": 2, "RAM_used": 3, "DISK_used": 5},
     },
     
 }

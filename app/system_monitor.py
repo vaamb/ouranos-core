@@ -32,10 +32,9 @@ class systemMonitor:
                 "DISK_used": round(psutil.disk_usage("/")[1]/(1024*1024*1024), 2)
             }
             try:
-                _cache["CPU_temp"] = (psutil.sensors_temperatures()
-                                            .get("cpu-thermal", {})
-                                            .get(0, {}).get(1))
-            except AttributeError:
+                _cache["CPU_temp"] = round(psutil.sensors_temperatures()
+                                                 .get("cpu_thermal")[0][1], 2)
+            except (AttributeError, KeyError):
                 pass
             self._data = _cache
             self.stopEvent.wait(5)
