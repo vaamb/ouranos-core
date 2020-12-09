@@ -18,16 +18,18 @@ base_dir = os.path.abspath(os.path.dirname(__file__))
 
 class Config(privateConfig):
     APP_NAME = "gaiaWeb"
+
     # Flask config
     DEBUG = False
     TESTING = False
     SECRET_KEY = os.environ.get("SECRET_KEY") or "BXhNmCEmNdoBNngyGXj6jJtooYAcKpt6"
 
     # SQLAlchemy config
-    SQLALCHEMY_DATABASE_URI = "sqlite:///" + os.path.join(base_dir, "app.db")
-    # os.environ.get("DATABASE_URL") or \
-
-    # SQLALCHEMY_DATABASE_URI = "mysql://Sensors:Adansonia7!@localhost/Gaia"
+    SQLALCHEMY_DATABASE_URI = "sqlite:///" + os.path.join(base_dir, "db_main.db")
+    SQLALCHEMY_BINDS = {
+        "users": "sqlite:///" + os.path.join(base_dir, "db_users.db"),
+        "archive": "sqlite:///" + os.path.join(base_dir, "db_archive.db")
+    }
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_RECORD_QUERIES = True
     SLOW_DB_QUERY_TIME = 0.5
@@ -69,12 +71,12 @@ class ProductionConfig(Config):
 
 
 def configure_logging():
-    DEBUG = False
+    DEBUG = True
     LOG_TO_STDOUT = True
     handler = "streamHandler"
     if not LOG_TO_STDOUT:
-        if not os.path.exists("logs"):
-            os.mkdir("logs")
+        if not os.path.exists(base_dir/"logs"):
+            os.mkdir(base_dir/"logs")
         handler = "fileHandler"
 
     LOGGING_CONFIG = {
@@ -96,15 +98,6 @@ def configure_logging():
                 "level": f"{'DEBUG' if DEBUG else 'INFO'}",
                 "formatter": "streamFormat",
                 "class": "logging.StreamHandler",
-            },
-            "fileHandler": {
-                "level": f"{'DEBUG' if DEBUG else 'INFO'}",
-                "formatter": "fileFormat",
-                "class": "logging.handlers.RotatingFileHandler",
-                "filename": "logs/gaia.log",
-                "mode": "w",
-                "maxBytes": 1024 * 32,
-                "backupCount": 5,
             },
         },
 

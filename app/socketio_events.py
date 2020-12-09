@@ -1,4 +1,4 @@
-from datetime import datetime, time, timedelta, timezone
+from datetime import datetime, time, timezone
 import logging
 
 from flask import current_app, request
@@ -7,7 +7,7 @@ from flask_socketio import join_room, leave_room
 from app import app_name, db, scheduler, sio
 from app.common.utils import human_delta_time
 from app.dataspace import ecosystems_connected, healthData, sensorsData, systemMonitor
-from app.models import Data, Ecosystem, Hardware, Health, Light
+from app.models import sensorData, Ecosystem, Hardware, Health, Light
 from config import Config
 
 
@@ -56,16 +56,21 @@ def request_light_and_health(room="engineManagers"):
 def gaia_background_thread(app):
     with app.app_context():
         while True:
+            sio.emit("ping", namespace="/gaia", room="engineManagers")
+            sio.sleep(15)
+
+
+"""
+def gaia_background_thread(app):
+    with app.app_context():
+        while True:
             sio.sleep(60)
             for manager in list(_managers.keys()):
                 if _managers[manager]["last_seen"] < (datetime.now(timezone.utc) -
                                                       timedelta(minutes=2)):
                     del _managers[manager]
-            for ecosystem_uid in list(sensorsData.keys()):
-                if sensorsData[ecosystem_uid]["datetime"] < (datetime.now(timezone.utc) -
-                                                             timedelta(minutes=4)):
-                    pass
                     # TODO: remove ecosystem from sensorsData if not seen for Config.ECOSYSTEM_TIMEOUT
+"""
 
 
 # ---------------------------------------------------------------------------
@@ -89,6 +94,15 @@ def disconnect():
     remote_port = request.environ["REMOTE_PORT"]
     leave_room("engineManagers")
     sio_logger.info(f"disconnect {remote_addr}:{remote_port}")
+
+
+@sio.on("pong", namespace="/gaia")
+def gaia_pong(data):
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    for ecosystem_uid in data:
+        ecosystem = Ecosystem.query.filter_by(id=ecosystem_uid).one()
+        ecosystem.last_seen = now
+        db.session.commit()
 
 
 @sio.on("register_manager", namespace="/gaia")
@@ -149,6 +163,7 @@ def update_cfg(config):
             humidity_hysteresis=config[ecosystem_id]["environment"]["hysteresis"]["humidity"]
         )
         db.session.merge(ecosystem)
+
         #TODO: first delete all hardware present there before, so if delete in config, deleted here too
         for hardware_id in config[ecosystem_id]["IO"]:
             hardware = Hardware(
@@ -179,14 +194,15 @@ def update_sensors_data(data):
                             f"{manager_uid}")
             for sensor_id in data[ecosystem_id]["data"]:
                 for measure in data[ecosystem_id]["data"][sensor_id]:
-                    sensor = Data(
+                    sensor_data = sensorData(
                         ecosystem_id=ecosystem_id,
                         sensor_id=sensor_id,
                         measure=measure,
                         datetime=dt,
                         value=data[ecosystem_id]["data"][sensor_id][measure],
                     )
-                    db.session.add(sensor)
+                    Hardware.query.filter_by(id=sensor_id).one().last_log = dt
+                    db.session.add(sensor_data)
     db.session.commit()
 
 
@@ -307,6 +323,7 @@ def turn_light_auto(message):
     ecosystem_id = message["ecosystem"]
     sio_logger.debug(f"Dispatching 'turn_light_auto' signal to ecosystem {ecosystem_id}")
     sid = get_manager_sid(ecosystem_id)
-    sio.emit("turn_light_auto", {"ecosystem": ecosystem_id}, namespace="/gaia", room=sid)
+    sio.emit("turn_light_auto", {"ecosystem": ecosystem_id},
+             namespace="/gaia", room=sid)
     return False
 

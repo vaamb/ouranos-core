@@ -13,6 +13,7 @@ from flask_socketio import SocketIO
 from config import Config
 
 
+
 app_name = Config.APP_NAME
 root_path = Path(__file__).absolute().parents[0]
 
@@ -27,7 +28,7 @@ moment = Moment()
 
 
 def create_app(config_class=Config):
-    logger.info(f"Initializing Flask app...")
+    logger.info("Initializing Flask app...")
     app = Flask(app_name, root_path=root_path)
 
     app.config.from_object(config_class)
@@ -39,11 +40,14 @@ def create_app(config_class=Config):
 
     db.init_app(app)
 
-    from app.models import Role
+    from app.models import Role, Service
     with app.app_context():
-        # db.create_all()
-        Role.insert_roles()
-
+        try:
+            db.create_all()
+            Role.insert_roles()
+            Service.insert_services()
+        except Exception as e:
+            print(e)
     migrate.init_app(app, db)
     login_manager.init_app(app)
     sio.init_app(app)
@@ -57,7 +61,7 @@ def create_app(config_class=Config):
     from app.errors import bp as errors_bp
     app.register_blueprint(errors_bp)
 
-    from .auth import bp as auth_bp
+    from app.auth import bp as auth_bp
     app.register_blueprint(auth_bp)
 
     from app.main import bp as main_bp
@@ -74,6 +78,6 @@ def create_app(config_class=Config):
     from app import notifications
     from app import socketio_events
 
-    logger.info(f"Flask app successfully initialized")
+    logger.info("Flask app successfully initialized")
 
     return app

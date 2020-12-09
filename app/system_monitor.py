@@ -21,7 +21,7 @@ class systemMonitor:
         self.stopEvent = Event()
         self.started = False
 
-    def _loop(self):
+    def _loop(self) -> None:
         while True:
             _cache = {
                 "datetime": datetime.now(timezone.utc).replace(microsecond=0),
@@ -41,7 +41,7 @@ class systemMonitor:
             if self.stopEvent.isSet():
                 break
 
-    def start(self):
+    def start(self) -> None:
         if not self.started:
             self.stopEvent.clear()
             self.thread = Thread(target=self._loop)
@@ -50,18 +50,19 @@ class systemMonitor:
         else:
             raise RuntimeError
 
-    def stop(self):
+    def stop(self) -> None:
         if self.started:
             self.stopEvent.set()
             self.thread.join()
             self.thread = None
             self.started = False
 
-    def status(self):
+    @property
+    def status(self) -> bool:
         return self.started
 
     @property
-    def system_data(self):
+    def system_data(self) -> dict:
         return self._data
 
 
@@ -76,7 +77,7 @@ systemMonitor.start()
                          minute=f"*/{Config.SYSTEM_LOGGING_FREQUENCY}",
                          second=1+SYSTEM_UPDATE_FREQUENCY,
                          misfire_grace_time=1*60)
-def log_resources_data():
+def log_resources_data() -> None:
     collector.debug("Logging system resources")
     data = systemMonitor.system_data
     system = System(

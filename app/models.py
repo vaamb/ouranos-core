@@ -1,17 +1,23 @@
-from datetime import datetime, time
+from datetime import datetime, time, timedelta, timezone
 from hashlib import md5
 
+import sqlalchemy as sa
 from flask import current_app
 from flask_login import AnonymousUserMixin, UserMixin
-import sqlalchemy as sa
 from sqlalchemy import orm
+from sqlalchemy.ext.declarative import declared_attr
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app import db, login_manager
 
 
+def old_data_limit() -> datetime:
+    now_utc = datetime.now(timezone.utc)
+    return (now_utc - timedelta(days=45)).replace(tzinfo=None)
+
+
 # ---------------------------------------------------------------------------
-#   Users-related models
+#   Users-related models, located in db_users
 # ---------------------------------------------------------------------------
 class Permission:
     VIEW = 1
@@ -22,6 +28,7 @@ class Permission:
 
 class Role(db.Model):
     __tablename__ = "roles"
+    __bind_key__ = "users"
     id = sa.Column(sa.Integer, primary_key=True)
     name = sa.Column(sa.String(64), unique=True)
     default = sa.Column(sa.Boolean, default=False, index=True)
@@ -76,6 +83,7 @@ class Role(db.Model):
 
 class User(UserMixin, db.Model):
     __tablename__ = "users"
+    __bind_key__ = "users"
     id = sa.Column(sa.Integer, primary_key=True)
     username = sa.Column(sa.String(64), index=True, unique=True)
     email = sa.Column(sa.String(120), index=True, unique=True)
@@ -146,13 +154,49 @@ def load_user(id):
 
 
 # ---------------------------------------------------------------------------
-#   Ecosystems-related models
+#   Base models common to main app and archive
+# ---------------------------------------------------------------------------
+class baseData(db.Model):
+    __abstract__ = True
+    row_id = sa.Column(sa.Integer, primary_key=True)
+    measure = sa.Column(sa.Integer, index=True)
+    datetime = sa.Column(sa.DateTime, index=True)
+    value = sa.Column(sa.Float(precision=2))
+
+    @declared_attr
+    def ecosystem_id(cls):
+        return sa.Column(sa.String(length=8), sa.ForeignKey("ecosystems.id"),
+                         index=True)
+
+    @declared_attr
+    def sensor_id(cls):
+        return sa.Column(sa.String(length=16), sa.ForeignKey("hardware.id"),
+                         index=True)
+
+
+class baseHealth(db.Model):
+    __abstract__ = True
+    row_id = sa.Column(sa.Integer, primary_key=True)
+    datetime = sa.Column(sa.DateTime, nullable=False)
+    green = sa.Column(sa.Integer)
+    necrosis = sa.Column(sa.Integer)
+    health_index = sa.Column(sa.Float(precision=1))
+
+    @declared_attr
+    def ecosystem_id(cls):
+        return sa.Column(sa.String(length=8), sa.ForeignKey("ecosystems.id"),
+                         index=True)
+
+
+# ---------------------------------------------------------------------------
+#   Main app-related models, located in db_main and db_archive
 # ---------------------------------------------------------------------------
 class Ecosystem(db.Model):
     __tablename__ = "ecosystems"
-    id = sa.Column(sa.String(8), primary_key=True)
-    name = sa.Column(sa.String(32))
+    id = sa.Column(sa.String(length=8), primary_key=True)
+    name = sa.Column(sa.String(length=32))
     status = sa.Column(sa.Boolean, default=False)
+    last_seen = sa.Column(sa.DateTime)
 
     lighting = sa.Column(sa.Boolean, default=False)
     watering = sa.Column(sa.Boolean, default=False)
@@ -160,7 +204,7 @@ class Ecosystem(db.Model):
     health = sa.Column(sa.Boolean, default=False)
     alarms = sa.Column(sa.Boolean, default=False)
 
-    webcam = sa.Column(sa.String(8))
+    webcam = sa.Column(sa.String(length=8))
 
     day_start = sa.Column(sa.Time, default=time(8, 00))
     day_temperature = sa.Column(sa.Float(precision=1), default=22.0)
@@ -175,28 +219,30 @@ class Ecosystem(db.Model):
     temperature_hysteresis = sa.Column(sa.Float(precision=1), default=1.0)
     humidity_hysteresis = sa.Column(sa.Integer, default=1.0)
     light_hysteresis = sa.Column(sa.Integer, default=0.0)
+
     # relationship
     hardware = orm.relationship("Hardware", back_populates="ecosystem", lazy="dynamic")
     # plants = orm.relationship("Plant", back_populates="ecosystem")
-    data = orm.relationship("Data", back_populates="ecosystem", lazy="dynamic")
+    data = orm.relationship("sensorData", back_populates="ecosystem", lazy="dynamic")
     health_data = orm.relationship("Health", back_populates="ecosystem", lazy="dynamic")
     light = orm.relationship("Light", back_populates="ecosystem", lazy="dynamic")
 
 
 class Hardware(db.Model):
     __tablename__ = "hardware"
-    id = sa.Column(sa.String(32), primary_key=True)
-    ecosystem_id = sa.Column(sa.String(8), sa.ForeignKey("ecosystems.id"))
-    name = sa.Column(sa.String(32))
-    level = sa.Column(sa.String(16))
+    id = sa.Column(sa.String(length=32), primary_key=True)
+    ecosystem_id = sa.Column(sa.String(length=8), sa.ForeignKey("ecosystems.id"))
+    name = sa.Column(sa.String(length=32))
+    level = sa.Column(sa.String(length=16))
     pin = sa.Column(sa.Integer)
-    type = sa.Column(sa.String(16))
-    model = sa.Column(sa.String(32))
+    type = sa.Column(sa.String(length=16))
+    model = sa.Column(sa.String(length=32))
+    last_log = sa.Column(sa.DateTime)
     # plant_id = sa.Column(sa.String(8), sa.ForeignKey("plants.id"))
     # relationship
     ecosystem = orm.relationship("Ecosystem", back_populates="hardware")
     # plants = orm.relationship("Plant", back_populates="sensors")
-    data = orm.relationship("Data", back_populates="sensor", lazy="dynamic")
+    data = orm.relationship("sensorData", back_populates="sensor", lazy="dynamic")
 
 
 sa.Index("idx_sensors_type", Hardware.type, Hardware.level)
@@ -220,61 +266,86 @@ class Plant(db.Model):
 """
 
 
-class Data(db.Model):
-    __tablename__ = "data"
-    row_id = sa.Column(sa.Integer, primary_key=True)
-    ecosystem_id = sa.Column(sa.String(8), sa.ForeignKey("ecosystems.id"), index=True)
-    sensor_id = sa.Column(sa.String(16), sa.ForeignKey("hardware.id"), index=True)
-    measure = sa.Column(sa.Integer, index=True)
-    datetime = sa.Column(sa.DateTime, index=True)
-    value = sa.Column(sa.Float(precision=2))
+class sensorData(baseData):
+    __tablename__ = "sensor_data"
+
     # relationships
     ecosystem = orm.relationship("Ecosystem", back_populates="data")
     sensor = orm.relationship("Hardware", back_populates="data")
 
+    @staticmethod
+    def archive():
+        pass
+        # TODO
+
 
 class Light(db.Model):
     __tablename__ = "light"
-    ecosystem_id = sa.Column(sa.String(8), sa.ForeignKey("ecosystems.id"), primary_key=True)
+    ecosystem_id = sa.Column(sa.String(length=8), sa.ForeignKey("ecosystems.id"), primary_key=True)
     status = sa.Column(sa.Boolean)
-    mode = sa.Column(sa.String(12))
-    method = sa.Column(sa.String(12))
+    mode = sa.Column(sa.String(length=12))
+    method = sa.Column(sa.String(length=12))
     morning_start = sa.Column(sa.Time)
     morning_end = sa.Column(sa.Time)
     evening_start = sa.Column(sa.Time)
     evening_end = sa.Column(sa.Time)
+
     # relationships
     ecosystem = orm.relationship("Ecosystem", back_populates="light")
 
 
-class Health(db.Model):
+class Health(baseHealth):
     __tablename__ = "health"
-    row_id = sa.Column(sa.Integer, primary_key=True)
-    ecosystem_id = sa.Column(sa.String(8), sa.ForeignKey("ecosystems.id"))
-    datetime = sa.Column(sa.DateTime, nullable=False)
-    green = sa.Column(sa.Integer)
-    necrosis = sa.Column(sa.Integer)
-    health_index = sa.Column(sa.Float(precision=1))
+
     # relationships
     ecosystem = orm.relationship("Ecosystem", back_populates="health_data")
-
 
 class System(db.Model):
     __tablename__ = "system"
     row_id = sa.Column(sa.Integer, primary_key=True)
     datetime = sa.Column(sa.DateTime, nullable=False)
     CPU_used = sa.Column(sa.Float(precision=1))
-    CPU_temp = sa.Column(sa.Integer)
+    CPU_temp = sa.Column(sa.Float(precision=1))
     RAM_total = sa.Column(sa.Float(precision=2))
     RAM_used = sa.Column(sa.Float(precision=2))
     DISK_total = sa.Column(sa.Float(precision=2))
     DISK_used = sa.Column(sa.Float(precision=2))
 
 
-"""
 class Service(db.Model):
     __tablename__ = "services"
+    name = sa.Column(sa.String(length=16), primary_key=True)
+    status = sa.Column(sa.Boolean, default=False)
+
+    @staticmethod
+    def insert_services():
+        services = ["telegram"]
+        for s in services:
+            service = Service.query.filter_by(name=s).first()
+            if service is None:
+                service = Service(name=s)
+            db.session.add(service)
+        db.session.commit()
+
+
+class Warning(db.Model):
+    __tablename__ = "warnings"
     row_id = sa.Column(sa.Integer, primary_key=True)
-    webcam = sa.Column(sa.Boolean)
-    notifications = sa.Column(sa.String(16))
-"""
+    datetime = sa.Column(sa.DateTime, nullable=False)
+    level = sa.Column(sa.Integer)
+    message = sa.Column(sa.String)
+    seen = sa.Column(sa.Boolean)
+    solved = sa.Column(sa.Boolean)
+
+
+# ---------------------------------------------------------------------------
+#   Models used for archiving, located in db_archive
+# ---------------------------------------------------------------------------
+class archiveData(baseData):
+    __tablename__ = "data_archive"
+    __bind_key__ = "archive"
+
+
+class archiveHealth(baseHealth):
+    __tablename__ = "health_archive"
+    __bind_key__ = "archive"
