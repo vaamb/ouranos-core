@@ -32,7 +32,7 @@ def logout():
     logout_user()
     return redirect(url_for('main.home'))
 
-# TODO: auto log after register
+
 @bp.route('/register', methods=['GET', 'POST'])
 def register():
     if current_user.is_authenticated:
@@ -46,6 +46,7 @@ def register():
         user.set_password(form.password.data)
         db.session.add(user)
         db.session.commit()
-        flash('You are now registered user!')
+        flash(f"You are now registered {form.username.data}!")
+        login_user(user)
         return redirect(url_for('auth.login'))
     return render_template('auth/register.html', title='Register', form=form)
