@@ -6,7 +6,7 @@
 {% block content %}
   <div class="subtitleFix"></div>
   {% for measure in data %}
-    <h2>{{measure.capitalize()}}</h2>
+    <h2>{{measure.capitalize()|removeUnderscores}}</h2>
     {% for sensor_id in data[measure] %}
       {% if data[measure][sensor_id]["values"]|length > 1 %}
       <div class="board" style="height: 230px;">

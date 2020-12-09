@@ -3,6 +3,11 @@ from datetime import datetime
 from app.main import bp
 
 
+@bp.app_template_filter('removeUnderscores')
+def remove_underscores(s: str):
+    return s.replace("_", " ")
+
+
 @bp.app_template_filter('getDay')
 def get_day(s):
     return datetime.fromtimestamp(s).strftime("%A %d %B")
