@@ -19,7 +19,7 @@ SYSTEM_UPDATE_FREQUENCY = 5
 
 
 # ---------------------------------------------------------------------------
-#   Background tasks
+#   Data requests to engineManagers
 # ---------------------------------------------------------------------------
 @scheduler.scheduled_job(id="sensors_data", trigger="cron", minute="*",
                          misfire_grace_time=10)
@@ -57,19 +57,6 @@ def gaia_background_thread(app):
             sio.sleep(15)
 
 
-"""
-def gaia_background_thread(app):
-    with app.app_context():
-        while True:
-            sio.sleep(60)
-            for manager in list(_managers.keys()):
-                if _managers[manager]["last_seen"] < (datetime.now(timezone.utc) -
-                                                      timedelta(minutes=2)):
-                    del _managers[manager]
-                    # TODO: remove ecosystem from sensorsData if not seen for Config.ECOSYSTEM_TIMEOUT
-"""
-
-
 # ---------------------------------------------------------------------------
 #   SocketIO events coming from engineManagers
 # ---------------------------------------------------------------------------
@@ -82,7 +69,8 @@ def connect_on_gaia():
     if gaia_thread is None:
         gaia_thread = []
         app = current_app._get_current_object()
-        gaia_thread.append(sio.start_background_task(gaia_background_thread, app=app))
+        gaia_thread.append(sio.start_background_task(
+            gaia_background_thread, app=app))
 
 
 @sio.on("disconnect", namespace="/gaia")
@@ -106,13 +94,13 @@ def gaia_pong(data):
 def registerManager(data):
     remote_addr = request.environ["REMOTE_ADDR"]
     remote_port = request.environ["REMOTE_PORT"]
-    sio_logger.info(f"Received manager registration request from manager {data['uid']} " +
-                    f"from {remote_addr}:{remote_port}")
-    manager = engineManager(uid=data["uid"],
-                            sid=request.sid)
+    sio_logger.info(f"Received manager registration request from manager: "
+                    f"{data['uid']}, with address {remote_addr}:{remote_port}")
+    manager = engineManager(uid=data["uid"], sid=request.sid)
     db.session.merge(manager)
     db.session.commit()
     join_room("engineManagers")
+
     request_config(request.sid)
     request_sensors_data(request.sid)
     request_light_data(request.sid)
@@ -145,10 +133,14 @@ def update_cfg(config):
             health=config[ecosystem_id]["management"]["health"],
             alarms=config[ecosystem_id]["management"]["alarms"],
             webcam=config[ecosystem_id]["webcam"].get("model", "No"),
-            day_start=datetime.strptime(config[ecosystem_id]["environment"]["day"]["start"], "%Hh%M").time(),
+            day_start=datetime.strptime(
+                config[ecosystem_id]["environment"]["day"]["start"], "%Hh%M"
+            ).time(),
             day_temperature=config[ecosystem_id]["environment"]["day"]["temperature"]["target"],
             day_humidity=config[ecosystem_id]["environment"]["day"]["humidity"]["target"],
-            night_start=datetime.strptime(config[ecosystem_id]["environment"]["night"]["start"], "%Hh%M").time(),
+            night_start=datetime.strptime(
+                config[ecosystem_id]["environment"]["night"]["start"], "%Hh%M"
+            ).time(),
             night_temperature=config[ecosystem_id]["environment"]["night"]["temperature"]["target"],
             night_humidity=config[ecosystem_id]["environment"]["night"]["humidity"]["target"],
             temperature_hysteresis=config[ecosystem_id]["environment"]["hysteresis"]["temperature"],
@@ -219,10 +211,14 @@ def update_light_data(data):
     sio_logger.debug(f"Received 'light_data' from {manager.uid}")
     for ecosystem_id in data:
         if data[ecosystem_id].get("lighting_hours"):
-            morning_start = time.fromisoformat(data[ecosystem_id]["lighting_hours"]["morning_start"])
-            morning_end = time.fromisoformat(data[ecosystem_id]["lighting_hours"]["morning_end"])
-            evening_start = time.fromisoformat(data[ecosystem_id]["lighting_hours"]["evening_start"])
-            evening_end = time.fromisoformat(data[ecosystem_id]["lighting_hours"]["evening_end"])
+            morning_start = time.fromisoformat(
+                data[ecosystem_id]["lighting_hours"]["morning_start"])
+            morning_end = time.fromisoformat(
+                data[ecosystem_id]["lighting_hours"]["morning_end"])
+            evening_start = time.fromisoformat(
+                data[ecosystem_id]["lighting_hours"]["evening_start"])
+            evening_end = time.fromisoformat(
+                data[ecosystem_id]["lighting_hours"]["evening_end"])
         else:
             morning_start = morning_end = evening_start = evening_end = None
         light = Light(
@@ -261,7 +257,8 @@ def connect_on_browser():
     global browser_thread
     if browser_thread is None:
         app = current_app._get_current_object()
-        browser_thread = sio.start_background_task(browser_background_thread, app=app)
+        browser_thread = sio.start_background_task(
+            browser_background_thread, app=app)
 
 
 @sio.on("request_server_data", namespace="/browser")
@@ -270,7 +267,8 @@ def send_server_data():
     incoming_sid = request.sid
     data = dict(systemMonitor.system_data)
     del data["datetime"]
-    data.update({"uptime": human_delta_time(START_TIME, datetime.now(timezone.utc))})
+    data.update({"uptime": human_delta_time(
+        START_TIME, datetime.now(timezone.utc))})
     sio.emit("server_data", data, namespace="/browser", room=incoming_sid)
 
 
@@ -286,7 +284,8 @@ def turn_light_on(message):
     sid = Ecosystem.query.filter_by(id=ecosystem_id).one().manager.sid
     countdown = message.get("countdown", False)
     sio_logger.debug(f"Dispatching 'turn_light_on' signal to ecosystem {ecosystem_id}")
-    sio.emit("turn_light_on", {"ecosystem": ecosystem_id, "countdown": countdown},
+    sio.emit("turn_light_on",
+             {"ecosystem": ecosystem_id, "countdown": countdown},
              namespace="/gaia", room=sid)
     return False
 
@@ -297,7 +296,8 @@ def turn_light_off(message):
     sid = Ecosystem.query.filter_by(id=ecosystem_id).one().manager.sid
     countdown = message.get("countdown", False)
     sio_logger.debug(f"Dispatching 'turn_light_off' signal to ecosystem {ecosystem_id}")
-    sio.emit("turn_light_off", {"ecosystem": ecosystem_id, "countdown": countdown},
+    sio.emit("turn_light_off",
+             {"ecosystem": ecosystem_id, "countdown": countdown},
              namespace="/gaia", room=sid)
     return False
 
@@ -306,7 +306,9 @@ def turn_light_off(message):
 def turn_light_auto(message):
     ecosystem_id = message["ecosystem"]
     sid = Ecosystem.query.filter_by(id=ecosystem_id).one().manager.sid
+    countdown = message.get("countdown", False)
     sio_logger.debug(f"Dispatching 'turn_light_auto' signal to ecosystem {ecosystem_id}")
-    sio.emit("turn_light_auto", {"ecosystem": ecosystem_id},
+    sio.emit("turn_light_auto",
+             {"ecosystem": ecosystem_id, "countdown": countdown},
              namespace="/gaia", room=sid)
     return False
