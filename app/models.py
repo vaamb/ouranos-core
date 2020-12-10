@@ -95,6 +95,7 @@ class User(UserMixin, db.Model):
     last_seen = sa.Column(sa.DateTime, default=datetime.utcnow)
     notifications = sa.Column(sa.Boolean, default=False)
     telegram_chat_id = sa.Column(sa.String(16), unique=True)
+
     # relationship
     role = orm.relationship("Role", back_populates="users")
 
@@ -191,6 +192,15 @@ class baseHealth(db.Model):
 # ---------------------------------------------------------------------------
 #   Main app-related models, located in db_main and db_archive
 # ---------------------------------------------------------------------------
+class engineManager(db.Model):
+    __tablename__ = "engine_managers"
+    uid = sa.Column(sa.String(length=16), primary_key=True)
+    sid = sa.Column(sa.String(length=32))
+
+    # relationship
+    ecosystem = orm.relationship("Ecosystem", back_populates="manager", lazy="dynamic")
+
+
 class Ecosystem(db.Model):
     __tablename__ = "ecosystems"
     id = sa.Column(sa.String(length=8), primary_key=True)
@@ -220,7 +230,10 @@ class Ecosystem(db.Model):
     humidity_hysteresis = sa.Column(sa.Integer, default=1.0)
     light_hysteresis = sa.Column(sa.Integer, default=0.0)
 
+    manager_uid = sa.Column(sa.Integer, sa.ForeignKey("engine_managers.uid"))
+
     # relationship
+    manager = orm.relationship("engineManager", back_populates="ecosystem")
     hardware = orm.relationship("Hardware", back_populates="ecosystem", lazy="dynamic")
     # plants = orm.relationship("Plant", back_populates="ecosystem")
     data = orm.relationship("sensorData", back_populates="ecosystem", lazy="dynamic")
@@ -239,6 +252,7 @@ class Hardware(db.Model):
     model = sa.Column(sa.String(length=32))
     last_log = sa.Column(sa.DateTime)
     # plant_id = sa.Column(sa.String(8), sa.ForeignKey("plants.id"))
+
     # relationship
     ecosystem = orm.relationship("Ecosystem", back_populates="hardware")
     # plants = orm.relationship("Plant", back_populates="sensors")

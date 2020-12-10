@@ -9,7 +9,6 @@ lock = Lock()
 Outside = Outside()
 Outside.start()
 
-ecosystems_connected = {}
 sensorsData = {}
 healthData = {}
 systemData = {}
