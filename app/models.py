@@ -157,6 +157,7 @@ def load_user(id):
 # ---------------------------------------------------------------------------
 #   Base models common to main app and archive
 # ---------------------------------------------------------------------------
+# TODO: replace datetime by time_stamp
 class baseData(db.Model):
     __abstract__ = True
     row_id = sa.Column(sa.Integer, primary_key=True)
@@ -239,6 +240,7 @@ class Ecosystem(db.Model):
     data = orm.relationship("sensorData", back_populates="ecosystem", lazy="dynamic")
     health_data = orm.relationship("Health", back_populates="ecosystem", lazy="dynamic")
     light = orm.relationship("Light", back_populates="ecosystem", lazy="dynamic")
+    warnings = orm.relationship("Warning", back_populates="ecosystem")
 
 
 class Hardware(db.Model):
@@ -273,10 +275,6 @@ class Plant(db.Model):
     #relationship
     ecosystem = orm.relationship("Ecosystem", back_populates="plants")
     sensors = orm.relationship("Hardware", back_populates="plants")
-
-    def __repr__(self):
-        return "<Plant: {}, species: {}, sowing date: {}>".fdbat(
-            self.name, self.species, self.sowing_date)
 """
 
 
@@ -350,6 +348,10 @@ class Warning(db.Model):
     message = sa.Column(sa.String)
     seen = sa.Column(sa.Boolean)
     solved = sa.Column(sa.Boolean)
+    ecosystem_id = sa.Column(sa.String(length=8), sa.ForeignKey("ecosystems.id"))
+
+    # relationship
+    ecosystem = orm.relationship("Ecosystem", back_populates="warnings")
 
 
 # ---------------------------------------------------------------------------
