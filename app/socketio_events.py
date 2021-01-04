@@ -84,10 +84,12 @@ def disconnect():
 @sio.on("pong", namespace="/gaia")
 def gaia_pong(data):
     now = datetime.now(timezone.utc).replace(microsecond=0)
+    manager = engineManager.query.filter_by(sid=request.sid).one()
+    manager.last_seen = now
     for ecosystem_uid in data:
         ecosystem = Ecosystem.query.filter_by(id=ecosystem_uid).one()
         ecosystem.last_seen = now
-        db.session.commit()
+    db.session.commit()
 
 
 @sio.on("register_manager", namespace="/gaia")
@@ -96,7 +98,8 @@ def registerManager(data):
     remote_port = request.environ["REMOTE_PORT"]
     sio_logger.info(f"Received manager registration request from manager: "
                     f"{data['uid']}, with address {remote_addr}:{remote_port}")
-    manager = engineManager(uid=data["uid"], sid=request.sid)
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    manager = engineManager(uid=data["uid"], sid=request.sid, last_seen=now)
     db.session.merge(manager)
     db.session.commit()
     join_room("engineManagers")
@@ -166,6 +169,7 @@ def update_cfg(config):
 
 @sio.on("sensors_data", namespace="/gaia")
 def update_sensors_data(data):
+    # TODO: try manager = ... if error: register
     manager = engineManager.query.filter_by(sid=request.sid).one()
     sio_logger.debug(f"Received 'sensors_data' from manager: {manager.uid}")
     sensorsData.update(data)

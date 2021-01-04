@@ -16,7 +16,7 @@ except ImportError:
 base_dir = os.path.abspath(os.path.dirname(__file__))
 
 
-class Config(privateConfig):
+class Config():
     APP_NAME = "gaiaWeb"
 
     # Flask config
@@ -25,10 +25,10 @@ class Config(privateConfig):
     SECRET_KEY = os.environ.get("SECRET_KEY") or "BXhNmCEmNdoBNngyGXj6jJtooYAcKpt6"
 
     # SQLAlchemy config
-    SQLALCHEMY_DATABASE_URI = "sqlite:///" + os.path.join(base_dir, "db_main.db")
+    SQLALCHEMY_DATABASE_URI = "sqlite:///" + os.path.join(base_dir, "db_ecosystems.db")
     SQLALCHEMY_BINDS = {
         "users": "sqlite:///" + os.path.join(base_dir, "db_users.db"),
-        "archive": "sqlite:///" + os.path.join(base_dir, "db_archive.db")
+        "archive": "sqlite:///" + os.path.join(base_dir, "db_ecosystems_archive.db")
     }
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_RECORD_QUERIES = True
@@ -43,7 +43,7 @@ class Config(privateConfig):
 
     # GAIA config
     GAIA_ADMIN = os.environ.get("GAIA_ADMIN") or privateConfig.ADMIN
-    TEST_CONNECTION_IP = "one.one.one.one"
+    TEST_CONNECTION_IP = "1.1.1.1"
     RECAP_SENDING_HOUR = 4
     ECOSYSTEM_TIMEOUT = 5  # Time after which the ecosystem is considered as not working
 

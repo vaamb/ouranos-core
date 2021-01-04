@@ -11,9 +11,10 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from app import db, login_manager
 
 
+# TODO: add an archive function in models which can be archived and add a task to apscheduler every monday at 1 which archive old data
 def old_data_limit() -> datetime:
     now_utc = datetime.now(timezone.utc)
-    return (now_utc - timedelta(days=45)).replace(tzinfo=None)
+    return (now_utc - timedelta(days=60)).replace(tzinfo=None)
 
 
 # ---------------------------------------------------------------------------
@@ -90,14 +91,20 @@ class User(UserMixin, db.Model):
     password_hash = sa.Column(sa.String(128))
     role_id = sa.Column(sa.Integer, sa.ForeignKey("roles.id"))
     confirmed = sa.Column(sa.Boolean, default=False)
-    firstname = sa.Column(sa.String(64), unique=True)
-    lastname = sa.Column(sa.String(64), unique=True)
+    firstname = sa.Column(sa.String(64))
+    lastname = sa.Column(sa.String(64))
     last_seen = sa.Column(sa.DateTime, default=datetime.utcnow)
-    notifications = sa.Column(sa.Boolean, default=False)
+
+    # notifications / services
+    daily_recap = sa.Column(sa.Boolean, default=False)
+    daily_recap_channel_id = sa.Column(sa.Integer,
+                                       sa.ForeignKey("communication_channels.id"))
+    telegram = sa.Column(sa.Boolean, default=False)
     telegram_chat_id = sa.Column(sa.String(16), unique=True)
 
     # relationship
     role = orm.relationship("Role", back_populates="users")
+    daily_recap_channel = orm.relationship("comChannel", back_populates="users")
 
     def __init__(self, **kwargs):
         super(User, self).__init__(**kwargs)
@@ -154,6 +161,49 @@ def load_user(id):
     return User.query.get(int(id))
 
 
+class Service(db.Model):
+    __tablename__ = "services"
+    __bind_key__ = "users"
+    id = sa.Column(sa.Integer, primary_key=True)
+    name = sa.Column(sa.String(length=16))
+    level = sa.Column(sa.String(length=4))
+    status = sa.Column(sa.Boolean, default=False)
+
+    @staticmethod
+    def insert_services():
+        services = {"weather": "app",
+                    "daily_recap": "user",
+                    "telegram_chat_bot": "user"}
+        for s in services:
+            service = Service.query.filter_by(name=s).first()
+            if service is None:
+                service = Service(name=s, level=services[s])
+            db.session.add(service)
+        db.session.commit()
+
+
+class comChannel(db.Model):
+    __tablename__ = "communication_channels"
+    __bind_key__ = "users"
+    id = sa.Column(sa.Integer, primary_key=True)
+    name = sa.Column(sa.String(length=16))
+    status = sa.Column(sa.Boolean, default=False)
+
+    # relationship
+    users = orm.relationship("User", back_populates="daily_recap_channel",
+                             lazy="dynamic")
+
+    @staticmethod
+    def insert_channels():
+        channels = ["telegram"]
+        for c in channels:
+            channel = comChannel.query.filter_by(name=c).first()
+            if channel is None:
+                channel = comChannel(name=c)
+            db.session.add(channel)
+        db.session.commit()
+
+
 # ---------------------------------------------------------------------------
 #   Base models common to main app and archive
 # ---------------------------------------------------------------------------
@@ -190,6 +240,33 @@ class baseHealth(db.Model):
                          index=True)
 
 
+class baseWarning(db.Model):
+    __abstract__ = True
+    row_id = sa.Column(sa.Integer, primary_key=True)
+    datetime = sa.Column(sa.DateTime, nullable=False)
+    level = sa.Column(sa.Integer)
+    message = sa.Column(sa.String)
+    seen = sa.Column(sa.Boolean)
+    solved = sa.Column(sa.Boolean)
+
+    @declared_attr
+    def ecosystem_id(cls):
+        return sa.Column(sa.String(length=8), sa.ForeignKey("ecosystems.id"),
+                         index=True)
+
+
+class baseSystem(db.Model):
+    __abstract__ = True
+    row_id = sa.Column(sa.Integer, primary_key=True)
+    datetime = sa.Column(sa.DateTime, nullable=False)
+    CPU_used = sa.Column(sa.Float(precision=1))
+    CPU_temp = sa.Column(sa.Float(precision=1))
+    RAM_total = sa.Column(sa.Float(precision=2))
+    RAM_used = sa.Column(sa.Float(precision=2))
+    DISK_total = sa.Column(sa.Float(precision=2))
+    DISK_used = sa.Column(sa.Float(precision=2))
+
+
 # ---------------------------------------------------------------------------
 #   Main app-related models, located in db_main and db_archive
 # ---------------------------------------------------------------------------
@@ -197,6 +274,7 @@ class engineManager(db.Model):
     __tablename__ = "engine_managers"
     uid = sa.Column(sa.String(length=16), primary_key=True)
     sid = sa.Column(sa.String(length=32))
+    last_seen = sa.Column(sa.DateTime)
 
     # relationship
     ecosystem = orm.relationship("Ecosystem", back_populates="manager", lazy="dynamic")
@@ -279,7 +357,7 @@ class Plant(db.Model):
 
 
 class sensorData(baseData):
-    __tablename__ = "sensor_data"
+    __tablename__ = "sensors_data"
 
     # relationships
     ecosystem = orm.relationship("Ecosystem", back_populates="data")
@@ -312,46 +390,17 @@ class Health(baseHealth):
     # relationships
     ecosystem = orm.relationship("Ecosystem", back_populates="health_data")
 
-class System(db.Model):
-    __tablename__ = "system"
-    row_id = sa.Column(sa.Integer, primary_key=True)
-    datetime = sa.Column(sa.DateTime, nullable=False)
-    CPU_used = sa.Column(sa.Float(precision=1))
-    CPU_temp = sa.Column(sa.Float(precision=1))
-    RAM_total = sa.Column(sa.Float(precision=2))
-    RAM_used = sa.Column(sa.Float(precision=2))
-    DISK_total = sa.Column(sa.Float(precision=2))
-    DISK_used = sa.Column(sa.Float(precision=2))
 
-
-class Service(db.Model):
-    __tablename__ = "services"
-    name = sa.Column(sa.String(length=16), primary_key=True)
-    status = sa.Column(sa.Boolean, default=False)
-
-    @staticmethod
-    def insert_services():
-        services = ["telegram"]
-        for s in services:
-            service = Service.query.filter_by(name=s).first()
-            if service is None:
-                service = Service(name=s)
-            db.session.add(service)
-        db.session.commit()
-
-
-class Warning(db.Model):
+# TODO: When problems solved, after x days: goes to archive
+class Warning(baseWarning):
     __tablename__ = "warnings"
-    row_id = sa.Column(sa.Integer, primary_key=True)
-    datetime = sa.Column(sa.DateTime, nullable=False)
-    level = sa.Column(sa.Integer)
-    message = sa.Column(sa.String)
-    seen = sa.Column(sa.Boolean)
-    solved = sa.Column(sa.Boolean)
-    ecosystem_id = sa.Column(sa.String(length=8), sa.ForeignKey("ecosystems.id"))
 
     # relationship
     ecosystem = orm.relationship("Ecosystem", back_populates="warnings")
+
+
+class System(baseSystem):
+    __tablename__ = "system"
 
 
 # ---------------------------------------------------------------------------
@@ -364,4 +413,14 @@ class archiveData(baseData):
 
 class archiveHealth(baseHealth):
     __tablename__ = "health_archive"
+    __bind_key__ = "archive"
+
+
+class archiveWarning(baseWarning):
+    __tablename__ = "warnings_archive"
+    __bind_key__ = "archive"
+
+
+class archiveSystem(baseSystem):
+    __tablename__ = "system_archive"
     __bind_key__ = "archive"

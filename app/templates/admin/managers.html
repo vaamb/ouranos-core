@@ -1,0 +1,21 @@
+{% extends 'main/menu.html' %}
+
+{% block header %}Services management{% endblock %}
+{% block info %}{% endblock %}
+
+{% block content %}
+  <table style="width:50%">
+  <tr>
+    <th>uid</th>
+    <th>sid</th>
+    <th>last_seen</th>
+  </tr>
+  {% for manager in managers %}
+  <tr>
+    <td>{{ manager.uid }}</td>
+    <td>{{ manager.sid }}</td>
+    <td>{{ manager.last_seen }}</td>
+  </tr>
+  {% endfor %}
+  </table>
+{% endblock %}
