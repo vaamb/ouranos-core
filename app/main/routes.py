@@ -7,11 +7,11 @@ from flask_login import current_user, login_required
 from flask_sqlalchemy import get_debug_queries
 
 from app import db
-from app.dataspace import Outside, sensorsData
+from app.dataspace import sensorsData
 from app.main import bp, layout
 from app.main.forms import EditProfileForm
 from app.models import sensorData, Ecosystem, Hardware, Health, Service, User
-from app.services import weather as weather_service
+from app.services import sun_times, weather as weather_service
 from app.wiki import simpleWiki
 from config import Config
 
@@ -195,10 +195,16 @@ def home():
         for e in recent_ecosystems()
     }
 
-    moments = {
-        "sunrise": parse_moment(Outside.moments_data["sunrise"]),
-        "sunset": parse_moment(Outside.moments_data["sunset"]),
-    }
+    moments = {}
+    try:
+        up = {
+            "sunrise": parse_moment(sun_times.get_data()["sunrise"]),
+            "sunset": parse_moment(sun_times.get_data()["sunset"]),
+        }
+        moments.update(up)
+    except Exception as e:
+        print(e)
+
     return render_template("main/home.html", title="Home",
                            weather_data=weather_service.get_data(),
                            light_data=light_data,

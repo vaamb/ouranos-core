@@ -1,31 +1,13 @@
 import json
 import logging
-import os
-from pathlib import Path
-import socket
 import time
 
 from apscheduler.schedulers.background import BackgroundScheduler
 import requests
 
 from app import app_name
+from app.utils import cache_dir
 from config import Config
-
-
-cache_dir = Path(__file__).absolute().parents[2]/"cache"
-if not cache_dir:
-    os.mkdir(cache_dir)
-
-
-def is_connected():
-    try:
-        host = socket.gethostbyname(Config.TEST_CONNECTION_IP)
-        s = socket.create_connection((host, 80), 2)
-        s.close()
-        return True
-    except Exception as ex:
-        print(ex)
-    return False
 
 
 class Weather:

@@ -14,10 +14,12 @@
                 </div>
                 <div class="boardColumnContainer">
                   <div class="boardColumnTitle">{{moment(today).format("dddd Do MMMM YYYY")}}</div>
+                  {% if moments %}
                   <div class="boardColumnItem">
                     sunrise: {{moment(moments["sunrise"]).format("HH:mm")}} -
                     sunset: {{moment(moments["sunset"]).format("HH:mm")}}
                   </div>
+                  {% endif %}
                 </div>
               </a>
             </div>

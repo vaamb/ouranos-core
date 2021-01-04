@@ -10,6 +10,7 @@ _base = {
     "sun_times": sun_times
 }
 
+# TODO: divise _optionnal in _user and _app, so it matches Services model
 _optional = {
     "daily_recap": daily_recap,
     "telegram_chat_bot": telegram_chat_bot,
