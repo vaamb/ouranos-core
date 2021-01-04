@@ -1,14 +1,17 @@
 from datetime import date, datetime, time, timedelta, timezone
 import platform
 
-from flask import abort, current_app, redirect, render_template, url_for
+from flask import abort, current_app, flash, redirect, render_template, \
+    request, url_for
 from flask_login import current_user, login_required
 from flask_sqlalchemy import get_debug_queries
 
 from app import db
 from app.dataspace import Outside, sensorsData
 from app.main import bp, layout
-from app.models import sensorData, Ecosystem, Hardware, Health, User
+from app.main.forms import EditProfileForm
+from app.models import sensorData, Ecosystem, Hardware, Health, Service, User
+from app.services import weather as weather_service
 from app.wiki import simpleWiki
 from config import Config
 
@@ -47,10 +50,9 @@ def on_off(value: bool) -> str:
 
 
 def get_ecosystem_ids(ecosystem_name: str) -> str:
-    # TODO: add the "or 404"
     ecosystem_ids = (Ecosystem.query.filter_by(name=ecosystem_name)
                      .with_entities(Ecosystem.id,
-                                    Ecosystem.name).first())  # or 404
+                                    Ecosystem.name).first_or_404())
     return ecosystem_ids
 
 
@@ -101,17 +103,8 @@ def after_request(response):
 @bp.before_request
 def before_request():
     if current_user.is_authenticated:
-        current_user.last_seen = datetime.now(timezone.utc)
+        current_user.last_seen = datetime.now(timezone.utc).replace(microsecond=0)
         db.session.commit()
-
-
-@bp.app_context_processor
-def inject_warning():
-    warning = False
-    if current_user.is_authenticated:
-        if warnings:
-            warning = True
-    return {"warning": warning}
 
 
 @bp.app_context_processor
@@ -126,8 +119,8 @@ def menu_info():
             "lighting": e.lighting,
             "health": True if (
                 Health.query.filter_by(ecosystem_id=e.id)
-                            .filter(Health.datetime >= limits["health"])
-                            .first()) else False,
+                      .filter(Health.datetime >= limits["health"])
+                      .first()) else False,
             "env_sensors": True if (
                 Hardware.query.filter_by(ecosystem_id=e.id)
                         .filter_by(type="sensor", level="environment")
@@ -146,6 +139,7 @@ def menu_info():
 
     # list comprehension for menu dropdown before passing to jinja
     dropdowns = {
+        "weather": True if weather_service.get_data() else False,
         "webcam": True if True in [ecosystems[ecosystem]["webcam"]
                                    for ecosystem in ecosystems] else False,
         "lighting": True if True in [ecosystems[ecosystem]["lighting"]
@@ -162,9 +156,18 @@ def menu_info():
                                      for ecosystem in ecosystems] else False,
     }
 
+    plants = []
+
+    warning = False
+
+    if current_user.is_authenticated:
+        if warnings:
+            warning = True
+
     return {"ecosystems": ecosystems,
             "dropdowns": dropdowns,
-            "plants_in_wiki": [],
+            "plants_in_wiki": plants,
+            "warning": warning,
             }
 
 
@@ -196,9 +199,8 @@ def home():
         "sunrise": parse_moment(Outside.moments_data["sunrise"]),
         "sunset": parse_moment(Outside.moments_data["sunset"]),
     }
-
     return render_template("main/home.html", title="Home",
-                           weather_data=Outside.weather_data,
+                           weather_data=weather_service.get_data(),
                            light_data=light_data,
                            today=date.today(),
                            moments=moments,
@@ -208,9 +210,11 @@ def home():
 
 @bp.route("/weather")
 def weather():
+    if not weather_service.get_data():
+        abort(404)
     return render_template("main/weather.html", title="Weather",
                            home_city=Config.HOME_CITY,
-                           weather_data=Outside.weather_data,
+                           weather_data=weather_service.get_data(),
                            )
 
 
@@ -315,16 +319,40 @@ def faq():
     return render_template("main/faq.html", title="F.A.Q.")
 
 
-@bp.route('/user/<username>')
+@bp.route("/user/<username>", methods=["GET", "POST"])
 @login_required
-def user_page(username: str):
-    user = User.query.filter_by(username=username).first_or_404()  # or 404
+def user_page(username: str = None):
+    user = User.query.filter_by(username=username).first_or_404()
+
+    if user == current_user:
+        services = Service.query.filter_by(status=1, level="user").all()
+        form = EditProfileForm()
+        if form.validate_on_submit():
+            current_user.firstname = form.firstname.data
+            current_user.lastname = form.lastname.data
+            current_user.username = form.username.data
+            current_user.daily_recap = form.daily_recap.data
+            current_user.daily_recap_channel_id = form.daily_recap_channels.data
+            current_user.telegram = form.telegram.data
+            current_user.telegram_chat_id = form.telegram_chat_id.data
+            db.session.commit()
+            flash('Your changes have been saved.')
+            return redirect(url_for('main.user_page', username=current_user.username))
+
+        elif request.method == "GET":
+            form.firstname.data = current_user.firstname
+            form.lastname.data = current_user.lastname
+            form.username.data = current_user.username
+            form.daily_recap.data = current_user.daily_recap
+            form.daily_recap_channels.data = current_user.daily_recap_channel_id
+            form.telegram.data = current_user.telegram
+            form.telegram_chat_id.data = current_user.telegram_chat_id
+        return render_template('main/user_me.html', title=f"User {user.username}",
+                               user=user, services=services, form=form)
+
     posts = [
         {'author': user, 'body': 'Test post #1'},
         {'author': user, 'body': 'Test post #2'}
     ]
-    if user == current_user:
-        return render_template('main/user_me.html', title=f"User {username}",
-                               user=user, posts=posts)
-    return render_template('main/user.html', title="User {}".format(username),
+    return render_template('main/user.html', title=f"User {user.username}",
                            user=user, posts=posts)

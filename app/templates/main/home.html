@@ -21,7 +21,7 @@
                 </div>
               </a>
             </div>
-
+            {% if weather_data %}
             <div class="board" style="min-height: 255px;">
               <a href="{{ url_for('main.weather') }}">
                 <div class="boardHeader">
@@ -38,6 +38,7 @@
                 </div>
               </a>
             </div>
+            {% endif %}
             {% if current_user.is_administrator %}
             <div class="board" style="min-height: 255px;">
               <div class="boardHeader">

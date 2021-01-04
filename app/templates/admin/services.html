@@ -1,0 +1,44 @@
+{% extends 'main/menu.html' %}
+
+{% block header %}Services management{% endblock %}
+{% block info %}{% endblock %}
+
+{% block content %}
+  <form>
+  {% for service in services %}
+
+  <p>
+      <label>
+          {{ service.name.capitalize()|removeUnderscores }}
+      </label>
+    <label class="switch">
+      <input type="checkbox" {{ 'checked' if service.status else '' }} id="{{ service.name }}_toggle">
+      <span class="slider"></span>
+    </label>
+  </p>
+
+
+  <script type="text/javascript">
+  $(document).ready(function() {
+      namespace = "/browser";
+      var socket = io(namespace);
+      $('#{{ service.name }}_toggle').change(function () {
+          if (this.checked) {
+              socket.emit("manage_service",
+              {user_id: "{{ current_user.id }}",
+               service: "{{ service.name }}",
+               action: "start"}
+          );
+          } else {
+              socket.emit("manage_service",
+              {user_id: "{{ current_user.id }}",
+               service: "{{ service.name }}",
+               action: "stop"}
+          );
+          }
+      });
+  });
+  </script>
+  {% endfor %}
+  </form>
+{% endblock %}

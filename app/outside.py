@@ -42,6 +42,7 @@ class Outside:
         self.logger.debug("Weather module has been initialized")
 
     def update_weather_data(self):
+        self.logger.debug("Updating weather data")
         if is_connected():
             for i in range(self.trials):
                 try:
@@ -58,12 +59,14 @@ class Outside:
                     time.sleep(1)
                     continue
                 else:
-                    with open(self._file_path, "w") as file:
+                    with open(self._file_path, "w+") as file:
                         json.dump(self._weather_data, file)
+                    self.logger.debug("Weather data updated")
                     return
         self.logger.error("ConnectionError, cannot update weather data")
 
     def update_moments_data(self):
+        self.logger.debug("Updating moments of the day")
         if is_connected():
             for i in range(self.trials):
                 try:
@@ -71,6 +74,7 @@ class Outside:
                         f"https://api.sunrise-sunset.org/json?lat={self.coordinates[0]}" +
                         f"&lng={self.coordinates[1]}").json()
                     self._moments_data = data["results"]
+                    self.logger.debug("Moments of the day updated")
                     return
                 except ConnectionError:
                     time.sleep(1)
@@ -99,13 +103,17 @@ class Outside:
 
     def _check_recency(self):
         if not self._weather_data:
-            file = open(self._file_path, "r")
+            try:
+                file = open(self._file_path, "r")
+            except FileNotFoundError:
+                return False
             data = json.load(file)
             file.close()
             if data["currently"]["time"] > time.time() - (15 * 60):
                 self._weather_data = data
                 return True
-        return False
+            return False
+        return True
 
     def start(self):
         if not self._check_recency():

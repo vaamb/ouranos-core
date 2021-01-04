@@ -1,0 +1,90 @@
+import logging
+
+from app import app_name
+from app.database import out_of_Flask_users_db as db
+from app.models import Service
+from app.services import daily_recap, sun_times, telegram_chat_bot, weather
+
+
+_base = {
+    "sun_times": sun_times
+}
+
+_optional = {
+    "daily_recap": daily_recap,
+    "telegram_chat_bot": telegram_chat_bot,
+    "weather": weather,
+}
+
+_services = {**_base, **_optional}
+
+
+class UnknownService(Exception):
+    pass
+
+
+def get(service_name: str):
+    try:
+        return _services[service_name]
+    except KeyError:
+        raise UnknownService(f"Service {service_name} is not available")
+
+
+class servicesManager:
+    def __init__(self):
+        self.logger = logging.getLogger(f"{app_name}.services")
+        self.logger.info("Initializing services module")
+        self.started = []
+
+        for service in _base:
+            self.start(service_name=service)
+
+        with db.scoped_session() as session:
+            for service in _optional:
+                status = (session.query(Service)
+                          .filter_by(name=service)
+                          .one()
+                          .status)
+            if status:
+                self.start(service_name=service)
+        self.logger.debug("Service module has been initialized")
+
+    def start(self, service_name: str) -> None:
+        service = get(service_name=service_name)
+        self.logger.debug(f"Starting {service_name} service")
+        try:
+            service.start()
+            self.started.append(service_name)
+        except Exception as e:
+            print(f"Exception in {service_name}: {e}")
+            return
+        if service_name in _optional:
+            with db.scoped_session() as session:
+                db_service = (session.query(Service)
+                              .filter_by(name=service_name)
+                              .one())
+                if not db_service.status:
+                    db_service.status = 1
+                    session.commit()
+
+    def stop(self, service_name: str) -> None:
+        service = get(service_name=service_name)
+        self.logger.debug(f"Stopping {service_name} service")
+        try:
+            service.stop()
+            service_index = self.started.index(service_name)
+            del self.started[service_index]
+        except Exception as e:
+            print(e)
+            return
+        if service_name in _optional:
+            with db.scoped_session() as session:
+                db_service = (session.query(Service)
+                            .filter_by(name=service_name)
+                            .one())
+                if db_service.status:
+                    db_service.status = 0
+                    session.commit()
+
+
+services_manager = servicesManager()

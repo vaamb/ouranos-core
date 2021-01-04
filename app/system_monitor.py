@@ -4,11 +4,11 @@ import psutil
 from threading import Thread, Event
 
 from app import app_name, scheduler
-from app.database import out_of_Flask_db as db
+from app.database import out_of_Flask_data_db as db
 from app.models import System
 from config import Config
 
-
+# TODO: move into services
 SYSTEM_UPDATE_FREQUENCY = 5
 
 collector = logging.getLogger(f"{app_name}.collector")

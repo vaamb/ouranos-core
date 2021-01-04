@@ -28,6 +28,7 @@
             </div>
           </a>
         </li>
+        {% if dropdowns['weather'] %}
         <li>
           <a href="{{url_for('main.weather')}}">
             <div class="nodrop">
@@ -35,6 +36,7 @@
             </div>
           </a>
         </li>
+        {% endif %}
         {% if dropdowns['env_sensors'] %}
         <li>
           <div class="dropdownlink">
@@ -146,15 +148,18 @@
             <li><a href="{{url_for('admin.system')}}">System</a></li>
             <li><a href="{{url_for('admin.log_home')}}">Logs</a></li>
             <li><a href="{{url_for('admin.mem_snapshot')}}">Memory snapshot</a></li>
+            <li><a href="{{url_for('admin.services_management')}}">Services</a></li>
+            <li><a href="{{url_for('admin.engine_managers')}}">Engine managers</a></li>
           </ul>
         </li>
         {% endif %}
       </ul>
       <div class="botbox">
         <div><a href="{{url_for('main.about')}}" title="About the author"><i class="fa fa-address-card"></i></a></div>
-        <div><a href="{{url_for('main.license')}}" title="License"><i class="fab fa-creative-commons"></i></a></div>
         <div><a href="#" title="Preferences"><i class="fa fa-user-cog"></i></a></div>
+        {% if current_user.is_administrator %}
         <div><a href="#" title="Shutdown GAIA"><i class="fa fa-power-off"></i></a></div>
+        {% endif %}
       </div>
     </nav>
 
@@ -187,9 +192,9 @@
       <div class="contentContainer">
         {% if self.header() %}
         <div class="topLine">
-          <h1 style="float: left">
+          <h2 style="float: left">
             {% block header %}{% endblock %}
-          </h1>
+          </h2>
           <h3 style="float: right">
             {% block info %}{% endblock %}
           </h3>

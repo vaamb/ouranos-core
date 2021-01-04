@@ -8,7 +8,7 @@
   {% for measure in data %}
     <h2>{{measure.capitalize()|removeUnderscores}}</h2>
     {% for sensor_id in data[measure] %}
-      {% if data[measure][sensor_id]["values"]|length > 1 %}
+      {% if data[measure][sensor_id]["values"]|length > 3 %}
       <div class="board" style="height: 230px;">
         <div class="boardHeader">
             <i class="{{parameters[level]["icon"][measure]}} leftico"></i>
@@ -111,7 +111,7 @@
 
       {% else %}
         <p>
-          Sorry, GAIA does not have enough {{measure}} data from {{data[measure][sensor_id]["name"]}}
+          Sorry, GAIA does not have enough {{measure|removeUnderscores}} data from {{data[measure][sensor_id]["name"]}}
           to build a nice graph yet. Come back later to see your graph.
         </p>
       {% endif %}

@@ -5,11 +5,13 @@ from flask import render_template
 from flask_login import login_required
 import tracemalloc
 
+from app import sio
 from app.admin import bp
 from app.common.decorators import permission_required
 from app.dataspace import systemMonitor
 from app.main import layout
-from app.models import Permission, System
+from app.models import Permission, Service, System, engineManager, User
+from app.services import services_manager
 
 
 tracemalloc.start()
@@ -88,3 +90,31 @@ def db_management_home():
 @permission_required(Permission.ADMIN)
 def db_management(db):
     return 'render_template("admin/db_management.html")'
+
+
+@bp.route("/admin/services")
+@login_required
+@permission_required(Permission.ADMIN)
+def services_management():
+    services = Service.query.all()
+    return render_template("admin/services.html", services=services)
+
+
+@sio.on("manage_service", namespace="/browser")
+def start_service(message):
+    service = message["service"]
+    action = message["action"]
+    user = User.query.filter_by(id=message["user_id"]).one()
+    if user.is_administrator:
+        if action == "start":
+            services_manager.start(service)
+            return
+        services_manager.stop(service)
+
+
+@bp.route("/admin/engine_managers")
+@login_required
+@permission_required(Permission.OPERATE)
+def engine_managers():
+    managers = engineManager.query.all()
+    return render_template("admin/managers.html", managers=managers)
