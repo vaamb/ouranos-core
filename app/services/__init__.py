@@ -46,8 +46,8 @@ class servicesManager:
                           .filter_by(name=service)
                           .one()
                           .status)
-            if status:
-                self.start(service_name=service)
+                if status:
+                    self.start(service_name=service)
         self.logger.debug("Service module has been initialized")
 
     def start(self, service_name: str) -> None:
