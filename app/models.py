@@ -172,6 +172,7 @@ class Service(db.Model):
     @staticmethod
     def insert_services():
         services = {"weather": "app",
+                    "webcam": "app",
                     "daily_recap": "user",
                     "telegram_chat_bot": "user"}
         for s in services:
@@ -275,6 +276,7 @@ class engineManager(db.Model):
     uid = sa.Column(sa.String(length=16), primary_key=True)
     sid = sa.Column(sa.String(length=32))
     last_seen = sa.Column(sa.DateTime)
+    address = (sa.String(length=19))
 
     # relationship
     ecosystem = orm.relationship("Ecosystem", back_populates="manager", lazy="dynamic")

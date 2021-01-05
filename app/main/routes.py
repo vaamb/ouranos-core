@@ -19,7 +19,6 @@ from config import Config
 warnings = {}
 
 
-# define time limits
 def time_limits() -> dict:
     now_utc = datetime.now(timezone.utc)
     return {
@@ -140,8 +139,13 @@ def menu_info():
     # list comprehension for menu dropdown before passing to jinja
     dropdowns = {
         "weather": True if weather_service.get_data() else False,
-        "webcam": True if True in [ecosystems[ecosystem]["webcam"]
-                                   for ecosystem in ecosystems] else False,
+        "webcam": True if (True in [ecosystems[ecosystem]["webcam"]
+                                    for ecosystem in ecosystems] and
+                           "webcam" in [s.name
+                                        for s in Service.query
+                                                        .filter_by(status=1)
+                                                        .all()]
+                           ) else False,
         "lighting": True if True in [ecosystems[ecosystem]["lighting"]
                                      for ecosystem in ecosystems] else False,
         "health": True if True in [ecosystems[ecosystem]["health"]

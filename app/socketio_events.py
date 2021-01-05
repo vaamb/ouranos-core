@@ -99,7 +99,12 @@ def registerManager(data):
     sio_logger.info(f"Received manager registration request from manager: "
                     f"{data['uid']}, with address {remote_addr}:{remote_port}")
     now = datetime.now(timezone.utc).replace(microsecond=0)
-    manager = engineManager(uid=data["uid"], sid=request.sid, last_seen=now)
+    manager = engineManager(
+        uid=data["uid"],
+        sid=request.sid,
+        last_seen=now,
+        address=f"{remote_addr}:{remote_port}",
+    )
     db.session.merge(manager)
     db.session.commit()
     join_room("engineManagers")
@@ -161,7 +166,7 @@ def update_cfg(config):
                 pin=config[ecosystem_id]["IO"][hardware_id]["pin"],
                 type=config[ecosystem_id]["IO"][hardware_id]["type"],
                 level=config[ecosystem_id]["IO"][hardware_id]["level"],
-                model=config[ecosystem_id]["IO"][hardware_id]["model"]
+                model=config[ecosystem_id]["IO"][hardware_id]["model"],
             )
             db.session.merge(hardware)
     db.session.commit()
