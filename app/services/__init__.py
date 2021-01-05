@@ -3,21 +3,43 @@ import logging
 from app import app_name
 from app.database import out_of_Flask_users_db as db
 from app.models import Service
-from app.services import daily_recap, sun_times, telegram_chat_bot, weather
+from app.services import daily_recap, sun_times, telegram_chat_bot, weather, \
+    webcam
 
 
 _base = {
-    "sun_times": sun_times
+    "sun_times": sun_times,
 }
 
-# TODO: divise _optionnal in _user and _app, so it matches Services model
-_optional = {
+_app = {
+    "weather": weather,
+    "webcam": webcam,
+}
+
+_user = {
     "daily_recap": daily_recap,
     "telegram_chat_bot": telegram_chat_bot,
-    "weather": weather,
 }
 
+_optional = {**_app, **_user}
+
 _services = {**_base, **_optional}
+
+
+def log_services_available():
+    sapp = {s: "app" for s in _app}
+    suser = {s: "user" for s in _user}
+    services = {**sapp, **suser}
+    with db.scoped_session() as session:
+        for s in services:
+            service = session.query(Service).filter_by(name=s).first()
+            if service is None:
+                service = Service(name=s, level=services[s])
+            session.add(service)
+        session.commit()
+
+
+log_services_available()
 
 
 class UnknownService(Exception):

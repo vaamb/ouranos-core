@@ -13,7 +13,6 @@ from flask_socketio import SocketIO
 from config import Config
 
 
-
 app_name = Config.APP_NAME
 root_path = Path(__file__).absolute().parents[0]
 
@@ -38,16 +37,17 @@ def create_app(config_class=Config):
     if not os.path.exists('logs'):
         os.mkdir('logs')
 
+    # Init db
     db.init_app(app)
-
-    from app.models import Role, Service
+    from app.models import Role, comChannel
     with app.app_context():
         try:
             db.create_all()
             Role.insert_roles()
-            Service.insert_services()
+            comChannel.insert_channels()
         except Exception as e:
             print(e)
+
     migrate.init_app(app, db)
     login_manager.init_app(app)
     sio.init_app(app)
@@ -73,9 +73,7 @@ def create_app(config_class=Config):
     from app.api import bp as api_bp
     app.register_blueprint(api_bp)
 
-    from app import models
     from app import database
-    from app import notifications
     from app import socketio_events
 
     logger.info("Flask app successfully initialized")

@@ -169,19 +169,6 @@ class Service(db.Model):
     level = sa.Column(sa.String(length=4))
     status = sa.Column(sa.Boolean, default=False)
 
-    @staticmethod
-    def insert_services():
-        services = {"weather": "app",
-                    "webcam": "app",
-                    "daily_recap": "user",
-                    "telegram_chat_bot": "user"}
-        for s in services:
-            service = Service.query.filter_by(name=s).first()
-            if service is None:
-                service = Service(name=s, level=services[s])
-            db.session.add(service)
-        db.session.commit()
-
 
 class comChannel(db.Model):
     __tablename__ = "communication_channels"
@@ -276,7 +263,7 @@ class engineManager(db.Model):
     uid = sa.Column(sa.String(length=16), primary_key=True)
     sid = sa.Column(sa.String(length=32))
     last_seen = sa.Column(sa.DateTime)
-    address = (sa.String(length=19))
+    address = sa.Column(sa.String(length=24))
 
     # relationship
     ecosystem = orm.relationship("Ecosystem", back_populates="manager", lazy="dynamic")
