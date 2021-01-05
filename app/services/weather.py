@@ -85,7 +85,6 @@ class Weather:
         else:
             raise RuntimeError("The weather service is already running")
 
-
     def stop(self):
         if self.started:
             self._stop_scheduler()

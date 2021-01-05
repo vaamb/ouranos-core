@@ -28,6 +28,13 @@
         <span style="color: red;">[{{ error }}]</span>
         {% endfor %}
       </p>
+      <p>
+        {{ form.email.label }}
+        {{ form.email(size=32) }}
+        {% for error in form.lastname.errors %}
+        <span style="color: red;">[{{ error }}]</span>
+        {% endfor %}
+      </p>
       <p>Role: {{ user.role.name }}</p>
 
     <h2>Services</h2>
@@ -52,7 +59,6 @@
       </p>
       <p>{{ form.submit(class_="errorButton") }}</p>
     </form>
-
 
 
 

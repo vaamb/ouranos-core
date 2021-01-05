@@ -88,7 +88,7 @@ def db_management_home():
 @bp.route("/admin/db_management/<db>")
 @login_required
 @permission_required(Permission.ADMIN)
-def db_management(db):
+def db_management():
     return 'render_template("admin/db_management.html")'
 
 

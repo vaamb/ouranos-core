@@ -16,3 +16,4 @@ migrations
 *test*
 *old*
 remoteLauncher.py
+/migrations/
