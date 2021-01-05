@@ -27,7 +27,7 @@ moment = Moment()
 
 
 def create_app(config_class=Config):
-    logger.info("Initializing Flask app...")
+    logger.info(f"Starting {app_name} ...")
     app = Flask(app_name, root_path=root_path)
 
     app.config.from_object(config_class)
@@ -76,6 +76,6 @@ def create_app(config_class=Config):
     from app import database
     from app import socketio_events
 
-    logger.info("Flask app successfully initialized")
+    logger.info(f"{app_name} successfully started")
 
     return app
