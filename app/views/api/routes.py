@@ -2,8 +2,9 @@ from flask import render_template
 from flask_login import login_required
 
 from app.models import Permission
-from app.admin import bp
+from app.views.api import bp
 
-@bp.route("api/<echo>")
+
+@bp.route("/api/echo/<echo>")
 def echo(echo):
     return echo

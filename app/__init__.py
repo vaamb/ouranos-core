@@ -58,7 +58,7 @@ def create_app(config_class=Config):
     def hello():
         return "eegg"
 
-    from app.errors import bp as errors_bp
+    from app.views.errors import bp as errors_bp
     app.register_blueprint(errors_bp)
 
     from app.auth import bp as auth_bp
@@ -67,10 +67,10 @@ def create_app(config_class=Config):
     from app.main import bp as main_bp
     app.register_blueprint(main_bp)
 
-    from app.admin import bp as admin_bp
+    from app.views.admin import bp as admin_bp
     app.register_blueprint(admin_bp)
 
-    from app.api import bp as api_bp
+    from app.views.api import bp as api_bp
     app.register_blueprint(api_bp)
 
     from app import database
