@@ -1,10 +1,25 @@
 {% extends 'menu.html' %}
 
-{% block header %}"B612" settings{% endblock %}
+{% block header %}{{ ecosystem_ids[1] }} settings{% endblock %}
 {% block info %}{% endblock %}
 
 {% block content %}
-  Sensors
-  Plants
-  Switches
+  {% for hardware_group in [environmental_sensors, plants_sensors, actuators] %}
+    {% if hardware_group %}
+      <h3>
+        {{["Environmental sensors", "Plants sensors", "Actuators"][loop.index - 1]}}
+      </h3>
+      <p>
+        {% for hardware in hardware_group %}
+          <h4>{{ hardware.name }}</h4>
+          <p>UID: {{ hardware.id }}</p>
+          <p>Model: {{ hardware.model }}</p>
+          <p>Address: {{ hardware.address }}</p>
+          {% if hardware.last_log %}
+            <p>Last data log: {{ hardware.last_log }}</p>
+          {% endif %}
+        {% endfor %}
+      </p>
+    {% endif %}
+  {% endfor %}
 {% endblock %}

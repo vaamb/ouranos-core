@@ -138,11 +138,11 @@
         {% if ecosystems %}
         <li>
           <div class="dropdownlink">
-            <i class="fa fa-cog leftico"></i>Settings<i class="fa fa-chevron-right rightico" aria-hidden="true"></i>
+            <i class="fa fa-cog leftico"></i>Hardware settings<i class="fa fa-chevron-right rightico" aria-hidden="true"></i>
           </div>
           <ul class="submenuItems">
             {% for ecosystem in ecosystems %}
-            <li><a href="#">{{ecosystems[ecosystem]["name"]}}</a></li>
+            <li><a href="{{url_for('main.settings', ecosystem_name=ecosystems[ecosystem]["name"])}}">{{ecosystems[ecosystem]["name"]}}</a></li>
             {% endfor %}
           </ul>
         </li>

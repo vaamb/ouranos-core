@@ -266,9 +266,8 @@ def health(ecosystem_name: str):
 def switches(ecosystem_name: str):
     if not ecosystem_name:
         abort(404)
-    ecosystem_ids = (Ecosystem.query.filter_by(name=ecosystem_name)
-                              .with_entities(Ecosystem.id, Ecosystem.name)
-                              .one())
+    ecosystem_ids = get_ecosystem_ids(ecosystem_name=ecosystem_name)
+
     if ecosystem_ids[0] not in sensorsData:
         abort(404)
     title = f"{ecosystem_ids[1]} switches control"
@@ -282,8 +281,30 @@ def switches(ecosystem_name: str):
 def settings(ecosystem_name: str):
     ecosystem_ids = get_ecosystem_ids(ecosystem_name=ecosystem_name)
     title = f"{ecosystem_ids[1]} settings"
+    environmental_sensors = (
+        Hardware.query.filter_by(ecosystem_id=ecosystem_ids[0])
+                      .filter_by(type="sensor")
+                      .filter_by(level="environment")
+                      .all()
+    )
+    plants_sensors = (
+        Hardware.query.filter_by(ecosystem_id=ecosystem_ids[0])
+                      .filter_by(type="sensor")
+                      .filter_by(level="plants")
+                      .all()
+    )
+    actuators = (
+        Hardware.query.filter_by(ecosystem_id=ecosystem_ids[0])
+                      .filter(Hardware.type != "sensor")
+                      .filter_by(level="environment")
+                      .all()
+    )
+
     return render_template("main/settings.html", title=title,
                            ecosystem_ids=ecosystem_ids,
+                           environmental_sensors=environmental_sensors,
+                           plants_sensors=plants_sensors,
+                           actuators=actuators,
                            )
 
 
@@ -315,7 +336,7 @@ def about():
 
 
 @bp.route("/license")
-def license():
+def the_license():
     return render_template("main/license.html")
 
 
