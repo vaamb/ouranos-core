@@ -1,0 +1,233 @@
+{% extends 'base.html' %}
+
+{% block body %}
+    {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      <div class="eventContainer" id="flashMessage">
+        <div class="eventCentralMessage">
+        {% for message in messages %}
+          <span>{{ message }}</span>
+        {% endfor %}
+        </div>
+      </div>
+      <script type="text/javascript">
+        $(document).ready(function() {
+          setTimeout(fade_out, 1500);
+          function fade_out() {
+            $("#flashMessage").fadeOut().empty();
+          };
+
+          $("#flashMessage").click(function() {
+            $("#flashMessage").fadeOut();
+          });
+        });
+      </script>
+    {% endif %}
+    {% endwith %}
+
+    <div class="mainContainer">
+    <nav>
+      <div class="topBox">
+        <div class="helloGAIA">GAIA</div>
+        <div class="userBox">
+          {% if current_user.is_authenticated %}
+          <img src="{{url_for('static', filename='ico/users/valentin/user_icon.png')}}" alt="User avatar" class="userAvatar">
+          <div class="welcome">
+            <div class="flexItem">Welcome,</div>
+            <div class="flexItem">{{current_user.firstname}}</div>
+          </div>
+          {% else %}
+          <img src="{{url_for('static', filename='ico/users/valentin/user_icon.png')}}" alt="User avatar" class="userAvatar">
+          <div class="welcome">
+            <div class="flexItem">Welcome</div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      <ul class="accordion-menu">
+        <li>
+          <a href="{{url_for('main.home')}}">
+            <div class="nodrop">
+              <i class="fa fa-home leftico"></i>Home
+            </div>
+          </a>
+        </li>
+        {% if dropdowns['weather'] %}
+        <li>
+          <a href="{{url_for('main.weather')}}">
+            <div class="nodrop">
+              <i class="fa fa-cloud leftico"></i>Weather forecast
+            </div>
+          </a>
+        </li>
+        {% endif %}
+        {% if dropdowns['env_sensors'] %}
+        <li>
+          <div class="dropdownlink">
+            <i class="fa fa-thermometer-half leftico"></i>Environments<i class="fa fa-chevron-right rightico" aria-hidden="true"></i>
+          </div>
+          <ul class="submenuItems">
+            {% for ecosystem in ecosystems %}
+            {% if ecosystems[ecosystem]['env_sensors'] %}
+              <li>
+                <a href="{{url_for('main.sensors', level="environment", ecosystem_name=ecosystems[ecosystem]["name"])}}">
+                  {{ecosystems[ecosystem]["name"]}}
+                </a>
+              </li>
+            {% endif %}
+            {% endfor %}
+          </ul>
+        </li>
+        {% endif %}
+        {% if dropdowns['plant_sensors'] %}
+        <li>
+          <div class="dropdownlink">
+            <i class="fa fa-seedling leftico"></i>Plants<i class="fa fa-chevron-right rightico" aria-hidden="true"></i>
+          </div>
+          <ul class="submenuItems">
+            {% for ecosystem in ecosystems %}
+            {% if ecosystems[ecosystem]["plant_sensors"] %}
+              <li><a href="{{url_for('main.sensors', level="plants", ecosystem_name=ecosystems[ecosystem]["name"])}}">{{ecosystems[ecosystem]["name"]}}</a></li>
+            {% endif %}
+            {% endfor %}
+          </ul>
+        </li>
+        {% endif %}
+        {% if dropdowns["health"] %}
+        <li>
+          <div class="dropdownlink">
+            <i class="fa fa-heartbeat leftico"></i>Plants health<i class="fa fa-chevron-right rightico" aria-hidden="true"></i>
+          </div>
+          <ul class="submenuItems">
+            {% for ecosystem in ecosystems %}
+            {% if ecosystems[ecosystem]["health"] %}
+              <li><a href="{{url_for('main.health', ecosystem_name=ecosystems[ecosystem]["name"])}}">{{ecosystems[ecosystem]["name"]}}</a></li>
+            {% endif %}
+            {% endfor %}
+          </ul>
+        </li>
+        {% endif %}
+        {% if dropdowns['switches'] %}
+        <li>
+          <div class="dropdownlink">
+            <i class="fa fa-power-off leftico"></i>Switches<i class="fa fa-chevron-right rightico" aria-hidden="true"></i>
+          </div>
+          <ul class="submenuItems">
+            {% for ecosystem in ecosystems %}
+            {% if ecosystems[ecosystem]["switches"] %}
+              <li><a href="{{url_for('main.switches', ecosystem_name=ecosystems[ecosystem]["name"])}}">{{ecosystems[ecosystem]["name"]}}</a></li>
+            {% endif %}
+            {% endfor %}
+          </ul>
+        </li>
+        {% endif %}
+        {% if dropdowns['webcam'] %}
+        <li>
+          <div class="dropdownlink">
+            <i class="fa fa-video leftico"></i>Webcam<i class="fa fa-chevron-right rightico" aria-hidden="true"></i>
+          </div>
+          <ul class="submenuItems">
+            {% for ecosystem in ecosystems %}
+            {% if ecosystems[ecosystem]["webcam"] %}
+              <li><a href="#">{{ecosystems[ecosystem]["name"]}}</a></li>
+            {% endif %}
+            {% endfor %}
+          </ul>
+        </li>
+        {% endif %}
+        {% if ecosystems %}
+        <li>
+          <div class="dropdownlink">
+            <i class="fa fa-cog leftico"></i>Settings<i class="fa fa-chevron-right rightico" aria-hidden="true"></i>
+          </div>
+          <ul class="submenuItems">
+            {% for ecosystem in ecosystems %}
+            <li><a href="#">{{ecosystems[ecosystem]["name"]}}</a></li>
+            {% endfor %}
+          </ul>
+        </li>
+        {% endif %}
+        {% if plants_in_wiki != [] %}
+        <li>
+          <div class="dropdownlink">
+            <i class="fa fa-book-medical leftico"></i>Plant care<i class="fa fa-chevron-right rightico" aria-hidden="true"></i>
+          </div>
+          <ul class="submenuItems">
+            <li><a href="{{url_for('main.care', species='general')}}">General</a></li>
+            {% for species in plants_in_wiki %}
+            <li><a href="{{url_for('main.care', species=species)}}">{{species.capitalize()}}</a></li>
+            {% endfor %}
+            {% if current_user.is_authenticated %}
+            <li><a href="#"><i class="fas fa-plus"></i></a></li>
+            {% endif %}
+          </ul>
+        </li>
+        {% endif %}
+        {% if current_user.is_administrator %}
+        <li>
+          <div class="dropdownlink">
+            <i class="fa fa-user-cog leftico"></i>Admin<i class="fa fa-chevron-right rightico" aria-hidden="true"></i>
+          </div>
+          <ul class="submenuItems">
+            <li><a href="{{url_for('admin.system')}}">System</a></li>
+            <li><a href="{{url_for('admin.log_home')}}">Logs</a></li>
+            <li><a href="{{url_for('admin.mem_snapshot')}}">Memory snapshot</a></li>
+            <li><a href="{{url_for('admin.services_management')}}">Services</a></li>
+            <li><a href="{{url_for('admin.engine_managers')}}">Engine managers</a></li>
+          </ul>
+        </li>
+        {% endif %}
+      </ul>
+      <div class="botbox">
+        <div><a href="{{url_for('main.about')}}" title="About the author"><i class="fa fa-address-card"></i></a></div>
+        <div><a href="#" title="Preferences"><i class="fa fa-user-cog"></i></a></div>
+        {% if current_user.is_administrator %}
+        <div><a href="#" title="Shutdown GAIA"><i class="fa fa-power-off"></i></a></div>
+        {% endif %}
+      </div>
+    </nav>
+
+    <div class="rightContainer">
+      {% block topbar %}
+      <div class="topbar">
+        {% if current_user.is_administrator %}
+        <p>Logged as Admin</p>
+        {% else %}
+        <p></p>
+        {% endif %}
+        <div class="push-right">
+          {% if current_user.is_anonymous %}
+          <a href="{{url_for('auth.login')}}">Log in</a>
+          {% else %}
+          {{ current_user.username }}
+          <a href="{{url_for('main.user_page', username=current_user.username)}}">Profile</a>
+          <a href="{{url_for('auth.logout')}}">Log out</a>
+          {% endif %}
+        </div>
+        <div class="warning">
+          {% if current_user.is_authenticated %}
+          {% if warning %}
+          <a href="{{url_for('main.warnings_list')}}">
+            <i class="fas fa-exclamation-triangle"></i>
+          </a>
+          {% endif %}
+          {% endif %}
+        </div>
+      </div>
+      <div class="contentContainer">
+        {% if self.header() %}
+        <div class="topLine">
+          <h2 style="float: left">
+            {% block header %}{% endblock %}
+          </h2>
+          <h3 style="float: right">
+            {% block info %}{% endblock %}
+          </h3>
+        </div>
+        {% endif %}
+        {% block content %}{% endblock %}
+      </div>
+      {% endblock %}
+    </div>
+    </div>
+{% endblock %}

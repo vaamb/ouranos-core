@@ -1,4 +1,4 @@
-{% extends 'main/menu.html' %}
+{% extends 'menu.html' %}
 
 {% block header %}Weather in {{home_city}}{% endblock %}
 {% block info %}Last update at {{weather_data['currently']['time']|getTime}} | <a href="https://darksky.net/poweredby/">Powered by Dark Sky</a>{% endblock %}

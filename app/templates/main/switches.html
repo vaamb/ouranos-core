@@ -1,33 +1,41 @@
-{% extends 'main/menu.html' %}
+{% extends 'menu.html' %}
 
 {% block header %}Switches in {{ecosystem_ids[1]}}{% endblock %}
 {% block info %}{% endblock %}
 
 {% block content %}
   {% if current_user.is_operator %}
+  {%  for e in ecosystems %}
+      {{ ecosystems[e] }}
+  {% endfor %}
+      <br>
+  if automatic: <i class="fas fa-sync fa-spin"></i> else:  <i class="fas fa-sync"></i>
+  + expected color
+      <br>
+  if on: <i class="fas fa-power-off", style="color: green"></i> else: <i class="fas fa-power-off", style="color: red"></i>
+      <br>
+  store everything on jquery
+      <br>
+
   <button id="On" title="Turn lights on">On</button>
   <button id="Off" title="Turn lights on">Off</button>
   <button id="Auto" title="Turn lights to automatic mode">Auto</button>
 
   <script type="text/javascript">
-    $(document).ready(function() {
-      namespace = "/browser";
-      var socket = io(namespace);
-
-      $("button#On").click(function() {
-          socket.emit("turn_light_on", {ecosystem: "{{ecosystem_ids[0]|safe}}" });
-          return false;
-      });
-      $("button#Off").click(function() {
-          socket.emit("turn_light_off", {ecosystem: "{{ecosystem_ids[0]|safe}}"});
-          return false;
-      });
-      $("button#Auto").click(function() {
-          socket.emit("turn_light_auto", {ecosystem: "{{ecosystem_ids[0]|safe}}"});
-          return false;
-      });
+    $("button#On").click(function() {
+        socket.emit("turn_light_on", {ecosystem: "{{ecosystem_ids[0]|safe}}" });
+        return false;
+    });
+    $("button#Off").click(function() {
+        socket.emit("turn_light_off", {ecosystem: "{{ecosystem_ids[0]|safe}}"});
+        return false;
+    });
+    $("button#Auto").click(function() {
+        socket.emit("turn_light_auto", {ecosystem: "{{ecosystem_ids[0]|safe}}"});
+        return false;
     });
   </script>
+
   {% else %}
   <button id="On" disabled title="You need to be an operator to turn lights on">On</button>
   <button id="Off" disabled title="You need to be an operator to turn lights off">Off</button>
