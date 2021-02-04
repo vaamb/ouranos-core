@@ -163,7 +163,7 @@ def update_cfg(config):
                 id=hardware_id,
                 ecosystem_id=ecosystem_id,
                 name=config[ecosystem_id]["IO"][hardware_id]["name"],
-                pin=config[ecosystem_id]["IO"][hardware_id]["pin"],
+                address=config[ecosystem_id]["IO"][hardware_id]["address"],
                 type=config[ecosystem_id]["IO"][hardware_id]["type"],
                 level=config[ecosystem_id]["IO"][hardware_id]["level"],
                 model=config[ecosystem_id]["IO"][hardware_id]["model"],
