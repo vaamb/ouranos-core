@@ -1,6 +1,6 @@
-def start():
+def start() -> None:
     print("Todo: start daily recap")
 
 
-def stop():
+def stop() -> None:
     print("Todo: stop daily recap")

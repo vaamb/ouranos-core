@@ -15,7 +15,7 @@ collector = logging.getLogger(f"{app_name}.collector")
 
 
 class systemMonitor:
-    def __init__(self):
+    def __init__(self) -> None:
         self._data = {}
         self.thread = None
         self.stopEvent = Event()

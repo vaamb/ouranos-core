@@ -11,7 +11,7 @@ from config import Config
 
 
 class Weather:
-    def __init__(self, trials=10):
+    def __init__(self, trials: int = 10) -> None:
         self.logger = logging.getLogger(f"{app_name}.services.weather")
         self.trials = trials
         self._file_path = cache_dir/"weather.json"
@@ -22,7 +22,7 @@ class Weather:
         self.started = False
         self.logger.debug("Weather module has been initialized")
 
-    def update_weather_data(self):
+    def update_weather_data(self) -> None:
         self.logger.debug("Updating weather data")
         for i in range(self.trials):
             try:
@@ -44,7 +44,7 @@ class Weather:
                 self.logger.debug("Weather data updated")
                 return
 
-    def _start_scheduler(self):
+    def _start_scheduler(self) -> None:
         self.logger.info("Starting the weather module background scheduler")
         self._scheduler = BackgroundScheduler(daemon=True)
         self._scheduler.add_job(self.update_weather_data,
@@ -53,14 +53,14 @@ class Weather:
         self._scheduler.start()
         self.logger.debug("The weather module background scheduler has been started")
 
-    def _stop_scheduler(self):
+    def _stop_scheduler(self) -> None:
         self.logger.debug("Stopping the weather module background scheduler")
         self._scheduler.remove_job("weather")
         self._scheduler.shutdown()
         del self._scheduler
         self.logger.debug("The weather module background scheduler has been stopped")
 
-    def _check_recency(self):
+    def _check_recency(self) -> bool:
         if not self._weather_data:
             try:
                 file = open(self._file_path, "r")
@@ -75,45 +75,44 @@ class Weather:
         return True
 
     """API"""
-    def start(self):
+    def start(self) -> None:
         if not self.started:
             if not self._check_recency():
                 self.update_weather_data()
             self._start_scheduler()
             self.started = True
-            return
         else:
             raise RuntimeError("The weather service is already running")
 
-    def stop(self):
+    def stop(self) -> None:
         if self.started:
             self._stop_scheduler()
             self._weather_data = {}
             self.started = False
 
     @property
-    def data(self):
+    def data(self) -> dict:
         return self._weather_data
 
     @property
-    def status(self):
+    def status(self) -> bool:
         return self.started
 
 
 _weather = Weather()
 
 
-def start():
+def start() -> None:
     _weather.start()
 
 
-def stop():
+def stop() -> None:
     _weather.stop()
 
 
-def get_data():
+def get_data() -> dict:
     return _weather.data
 
 
-def status():
+def status() -> bool:
     return _weather.status

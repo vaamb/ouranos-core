@@ -3,7 +3,7 @@ from statistics import mean, StatisticsError, mode
 
 from app.services import weather
 from app.database import out_of_Flask_data_db as db
-from app.dataspace import Outside, sensorsData
+from app.dataspace import sensorsData
 from app.models import sensorData, Hardware, Ecosystem, Light
 
 
@@ -22,11 +22,11 @@ measure_unit = {"absolute_humidity": "g/m³",
                 "moisture": " RWC"}
 
 
-def get_connected_ecosystems():
+def get_connected_ecosystems() -> list:
     return [ecosystem for ecosystem in sensorsData]
 
 
-def get_ecosystem_uid(ecosystem_name):
+def get_ecosystem_uid(ecosystem_name: str) -> int:
     with db.scoped_session() as session:
         ecosystem_id = (session.query(Ecosystem)
                         .filter_by(name=ecosystem_name)
@@ -34,7 +34,7 @@ def get_ecosystem_uid(ecosystem_name):
     return ecosystem_id
 
 
-def get_listed_ecosystems(ecosystem_names=[]):
+def get_listed_ecosystems(ecosystem_names: list = []) -> dict:
     found = []
     not_found = []
     if not ecosystem_names:
@@ -82,6 +82,7 @@ def summarize_ecosystem_current_data(current_ecosystem_data):
                 values[measure].append(data[sensor][measure])
             except KeyError:
                 values[measure] = [data[sensor][measure]]
+
     for measure in values:
         values[measure] = round(mean(values[measure]), 2)
     return {ecosystem_uid: values}
@@ -187,8 +188,9 @@ weather_measures = {"mean": ["temperature", "humidity", "windSpeed",
                     "mode": ["summary"]}
 
 
-def digest_weather_forecast(weather_forecast):
+def digest_weather_forecast(weather_forecast) -> dict:
     now = datetime.now(timezone.utc)
+    day = None
     today = {}
     tomorrow = {}
     for hour in weather_forecast:
@@ -296,12 +298,12 @@ def format_warnings_recap(digested_warnings):
 
 class Messages:
     @staticmethod
-    def ecosystem_current(ecosystem_names=[]):
-        ecosystems = get_listed_ecosystems(ecosystem_names=ecosystem_names)
+    def current_data(ecosystem_names=[]):
+        ecosystems_ = get_listed_ecosystems(ecosystem_names=ecosystem_names)
         message = ""
         end_message = ""
         summarized_data = {}
-        for ecosystem_uid in ecosystems["found"]:
+        for ecosystem_uid in ecosystems_["found"]:
             data = ecosystems.get_ecosystem_current_data(ecosystem_uid, translate_uid=True)
             summarized_data.update(summarize_ecosystem_current_data(data))
         if summarized_data:
@@ -311,9 +313,9 @@ class Messages:
                 s = ""
             message += f"Here are the current sensors data for your ecosystem{s}:\n"
             message += format_ecosystem_recap(summarized_data, base="")
-        if ecosystems["not_found"]:
+        if ecosystems_["not_found"]:
 
-            for ecosystem in ecosystems["not_found"]:
+            for ecosystem in ecosystems_["not_found"]:
                 message += f"There is no ecosystem named {ecosystem}."
             message += f"\n{end_message}"
         return message

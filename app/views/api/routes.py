@@ -6,5 +6,5 @@ from app.views.api import bp
 
 
 @bp.route("/api/echo/<echo>")
-def echo(echo):
+def echo(echo: str) -> str:
     return echo
