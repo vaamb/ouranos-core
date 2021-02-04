@@ -6,7 +6,7 @@ from telegram.ext import Updater, CommandHandler, CallbackContext,\
 
 from app import API
 from config import Config
-from app.database import out_of_Flask_users_db as db
+from app.database import out_of_Flask_app_db as db
 from app.models import User
 
 

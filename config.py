@@ -27,8 +27,8 @@ class Config():
     # SQLAlchemy config
     SQLALCHEMY_DATABASE_URI = "sqlite:///" + os.path.join(base_dir, "db_ecosystems.db")
     SQLALCHEMY_BINDS = {
-        "users": "sqlite:///" + os.path.join(base_dir, "db_users.db"),
-        "archive": "sqlite:///" + os.path.join(base_dir, "db_ecosystems_archive.db")
+        "app": "sqlite:///" + os.path.join(base_dir, "db_app.db"),
+        "archive": "sqlite:///" + os.path.join(base_dir, "db_archive.db")
     }
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_RECORD_QUERIES = True

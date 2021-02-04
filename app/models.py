@@ -29,7 +29,7 @@ class Permission:
 
 class Role(db.Model):
     __tablename__ = "roles"
-    __bind_key__ = "users"
+    __bind_key__ = "app"
     id = sa.Column(sa.Integer, primary_key=True)
     name = sa.Column(sa.String(64), unique=True)
     default = sa.Column(sa.Boolean, default=False, index=True)
@@ -84,7 +84,7 @@ class Role(db.Model):
 
 class User(UserMixin, db.Model):
     __tablename__ = "users"
-    __bind_key__ = "users"
+    __bind_key__ = "app"
     id = sa.Column(sa.Integer, primary_key=True)
     username = sa.Column(sa.String(64), index=True, unique=True)
     email = sa.Column(sa.String(120), index=True, unique=True)
@@ -163,7 +163,7 @@ def load_user(id):
 
 class Service(db.Model):
     __tablename__ = "services"
-    __bind_key__ = "users"
+    __bind_key__ = "app"
     id = sa.Column(sa.Integer, primary_key=True)
     name = sa.Column(sa.String(length=16))
     level = sa.Column(sa.String(length=4))
@@ -172,7 +172,7 @@ class Service(db.Model):
 
 class comChannel(db.Model):
     __tablename__ = "communication_channels"
-    __bind_key__ = "users"
+    __bind_key__ = "app"
     id = sa.Column(sa.Integer, primary_key=True)
     name = sa.Column(sa.String(length=16))
     status = sa.Column(sa.Boolean, default=False)
@@ -316,7 +316,7 @@ class Hardware(db.Model):
     ecosystem_id = sa.Column(sa.String(length=8), sa.ForeignKey("ecosystems.id"))
     name = sa.Column(sa.String(length=32))
     level = sa.Column(sa.String(length=16))
-    pin = sa.Column(sa.Integer)
+    address = sa.Column(sa.String(length=16))
     type = sa.Column(sa.String(length=16))
     model = sa.Column(sa.String(length=32))
     last_log = sa.Column(sa.DateTime)
