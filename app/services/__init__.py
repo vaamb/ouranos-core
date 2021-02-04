@@ -3,8 +3,8 @@ import logging
 from app import app_name
 from app.database import out_of_Flask_app_db as db
 from app.models import Service
-from app.services import daily_recap, sun_times, telegram_chat_bot, weather, \
-    webcam
+from app.services import calendar, daily_recap, sun_times, telegram_chat_bot,\
+    weather, webcam
 
 
 _base = {
@@ -14,6 +14,7 @@ _base = {
 _app = {
     "weather": weather,
     "webcam": webcam,
+    "calendar": calendar,
 }
 
 _user = {

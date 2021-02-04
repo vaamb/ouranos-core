@@ -96,7 +96,7 @@ def db_management():
 @login_required
 @permission_required(Permission.ADMIN)
 def services_management():
-    services = Service.query.all()
+    services = Service.query.order_by(Service.name.asc()).all()
     return render_template("admin/services.html", services=services)
 
 
