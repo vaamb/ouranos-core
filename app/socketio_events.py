@@ -5,7 +5,7 @@ from flask import current_app, request
 from flask_socketio import join_room, leave_room
 
 from app import app_name, db, scheduler, sio
-from app.common.utils import human_delta_time
+from app.views.common.utils import human_delta_time
 from app.dataspace import healthData, sensorsData, systemMonitor
 from app.models import sensorData, Ecosystem, engineManager, Hardware, Health, Light
 from config import Config

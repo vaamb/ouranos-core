@@ -7,7 +7,7 @@ import tracemalloc
 
 from app import sio
 from app.views.admin import bp
-from app.common.decorators import permission_required
+from app.views.common.decorators import permission_required
 from app.dataspace import systemMonitor
 from app.main import layout
 from app.models import Permission, Service, System, engineManager, User
