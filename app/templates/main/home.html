@@ -48,23 +48,31 @@
               </div>
               <div class="boardColumnContainer">
                 <div class="boardColumnTitle">Uptime</div>
-                <div class="boardColumnItem"><span id="uptime"></span></div>
+                <div class="boardColumnItem"><span id="uptime">{{ system_data["uptime"] }}</span></div>
                 <div class="boardColumnTitle" style="margin-top: 10px;">Average latency</div>
-                <div class="boardColumnItem"><span id="ping-pong"></span>ms</div>
-                <div class="boardColumnTitle" style="margin-top: 10px;">System utilization</div>
-                <div class="boardColumnItem">CPU load: <span id="CPU_used"></span>%</div>
+                <div class="boardColumnItem">
+                  <span id="ping-pong">Na</span>ms
+                </div>
+                <div class="boardColumnTitle" style="margin-top: 10px;">
+                  System utilization
+                </div>
+                <div class="boardColumnItem">
+                  CPU load: <span id="CPU_used">{{ system_data["CPU_used"] }}</span>%
+                </div>
                 {% if platform == "Linux" %}
-                <div class="boardColumnItem">CPU temperature: <span id="CPU_temp"></span>°C</div>
+                <div class="boardColumnItem">
+                    CPU temperature: <span id="CPU_temp">{{ system_data["CPU_temp"] }}</span>°C
+                </div>
                 {% endif %}
                 <div class="boardColumnItem">
                   RAM used:
-                    <span id="RAM_used"></span>GB /
-                    <span id="RAM_total"></span>GB
+                    <span id="RAM_used">{{ system_data["RAM_used"] }}</span>GB /
+                    <span id="RAM_total">{{ system_data["RAM_used"] }}</span>GB
                 </div>
                 <div class="boardColumnItem">
                   Disk used:
-                    <span id="DISK_used"></span>GB /
-                    <span id="DISK_total"></span>GB
+                    <span id="DISK_used">{{ system_data["DISK_used"] }}</span>GB /
+                    <span id="DISK_total">{{ system_data["DISK_total"] }}</span>GB
                 </div>
               </div>
             </div>
@@ -134,10 +142,7 @@
           </div>
           {% if current_user.is_administrator %}
           <script type="text/javascript">
-            $(document).ready(function() {
-              namespace = "/browser";
-              var socket = io(namespace);
-
+            $(function() {
               function request_server_data() {
                 socket.emit('request_server_data');
               };
@@ -145,7 +150,7 @@
               request_server_data();
               window.setInterval(request_server_data, 3000);
 
-              socket.on('server_data', function(msg) {
+              socketAdmin.on('server_data', function(msg) {
                 $('#CPU_used').text(Number(msg.CPU_used).toFixed(2));
                 $('#CPU_temp').text(Number(msg.CPU_temp).toFixed(2));
                 $('#RAM_total').text(Number(msg.RAM_total).toFixed(2));

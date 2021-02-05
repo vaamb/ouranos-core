@@ -7,7 +7,7 @@ from numpy import mean, std
 
 from app import app_name, db, scheduler, sio
 from app.views.views_utils import human_delta_time
-from app.dataspace import healthData, sensorsData, systemMonitor
+from app.dataspace import healthData, sensorsData, systemMonitor, START_TIME
 from app.models import sensorData, Ecosystem, engineManager, Hardware, Health, Light
 from config import Config
 
@@ -15,7 +15,6 @@ from config import Config
 sio_logger = logging.getLogger(f"{app_name}.socketio")
 collector = logging.getLogger(f"{app_name}.collector")
 
-START_TIME = datetime.now(timezone.utc)
 SYSTEM_UPDATE_FREQUENCY = 5
 
 # Temporary anchors to keep PyCharm to delete these from import
@@ -274,7 +273,7 @@ def update_light_data(data):
 
 
 # ---------------------------------------------------------------------------
-#   SocketIO events coming from browser clients
+#   SocketIO events coming from browser (non-admin)
 # ---------------------------------------------------------------------------
 browser_thread = None
 
@@ -286,11 +285,11 @@ def browser_background_thread(app):
         while True:
             data = {**sensorsData,
                     }
-            sio.emit("currentData", "data", namespace="/browser")
+            sio.emit("currentData", "data", namespace="/")
             sio.sleep(3)
 
 
-@sio.on("connect", namespace="/browser")
+@sio.on("connect", namespace="/")
 def connect_on_browser():
     global browser_thread
     if browser_thread is None:
@@ -299,24 +298,13 @@ def connect_on_browser():
             browser_background_thread, app=app)
 
 
-@sio.on("request_server_data", namespace="/browser")
-def send_server_data():
-    global systemMonitor
-    incoming_sid = request.sid
-    data = dict(systemMonitor.system_data)
-    del data["datetime"]
-    data.update({"uptime": human_delta_time(
-        START_TIME, datetime.now(timezone.utc))})
-    sio.emit("server_data", data, namespace="/browser", room=incoming_sid)
-
-
-@sio.on("my_ping", namespace="/browser")
+@sio.on("my_ping", namespace="/")
 def ping_pong():
     incoming_sid = request.sid
-    sio.emit("my_pong", namespace="/browser", room=incoming_sid)
+    sio.emit("my_pong", namespace="/", room=incoming_sid)
 
 
-@sio.on("turn_light_on", namespace="/browser")
+@sio.on("turn_light_on", namespace="/")
 def turn_light_on(message):
     ecosystem_id = message["ecosystem"]
     sid = Ecosystem.query.filter_by(id=ecosystem_id).one().manager.sid
@@ -328,7 +316,7 @@ def turn_light_on(message):
     return False
 
 
-@sio.on("turn_light_off", namespace="/browser")
+@sio.on("turn_light_off", namespace="/")
 def turn_light_off(message):
     ecosystem_id = message["ecosystem"]
     sid = Ecosystem.query.filter_by(id=ecosystem_id).one().manager.sid
@@ -340,7 +328,7 @@ def turn_light_off(message):
     return False
 
 
-@sio.on("turn_light_auto", namespace="/browser")
+@sio.on("turn_light_auto", namespace="/")
 def turn_light_auto(message):
     ecosystem_id = message["ecosystem"]
     sid = Ecosystem.query.filter_by(id=ecosystem_id).one().manager.sid
@@ -350,3 +338,31 @@ def turn_light_auto(message):
              {"ecosystem": ecosystem_id, "countdown": countdown},
              namespace="/gaia", room=sid)
     return False
+
+
+# ---------------------------------------------------------------------------
+#   SocketIO events coming from browser admin
+# ---------------------------------------------------------------------------
+admin_thread = None
+
+
+def admin_background_thread(app):
+    with app.app_context():
+        global sensorsData
+        while True:
+            data = dict(systemMonitor.system_data)
+            # TODO: change JSON parser so it takes datetime data
+            del data["datetime"]
+            data.update({"uptime": human_delta_time(
+                START_TIME, datetime.now(timezone.utc))})
+            sio.emit("server_data", data, namespace="/admin")
+            sio.sleep(SYSTEM_UPDATE_FREQUENCY)
+
+
+@sio.on("connect", namespace="/admin")
+def connect_on_admin():
+    global admin_thread
+    if admin_thread is None:
+        app = current_app._get_current_object()
+        admin_thread = sio.start_background_task(
+            admin_background_thread, app=app)
