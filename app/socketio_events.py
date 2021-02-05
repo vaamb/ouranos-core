@@ -3,6 +3,7 @@ import logging
 
 from flask import current_app, request
 from flask_socketio import join_room, leave_room
+from numpy import mean, std
 
 from app import app_name, db, scheduler, sio
 from app.views.views_utils import human_delta_time
@@ -17,6 +18,14 @@ collector = logging.getLogger(f"{app_name}.collector")
 START_TIME = datetime.now(timezone.utc)
 SYSTEM_UPDATE_FREQUENCY = 5
 
+# Temporary anchors to keep PyCharm to delete these from import
+anchor1 = sensorsData
+anchor2 = systemMonitor
+
+summarize = {"mean": mean, "std": std}
+
+
+# TODO: add events from views.admin here
 
 # ---------------------------------------------------------------------------
 #   Data requests to engineManagers
@@ -182,18 +191,38 @@ def update_sensors_data(data):
         dt = datetime.fromisoformat(data[ecosystem_id]["datetime"])
         sensorsData[ecosystem_id]["datetime"] = dt
         if dt.minute % Config.SENSORS_LOGGING_FREQUENCY == 0:
+            measure_values = {}
             collector.debug(f"Logging sensors data from manager: {manager.uid}")
             for sensor_id in data[ecosystem_id]["data"]:
                 for measure in data[ecosystem_id]["data"][sensor_id]:
+                    value = float(data[ecosystem_id]["data"][sensor_id][measure])
                     sensor_data = sensorData(
                         ecosystem_id=ecosystem_id,
                         sensor_id=sensor_id,
                         measure=measure,
                         datetime=dt,
-                        value=data[ecosystem_id]["data"][sensor_id][measure],
+                        value=value,
                     )
-                    Hardware.query.filter_by(id=sensor_id).one().last_log = dt
                     db.session.add(sensor_data)
+                    Hardware.query.filter_by(id=sensor_id).one().last_log = dt
+                    try:
+                        measure_values[measure].append(value)
+                    except KeyError:
+                        measure_values[measure] = [value]
+
+            for method in summarize:
+                for measure in measure_values:
+                    values_summarized = round(
+                        summarize[method](measure_values[measure]), 2)
+                    aggregated_data = sensorData(
+                        ecosystem_id=ecosystem_id,
+                        sensor_id=method,
+                        measure=measure,
+                        datetime=dt,
+                        value=values_summarized,
+                    )
+                    db.session.add(aggregated_data)
+
     db.session.commit()
 
 
