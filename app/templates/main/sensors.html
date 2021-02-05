@@ -2,8 +2,8 @@
 
 {% block header %}{{ level.capitalize() }} sensors in {{ ecosystem_ids[1] }}{% endblock %}
 {% block info %}
-    {% if last_data %}
-        Last sensors update at {{ moment(last_data["datetime"]).format("HH:mm:ss") }}
+    {% if last_data[ecosystem_ids[0]] %}
+        Last sensors update at {{ moment(last_data[ecosystem_ids[0]]["datetime"]).format("HH:mm:ss") }}
     {% endif %}
 {% endblock %}
 
@@ -19,7 +19,7 @@
             {{ data[measure][sensor_id]["name"] }}
         </div>
         <div class="boardRowContainer" style="height: 183px;">
-          {% if last_data %}
+          {% if last_data[ecosystem_ids[0]] %}
           <div class="sensorGauge">
             <canvas id="{{ measure }}{{ sensor_id }}Gauge"></canvas>
             <span id="{{measure}}{{sensor_id}}lastData"></span>
@@ -33,16 +33,13 @@
       </div>
 
       <script type="text/javascript">
-        {% if last_data %}
+        {% if last_data[ecosystem_ids[0]] %}
 
-        $('#{{measure}}{{sensor_id}}lastData').text(Number({{ last_data["data"][sensor_id][measure] }}).toFixed(2))
+        let {{measure}}{{sensor_id}}lastData = Number(
+            {{ last_data[ecosystem_ids[0]]["data"][sensor_id][measure] }}).toFixed(1);
+        $('#{{measure}}{{sensor_id}}lastData').text({{measure}}{{sensor_id}}lastData);
 
-        socket.on('sensor_data', function(msg) {
-          $('#{{measure}}{{sensor_id}}lastData').text(Number(
-              msg.last_data.{{ ecosystem_ids[0] }}.{{ sensor_id }}.{{ measure }} ).toFixed(2));
-        })
-
-        var gaugeOpts = {
+        const {{  measure  }}{{  sensor_id  }}gaugeOpts = {
           lines: 12,
           angle: -0.11,            // The span of the gauge arc
           lineWidth: 0.25,         // The line thickness
@@ -60,18 +57,21 @@
           generateGradient: true,
           highDpiSupport: true,    // High resolution support
         };
-        var target = document.getElementById("{{ measure }}{{ sensor_id }}Gauge");    // your canvas element
-        var gauge = new Gauge(target).setOptions(gaugeOpts);                   // create sexy gauge!
-        gauge.maxValue = {{ parameters[level]['max_value'][measure] }};  // set max gauge value
-        gauge.animationSpeed = 32;                                             // set animation speed (32 is default value)
-        gauge.setMinValue(0);
-        gauge.set({{ last_data["data"][sensor_id][measure] }});   // set actual value
+        const {{  measure  }}{{  sensor_id  }}target = document.getElementById(
+            "{{ measure }}{{ sensor_id }}Gauge");                                                        // your canvas element
+        var {{  measure  }}{{  sensor_id  }}gauge = new Gauge(
+            {{  measure  }}{{  sensor_id  }}target).setOptions(
+            {{  measure  }}{{  sensor_id  }}gaugeOpts);                                                  // create sexy gauge!
+        {{  measure  }}{{  sensor_id  }}gauge.setMinValue(0);
+        {{  measure  }}{{  sensor_id  }}gauge.maxValue = {{ parameters[level]['max_value'][measure] }};  // set max gauge value
+        {{  measure  }}{{  sensor_id  }}gauge.animationSpeed = 32;                                       // set animation speed (32 is default value)
+        {{  measure  }}{{  sensor_id  }}gauge.set({{measure}}{{sensor_id}}lastData);                     // set actual value
         {% endif %}
 
         var {{ measure }}{{ sensor_id }}ChartData = {
           labels: [
             {% for item in data[measure][sensor_id]["values"] %}
-              new Date("{{ (item[0]).strftime("%Y-%m-%dT%H:%M:%SZ") }}"),  //formatting as ISO but with utc timezone added
+              new Date("{{ (item[0]).strftime("%Y-%m-%dT%H:%M:%SZ") }}"),                                 //formatting as ISO but with utc timezone added
             {% endfor %}
           ],
           datasets: [{
@@ -120,6 +120,16 @@
           responsive:true,
           maintainAspectRatio: false,
         });
+
+        socket.on('current_sensors_data', function(msg) {
+          {{ measure }}{{ sensor_id }}lastData = Number(
+            msg.{{ ecosystem_ids[0] }}.data.{{ sensor_id }}.{{ measure }}
+          ).toFixed(1);
+          $('#{{ measure }}{{ sensor_id }}lastData').text(
+            {{ measure }}{{ sensor_id }}lastData);
+          {{  measure  }}{{  sensor_id  }}gauge.set({{ measure }}{{ sensor_id }}lastData);
+        });
+
       </script>
 
       {% else %}

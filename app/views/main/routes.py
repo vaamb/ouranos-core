@@ -241,7 +241,7 @@ def sensors(level: str, ecosystem_name: str):
     ecosystem_ids = get_ecosystem_ids(ecosystem_name=ecosystem_name)
     data = get_sensors_data(ecosystem_uid=ecosystem_ids[0], level=level,
                             days=7)
-    last_data = sensorsData.get(ecosystem_ids[0], {})
+    last_data = sensorsData
     title = f"{ecosystem_ids[1]} {level} data"
     return render_template("main/sensors.html", title=title,
                            ecosystem_ids=ecosystem_ids, level=level,
@@ -312,6 +312,8 @@ def settings(ecosystem_name: str):
                            environmental_sensors=environmental_sensors,
                            plants_sensors=plants_sensors,
                            actuators=actuators,
+                           sensor_id="cpgCZFJGGYlIXlLL",
+                           measure="temperature"
                            )
 
 

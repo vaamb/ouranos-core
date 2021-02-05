@@ -7,7 +7,7 @@ parameters = {
         "color": {"temperature": "#f0341f", "humidity": "#226ba3", "absolute_humidity": "#226ba3", "dew_point": "#f0341f", "light": "#e9c429"},
         "icon": {"temperature": "fas fa-fire", "humidity": "fas fa-tint", "absolute_humidity":  "fas fa-tint", "dew_point": "fas fa-fire", "light": "fas fa-lightbulb"},
         "unit": {"temperature": "°C", "humidity": "% humidity", "absolute_humidity": "g.m-3", "dew_point": "°C", "light": " lux"},
-        "max_value": {"temperature": 35, "humidity": 100, "absolute_humidity": 30, "dew_point": 25, "light": 10000},
+        "max_value": {"temperature": 35, "humidity": 100, "absolute_humidity": 30, "dew_point": 25, "light": 100000},
     },
     "plants": {
         "color": {"moisture": "#226ba3"},

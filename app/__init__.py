@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 from apscheduler.schedulers.background import BackgroundScheduler
-from flask import Flask
+from flask import json, Flask
 from flask_login import LoginManager
 from flask_migrate import Migrate
 from flask_moment import Moment
@@ -22,7 +22,7 @@ scheduler = BackgroundScheduler()
 login_manager = LoginManager()
 db = SQLAlchemy()
 migrate = Migrate()
-sio = SocketIO()
+sio = SocketIO(json=json)
 moment = Moment()
 
 

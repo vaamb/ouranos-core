@@ -1,9 +1,11 @@
+from copy import deepcopy
 from datetime import datetime, time, timezone
 import logging
 
 from flask import current_app, request
 from flask_socketio import join_room, leave_room
 from numpy import mean, std
+from sqlalchemy.orm.exc import NoResultFound
 
 from app import app_name, db, scheduler, sio
 from app.views.views_utils import human_delta_time
@@ -182,10 +184,17 @@ def update_cfg(config):
 
 @sio.on("sensors_data", namespace="/gaia")
 def update_sensors_data(data):
-    # TODO: try manager = ... if error: register
-    manager = engineManager.query.filter_by(sid=request.sid).one()
+    try:
+        manager = engineManager.query.filter_by(sid=request.sid).one()
+    except NoResultFound:
+        request_config(request.sid)
+        sio_logger.error(
+            f"Received 'sensors_data' from unregistered manager: {manager.uid}")
+        pass
     sio_logger.debug(f"Received 'sensors_data' from manager: {manager.uid}")
     sensorsData.update(data)
+    sio.emit("current_sensors_data", data, namespace="/")
+
     for ecosystem_id in data:
         dt = datetime.fromisoformat(data[ecosystem_id]["datetime"])
         sensorsData[ecosystem_id]["datetime"] = dt
@@ -278,18 +287,15 @@ def update_light_data(data):
 browser_thread = None
 
 
-# TODO: send sensors data in real time
 def browser_background_thread(app):
     with app.app_context():
         global sensorsData
         while True:
-            data = {**sensorsData,
-                    }
-            sio.emit("currentData", "data", namespace="/")
+            sio.emit("background", "data", namespace="/")
             sio.sleep(3)
 
 
-@sio.on("connect", namespace="/")
+@sio.on("connect", namespace="/not_used")
 def connect_on_browser():
     global browser_thread
     if browser_thread is None:
@@ -350,9 +356,7 @@ def admin_background_thread(app):
     with app.app_context():
         global sensorsData
         while True:
-            data = dict(systemMonitor.system_data)
-            # TODO: change JSON parser so it takes datetime data
-            del data["datetime"]
+            data = deepcopy(systemMonitor.system_data)
             data.update({"uptime": human_delta_time(
                 START_TIME, datetime.now(timezone.utc))})
             sio.emit("server_data", data, namespace="/admin")
