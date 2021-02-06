@@ -12,7 +12,7 @@ parameters = {
     "plants": {
         "color": {"moisture": "#226ba3"},
         "icon": {"moisture": "fas fa-tint"},
-        "unit": {"moisture": "RWC"},
+        "unit": {"moisture": "% RWC"},
         "max_value": {"moisture": 100},
     },
     "plants_health": {

@@ -50,7 +50,7 @@ class Config():
     # Data logging
     SYSTEM_LOGGING_FREQUENCY = 10
     SENSORS_LOGGING_FREQUENCY = 10
-    
+
     # Private parameters
     HOME_CITY = os.environ.get("HOME_CITY") or privateConfig.HOME_CITY
     HOME_COORDINATES = os.environ.get("HOME_COORDINATES") or privateConfig.HOME_COORDINATES

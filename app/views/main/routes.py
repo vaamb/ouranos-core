@@ -312,8 +312,6 @@ def settings(ecosystem_name: str):
                            environmental_sensors=environmental_sensors,
                            plants_sensors=plants_sensors,
                            actuators=actuators,
-                           sensor_id="cpgCZFJGGYlIXlLL",
-                           measure="temperature"
                            )
 
 

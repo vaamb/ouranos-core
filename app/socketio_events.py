@@ -189,8 +189,10 @@ def update_sensors_data(data):
     except NoResultFound:
         request_config(request.sid)
         sio_logger.error(
-            f"Received 'sensors_data' from unregistered manager: {manager.uid}")
+            "Received 'sensors_data' event from unknown device, "
+            f"sid: {request.sid}")
         pass
+
     sio_logger.debug(f"Received 'sensors_data' from manager: {manager.uid}")
     sensorsData.update(data)
     sio.emit("current_sensors_data", data, namespace="/")
@@ -199,6 +201,8 @@ def update_sensors_data(data):
         dt = datetime.fromisoformat(data[ecosystem_id]["datetime"])
         sensorsData[ecosystem_id]["datetime"] = dt
         if dt.minute % Config.SENSORS_LOGGING_FREQUENCY == 0:
+            graph_update = {ecosystem_id: data[ecosystem_id]}
+            sio.emit("update_sensors_graph", graph_update, namespace="/")
             measure_values = {}
             collector.debug(f"Logging sensors data from manager: {manager.uid}")
             for sensor_id in data[ecosystem_id]["data"]:

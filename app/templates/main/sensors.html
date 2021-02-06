@@ -3,7 +3,7 @@
 {% block header %}{{ level.capitalize() }} sensors in {{ ecosystem_ids[1] }}{% endblock %}
 {% block info %}
     {% if current_data[ecosystem_ids[0]] %}
-        Last sensors update at {{ moment(current_data[ecosystem_ids[0]]["datetime"]).format("HH:mm:ss") }}
+        Last sensors measure at <span id="currentDatetime">{{ (current_data[ecosystem_ids[0]]["datetime"]).strftime("%H:%M:%S") }}</span>
     {% endif %}
 {% endblock %}
 
@@ -21,117 +21,16 @@
         <div class="boardRowContainer" style="height: 183px;">
           {% if current_data[ecosystem_ids[0]] %}
           <div class="sensorGauge">
-            <canvas id="{{ measure }}{{ sensor_id }}Gauge"></canvas>
-            <span id="{{measure}}{{sensor_id}}currentData"></span>
+            <canvas id="Gauge{{ measure.capitalize() }}_{{ sensor_id }}"></canvas>
+            <span id="currentData{{ measure.capitalize() }}_{{ sensor_id }}"></span>
             {{ parameters[level]['unit'][measure] }}
           </div>
           {% endif %}
           <div class="graph">
-            <canvas id="{{ measure }}{{ sensor_id }}Chart" style="width:100%; height:100%;"></canvas>
+            <canvas id="Chart{{ measure.capitalize() }}_{{ sensor_id }}" style="width:100%; height:100%;"></canvas>
           </div>
         </div>
       </div>
-
-      <script type="text/javascript">
-        {% if current_data[ecosystem_ids[0]] %}
-
-        let {{ measure }}{{ sensor_id }}currentData = Number(
-            {{ current_data[ecosystem_ids[0]]["data"][sensor_id][measure] }}).toFixed(1);
-        $('#{{ measure }}{{ sensor_id }}currentData').text({{ measure }}{{ sensor_id }}currentData);
-
-        const {{ measure }}{{ sensor_id }}gaugeOpts = {
-          lines: 12,
-          angle: -0.11,            // The span of the gauge arc
-          lineWidth: 0.25,         // The line thickness
-          radiusScale: 0.7,        // Relative radius
-          pointer: {
-            length: 0.6,           // Relative to gauge radius
-            strokeWidth: 0.035,    // The thickness
-            color: "#000000"       // Fill color
-          },
-          limitMax: true,          // If false, max value increases automatically if value > maxValue
-          limitMin: true,          // If true, the min value of the gauge will be fixed
-          colorStart: "#6FADCF",   // Colors
-          colorStop: "#8FC0DA",    // just experiment with them
-          strokeColor: "#E0E0E0",  // to see which ones work best for you
-          generateGradient: true,
-          highDpiSupport: true,    // High resolution support
-        };
-        const {{ measure }}{{ sensor_id }}target = document.getElementById(
-            "{{ measure }}{{ sensor_id }}Gauge");                                                    // your canvas element
-        var {{ measure }}{{ sensor_id }}gauge = new Gauge(
-            {{ measure }}{{ sensor_id }}target).setOptions(
-            {{ measure }}{{ sensor_id }}gaugeOpts);                                                  // create sexy gauge!
-        {{ measure }}{{ sensor_id }}gauge.setMinValue(0);
-        {{ measure }}{{ sensor_id }}gauge.maxValue = {{ parameters[level]['max_value'][measure] }};  // set max gauge value
-        {{ measure }}{{ sensor_id }}gauge.animationSpeed = 32;                                       // set animation speed (32 is default value)
-        {{ measure }}{{ sensor_id }}gauge.set({{ measure }}{{ sensor_id }}currentData);              // set actual value
-        {% endif %}
-
-        var {{ measure }}{{ sensor_id }}ChartData = {
-          labels: [
-            {% for item in data[measure][sensor_id]["values"] %}
-              new Date("{{ (item[0]).strftime("%Y-%m-%dT%H:%M:%SZ") }}"),                                 //formatting as ISO but with utc timezone added
-            {% endfor %}
-          ],
-          datasets: [{
-            label: "{{measure.capitalize()}}",
-            data: [{% for item in data[measure][sensor_id]["values"] %}
-                     Number({{ item[1] }}).toFixed(1),
-                   {% endfor %}],
-            backgroundColor: 'rgba(255,255,255,0)',
-            radius: 0,
-            hitRadius: 2,
-            borderColor: "{{ parameters[level]['color'][measure] }}",
-            borderJoinStyle: "round",
-            borderWidth: 2,
-          }]
-        };
-        var {{ measure }}chartLayout = {
-          legend:{
-            display: false
-          },
-          scales: {
-            xAxes: [{
-              type: "time",
-              time: {
-                unit: "day",
-                unitStepSize: 1,
-                displayFormats: {"day": "ddd DD MMM"},
-                tooltipFormat: 'YYYY-MM-DD HH:mm',
-              }
-            }],
-            yAxes: [{
-              display: true,
-              ticks: {
-                beginAtZero: true,
-                {{ 'max' if measure in ('humidity', 'moisture') else 'suggestedMax' }}:
-                  {{ parameters[level]['max_value'][measure] }},
-                steps: {{ parameters[level]['max_value'][measure] /10 }},
-              }
-            }]
-          }
-        }
-        var {{ measure }}{{ sensor_id }}ctx = document.getElementById("{{ measure }}{{ sensor_id }}Chart");
-        var {{ measure }}{{ sensor_id }}Chart = new Chart({{ measure }}{{ sensor_id }}ctx, {
-          type: "line",
-          data: {{ measure }}{{ sensor_id }}ChartData,
-          options: {{ measure }}chartLayout,
-          responsive:true,
-          maintainAspectRatio: false,
-        });
-
-        socket.on('current_sensors_data', function(msg) {
-          {{ measure }}{{ sensor_id }}currentData = Number(
-            msg.{{ ecosystem_ids[0] }}.data.{{ sensor_id }}.{{ measure }}
-          ).toFixed(1);
-          $('#{{ measure }}{{ sensor_id }}currentData').text(
-            {{ measure }}{{ sensor_id }}currentData);
-          {{ measure }}{{  sensor_id  }}gauge.animationSpeed = 1024;
-          {{ measure }}{{  sensor_id  }}gauge.set({{ measure }}{{ sensor_id }}currentData);
-        });
-
-      </script>
 
       {% else %}
         <p>
@@ -141,4 +40,148 @@
       {% endif %}
     {% endfor %}
   {% endfor %}
+
+  <script type="text/javascript">
+    // Generate Data spans, Gauges and Charts
+    {% for measure in data %}
+    {% for sensor_id in data[measure] %}
+    {% if current_data[ecosystem_ids[0]] %}
+
+    let currentData{{ measure.capitalize() }}_{{ sensor_id }} = Number(
+        {{ current_data[ecosystem_ids[0]]["data"][sensor_id][measure] }}).toFixed(1);
+    $('#currentData{{ measure.capitalize() }}_{{ sensor_id }}').text(currentData{{ measure.capitalize() }}_{{ sensor_id }});
+
+    const gaugeOpts{{ measure.capitalize() }}_{{ sensor_id }} = {
+      lines: 12,
+      angle: -0.11,            // The span of the gauge arc
+      lineWidth: 0.25,         // The line thickness
+      radiusScale: 0.7,        // Relative radius
+      pointer: {
+        length: 0.6,           // Relative to gauge radius
+        strokeWidth: 0.035,    // The thickness
+        color: "#000000"       // Fill color
+      },
+      limitMax: true,          // If false, max value increases automatically if value > maxValue
+      limitMin: true,          // If true, the min value of the gauge will be fixed
+      colorStart: "#6FADCF",   // Colors
+      colorStop: "#8FC0DA",    // just experiment with them
+      strokeColor: "#E0E0E0",  // to see which ones work best for you
+      generateGradient: true,
+      highDpiSupport: true,    // High resolution support
+    };
+    const target{{ measure.capitalize() }}_{{ sensor_id }} = document.getElementById(
+        "Gauge{{ measure.capitalize() }}_{{ sensor_id }}");                                                    // your canvas element
+    var gauge{{ measure.capitalize() }}_{{ sensor_id }} = new Gauge(
+        target{{ measure.capitalize() }}_{{ sensor_id }}).setOptions(
+        gaugeOpts{{ measure.capitalize() }}_{{ sensor_id }});                                                  // create sexy gauge!
+    gauge{{ measure.capitalize() }}_{{ sensor_id }}.setMinValue(0);
+    gauge{{ measure.capitalize() }}_{{ sensor_id }}.maxValue = {{ parameters[level]['max_value'][measure] }};  // set max gauge value
+    gauge{{ measure.capitalize() }}_{{ sensor_id }}.animationSpeed = 32;                                       // set animation speed (32 is default value)
+    gauge{{ measure.capitalize() }}_{{ sensor_id }}.set(currentData{{ measure.capitalize() }}_{{ sensor_id }});              // set actual value
+    {% endif %}
+
+    var ChartData{{ measure.capitalize() }}_{{ sensor_id }} = {
+      labels: [
+        //formatting as ISO but with utc timezone added
+        {% for item in data[measure][sensor_id]["values"] %}
+          new Date("{{ (item[0]).strftime("%Y-%m-%dT%H:%M:%SZ") }}"),
+        {% endfor %}
+      ],
+      datasets: [{
+        label: "{{measure.capitalize()}}",
+        data: [{% for item in data[measure][sensor_id]["values"] %}
+                 Number({{ item[1] }}).toFixed(1),
+               {% endfor %}],
+        backgroundColor: 'rgba(255,255,255,0)',
+        radius: 0,
+        hitRadius: 2,
+        borderColor: "{{ parameters[level]['color'][measure] }}",
+        borderJoinStyle: "round",
+        borderWidth: 2,
+      }]
+    };
+    var {{ measure }}chartLayout = {
+      legend:{
+        display: false
+      },
+      scales: {
+        xAxes: [{
+          type: "time",
+          time: {
+            unit: "day",
+            unitStepSize: 1,
+            displayFormats: {"day": "ddd DD MMM"},
+            tooltipFormat: 'YYYY-MM-DD HH:mm',
+          }
+        }],
+        yAxes: [{
+          display: true,
+          ticks: {
+            beginAtZero: true,
+            {{ 'max' if measure in ('humidity', 'moisture') else 'suggestedMax' }}:
+              {{ parameters[level]['max_value'][measure] }},
+            steps: {{ parameters[level]['max_value'][measure] /10 }},
+          }
+        }]
+      }
+    }
+    var ctx{{ measure.capitalize() }}_{{ sensor_id }} = document.getElementById("Chart{{ measure.capitalize() }}_{{ sensor_id }}");
+    var Chart{{ measure.capitalize() }}_{{ sensor_id }} = new Chart(ctx{{ measure.capitalize() }}_{{ sensor_id }}, {
+      type: "line",
+      data: ChartData{{ measure.capitalize() }}_{{ sensor_id }},
+      options: {{ measure }}chartLayout,
+      responsive:true,
+      maintainAspectRatio: false,
+    });
+    {% endfor %}
+    {% endfor %}
+
+    socket.on('current_sensors_data', function(msg) {
+      // Update last sensors measure time
+      let currentDatetime = new Date(msg.{{ ecosystem_ids[0] }}.datetime)
+      $('#currentDatetime').text(currentDatetime.toISOString().substr(11, 8));
+
+      // Update Data spans and Gauges
+      {% for measure in data %}
+      {% for sensor_id in data[measure] %}
+      currentData{{ measure.capitalize() }}_{{ sensor_id }} = Number(
+        msg.{{ ecosystem_ids[0] }}.data.{{ sensor_id }}.{{ measure }}
+      ).toFixed(1);
+      $('#currentData{{ measure.capitalize() }}_{{ sensor_id }}').text(
+        currentData{{ measure.capitalize() }}_{{ sensor_id }});
+      gauge{{ measure.capitalize() }}_{{ sensor_id }}.animationSpeed = 1024;
+      gauge{{ measure.capitalize() }}_{{ sensor_id }}.set(currentData{{ measure.capitalize() }}_{{ sensor_id }});
+      {% endfor %}
+      {% endfor %}
+    });
+
+    socket.on('update_sensors_graph', function(msg) {
+      let now = new Date(msg.{{ ecosystem_ids[0] }}.datetime);
+
+      let dayWindow = 7;
+      let dataWindowLimit = new Date();
+      dataWindowLimit.setDate(now.getDate() - dayWindow);
+
+      // Update Charts
+      {% for measure in data %}
+      {% for sensor_id in data[measure] %}
+      // Push new data for Temp: {{ measure }} - Sensor: {{ sensor_id }}
+      ChartData{{ measure.capitalize() }}_{{ sensor_id }}.labels.push(now);
+      ChartData{{ measure.capitalize() }}_{{ sensor_id }}.datasets[0].data.push(
+        Number(msg.{{ ecosystem_ids[0] }}.data.{{ sensor_id }}.{{ measure }}).toFixed(1)
+      );
+      // Get the number of data points which should be displayed
+      var dataWindowLength = ChartData{{ measure.capitalize() }}_{{ sensor_id }}.labels.filter(x => x > dataWindowLimit).length;
+
+      // Only keep data points within the desired range
+      ChartData{{ measure.capitalize() }}_{{ sensor_id }}.labels =
+        ChartData{{ measure.capitalize() }}_{{ sensor_id }}.labels.slice(- dataWindowLength);
+      ChartData{{ measure.capitalize() }}_{{ sensor_id }}.datasets[0].data =
+        ChartData{{ measure.capitalize() }}_{{ sensor_id }}.datasets[0].data.slice(- dataWindowLength);
+
+      Chart{{ measure.capitalize() }}_{{ sensor_id }}.update();
+      {% endfor %}
+      {% endfor %}
+    });
+  </script>
 {% endblock %}
