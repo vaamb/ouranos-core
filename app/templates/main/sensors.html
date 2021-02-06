@@ -2,8 +2,8 @@
 
 {% block header %}{{ level.capitalize() }} sensors in {{ ecosystem_ids[1] }}{% endblock %}
 {% block info %}
-    {% if last_data[ecosystem_ids[0]] %}
-        Last sensors update at {{ moment(last_data[ecosystem_ids[0]]["datetime"]).format("HH:mm:ss") }}
+    {% if current_data[ecosystem_ids[0]] %}
+        Last sensors update at {{ moment(current_data[ecosystem_ids[0]]["datetime"]).format("HH:mm:ss") }}
     {% endif %}
 {% endblock %}
 
@@ -19,27 +19,27 @@
             {{ data[measure][sensor_id]["name"] }}
         </div>
         <div class="boardRowContainer" style="height: 183px;">
-          {% if last_data[ecosystem_ids[0]] %}
+          {% if current_data[ecosystem_ids[0]] %}
           <div class="sensorGauge">
             <canvas id="{{ measure }}{{ sensor_id }}Gauge"></canvas>
-            <span id="{{measure}}{{sensor_id}}lastData"></span>
+            <span id="{{measure}}{{sensor_id}}currentData"></span>
             {{ parameters[level]['unit'][measure] }}
           </div>
           {% endif %}
           <div class="graph">
-            <canvas id="{{measure}}{{sensor_id}}Chart" style="width:100%; height:100%;"></canvas>
+            <canvas id="{{ measure }}{{ sensor_id }}Chart" style="width:100%; height:100%;"></canvas>
           </div>
         </div>
       </div>
 
       <script type="text/javascript">
-        {% if last_data[ecosystem_ids[0]] %}
+        {% if current_data[ecosystem_ids[0]] %}
 
-        let {{measure}}{{sensor_id}}lastData = Number(
-            {{ last_data[ecosystem_ids[0]]["data"][sensor_id][measure] }}).toFixed(1);
-        $('#{{measure}}{{sensor_id}}lastData').text({{measure}}{{sensor_id}}lastData);
+        let {{ measure }}{{ sensor_id }}currentData = Number(
+            {{ current_data[ecosystem_ids[0]]["data"][sensor_id][measure] }}).toFixed(1);
+        $('#{{ measure }}{{ sensor_id }}currentData').text({{ measure }}{{ sensor_id }}currentData);
 
-        const {{  measure  }}{{  sensor_id  }}gaugeOpts = {
+        const {{ measure }}{{ sensor_id }}gaugeOpts = {
           lines: 12,
           angle: -0.11,            // The span of the gauge arc
           lineWidth: 0.25,         // The line thickness
@@ -57,15 +57,15 @@
           generateGradient: true,
           highDpiSupport: true,    // High resolution support
         };
-        const {{  measure  }}{{  sensor_id  }}target = document.getElementById(
-            "{{ measure }}{{ sensor_id }}Gauge");                                                        // your canvas element
-        var {{  measure  }}{{  sensor_id  }}gauge = new Gauge(
-            {{  measure  }}{{  sensor_id  }}target).setOptions(
-            {{  measure  }}{{  sensor_id  }}gaugeOpts);                                                  // create sexy gauge!
-        {{  measure  }}{{  sensor_id  }}gauge.setMinValue(0);
-        {{  measure  }}{{  sensor_id  }}gauge.maxValue = {{ parameters[level]['max_value'][measure] }};  // set max gauge value
-        {{  measure  }}{{  sensor_id  }}gauge.animationSpeed = 32;                                       // set animation speed (32 is default value)
-        {{  measure  }}{{  sensor_id  }}gauge.set({{measure}}{{sensor_id}}lastData);                     // set actual value
+        const {{ measure }}{{ sensor_id }}target = document.getElementById(
+            "{{ measure }}{{ sensor_id }}Gauge");                                                    // your canvas element
+        var {{ measure }}{{ sensor_id }}gauge = new Gauge(
+            {{ measure }}{{ sensor_id }}target).setOptions(
+            {{ measure }}{{ sensor_id }}gaugeOpts);                                                  // create sexy gauge!
+        {{ measure }}{{ sensor_id }}gauge.setMinValue(0);
+        {{ measure }}{{ sensor_id }}gauge.maxValue = {{ parameters[level]['max_value'][measure] }};  // set max gauge value
+        {{ measure }}{{ sensor_id }}gauge.animationSpeed = 32;                                       // set animation speed (32 is default value)
+        {{ measure }}{{ sensor_id }}gauge.set({{ measure }}{{ sensor_id }}currentData);              // set actual value
         {% endif %}
 
         var {{ measure }}{{ sensor_id }}ChartData = {
@@ -77,8 +77,8 @@
           datasets: [{
             label: "{{measure.capitalize()}}",
             data: [{% for item in data[measure][sensor_id]["values"] %}
-                  {{ item[1] }},
-                  {% endfor %}],
+                     Number({{ item[1] }}).toFixed(1),
+                   {% endfor %}],
             backgroundColor: 'rgba(255,255,255,0)',
             radius: 0,
             hitRadius: 2,
@@ -122,12 +122,13 @@
         });
 
         socket.on('current_sensors_data', function(msg) {
-          {{ measure }}{{ sensor_id }}lastData = Number(
+          {{ measure }}{{ sensor_id }}currentData = Number(
             msg.{{ ecosystem_ids[0] }}.data.{{ sensor_id }}.{{ measure }}
           ).toFixed(1);
-          $('#{{ measure }}{{ sensor_id }}lastData').text(
-            {{ measure }}{{ sensor_id }}lastData);
-          {{  measure  }}{{  sensor_id  }}gauge.set({{ measure }}{{ sensor_id }}lastData);
+          $('#{{ measure }}{{ sensor_id }}currentData').text(
+            {{ measure }}{{ sensor_id }}currentData);
+          {{ measure }}{{  sensor_id  }}gauge.animationSpeed = 1024;
+          {{ measure }}{{  sensor_id  }}gauge.set({{ measure }}{{ sensor_id }}currentData);
         });
 
       </script>

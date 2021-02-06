@@ -241,11 +241,11 @@ def sensors(level: str, ecosystem_name: str):
     ecosystem_ids = get_ecosystem_ids(ecosystem_name=ecosystem_name)
     data = get_sensors_data(ecosystem_uid=ecosystem_ids[0], level=level,
                             days=7)
-    last_data = sensorsData
+    current_data = sensorsData
     title = f"{ecosystem_ids[1]} {level} data"
     return render_template("main/sensors.html", title=title,
                            ecosystem_ids=ecosystem_ids, level=level,
-                           data=data, last_data=last_data,
+                           data=data, current_data=current_data,
                            parameters=layout.parameters,
                            )
 

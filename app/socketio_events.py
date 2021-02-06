@@ -359,7 +359,7 @@ def admin_background_thread(app):
             data = deepcopy(systemMonitor.system_data)
             data.update({"uptime": human_delta_time(
                 START_TIME, datetime.now(timezone.utc))})
-            sio.emit("server_data", data, namespace="/admin")
+            sio.emit("current_server_data", data, namespace="/admin")
             sio.sleep(SYSTEM_UPDATE_FREQUENCY)
 
 

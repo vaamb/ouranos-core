@@ -8,21 +8,27 @@
     {% if measure in system_measures %}
     <div class="board" style="height: 230px;">
       <div class="boardHeader">
-        <i class="{{parameters['server']['icon'][measure]}} leftico"></i>
-        {{parameters["server"]["measure"][measure]}}
+        <i class="{{ parameters['server']['icon'][measure] }} leftico"></i>
+        {{ parameters["server"]["measure"][measure] }}
       </div>
       <div class="boardRowContainer" style="height: 183px;">
         <div class="sensorGauge">
-          <canvas id="{{measure}}Gauge"></canvas> {{system_data[measure]}}{{parameters['server']['unit'][measure]}}
+          <canvas id="{{ measure }}Gauge"></canvas>
+          <span id="{{ measure }}currentData"></span>
+          {{ parameters['server']['unit'][measure] }}
         </div>
         <div class="graph">
-          <canvas id="{{measure}}Chart" style="width:100%; height:100%;"></canvas>
+          <canvas id="{{ measure }}Chart" style="width:100%; height:100%;"></canvas>
         </div>
       </div>
     </div>
 
     <script type="text/javascript">
-      var gaugeOpts = {
+      let {{ measure }}currentData = Number(
+        {{ current_data[measure] }}).toFixed(1);
+      $('#{{ measure }}currentData').text({{ measure }}currentData);
+
+      const {{ measure }}gaugeOpts = {
         lines: 12,
         angle: -0.11,            // The span of the gauge arc
         lineWidth: 0.25,         // The line thickness
@@ -40,25 +46,26 @@
         generateGradient: true,
         highDpiSupport: true,    // High resolution support
       };
-      var target = document.getElementById('{{measure}}Gauge');  // your canvas element
-      var gauge = new Gauge(target).setOptions(gaugeOpts);       // create sexy gauge!
-      gauge.maxValue =
+      const {{ measure }}target = document.getElementById('{{ measure }}Gauge');  // your canvas element
+      var {{ measure }}gauge = new Gauge(
+          {{ measure }}target).setOptions({{ measure }}gaugeOpts);                // create sexy gauge!
+      {{ measure }}gauge.maxValue =
         {% if measure == 'CPU_used' %}
           100
         {% elif measure == 'CPU_temp' %}
           75
         {% elif measure == 'RAM_used' %}
-          {{system_data['RAM_total']}}
+          {{ current_data['RAM_total'] }}
         {% elif measure == 'DISK_used' %}
-          {{system_data['DISK_total']}}
-        {% endif %};                                             // set max gauge value
-      gauge.animationSpeed = 32;                                 // set animation speed (32 is default value)
-      gauge.setMinValue(0);
-      gauge.set({{system_data[measure]}});                       // set actual value
+          {{ current_data['DISK_total'] }}
+        {% endif %};                                                               // set max gauge value
+      {{ measure }}gauge.animationSpeed = 32;                                      // set animation speed (32 is default value)
+      {{ measure }}gauge.setMinValue(0);
+      {{ measure }}gauge.set({{ measure }}currentData);                            // set actual value
 
-      var {{measure}}ChartData = {
+      var {{ measure }}ChartData = {
         labels: [{% for item in data %}
-                   new Date("{{(item[0]).strftime("%Y-%m-%dT%H:%M:%SZ")}}"),
+                   new Date("{{ (item[0]).strftime("%Y-%m-%dT%H:%M:%SZ") }}"),
                  {% endfor %}],
         datasets: [{
           label:
@@ -72,7 +79,7 @@
             "DISK space usage"
           {% endif %},
           data: [{% for item in data %}
-                   {{item[parameters['server']['list_index'][measure]]}},
+                   Number({{ item[parameters['server']['list_index'][measure]] }}).toFixed(1),
                  {% endfor %}],
           backgroundColor: "rgba(255,255,255,0)",
           radius: 0,
@@ -82,7 +89,7 @@
           borderWidth: 2,
         }]
       };
-      var {{measure}}chartLayout = {
+      var {{ measure }}chartLayout = {
         legend:{
           display: false
         },
@@ -106,9 +113,9 @@
                 {% elif measure == 'CPU_temp' %}
                   75
                 {% elif measure == 'RAM_used' %}
-                  {{system_data['RAM_total']}}
+                  {{ current_data['RAM_total'] }}
                 {% elif measure == 'DISK_used' %}
-                  {{system_data['DISK_total']}}
+                  {{ current_data['DISK_total'] }}
                 {% endif %},
               steps:
                 {% if measure == 'CPU_used' %}
@@ -116,21 +123,28 @@
                 {% elif measure == 'CPU_temp' %}
                   10
                 {% elif measure == 'RAM_used' %}
-                  {{system_data['RAM_total']/10}}
+                  {{ current_data['RAM_total']/10 }}
                 {% elif measure == 'DISK_used' %}
-                  {{system_data['DISK_total']/10}}
+                  {{ current_data['DISK_total']/10 }}
                 {% endif %},
             }
           }]
         }
       };
-      var {{measure}}ctx = document.getElementById("{{measure}}Chart");
-      var {{measure}}Chart = new Chart({{measure}}ctx, {
+      var {{ measure }}ctx = document.getElementById("{{ measure }}Chart");
+      var {{ measure }}Chart = new Chart({{ measure }}ctx, {
         type: "line",
-        data: {{measure}}ChartData,
-        options: {{measure}}chartLayout,
+        data: {{ measure }}ChartData,
+        options: {{ measure }}chartLayout,
         responsive:true,
         maintainAspectRatio: false,
+      });
+
+      socketAdmin.on('current_server_data', function(msg) {
+        {{ measure }}currentData = Number(msg.{{ measure }}).toFixed(1);
+        $('#{{ measure }}currentData').text({{ measure }}currentData);
+        {{ measure }}gauge.animationSpeed = 512;
+        {{ measure }}gauge.set({{ measure }}{{ sensor_id }}currentData);
       });
     </script>
   {% endif %}

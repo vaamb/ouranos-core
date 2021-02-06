@@ -52,11 +52,11 @@ def mem_snapshot():
 @login_required
 @permission_required(Permission.ADMIN)
 def system():
-    system_data = systemMonitor.system_data
-    system_measures = list(system_data.keys())
+    current_data = systemMonitor.system_data
+    system_measures = list(current_data.keys())
     data = get_system_data()
     return render_template("admin/system.html", title="Server monitoring",
-                           data=data, system_data=system_data,
+                           data=data, current_data=current_data,
                            system_measures=system_measures,
                            parameters=layout.parameters)
 
