@@ -2,7 +2,7 @@
 
 {% block header %}System performance{% endblock %}
 {% block info %}
-  Last sensors measure at <span id="currentDatetime">{{ (current_data["datetime"]).strftime("%H:%M:%S") }}</span>
+  Last sensors measure at <span id="currentDatetime"></span>
 {% endblock %}
 
 {% block content %}
@@ -32,6 +32,11 @@
   {% endfor %}
 
   <script type="text/javascript">
+    // Get last sensors measure time
+    let currentDatetime = new Date('{{ (current_data["datetime"]) }}');
+    $('#currentDatetime').text(currentDatetime.toLocaleTimeString());
+
+
     // Generate Data spans, Gauges and Charts
     {% for measure in ['CPU_used', 'CPU_temp', 'RAM_used', 'DISK_used'] %}
     {% if measure in system_measures %}
@@ -157,7 +162,7 @@
     socketAdmin.on('current_server_data', function(msg) {
       // Update last sensors measure time
       let currentDatetime = new Date(msg.datetime);
-      $('#currentDatetime').text(currentDatetime.toISOString().substr(11, 8));
+      $('#currentDatetime').text(currentDatetime.toLocaleTimeString());
 
       // Update Data spans and Gauges
       {% for measure in ['CPU_used', 'CPU_temp', 'RAM_used', 'DISK_used'] %}

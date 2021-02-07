@@ -3,7 +3,7 @@
 {% block header %}{{ level.capitalize() }} sensors in {{ ecosystem_ids[1] }}{% endblock %}
 {% block info %}
     {% if current_data[ecosystem_ids[0]] %}
-        Last sensors measure at <span id="currentDatetime">{{ (current_data[ecosystem_ids[0]]["datetime"]).strftime("%H:%M:%S") }}</span>
+        Last sensors measure at <span id="currentDatetime"></span>
     {% endif %}
 {% endblock %}
 
@@ -42,6 +42,12 @@
   {% endfor %}
 
   <script type="text/javascript">
+    {% if current_data[ecosystem_ids[0]] %}
+    // Get last sensors measure time
+    let currentDatetime = new Date('{{ current_data[ecosystem_ids[0]]["datetime"] }}');
+    $('#currentDatetime').text(currentDatetime.toLocaleTimeString());
+    {%  endif %}
+
     // Generate Data spans, Gauges and Charts
     {% for measure in data %}
     {% for sensor_id in data[measure] %}
@@ -136,11 +142,12 @@
     {% endfor %}
     {% endfor %}
 
+    {% if current_data[ecosystem_ids[0]] %}
     socket.on('current_sensors_data', function(msg) {
       // Update last sensors measure time
       let currentDatetime = new Date(msg.{{ ecosystem_ids[0] }}.datetime);
-      $('#currentDatetime').text(currentDatetime.toISOString().substr(11, 8));
-
+      $('#currentDatetime').text(currentDatetime.toLocaleTimeString());
+      $('#test').text(msg.{{ ecosystem_ids[0] }}.datetime);
       // Update Data spans and Gauges
       {% for measure in data %}
       {% for sensor_id in data[measure] %}
@@ -154,6 +161,7 @@
       {% endfor %}
       {% endfor %}
     });
+    {% endif %}
 
     socket.on('update_sensors_graph', function(msg) {
       let now = new Date(msg.{{ ecosystem_ids[0] }}.datetime);
