@@ -5,7 +5,7 @@ import time
 from apscheduler.schedulers.background import BackgroundScheduler
 import requests
 
-from app import app_name
+from app import app_name, sio
 from app.utils import cache_dir
 from config import Config
 
@@ -41,6 +41,8 @@ class Weather:
             else:
                 with open(self._file_path, "w+") as file:
                     json.dump(self._weather_data, file)
+                sio.emit("current_weather", self._weather_data["currently"],
+                         namespace="/")
                 self.logger.debug("Weather data updated")
                 return
 
@@ -63,16 +65,17 @@ class Weather:
     def _check_recency(self) -> bool:
         if not self._weather_data:
             try:
-                file = open(self._file_path, "r")
+                with open(self._file_path, "r") as file:
+                    self._weather_data = json.load(file)
             except FileNotFoundError:
                 return False
-            data = json.load(file)
-            file.close()
-            if data["currently"]["time"] > time.time() - (15 * 60):
-                self._weather_data = data
-                return True
-            return False
-        return True
+
+        if self._weather_data["currently"]["time"] > time.time() - (15 * 60):
+            self.logger.debug(
+                "Weather data already up to date")
+            return True
+
+        return False
 
     """API"""
     def start(self) -> None:

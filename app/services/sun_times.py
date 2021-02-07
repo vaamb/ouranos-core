@@ -1,3 +1,5 @@
+from datetime import date, datetime
+import json
 import logging
 import time
 
@@ -5,7 +7,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 import requests
 
 from app import app_name
-from app.utils import is_connected
+from app.utils import cache_dir, is_connected
 from config import Config
 
 
@@ -14,6 +16,7 @@ class sunTimes:
         self.logger = logging.getLogger(f"{app_name}.services.suntimes")
         self.logger.info("Initializing sun_times module")
         self.trials = trials
+        self._file_path = cache_dir / "sun_times.json"
         self._sun_times_data = {}
         self.coordinates = Config.HOME_COORDINATES
         self.started = False
@@ -28,11 +31,16 @@ class sunTimes:
                         f"https://api.sunrise-sunset.org/json?lat={self.coordinates[0]}" +
                         f"&lng={self.coordinates[1]}").json()
                     self._sun_times_data = data["results"]
-                    self.logger.debug("Moments of the day updated")
-                    return
+                    self.logger.debug("Sun times data updated")
                 except ConnectionError:
                     time.sleep(1)
                     continue
+                else:
+                    with open(self._file_path, "w+") as file:
+                        json.dump(self._sun_times_data, file)
+                    self.logger.debug("Sun times data updated")
+                    return
+
         self.logger.error("ConnectionError, cannot update sun times")
 
     def _start_scheduler(self):
@@ -51,9 +59,27 @@ class sunTimes:
         del self._scheduler
         self.logger.debug("The suntimes service background scheduler has been stopped")
 
+    def _check_recency(self) -> bool:
+        try:
+            update_epoch = self._file_path.stat().st_ctime
+            update_dt = datetime.fromtimestamp(update_epoch)
+        except FileNotFoundError:
+            return False
+
+        if update_dt.date() < date.today():
+            return False
+
+        with open(self._file_path, "r") as file:
+            data = json.load(file)
+        self._sun_times_data = data
+        self.logger.debug(
+            "Sun times data already up to date")
+        return True
+
     def start(self):
         if not self.started:
-            self.update_sun_times_data()
+            if not self._check_recency():
+                self.update_sun_times_data()
             self._start_scheduler()
             self.started = True
         else:
