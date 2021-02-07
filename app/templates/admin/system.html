@@ -1,7 +1,9 @@
 {% extends 'menu.html' %}
 
 {% block header %}System performance{% endblock %}
-{% block info %}{% endblock %}
+{% block info %}
+  Last sensors measure at <span id="currentDatetime">{{ (current_data["datetime"]).strftime("%H:%M:%S") }}</span>
+{% endblock %}
 
 {% block content %}
   {% for measure in ['CPU_used', 'CPU_temp', 'RAM_used', 'DISK_used'] %}
@@ -13,140 +15,189 @@
       </div>
       <div class="boardRowContainer" style="height: 183px;">
         <div class="sensorGauge">
-          <canvas id="{{ measure }}Gauge"></canvas>
-          <span id="{{ measure }}currentData"></span>
+          <canvas id="Gauge{{ measure.capitalize() }}"></canvas>
+          <span id="currentData{{ measure.capitalize() }}"></span>
           {{ parameters['server']['unit'][measure] }}
         </div>
         <div class="graph">
-          <canvas id="{{ measure }}Chart" style="width:100%; height:100%;"></canvas>
+          <canvas id="Chart{{ measure.capitalize() }}" style="width:100%; height:100%;"></canvas>
         </div>
       </div>
     </div>
 
     <script type="text/javascript">
-      let {{ measure }}currentData = Number(
-        {{ current_data[measure] }}).toFixed(1);
-      $('#{{ measure }}currentData').text({{ measure }}currentData);
 
-      const {{ measure }}gaugeOpts = {
-        lines: 12,
-        angle: -0.11,            // The span of the gauge arc
-        lineWidth: 0.25,         // The line thickness
-        radiusScale: 0.7,        // Relative radius
-        pointer: {
-          length: 0.6,           // Relative to gauge radius
-          strokeWidth: 0.035,    // The thickness
-          color: "#000000"       // Fill color
-        },
-        limitMax: true,          // If false, max value increases automatically if value > maxValue
-        limitMin: true,          // If true, the min value of the gauge will be fixed
-        colorStart: '#6FADCF',   // Colors
-        colorStop: '#8FC0DA',    // just experiment with them
-        strokeColor: '#E0E0E0',  // to see which ones work best for you
-        generateGradient: true,
-        highDpiSupport: true,    // High resolution support
-      };
-      const {{ measure }}target = document.getElementById('{{ measure }}Gauge');  // your canvas element
-      var {{ measure }}gauge = new Gauge(
-          {{ measure }}target).setOptions({{ measure }}gaugeOpts);                // create sexy gauge!
-      {{ measure }}gauge.maxValue =
-        {% if measure == 'CPU_used' %}
-          100
-        {% elif measure == 'CPU_temp' %}
-          75
-        {% elif measure == 'RAM_used' %}
-          {{ current_data['RAM_total'] }}
-        {% elif measure == 'DISK_used' %}
-          {{ current_data['DISK_total'] }}
-        {% endif %};                                                               // set max gauge value
-      {{ measure }}gauge.animationSpeed = 32;                                      // set animation speed (32 is default value)
-      {{ measure }}gauge.setMinValue(0);
-      {{ measure }}gauge.set({{ measure }}currentData);                            // set actual value
-
-      var {{ measure }}ChartData = {
-        labels: [{% for item in data %}
-                   new Date("{{ (item[0]).strftime("%Y-%m-%dT%H:%M:%SZ") }}"),
-                 {% endfor %}],
-        datasets: [{
-          label:
-          {% if measure == 'CPU_used' %}
-            "CPU usage"
-          {% elif measure == 'CPU_temp' %}
-            "CPU temperature"
-          {% elif measure == 'RAM_used' %}
-            "RAM usage"
-          {% elif measure == 'DISK_used' %}
-            "DISK space usage"
-          {% endif %},
-          data: [{% for item in data %}
-                   Number({{ item[parameters['server']['list_index'][measure]] }}).toFixed(1),
-                 {% endfor %}],
-          backgroundColor: "rgba(255,255,255,0)",
-          radius: 0,
-          hitRadius: 4,
-          borderColor: "#f0341f",
-          borderJoinStyle: "round",
-          borderWidth: 2,
-        }]
-      };
-      var {{ measure }}chartLayout = {
-        legend:{
-          display: false
-        },
-        scales: {
-          xAxes: [{
-            type: "time",
-            time: {
-              unit: "day",
-              unitStepSize: 1,
-              displayFormats: {"day": "ddd DD MMM"},
-              tooltipFormat: 'YYYY-MM-DD HH:mm',
-            }
-          }],
-          yAxes: [{
-            display: true,
-            ticks: {
-              beginAtZero: true,
-              suggestedMax:
-                {% if measure == 'CPU_used' %}
-                  100
-                {% elif measure == 'CPU_temp' %}
-                  75
-                {% elif measure == 'RAM_used' %}
-                  {{ current_data['RAM_total'] }}
-                {% elif measure == 'DISK_used' %}
-                  {{ current_data['DISK_total'] }}
-                {% endif %},
-              steps:
-                {% if measure == 'CPU_used' %}
-                  10
-                {% elif measure == 'CPU_temp' %}
-                  10
-                {% elif measure == 'RAM_used' %}
-                  {{ current_data['RAM_total']/10 }}
-                {% elif measure == 'DISK_used' %}
-                  {{ current_data['DISK_total']/10 }}
-                {% endif %},
-            }
-          }]
-        }
-      };
-      var {{ measure }}ctx = document.getElementById("{{ measure }}Chart");
-      var {{ measure }}Chart = new Chart({{ measure }}ctx, {
-        type: "line",
-        data: {{ measure }}ChartData,
-        options: {{ measure }}chartLayout,
-        responsive:true,
-        maintainAspectRatio: false,
-      });
-
-      socketAdmin.on('current_server_data', function(msg) {
-        {{ measure }}currentData = Number(msg.{{ measure }}).toFixed(1);
-        $('#{{ measure }}currentData').text({{ measure }}currentData);
-        {{ measure }}gauge.animationSpeed = 512;
-        {{ measure }}gauge.set({{ measure }}{{ sensor_id }}currentData);
-      });
     </script>
   {% endif %}
   {% endfor %}
+
+  <script type="text/javascript">
+    // Generate Data spans, Gauges and Charts
+    {% for measure in ['CPU_used', 'CPU_temp', 'RAM_used', 'DISK_used'] %}
+    {% if measure in system_measures %}
+
+    let currentData{{ measure.capitalize() }} = Number(
+      {{ current_data[measure] }}).toFixed(1);
+    $('#currentData{{ measure.capitalize() }}').text(currentData{{ measure.capitalize() }});
+
+    const gaugeOpts{{ measure.capitalize() }} = {
+      lines: 12,
+      angle: -0.11,            // The span of the gauge arc
+      lineWidth: 0.25,         // The line thickness
+      radiusScale: 0.7,        // Relative radius
+      pointer: {
+        length: 0.6,           // Relative to gauge radius
+        strokeWidth: 0.035,    // The thickness
+        color: "#000000"       // Fill color
+      },
+      limitMax: true,          // If false, max value increases automatically if value > maxValue
+      limitMin: true,          // If true, the min value of the gauge will be fixed
+      colorStart: '#6FADCF',   // Colors
+      colorStop: '#8FC0DA',    // just experiment with them
+      strokeColor: '#E0E0E0',  // to see which ones work best for you
+      generateGradient: true,
+      highDpiSupport: true,    // High resolution support
+    };
+    const target{{ measure.capitalize() }} = document.getElementById('Gauge{{ measure.capitalize() }}');  // your canvas element
+    var gauge{{ measure.capitalize() }} = new Gauge(
+        target{{ measure.capitalize() }}).setOptions(gaugeOpts{{ measure.capitalize() }});                // create sexy gauge!
+    gauge{{ measure.capitalize() }}.maxValue =
+      {% if measure == 'CPU_used' %}
+        100
+      {% elif measure == 'CPU_temp' %}
+        75
+      {% elif measure == 'RAM_used' %}
+        {{ current_data['RAM_total'] }}
+      {% elif measure == 'DISK_used' %}
+        {{ current_data['DISK_total'] }}
+      {% endif %};                                                               // set max gauge value
+    gauge{{ measure.capitalize() }}.animationSpeed = 32;                                      // set animation speed (32 is default value)
+    gauge{{ measure.capitalize() }}.setMinValue(0);
+    gauge{{ measure.capitalize() }}.set(currentData{{ measure.capitalize() }});                            // set actual value
+
+    var ChartData{{ measure.capitalize() }} = {
+      labels: [{% for item in data %}
+                 new Date("{{ (item[0]).strftime("%Y-%m-%dT%H:%M:%SZ") }}"),
+               {% endfor %}],
+      datasets: [{
+        label:
+        {% if measure == 'CPU_used' %}
+          "CPU usage"
+        {% elif measure == 'CPU_temp' %}
+          "CPU temperature"
+        {% elif measure == 'RAM_used' %}
+          "RAM usage"
+        {% elif measure == 'DISK_used' %}
+          "DISK space usage"
+        {% endif %},
+        data: [{% for item in data %}
+                 Number({{ item[parameters['server']['list_index'][measure]] }}).toFixed(1),
+               {% endfor %}],
+        backgroundColor: "rgba(255,255,255,0)",
+        radius: 0,
+        hitRadius: 4,
+        borderColor: "#f0341f",
+        borderJoinStyle: "round",
+        borderWidth: 2,
+      }]
+    };
+    var chartLayout{{ measure.capitalize() }} = {
+      legend:{
+        display: false
+      },
+      scales: {
+        xAxes: [{
+          type: "time",
+          time: {
+            unit: "day",
+            unitStepSize: 1,
+            displayFormats: {"day": "ddd DD MMM"},
+            tooltipFormat: 'YYYY-MM-DD HH:mm',
+          }
+        }],
+        yAxes: [{
+          display: true,
+          ticks: {
+            beginAtZero: true,
+            suggestedMax:
+              {% if measure == 'CPU_used' %}
+                100
+              {% elif measure == 'CPU_temp' %}
+                75
+              {% elif measure == 'RAM_used' %}
+                {{ current_data['RAM_total'] }}
+              {% elif measure == 'DISK_used' %}
+                {{ current_data['DISK_total'] }}
+              {% endif %},
+            steps:
+              {% if measure == 'CPU_used' %}
+                10
+              {% elif measure == 'CPU_temp' %}
+                10
+              {% elif measure == 'RAM_used' %}
+                {{ current_data['RAM_total']/10 }}
+              {% elif measure == 'DISK_used' %}
+                {{ current_data['DISK_total']/10 }}
+              {% endif %},
+          }
+        }]
+      }
+    };
+    var ctx{{ measure.capitalize() }} = document.getElementById("Chart{{ measure.capitalize() }}");
+    var Chart{{ measure.capitalize() }} = new Chart(ctx{{ measure.capitalize() }}, {
+      type: "line",
+      data: ChartData{{ measure.capitalize() }},
+      options: chartLayout{{ measure.capitalize() }},
+      responsive:true,
+      maintainAspectRatio: false,
+    });
+    {% endif %}
+    {% endfor %}
+
+    socketAdmin.on('current_server_data', function(msg) {
+      // Update last sensors measure time
+      let currentDatetime = new Date(msg.datetime);
+      $('#currentDatetime').text(currentDatetime.toISOString().substr(11, 8));
+
+      // Update Data spans and Gauges
+      {% for measure in ['CPU_used', 'CPU_temp', 'RAM_used', 'DISK_used'] %}
+      {% if measure in system_measures %}
+      currentData{{ measure.capitalize() }} = Number(msg.{{ measure }}).toFixed(1);
+      $('#currentData{{ measure.capitalize() }}').text(currentData{{ measure.capitalize() }});
+      gauge{{ measure.capitalize() }}.animationSpeed = 512;
+      gauge{{ measure.capitalize() }}.set(currentData{{ measure.capitalize() }});
+      {% endif %}
+      {% endfor %}
+    });
+
+    socketAdmin.on('update_system_graphs', function(msg) {
+      let now = new Date(msg.datetime);
+
+      let dayWindow = 7;
+      let dataWindowLimit = new Date();
+      dataWindowLimit.setDate(now.getDate() - dayWindow);
+
+      // Update Charts
+      {% for measure in ['CPU_used', 'CPU_temp', 'RAM_used', 'DISK_used'] %}
+      {% if measure in system_measures %}
+
+      // Push new data for Measure: {{ measure }}
+      ChartData{{ measure.capitalize() }}.labels.push(now);
+      ChartData{{ measure.capitalize() }}.datasets[0].data.push(
+        Number(msg.{{ measure }}).toFixed(1)
+      );
+      // Get the number of data points which should be displayed
+      var dataWindowLength = ChartData{{ measure.capitalize() }}.labels.filter(x => x > dataWindowLimit).length;
+
+      // Only keep data points within the desired range
+      ChartData{{ measure.capitalize() }}.labels =
+        ChartData{{ measure.capitalize() }}.labels.slice(- dataWindowLength);
+      ChartData{{ measure.capitalize() }}.datasets[0].data =
+        ChartData{{ measure.capitalize() }}.datasets[0].data.slice(- dataWindowLength);
+
+      Chart{{ measure.capitalize() }}.update();
+      {% endif %}
+      {% endfor %}
+    });
+  </script>
 {% endblock %}

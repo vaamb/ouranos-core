@@ -1,11 +1,13 @@
+from copy import deepcopy
 from datetime import datetime, timezone
 import logging
 import psutil
 from threading import Thread, Event
 
-from app import app_name, scheduler
+from app import app_name, scheduler, sio, START_TIME
 from app.database import out_of_Flask_data_db as db
 from app.models import System
+from app.views.views_utils import human_delta_time
 from config import Config
 
 # TODO: move into services
@@ -14,7 +16,7 @@ SYSTEM_UPDATE_FREQUENCY = 5
 collector = logging.getLogger(f"{app_name}.collector")
 
 
-class systemMonitor:
+class _systemMonitor:
     def __init__(self) -> None:
         self._data = {}
         self.thread = None
@@ -37,7 +39,14 @@ class systemMonitor:
             except (AttributeError, KeyError):
                 pass
             self._data = _cache
-            self.stopEvent.wait(5)
+            
+            data = deepcopy(self._data)
+
+            data.update({"uptime": human_delta_time(
+                START_TIME, datetime.now(timezone.utc))})
+            sio.emit("current_server_data", data, namespace="/admin")
+
+            self.stopEvent.wait(SYSTEM_UPDATE_FREQUENCY)
             if self.stopEvent.isSet():
                 break
 
@@ -66,7 +75,7 @@ class systemMonitor:
         return self._data
 
 
-systemMonitor = systemMonitor()
+systemMonitor = _systemMonitor()
 systemMonitor.start()
 
 
@@ -93,3 +102,5 @@ def log_resources_data() -> None:
     db.session.add(system)
     db.session.commit()
     db.close_scope()
+
+    sio.emit("update_system_graphs", data, namespace="/admin")

@@ -70,14 +70,14 @@
       highDpiSupport: true,    // High resolution support
     };
     const target{{ measure.capitalize() }}_{{ sensor_id }} = document.getElementById(
-        "Gauge{{ measure.capitalize() }}_{{ sensor_id }}");                                                    // your canvas element
+        "Gauge{{ measure.capitalize() }}_{{ sensor_id }}");                                                      // your canvas element
     var gauge{{ measure.capitalize() }}_{{ sensor_id }} = new Gauge(
         target{{ measure.capitalize() }}_{{ sensor_id }}).setOptions(
-        gaugeOpts{{ measure.capitalize() }}_{{ sensor_id }});                                                  // create sexy gauge!
+        gaugeOpts{{ measure.capitalize() }}_{{ sensor_id }});                                                    // create sexy gauge!
     gauge{{ measure.capitalize() }}_{{ sensor_id }}.setMinValue(0);
-    gauge{{ measure.capitalize() }}_{{ sensor_id }}.maxValue = {{ parameters[level]['max_value'][measure] }};  // set max gauge value
-    gauge{{ measure.capitalize() }}_{{ sensor_id }}.animationSpeed = 32;                                       // set animation speed (32 is default value)
-    gauge{{ measure.capitalize() }}_{{ sensor_id }}.set(currentData{{ measure.capitalize() }}_{{ sensor_id }});              // set actual value
+    gauge{{ measure.capitalize() }}_{{ sensor_id }}.maxValue = {{ parameters[level]['max_value'][measure] }};    // set max gauge value
+    gauge{{ measure.capitalize() }}_{{ sensor_id }}.animationSpeed = 32;                                         // set animation speed (32 is default value)
+    gauge{{ measure.capitalize() }}_{{ sensor_id }}.set(currentData{{ measure.capitalize() }}_{{ sensor_id }});  // set actual value
     {% endif %}
 
     var ChartData{{ measure.capitalize() }}_{{ sensor_id }} = {
@@ -138,7 +138,7 @@
 
     socket.on('current_sensors_data', function(msg) {
       // Update last sensors measure time
-      let currentDatetime = new Date(msg.{{ ecosystem_ids[0] }}.datetime)
+      let currentDatetime = new Date(msg.{{ ecosystem_ids[0] }}.datetime);
       $('#currentDatetime').text(currentDatetime.toISOString().substr(11, 8));
 
       // Update Data spans and Gauges
@@ -165,7 +165,7 @@
       // Update Charts
       {% for measure in data %}
       {% for sensor_id in data[measure] %}
-      // Push new data for Temp: {{ measure }} - Sensor: {{ sensor_id }}
+      // Push new data for Measure: {{ measure }} - Sensor: {{ sensor_id }}
       ChartData{{ measure.capitalize() }}_{{ sensor_id }}.labels.push(now);
       ChartData{{ measure.capitalize() }}_{{ sensor_id }}.datasets[0].data.push(
         Number(msg.{{ ecosystem_ids[0] }}.data.{{ sensor_id }}.{{ measure }}).toFixed(1)

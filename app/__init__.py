@@ -1,5 +1,6 @@
 import logging
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -12,6 +13,8 @@ from flask_socketio import SocketIO
 
 from config import Config
 
+
+START_TIME = datetime.now(timezone.utc)
 
 app_name = Config.APP_NAME
 root_path = Path(__file__).absolute().parents[0]

@@ -7,10 +7,10 @@ from flask_socketio import join_room, leave_room
 from numpy import mean, std
 from sqlalchemy.orm.exc import NoResultFound
 
-from app import app_name, db, scheduler, sio
-from app.views.views_utils import human_delta_time
-from app.dataspace import healthData, sensorsData, systemMonitor, START_TIME
+from app import app_name, db, scheduler, sio, START_TIME
+from app.dataspace import healthData, sensorsData
 from app.models import sensorData, Ecosystem, engineManager, Hardware, Health, Light
+from app.system_monitor import systemMonitor
 from config import Config
 
 
@@ -27,6 +27,7 @@ summarize = {"mean": mean, "std": std}
 
 
 # TODO: add events from views.admin here
+
 
 # ---------------------------------------------------------------------------
 #   Data requests to engineManagers
@@ -360,14 +361,10 @@ def admin_background_thread(app):
     with app.app_context():
         global sensorsData
         while True:
-            data = deepcopy(systemMonitor.system_data)
-            data.update({"uptime": human_delta_time(
-                START_TIME, datetime.now(timezone.utc))})
-            sio.emit("current_server_data", data, namespace="/admin")
-            sio.sleep(SYSTEM_UPDATE_FREQUENCY)
+            sio.sleep(3)
 
 
-@sio.on("connect", namespace="/admin")
+@sio.on("connect", namespace="/admin_not_used")
 def connect_on_admin():
     global admin_thread
     if admin_thread is None:

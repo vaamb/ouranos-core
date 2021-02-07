@@ -6,13 +6,14 @@ from flask import abort, current_app, flash, redirect, render_template, \
 from flask_login import current_user, login_required
 from flask_sqlalchemy import get_debug_queries
 
-from app import db
-from app.dataspace import sensorsData, systemMonitor, START_TIME
+from app import db, START_TIME
+from app.dataspace import sensorsData
 from app.views.main import bp, layout
 from app.views.main.forms import EditProfileForm
 from app.views.views_utils import human_delta_time
 from app.models import sensorData, Ecosystem, Hardware, Health, Service, User
 from app.services import sun_times, weather as weather_service
+from app.system_monitor import systemMonitor
 from app.wiki import simpleWiki
 from config import Config
 
