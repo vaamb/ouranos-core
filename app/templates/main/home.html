@@ -30,13 +30,26 @@
                   Current weather
                 </div>
                 <div class="boardColumnContainer">
+                  <!-- TODO: update weatherIcon when needed -->
                   <div class="weatherIcon" style="height: 115px; line-height: 115px; font-size: 70px;"><i class='{{weather_data["currently"]["icon"]|getWeatherIcon}}'></i></div>
-                  <div class="boardColumnTitle" style="flex: 2">{{weather_data["currently"]["summary"]}}</div>
-                  <div class="boardColumnItem">Temperature: {{weather_data["currently"]["temperature"]|round(1)}}°C</div>
-                  <div class="boardColumnItem">Wind: {{weather_data["currently"]["windSpeed"]}}km/h</div>
-                  <div class="boardColumnItem">Precipitation: {{(weather_data["currently"]["precipProbability"]*100)|round|int}}%</div>
-                  <div class="boardColumnItem">Humidity: {{(weather_data["currently"]["humidity"]*100)|round|int}}%</div>
-                  <div class="boardColumnItem">Cloud cover: {{(weather_data["currently"]["cloudCover"]*100)|round|int}}%</div>
+                  <div class="boardColumnTitle" style="flex: 2">
+                    <span id="weather_summary"></span>
+                  </div>
+                  <div class="boardColumnItem">
+                    Temperature: <span id="weather_temperature"></span>°C
+                  </div>
+                  <div class="boardColumnItem">
+                    Wind: <span id="weather_windSpeed"></span>km/h
+                  </div>
+                  <div class="boardColumnItem">
+                    Precipitation: <span id="weather_precipProbability"></span>%
+                  </div>
+                  <div class="boardColumnItem">
+                    Humidity: <span id="weather_humidity"></span>%
+                  </div>
+                  <div class="boardColumnItem">
+                    Cloud cover: <span id="weather_cloudCover"></span>%
+                  </div>
                 </div>
               </a>
             </div>
@@ -48,7 +61,7 @@
               </div>
               <div class="boardColumnContainer">
                 <div class="boardColumnTitle">Uptime</div>
-                <div class="boardColumnItem"><span id="uptime">{{ system_data["uptime"] }}</span></div>
+                <div class="boardColumnItem"><span id="server_uptime"></span></div>
                 <div class="boardColumnTitle" style="margin-top: 10px;">Average latency</div>
                 <div class="boardColumnItem">
                   <span id="ping-pong">Na</span>ms
@@ -57,22 +70,22 @@
                   System utilization
                 </div>
                 <div class="boardColumnItem">
-                  CPU load: <span id="CPU_used">{{ system_data["CPU_used"] }}</span>%
+                  Average CPU load: <span id="server_CPU_used"></span>%
                 </div>
-                {% if platform == "Linux" %}
+                {% if system_data["CPU_temp"] %}
                 <div class="boardColumnItem">
-                    CPU temperature: <span id="CPU_temp">{{ system_data["CPU_temp"] }}</span>°C
+                    CPU temperature: <span id="server_CPU_temp"></span>°C
                 </div>
                 {% endif %}
                 <div class="boardColumnItem">
                   RAM used:
-                    <span id="RAM_used">{{ system_data["RAM_used"] }}</span>GB /
-                    <span id="RAM_total">{{ system_data["RAM_used"] }}</span>GB
+                    <span id="server_RAM_used"></span>GB /
+                    <span id="server_RAM_total"></span>GB
                 </div>
                 <div class="boardColumnItem">
                   Disk used:
-                    <span id="DISK_used">{{ system_data["DISK_used"] }}</span>GB /
-                    <span id="DISK_total">{{ system_data["DISK_total"] }}</span>GB
+                    <span id="server_DISK_used"></span>GB /
+                    <span id="server_DISK_total"></span>GB
                 </div>
               </div>
             </div>
@@ -140,26 +153,53 @@
             {% endfor %}
             {% endif %}
           </div>
-          {% if current_user.is_administrator %}
+
           <script type="text/javascript">
-            $(function() {
-              function request_server_data() {
-                socket.emit('request_server_data');
-              };
+            // Weather related spans settings and update event
+            $('#weather_summary').text('{{ weather_data["currently"]["summary"] }}');
+            $('#weather_temperature').text(Number({{ weather_data["currently"]["temperature"] }}).toFixed(1));
+            $('#weather_windSpeed').text(Number( {{weather_data["currently"]["windSpeed"] }}).toFixed(1));
+            $('#weather_precipProbability').text(Number({{ weather_data["currently"]["precipProbability"] }} * 100).toFixed(0));
+            $('#weather_humidity').text(Number({{ weather_data["currently"]["humidity"] }} * 100).toFixed(0));
+            $('#weather_cloudCover').text(Number({{ weather_data["currently"]["cloudCover"] }} * 100).toFixed(0));
 
-              request_server_data();
-              window.setInterval(request_server_data, 3000);
-
-              socketAdmin.on('server_data', function(msg) {
-                $('#CPU_used').text(Number(msg.CPU_used).toFixed(2));
-                $('#CPU_temp').text(Number(msg.CPU_temp).toFixed(2));
-                $('#RAM_total').text(Number(msg.RAM_total).toFixed(2));
-                $('#RAM_used').text(Number(msg.RAM_used).toFixed(2));
-                $('#DISK_total').text(Number(msg.DISK_total).toFixed(2));
-                $('#DISK_used').text(Number(msg.DISK_used).toFixed(2));
-                $('#uptime').text(msg.uptime);
-              });
+            socket.on('current_weather', function(msg) {
+              $('#weather_summary').text(msg.summary);
+              $('#weather_temperature').text(Number(msg.temperature).toFixed(1));
+              $('#weather_windSpeed').text(Number(msg.windSpeed).toFixed(1));
+              $('#weather_precipProbability').text(Number(msg.precipProbability * 100).toFixed(0));
+              $('#weather_humidity').text(Number(msg.humidity * 100).toFixed(0));
+              $('#weather_cloudCover').text(Number(msg.cloudCover * 100).toFixed(0));
             });
+
+            {% if current_user.is_administrator %}
+            // Server related spans settings and update event
+            $('#server_uptime').text('{{ system_data["uptime"] }}');
+            $('#server_CPU_used').text(Number({{ system_data["CPU_used"] }}).toFixed(2));
+            $('#server_CPU_temp').text(Number({{ system_data["CPU_temp"] }}).toFixed(2));
+            $('#server_RAM_used').text(Number({{ system_data["RAM_used"] }}).toFixed(2));
+            $('#server_RAM_total').text(Number({{ system_data["RAM_total"] }}).toFixed(2));
+            $('#server_DISK_used').text(Number({{ system_data["DISK_used"] }}).toFixed(2));
+            $('#server_DISK_total').text(Number({{ system_data["DISK_total"] }}).toFixed(2));
+
+            let server_CPU_used_values = [];
+
+            socketAdmin.on('current_server_data', function(msg) {
+              $('#server_uptime').text(msg.uptime);
+              $('#server_CPU_temp').text(Number(msg.CPU_temp).toFixed(2));
+              $('#server_RAM_used').text(Number(msg.RAM_used).toFixed(2));
+              $('#server_RAM_total').text(Number(msg.RAM_total).toFixed(2));
+              $('#server_DISK_used').text(Number(msg.DISK_used).toFixed(2));
+              $('#server_DISK_total').text(Number(msg.DISK_total).toFixed(2));
+
+              server_CPU_used_values.push(msg.CPU_used)
+              server_CPU_used_values = server_CPU_used_values.slice(-5);
+              let server_CPU_used_sum = 0;
+              for (i = 0; i < server_CPU_used_values.length; i++)
+                  server_CPU_used_sum += server_CPU_used_values[i];
+              $('#server_CPU_used').text((Math.round(10 * server_CPU_used_sum /
+                server_CPU_used_values.length) / 10 ).toFixed(2));
+            });
+            {% endif %}
           </script>
-          {% endif %}
 {% endblock %}

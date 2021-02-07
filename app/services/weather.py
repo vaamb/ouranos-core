@@ -50,7 +50,7 @@ class Weather:
         self.logger.info("Starting the weather module background scheduler")
         self._scheduler = BackgroundScheduler(daemon=True)
         self._scheduler.add_job(self.update_weather_data,
-                                "cron", minute="*/15", misfire_grace_time=5*60,
+                                "cron", minute="*/5", misfire_grace_time=5*60,
                                 id="weather")
         self._scheduler.start()
         self.logger.debug("The weather module background scheduler has been started")

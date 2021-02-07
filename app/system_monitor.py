@@ -11,7 +11,7 @@ from app.views.views_utils import human_delta_time
 from config import Config
 
 # TODO: move into services
-SYSTEM_UPDATE_FREQUENCY = 5
+SYSTEM_UPDATE_FREQUENCY = 2
 
 collector = logging.getLogger(f"{app_name}.collector")
 
