@@ -8,7 +8,7 @@
   wind icon from Pixel Bazaar https://www.iconfinder.com/zlaten -->
   <div class="board" style="height: 315px;">
     <div class="boardHeader">     
-      Daily forecast: {{weather_data['currently']['time']|getDay}}
+      Daily forecast
     </div> 
     <div class="boardRowContainer" style="height: 268px;">
       <div class="weatherToday">
@@ -60,10 +60,10 @@
         'August', 'September', 'October', 'November', 'December'];
 
     // Today's weather related spans settings and update event
-    let now = new Date ({{ weather_data["currently"]["time"] }})
+    let now = new Date ()
     let day = days[now.getDay()]
     let month = months[now.getMonth()]
-    let formattedDate = ''.concat(day, ' ', now.getDay(), ' ', month)
+    let formattedDate = ''.concat(day, ' ', now.getDate(), ' ', month)
 
     $('#today_day').text(formattedDate);
     $('#today_temperature').text(Number({{ weather_data["currently"]["temperature"] }}).toFixed(1));
@@ -74,10 +74,10 @@
     $('#today_cloudCover').text(Number({{ weather_data["currently"]["cloudCover"]}} * 100).toFixed(0));
 
     socket.on('current_weather', function(msg) {
-      now.setDate(msg.time)
+      now = new Date()
       day = days[now.getDay()]
       month = months[now.getMonth()]
-      formattedDate = ''.concat(day, ' ', now.getDay(), ' ', month)
+      formattedDate = ''.concat(day, ' ', now.getDate(), ' ', month)
 
       $('#today_day').text(formattedDate);
       $('#today_temperature').text(Number(msg.temperature).toFixed(1));
