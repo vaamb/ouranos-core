@@ -197,15 +197,15 @@ def update_sensors_data(data):
     sio_logger.debug(f"Received 'sensors_data' from manager: {manager.uid}")
     sensorsData.update(data)
     sio.emit("current_sensors_data", data, namespace="/")
-
+    graph_update = {}
     for ecosystem_id in data:
         dt = datetime.fromisoformat(data[ecosystem_id]["datetime"])
         sensorsData[ecosystem_id]["datetime"] = dt
         if dt.minute % Config.SENSORS_LOGGING_FREQUENCY == 0:
-            graph_update = {ecosystem_id: data[ecosystem_id]}
-            sio.emit("update_sensors_graph", graph_update, namespace="/")
+            graph_update[ecosystem_id] = data[ecosystem_id]
             measure_values = {}
             collector.debug(f"Logging sensors data from manager: {manager.uid}")
+
             for sensor_id in data[ecosystem_id]["data"]:
                 for measure in data[ecosystem_id]["data"][sensor_id]:
                     value = float(data[ecosystem_id]["data"][sensor_id][measure])
@@ -218,6 +218,7 @@ def update_sensors_data(data):
                     )
                     db.session.add(sensor_data)
                     Hardware.query.filter_by(id=sensor_id).one().last_log = dt
+            """        
                     try:
                         measure_values[measure].append(value)
                     except KeyError:
@@ -235,8 +236,11 @@ def update_sensors_data(data):
                         value=values_summarized,
                     )
                     db.session.add(aggregated_data)
+            """
 
     db.session.commit()
+    if graph_update:
+        sio.emit("update_sensors_graph", graph_update, namespace="/")
 
 
 @sio.on("health_data", namespace="/gaia")
