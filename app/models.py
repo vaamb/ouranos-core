@@ -64,6 +64,9 @@ class Role(db.Model):
             db.session.add(role)
         db.session.commit()
 
+    def has_permission(self, perm):
+        return self.permissions & perm == perm
+
     def add_permission(self, perm):
         if not self.has_permission(perm):
             self.permissions += perm
@@ -75,11 +78,8 @@ class Role(db.Model):
     def reset_permissions(self):
         self.permissions = 0
 
-    def has_permission(self, perm):
-        return self.permissions & perm == perm
-
     def __repr__(self):
-        return "<Role {}>".fdbat(self.name)
+        return f"<Role {self.name}>"
 
 
 class User(UserMixin, db.Model):
@@ -198,26 +198,24 @@ class comChannel(db.Model):
 # TODO: replace datetime by time_stamp
 class baseData(db.Model):
     __abstract__ = True
-    row_id = sa.Column(sa.Integer, primary_key=True)
-    measure = sa.Column(sa.Integer, index=True)
-    datetime = sa.Column(sa.DateTime, index=True)
+    measure = sa.Column(sa.Integer, primary_key=True)
+    datetime = sa.Column(sa.DateTime, primary_key=True)
     value = sa.Column(sa.Float(precision=2))
 
     @declared_attr
     def ecosystem_id(cls):
         return sa.Column(sa.String(length=8), sa.ForeignKey("ecosystems.id"),
-                         index=True)
+                         primary_key=True)
 
     @declared_attr
     def sensor_id(cls):
         return sa.Column(sa.String(length=16), sa.ForeignKey("hardware.id"),
-                         index=True)
+                         primary_key=True)
 
 
 class baseHealth(db.Model):
     __abstract__ = True
-    row_id = sa.Column(sa.Integer, primary_key=True)
-    datetime = sa.Column(sa.DateTime, nullable=False)
+    datetime = sa.Column(sa.DateTime, nullable=False, primary_key=True)
     green = sa.Column(sa.Integer)
     necrosis = sa.Column(sa.Integer)
     health_index = sa.Column(sa.Float(precision=1))
@@ -225,7 +223,7 @@ class baseHealth(db.Model):
     @declared_attr
     def ecosystem_id(cls):
         return sa.Column(sa.String(length=8), sa.ForeignKey("ecosystems.id"),
-                         index=True)
+                         index=True, primary_key=True)
 
 
 class baseWarning(db.Model):
@@ -245,8 +243,7 @@ class baseWarning(db.Model):
 
 class baseSystem(db.Model):
     __abstract__ = True
-    row_id = sa.Column(sa.Integer, primary_key=True)
-    datetime = sa.Column(sa.DateTime, nullable=False)
+    datetime = sa.Column(sa.DateTime, nullable=False, primary_key=True)
     CPU_used = sa.Column(sa.Float(precision=1))
     CPU_temp = sa.Column(sa.Float(precision=1))
     RAM_total = sa.Column(sa.Float(precision=2))
@@ -269,45 +266,69 @@ class engineManager(db.Model):
     ecosystem = orm.relationship("Ecosystem", back_populates="manager", lazy="dynamic")
 
 
+Management = {
+    "sensors": 1,
+    "light": 2,
+    "climate": 4,
+    "watering": 8,
+    "health": 16,
+    "alarms": 32,
+    "webcam": 64,
+}
+
+
 class Ecosystem(db.Model):
     __tablename__ = "ecosystems"
     id = sa.Column(sa.String(length=8), primary_key=True)
     name = sa.Column(sa.String(length=32))
     status = sa.Column(sa.Boolean, default=False)
     last_seen = sa.Column(sa.DateTime)
-
-    lighting = sa.Column(sa.Boolean, default=False)
-    watering = sa.Column(sa.Boolean, default=False)
-    climate = sa.Column(sa.Boolean, default=False)
-    health = sa.Column(sa.Boolean, default=False)
-    alarms = sa.Column(sa.Boolean, default=False)
-
-    webcam = sa.Column(sa.String(length=8))
-
+    management = sa.Column(sa.Integer)
     day_start = sa.Column(sa.Time, default=time(8, 00))
-    day_temperature = sa.Column(sa.Float(precision=1), default=22.0)
-    day_humidity = sa.Column(sa.Integer, default=70.0)
-    day_light = sa.Column(sa.Integer, default=0.0)
-
     night_start = sa.Column(sa.Time, default=time(20, 00))
-    night_temperature = sa.Column(sa.Float(precision=1), default=17.0)
-    night_humidity = sa.Column(sa.Integer, default=40.0)
-    night_light = sa.Column(sa.Integer, default=0.0)
-
-    temperature_hysteresis = sa.Column(sa.Float(precision=1), default=1.0)
-    humidity_hysteresis = sa.Column(sa.Integer, default=1.0)
-    light_hysteresis = sa.Column(sa.Integer, default=0.0)
-
     manager_uid = sa.Column(sa.Integer, sa.ForeignKey("engine_managers.uid"))
 
     # relationship
     manager = orm.relationship("engineManager", back_populates="ecosystem")
+    environment_parameters = orm.relationship("environmentParameter", back_populates="ecosystem")
     hardware = orm.relationship("Hardware", back_populates="ecosystem", lazy="dynamic")
     # plants = orm.relationship("Plant", back_populates="ecosystem")
     data = orm.relationship("sensorData", back_populates="ecosystem", lazy="dynamic")
     health_data = orm.relationship("Health", back_populates="ecosystem", lazy="dynamic")
     light = orm.relationship("Light", back_populates="ecosystem", lazy="dynamic")
     warnings = orm.relationship("Warning", back_populates="ecosystem")
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        if self.management is None:
+            self.management = 0
+
+    def manages(self, mng):
+        return self.management & mng == mng
+
+    def add_management(self, mng):
+        if not self.manages(mng):
+            self.management += mng
+
+    def remove_management(self, mng):
+        if self.manages(mng):
+            self.management -= mng
+
+    def reset_managements(self):
+        self.management = 0
+
+
+class environmentParameter(db.Model):
+    __tablename__ = "environment_parameters"
+    ecosystem_id = sa.Column(sa.String(length=8), sa.ForeignKey("ecosystems.id"),
+                             primary_key=True)
+    parameter = sa.Column(sa.String(length=16), primary_key=True)
+    moment_of_day = sa.Column(sa.String(length=8), primary_key=True)
+    value = sa.Column(sa.Float(precision=2))
+    hysteresis = sa.Column(sa.Float(precision=2))
+
+    # relationship
+    ecosystem = orm.relationship("Ecosystem", back_populates="environment_parameters")
 
 
 class Hardware(db.Model):

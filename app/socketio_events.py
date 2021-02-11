@@ -1,4 +1,3 @@
-from copy import deepcopy
 from datetime import datetime, time, timezone
 import logging
 
@@ -7,9 +6,10 @@ from flask_socketio import join_room, leave_room
 from numpy import mean, std
 from sqlalchemy.orm.exc import NoResultFound
 
-from app import app_name, db, scheduler, sio, START_TIME
+from app import app_name, db, scheduler, sio
 from app.dataspace import healthData, sensorsData
-from app.models import sensorData, Ecosystem, engineManager, Hardware, Health, Light
+from app.models import sensorData, Ecosystem, engineManager, Hardware, Health, \
+    Light, Management, environmentParameter
 from app.system_monitor import systemMonitor
 from config import Config
 
@@ -24,9 +24,6 @@ anchor1 = sensorsData
 anchor2 = systemMonitor
 
 summarize = {"mean": mean, "std": std}
-
-
-# TODO: add events from views.admin here
 
 
 # ---------------------------------------------------------------------------
@@ -146,38 +143,50 @@ def update_cfg(config):
             id=ecosystem_id,
             name=config[ecosystem_id]["name"],
             status=config[ecosystem_id]["status"],
-            lighting=config[ecosystem_id]["management"]["lighting"],
-            watering=config[ecosystem_id]["management"]["watering"],
-            climate=config[ecosystem_id]["management"]["climate"],
-            health=config[ecosystem_id]["management"]["health"],
-            alarms=config[ecosystem_id]["management"]["alarms"],
-            webcam=config[ecosystem_id]["webcam"].get("model", "No"),
             day_start=datetime.strptime(
                 config[ecosystem_id]["environment"]["day"]["start"], "%Hh%M"
             ).time(),
-            day_temperature=config[ecosystem_id]["environment"]["day"]["temperature"]["target"],
-            day_humidity=config[ecosystem_id]["environment"]["day"]["humidity"]["target"],
             night_start=datetime.strptime(
                 config[ecosystem_id]["environment"]["night"]["start"], "%Hh%M"
             ).time(),
-            night_temperature=config[ecosystem_id]["environment"]["night"]["temperature"]["target"],
-            night_humidity=config[ecosystem_id]["environment"]["night"]["humidity"]["target"],
-            temperature_hysteresis=config[ecosystem_id]["environment"]["hysteresis"]["temperature"],
-            humidity_hysteresis=config[ecosystem_id]["environment"]["hysteresis"]["humidity"],
             manager_uid=manager.uid,
         )
+
+        for m in Management:
+            try:
+                if config[ecosystem_id]["management"][m]:
+                    ecosystem.add_management(Management[m])
+            except KeyError:
+                # Not implemented yet
+                pass
         db.session.merge(ecosystem)
 
-        # TODO: first delete all hardware present there before, so if delete in config, deleted here too
-        for hardware_id in config[ecosystem_id]["IO"]:
+        for parameter in ("temperature", "humidity", "might"):
+            for moment_of_day in ("day", "night"):
+                try:
+                    environment_parameter = environmentParameter(
+                        ecosystem_id=ecosystem_id,
+                        parameter=parameter,
+                        moment_of_day=moment_of_day,
+                        value=(config[ecosystem_id]["environment"]
+                                     [moment_of_day][parameter]),
+                        hysteresis=(config[ecosystem_id]["environment"]
+                                          ["hysteresis"][parameter]),
+                    )
+                    db.session.merge(environment_parameter)
+                except KeyError:
+                    continue
+
+        # TODO: first delete all hardware from this ecosystem present there before, so if delete in config, deleted here too
+        for hardware_uid in config[ecosystem_id]["IO"]:
             hardware = Hardware(
-                id=hardware_id,
+                id=hardware_uid,
                 ecosystem_id=ecosystem_id,
-                name=config[ecosystem_id]["IO"][hardware_id]["name"],
-                address=config[ecosystem_id]["IO"][hardware_id]["address"],
-                type=config[ecosystem_id]["IO"][hardware_id]["type"],
-                level=config[ecosystem_id]["IO"][hardware_id]["level"],
-                model=config[ecosystem_id]["IO"][hardware_id]["model"],
+                name=config[ecosystem_id]["IO"][hardware_uid]["name"],
+                address=config[ecosystem_id]["IO"][hardware_uid]["address"],
+                type=config[ecosystem_id]["IO"][hardware_uid]["type"],
+                level=config[ecosystem_id]["IO"][hardware_uid]["level"],
+                model=config[ecosystem_id]["IO"][hardware_uid]["model"],
             )
             db.session.merge(hardware)
     db.session.commit()
@@ -192,18 +201,23 @@ def update_sensors_data(data):
         sio_logger.error(
             "Received 'sensors_data' event from unknown device, "
             f"sid: {request.sid}")
-        pass
 
     sio_logger.debug(f"Received 'sensors_data' from manager: {manager.uid}")
     sensorsData.update(data)
     sio.emit("current_sensors_data", data, namespace="/")
+
     graph_update = {}
     for ecosystem_id in data:
-        dt = datetime.fromisoformat(data[ecosystem_id]["datetime"])
+        try:
+            dt = datetime.fromisoformat(data[ecosystem_id]["datetime"])
+        # When launching, gaiaEngine is sometimes still loading its sensors
+        except KeyError:
+            break
         sensorsData[ecosystem_id]["datetime"] = dt
-        if dt.minute % Config.SENSORS_LOGGING_FREQUENCY == 0:
+        if dt.minute % Config.SENSORS_LOGGING_PERIOD == 0:
             graph_update[ecosystem_id] = data[ecosystem_id]
             measure_values = {}
+            # TODO: add ecosystem name
             collector.debug(f"Logging sensors data from manager: {manager.uid}")
 
             for sensor_id in data[ecosystem_id]["data"]:
@@ -216,9 +230,10 @@ def update_sensors_data(data):
                         datetime=dt,
                         value=value,
                     )
-                    db.session.add(sensor_data)
+                    # There can only be 1
+                    db.session.merge(sensor_data)
                     Hardware.query.filter_by(id=sensor_id).one().last_log = dt
-            """        
+
                     try:
                         measure_values[measure].append(value)
                     except KeyError:
@@ -226,17 +241,18 @@ def update_sensors_data(data):
 
             for method in summarize:
                 for measure in measure_values:
-                    values_summarized = round(
-                        summarize[method](measure_values[measure]), 2)
-                    aggregated_data = sensorData(
-                        ecosystem_id=ecosystem_id,
-                        sensor_id=method,
-                        measure=measure,
-                        datetime=dt,
-                        value=values_summarized,
-                    )
-                    db.session.add(aggregated_data)
-            """
+                    # Set a minimum threshold before summarizing values
+                    if len(measure_values[measure]) >= 3:
+                        values_summarized = round(
+                            summarize[method](measure_values[measure]), 2)
+                        aggregated_data = sensorData(
+                            ecosystem_id=ecosystem_id,
+                            sensor_id=method,
+                            measure=measure,
+                            datetime=dt,
+                            value=values_summarized,
+                        )
+                        db.session.add(aggregated_data)
 
     db.session.commit()
     if graph_update:
@@ -278,7 +294,7 @@ def update_light_data(data):
             morning_start = morning_end = evening_start = evening_end = None
         light = Light(
             ecosystem_id=ecosystem_id,
-            status=data[ecosystem_id]["status"],
+            status=data[ecosystem_id]["light_status"],
             mode=data[ecosystem_id]["mode"],
             method=data[ecosystem_id]["method"],
             morning_start=morning_start,
