@@ -1,14 +1,15 @@
 from datetime import date, datetime
 import json
 import logging
+import os
 import time
 
 from apscheduler.schedulers.background import BackgroundScheduler
 import requests
 
 from app import app_name
-from app.utils import cache_dir, is_connected
-from config import Config
+from app.utils import is_connected
+from config import Config, base_dir
 
 
 class sunTimes:
@@ -16,7 +17,7 @@ class sunTimes:
         self.logger = logging.getLogger(f"{app_name}.services.suntimes")
         self.logger.info("Initializing sun_times module")
         self.trials = trials
-        self._file_path = cache_dir / "sun_times.json"
+        self._file_path = None
         self._sun_times_data = {}
         self.coordinates = Config.HOME_COORDINATES
         self.started = False
@@ -78,6 +79,10 @@ class sunTimes:
 
     def start(self):
         if not self.started:
+            cache_dir = base_dir / "cache"
+            if not cache_dir.exists():
+                os.mkdir(cache_dir)
+            self._file_path = cache_dir / "sun_times.json"
             if not self._check_recency():
                 self.update_sun_times_data()
             self._start_scheduler()

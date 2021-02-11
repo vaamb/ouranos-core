@@ -11,7 +11,7 @@ from app.views.views_utils import human_delta_time
 from config import Config
 
 # TODO: move into services
-SYSTEM_UPDATE_FREQUENCY = 2
+SYSTEM_UPDATE_PERIOD = 2
 
 collector = logging.getLogger(f"{app_name}.collector")
 
@@ -46,7 +46,7 @@ class _systemMonitor:
                 START_TIME, datetime.now(timezone.utc))})
             sio.emit("current_server_data", data, namespace="/admin")
 
-            self.stopEvent.wait(SYSTEM_UPDATE_FREQUENCY)
+            self.stopEvent.wait(SYSTEM_UPDATE_PERIOD)
             if self.stopEvent.isSet():
                 break
 
@@ -83,8 +83,8 @@ systemMonitor.start()
 #   System resources usage monitor
 # ---------------------------------------------------------------------------
 @scheduler.scheduled_job(id="log_resources_data", trigger="cron",
-                         minute=f"*/{Config.SYSTEM_LOGGING_FREQUENCY}",
-                         second=1+SYSTEM_UPDATE_FREQUENCY,
+                         minute=f"*/{Config.SYSTEM_LOGGING_PERIOD}",
+                         second=1 + SYSTEM_UPDATE_PERIOD,
                          misfire_grace_time=1*60)
 def log_resources_data() -> None:
     collector.debug("Logging system resources")

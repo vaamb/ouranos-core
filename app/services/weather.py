@@ -1,20 +1,20 @@
 import json
 import logging
+import os
 import time
 
 from apscheduler.schedulers.background import BackgroundScheduler
 import requests
 
 from app import app_name, sio
-from app.utils import cache_dir
-from config import Config
+from config import Config, base_dir
 
 
 class Weather:
     def __init__(self, trials: int = 10) -> None:
         self.logger = logging.getLogger(f"{app_name}.services.weather")
         self.trials = trials
-        self._file_path = cache_dir/"weather.json"
+        self._file_path = None
         self._weather_data = {}
         self.home_city = Config.HOME_CITY
         self.coordinates = Config.HOME_COORDINATES
@@ -80,6 +80,10 @@ class Weather:
     """API"""
     def start(self) -> None:
         if not self.started:
+            cache_dir = base_dir / "cache"
+            if not cache_dir.exists():
+                os.mkdir(cache_dir)
+            self._file_path = cache_dir / "weather.json"
             if not self._check_recency():
                 self.update_weather_data()
             self._start_scheduler()

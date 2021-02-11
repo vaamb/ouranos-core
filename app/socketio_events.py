@@ -17,7 +17,7 @@ from config import Config
 sio_logger = logging.getLogger(f"{app_name}.socketio")
 collector = logging.getLogger(f"{app_name}.collector")
 
-SYSTEM_UPDATE_FREQUENCY = 5
+SYSTEM_UPDATE_PERIOD = 5
 
 # Temporary anchors to keep PyCharm to delete these from import
 anchor1 = sensorsData

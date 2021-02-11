@@ -155,6 +155,7 @@
           </div>
 
           <script type="text/javascript">
+            {% if weather_data %}
             // Weather related spans settings and update event
             $('#weather_summary').text('{{ weather_data["currently"]["summary"] }}');
             $('#weather_temperature').text(Number({{ weather_data["currently"]["temperature"] }}).toFixed(1));
@@ -171,6 +172,7 @@
               $('#weather_humidity').text(Number(msg.humidity * 100).toFixed(0));
               $('#weather_cloudCover').text(Number(msg.cloudCover * 100).toFixed(0));
             });
+            {% endif %}
 
             {% if current_user.is_administrator %}
             // Server related spans settings and update event
