@@ -1,5 +1,4 @@
 import logging
-import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -11,7 +10,8 @@ from flask_moment import Moment
 from flask_sqlalchemy import SQLAlchemy
 from flask_socketio import SocketIO
 
-from config import Config
+from config import Config, DevelopmentConfig, TestingConfig
+from app.utils import configure_logging
 
 
 START_TIME = datetime.now(timezone.utc)
@@ -29,7 +29,7 @@ sio = SocketIO(json=json)
 moment = Moment()
 
 
-def create_app(config_class=Config):
+def create_app(config_class=TestingConfig):
     logger.info(f"Starting {app_name} ...")
     app = Flask(app_name, root_path=root_path)
 
@@ -37,8 +37,7 @@ def create_app(config_class=Config):
     app.jinja_env.lstrip_blocks = True
     app.jinja_env.trim_blocks = True
 
-    if not os.path.exists('logs'):
-        os.mkdir('logs')
+    configure_logging(config_class)
 
     # Init db
     db.init_app(app)

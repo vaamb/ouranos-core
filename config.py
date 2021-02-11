@@ -1,5 +1,4 @@
-import logging
-import logging.config
+from pathlib import Path
 import os
 
 try:
@@ -13,16 +12,22 @@ except ImportError:
         TELEGRAM_BOT_TOKEN = None
 
 
-base_dir = os.path.abspath(os.path.dirname(__file__))
+base_dir = Path(__file__).absolute().parents[0]
 
 
-class Config():
+class Config:
     APP_NAME = "gaiaWeb"
 
     # Flask config
     DEBUG = False
     TESTING = False
     SECRET_KEY = os.environ.get("SECRET_KEY") or "BXhNmCEmNdoBNngyGXj6jJtooYAcKpt6"
+
+    # Logging config
+    LOG_TO_STDOUT = True
+    LOG_TO_FILE = True
+    # log error to file even if not log to file
+    LOG_ERROR = True
 
     # SQLAlchemy config
     SQLALCHEMY_DATABASE_URI = "sqlite:///" + os.path.join(base_dir, "db_ecosystems.db")
@@ -48,8 +53,8 @@ class Config():
     ECOSYSTEM_TIMEOUT = 5  # Time after which the ecosystem is considered as not working
 
     # Data logging
-    SYSTEM_LOGGING_FREQUENCY = 10
-    SENSORS_LOGGING_FREQUENCY = 10
+    SYSTEM_LOGGING_PERIOD = 10
+    SENSORS_LOGGING_PERIOD = 10
 
     # Private parameters
     HOME_CITY = os.environ.get("HOME_CITY") or privateConfig.HOME_CITY
@@ -60,6 +65,7 @@ class Config():
 
 class DevelopmentConfig(Config):
     DEBUG = True
+    LOG_TO_FILE = False
 
 
 class TestingConfig(Config):
@@ -68,64 +74,3 @@ class TestingConfig(Config):
 
 class ProductionConfig(Config):
     DATABASE_URI = "mysql://user@localhost/foo"
-
-
-def configure_logging():
-    DEBUG = True
-    LOG_TO_STDOUT = True
-    handler = "streamHandler"
-    if not LOG_TO_STDOUT:
-        if not os.path.exists(base_dir/"logs"):
-            os.mkdir(base_dir/"logs")
-        handler = "fileHandler"
-
-    LOGGING_CONFIG = {
-        "version": 1,
-        "disable_existing_loggers": False,
-
-        "formatters": {
-            "streamFormat": {
-                "format": "%(asctime)s [%(levelname)-4.4s] %(name)-20.20s: %(message)s",
-                "datefmt": "%Y-%m-%d %H:%M:%S"
-            },
-            "fileFormat": {
-                "format": "%(asctime)s -- %(levelname)s  -- %(name)s -- %(message)s",
-            },
-        },
-
-        "handlers": {
-            "streamHandler": {
-                "level": f"{'DEBUG' if DEBUG else 'INFO'}",
-                "formatter": "streamFormat",
-                "class": "logging.StreamHandler",
-            },
-        },
-
-        "loggers": {
-            "": {
-                "handlers": [handler],
-                "level": f"{'DEBUG' if DEBUG else 'INFO'}"
-            },
-            "apscheduler": {
-                "handlers": [handler],
-                "level": "WARNING"
-            },
-            "urllib3": {
-                "handlers": [handler],
-                "level": "WARNING"
-            },
-            "engineio": {
-                "handlers": [handler],
-                "level": "WARNING"
-            },
-            "socketio": {
-                "handlers": [handler],
-                "level": "WARNING"
-            },
-        },
-    }
-
-    logging.config.dictConfig(LOGGING_CONFIG)
-
-
-configure_logging()
