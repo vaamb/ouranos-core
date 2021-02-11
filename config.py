@@ -50,7 +50,7 @@ class Config:
     GAIA_ADMIN = os.environ.get("GAIA_ADMIN") or privateConfig.ADMIN
     TEST_CONNECTION_IP = "1.1.1.1"
     RECAP_SENDING_HOUR = 4
-    ECOSYSTEM_TIMEOUT = 5  # Time after which the ecosystem is considered as not working
+    ECOSYSTEM_TIMEOUT = 150  # in sec
 
     # Data logging
     SYSTEM_LOGGING_PERIOD = 10

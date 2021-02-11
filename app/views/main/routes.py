@@ -28,7 +28,8 @@ def time_limits() -> dict:
         "ecosystems": (now_utc - timedelta(hours=36)),
         "sensors": (now_utc - timedelta(days=2)).replace(tzinfo=None),
         "health": (now_utc - timedelta(days=7)).replace(tzinfo=None),
-        "status": (now_utc - timedelta(minutes=5)).replace(tzinfo=None)
+        "status": (now_utc - timedelta(seconds=Config.ECOSYSTEM_TIMEOUT)
+                   ).replace(tzinfo=None)
     }
 
 
