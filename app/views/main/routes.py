@@ -1,6 +1,7 @@
 from datetime import date, datetime, time, timedelta, timezone
 import platform
 
+import cachetools.func
 from flask import abort, current_app, flash, redirect, render_template, \
     request, url_for
 from flask_login import current_user, login_required
@@ -126,6 +127,7 @@ def before_request():
 
 
 @bp.app_context_processor
+@cachetools.func.ttl_cache(ttl=60)
 def menu_info():
     # TODO: cache these results for 10 min
     limits = time_limits()
