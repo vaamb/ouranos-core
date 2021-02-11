@@ -8,7 +8,8 @@ from flask_sqlalchemy import get_debug_queries
 
 from app import db, START_TIME
 from app.dataspace import sensorsData
-from app.models import sensorData, Ecosystem, Hardware, Health, Service, User
+from app.models import sensorData, Ecosystem, Hardware, Health, Service, User, \
+    Management
 from app.services import sun_times, weather as weather_service
 from app.system_monitor import systemMonitor
 from app.views.main import bp, layout
@@ -57,7 +58,8 @@ def get_ecosystem_ids(ecosystem_name: str) -> str:
     return ecosystem_ids
 
 
-# TODO: try to optimize this 
+# TODO: try to optimize this
+# TODO: don't use ecosystem_uid but rather Ecosystem query result
 # Maybe need to add a measure model?
 def get_sensors_data(level: str, ecosystem_uid: str, days: int = 7):
     time_limit = datetime.utcnow() - timedelta(days=days)
@@ -90,6 +92,20 @@ def get_sensors_data(level: str, ecosystem_uid: str, days: int = 7):
     return data
 
 
+def get_light_data(ecosystem_query):
+    return {
+        e.id: {
+            "status": e.light.one().status,
+            "mode": e.light.one().mode,
+            "method": e.light.one().method,
+            "morning_start": time_to_datetime(e.light.one().morning_start),
+            "morning_end": time_to_datetime(e.light.one().morning_end),
+            "evening_start": time_to_datetime(e.light.one().evening_start),
+            "evening_end": time_to_datetime(e.light.one().evening_end),
+        } for e in ecosystem_query
+    }
+
+
 @bp.after_app_request
 def after_request(response):
     for query in get_debug_queries():
@@ -110,14 +126,15 @@ def before_request():
 
 @bp.app_context_processor
 def menu_info():
+    # TODO: cache these results for 10 min
     limits = time_limits()
 
     ecosystems = {
         e.id: {
             "name": e.name,
             "status": on_off(e.status) if e.last_seen >= limits["status"] else "disconnected",
-            "webcam": True if e.webcam in ["regular", "NoIR"] else False,
-            "lighting": e.lighting,
+            "webcam": e.manages(Management["webcam"]),
+            "lighting": e.manages(Management["light"]),
             "health": True if (
                 Health.query.filter_by(ecosystem_id=e.id)
                       .filter(Health.datetime >= limits["health"])
@@ -188,18 +205,7 @@ def home():
         _time = datetime.strptime(moment, "%I:%M:%S %p").time()
         return datetime.combine(date.today(), _time)
 
-    light_data = {
-        e.id: {
-            "status": e.light.one().status,
-            "mode": e.light.one().mode,
-            "method": e.light.one().method,
-            "morning_start": time_to_datetime(e.light.one().morning_start),
-            "morning_end": time_to_datetime(e.light.one().morning_end),
-            "evening_start": time_to_datetime(e.light.one().evening_start),
-            "evening_end": time_to_datetime(e.light.one().evening_end),
-        }
-        for e in recent_ecosystems()
-    }
+    light_data = get_light_data(recent_ecosystems())
 
     moments = {}
     try:
@@ -279,8 +285,14 @@ def switches(ecosystem_name: str):
     if ecosystem_ids[0] not in sensorsData:
         abort(404)
     title = f"{ecosystem_ids[1]} switches control"
+
+    e = Ecosystem.query.filter(Ecosystem.name == ecosystem_name)\
+                       .one()
+    light_data = get_light_data((e, ))
+
     return render_template("main/switches.html", title=title,
                            ecosystem_ids=ecosystem_ids,
+                           light_data=light_data,
                            )
 
 
@@ -289,6 +301,8 @@ def switches(ecosystem_name: str):
 def settings(ecosystem_name: str):
     ecosystem_ids = get_ecosystem_ids(ecosystem_name=ecosystem_name)
     title = f"{ecosystem_ids[1]} settings"
+
+    # TODO: first generate a ecosystem query, then use it
     environmental_sensors = (
         Hardware.query.filter_by(ecosystem_id=ecosystem_ids[0])
                       .filter_by(type="sensor")
