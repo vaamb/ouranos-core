@@ -107,9 +107,9 @@ def start_service(message):
     user = User.query.filter_by(id=message["user_id"]).one()
     if user.is_administrator:
         if action == "start":
-            services_manager.start(service)
+            services_manager.start_service(service)
             return
-        services_manager.stop(service)
+        services_manager.stop_service(service)
 
 
 @bp.route("/admin/engine_managers")

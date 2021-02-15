@@ -51,6 +51,7 @@ class Config:
     TEST_CONNECTION_IP = "1.1.1.1"
     RECAP_SENDING_HOUR = 4
     ECOSYSTEM_TIMEOUT = 150  # in sec
+    WEATHER_UPDATE_PERIOD = 5  # in min
 
     # Data logging
     SYSTEM_LOGGING_PERIOD = 10

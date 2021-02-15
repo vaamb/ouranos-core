@@ -49,6 +49,7 @@ def get_listed_ecosystems(ecosystem_names: list = []) -> dict:
 
 
 class ecosystems:
+    @staticmethod
     def get_ecosystem_light_info(ecosystem_uid, translate_uid=False):
         with db.scoped_session() as session:
             light = session.query(Light).filter_by(ecosystem_id=ecosystem_uid).first()

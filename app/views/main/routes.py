@@ -11,7 +11,7 @@ from app import db, START_TIME
 from app.dataspace import sensorsData
 from app.models import sensorData, Ecosystem, Hardware, Health, Service, User, \
     Management
-from app.services import sun_times, weather as weather_service
+from app.services import services_manager
 from app.system_monitor import systemMonitor
 from app.views.main import bp, layout
 from app.views.main.forms import EditProfileForm
@@ -21,6 +21,10 @@ from config import Config
 
 
 warnings = {}
+
+
+weather_service = services_manager.services["weather"]
+sun_times = services_manager.services["sun_times"]
 
 
 def time_limits() -> dict:
@@ -62,6 +66,7 @@ def get_ecosystem_ids(ecosystem_name: str) -> str:
 
 # TODO: try to optimize this
 # TODO: don't use ecosystem_uid but rather Ecosystem query result
+# Or cache?
 # Maybe need to add a measure model?
 def get_sensors_data(level: str, ecosystem_uid: str, days: int = 7):
     time_limit = datetime.utcnow() - timedelta(days=days)
@@ -129,7 +134,6 @@ def before_request():
 @bp.app_context_processor
 @cachetools.func.ttl_cache(ttl=60)
 def menu_info():
-    # TODO: cache these results for 10 min
     limits = time_limits()
 
     ecosystems = {
@@ -237,11 +241,12 @@ def home():
 
 @bp.route("/weather")
 def weather():
-    if not weather_service.get_data():
+    weather_data = weather_service.get_data()
+    if not weather_data:
         abort(404)
     return render_template("main/weather.html", title="Weather",
                            home_city=Config.HOME_CITY,
-                           weather_data=weather_service.get_data(),
+                           weather_data=weather_data,
                            )
 
 
