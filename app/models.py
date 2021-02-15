@@ -420,15 +420,22 @@ class archiveData(baseData):
     __tablename__ = "data_archive"
     __bind_key__ = "archive"
 
+    ecosystem_id = sa.Column(sa.String(length=8), primary_key=True)
+    sensor_id = sa.Column(sa.String(length=16), primary_key=True)
+
 
 class archiveHealth(baseHealth):
     __tablename__ = "health_archive"
     __bind_key__ = "archive"
 
+    ecosystem_id = sa.Column(sa.String(length=8), primary_key=True)
+
 
 class archiveWarning(baseWarning):
     __tablename__ = "warnings_archive"
     __bind_key__ = "archive"
+
+    ecosystem_id = sa.Column(sa.String(length=8), primary_key=True)
 
 
 class archiveSystem(baseSystem):
