@@ -73,5 +73,5 @@ class sunTimes(serviceTemplate):
         self._sun_times_data = {}
 
     """Functions to pass data to higher modules"""
-    def data(self):
+    def get_data(self):
         return self._sun_times_data
