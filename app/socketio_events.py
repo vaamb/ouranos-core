@@ -284,17 +284,21 @@ def update_light_data(data):
         if data[ecosystem_id].get("lighting_hours"):
             morning_start = time.fromisoformat(
                 data[ecosystem_id]["lighting_hours"]["morning_start"])
-            morning_end = time.fromisoformat(
-                data[ecosystem_id]["lighting_hours"]["morning_end"])
-            evening_start = time.fromisoformat(
-                data[ecosystem_id]["lighting_hours"]["evening_start"])
             evening_end = time.fromisoformat(
                 data[ecosystem_id]["lighting_hours"]["evening_end"])
+            try:
+                morning_end = time.fromisoformat(
+                    data[ecosystem_id]["lighting_hours"]["morning_end"])
+                evening_start = time.fromisoformat(
+                    data[ecosystem_id]["lighting_hours"]["evening_start"])
+            except KeyError:
+                morning_end = evening_start = None
         else:
             morning_start = morning_end = evening_start = evening_end = None
         light = Light(
             ecosystem_id=ecosystem_id,
             status=data[ecosystem_id]["light_status"],
+            expected_status=data[ecosystem_id]["expected_status"],
             mode=data[ecosystem_id]["mode"],
             method=data[ecosystem_id]["method"],
             morning_start=morning_start,

@@ -383,6 +383,7 @@ class Light(db.Model):
     __tablename__ = "light"
     ecosystem_id = sa.Column(sa.String(length=8), sa.ForeignKey("ecosystems.id"), primary_key=True)
     status = sa.Column(sa.Boolean)
+    expected_status = sa.Column(sa.Boolean)
     mode = sa.Column(sa.String(length=12))
     method = sa.Column(sa.String(length=12))
     morning_start = sa.Column(sa.Time)
