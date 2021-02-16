@@ -6,18 +6,18 @@ from app.models import Service
 from app.services.calendar import Calendar
 from app.services.daily_recap import dailyRecap
 from app.services.sun_times import sunTimes
+from app.services.system_monitor import systemMonitor
 from app.services.telegram_chat_bot import telegramChatbot
 from app.services.weather import Weather
 from app.services.webcam import Webcam
 
 
-SERVICES = [Calendar, dailyRecap, sunTimes, telegramChatbot, Weather, Webcam]
+SERVICES = (Calendar, dailyRecap, sunTimes, systemMonitor, telegramChatbot,
+            Weather, Webcam)
 
 _services = {"base": {}, "app": {}, "user": {}}
 for SERVICE in SERVICES:
     _services[SERVICE.LEVEL][SERVICE.NAME] = SERVICE
-
-_optional = {**_services["app"], **_services["user"]}
 
 
 services_manager = None
