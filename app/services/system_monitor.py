@@ -47,11 +47,9 @@ class systemMonitor(serviceTemplate):
             with lock:
                 self._data = _cache
 
-            data = deepcopy(self._data)
-
-            data.update({"uptime": human_delta_time(
+            self._data.update({"uptime": human_delta_time(
                 START_TIME, datetime.now(timezone.utc))})
-            sio.emit("current_server_data", data, namespace="/admin")
+            sio.emit("current_server_data", self._data, namespace="/admin")
 
             self._stopEvent.wait(SYSTEM_UPDATE_PERIOD)
             if self._stopEvent.isSet():

@@ -10,7 +10,7 @@ from app import app_name, db, scheduler, sio
 from app.dataspace import healthData, sensorsData
 from app.models import sensorData, Ecosystem, engineManager, Hardware, Health, \
     Light, Management, environmentParameter
-from app.system_monitor import systemMonitor
+from app.services.system_monitor import systemMonitor
 from config import Config
 
 

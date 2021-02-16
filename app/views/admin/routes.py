@@ -11,7 +11,7 @@ from app.views.decorators import permission_required
 from app.views.main import layout
 from app.models import Permission, Service, System, engineManager, User
 from app.services import services_manager
-from app.system_monitor import systemMonitor
+from app.services.system_monitor import systemMonitor
 
 
 tracemalloc.start()

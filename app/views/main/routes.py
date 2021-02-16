@@ -7,15 +7,14 @@ from flask import abort, current_app, flash, redirect, render_template, \
 from flask_login import current_user, login_required
 from flask_sqlalchemy import get_debug_queries
 
-from app import db, START_TIME
+from app import db
 from app.dataspace import sensorsData
 from app.models import sensorData, Ecosystem, Hardware, Health, Service, User, \
     Management
 from app.services import services_manager
-from app.system_monitor import systemMonitor
+from app.services.system_monitor import systemMonitor
 from app.views.main import bp, layout
 from app.views.main.forms import EditProfileForm
-from app.views.views_utils import human_delta_time
 from app.wiki import simpleWiki
 from config import Config
 
@@ -224,18 +223,15 @@ def home():
     except Exception as e:
         print(e)
 
-    system_data = {
-        **systemMonitor.system_data,
-        "uptime": human_delta_time(START_TIME, datetime.now(timezone.utc))
-    }
-
+    print(weather_service.get_data())
     return render_template("main/home.html", title="Home",
                            weather_data=weather_service.get_data(),
                            light_data=light_data,
+                           # TODO: use date from js instead
                            today=date.today(),
                            moments=moments,
                            platform=platform.system(),
-                           system_data=system_data,
+                           system_data=systemMonitor.system_data,
                            )
 
 
