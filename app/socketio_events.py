@@ -32,8 +32,9 @@ summarize = {"mean": mean, "std": std}
 @scheduler.scheduled_job(id="sensors_data", trigger="cron", minute="*",
                          misfire_grace_time=10)
 def request_sensors_data(room="engineManagers"):
-    sio_logger.debug(f"Sending sensors data request to {room}")
-    sio.emit("send_sensors_data", namespace="/gaia", room=room)
+    if gaia_thread:
+        sio_logger.debug(f"Sending sensors data request to {room}")
+        sio.emit("send_sensors_data", namespace="/gaia", room=room)
 
 
 def request_config(room="engineManagers"):
@@ -54,8 +55,9 @@ def request_light_data(room="engineManagers"):
 @scheduler.scheduled_job(id="light_and_health", trigger="cron",
                          hour="1", misfire_grace_time=15*60)
 def request_light_and_health(room="engineManagers"):
-    request_light_data(room=room)
-    request_health_data(room=room)
+    if gaia_thread:
+        request_light_data(room=room)
+        request_health_data(room=room)
 
 
 def gaia_background_thread(app):
