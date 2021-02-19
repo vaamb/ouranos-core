@@ -24,10 +24,6 @@
         </div>
       </div>
     </div>
-
-    <script type="text/javascript">
-
-    </script>
   {% endif %}
   {% endfor %}
 
@@ -176,18 +172,18 @@
     });
 
     socketAdmin.on('update_system_graphs', function(msg) {
-      let now = new Date(msg.datetime);
+      let graphCurrentDatetime = new Date(msg.datetime);
 
       let dayWindow = 7;
       let dataWindowLimit = new Date();
-      dataWindowLimit.setDate(now.getDate() - dayWindow);
+      dataWindowLimit.setDate(graphCurrentDatetime.getDate() - dayWindow);
 
       // Update Charts
       {% for measure in ['CPU_used', 'CPU_temp', 'RAM_used', 'DISK_used'] %}
       {% if measure in system_measures %}
 
       // Push new data for Measure: {{ measure }}
-      ChartData{{ measure.capitalize() }}.labels.push(now);
+      ChartData{{ measure.capitalize() }}.labels.push(graphCurrentDatetime);
       ChartData{{ measure.capitalize() }}.datasets[0].data.push(
         Number(msg.{{ measure }}).toFixed(1)
       );

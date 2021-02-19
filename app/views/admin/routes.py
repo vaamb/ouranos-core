@@ -11,8 +11,8 @@ from app.views.decorators import permission_required
 from app.views.main import layout
 from app.models import Permission, Service, System, engineManager, User
 from app.services import services_manager
-from app.services.system_monitor import systemMonitor
 
+system_monitor = services_manager.services["system_monitor"]
 
 tracemalloc.start()
 s1 = tracemalloc.take_snapshot()
@@ -52,8 +52,8 @@ def mem_snapshot():
 @login_required
 @permission_required(Permission.ADMIN)
 def system():
-    current_data = systemMonitor.system_data
-    system_measures = list(current_data.keys())
+    current_data = system_monitor.system_data
+    system_measures = [key for key in current_data if current_data[key]]
     data = get_system_data()
     return render_template("admin/system.html", title="Server monitoring",
                            data=data, current_data=current_data,
