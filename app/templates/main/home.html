@@ -13,11 +13,13 @@
                   Calendar
                 </div>
                 <div class="boardColumnContainer">
-                  <div class="boardColumnTitle">{{moment(today).format("dddd Do MMMM YYYY")}}</div>
-                  {% if moments %}
+                  <div class="boardColumnTitle">
+                    <span id="today_day"></span>
+                  </div>
+                  {% if sun_times %}
                   <div class="boardColumnItem">
-                    sunrise: {{moment(moments["sunrise"]).format("HH:mm")}} -
-                    sunset: {{moment(moments["sunset"]).format("HH:mm")}}
+                    sunrise: <span id="sunrise"></span> -
+                    sunset: <span id="sunset"></span>
                   </div>
                   {% endif %}
                 </div>
@@ -123,15 +125,15 @@
                 {% if light_data[ecosystem]["mode"] != "NA" %}
                 {% if light_data[ecosystem]["method"] == "fixed" %}
                 <div class="boardColumnItem">
-                  Light: from {{moment(light_data[ecosystem]["morning_start"]).format("HH:mm")}}
-                  to {{moment(light_data[ecosystem]["evening_end"]).format("HH:mm")}}
+                  Light: from <span id="lightMorningStart_{{ ecosystem }}"></span>
+                  to <span id="lightEveningEnd_{{ ecosystem }}"></span>
                 </div>
                 {% elif light_data[ecosystem]["method"] == "elongate" %}
                 <div class="boardColumnItem">
                   Morning light:
                   {% if light_data[ecosystem]["morning_start"] < light_data[ecosystem]["morning_end"] %}
-                  from {{moment(light_data[ecosystem]["morning_start"]).format("HH:mm")}}
-                  to {{moment(light_data[ecosystem]["morning_end"]).format("HH:mm")}}
+                  from <span id="lightMorningStart_{{ ecosystem }}"></span>
+                  to <span id="lightMorningEnd_{{ ecosystem }}"></span>
                   {% else %}
                   no lighting
                   {% endif %}
@@ -139,8 +141,8 @@
                 <div class="boardColumnItem">
                   Evening light:
                   {% if light_data[ecosystem]["evening_start"] < light_data[ecosystem]["evening_end"] %}
-                  from {{moment(light_data[ecosystem]["evening_start"]).format("HH:mm")}}
-                  to {{moment(light_data[ecosystem]["evening_end"]).format("HH:mm")}}
+                  from <span id="lightEveningStart_{{ ecosystem }}"></span>
+                  to <span id="lightEveningEnd_{{ ecosystem }}"></span>
                   {% else %}
                   no lighting
                   {% endif %}
@@ -155,6 +157,22 @@
           </div>
 
           <script type="text/javascript">
+            $('#today_day').text(formattedDate);
+
+            {% if sun_times %}
+            let timeSunrise = new Date("{{ sun_times["sunrise"] }}")
+            let timeSunset = new Date("{{ sun_times["sunset"] }}")
+            $('#sunrise').text(timeSunrise.toLocaleTimeString());
+            $('#sunset').text(timeSunset.toLocaleTimeString());
+
+            socket.on('sun_times', function(msg) {
+              timeSunrise = new Date(msg.sunrise)
+              timeSunset = new Date(msg.sunset)
+              $('#sunrise').text(timeSunrise.toLocaleTimeString());
+              $('#sunset').text(timeSunset.toLocaleTimeString());
+            });
+            {% endif %}
+
             {% if weather_data %}
             // Weather related spans settings and update event
             $('#weather_summary').text('{{ weather_data["currently"]["summary"] }}');
@@ -203,5 +221,29 @@
                 server_CPU_used_values.length) / 10 ).toFixed(2));
             });
             {% endif %}
+
+            {% for ecosystem in ecosystems %}
+            {% if light_data[ecosystem]["mode"] != "NA" %}
+            let morningStart_{{ ecosystem }} = new Date(
+              "{{ light_data[ecosystem]["morning_start"] }}")
+            let eveningEnd_{{ ecosystem }} = new Date(
+              "{{ light_data[ecosystem]["evening_end"] }}")
+            $('#lightMorningStart_{{ ecosystem }}').text(
+              morningStart_{{ ecosystem }}.toLocaleTimeString());
+            $('#lightEveningEnd_{{ ecosystem }}').text(
+              eveningEnd_{{ ecosystem }}.toLocaleTimeString());
+
+            {% if light_data[ecosystem]["method"] == "elongate" %}
+            let morningEnd_{{ ecosystem }} = new Date(
+              "{{ light_data[ecosystem]["morning_end"] }}")
+            let eveningStart_{{ ecosystem }} = new Date(
+              "{{ light_data[ecosystem]["evening_start"] }}")
+            $('#lightMorningEnd_{{ ecosystem }}').text(
+              morningEnd_{{ ecosystem }}.toLocaleTimeString());
+            $('#lightEveningStart_{{ ecosystem }}').text(
+              eveningStart_{{ ecosystem }}.toLocaleTimeString());
+            {% endif %}
+            {% endif %}
+            {% endfor %}
           </script>
 {% endblock %}

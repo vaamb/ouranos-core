@@ -1,9 +1,10 @@
 import base64
-from collections import OrderedDict
+from datetime import date, datetime, timezone
 import logging
 import logging.config
 import os
 from pathlib import Path
+import platform
 import socket
 
 import cachetools
@@ -152,6 +153,12 @@ def configure_logging(config_class):
         })
 
     logging.config.dictConfig(LOGGING_CONFIG)
+
+
+def parse_sun_times(moment: str) -> datetime:
+    _time = datetime.strptime(moment, "%I:%M:%S %p").time()
+    return datetime.combine(date.today(), _time,
+                            tzinfo=timezone.utc)
 
 
 def decrypt_uid(encrypted_uid: str) -> str:

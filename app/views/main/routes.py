@@ -12,9 +12,9 @@ from app.dataspace import sensorsData
 from app.models import sensorData, Ecosystem, Hardware, Health, Service, User, \
     Management
 from app.services import services_manager
-from app.services.system_monitor import systemMonitor
 from app.views.main import bp, layout
 from app.views.main.forms import EditProfileForm
+from app.utils import parse_sun_times
 from app.wiki import simpleWiki
 from config import Config
 
@@ -23,7 +23,8 @@ warnings = {}
 
 
 weather_service = services_manager.services["weather"]
-sun_times = services_manager.services["sun_times"]
+sun_times_service = services_manager.services["sun_times"]
+system_monitor = services_manager.services["system_monitor"]
 
 
 def time_limits() -> dict:
@@ -46,7 +47,7 @@ def recent_ecosystems():
 
 def time_to_datetime(t: time) -> datetime:
     if isinstance(t, time):
-        t = datetime.combine(date.today(), t)
+        t = datetime.combine(date.today(), t, tzinfo=timezone.utc)
     return t
 
 
@@ -134,7 +135,7 @@ def before_request():
 @cachetools.func.ttl_cache(ttl=60)
 def menu_info():
     limits = time_limits()
-
+    # TODO: move to API
     ecosystems = {
         e.id: {
             "name": e.name,
@@ -156,7 +157,9 @@ def menu_info():
                         .filter(Hardware.last_log >= limits["sensors"])
                         .first()) else False,
             "lights": True if e.hardware.filter_by(type="light").first() else False,
-            "switches": e.id in sensorsData
+            "switches": True if e.hardware.filter_by(type="light").first()
+                            and e.manages(Management["light"])
+                            and e.id in sensorsData else False,
         }
         for e in recent_ecosystems()
     }
@@ -207,31 +210,26 @@ def to_home():
 
 @bp.route("/home")
 def home():
-    def parse_moment(moment: str) -> datetime:
-        _time = datetime.strptime(moment, "%I:%M:%S %p").time()
-        return datetime.combine(date.today(), _time)
-
     light_data = get_light_data(recent_ecosystems())
 
-    moments = {}
+    sun_times = {}
     try:
         up = {
-            "sunrise": parse_moment(sun_times.get_data()["sunrise"]),
-            "sunset": parse_moment(sun_times.get_data()["sunset"]),
+            "sunrise": parse_sun_times(
+                sun_times_service.get_data()["sunrise"]),
+            "sunset": parse_sun_times(
+                sun_times_service.get_data()["sunset"]),
         }
-        moments.update(up)
+        sun_times.update(up)
     except Exception as e:
         print(e)
 
-    print(weather_service.get_data())
     return render_template("main/home.html", title="Home",
                            weather_data=weather_service.get_data(),
                            light_data=light_data,
-                           # TODO: use date from js instead
-                           today=date.today(),
-                           moments=moments,
+                           sun_times=sun_times,
                            platform=platform.system(),
-                           system_data=systemMonitor.system_data,
+                           system_data=system_monitor.system_data,
                            )
 
 

@@ -54,17 +54,6 @@
   </div>
 
   <script type="text/javascript">
-    // Vars for date formatting
-    let days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    let months = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
-        'August', 'September', 'October', 'November', 'December'];
-
-    // Today's weather related spans settings and update event
-    let now = new Date ()
-    let day = days[now.getDay()]
-    let month = months[now.getMonth()]
-    let formattedDate = ''.concat(day, ' ', now.getDate(), ' ', month)
-
     $('#today_day').text(formattedDate);
     $('#today_temperature').text(Number({{ weather_data["currently"]["temperature"] }}).toFixed(1));
     $('#today_summary').text('{{weather_data["currently"]["summary"]}}');
@@ -74,11 +63,6 @@
     $('#today_cloudCover').text(Number({{ weather_data["currently"]["cloudCover"]}} * 100).toFixed(0));
 
     socket.on('current_weather', function(msg) {
-      now = new Date()
-      day = days[now.getDay()]
-      month = months[now.getMonth()]
-      formattedDate = ''.concat(day, ' ', now.getDate(), ' ', month)
-
       $('#today_day').text(formattedDate);
       $('#today_temperature').text(Number(msg.temperature).toFixed(1));
       $('#today_summary').text(msg.summary);

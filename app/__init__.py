@@ -6,7 +6,6 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from flask import json, Flask
 from flask_login import LoginManager
 from flask_migrate import Migrate
-from flask_moment import Moment
 from flask_sqlalchemy import SQLAlchemy
 from flask_socketio import SocketIO
 
@@ -26,7 +25,6 @@ login_manager = LoginManager()
 db = SQLAlchemy()
 migrate = Migrate()
 sio = SocketIO(json=json)
-moment = Moment()
 
 
 def create_app(config_class=TestingConfig):
@@ -53,7 +51,6 @@ def create_app(config_class=TestingConfig):
     migrate.init_app(app, db)
     login_manager.init_app(app)
     sio.init_app(app)
-    moment.init_app(app)
     scheduler.start()
 
     @app.route("/eegg")

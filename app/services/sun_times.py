@@ -5,10 +5,11 @@ import time
 
 import requests
 
-from app import scheduler
+from app import scheduler, sio
 from app.utils import is_connected
 from config import Config, base_dir
 from app.services.template import serviceTemplate
+from app.utils import parse_sun_times
 
 
 class sunTimes(serviceTemplate):
@@ -36,6 +37,13 @@ class sunTimes(serviceTemplate):
                 else:
                     with open(self._file_path, "w+") as file:
                         json.dump(self._sun_times_data, file)
+                    sun_times = {
+                        "sunrise": parse_sun_times(
+                            self._sun_times_data["sunrise"]),
+                        "sunset": parse_sun_times(
+                            self._sun_times_data["sunset"]),
+                    }
+                    sio.emit("sun_times", data=sun_times)
                     self._logger.debug("Sun times data updated")
                     return
 

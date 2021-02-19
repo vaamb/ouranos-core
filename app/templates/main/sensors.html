@@ -147,7 +147,6 @@
       // Update last sensors measure time
       let currentDatetime = new Date(msg.{{ ecosystem_ids[0] }}.datetime);
       $('#currentDatetime').text(currentDatetime.toLocaleTimeString());
-      $('#test').text(msg.{{ ecosystem_ids[0] }}.datetime);
       // Update Data spans and Gauges
       {% for measure in data %}
       {% for sensor_id in data[measure] %}
@@ -164,17 +163,17 @@
     {% endif %}
 
     socket.on('update_sensors_graph', function(msg) {
-      let now = new Date(msg.{{ ecosystem_ids[0] }}.datetime);
+      let lastUpdateTime = new Date(msg.{{ ecosystem_ids[0] }}.datetime);
 
       let dayWindow = 7;
       let dataWindowLimit = new Date();
-      dataWindowLimit.setDate(now.getDate() - dayWindow);
+      dataWindowLimit.setDate(lastUpdateTime.getDate() - dayWindow);
 
       // Update Charts
       {% for measure in data %}
       {% for sensor_id in data[measure] %}
       // Push new data for Measure: {{ measure }} - Sensor: {{ sensor_id }}
-      ChartData{{ measure.capitalize() }}_{{ sensor_id }}.labels.push(now);
+      ChartData{{ measure.capitalize() }}_{{ sensor_id }}.labels.push(lastUpdateTime);
       ChartData{{ measure.capitalize() }}_{{ sensor_id }}.datasets[0].data.push(
         Number(msg.{{ ecosystem_ids[0] }}.data.{{ sensor_id }}.{{ measure }}).toFixed(1)
       );
