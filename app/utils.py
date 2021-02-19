@@ -1,3 +1,4 @@
+import base64
 from collections import OrderedDict
 import logging
 import logging.config
@@ -5,37 +6,19 @@ import os
 from pathlib import Path
 import socket
 
+import cachetools
+from cryptography.fernet import Fernet, InvalidToken
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 import geopy
 
 from config import Config
 
 
-cache_dir = Path(__file__).absolute().parents[1]/"cache"
-if not cache_dir:
-    os.mkdir(cache_dir)
+base_dir = Path(__file__).absolute().parents[1]
 
 
-class LRU(OrderedDict):
-    # Recipe taken from python doc
-    def __init__(self, maxsize=32, *args, **kwargs):
-        self.maxsize = maxsize
-        super().__init__(*args, **kwargs)
-
-    def __getitem__(self, key):
-        value = super().__getitem__(key)
-        self.move_to_end(key)
-        return value
-
-    def __setitem__(self, key, value):
-        if key in self:
-            self.move_to_end(key)
-        super().__setitem__(key, value)
-        if len(self) > self.maxsize:
-            oldest = next(iter(self))
-            del self[oldest]
-
-
-coordinates = LRU(maxsize=16)
+coordinates = cachetools.LFUCache(maxsize=16)
 
 
 def get_coordinates(city: str) -> dict:
@@ -169,3 +152,51 @@ def configure_logging(config_class):
         })
 
     logging.config.dictConfig(LOGGING_CONFIG)
+
+
+def decrypt_uid(encrypted_uid: str) -> str:
+    h = hashes.Hash(hashes.SHA256())
+    h.update(Config.GAIA_SECRET_KEY.encode("utf-8"))
+    key = base64.urlsafe_b64encode(h.finalize())
+    f = Fernet(key=key)
+    try:
+        return f.decrypt(encrypted_uid.encode("utf-8")).decode("utf-8")
+    except InvalidToken:
+        return ""
+
+
+def validate_uid_token(token: str, manager_uid: str) -> bool:
+    iterations = int(token.split("$")[0].split(":")[2])
+    ssalt = token.split("$")[1]
+    token_key = token.split("$")[2]
+    bsalt = ssalt.encode("UTF-8")
+
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=bsalt,
+        iterations=iterations,
+    )
+    bkey = kdf.derive(manager_uid.encode())
+    hkey = base64.b64encode(bkey).hex()
+    return token_key == hkey
+
+
+def generate_secret_key_from_password(password: str, set_env: bool = False) -> str:
+    if isinstance(password, str):
+        password = password.encode("utf-8")
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=b"",
+        iterations=2**21,
+    )
+    bkey = kdf.derive(password)
+    skey = base64.b64encode(bkey).decode("utf-8").strip("=")
+    if set_env:
+        if platform.system() in ("Linux", "Windows"):
+            os.environ["GAIA_SECRET_KEY"] = skey
+        else:
+            # Setting environ in BSD and MacOsX can lead to mem leak (cf. doc)
+            os.putenv("GAIA_SECRET_KEY", skey)
+    return skey

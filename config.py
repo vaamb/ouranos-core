@@ -21,6 +21,7 @@ class Config:
     # Flask config
     DEBUG = False
     TESTING = False
+    # Use this key just to avoid a brute attack
     SECRET_KEY = os.environ.get("SECRET_KEY") or "BXhNmCEmNdoBNngyGXj6jJtooYAcKpt6"
 
     # Logging config
@@ -52,6 +53,9 @@ class Config:
     RECAP_SENDING_HOUR = 4
     ECOSYSTEM_TIMEOUT = 150  # in sec
     WEATHER_UPDATE_PERIOD = 5  # in min
+    GAIA_SECRET_KEY = os.environ.get("GAIA_SECRET_KEY") or \
+                      "BXhNmCEmNdoBNngyGXj6jJtooYAcKpt6"
+    GAIA_CLIENT_MAX_ATTEMPT = 3
 
     # Data logging
     SYSTEM_LOGGING_PERIOD = 10

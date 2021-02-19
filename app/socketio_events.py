@@ -1,16 +1,18 @@
 from datetime import datetime, time, timezone
 import logging
+import random
 
+import cachetools
 from flask import current_app, request
 from flask_socketio import join_room, leave_room
 from numpy import mean, std
-from sqlalchemy.orm.exc import NoResultFound
 
 from app import app_name, db, scheduler, sio
 from app.dataspace import healthData, sensorsData
 from app.models import sensorData, Ecosystem, engineManager, Hardware, Health, \
     Light, Management, environmentParameter
 from app.services.system_monitor import systemMonitor
+from app.utils import decrypt_uid, validate_uid_token
 from config import Config
 
 
@@ -26,9 +28,27 @@ anchor2 = systemMonitor
 summarize = {"mean": mean, "std": std}
 
 
+client_blacklist = cachetools.TTLCache(maxsize=62, ttl=60*60*24)
+
+
+def clear_client_blacklist(client_address: str = None) -> None:
+    global client_blacklist
+    if not client_address:
+        client_blacklist = {}
+    else:
+        try:
+            del client_blacklist[client_address]
+        except KeyError:
+            pass
+
+
 # ---------------------------------------------------------------------------
 #   Data requests to engineManagers
 # ---------------------------------------------------------------------------
+gaia_thread = None
+
+
+# TODO: move into connect_on_gaia
 @scheduler.scheduled_job(id="sensors_data", trigger="cron", minute="*",
                          misfire_grace_time=10)
 def request_sensors_data(room="engineManagers"):
@@ -52,6 +72,7 @@ def request_light_data(room="engineManagers"):
     sio.emit("send_light_data", namespace="/gaia", room=room)
 
 
+# TODO: move into connect_on_gaia
 @scheduler.scheduled_job(id="light_and_health", trigger="cron",
                          hour="1", misfire_grace_time=15*60)
 def request_light_and_health(room="engineManagers"):
@@ -70,9 +91,6 @@ def gaia_background_thread(app):
 # ---------------------------------------------------------------------------
 #   SocketIO events coming from engineManagers
 # ---------------------------------------------------------------------------
-gaia_thread = None
-
-
 @sio.on("connect", namespace="/gaia")
 def connect_on_gaia():
     global gaia_thread
@@ -106,214 +124,256 @@ def gaia_pong(data):
 def registerManager(data):
     remote_addr = request.environ["REMOTE_ADDR"]
     remote_port = request.environ["REMOTE_PORT"]
-    sio_logger.info(f"Received manager registration request from manager: "
-                    f"{data['uid']}, with address {remote_addr}:{remote_port}")
-    now = datetime.now(timezone.utc).replace(microsecond=0)
-    manager = engineManager(
-        uid=data["uid"],
-        sid=request.sid,
-        last_seen=now,
-        address=f"{remote_addr}:{remote_port}",
-    )
-    db.session.merge(manager)
-    db.session.commit()
-    join_room("engineManagers")
+    try:
+        # TODO: continue to increment, if above threshold: move to file
+        if client_blacklist[remote_addr] == Config.GAIA_CLIENT_MAX_ATTEMPT + 1:
+            sio_logger.warning(f"Received three invalid registration requests "
+                               f"from {remote_addr}.")
 
-    request_config(request.sid)
-    request_sensors_data(request.sid)
-    request_light_data(request.sid)
-    request_health_data(request.sid)
+        if client_blacklist[remote_addr] > Config.GAIA_CLIENT_MAX_ATTEMPT:
+            over_attempts = client_blacklist[remote_addr] - 2
+            if over_attempts > 4:
+                over_attempts = 4
+            fix_tempering = 1.5 ** over_attempts  # max 5 secs
+            if fix_tempering > 5:
+                fix_tempering = 5
+            random_tempering = 2 * random.random() - 1  # [-1: 1]
+            sio.sleep(fix_tempering + random_tempering)
+            disconnect()
+            return False
+    except KeyError:
+        # Not in blacklist
+        pass
+    manager_uid = decrypt_uid(data["ikys"])
+
+    if not validate_uid_token(data["uid_token"], manager_uid):
+        try:
+            client_blacklist[remote_addr] += 1
+        except KeyError:
+            client_blacklist[remote_addr] = 1
+        sio_logger.info(f"Received invalid registration request from {remote_addr}")
+        disconnect()
+    else:
+        try:
+            del client_blacklist[remote_addr]
+        except KeyError:
+            pass
+        sio_logger.info(f"Received manager registration request from manager "
+                        f"{manager_uid}, from {remote_addr}:{remote_port}")
+        now = datetime.now(timezone.utc).replace(microsecond=0)
+        manager = engineManager(
+            uid=manager_uid,
+            sid=request.sid,
+            last_seen=now,
+            address=f"{remote_addr}:{remote_port}",
+        )
+        db.session.merge(manager)
+        db.session.commit()
+        join_room("engineManagers")
+
+        request_config(request.sid)
+        request_sensors_data(request.sid)
+        request_light_data(request.sid)
+        request_health_data(request.sid)
+
+
+# TODO: transform into a wrap?
+def check_manager_identity(event):
+    manager = engineManager.query.filter_by(sid=request.sid).first()
+    if not manager:
+        remote_addr = request.environ["REMOTE_ADDR"]
+        remote_port = request.environ["REMOTE_PORT"]
+        sio_logger.warning(f"Received '{event}' event on '/gaia' from unknown "
+                           f"client with address {remote_addr}:{remote_port}")
+        sio.emit("register", namespace="/gaia", room=request.sid)
+        return False
+    return manager
 
 
 @sio.on("engines_change", namespace="/gaia")
 def reload_all():
-    request_config(request.sid)
-    request_sensors_data(request.sid)
-    request_light_data(request.sid)
-    request_health_data(request.sid)
+    manager = check_manager_identity("config")
+    if manager:
+        request_config(request.sid)
+        request_sensors_data(request.sid)
+        request_light_data(request.sid)
+        request_health_data(request.sid)
 
 
 @sio.on("config", namespace="/gaia")
 def update_cfg(config):
-    manager = engineManager.query.filter_by(sid=request.sid).one()
-    if not manager:
-        sio.emit("register", namespace="/gaia", room=request.sid)
-        return False
-    sio_logger.debug(f"Received 'config' from {manager.uid}")
-    for ecosystem_id in config:
-        ecosystem = Ecosystem(
-            id=ecosystem_id,
-            name=config[ecosystem_id]["name"],
-            status=config[ecosystem_id]["status"],
-            day_start=datetime.strptime(
-                config[ecosystem_id]["environment"]["day"]["start"], "%Hh%M"
-            ).time(),
-            night_start=datetime.strptime(
-                config[ecosystem_id]["environment"]["night"]["start"], "%Hh%M"
-            ).time(),
-            manager_uid=manager.uid,
-        )
-
-        for m in Management:
-            try:
-                if config[ecosystem_id]["management"][m]:
-                    ecosystem.add_management(Management[m])
-            except KeyError:
-                # Not implemented yet
-                pass
-        db.session.merge(ecosystem)
-
-        for parameter in ("temperature", "humidity", "might"):
-            for moment_of_day in ("day", "night"):
-                try:
-                    environment_parameter = environmentParameter(
-                        ecosystem_id=ecosystem_id,
-                        parameter=parameter,
-                        moment_of_day=moment_of_day,
-                        value=(config[ecosystem_id]["environment"]
-                                     [moment_of_day][parameter]),
-                        hysteresis=(config[ecosystem_id]["environment"]
-                                          ["hysteresis"][parameter]),
-                    )
-                    db.session.merge(environment_parameter)
-                except KeyError:
-                    continue
-
-        # TODO: first delete all hardware from this ecosystem present there before, so if delete in config, deleted here too
-        for hardware_uid in config[ecosystem_id]["IO"]:
-            hardware = Hardware(
-                id=hardware_uid,
-                ecosystem_id=ecosystem_id,
-                name=config[ecosystem_id]["IO"][hardware_uid]["name"],
-                address=config[ecosystem_id]["IO"][hardware_uid]["address"],
-                type=config[ecosystem_id]["IO"][hardware_uid]["type"],
-                level=config[ecosystem_id]["IO"][hardware_uid]["level"],
-                model=config[ecosystem_id]["IO"][hardware_uid]["model"],
+    manager = check_manager_identity("config")
+    if manager:
+        for ecosystem_id in config:
+            ecosystem = Ecosystem(
+                id=ecosystem_id,
+                name=config[ecosystem_id]["name"],
+                status=config[ecosystem_id]["status"],
+                day_start=datetime.strptime(
+                    config[ecosystem_id]["environment"]["day"]["start"], "%Hh%M"
+                ).time(),
+                night_start=datetime.strptime(
+                    config[ecosystem_id]["environment"]["night"]["start"], "%Hh%M"
+                ).time(),
+                manager_uid=manager.uid,
             )
-            db.session.merge(hardware)
-    db.session.commit()
+
+            for m in Management:
+                try:
+                    if config[ecosystem_id]["management"][m]:
+                        ecosystem.add_management(Management[m])
+                except KeyError:
+                    # Not implemented yet
+                    pass
+            db.session.merge(ecosystem)
+
+            for parameter in ("temperature", "humidity", "might"):
+                for moment_of_day in ("day", "night"):
+                    try:
+                        environment_parameter = environmentParameter(
+                            ecosystem_id=ecosystem_id,
+                            parameter=parameter,
+                            moment_of_day=moment_of_day,
+                            value=(config[ecosystem_id]["environment"]
+                                         [moment_of_day][parameter]),
+                            hysteresis=(config[ecosystem_id]["environment"]
+                                              ["hysteresis"][parameter]),
+                        )
+                        db.session.merge(environment_parameter)
+                    except KeyError:
+                        continue
+
+            # TODO: first delete all hardware from this ecosystem present there before, so if delete in config, deleted here too
+            for hardware_uid in config[ecosystem_id]["IO"]:
+                hardware = Hardware(
+                    id=hardware_uid,
+                    ecosystem_id=ecosystem_id,
+                    name=config[ecosystem_id]["IO"][hardware_uid]["name"],
+                    address=config[ecosystem_id]["IO"][hardware_uid]["address"],
+                    type=config[ecosystem_id]["IO"][hardware_uid]["type"],
+                    level=config[ecosystem_id]["IO"][hardware_uid]["level"],
+                    model=config[ecosystem_id]["IO"][hardware_uid]["model"],
+                )
+                db.session.merge(hardware)
+        db.session.commit()
 
 
 @sio.on("sensors_data", namespace="/gaia")
 def update_sensors_data(data):
-    try:
-        manager = engineManager.query.filter_by(sid=request.sid).one()
-    except NoResultFound:
-        request_config(request.sid)
-        sio_logger.error(
-            "Received 'sensors_data' event from unknown device, "
-            f"sid: {request.sid}")
+    manager = check_manager_identity("config")
+    if manager:
+        sio_logger.debug(f"Received 'sensors_data' from manager: {manager.uid}")
+        sensorsData.update(data)
+        sio.emit("current_sensors_data", data, namespace="/")
 
-    sio_logger.debug(f"Received 'sensors_data' from manager: {manager.uid}")
-    sensorsData.update(data)
-    sio.emit("current_sensors_data", data, namespace="/")
+        graph_update = {}
+        for ecosystem_id in data:
+            try:
+                dt = datetime.fromisoformat(data[ecosystem_id]["datetime"])
+            # When launching, gaiaEngine is sometimes still loading its sensors
+            except KeyError:
+                break
+            sensorsData[ecosystem_id]["datetime"] = dt
+            if dt.minute % Config.SENSORS_LOGGING_PERIOD == 0:
+                graph_update[ecosystem_id] = data[ecosystem_id]
+                measure_values = {}
+                # TODO: add ecosystem name
+                collector.debug(f"Logging sensors data from manager: {manager.uid}")
 
-    graph_update = {}
-    for ecosystem_id in data:
-        try:
-            dt = datetime.fromisoformat(data[ecosystem_id]["datetime"])
-        # When launching, gaiaEngine is sometimes still loading its sensors
-        except KeyError:
-            break
-        sensorsData[ecosystem_id]["datetime"] = dt
-        if dt.minute % Config.SENSORS_LOGGING_PERIOD == 0:
-            graph_update[ecosystem_id] = data[ecosystem_id]
-            measure_values = {}
-            # TODO: add ecosystem name
-            collector.debug(f"Logging sensors data from manager: {manager.uid}")
-
-            for sensor_id in data[ecosystem_id]["data"]:
-                for measure in data[ecosystem_id]["data"][sensor_id]:
-                    value = float(data[ecosystem_id]["data"][sensor_id][measure])
-                    sensor_data = sensorData(
-                        ecosystem_id=ecosystem_id,
-                        sensor_id=sensor_id,
-                        measure=measure,
-                        datetime=dt,
-                        value=value,
-                    )
-                    # There can only be 1
-                    db.session.merge(sensor_data)
-                    Hardware.query.filter_by(id=sensor_id).one().last_log = dt
-
-                    try:
-                        measure_values[measure].append(value)
-                    except KeyError:
-                        measure_values[measure] = [value]
-
-            for method in summarize:
-                for measure in measure_values:
-                    # Set a minimum threshold before summarizing values
-                    if len(measure_values[measure]) >= 3:
-                        values_summarized = round(
-                            summarize[method](measure_values[measure]), 2)
-                        aggregated_data = sensorData(
+                for sensor_id in data[ecosystem_id]["data"]:
+                    for measure in data[ecosystem_id]["data"][sensor_id]:
+                        value = float(data[ecosystem_id]["data"][sensor_id][measure])
+                        sensor_data = sensorData(
                             ecosystem_id=ecosystem_id,
-                            sensor_id=method,
+                            sensor_id=sensor_id,
                             measure=measure,
                             datetime=dt,
-                            value=values_summarized,
+                            value=value,
                         )
-                        db.session.add(aggregated_data)
+                        # There can only be 1
+                        db.session.merge(sensor_data)
+                        Hardware.query.filter_by(id=sensor_id).one().last_log = dt
 
-    db.session.commit()
-    if graph_update:
-        sio.emit("update_sensors_graph", graph_update, namespace="/")
+                        try:
+                            measure_values[measure].append(value)
+                        except KeyError:
+                            measure_values[measure] = [value]
+
+                for method in summarize:
+                    for measure in measure_values:
+                        # Set a minimum threshold before summarizing values
+                        if len(measure_values[measure]) >= 3:
+                            values_summarized = round(
+                                summarize[method](measure_values[measure]), 2)
+                            aggregated_data = sensorData(
+                                ecosystem_id=ecosystem_id,
+                                sensor_id=method,
+                                measure=measure,
+                                datetime=dt,
+                                value=values_summarized,
+                            )
+                            db.session.add(aggregated_data)
+
+        db.session.commit()
+        if graph_update:
+            sio.emit("update_sensors_graph", graph_update, namespace="/")
 
 
 @sio.on("health_data", namespace="/gaia")
 def update_health_data(data):
-    manager = engineManager.query.filter_by(sid=request.sid).one()
-    sio_logger.debug(f"Received 'update_health_data' from {manager.uid}")
-    healthData.update(data)
-    for ecosystem_id in data:
-        health = Health(
-            ecosystem_id=ecosystem_id,
-            datetime=datetime.fromisoformat(data[ecosystem_id]["datetime"]),
-            green=data[ecosystem_id]["green"],
-            necrosis=data[ecosystem_id]["necrosis"],
-            health_index=data[ecosystem_id]["health_index"]
-        )
-        db.session.add(health)
-    db.session.commit()
+    manager = check_manager_identity("config")
+    if manager:
+        sio_logger.debug(f"Received 'update_health_data' from {manager.uid}")
+        healthData.update(data)
+        for ecosystem_id in data:
+            health = Health(
+                ecosystem_id=ecosystem_id,
+                datetime=datetime.fromisoformat(data[ecosystem_id]["datetime"]),
+                green=data[ecosystem_id]["green"],
+                necrosis=data[ecosystem_id]["necrosis"],
+                health_index=data[ecosystem_id]["health_index"]
+            )
+            db.session.add(health)
+        db.session.commit()
 
 
 @sio.on("light_data", namespace="/gaia")
 def update_light_data(data):
-    manager = engineManager.query.filter_by(sid=request.sid).one()
-    sio_logger.debug(f"Received 'light_data' from {manager.uid}")
-    for ecosystem_id in data:
-        if data[ecosystem_id].get("lighting_hours"):
-            morning_start = time.fromisoformat(
-                data[ecosystem_id]["lighting_hours"]["morning_start"])
-            evening_end = time.fromisoformat(
-                data[ecosystem_id]["lighting_hours"]["evening_end"])
-            try:
-                morning_end = time.fromisoformat(
-                    data[ecosystem_id]["lighting_hours"]["morning_end"])
-            except KeyError:
-                morning_end = None
-            try:
-                evening_start = time.fromisoformat(
-                    data[ecosystem_id]["lighting_hours"]["evening_start"])
-            except KeyError:
-                evening_start = None
+    manager = check_manager_identity("config")
+    if manager:
+        sio_logger.debug(f"Received 'light_data' from {manager.uid}")
+        for ecosystem_id in data:
+            if data[ecosystem_id].get("lighting_hours"):
+                morning_start = time.fromisoformat(
+                    data[ecosystem_id]["lighting_hours"]["morning_start"])
+                evening_end = time.fromisoformat(
+                    data[ecosystem_id]["lighting_hours"]["evening_end"])
+                try:
+                    morning_end = time.fromisoformat(
+                        data[ecosystem_id]["lighting_hours"]["morning_end"])
+                except KeyError:
+                    morning_end = None
+                try:
+                    evening_start = time.fromisoformat(
+                        data[ecosystem_id]["lighting_hours"]["evening_start"])
+                except KeyError:
+                    evening_start = None
 
-        else:
-            morning_start = morning_end = evening_start = evening_end = None
-        light = Light(
-            ecosystem_id=ecosystem_id,
-            status=data[ecosystem_id]["light_status"],
-            expected_status=data[ecosystem_id]["expected_status"],
-            mode=data[ecosystem_id]["mode"],
-            method=data[ecosystem_id]["method"],
-            morning_start=morning_start,
-            morning_end=morning_end,
-            evening_start=evening_start,
-            evening_end=evening_end
-        )
-        db.session.merge(light)
-    db.session.commit()
+            else:
+                morning_start = morning_end = evening_start = evening_end = None
+            light = Light(
+                ecosystem_id=ecosystem_id,
+                status=data[ecosystem_id]["light_status"],
+                expected_status=data[ecosystem_id]["expected_status"],
+                mode=data[ecosystem_id]["mode"],
+                method=data[ecosystem_id]["method"],
+                morning_start=morning_start,
+                morning_end=morning_end,
+                evening_start=evening_start,
+                evening_end=evening_end
+            )
+            db.session.merge(light)
+        db.session.commit()
 
 
 # ---------------------------------------------------------------------------
