@@ -42,6 +42,11 @@
 
   <body>
     {% block body %}{% endblock %}
+    {% if current_user.is_administrator %}
+    <script type="text/javascript">
+      const socketAdmin = io('/admin');
+    </script>
+    {% endif %}
     {% block scripts %}{% endblock %}
   </body>
 </html>
