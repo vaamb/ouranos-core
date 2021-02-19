@@ -4,7 +4,8 @@ import random
 
 import cachetools
 from flask import current_app, request
-from flask_socketio import join_room, leave_room
+from flask_login import current_user
+from flask_socketio import join_room, leave_room, disconnect
 from numpy import mean, std
 
 from app import app_name, db, scheduler, sio
@@ -379,24 +380,20 @@ def update_light_data(data):
 # ---------------------------------------------------------------------------
 #   SocketIO events coming from browser (non-admin)
 # ---------------------------------------------------------------------------
-browser_thread = None
-
-
-def browser_background_thread(app):
-    with app.app_context():
-        global sensorsData
-        while True:
-            sio.emit("background", "data", namespace="/")
-            sio.sleep(3)
-
-
-@sio.on("connect", namespace="/not_used")
+@sio.on("connect", namespace="/")
 def connect_on_browser():
-    global browser_thread
-    if browser_thread is None:
-        app = current_app._get_current_object()
-        browser_thread = sio.start_background_task(
-            browser_background_thread, app=app)
+    if any((Config.DEBUG, Config.TESTING)):
+        remote_addr = request.environ["REMOTE_ADDR"]
+        remote_port = request.environ["REMOTE_PORT"]
+        sio_logger.debug(f"Connection from {remote_addr}:{remote_port}")
+
+
+@sio.on("disconnect", namespace="/")
+def connect_on_browser():
+    if any((Config.DEBUG, Config.TESTING)):
+        remote_addr = request.environ["REMOTE_ADDR"]
+        remote_port = request.environ["REMOTE_PORT"]
+        sio_logger.debug(f"Disconnection of {remote_addr}:{remote_port}")
 
 
 @sio.on("my_ping", namespace="/")
@@ -448,14 +445,16 @@ admin_thread = None
 
 
 def admin_background_thread(app):
+    return True
     with app.app_context():
-        global sensorsData
-        while True:
-            sio.sleep(3)
+        pass
 
 
-@sio.on("connect", namespace="/admin_not_used")
+@sio.on("connect", namespace="/admin")
 def connect_on_admin():
+    # Close connection if request not from an authenticated admin
+    if not current_user.is_administrator:
+        disconnect()
     global admin_thread
     if admin_thread is None:
         app = current_app._get_current_object()
