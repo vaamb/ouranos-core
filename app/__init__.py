@@ -28,6 +28,16 @@ sio = SocketIO(json=json)
 
 
 def create_app(config_class=TestingConfig):
+    if not any((config_class.DEBUG, config_class.TESTING)):
+        if config_class.SECRET_KEY == "BXhNmCEmNdoBNngyGXj6jJtooYAcKpt6":
+            raise Exception("You need to set the environment variable "
+                            "'SECRET_KEY' when using gaiaWeb in a production "
+                            "environment.")
+        if config_class.GAIA_SECRET_KEY == "BXhNmCEmNdoBNngyGXj6jJtooYAcKpt6":
+            raise Exception("You need to set the environment variable "
+                            "'GAIA_SECRET_KEY' when using gaiaWeb in a "
+                            "production environment.")
+
     logger.info(f"Starting {app_name} ...")
     app = Flask(app_name, root_path=root_path)
 
