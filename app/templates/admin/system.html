@@ -26,8 +26,10 @@
     </div>
   {% endif %}
   {% endfor %}
+{% endblock %}
 
-  <script type="text/javascript">
+{% block scripts %}
+    <script type="text/javascript">
     // Get last sensors measure time
     let currentDatetime = new Date('{{ (current_data["datetime"]) }}');
     $('#currentDatetime').text(currentDatetime.toLocaleTimeString());
@@ -200,5 +202,5 @@
       {% endif %}
       {% endfor %}
     });
-  </script>
+    </script>
 {% endblock %}

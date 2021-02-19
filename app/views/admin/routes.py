@@ -100,7 +100,7 @@ def services_management():
     return render_template("admin/services.html", services=services)
 
 
-@sio.on("manage_service", namespace="/browser")
+@sio.on("manage_service", namespace="/admin")
 def start_service(message):
     service = message["service"]
     action = message["action"]

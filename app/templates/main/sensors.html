@@ -40,8 +40,10 @@
       {% endif %}
     {% endfor %}
   {% endfor %}
+{% endblock %}
 
-  <script type="text/javascript">
+{% block scripts %}
+    <script type="text/javascript">
     {% if current_data[ecosystem_ids[0]] %}
     // Get last sensors measure time
     let currentDatetime = new Date('{{ current_data[ecosystem_ids[0]]["datetime"] }}');
@@ -190,5 +192,5 @@
       {% endfor %}
       {% endfor %}
     });
-  </script>
+    </script>
 {% endblock %}

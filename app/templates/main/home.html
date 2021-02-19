@@ -155,95 +155,97 @@
             {% endfor %}
             {% endif %}
           </div>
+{% endblock %}
 
-          <script type="text/javascript">
-            $('#today_day').text(formattedDate);
+{% block scripts %}
+    <script type="text/javascript">
+    $('#today_day').text(formattedDate);
 
-            {% if sun_times %}
-            let timeSunrise = new Date("{{ sun_times["sunrise"] }}")
-            let timeSunset = new Date("{{ sun_times["sunset"] }}")
-            $('#sunrise').text(timeSunrise.toLocaleTimeString());
-            $('#sunset').text(timeSunset.toLocaleTimeString());
+    {% if sun_times %}
+    let timeSunrise = new Date("{{ sun_times["sunrise"] }}")
+    let timeSunset = new Date("{{ sun_times["sunset"] }}")
+    $('#sunrise').text(timeSunrise.toLocaleTimeString());
+    $('#sunset').text(timeSunset.toLocaleTimeString());
 
-            socket.on('sun_times', function(msg) {
-              timeSunrise = new Date(msg.sunrise)
-              timeSunset = new Date(msg.sunset)
-              $('#sunrise').text(timeSunrise.toLocaleTimeString());
-              $('#sunset').text(timeSunset.toLocaleTimeString());
-            });
-            {% endif %}
+    socket.on('sun_times', function(msg) {
+      timeSunrise = new Date(msg.sunrise)
+      timeSunset = new Date(msg.sunset)
+      $('#sunrise').text(timeSunrise.toLocaleTimeString());
+      $('#sunset').text(timeSunset.toLocaleTimeString());
+    });
+    {% endif %}
 
-            {% if weather_data %}
-            // Weather related spans settings and update event
-            $('#weather_summary').text('{{ weather_data["currently"]["summary"] }}');
-            $('#weather_temperature').text(Number({{ weather_data["currently"]["temperature"] }}).toFixed(1));
-            $('#weather_windSpeed').text(Number( {{weather_data["currently"]["windSpeed"] }}).toFixed(1));
-            $('#weather_precipProbability').text(Number({{ weather_data["currently"]["precipProbability"] }} * 100).toFixed(0));
-            $('#weather_humidity').text(Number({{ weather_data["currently"]["humidity"] }} * 100).toFixed(0));
-            $('#weather_cloudCover').text(Number({{ weather_data["currently"]["cloudCover"] }} * 100).toFixed(0));
+    {% if weather_data %}
+    // Weather related spans settings and update event
+    $('#weather_summary').text('{{ weather_data["currently"]["summary"] }}');
+    $('#weather_temperature').text(Number({{ weather_data["currently"]["temperature"] }}).toFixed(1));
+    $('#weather_windSpeed').text(Number( {{weather_data["currently"]["windSpeed"] }}).toFixed(1));
+    $('#weather_precipProbability').text(Number({{ weather_data["currently"]["precipProbability"] }} * 100).toFixed(0));
+    $('#weather_humidity').text(Number({{ weather_data["currently"]["humidity"] }} * 100).toFixed(0));
+    $('#weather_cloudCover').text(Number({{ weather_data["currently"]["cloudCover"] }} * 100).toFixed(0));
 
-            socket.on('current_weather', function(msg) {
-              $('#weather_summary').text(msg.summary);
-              $('#weather_temperature').text(Number(msg.temperature).toFixed(1));
-              $('#weather_windSpeed').text(Number(msg.windSpeed).toFixed(1));
-              $('#weather_precipProbability').text(Number(msg.precipProbability * 100).toFixed(0));
-              $('#weather_humidity').text(Number(msg.humidity * 100).toFixed(0));
-              $('#weather_cloudCover').text(Number(msg.cloudCover * 100).toFixed(0));
-            });
-            {% endif %}
+    socket.on('current_weather', function(msg) {
+      $('#weather_summary').text(msg.summary);
+      $('#weather_temperature').text(Number(msg.temperature).toFixed(1));
+      $('#weather_windSpeed').text(Number(msg.windSpeed).toFixed(1));
+      $('#weather_precipProbability').text(Number(msg.precipProbability * 100).toFixed(0));
+      $('#weather_humidity').text(Number(msg.humidity * 100).toFixed(0));
+      $('#weather_cloudCover').text(Number(msg.cloudCover * 100).toFixed(0));
+    });
+    {% endif %}
 
-            {% if current_user.is_administrator %}
-            // Server related spans settings and update event
-            $('#server_uptime').text('{{ system_data["uptime"] }}');
-            $('#server_CPU_used').text(Number({{ system_data["CPU_used"] }}).toFixed(2));
-            $('#server_CPU_temp').text(Number({{ system_data["CPU_temp"] }}).toFixed(2));
-            $('#server_RAM_used').text(Number({{ system_data["RAM_used"] }}).toFixed(2));
-            $('#server_RAM_total').text(Number({{ system_data["RAM_total"] }}).toFixed(2));
-            $('#server_DISK_used').text(Number({{ system_data["DISK_used"] }}).toFixed(2));
-            $('#server_DISK_total').text(Number({{ system_data["DISK_total"] }}).toFixed(2));
+    {% if current_user.is_administrator %}
+    // Server related spans settings and update event
+    $('#server_uptime').text('{{ system_data["uptime"] }}');
+    $('#server_CPU_used').text(Number({{ system_data["CPU_used"] }}).toFixed(2));
+    $('#server_CPU_temp').text(Number({{ system_data["CPU_temp"] }}).toFixed(2));
+    $('#server_RAM_used').text(Number({{ system_data["RAM_used"] }}).toFixed(2));
+    $('#server_RAM_total').text(Number({{ system_data["RAM_total"] }}).toFixed(2));
+    $('#server_DISK_used').text(Number({{ system_data["DISK_used"] }}).toFixed(2));
+    $('#server_DISK_total').text(Number({{ system_data["DISK_total"] }}).toFixed(2));
 
-            let server_CPU_used_values = [];
+    let server_CPU_used_values = [];
 
-            socketAdmin.on('current_server_data', function(msg) {
-              $('#server_uptime').text(msg.uptime);
-              $('#server_CPU_temp').text(Number(msg.CPU_temp).toFixed(2));
-              $('#server_RAM_used').text(Number(msg.RAM_used).toFixed(2));
-              $('#server_RAM_total').text(Number(msg.RAM_total).toFixed(2));
-              $('#server_DISK_used').text(Number(msg.DISK_used).toFixed(2));
-              $('#server_DISK_total').text(Number(msg.DISK_total).toFixed(2));
+    socketAdmin.on('current_server_data', function(msg) {
+      $('#server_uptime').text(msg.uptime);
+      $('#server_CPU_temp').text(Number(msg.CPU_temp).toFixed(2));
+      $('#server_RAM_used').text(Number(msg.RAM_used).toFixed(2));
+      $('#server_RAM_total').text(Number(msg.RAM_total).toFixed(2));
+      $('#server_DISK_used').text(Number(msg.DISK_used).toFixed(2));
+      $('#server_DISK_total').text(Number(msg.DISK_total).toFixed(2));
 
-              server_CPU_used_values.push(msg.CPU_used)
-              server_CPU_used_values = server_CPU_used_values.slice(-5);
-              let server_CPU_used_sum = 0;
-              for (i = 0; i < server_CPU_used_values.length; i++)
-                  server_CPU_used_sum += server_CPU_used_values[i];
-              $('#server_CPU_used').text((Math.round(10 * server_CPU_used_sum /
-                server_CPU_used_values.length) / 10 ).toFixed(2));
-            });
-            {% endif %}
+      server_CPU_used_values.push(msg.CPU_used)
+      server_CPU_used_values = server_CPU_used_values.slice(-5);
+      let server_CPU_used_sum = 0;
+      for (i = 0; i < server_CPU_used_values.length; i++)
+          server_CPU_used_sum += server_CPU_used_values[i];
+      $('#server_CPU_used').text((Math.round(10 * server_CPU_used_sum /
+        server_CPU_used_values.length) / 10 ).toFixed(2));
+    });
+    {% endif %}
 
-            {% for ecosystem in ecosystems %}
-            {% if light_data[ecosystem]["mode"] != "NA" %}
-            let morningStart_{{ ecosystem }} = new Date(
-              "{{ light_data[ecosystem]["morning_start"] }}")
-            let eveningEnd_{{ ecosystem }} = new Date(
-              "{{ light_data[ecosystem]["evening_end"] }}")
-            $('#lightMorningStart_{{ ecosystem }}').text(
-              morningStart_{{ ecosystem }}.toLocaleTimeString());
-            $('#lightEveningEnd_{{ ecosystem }}').text(
-              eveningEnd_{{ ecosystem }}.toLocaleTimeString());
+    {% for ecosystem in ecosystems %}
+    {% if light_data[ecosystem]["mode"] != "NA" %}
+    let morningStart_{{ ecosystem }} = new Date(
+      "{{ light_data[ecosystem]["morning_start"] }}")
+    let eveningEnd_{{ ecosystem }} = new Date(
+      "{{ light_data[ecosystem]["evening_end"] }}")
+    $('#lightMorningStart_{{ ecosystem }}').text(
+      morningStart_{{ ecosystem }}.toLocaleTimeString());
+    $('#lightEveningEnd_{{ ecosystem }}').text(
+      eveningEnd_{{ ecosystem }}.toLocaleTimeString());
 
-            {% if light_data[ecosystem]["method"] == "elongate" %}
-            let morningEnd_{{ ecosystem }} = new Date(
-              "{{ light_data[ecosystem]["morning_end"] }}")
-            let eveningStart_{{ ecosystem }} = new Date(
-              "{{ light_data[ecosystem]["evening_start"] }}")
-            $('#lightMorningEnd_{{ ecosystem }}').text(
-              morningEnd_{{ ecosystem }}.toLocaleTimeString());
-            $('#lightEveningStart_{{ ecosystem }}').text(
-              eveningStart_{{ ecosystem }}.toLocaleTimeString());
-            {% endif %}
-            {% endif %}
-            {% endfor %}
-          </script>
+    {% if light_data[ecosystem]["method"] == "elongate" %}
+    let morningEnd_{{ ecosystem }} = new Date(
+      "{{ light_data[ecosystem]["morning_end"] }}")
+    let eveningStart_{{ ecosystem }} = new Date(
+      "{{ light_data[ecosystem]["evening_start"] }}")
+    $('#lightMorningEnd_{{ ecosystem }}').text(
+      morningEnd_{{ ecosystem }}.toLocaleTimeString());
+    $('#lightEveningStart_{{ ecosystem }}').text(
+      eveningStart_{{ ecosystem }}.toLocaleTimeString());
+    {% endif %}
+    {% endif %}
+    {% endfor %}
+    </script>
 {% endblock %}

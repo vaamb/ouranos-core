@@ -6,39 +6,39 @@
 {% block content %}
   <form>
   {% for service in services %}
-
-  <p>
+    <p>
       <label>
-          {{ service.name.capitalize()|removeUnderscores }}
+        {{ service.name.capitalize()|removeUnderscores }}
       </label>
-    <label class="switch">
-      <input type="checkbox" {{ 'checked' if service.status else '' }} id="{{ service.name }}_toggle">
-      <span class="slider"></span>
-    </label>
-  </p>
+      <label class="switch">
+        <input type="checkbox" {{ 'checked' if service.status else '' }} id="{{ service.name }}_toggle">
+        <span class="slider"></span>
+      </label>
+    </p>
+  {% endfor %}
+  </form>
+{% endblock %}
 
-
-  <script type="text/javascript">
-  $(document).ready(function() {
-      namespace = "/browser";
-      var socket = io(namespace);
+{% block scripts %}
+    <script type="text/javascript">
+    {% for service in services %}
+    $(function () {
       $('#{{ service.name }}_toggle').change(function () {
           if (this.checked) {
-              socket.emit("manage_service",
+              socketAdmin.emit("manage_service",
               {user_id: "{{ current_user.id }}",
                service: "{{ service.name }}",
                action: "start"}
           );
           } else {
-              socket.emit("manage_service",
+              socketAdmin.emit("manage_service",
               {user_id: "{{ current_user.id }}",
                service: "{{ service.name }}",
                action: "stop"}
           );
           }
       });
-  });
-  </script>
-  {% endfor %}
-  </form>
+    });
+    {% endfor %}
+    </script>
 {% endblock %}

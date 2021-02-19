@@ -5,23 +5,40 @@
 
 {% block content %}
   {% if current_user.is_operator %}
-  {%  for e in ecosystems %}
-      {{ ecosystems[e] }}
-  {% endfor %}
-      <br>
-  if automatic: <i class="fas fa-sync fa-spin"></i> else:  <i class="fas fa-sync"></i>
-  + expected color
-      <br>
-  if on: <i class="fas fa-power-off", style="color: green"></i> else: <i class="fas fa-power-off", style="color: red"></i>
-      <br>
-  store everything on jquery
-      <br>
+
+  {{ light_data }}
+
+  {% if light_data[ecosystem_ids[0]]["status"] %}
+    {% set status_now = "on" %}
+  {% else %}
+    {% set status_now = "off" %}
+  {% endif %}
+
+  {% if light_data[ecosystem_ids[0]]["mode"] == "automatic" %}
+    {% set mode_now = "fa-spin" %}
+  {% else %}
+    {% set mode_now = "" %}
+  {% endif %}
+
+  <i class="fas fa-power-off {{ status_now }}" id="status_ico"></i>
+  <i class="fas fa-sync {{ mode_now }} {{ status_now }}" id="mode_ico"></i>
 
   <button id="On" title="Turn lights on">On</button>
   <button id="Off" title="Turn lights on">Off</button>
   <button id="Auto" title="Turn lights to automatic mode">Auto</button>
+  {% else %}
+  <button id="On" disabled title="You need to be an operator to turn lights on">On</button>
+  <button id="Off" disabled title="You need to be an operator to turn lights off">Off</button>
+  <button id="Auto" disabled title="You need to be an operator to turn lights to automatic mode">Auto</button>
+  {% endif %}
+{% endblock %}
 
-  <script type="text/javascript">
+{% block scripts %}
+    {% if current_user.is_operator %}
+    <script type="text/javascript">
+    let status = {{ light_data[ecosystem_ids[0]]["status"] }};
+    let mode = '{{ light_data[ecosystem_ids[0]]["mode"] }}';
+
     $("button#On").click(function() {
         socket.emit("turn_light_on", {ecosystem: "{{ecosystem_ids[0]|safe}}" });
         return false;
@@ -34,11 +51,6 @@
         socket.emit("turn_light_auto", {ecosystem: "{{ecosystem_ids[0]|safe}}"});
         return false;
     });
+    {% endif %}
   </script>
-
-  {% else %}
-  <button id="On" disabled title="You need to be an operator to turn lights on">On</button>
-  <button id="Off" disabled title="You need to be an operator to turn lights off">Off</button>
-  <button id="Auto" disabled title="You need to be an operator to turn lights to automatic mode">Auto</button>
-  {% endif %}
 {% endblock %}
