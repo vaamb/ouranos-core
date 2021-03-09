@@ -9,7 +9,7 @@ from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from flask_socketio import SocketIO
 
-from config import Config, DevelopmentConfig, TestingConfig
+from config import Config
 from app.utils import configure_logging
 
 
@@ -27,7 +27,7 @@ migrate = Migrate()
 sio = SocketIO(json=json)
 
 
-def create_app(config_class=TestingConfig):
+def create_app(config_class=Config):
     if not any((config_class.DEBUG, config_class.TESTING)):
         if config_class.SECRET_KEY == "BXhNmCEmNdoBNngyGXj6jJtooYAcKpt6":
             raise Exception("You need to set the environment variable "

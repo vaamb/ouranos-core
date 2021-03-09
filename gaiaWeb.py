@@ -4,9 +4,10 @@ import eventlet
 eventlet.monkey_patch()
 
 from app import create_app, scheduler, sio
+from config import DevelopmentConfig
 
 
-app = create_app()
+app = create_app(DevelopmentConfig)
 
 
 if __name__ == "__main__":
@@ -16,6 +17,7 @@ if __name__ == "__main__":
                 port="5000")
     except KeyboardInterrupt:
         scheduler.remove_all_jobs()
+        sio.stop()
         print("Manually closing gaiaWeb")
     finally:
         print("gaiaWeb has been closed")
