@@ -1,30 +1,6 @@
 {% extends 'base.html' %}
 
 {% block body %}
-    {% with messages = get_flashed_messages() %}
-    {% if messages %}
-      <div class="eventContainer" id="flashMessage">
-        <div class="eventCentralMessage">
-        {% for message in messages %}
-          <span>{{ message }}</span>
-        {% endfor %}
-        </div>
-      </div>
-      <script type="text/javascript">
-        $(document).ready(function() {
-          setTimeout(fade_out, 1500);
-          function fade_out() {
-            $("#flashMessage").fadeOut().empty();
-          };
-
-          $("#flashMessage").click(function() {
-            $("#flashMessage").fadeOut();
-          });
-        });
-      </script>
-    {% endif %}
-    {% endwith %}
-
     <div class="mainContainer">
     <nav>
       <div class="topBox">
