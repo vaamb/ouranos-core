@@ -1,9 +1,9 @@
 from datetime import datetime, time, timedelta, timezone
 from hashlib import md5
 
-import sqlalchemy as sa
 from flask import current_app
 from flask_login import AnonymousUserMixin, UserMixin
+import sqlalchemy as sa
 from sqlalchemy import orm
 from sqlalchemy.ext.declarative import declared_attr
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -115,7 +115,8 @@ class User(UserMixin, db.Model):
                 self.role = Role.query.filter_by(default=True).first()
 
     def set_password(self, password):
-        self.password_hash = generate_password_hash(password)
+        self.password_hash = generate_password_hash(password,
+                                                    method="pbkdf2:sha256:200000")
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
@@ -195,7 +196,6 @@ class comChannel(db.Model):
 # ---------------------------------------------------------------------------
 #   Base models common to main app and archive
 # ---------------------------------------------------------------------------
-# TODO: replace datetime by time_stamp
 class baseData(db.Model):
     __abstract__ = True
     measure = sa.Column(sa.Integer, primary_key=True)
@@ -334,7 +334,8 @@ class environmentParameter(db.Model):
 class Hardware(db.Model):
     __tablename__ = "hardware"
     id = sa.Column(sa.String(length=32), primary_key=True)
-    ecosystem_id = sa.Column(sa.String(length=8), sa.ForeignKey("ecosystems.id"))
+    ecosystem_id = sa.Column(sa.String(length=8),
+                             sa.ForeignKey("ecosystems.id"), primary_key=True)
     name = sa.Column(sa.String(length=32))
     level = sa.Column(sa.String(length=16))
     address = sa.Column(sa.String(length=16))
