@@ -159,8 +159,8 @@ def registerManager(data):
             del client_blacklist[remote_addr]
         except KeyError:
             pass
-        sio_logger.info(f"Received manager registration request from manager "
-                        f"{manager_uid}, from {remote_addr}:{remote_port}")
+        sio_logger.info(f"Successful registration of manager {manager_uid}, "
+                        f"from {remote_addr}:{remote_port}")
         now = datetime.now(timezone.utc).replace(microsecond=0)
         manager = engineManager(
             uid=manager_uid,
@@ -172,6 +172,7 @@ def registerManager(data):
         db.session.commit()
         join_room("engineManagers")
 
+        sio.emit("register_ack", namespace="/gaia", room=request.sid)
         request_config(request.sid)
         request_sensors_data(request.sid)
         request_light_data(request.sid)
@@ -206,17 +207,23 @@ def update_cfg(config):
     manager = check_manager_identity("config")
     if manager:
         for ecosystem_id in config:
+            try:
+                day_start = datetime.strptime(
+                    config[ecosystem_id]["environment"]["day"]["start"], "%Hh%M"
+                ).time()
+                night_start = datetime.strptime(
+                    config[ecosystem_id]["environment"]["night"]["start"],
+                    "%Hh%M"
+                ).time()
+            except KeyError:
+                day_start = night_start = None
             ecosystem = Ecosystem(
                 id=ecosystem_id,
                 name=config[ecosystem_id]["name"],
                 status=config[ecosystem_id]["status"],
-                day_start=datetime.strptime(
-                    config[ecosystem_id]["environment"]["day"]["start"], "%Hh%M"
-                ).time(),
-                night_start=datetime.strptime(
-                    config[ecosystem_id]["environment"]["night"]["start"], "%Hh%M"
-                ).time(),
                 manager_uid=manager.uid,
+                day_start=day_start,
+                night_start=night_start,
             )
 
             for m in Management:
@@ -242,20 +249,21 @@ def update_cfg(config):
                         )
                         db.session.merge(environment_parameter)
                     except KeyError:
-                        continue
+                        pass
 
             # TODO: first delete all hardware from this ecosystem present there before, so if delete in config, deleted here too
-            for hardware_uid in config[ecosystem_id]["IO"]:
-                hardware = Hardware(
-                    id=hardware_uid,
-                    ecosystem_id=ecosystem_id,
-                    name=config[ecosystem_id]["IO"][hardware_uid]["name"],
-                    address=config[ecosystem_id]["IO"][hardware_uid]["address"],
-                    type=config[ecosystem_id]["IO"][hardware_uid]["type"],
-                    level=config[ecosystem_id]["IO"][hardware_uid]["level"],
-                    model=config[ecosystem_id]["IO"][hardware_uid]["model"],
-                )
-                db.session.merge(hardware)
+            if config[ecosystem_id].get("IO"):
+                for hardware_uid in config[ecosystem_id]["IO"]:
+                    hardware = Hardware(
+                        id=hardware_uid,
+                        ecosystem_id=ecosystem_id,
+                        name=config[ecosystem_id]["IO"][hardware_uid]["name"],
+                        address=config[ecosystem_id]["IO"][hardware_uid]["address"],
+                        type=config[ecosystem_id]["IO"][hardware_uid]["type"],
+                        level=config[ecosystem_id]["IO"][hardware_uid]["level"],
+                        model=config[ecosystem_id]["IO"][hardware_uid]["model"],
+                    )
+                    db.session.merge(hardware)
         db.session.commit()
 
 
@@ -273,7 +281,7 @@ def update_sensors_data(data):
                 dt = datetime.fromisoformat(data[ecosystem_id]["datetime"])
             # When launching, gaiaEngine is sometimes still loading its sensors
             except KeyError:
-                break
+                continue
             sensorsData[ecosystem_id]["datetime"] = dt
             if dt.minute % Config.SENSORS_LOGGING_PERIOD == 0:
                 graph_update[ecosystem_id] = data[ecosystem_id]
@@ -365,7 +373,6 @@ def update_light_data(data):
             light = Light(
                 ecosystem_id=ecosystem_id,
                 status=data[ecosystem_id]["light_status"],
-                expected_status=data[ecosystem_id]["expected_status"],
                 mode=data[ecosystem_id]["mode"],
                 method=data[ecosystem_id]["method"],
                 morning_start=morning_start,
