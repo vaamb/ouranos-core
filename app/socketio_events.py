@@ -104,10 +104,9 @@ def connect_on_gaia():
 
 @sio.on("disconnect", namespace="/gaia")
 def disconnect():
-    remote_addr = request.environ["REMOTE_ADDR"]
-    remote_port = request.environ["REMOTE_PORT"]
+    uid = engineManager.query.filter_by(sid=request.sid).one().uid
     leave_room("engineManagers")
-    sio_logger.info(f"disconnect {remote_addr}:{remote_port}")
+    sio_logger.info(f"Manager {uid} disconnected")
 
 
 @sio.on("pong", namespace="/gaia")
