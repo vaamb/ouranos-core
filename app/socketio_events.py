@@ -11,7 +11,7 @@ from numpy import mean, std
 from app import app_name, db, scheduler, sio
 from app.dataspace import healthData, sensorsData
 from app.models import sensorData, Ecosystem, engineManager, Hardware, Health, \
-    Light, Management, environmentParameter
+    Light, Management, Measure, environmentParameter
 from app.services.system_monitor import systemMonitor
 from app.utils import decrypt_uid, validate_uid_token
 from config import Config
@@ -234,7 +234,7 @@ def update_cfg(config):
                     pass
             db.session.merge(ecosystem)
 
-            for parameter in ("temperature", "humidity", "might"):
+            for parameter in ("temperature", "humidity", "light"):
                 for moment_of_day in ("day", "night"):
                     try:
                         environment_parameter = environmentParameter(
@@ -251,18 +251,28 @@ def update_cfg(config):
                         pass
 
             # TODO: first delete all hardware from this ecosystem present there before, so if delete in config, deleted here too
-            if config[ecosystem_id].get("IO"):
-                for hardware_uid in config[ecosystem_id]["IO"]:
-                    hardware = Hardware(
-                        id=hardware_uid,
-                        ecosystem_id=ecosystem_id,
-                        name=config[ecosystem_id]["IO"][hardware_uid]["name"],
-                        address=config[ecosystem_id]["IO"][hardware_uid]["address"],
-                        type=config[ecosystem_id]["IO"][hardware_uid]["type"],
-                        level=config[ecosystem_id]["IO"][hardware_uid]["level"],
-                        model=config[ecosystem_id]["IO"][hardware_uid]["model"],
+            for hardware_uid in config[ecosystem_id].get("IO", {}):
+                hardware = Hardware(
+                    id=hardware_uid,
+                    ecosystem_id=ecosystem_id,
+                    name=config[ecosystem_id]["IO"][hardware_uid]["name"],
+                    address=config[ecosystem_id]["IO"][hardware_uid]["address"],
+                    type=config[ecosystem_id]["IO"][hardware_uid]["type"],
+                    level=config[ecosystem_id]["IO"][hardware_uid]["level"],
+                    model=config[ecosystem_id]["IO"][hardware_uid]["model"],
+                )
+
+                measures = config[ecosystem_id]["IO"][hardware_uid].get(
+                        "measure", [])
+                if isinstance(measures, str):
+                    measures = [measures]
+                for measure in measures:
+                    _measure = Measure(
+                        name=measure
                     )
-                    db.session.merge(hardware)
+
+                    hardware.measure.append(_measure)
+                db.session.merge(hardware)
         db.session.commit()
 
 
