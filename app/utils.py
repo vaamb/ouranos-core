@@ -97,7 +97,7 @@ def configure_logging(config_class):
 
         "handlers": {
             "streamHandler": {
-                "level": f"{'DEBUG' if DEBUG or TESTING else 'INFO'}",
+                "level": f"{'DEBUG' if DEBUG else 'INFO'}",
                 "formatter": "streamFormat",
                 "class": "logging.StreamHandler",
             },
@@ -106,7 +106,7 @@ def configure_logging(config_class):
         "loggers": {
             "": {
                 "handlers": handlers,
-                "level": f"{'DEBUG' if DEBUG or TESTING else 'INFO'}"
+                "level": f"{'DEBUG' if DEBUG else 'INFO'}"
             },
             "apscheduler": {
                 "handlers": handlers,
@@ -118,11 +118,11 @@ def configure_logging(config_class):
             },
             "engineio": {
                 "handlers": handlers,
-                "level": "WARNING"
+                "level": "INFO"
             },
             "socketio": {
                 "handlers": handlers,
-                "level": "WARNING"
+                "level": "INFO"
             },
         },
     }
