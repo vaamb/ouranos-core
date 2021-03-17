@@ -331,6 +331,17 @@ class environmentParameter(db.Model):
     ecosystem = orm.relationship("Ecosystem", back_populates="environment_parameters")
 
 
+associationHardwareMeasure = db.Table(
+    "association_hardware_measures", db.Model.metadata,
+    sa.Column('hardware_id',
+              sa.String(length=32),
+              sa.ForeignKey('hardware.id')),
+    sa.Column('measure_name',
+              sa.Integer,
+              sa.ForeignKey('measures.name')),
+)
+
+
 class Hardware(db.Model):
     __tablename__ = "hardware"
     id = sa.Column(sa.String(length=32), primary_key=True)
@@ -346,11 +357,23 @@ class Hardware(db.Model):
 
     # relationship
     ecosystem = orm.relationship("Ecosystem", back_populates="hardware")
+    measure = orm.relationship("Measure", back_populates="hardware",
+                               secondary=associationHardwareMeasure)
     # plants = orm.relationship("Plant", back_populates="sensors")
     data = orm.relationship("sensorData", back_populates="sensor", lazy="dynamic")
 
 
 sa.Index("idx_sensors_type", Hardware.type, Hardware.level)
+
+
+class Measure(db.Model):
+    __tablename__ = "measures"
+    name = sa.Column(sa.String(length=16), primary_key=True)
+    unit = sa.Column(sa.String(length=16))
+
+    # relationship
+    hardware = orm.relationship("Hardware", back_populates="measure",
+                                secondary=associationHardwareMeasure)
 
 
 """
