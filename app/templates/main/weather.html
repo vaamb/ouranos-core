@@ -1,7 +1,9 @@
 {% extends 'menu.html' %}
 
 {% block header %}Weather in {{home_city}}{% endblock %}
-{% block info %}Last update at {{weather_data['currently']['time']|getTime}} | <a href="https://darksky.net/poweredby/">Powered by Dark Sky</a>{% endblock %}
+{% block info %}Last update at
+<span id="update_time"></span> | <a href="https://darksky.net/poweredby/">Powered by Dark Sky</a>
+{% endblock %}
 
 {% block content %}
   <!--Weather icons are from Ladalle CS https://www.iconfinder.com/ambo_dalle, with slight modifications at the thunder icons + night
@@ -54,6 +56,8 @@
   </div>
 
   <script type="text/javascript">
+    let updateTime = new Date({{ weather_data['currently']['time'] }} * 1000);
+    $('#update_time').text(updateTime.toLocaleTimeString([], {timeStyle: "short"}));
     $('#today_day').text(formattedDate);
     $('#today_temperature').text(Number({{ weather_data["currently"]["temperature"] }}).toFixed(1));
     $('#today_summary').text('{{weather_data["currently"]["summary"]}}');
@@ -63,6 +67,8 @@
     $('#today_cloudCover').text(Number({{ weather_data["currently"]["cloudCover"]}} * 100).toFixed(0));
 
     socket.on('current_weather', function(msg) {
+      updateTime = new Date(msg.time * 1000);
+      $('#update_time').text(updateTime.toLocaleTimeString([], {timeStyle: "short"}));
       $('#today_day').text(formattedDate);
       $('#today_temperature').text(Number(msg.temperature).toFixed(1));
       $('#today_summary').text(msg.summary);
