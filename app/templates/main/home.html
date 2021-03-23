@@ -113,43 +113,81 @@
           {% if ecosystems %}
           <h2>Ecosystems overview</h2>
           <div>
-            {% for ecosystem in ecosystems %}
-            <div class="inlineBoard" style="min-height: 255px;">
+            {% for ecosystem_id in ecosystems %}
+            <div class="board" style="min-height: 150px;">
               <div class="boardHeader" style="text-align: center;">
-                {{ecosystems[ecosystem]["name"]}} &emsp;
-                <i class="{{ecosystems[ecosystem]["status"]}} fa fa-circle" style="margin-left: auto;"></i>
+                {{ecosystems[ecosystem_id]["name"]}} &emsp;
+                <i class="fa fa-circle {{ ecosystems[ecosystem_id]["status"] }}" style="margin-left: auto;"></i>
               </div>
-              <div class="boardColumnContainer" style="text-align: left;">
-                <div class="boardColumnItem">Light mode: {{light_data[ecosystem]["mode"]}}</div>
-                <div class="boardColumnItem">Light status: {{light_data[ecosystem]["status"]}}</div>
-                {% if light_data[ecosystem]["mode"] != "NA" %}
-                {% if light_data[ecosystem]["method"] == "fixed" %}
-                <div class="boardColumnItem">
-                  Light: from <span id="lightMorningStart_{{ ecosystem }}"></span>
-                  to <span id="lightEveningEnd_{{ ecosystem }}"></span>
-                </div>
-                {% elif light_data[ecosystem]["method"] == "elongate" %}
-                <div class="boardColumnItem">
-                  Morning light:
-                  {% if light_data[ecosystem]["morning_start"] < light_data[ecosystem]["morning_end"] %}
-                  from <span id="lightMorningStart_{{ ecosystem }}"></span>
-                  to <span id="lightMorningEnd_{{ ecosystem }}"></span>
-                  {% else %}
-                  no lighting
+              <div class="boardRowContainer" style="text-align: left;">
+                {% set any_info = False %}
+                {% if ecosystems[ecosystem_id]["lighting"] %}
+                {% set any_info = True %}
+                <!-- Light parameters for {{ ecosystems[ecosystem_id]["name"] }} -->
+                <div class="boardRowItem">
+                  <div class="boardColumnTitle">Light</div>
+                  <div class="boardColumnItem">Status: <i class="fas fa-sync-alt" id ={{ ecosystem_id }}_light_status></i> </div>
+                  <div class="boardColumnItem">Light mode: {{ light_data[ecosystem_id]["mode"] }}</div>
+                  {% if light_data[ecosystem_id]["mode"] != "NA" %}
+                  {% if light_data[ecosystem_id]["method"] == "fixed" %}
+                  <div class="boardColumnItem">
+                    Light: from <span id="lightMorningStart_{{ ecosystem_id }}"></span>
+                    to <span id="lightEveningEnd_{{ ecosystem_id }}"></span>
+                  </div>
+                  {% elif light_data[ecosystem_id]["method"] == "elongate" %}
+                  <div class="boardColumnItem">
+                    Morning light:
+                    {% if light_data[ecosystem_id]["morning_start"] < light_data[ecosystem_id]["morning_end"] %}
+                    from <span id="lightMorningStart_{{ ecosystem_id }}"></span>
+                    to <span id="lightMorningEnd_{{ ecosystem_id }}"></span>
+                    {% else %}
+                    no lighting
+                    {% endif %}
+                  </div>
+                  <div class="boardColumnItem">
+                    Evening light:
+                    {% if light_data[ecosystem_id]["evening_start"] < light_data[ecosystem_id]["evening_end"] %}
+                    from <span id="lightEveningStart_{{ ecosystem_id }}"></span>
+                    to <span id="lightEveningEnd_{{ ecosystem_id }}"></span>
+                    {% else %}
+                    no lighting
+                    {% endif %}
+                  </div>
                   {% endif %}
-                </div>
-                <div class="boardColumnItem">
-                  Evening light:
-                  {% if light_data[ecosystem]["evening_start"] < light_data[ecosystem]["evening_end"] %}
-                  from <span id="lightEveningStart_{{ ecosystem }}"></span>
-                  to <span id="lightEveningEnd_{{ ecosystem }}"></span>
-                  {% else %}
-                  no lighting
                   {% endif %}
                 </div>
                 {% endif %}
+
+                {% if ecosystems[ecosystem_id]["env_sensors"] and current_data[ecosystem_id] %}
+                {% set any_info = True %}
+                <!-- Environmental sensors for {{ ecosystems[ecosystem_id]["name"] }} -->
+                <div class="boardRowItem">
+                <div class="boardColumnTitle">Environment</div>
+                  {% for measure in measures[ecosystem_id]["environment"] %}
+                  <div class="boardColumnItem">
+                    {{ measure.capitalize()|removeUnderscores }}:
+                    <span id="{{ ecosystem_id }}_{{ measure }}_avg">NA</span>{{ parameters['environment']['unit'][measure] }}
+                  </div>
+                  {% endfor %}
+                </div>
                 {% endif %}
-                <div class="boardColumnItem">Plants: #TODO</div>
+
+                {% if ecosystems[ecosystem_id]["plant_sensors"] and current_data[ecosystem_id] %}
+                {% set any_info = True %}
+                <!-- Plants sensors for {{ ecosystems[ecosystem_id]["name"] }} -->
+                <div class="boardRowItem">
+                  <div class="boardColumnTitle">Plants</div>
+                  <div class="boardColumnItem">TODO</div>
+                  <div class="boardColumnItem"></div>
+                </div>
+                {% endif %}
+
+                {% if not any_info %}
+                <div class="boardRowItem">
+                  <div class="boardColumnTitle">TODO</div>
+                  <div class="boardColumnItem">Display info when nothing's available</div>
+                </div>
+                {% endif %}
               </div>
             </div>
             {% endfor %}
@@ -164,14 +202,14 @@
     {% if sun_times %}
     let timeSunrise = new Date("{{ sun_times["sunrise"] }}")
     let timeSunset = new Date("{{ sun_times["sunset"] }}")
-    $('#sunrise').text(timeSunrise.toLocaleTimeString());
-    $('#sunset').text(timeSunset.toLocaleTimeString());
+    $('#sunrise').text(timeSunrise.toLocaleTimeString([], {timeStyle: "short"}));
+    $('#sunset').text(timeSunset.toLocaleTimeString([], {timeStyle: "short"}));
 
     socket.on('sun_times', function(msg) {
       timeSunrise = new Date(msg.sunrise)
       timeSunset = new Date(msg.sunset)
-      $('#sunrise').text(timeSunrise.toLocaleTimeString());
-      $('#sunset').text(timeSunset.toLocaleTimeString());
+      $('#sunrise').text(timeSunrise.toLocaleTimeString([], {timeStyle: "short"}));
+      $('#sunset').text(timeSunset.toLocaleTimeString([], {timeStyle: "short"}));
     });
     {% endif %}
 
@@ -245,7 +283,123 @@
     $('#lightEveningStart_{{ ecosystem }}').text(
       eveningStart_{{ ecosystem }}.toLocaleTimeString());
     {% endif %}
+
+    {% if ecosystems %}
+    // Ecosystems
+    {% for ecosystem_id in ecosystems %}
+    // Ecosystem {{ ecosystem_id }}: {{ ecosystems[ecosystem_id]["name"] }}
+    // Sensors related spans settings
+    {% if current_data[ecosystem_id] %}
+
+    {% for measure in measures[ecosystem_id]["environment"] %}
+    let {{ ecosystem_id }}_{{ measure }} = [];
+    {% endfor %}
+
+    {% for sensor_id in current_data[ecosystem_id]["data"] %}
+    {% for measure in current_data[ecosystem_id]["data"][sensor_id] %}
+    // TODO: add plants level
+    {% if measure in measures[ecosystem_id]["environment"] %}
+    {{ ecosystem_id }}_{{ measure }}.push(
+        {{ current_data[ecosystem_id]["data"][sensor_id][measure] }});
     {% endif %}
     {% endfor %}
+    {% endfor %}
+
+    {% for measure in measures[ecosystem_id]["environment"] %}
+    let {{ ecosystem_id }}_{{ measure }}_sum = 0;
+    for (i = 0; i < {{ ecosystem_id }}_{{ measure }}.length; i++)
+        {{ ecosystem_id }}_{{ measure }}_sum += {{ ecosystem_id }}_{{ measure }}[i];
+    $('#{{ ecosystem_id }}_{{ measure }}_avg').text((Math.round(
+        10 * {{ ecosystem_id }}_{{ measure }}_sum /
+        {{ ecosystem_id }}_{{ measure }}.length) / 10 ).toFixed(1));
+    {% endfor %}
+    {% endif %}
+
+    // Light
+    if ({{ light_data[ecosystem_id]["status"]|toJSBool }}) {
+            $("i#{{ ecosystem_id }}_light_status").addClass("on");
+        } else {
+            $("i#{{ ecosystem_id }}_light_status").addClass("off");
+        }
+    if ("{{ light_data[ecosystem_id]["mode"] }}" == "automatic") {
+            $("i#{{ ecosystem_id }}_light_status").addClass("fa-spin");
+        }
+
+    socket.on("light_data", function(msg) {
+        if (msg.{{ ecosystem_id }}.status) {
+            $("i#{{ ecosystem_id }}_light_status").addClass("on");
+            $("i#{{ ecosystem_id }}_light_status").removeClass("off");
+        } else {
+            $("i#{{ ecosystem_id }}_light_status").addClass("off");
+            $("i#{{ ecosystem_id }}_light_status").removeClass("on");
+        }
+        if (msg.{{ ecosystem_id }}.mode == "automatic") {
+            $("i#{{ ecosystem_id }}_light_status").addClass("fa-spin");
+        } else {
+            $("i#{{ ecosystem_id }}_light_status").removeClass("fa-spin");
+        }
+    });
+
+    {% if light_data[ecosystem_id]["mode"] != "NA" %}
+    let morningStart_{{ ecosystem_id }} = new Date(
+      "{{ light_data[ecosystem_id]["morning_start"] }}")
+    let eveningEnd_{{ ecosystem_id }} = new Date(
+      "{{ light_data[ecosystem_id]["evening_end"] }}")
+    $('#lightMorningStart_{{ ecosystem_id }}').text(
+      morningStart_{{ ecosystem_id }}.toLocaleTimeString([], {timeStyle: "short"}));
+    $('#lightEveningEnd_{{ ecosystem_id }}').text(
+      eveningEnd_{{ ecosystem_id }}.toLocaleTimeString([], {timeStyle: "short"}));
+
+    {% if light_data[ecosystem_id]["method"] == "elongate" %}
+    let morningEnd_{{ ecosystem_id }} = new Date(
+      "{{ light_data[ecosystem_id]["morning_end"] }}")
+    let eveningStart_{{ ecosystem_id }} = new Date(
+      "{{ light_data[ecosystem_id]["evening_start"] }}")
+    $('#lightMorningEnd_{{ ecosystem_id }}').text(
+      morningEnd_{{ ecosystem_id }}.toLocaleTimeString([], {timeStyle: "short"}));
+    $('#lightEveningStart_{{ ecosystem_id }}').text(
+      eveningStart_{{ ecosystem_id }}.toLocaleTimeString([], {timeStyle: "short"}));
+    {% endif %}
+    {% endif %}
+
+    //TODO: light socketio events
+    // Plants related spans settings
+    // TODO
+    {% endfor %}
+
+    // Socket.IO ecosystems event
+    socket.on('current_sensors_data', function(msg) {
+      {% for ecosystem_id in ecosystems %}
+      {% if current_data[ecosystem_id] %}
+      // Reset measure lists
+      {% for measure in measures %}
+      {{ ecosystem_id }}_{{ measure }} = [];
+      {% endfor %}
+
+      {% for sensor_id in current_data[ecosystem_id]["data"] %}
+      {% for measure in current_data[ecosystem_id]["data"][sensor_id] %}
+      // TODO: add plants level
+      {% if measure in measures[ecosystem_id]["environment"] %}
+      {{ ecosystem_id }}_{{ measure }}.push(
+        msg.{{ ecosystem_id }}.data.{{ sensor_id }}.{{ measure }}
+      );
+      {% endif %}
+      {% endfor %}
+      {% endfor %}
+
+      {% for measure in measures[ecosystem_id]["environment"] %}
+      {{ ecosystem_id }}_{{ measure }}_sum = 0;
+      for (i = 0; i < {{ ecosystem_id }}_{{ measure }}.length; i++)
+        {{ ecosystem_id }}_{{ measure }}_sum += {{ ecosystem_id }}_{{ measure }}[i];
+      $('#{{ ecosystem_id }}_{{ measure }}_avg').text((Math.round(
+        10 * {{ ecosystem_id }}_{{ measure }}_sum /
+        {{ ecosystem_id }}_{{ measure }}.length) / 10 ).toFixed(1));
+      {% endfor %}
+
+      {% endif %}
+      {% endfor %}
+    });
+    {% endif %}
+
     </script>
 {% endblock %}

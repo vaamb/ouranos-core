@@ -1,56 +1,77 @@
 {% extends 'menu.html' %}
 
-{% block header %}Switches in {{ecosystem_ids[1]}}{% endblock %}
+{% block header %}Switches in {{ ecosystem_ids[1] }}{% endblock %}
 {% block info %}{% endblock %}
 
+{% set switches = {"light": light_data} %}
+{% set modes = ("on", "off", "automatic") %}
+
 {% block content %}
-  {% if current_user.is_operator %}
+  {% for switch in switches %}
+  <div class="board" style="width: 22%">
+    <div class="boardHeader">{{ switch.capitalize() }} switch</div>
+    <div class="boardRowContainer">
+      <div style="flex-basis: 250px; min-height: 250px; position: relative; background:#F7F7F7; border:1px solid #ccc">
+        <div style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);">
+          <i class="fas fa-sync-alt" id="{{ switch }}_status" style="font-size: 165px; margin: auto"></i>
+        </div>
 
-  {{ light_data }}
+      </div>
+      <div style="flex:1; flex-direction: column; display: flex; margin:auto; margin-left:7px">
+        {% if current_user.is_operator %}
+        {% for mode in modes %}
+        <button id="{{ switch }}_{{ mode }}" title="Turn {{ switch }} {{ mode }}" style="margin-bottom: 10px; font-size: 1.1em; padding: 5px 0px;">{{ mode.capitalize() }}</button>
+        {% endfor %}
 
-  {% if light_data[ecosystem_ids[0]]["status"] %}
-    {% set status_now = "on" %}
-  {% else %}
-    {% set status_now = "off" %}
-  {% endif %}
+        {% else %}
+        {% for mode in modes %}
+        <button id="{{ switch }}_{{ mode }}" disabled title="You need to be an operator to turn {{ switch }} {{ mode }}" style="margin-bottom: 10px; font-size: 1.1em; padding: 5px 0px;">{{ mode.capitalize() }}</button>
+        {% endfor %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
 
-  {% if light_data[ecosystem_ids[0]]["mode"] == "automatic" %}
-    {% set mode_now = "fa-spin" %}
-  {% else %}
-    {% set mode_now = "" %}
-  {% endif %}
 
-  <i class="fas fa-power-off {{ status_now }}" id="status_ico"></i>
-  <i class="fas fa-sync {{ mode_now }} {{ status_now }}" id="mode_ico"></i>
-
-  <button id="On" title="Turn lights on">On</button>
-  <button id="Off" title="Turn lights on">Off</button>
-  <button id="Auto" title="Turn lights to automatic mode">Auto</button>
-  {% else %}
-  <button id="On" disabled title="You need to be an operator to turn lights on">On</button>
-  <button id="Off" disabled title="You need to be an operator to turn lights off">Off</button>
-  <button id="Auto" disabled title="You need to be an operator to turn lights to automatic mode">Auto</button>
-  {% endif %}
+  {% endfor %}
 {% endblock %}
 
 {% block scripts %}
-    {% if current_user.is_operator %}
     <script type="text/javascript">
-    let status = {{ light_data[ecosystem_ids[0]]["status"] }};
-    let mode = '{{ light_data[ecosystem_ids[0]]["mode"] }}';
+        {% for switch in switches %}
+        if ({{ switches[switch][ecosystem_ids[0]]["status"]|toJSBool }}) {
+            $("i#{{ switch }}_status").addClass("on");
+        } else {
+            $("i#{{ switch }}_status").addClass("off");
+        }
+        if ("{{ switches[switch][ecosystem_ids[0]]["mode"] }}" == "automatic") {
+            $("i#{{ switch }}_status").addClass("fa-spin");
+        }
 
-    $("button#On").click(function() {
-        socket.emit("turn_light_on", {ecosystem: "{{ecosystem_ids[0]|safe}}" });
-        return false;
-    });
-    $("button#Off").click(function() {
-        socket.emit("turn_light_off", {ecosystem: "{{ecosystem_ids[0]|safe}}"});
-        return false;
-    });
-    $("button#Auto").click(function() {
-        socket.emit("turn_light_auto", {ecosystem: "{{ecosystem_ids[0]|safe}}"});
-        return false;
-    });
-    {% endif %}
-  </script>
+        socket.on("{{ switch }}_data", function(msg) {
+            if (msg.{{ ecosystem_ids[0] }}.status) {
+                $("i#{{ switch }}_status").addClass("on");
+                $("i#{{ switch }}_status").removeClass("off");
+            } else {
+                $("i#{{ switch }}_status").addClass("off");
+                $("i#{{ switch }}_status").removeClass("on");
+            }
+            if (msg.{{ ecosystem_ids[0] }}.mode == "automatic") {
+                $("i#{{ switch }}_status").addClass("fa-spin");
+            } else {
+                $("i#{{ switch }}_status").removeClass("fa-spin");
+            }
+        });
+
+        {% if current_user.is_operator %}
+        {% for mode in modes %}
+        $("button#{{ switch }}_{{ mode }}").click(function() {
+            socket.emit("turn_{{ switch }}", {ecosystem: "{{ ecosystem_ids[0]|safe }}", mode: "{{ mode }}" });
+            return false;
+        });
+        {% endfor %}
+        {% endif %}
+
+        {% endfor %}
+    </script>
 {% endblock %}

@@ -395,6 +395,7 @@ def update_light_data(data):
             )
             db.session.merge(light)
         db.session.commit()
+        sio.emit("light_data", data, namespace="/")
 
 
 # ---------------------------------------------------------------------------
@@ -422,38 +423,18 @@ def ping_pong():
     sio.emit("my_pong", namespace="/", room=incoming_sid)
 
 
-@sio.on("turn_light_on", namespace="/")
-def turn_light_on(message):
+@sio.on("turn_light", namespace="/")
+def turn_light(message):
+    if not current_user.is_operator:
+        return False
     ecosystem_id = message["ecosystem"]
     sid = Ecosystem.query.filter_by(id=ecosystem_id).one().manager.sid
+    mode = message.get("mode", "automatic")
     countdown = message.get("countdown", False)
-    sio_logger.debug(f"Dispatching 'turn_light_on' signal to ecosystem {ecosystem_id}")
-    sio.emit("turn_light_on",
-             {"ecosystem": ecosystem_id, "countdown": countdown},
-             namespace="/gaia", room=sid)
-    return False
-
-
-@sio.on("turn_light_off", namespace="/")
-def turn_light_off(message):
-    ecosystem_id = message["ecosystem"]
-    sid = Ecosystem.query.filter_by(id=ecosystem_id).one().manager.sid
-    countdown = message.get("countdown", False)
-    sio_logger.debug(f"Dispatching 'turn_light_off' signal to ecosystem {ecosystem_id}")
-    sio.emit("turn_light_off",
-             {"ecosystem": ecosystem_id, "countdown": countdown},
-             namespace="/gaia", room=sid)
-    return False
-
-
-@sio.on("turn_light_auto", namespace="/")
-def turn_light_auto(message):
-    ecosystem_id = message["ecosystem"]
-    sid = Ecosystem.query.filter_by(id=ecosystem_id).one().manager.sid
-    countdown = message.get("countdown", False)
-    sio_logger.debug(f"Dispatching 'turn_light_auto' signal to ecosystem {ecosystem_id}")
-    sio.emit("turn_light_auto",
-             {"ecosystem": ecosystem_id, "countdown": countdown},
+    sio_logger.debug(
+        f"Dispatching 'turn_light_{mode}' signal to ecosystem {ecosystem_id}")
+    sio.emit("turn_light",
+             {"ecosystem": ecosystem_id, "mode": mode, "countdown": countdown},
              namespace="/gaia", room=sid)
     return False
 
