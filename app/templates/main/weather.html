@@ -8,7 +8,7 @@
 {% block content %}
   <!--Weather icons are from Ladalle CS https://www.iconfinder.com/ambo_dalle, with slight modifications at the thunder icons + night
   wind icon from Pixel Bazaar https://www.iconfinder.com/zlaten -->
-  <div class="board" style="height: 315px;">
+  <div class="board" style="min-height: 315px;">
     <div class="boardHeader">     
       Daily forecast
     </div> 
@@ -31,11 +31,11 @@
     </div>
   </div>
   <br>
-  <div class="board" style="height: 315px;">
+  <div class="board" style="min-height: 315px;">
     <div class="boardHeader">     
       Week forecast
     </div> 
-    <div class="boardRowContainer" style="height: 268px;">
+    <div class="boardRowContainer" style="min-height: 268px; flex-wrap: wrap">
       {% for day in range(1,7) %}
       <div class="boardRowItem">
         <div class="boardColumnTitle">{{weather_data['daily'][day]['time']|getDay}}</div>

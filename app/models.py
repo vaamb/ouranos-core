@@ -294,7 +294,6 @@ class Ecosystem(db.Model):
     data = orm.relationship("sensorData", back_populates="ecosystem", lazy="dynamic")
     health_data = orm.relationship("Health", back_populates="ecosystem", lazy="dynamic")
     light = orm.relationship("Light", back_populates="ecosystem", lazy="dynamic")
-    warnings = orm.relationship("Warning", back_populates="ecosystem")
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

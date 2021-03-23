@@ -11,8 +11,8 @@
       </h3>
       <p>
         {% for hardware in hardware_group %}
-          <h4>{{ hardware.name }}</h4>
-          <p>UID: {{ hardware.id }}</p>
+          <h4>{{ hardware.id }}</h4>
+          <p>Name: {{ hardware.name }}</p>
           <p>Model: {{ hardware.model }}</p>
           <p>Address: {{ hardware.address }}</p>
           {% if hardware.last_log %}

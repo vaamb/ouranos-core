@@ -2,13 +2,14 @@ from datetime import date, datetime, time, timedelta, timezone
 import platform
 
 import cachetools.func
+from cachetools import cached
 from flask import abort, current_app, flash, redirect, render_template, \
     request, url_for
 from flask_login import current_user, login_required
 from flask_sqlalchemy import get_debug_queries
 
 from app import db
-from app.dataspace import sensorsData
+from app.dataspace import lock, sensorsData, sensorsDataHistory
 from app.models import sensorData, Ecosystem, Hardware, Health, Service, User, \
     Management, Warning
 from app.services import services_manager
@@ -17,9 +18,6 @@ from app.views.main.forms import EditProfileForm
 from app.utils import parse_sun_times
 from app.wiki import simpleWiki
 from config import Config
-
-
-warnings = {}
 
 
 weather_service = services_manager.services["weather"]
@@ -75,27 +73,33 @@ def get_ecosystem_ids(ecosystem_name: str) -> str:
     return ecosystem_ids
 
 
-# TODO: try to optimize this
-# TODO: don't use ecosystem_uid but rather Ecosystem query result
-# Or cache?
-# Maybe need to add a measure model?
-def get_sensors_data(level: str, ecosystem_uid: str, days: int = 7):
+@cached(sensorsDataHistory, lock=lock)
+def get_sensors_data(level: str, ecosystem_uid: str, days: int = 7) -> dict:
     time_limit = datetime.utcnow() - timedelta(days=days)
     data = {}
-    measures = [d.measure for d in
-                sensorData.query.join(Hardware)
-                    .filter(sensorData.ecosystem_id == ecosystem_uid)
-                    .filter(Hardware.level == level)
-                    .filter(sensorData.datetime >= time_limit)
-                    .group_by(sensorData.measure).all()]
+
+    measures = [
+        d.measure for d in
+        sensorData.query.join(Hardware)
+                        .filter(sensorData.ecosystem_id == ecosystem_uid)
+                        .filter(Hardware.level == level)
+                        .filter(sensorData.datetime >= time_limit)
+                        .group_by(sensorData.measure)
+                        .all()
+    ]
+
     for measure in measures:
         data[measure] = {}
-        sensors_id = [d.sensor_id for d in
-                      sensorData.query.join(Hardware)
-                          .filter(sensorData.ecosystem_id == ecosystem_uid)
-                          .filter(Hardware.level == level)
-                          .filter(sensorData.measure == measure)
-                          .group_by(sensorData.sensor_id).all()]
+        sensors_id = [
+            d.sensor_id for d in
+            sensorData.query.join(Hardware)
+                            .filter(sensorData.ecosystem_id == ecosystem_uid)
+                            .filter(Hardware.level == level)
+                            .filter(sensorData.measure == measure)
+                            .group_by(sensorData.sensor_id)
+                            .all()
+        ]
+
         for sensor_id in sensors_id:
             sensor_name = Hardware.query.filter_by(id=sensor_id).first().name
             _data = (sensorData.query.join(Hardware)
@@ -107,13 +111,13 @@ def get_sensors_data(level: str, ecosystem_uid: str, days: int = 7):
                      .with_entities(sensorData.datetime, sensorData.value).all())
             data[measure][sensor_id] = {"name": sensor_name,
                                         "values": _data}
-    return data
+    return {ecosystem_uid: data}
 
 
 def get_light_data(ecosystem_query):
     return {
         e.id: {
-            "status": e.light.one().status,
+            "status": e.light.one().status and e.manages(Management["light"]),
             "mode": e.light.one().mode,
             "method": e.light.one().method,
             "morning_start": time_to_datetime(e.light.one().morning_start),
@@ -221,7 +225,6 @@ def to_home():
 @bp.route("/home")
 def home():
     light_data = get_light_data(recent_ecosystems())
-
     sun_times = {}
     try:
         up = {
@@ -234,12 +237,31 @@ def home():
     except Exception as e:
         print(e)
 
+    measures = {}
+    limits = time_limits()
+    for ecosystem_id in sensorsData:
+        measures[ecosystem_id] = {"environment": {}, "plants": {}}
+        for level in ("environment", ):
+            measures_lists = [d.measure for d in
+                              Hardware.query
+                                  .filter(Hardware.ecosystem_id == ecosystem_id)
+                                  .filter(Hardware.level == level)
+                                  .filter(Hardware.type == "sensor")
+                                  .filter(Hardware.last_log >= limits["sensors"])
+                              ]
+            for measures_list in measures_lists:
+                for measure in measures_list:
+                    measures[ecosystem_id][level][measure.name] = measure.unit
+
     return render_template("main/home.html", title="Home",
                            weather_data=weather_service.get_data(),
                            light_data=light_data,
                            sun_times=sun_times,
                            platform=platform.system(),
                            system_data=system_monitor.system_data,
+                           current_data=sensorsData,
+                           measures=measures,
+                           parameters=layout.parameters,
                            )
 
 

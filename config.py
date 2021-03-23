@@ -39,6 +39,7 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_RECORD_QUERIES = True
     SLOW_DB_QUERY_TIME = 0.5
+    SQLALCHEMY_ECHO = False
 
     # Mail config
     MAIL_SERVER = os.environ.get("MAIL_SERVER")
@@ -69,7 +70,8 @@ class Config:
 
 
 class DevelopmentConfig(Config):
-    DEBUG = True
+    DEBUG = False
+    TESTING = True
     LOG_TO_FILE = False
 
 

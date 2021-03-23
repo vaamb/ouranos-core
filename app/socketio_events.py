@@ -10,7 +10,7 @@ from numpy import mean, std
 from sqlalchemy.orm.exc import NoResultFound
 
 from app import app_name, db, scheduler, sio
-from app.dataspace import healthData, sensorsData
+from app.dataspace import healthData, sensorsData, sensorsDataHistory
 from app.models import sensorData, Ecosystem, engineManager, Hardware, Health, \
     Light, Management, Measure, environmentParameter
 from app.services.system_monitor import systemMonitor
@@ -297,6 +297,11 @@ def update_sensors_data(data):
                 continue
             sensorsData[ecosystem_id]["datetime"] = dt
             if dt.minute % Config.SENSORS_LOGGING_PERIOD == 0:
+                # Delete cached data for sensors.html page
+                try:
+                    del sensorsDataHistory[ecosystem_id]
+                except KeyError:
+                    pass
                 graph_update[ecosystem_id] = data[ecosystem_id]
                 measure_values = {}
                 # TODO: add ecosystem name
