@@ -390,7 +390,7 @@ def update_light_data(data):
                 morning_start = morning_end = evening_start = evening_end = None
             light = Light(
                 ecosystem_id=ecosystem_id,
-                status=data[ecosystem_id]["light_status"],
+                status=data[ecosystem_id]["status"],
                 mode=data[ecosystem_id]["mode"],
                 method=data[ecosystem_id]["method"],
                 morning_start=morning_start,
