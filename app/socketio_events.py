@@ -7,6 +7,7 @@ from flask import current_app, request
 from flask_login import current_user
 from flask_socketio import join_room, leave_room, disconnect
 from numpy import mean, std
+from sqlalchemy.orm.exc import NoResultFound
 
 from app import app_name, db, scheduler, sio
 from app.dataspace import healthData, sensorsData
@@ -104,9 +105,12 @@ def connect_on_gaia():
 
 @sio.on("disconnect", namespace="/gaia")
 def disconnect():
-    uid = engineManager.query.filter_by(sid=request.sid).one().uid
-    leave_room("engineManagers")
-    sio_logger.info(f"Manager {uid} disconnected")
+    try:
+        uid = engineManager.query.filter_by(sid=request.sid).one().uid
+        leave_room("engineManagers")
+        sio_logger.info(f"Manager {uid} disconnected")
+    except NoResultFound:
+        pass
 
 
 @sio.on("pong", namespace="/gaia")
@@ -125,7 +129,6 @@ def registerManager(data):
     remote_addr = request.environ["REMOTE_ADDR"]
     remote_port = request.environ["REMOTE_PORT"]
     try:
-        # TODO: continue to increment, if above threshold: move to file
         if client_blacklist[remote_addr] == Config.GAIA_CLIENT_MAX_ATTEMPT + 1:
             sio_logger.warning(f"Received three invalid registration requests "
                                f"from {remote_addr}.")
@@ -164,6 +167,7 @@ def registerManager(data):
         manager = engineManager(
             uid=manager_uid,
             sid=request.sid,
+            registration_date=now,
             last_seen=now,
             address=f"{remote_addr}:{remote_port}",
         )
