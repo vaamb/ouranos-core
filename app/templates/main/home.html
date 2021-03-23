@@ -142,7 +142,6 @@
                 <div class="boardRowItem">
                   <div class="boardColumnTitle">Light</div>
                   <div class="boardColumnItem">Status: <i class="fas fa-sync-alt" id ={{ ecosystem_id }}_light_status></i> </div>
-                  <div class="boardColumnItem">Light mode: {{ light_data[ecosystem_id]["mode"] }}</div>
                   {% if light_data[ecosystem_id]["mode"] != "NA" %}
                   {% if light_data[ecosystem_id]["method"] == "fixed" %}
                   <div class="boardColumnItem">
