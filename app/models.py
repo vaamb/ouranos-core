@@ -230,15 +230,12 @@ class baseWarning(db.Model):
     __abstract__ = True
     row_id = sa.Column(sa.Integer, primary_key=True)
     datetime = sa.Column(sa.DateTime, nullable=False)
-    level = sa.Column(sa.Integer)
+    emergency = sa.Column(sa.Integer)
+    level = sa.Column(sa.String(length=16))
+    title = sa.Column(sa.String(length=32))
     message = sa.Column(sa.String)
     seen = sa.Column(sa.Boolean)
     solved = sa.Column(sa.Boolean)
-
-    @declared_attr
-    def ecosystem_id(cls):
-        return sa.Column(sa.String(length=8), sa.ForeignKey("ecosystems.id"),
-                         index=True)
 
 
 class baseSystem(db.Model):

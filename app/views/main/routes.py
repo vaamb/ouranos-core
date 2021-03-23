@@ -10,7 +10,7 @@ from flask_sqlalchemy import get_debug_queries
 from app import db
 from app.dataspace import sensorsData
 from app.models import sensorData, Ecosystem, Hardware, Health, Service, User, \
-    Management
+    Management, Warning
 from app.services import services_manager
 from app.views.main import bp, layout
 from app.views.main.forms import EditProfileForm
@@ -36,6 +36,17 @@ def time_limits() -> dict:
         "status": (now_utc - timedelta(seconds=Config.ECOSYSTEM_TIMEOUT)
                    ).replace(tzinfo=None)
     }
+
+
+@cachetools.func.ttl_cache(ttl=60)
+def get_recent_warnings():
+    time_limit = (datetime.now(timezone.utc) - timedelta(days=7))
+    return (Warning.query.filter(Warning.datetime >= time_limit)
+                         .filter(Warning.solved == False)
+                         .order_by(Warning.level.desc())
+                         .order_by(Warning.row_id)
+                         .all()
+            )
 
 
 def recent_ecosystems():
@@ -190,16 +201,15 @@ def menu_info():
 
     plants = []
 
-    warning = False
+    warnings = []
 
     if current_user.is_authenticated:
-        if warnings:
-            warning = True
+        warnings = get_recent_warnings()
 
     return {"ecosystems": ecosystems,
             "dropdowns": dropdowns,
             "plants_in_wiki": plants,
-            "warning": warning,
+            "warnings": warnings,
             }
 
 
@@ -350,7 +360,7 @@ def care(species: str = "general"):
 @login_required
 def warnings_list():
     return render_template("main/warning.html", title="Warnings",
-                           warnings=warnings
+                           warnings=get_recent_warnings()
                            )
 
 

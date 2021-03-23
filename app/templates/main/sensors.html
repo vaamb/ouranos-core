@@ -2,21 +2,21 @@
 
 {% block header %}{{ level.capitalize() }} sensors in {{ ecosystem_ids[1] }}{% endblock %}
 {% block info %}
-    {% if current_data[ecosystem_ids[0]] %}
-        Last sensors measure at <span id="currentDatetime"></span>
-    {% endif %}
+{% if current_data[ecosystem_ids[0]] %}
+Last sensors measure at <span id="currentDatetime"></span>
+{% endif %}
 {% endblock %}
 
 {% block content %}
   <div class="subtitleFix"></div>
-  {% for measure in data %}
+  {% for measure in data[ecosystem_ids[0]] %}
     <h2>{{ measure.capitalize()|removeUnderscores }}</h2>
-    {% for sensor_id in data[measure] %}
-      {% if data[measure][sensor_id]["values"]|length > 3 %}
+    {% for sensor_id in data[ecosystem_ids[0]][measure] %}
+      {% if data[ecosystem_ids[0]][measure][sensor_id]["values"]|length > 3 %}
       <div class="board" style="height: 230px;">
         <div class="boardHeader">
             <i class="{{ parameters[level]["icon"][measure] }} leftico"></i>
-            {{ data[measure][sensor_id]["name"] }}
+            {{ data[ecosystem_ids[0]][measure][sensor_id]["name"] }}
         </div>
         <div class="boardRowContainer" style="height: 183px;">
           {% if current_data[ecosystem_ids[0]] %}
@@ -34,7 +34,7 @@
 
       {% else %}
         <p>
-          Sorry, GAIA does not have enough {{ measure|removeUnderscores }} data from {{ data[measure][sensor_id]["name"] }}
+          Sorry, GAIA does not have enough {{ measure|removeUnderscores }} data from {{ data[ecosystem_ids[0]][measure][sensor_id]["name"] }}
           to build a nice graph yet. Come back later to see your graph.
         </p>
       {% endif %}
@@ -51,8 +51,8 @@
     {%  endif %}
 
     // Generate Data spans, Gauges and Charts
-    {% for measure in data %}
-    {% for sensor_id in data[measure] %}
+    {% for measure in data[ecosystem_ids[0]] %}
+    {% for sensor_id in data[ecosystem_ids[0]][measure] %}
     {% if current_data[ecosystem_ids[0]] %}
 
     let currentData{{ measure.capitalize() }}_{{ sensor_id }} = Number(
@@ -91,13 +91,13 @@
     var ChartData{{ measure.capitalize() }}_{{ sensor_id }} = {
       labels: [
         //formatting as ISO but with utc timezone added
-        {% for item in data[measure][sensor_id]["values"] %}
+        {% for item in data[ecosystem_ids[0]][measure][sensor_id]["values"] %}
           new Date("{{ (item[0]).strftime("%Y-%m-%dT%H:%M:%SZ") }}"),
         {% endfor %}
       ],
       datasets: [{
         label: "{{measure.capitalize()}}",
-        data: [{% for item in data[measure][sensor_id]["values"] %}
+        data: [{% for item in data[ecosystem_ids[0]][measure][sensor_id]["values"] %}
                  Number({{ item[1] }}).toFixed(1),
                {% endfor %}],
         backgroundColor: 'rgba(255,255,255,0)',
@@ -150,8 +150,8 @@
       let currentDatetime = new Date(msg.{{ ecosystem_ids[0] }}.datetime);
       $('#currentDatetime').text(currentDatetime.toLocaleTimeString());
       // Update Data spans and Gauges
-      {% for measure in data %}
-      {% for sensor_id in data[measure] %}
+      {% for measure in data[ecosystem_ids[0]] %}
+      {% for sensor_id in data[ecosystem_ids[0]][measure] %}
       currentData{{ measure.capitalize() }}_{{ sensor_id }} = Number(
         msg.{{ ecosystem_ids[0] }}.data.{{ sensor_id }}.{{ measure }}
       ).toFixed(1);
@@ -172,8 +172,8 @@
       dataWindowLimit.setDate(lastUpdateTime.getDate() - dayWindow);
 
       // Update Charts
-      {% for measure in data %}
-      {% for sensor_id in data[measure] %}
+      {% for measure in data[ecosystem_ids[0]] %}
+      {% for sensor_id in data[ecosystem_ids[0]][measure] %}
       // Push new data for Measure: {{ measure }} - Sensor: {{ sensor_id }}
       ChartData{{ measure.capitalize() }}_{{ sensor_id }}.labels.push(lastUpdateTime);
       ChartData{{ measure.capitalize() }}_{{ sensor_id }}.datasets[0].data.push(

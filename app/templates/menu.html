@@ -182,7 +182,7 @@
         </div>
         <div class="warning">
           {% if current_user.is_authenticated %}
-          {% if warning %}
+          {% if warnings %}
           <a href="{{url_for('main.warnings_list')}}">
             <i class="fas fa-exclamation-triangle"></i>
           </a>
@@ -193,12 +193,8 @@
       <div class="contentContainer">
         {% if self.header() %}
         <div class="topLine">
-          <h2 style="float: left">
-            {% block header %}{% endblock %}
-          </h2>
-          <h3 style="float: right">
-            {% block info %}{% endblock %}
-          </h3>
+          <h2 style="float: left">{% block header %}{% endblock %}</h2>
+          <h3 style="float: right">{% block info %}{% endblock %}</h3>
         </div>
         {% endif %}
         {% block content %}{% endblock %}

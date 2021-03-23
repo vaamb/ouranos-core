@@ -56,7 +56,7 @@ def create_app(config_class=Config):
             Role.insert_roles()
             comChannel.insert_channels()
         except Exception as e:
-            print(e)
+            logger.error(e)
 
     migrate.init_app(app, db)
     login_manager.init_app(app)

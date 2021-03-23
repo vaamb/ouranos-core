@@ -60,3 +60,11 @@ def try_dict(dct: dict, key: str) -> str:
         return dct[key]
     except KeyError:
         return ""
+
+
+@bp.app_template_filter('toJSBool')
+def _translate_to_JS_bool(python_bool: bool) -> str:
+    if python_bool:
+        return "true"
+    else:
+        return "false"

@@ -33,7 +33,7 @@
                 </div>
                 <div class="boardColumnContainer">
                   <!-- TODO: update weatherIcon when needed -->
-                  <div class="weatherIcon" style="height: 115px; line-height: 115px; font-size: 70px;"><i class='{{weather_data["currently"]["icon"]|getWeatherIcon}}'></i></div>
+                  <div class="weatherIcon" style="height: 115px; line-height: 115px; font-size: 70px;"><i class='{{ weather_data["currently"]["icon"]|getWeatherIcon }}'></i></div>
                   <div class="boardColumnTitle" style="flex: 2">
                     <span id="weather_summary"></span>
                   </div>
@@ -96,13 +96,28 @@
             <div class="board" style="min-height: 255px;">
               <a href="{{url_for('main.warnings_list')}}">
                 <div class="boardHeader">
-                  Warning overview
+                  Warnings overview
                 </div>
                 <div class="boardColumnContainer">
-                  {% if warning %}
-                  {% for w in warnings %}
-                  <div class="boardColumnItem"></div>
-                  {% endfor %}
+                  {% if warnings %}
+                  <table style="table-layout: auto; width: 100%;">
+                    <tr>
+                      <th>Date</th>
+                      <th>Emergency</th>
+                      <th>Title</th>
+                    </tr>
+                    {% for i in range(10) %}
+                    {% if warnings[i] %}
+                    <tr>
+                      <td><span id="warning_{{ i }}_datetime"></span></td>
+                      <td>{{ warnings[i].emergency }}</td>
+                      <td>{{ warnings[i].title }}</td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                  </table>
+                  {% else %}
+                  <div class="boardColumnItem">No warning</div>
                   {% endif %}
                 </div>
               </a>
@@ -262,26 +277,16 @@
     });
     {% endif %}
 
-    {% for ecosystem in ecosystems %}
-    {% if light_data[ecosystem]["mode"] != "NA" %}
-    let morningStart_{{ ecosystem }} = new Date(
-      "{{ light_data[ecosystem]["morning_start"] }}")
-    let eveningEnd_{{ ecosystem }} = new Date(
-      "{{ light_data[ecosystem]["evening_end"] }}")
-    $('#lightMorningStart_{{ ecosystem }}').text(
-      morningStart_{{ ecosystem }}.toLocaleTimeString());
-    $('#lightEveningEnd_{{ ecosystem }}').text(
-      eveningEnd_{{ ecosystem }}.toLocaleTimeString());
-
-    {% if light_data[ecosystem]["method"] == "elongate" %}
-    let morningEnd_{{ ecosystem }} = new Date(
-      "{{ light_data[ecosystem]["morning_end"] }}")
-    let eveningStart_{{ ecosystem }} = new Date(
-      "{{ light_data[ecosystem]["evening_start"] }}")
-    $('#lightMorningEnd_{{ ecosystem }}').text(
-      morningEnd_{{ ecosystem }}.toLocaleTimeString());
-    $('#lightEveningStart_{{ ecosystem }}').text(
-      eveningStart_{{ ecosystem }}.toLocaleTimeString());
+    {% if current_user.is_authenticated %}
+    // Warnings
+    {% if warnings %}
+    {% for i in range(10) %}
+    {% if warnings[i] %}
+    let warning_{{ i }}_dt = new Date("{{ warnings[i].datetime }}");
+    $('#warning_{{ i }}_datetime').text(warning_{{ i }}_dt.toLocaleTimeString());
+    {% endif %}
+    {% endfor %}
+    {% endif %}
     {% endif %}
 
     {% if ecosystems %}
