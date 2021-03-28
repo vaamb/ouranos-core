@@ -20,11 +20,20 @@ from app.wiki import simpleWiki
 from config import Config
 
 
-weather_service = services_manager.services["weather"]
-sun_times_service = services_manager.services["sun_times"]
-system_monitor = services_manager.services["system_monitor"]
+# "Dynamic proxies" for services
+def weather_service():
+    return services_manager.services["weather"]
 
 
+def sun_times_service():
+    return services_manager.services["sun_times"]
+
+
+def system_monitor():
+    return services_manager.services["system_monitor"]
+
+
+@cachetools.func.ttl_cache(ttl=3)
 def time_limits() -> dict:
     now_utc = datetime.now(timezone.utc)
     return {
@@ -75,7 +84,7 @@ def get_ecosystem_ids(ecosystem_name: str) -> str:
 
 @cached(sensorsDataHistory, lock=lock)
 def get_sensors_data(level: str, ecosystem_uid: str, days: int = 7) -> dict:
-    time_limit = datetime.utcnow() - timedelta(days=days)
+    time_limit = datetime.now(timezone.utc) - timedelta(days=days)
     data = {}
 
     measures = [
@@ -181,7 +190,7 @@ def menu_info():
 
     # list comprehension for menu dropdown before passing to jinja
     dropdowns = {
-        "weather": True if weather_service.get_data() else False,
+        "weather": True if weather_service().get_data() else False,
         "webcam": True if (True in [ecosystems[ecosystem]["webcam"]
                                     for ecosystem in ecosystems] and
                            "webcam" in [s.name
@@ -229,9 +238,9 @@ def home():
     try:
         up = {
             "sunrise": parse_sun_times(
-                sun_times_service.get_data()["sunrise"]),
+                sun_times_service().get_data()["sunrise"]),
             "sunset": parse_sun_times(
-                sun_times_service.get_data()["sunset"]),
+                sun_times_service().get_data()["sunset"]),
         }
         sun_times.update(up)
     except Exception as e:
@@ -254,11 +263,11 @@ def home():
                     measures[ecosystem_id][level][measure.name] = measure.unit
 
     return render_template("main/home.html", title="Home",
-                           weather_data=weather_service.get_data(),
+                           weather_data=weather_service().get_data(),
                            light_data=light_data,
                            sun_times=sun_times,
                            platform=platform.system(),
-                           system_data=system_monitor.system_data,
+                           system_data=system_monitor().system_data,
                            current_data=sensorsData,
                            measures=measures,
                            parameters=layout.parameters,
@@ -267,7 +276,7 @@ def home():
 
 @bp.route("/weather")
 def weather():
-    weather_data = weather_service.get_data()
+    weather_data = weather_service().get_data()
     if not weather_data:
         abort(404)
     return render_template("main/weather.html", title="Weather",
