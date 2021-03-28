@@ -39,8 +39,14 @@ class Weather(serviceTemplate):
             else:
                 with open(self._file_path, "w+") as file:
                     json.dump(self._weather_data, file)
-                sio.emit("current_weather", self._weather_data["currently"],
-                         namespace="/")
+                try:
+                    sio.emit("current_weather",
+                             self._weather_data["currently"],
+                             namespace="/")
+                except AttributeError as e:
+                    # Discard error when SocketIO has not started yet
+                    if "NoneType" not in e.args[0]:
+                        raise e
                 self._logger.debug("Weather data updated")
                 return
 
