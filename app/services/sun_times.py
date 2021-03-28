@@ -43,7 +43,12 @@ class sunTimes(serviceTemplate):
                         "sunset": parse_sun_times(
                             self._sun_times_data["sunset"]),
                     }
-                    sio.emit("sun_times", data=sun_times)
+                    try:
+                        sio.emit("sun_times", data=sun_times)
+                    except AttributeError as e:
+                        # Discard error when SocketIO has not started yet
+                        if "NoneType" not in e.args[0]:
+                            raise e
                     self._logger.debug("Sun times data updated")
                     return
 

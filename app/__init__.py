@@ -9,8 +9,7 @@ from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from flask_socketio import SocketIO
 
-from config import Config
-from app.utils import configure_logging
+from config import Config, DevelopmentConfig
 
 
 START_TIME = datetime.now(timezone.utc)
@@ -27,7 +26,7 @@ migrate = Migrate()
 sio = SocketIO(json=json)
 
 
-def create_app(config_class=Config):
+def create_app(config_class=DevelopmentConfig):
     if not any((config_class.DEBUG, config_class.TESTING)):
         if config_class.SECRET_KEY == "BXhNmCEmNdoBNngyGXj6jJtooYAcKpt6":
             raise Exception("You need to set the environment variable "
@@ -38,14 +37,12 @@ def create_app(config_class=Config):
                             "'GAIA_SECRET_KEY' when using gaiaWeb in a "
                             "production environment.")
 
-    logger.info(f"Starting {app_name} ...")
+    logger.info(f"Creating {app_name} app ...")
     app = Flask(app_name, root_path=root_path)
 
     app.config.from_object(config_class)
     app.jinja_env.lstrip_blocks = True
     app.jinja_env.trim_blocks = True
-
-    configure_logging(config_class)
 
     # Init db
     db.init_app(app)
@@ -85,6 +82,6 @@ def create_app(config_class=Config):
     from app import database
     from app import socketio_events
 
-    logger.info(f"{app_name} successfully started")
+    logger.info(f"{app_name} app successfully created")
 
     return app

@@ -49,8 +49,12 @@ class systemMonitor(serviceTemplate):
 
             self._data.update({"uptime": human_delta_time(
                 START_TIME, datetime.now(timezone.utc))})
-            sio.emit("current_server_data", self._data, namespace="/admin")
-
+            try:
+                sio.emit("current_server_data", self._data, namespace="/admin")
+            except AttributeError as e:
+                # Discard error when SocketIO has not started yet
+                if "NoneType" not in e.args[0]:
+                    raise e
             self._stopEvent.wait(SYSTEM_UPDATE_PERIOD)
             if self._stopEvent.isSet():
                 break

@@ -34,16 +34,15 @@ def log_services_available() -> None:
         session.commit()
 
 
-log_services_available()
-
-
 class servicesManager:
     def __init__(self) -> None:
         self.logger = logging.getLogger(f"{app_name}.services")
-        self.logger.info("Initializing services module")
+        self.logger.info(f"Initializing {app_name} services ...")
+        log_services_available()
         self.services = {}
         self._services_running = []
         self._init_services()
+        self.logger.info(f"{app_name} services successfully initialized")
 
     def _init_services(self) -> None:
         for level in _services:
@@ -86,7 +85,3 @@ def start() -> None:
     global services_manager
     if not services_manager:
         services_manager = servicesManager()
-
-
-# Useless for now but should become handy
-start()

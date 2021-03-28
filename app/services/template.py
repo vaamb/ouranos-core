@@ -13,7 +13,7 @@ class serviceTemplate:
         self._logger = \
             logging.getLogger(f"{app_name}.services.{self.NAME.lower()}")
         self._service_name = f"{self.NAME.lower()}Service"
-        self._logger.info(f"Initializing {self._service_name}")
+        self._logger.debug(f"Initializing {self._service_name}")
         try:
             self._init()
             self._logger.debug(f"{self._service_name} was successfully "
