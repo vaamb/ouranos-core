@@ -5,42 +5,39 @@
 
 {% block content %}
   <div class = "warnings">
-    {% if (warnings["weather"] is not none or 
-          warnings["environment"] is not none or
-          warnings["plants"] is not none) %}
-
-      {% if warnings["weather"] is not none %}
-        Weather warning: 
-        <ul>
-          {% for warning in warnings["weather"] %}
-            <li>{{warning}}</li>
-          {% endfor %}
-        </ul>
-      {% endif %}
-  <!--
-      {% for ecosystem in order %}
-        {{ecosystem}}
-        {% if warnings["environment"] is not none %}
-          Environment warning: 
-          <ul>
-            {% for warning in warnings["environment"] %}
-              <li>{{warning}}</li>
-            {% endfor %}
-          </ul>
-        {% endif %}
-
-        {% if warnings["plants"] is not none %}
-          Plants warning: 
-          <ul>
-            {% for warning in warnings["plants"] %}
-              <li>{{warning}}</li>
-            {% endfor %}
-          </ul>
-        {% endif %}
+    {% if warnings %}
+    <table style="table-layout: auto; width: 100%;">
+      <tr>
+        <th>Date</th>
+        <th>Emergency</th>
+        <th>Level</th>
+        <th>Title</th>
+        <th>Solved</th>
+      </tr>
+      {% for warning in warnings %}
+      <tr>
+        <td><span id="warning_{{ loop.index }}_datetime"></span></td>
+        <td>{{ warning.emergency }}</td>
+        <td>{{ warning.level }}</td>
+        <td>{{ warning.title }}</td>
+        <td>{{ warning.solved }}</td>
+      </tr>
       {% endfor %}
-  -->
+    </table>
     {% else %}
-      There is no warning currently
+      There is currently no warning
     {% endif %}
   </div>
+{% endblock %}
+
+{% block scripts %}
+    <script type="text/javascript">
+    {% if warnings %}
+    {% for warning in warnings %}
+    let warning_{{ loop.index }}_dt = new Date("{{ warning.datetime }}");
+    let warning_{{ loop.index }}_formattedDt = "".concat(warning_{{ loop.index }}_dt.getDate(), "/", warning_{{ loop.index }}_dt.getMonth(), " ", warning_{{ loop.index }}_dt.toLocaleTimeString([], {timeStyle: "short"}));
+    $('#warning_{{ loop.index }}_datetime').text(warning_{{ loop.index }}_formattedDt);
+    {% endfor %}
+    {% endif %}
+    </script>
 {% endblock %}

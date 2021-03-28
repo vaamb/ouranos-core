@@ -8,45 +8,56 @@
 {% block content %}
   <!--Weather icons are from Ladalle CS https://www.iconfinder.com/ambo_dalle, with slight modifications at the thunder icons + night
   wind icon from Pixel Bazaar https://www.iconfinder.com/zlaten -->
+  {% set measures = {
+    "temperature": {"label": "Temperature", "color": "#f0341f", "unit_modif": 1, "max": 20},
+    "precipProbability": {"label": "Precipitation", "color": "#226ba3", "unit_modif": 100, "max": 20},
+    "humidity": {"label": "Humidity", "color": "#226ba3", "unit_modif": 100, "max": 100},
+    }
+  %}
   <div class="board" style="min-height: 315px;">
-    <div class="boardHeader">     
+    <h1>
       Daily forecast
-    </div> 
-    <div class="boardRowContainer" style="height: 268px;">
-      <div class="weatherToday">
-        <div class="boardColumnTitle"><span id="today_day"></span></div>
-        <div class="boardColumnItem"><span id="today_temperature"></span>°C</div>
+    </h1>
+    <div class="boardRowContainer" style="min-height: 268px; row-gap: 6px">
+      <div class="boardColumnContainer max250OnScreen" style="min-width: 225px; flex:1">
+        <div class="boardSubTitle"><span id="today_day"></span></div>
+        <div class="boardFlexItemU"><span id="today_temperature"></span>°C</div>
         <div class="weatherIcon" style="height: 115px; line-height: 115px; font-size: 70px;"><i class="{{weather_data['currently']['icon']|getWeatherIcon}}"></i></div>
-        <div class="boardColumnItem" style="flex: 2"><span id="today_summary"></span></div>
-        <div class="boardColumnItem">Wind: <span id="today_windSpeed"></span> km/h</div>
-        <div class="boardColumnItem">Precipitation: <span id="today_precipProbability"></span>%</div>
-        <div class="boardColumnItem">Humidity: <span id="today_humidity"></span>%</div>
-        <div class="boardColumnItem">Cloud cover: <span id="today_cloudCover"></span>%</div>
-        <div class="boardColumnItem"></div>
-            </div>
-      <div class="graph">
-        <button id="data1" class="weatherButton">Temperature</button><button id="data3" class="weatherButton">Precipitation</button><button id="data2" class="weatherButton">Humidity</button>
-        <canvas id="Chart" style="width:100%; height:242px;"></canvas>
+        <div class="boardFlexItemU" style="flex: 2"><span id="today_summary"></span></div>
+        <div class="boardFlexItemU">Wind: <span id="today_windSpeed"></span> km/h</div>
+        <div class="boardFlexItemU">Precipitation: <span id="today_precipProbability"></span>%</div>
+        <div class="boardFlexItemU">Humidity: <span id="today_humidity"></span>%</div>
+        <div class="boardFlexItemU">Cloud cover: <span id="today_cloudCover"></span>%</div>
+      </div>
+      <div style="flex: 1">
+        <div style="margin: 10px 0 8px 0;">
+          {% for measure in measures %}
+          <button id="button_{{ measure }}" class="weatherButton">{{ measures[measure]["label"] }}</button>
+          {% endfor %}
+        </div>
+        <div class="chartContainer">
+          <canvas id="Chart"></canvas>
+        </div>
       </div>
     </div>
   </div>
   <br>
-  <div class="board" style="min-height: 315px;">
-    <div class="boardHeader">     
+  <div class="board" style="min-height: 315px; padding-bottom: 10px">
+    <h1>
       Week forecast
-    </div> 
-    <div class="boardRowContainer" style="min-height: 268px; flex-wrap: wrap">
+    </h1>
+    <div class="boardRowContainer" style="min-height: 268px; background: #ccc; row-gap: 1px">
       {% for day in range(1,7) %}
-      <div class="boardRowItem">
-        <div class="boardColumnTitle">{{weather_data['daily'][day]['time']|getDay}}</div>
-        <div class="boardColumnItem">{{weather_data['daily'][day]['temperatureLow']|round(1)}} to {{weather_data['daily'][day]['temperatureHigh']|round(1)}}°C</div>
+      <div class="boardFlexItem boardColumnContainer" style="padding-bottom: 7px">
+        <div class="boardSubTitle">{{weather_data['daily'][day]['time']|getDay}}</div>
+        <div class="boardFlexItemU">{{weather_data['daily'][day]['temperatureLow']|round(1)}} to {{weather_data['daily'][day]['temperatureHigh']|round(1)}}°C</div>
         <div class="weatherIcon"><i class="{{weather_data['daily'][day]['icon']|getWeatherIcon}}"></i></div>
-        <div class="boardColumnItem" style="flex: 2">{{weather_data['daily'][day]['summary']}}</div>
-        <div class="boardColumnItem">Wind: {{weather_data['daily'][day]['windSpeed']}}km/h</div>
-        <div class="boardColumnItem">Precipitation: {{(weather_data['daily'][day]['precipProbability']*100)|round|int}}%</div>
-        <div class="boardColumnItem">Humidity: {{(weather_data['daily'][day]['humidity']*100)|round|int}}%</div>
-        <div class="boardColumnItem">Cloud cover: {{(weather_data['daily'][day]['cloudCover']*100)|round|int}}%</div>
-        <div class="boardColumnItem">
+        <div class="boardFlexItemU" style="flex: 2">{{weather_data['daily'][day]['summary']}}</div>
+        <div class="boardFlexItemU">Wind: {{weather_data['daily'][day]['windSpeed']}}km/h</div>
+        <div class="boardFlexItemU">Precipitation: {{(weather_data['daily'][day]['precipProbability']*100)|round|int}}%</div>
+        <div class="boardFlexItemU">Humidity: {{(weather_data['daily'][day]['humidity']*100)|round|int}}%</div>
+        <div class="boardFlexItemU">Cloud cover: {{(weather_data['daily'][day]['cloudCover']*100)|round|int}}%</div>
+        <div class="boardFlexItemU">
           <i class="fas fa-sun" ></i> {{weather_data['daily'][day]['sunriseTime']|getTime}} &emsp; 
           <i class="fas fa-moon"></i> {{weather_data['daily'][day]['sunsetTime']|getTime}}
         </div>
@@ -116,6 +127,8 @@
       legend: {
         display: false
       },
+      maintainAspectRatio: false,
+      responsive: true,
     };
     var ctx = document.getElementById("Chart");
     var myChart = new Chart(ctx, {
@@ -125,33 +138,17 @@
     });
 
     // Chart data switch
-    $("#data1").click(function() {
-      data.datasets[0].label = "Temperature";
+    {% for measure in measures %}
+    $("#button_{{ measure }}").click(function() {
+      data.datasets[0].label = "{{ measures[measure]["label"] }}";
       data.datasets[0].data = [{% for hour in range(0, 25) %}
-                                  {{weather_data['hourly'][hour]['temperature']}},
+                                  {{ weather_data['hourly'][hour][measure] * measures[measure]["unit_modif"] }},
                                 {% endfor %}];
-      data.datasets[0].borderColor = "#f0341f";
-      chartLayout.scales.yAxes[0].ticks.suggestedMax[20];
+      data.datasets[0].borderColor = "{{ measures[measure]["color"] }}";
+      chartLayout.scales.yAxes[0].ticks.suggestedMax[{{ measures[measure]["max"] }}];
       myChart.update();
     });
-    $("#data2").click(function() {
-      data.datasets[0].label = "Humidity";
-      data.datasets[0].data = [{% for hour in range(0, 25) %}
-                                  {{weather_data['hourly'][hour]['humidity']*100}},
-                                {% endfor %}];
-      data.datasets[0].borderColor = "#226ba3";
-      chartLayout.scales.yAxes[0].ticks.suggestedMax[100];
-      myChart.update();
-    });
-    $("#data3").click(function() {
-      myChart.type = "bar";
-      data.datasets[0].label = "Precipitation";
-      data.datasets[0].data = [{% for hour in range(0, 25) %}
-                                  {{weather_data['hourly'][hour]['precipProbability']*100}},
-                                {% endfor %}];
-      data.datasets[0].borderColor = "#226ba3";
-      chartLayout.scales.yAxes[0].ticks.suggestedMax[20];
-      myChart.update();
-    });
+    {% endfor %}
+
   </script>
 {% endblock %}

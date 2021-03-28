@@ -3,7 +3,7 @@
 {% block body %}
     <div class="mainContainer">
     <nav>
-      <div class="topBox">
+      <div class="topBox" id="navTopBox">
         <div class="helloGAIA">GAIA</div>
         <div class="userBox">
           {% if current_user.is_authenticated %}
@@ -20,27 +20,32 @@
           {% endif %}
         </div>
       </div>
-      <ul class="accordion-menu">
+      <div class="toggleMenu" id="navToggle">
+      <ul class="accordionMenu">
         <li>
           <a href="{{url_for('main.home')}}">
-            <div class="nodrop">
-              <i class="fa fa-home leftico"></i>Home
+            <div class="accordionMenuItem">
+              <i class="fa fa-home leftIco"></i>
+              <div class="accordionMenuItemName">Home</div>
             </div>
           </a>
         </li>
         {% if dropdowns['weather'] %}
         <li>
           <a href="{{url_for('main.weather')}}">
-            <div class="nodrop">
-              <i class="fa fa-cloud leftico"></i>Weather forecast
+            <div class="accordionMenuItem">
+              <i class="fa fa-cloud leftIco"></i>
+                <div class="accordionMenuItemName">Weather forecast<div>
             </div>
           </a>
         </li>
         {% endif %}
         {% if dropdowns['env_sensors'] %}
         <li>
-          <div class="dropdownlink">
-            <i class="fa fa-thermometer-half leftico"></i>Environments<i class="fa fa-chevron-right rightico" aria-hidden="true"></i>
+          <div class="accordionMenuItem dropdownLink">
+            <i class="fa fa-thermometer-half leftIco"></i>
+            <div class="accordionMenuItemName">Environments</div>
+            <i class="fa fa-chevron-right rightIco" aria-hidden="true"></i>
           </div>
           <ul class="submenuItems">
             {% for ecosystem in ecosystems %}
@@ -57,8 +62,10 @@
         {% endif %}
         {% if dropdowns['plant_sensors'] %}
         <li>
-          <div class="dropdownlink">
-            <i class="fa fa-seedling leftico"></i>Plants<i class="fa fa-chevron-right rightico" aria-hidden="true"></i>
+          <div class="accordionMenuItem dropdownLink">
+            <i class="fa fa-seedling leftIco"></i>
+            <div class="accordionMenuItemName">Plants</div>
+            <i class="fa fa-chevron-right rightIco" aria-hidden="true"></i>
           </div>
           <ul class="submenuItems">
             {% for ecosystem in ecosystems %}
@@ -71,8 +78,10 @@
         {% endif %}
         {% if dropdowns["health"] %}
         <li>
-          <div class="dropdownlink">
-            <i class="fa fa-heartbeat leftico"></i>Plants health<i class="fa fa-chevron-right rightico" aria-hidden="true"></i>
+          <div class="accordionMenuItem dropdownLink">
+            <i class="fa fa-heartbeat leftIco"></i>
+            <div class="accordionMenuItemName">Plants health</div>
+            <i class="fa fa-chevron-right rightIco" aria-hidden="true"></i>
           </div>
           <ul class="submenuItems">
             {% for ecosystem in ecosystems %}
@@ -85,8 +94,10 @@
         {% endif %}
         {% if dropdowns['switches'] %}
         <li>
-          <div class="dropdownlink">
-            <i class="fa fa-power-off leftico"></i>Switches<i class="fa fa-chevron-right rightico" aria-hidden="true"></i>
+          <div class="accordionMenuItem dropdownLink">
+            <i class="fa fa-power-off leftIco"></i>
+            <div class="accordionMenuItemName">Switches</div>
+            <i class="fa fa-chevron-right rightIco" aria-hidden="true"></i>
           </div>
           <ul class="submenuItems">
             {% for ecosystem in ecosystems %}
@@ -99,8 +110,10 @@
         {% endif %}
         {% if dropdowns['webcam'] %}
         <li>
-          <div class="dropdownlink">
-            <i class="fa fa-video leftico"></i>Webcam<i class="fa fa-chevron-right rightico" aria-hidden="true"></i>
+          <div class="accordionMenuItem dropdownLink">
+            <i class="fa fa-video leftIco"></i>
+            <div class="accordionMenuItemName">Webcam</div>
+            <i class="fa fa-chevron-right rightIco" aria-hidden="true"></i>
           </div>
           <ul class="submenuItems">
             {% for ecosystem in ecosystems %}
@@ -113,8 +126,10 @@
         {% endif %}
         {% if ecosystems %}
         <li>
-          <div class="dropdownlink">
-            <i class="fa fa-cog leftico"></i>Hardware<i class="fa fa-chevron-right rightico" aria-hidden="true"></i>
+          <div class="accordionMenuItem dropdownLink">
+            <i class="fa fa-cog leftIco"></i>
+            <div class="accordionMenuItemName">Hardware</div>
+            <i class="fa fa-chevron-right rightIco" aria-hidden="true"></i>
           </div>
           <ul class="submenuItems">
             {% for ecosystem in ecosystems %}
@@ -125,8 +140,10 @@
         {% endif %}
         {% if plants_in_wiki != [] %}
         <li>
-          <div class="dropdownlink">
-            <i class="fa fa-book-medical leftico"></i>Plant care<i class="fa fa-chevron-right rightico" aria-hidden="true"></i>
+          <div class="accordionMenuItem dropdownLink">
+            <i class="fa fa-book-medical leftIco"></i>
+            <div class="accordionMenuItemName">Plant care</div>
+            <i class="fa fa-chevron-right rightIco" aria-hidden="true"></i>
           </div>
           <ul class="submenuItems">
             <li><a href="{{url_for('main.care', species='general')}}">General</a></li>
@@ -141,8 +158,10 @@
         {% endif %}
         {% if current_user.is_administrator %}
         <li>
-          <div class="dropdownlink">
-            <i class="fa fa-user-cog leftico"></i>Admin<i class="fa fa-chevron-right rightico" aria-hidden="true"></i>
+          <div class="accordionMenuItem dropdownLink">
+            <i class="fa fa-user-cog leftIco"></i>
+            <div class="accordionMenuItemName">Admin</div>
+            <i class="fa fa-chevron-right rightIco" aria-hidden="true"></i>
           </div>
           <ul class="submenuItems">
             <li><a href="{{url_for('admin.system')}}">System</a></li>
@@ -154,30 +173,34 @@
         </li>
         {% endif %}
       </ul>
-      <div class="botbox">
+      <div class="bottomBox">
         <div><a href="{{url_for('main.about')}}" title="About the author"><i class="fa fa-address-card"></i></a></div>
         <div><a href="#" title="Preferences"><i class="fa fa-user-cog"></i></a></div>
         {% if current_user.is_administrator %}
         <div><a href="#" title="Shutdown GAIA"><i class="fa fa-power-off"></i></a></div>
         {% endif %}
       </div>
+      </div>
     </nav>
 
     <div class="rightContainer">
       {% block topbar %}
-      <div class="topbar">
-        {% if current_user.is_administrator %}
-        <p>Logged as Admin</p>
-        {% else %}
-        <p></p>
-        {% endif %}
-        <div class="push-right">
+      <div class="topBar">
+        <div class="roleInfo">
+          {% if current_user.is_administrator %}
+          Logged as Admin
+          {% endif %}
+        </div>
+        <div class="userInfo dropdown" id="userDropdown">
           {% if current_user.is_anonymous %}
           <a href="{{url_for('auth.login')}}">Log in</a>
           {% else %}
-          {{ current_user.username }}
-          <a href="{{url_for('main.user_page', username=current_user.username)}}">Profile</a>
-          <a href="{{url_for('auth.logout')}}">Log out</a>
+          <button class="dropdownButton ">{{ current_user.username }}</button>
+          <div class="dropdownContent" id="userDropdownContent">
+            <a href="{{url_for('main.user_page', username=current_user.username)}}">Profile</a>
+            <a href="{{url_for('auth.logout')}}">Log out</a>
+          </div>
+
           {% endif %}
         </div>
         <div class="warning">
@@ -193,8 +216,8 @@
       <div class="contentContainer">
         {% if self.header() %}
         <div class="topLine">
-          <h2 style="float: left">{% block header %}{% endblock %}</h2>
-          <h3 style="float: right">{% block info %}{% endblock %}</h3>
+          <h2 style="margin: auto 0 0 0">{% block header %}{% endblock %}</h2>
+          <h3 style="margin: auto 0 0 auto">{% block info %}{% endblock %}</h3>
         </div>
         {% endif %}
         {% block content %}{% endblock %}

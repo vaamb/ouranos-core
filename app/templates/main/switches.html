@@ -8,29 +8,28 @@
 
 {% block content %}
   {% for switch in switches %}
-  <div class="board" style="width: 22%">
-    <div class="boardHeader">{{ switch.capitalize() }} switch</div>
-    <div class="boardRowContainer">
-      <div style="flex-basis: 250px; min-height: 250px; position: relative; background:#F7F7F7; border:1px solid #ccc">
-        <div style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);">
-          <i class="fas fa-sync-alt" id="{{ switch }}_status" style="font-size: 165px; margin: auto"></i>
+  <div class="row">
+    <div class="board max400OnScreen">
+      <h1>{{ switch.capitalize() }} switch</h1>
+      <div class="boardRowContainer">
+        <div class="switchStatusContainer">
+          <div class="centered">
+            <i class="fas fa-sync-alt" id="{{ switch }}_status" style="font-size: 165px; margin: auto"></i>
+          </div>
         </div>
-
-      </div>
-      <div style="flex:1; flex-direction: column; display: flex; margin:auto; margin-left:7px">
-        {% if current_user.is_operator %}
-        {% for mode in modes %}
-        <button id="{{ switch }}_{{ mode }}" title="Turn {{ switch }} {{ mode }}" style="margin-bottom: 10px; font-size: 1.1em; padding: 5px 0px;">{{ mode.capitalize() }}</button>
-        {% endfor %}
-
-        {% else %}
-        {% for mode in modes %}
-        <button id="{{ switch }}_{{ mode }}" disabled title="You need to be an operator to turn {{ switch }} {{ mode }}" style="margin-bottom: 10px; font-size: 1.1em; padding: 5px 0px;">{{ mode.capitalize() }}</button>
-        {% endfor %}
-        {% endif %}
+        <div class="boardColumnContainer" style="margin: auto">
+          {% for mode in modes %}
+          {% if current_user.is_operator %}
+          <button id="{{ switch }}_{{ mode }}" title="Turn {{ switch }} {{ mode }}" style="margin-bottom: 10px; font-size: 1.1em; padding: 5px 0px;">{{ mode.capitalize() }}</button>
+          {% else %}
+          <button id="{{ switch }}_{{ mode }}" disabled title="You need to be an operator to turn {{ switch }} {{ mode }}" style="margin-bottom: 10px; font-size: 1.1em; padding: 5px 0px;">{{ mode.capitalize() }}</button>
+          {% endif %}
+          {% endfor %}
+        </div>
       </div>
     </div>
   </div>
+
 
 
   {% endfor %}
@@ -71,7 +70,6 @@
         });
         {% endfor %}
         {% endif %}
-
         {% endfor %}
     </script>
 {% endblock %}
