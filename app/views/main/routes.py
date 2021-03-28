@@ -355,12 +355,14 @@ def settings(ecosystem_name: str):
                       .filter_by(level="environment")
                       .all()
     )
-
+    hardware_dict = {
+        "Environmental sensors": environmental_sensors,
+        "Plants sensors": plants_sensors,
+        "Actuators": actuators,
+    }
     return render_template("main/settings.html", title=title,
                            ecosystem_ids=ecosystem_ids,
-                           environmental_sensors=environmental_sensors,
-                           plants_sensors=plants_sensors,
-                           actuators=actuators,
+                           hardware_dict=hardware_dict,
                            )
 
 

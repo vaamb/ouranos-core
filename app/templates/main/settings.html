@@ -4,22 +4,46 @@
 {% block info %}{% endblock %}
 
 {% block content %}
-  {% for hardware_group in [environmental_sensors, plants_sensors, actuators] %}
-    {% if hardware_group %}
+  {% for hardware_group in hardware_dict %}
+    {% if hardware_dict[hardware_group] %}
       <h3>
-        {{["Environmental sensors", "Plants sensors", "Actuators"][loop.index - 1]}}
+        {{ hardware_group }}
       </h3>
-      <p>
-        {% for hardware in hardware_group %}
-          <h4>{{ hardware.id }}</h4>
-          <p>Name: {{ hardware.name }}</p>
-          <p>Model: {{ hardware.model }}</p>
-          <p>Address: {{ hardware.address }}</p>
-          {% if hardware.last_log %}
-            <p>Last data log: {{ hardware.last_log }}</p>
-          {% endif %}
+      <table style="table-layout: fixed; width: 100%; text-align: left;">
+        <tr>
+          <th>UID</th>
+          <th>Name</th>
+          <th>Address</th>
+          <th>Type</th>
+          <th>Model</th>
+          <th>{% if hardware_group != "Actuators" %}Last log entry{% endif %}</th>
+        </tr>
+        {% for hardware in hardware_dict[hardware_group] %}
+        <tr>
+          <td>{{ hardware.id }}</td>
+          <td>{{ hardware.name }}</td>
+          <td>{{ hardware.address }}</td>
+          <td>{{ hardware.type }}</td>
+          <td>{{ hardware.model }}</td>
+          <td><span id="last_log_{{ hardware.id }}"></span></td>
+        </tr>
         {% endfor %}
-      </p>
+      </table>
     {% endif %}
   {% endfor %}
+{% endblock %}
+
+{% block scripts %}
+    <script type="text/javascript">
+      {% for hardware_group in hardware_dict %}
+      {% if hardware_dict[hardware_group] %}
+      {% for hardware in hardware_dict[hardware_group] %}
+      {% if hardware_group != "Actuators" %}
+      let lastLog_{{ hardware.id }} = new Date("{{ hardware.last_log }}");
+      $('#last_log_{{ hardware.id }}').text(lastLog_{{ hardware.id }}.toLocaleString());
+      {% endif %}
+      {% endfor %}
+      {% endif %}
+      {% endfor %}
+    </script>
 {% endblock %}
