@@ -10,11 +10,11 @@ from app.views.admin import bp
 from app.views.decorators import permission_required
 from app.views.main import layout
 from app.models import Permission, Service, System, engineManager, User
-from app.services import services_manager
+from app.services import get_manager
 
 
 def system_monitor():
-    return services_manager.services["system_monitor"]
+    return get_manager().services["system_monitor"]
 
 
 tracemalloc.start()

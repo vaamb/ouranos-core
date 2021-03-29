@@ -12,7 +12,7 @@ from app import db
 from app.dataspace import lock, sensorsData, sensorsDataHistory
 from app.models import sensorData, Ecosystem, Hardware, Health, Service, User, \
     Management, Warning_table
-from app.services import services_manager
+from app.services import get_manager
 from app.views.main import bp, layout
 from app.views.main.forms import EditProfileForm
 from app.utils import parse_sun_times
@@ -22,15 +22,15 @@ from config import Config
 
 # "Dynamic proxies" for services
 def weather_service():
-    return services_manager.services["weather"]
+    return get_manager().services["weather"]
 
 
 def sun_times_service():
-    return services_manager.services["sun_times"]
+    return get_manager().services["sun_times"]
 
 
 def system_monitor():
-    return services_manager.services["system_monitor"]
+    return get_manager().services["system_monitor"]
 
 
 @cachetools.func.ttl_cache(ttl=3)
