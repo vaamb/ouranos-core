@@ -424,7 +424,7 @@ class Health(baseHealth):
 
 
 # TODO: When problems solved, after x days: goes to archive
-class Warning(baseWarning):
+class Warning_table(baseWarning):
     __tablename__ = "warnings"
 
     # relationship

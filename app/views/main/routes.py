@@ -11,7 +11,7 @@ from flask_sqlalchemy import get_debug_queries
 from app import db
 from app.dataspace import lock, sensorsData, sensorsDataHistory
 from app.models import sensorData, Ecosystem, Hardware, Health, Service, User, \
-    Management, Warning
+    Management, Warning_table
 from app.services import services_manager
 from app.views.main import bp, layout
 from app.views.main.forms import EditProfileForm
@@ -48,11 +48,11 @@ def time_limits() -> dict:
 @cachetools.func.ttl_cache(ttl=60)
 def get_recent_warnings():
     time_limit = (datetime.now(timezone.utc) - timedelta(days=7))
-    return (Warning.query.filter(Warning.datetime >= time_limit)
-                         .filter(Warning.solved == False)
-                         .order_by(Warning.level.desc())
-                         .order_by(Warning.row_id)
-                         .all()
+    return (Warning_table.query.filter(Warning_table.datetime >= time_limit)
+            .filter(Warning_table.solved == False)
+            .order_by(Warning_table.level.desc())
+            .order_by(Warning_table.row_id)
+            .all()
             )
 
 
