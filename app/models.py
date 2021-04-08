@@ -100,7 +100,6 @@ class User(UserMixin, db.Model):
 
     # User information fields
     role_id = sa.Column(sa.Integer, sa.ForeignKey("roles.id"))
-    confirmed = sa.Column(sa.Boolean, default=False)
     firstname = sa.Column(sa.String(64))
     lastname = sa.Column(sa.String(64))
     last_seen = sa.Column(sa.DateTime, default=datetime.now(timezone.utc))
