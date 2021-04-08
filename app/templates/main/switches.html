@@ -17,12 +17,12 @@
             <i class="fas fa-sync-alt" id="{{ switch }}_status" style="font-size: 165px; margin: auto"></i>
           </div>
         </div>
-        <div class="boardColumnContainer" style="margin: auto">
+        <div class="boardColumnContainer" style="margin: auto; min-width: 0;">
           {% for mode in modes %}
           {% if current_user.is_operator %}
-          <button id="{{ switch }}_{{ mode }}" title="Turn {{ switch }} {{ mode }}" style="margin-bottom: 10px; font-size: 1.1em; padding: 5px 0px;">{{ mode.capitalize() }}</button>
+          <button id="{{ switch }}_{{ mode }}" title="Turn {{ switch }} {{ mode }}">{{ mode.capitalize() }}</button>
           {% else %}
-          <button id="{{ switch }}_{{ mode }}" disabled title="You need to be an operator to turn {{ switch }} {{ mode }}" style="margin-bottom: 10px; font-size: 1.1em; padding: 5px 0px;">{{ mode.capitalize() }}</button>
+          <button id="{{ switch }}_{{ mode }}" disabled title="You need to be an operator to turn {{ switch }} {{ mode }}">{{ mode.capitalize() }}</button>
           {% endif %}
           {% endfor %}
         </div>
