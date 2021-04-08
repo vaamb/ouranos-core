@@ -86,19 +86,29 @@ class User(UserMixin, db.Model):
     __tablename__ = "users"
     __bind_key__ = "app"
     id = sa.Column(sa.Integer, primary_key=True)
-    username = sa.Column(sa.String(64), index=True, unique=True)
+
+    # User authentication fields
     email = sa.Column(sa.String(120), index=True, unique=True)
+    confirmed = sa.Column(sa.Boolean, default=False)
+    username = sa.Column(sa.String(64), index=True, unique=True)
     password_hash = sa.Column(sa.String(128))
+
+    # User registration fields
+    token = sa.Column(sa.String(32))
+    registration_exp = sa.Column(sa.DateTime)
+    registration_datetime = sa.Column(sa.DateTime)
+
+    # User information fields
     role_id = sa.Column(sa.Integer, sa.ForeignKey("roles.id"))
     confirmed = sa.Column(sa.Boolean, default=False)
     firstname = sa.Column(sa.String(64))
     lastname = sa.Column(sa.String(64))
-    last_seen = sa.Column(sa.DateTime, default=datetime.utcnow)
+    last_seen = sa.Column(sa.DateTime, default=datetime.now(timezone.utc))
 
-    # notifications / services
+    # User notifications / services fields
     daily_recap = sa.Column(sa.Boolean, default=False)
-    daily_recap_channel_id = sa.Column(sa.Integer,
-                                       sa.ForeignKey("communication_channels.id"))
+    daily_recap_channel_id = sa.Column(
+        sa.Integer, sa.ForeignKey("communication_channels.id"))
     telegram = sa.Column(sa.Boolean, default=False)
     telegram_chat_id = sa.Column(sa.String(16), unique=True)
 
@@ -115,8 +125,8 @@ class User(UserMixin, db.Model):
                 self.role = Role.query.filter_by(default=True).first()
 
     def set_password(self, password):
-        self.password_hash = generate_password_hash(password,
-                                                    method="pbkdf2:sha256:200000")
+        self.password_hash = generate_password_hash(
+            password, method="pbkdf2:sha256:200000")
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
@@ -140,7 +150,7 @@ class User(UserMixin, db.Model):
 
 
 class AnonymousUser(AnonymousUserMixin):
-    def can(self):
+    def can(self, perm):
         return False
 
     # properties for easy jinja2 templates

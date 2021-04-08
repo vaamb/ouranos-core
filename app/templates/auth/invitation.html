@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+
+{% block body %}
+  <div class="centered">
+    <form action="" method="post" novalidate>
+      {{form.hidden_tag()}}
+      <p>
+        {{form.token.label}}<br>
+        {{form.token(size=128)}}<br>
+        {% for error in form.token.errors %}
+          <span style="color: red;">{{error}}</span>
+        {% endfor %}
+      </p>
+      <p>{{form.submit(class_="errorButton")}}</p>
+    </form>
+  </div>
+{% endblock %}

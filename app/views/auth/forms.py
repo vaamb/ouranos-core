@@ -13,6 +13,17 @@ class LoginForm(FlaskForm):
     submit = SubmitField('Sign In')
 
 
+class InvitationForm(FlaskForm):
+    token = StringField('Invitation token', validators=[DataRequired()])
+    submit = SubmitField('Validate')
+
+    def validate_token(self, token):
+        user = User.query.filter_by(registration_token=token.data).first()
+        if user is None:
+            raise ValidationError('This invitation token is not valid. '
+                                  'Please provide a different one.')
+
+
 class RegistrationForm(FlaskForm):
     firstname = StringField('First name', validators=[DataRequired()])
     lastname = StringField('Last name', validators=[DataRequired()])
@@ -41,5 +52,7 @@ class RegistrationForm(FlaskForm):
     def validate_email(self, email):
         user = User.query.filter_by(email=email.data).first()
         if user is not None:
-            raise ValidationError('This email address is already used. '
-                                  'Please provide a different one.')
+            # rem: need to push token once instantiated
+            if user.token != self.token:
+                raise ValidationError('This email address is already used. '
+                                      'Please provide a different one.')
