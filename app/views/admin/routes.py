@@ -1,20 +1,21 @@
 # -*- coding: utf-8 -*-
 from datetime import datetime, timedelta, timezone
+import secrets
 
 from flask import render_template
 from flask_login import login_required
 import tracemalloc
+from email_validator import validate_email, EmailNotValidError
 
-from app import sio
+from app import sio, services, db
 from app.views.admin import bp
 from app.views.decorators import permission_required
 from app.views.main import layout
 from app.models import Permission, Service, System, engineManager, User
-from app.services import get_manager
 
 
 def system_monitor():
-    return get_manager().services["system_monitor"]
+    return services.get_manager().services["system_monitor"]
 
 
 tracemalloc.start()
@@ -31,6 +32,38 @@ def get_system_data(days=7):
                                  System.RAM_used, System.RAM_total,
                                  System.DISK_used, System.DISK_total).all())
     return data
+
+
+def send_invitation(email_address: str,
+                    firstname: str = "",
+                    lastname: str = "",
+                    ) -> dict:
+    try:
+        email = validate_email(email_address.strip())
+    except EmailNotValidError as e:
+        return {
+            "status": "failed", "info": (email_address, firstname, lastname)
+        }
+
+    while True:
+        token = secrets.token_hex(16)
+        user = User.query.filter(User.token == token)
+        if not user:
+            break
+
+    user = User(
+        email_address=email.email,
+        token=token,
+        firstname=firstname,
+        lastname=lastname,
+    )
+
+    # TODO: send actual invitations
+    db.session.add(user)
+    db.session.commit()
+    return {
+        "status": "success", "info": (email_address, firstname, lastname, token)
+    }
 
 
 @bp.route('/admin/mem_snapshot')
@@ -110,9 +143,9 @@ def start_service(message):
     user = User.query.filter_by(id=message["user_id"]).one()
     if user.is_administrator:
         if action == "start":
-            services_manager.start_service(service)
+            services.get_manager().start_service(service)
             return
-        services_manager.stop_service(service)
+        services.get_manager().stop_service(service)
 
 
 @bp.route("/admin/engine_managers")
