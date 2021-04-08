@@ -1,4 +1,5 @@
 from datetime import datetime
+from hashlib import sha1
 
 from app.views.main import bp
 
@@ -68,3 +69,11 @@ def _translate_to_JS_bool(python_bool: bool) -> str:
         return "true"
     else:
         return "false"
+
+
+@bp.app_template_filter('hash')
+def _hash(str_to_hash: str) -> str:
+    byte_to_hash = str_to_hash.encode()
+    h = sha1()
+    h.update(byte_to_hash)
+    return h.hexdigest()
