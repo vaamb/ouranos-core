@@ -106,8 +106,17 @@ def connect_on_gaia():
 @sio.on("disconnect", namespace="/gaia")
 def disconnect():
     try:
-        uid = engineManager.query.filter_by(sid=request.sid).one().uid
+        manager = engineManager.query.filter_by(sid=request.sid).one()
+        uid = manager.uid
         leave_room("engineManagers")
+        manager.connected = False
+        db.session.commit()
+        sio.emit(
+            "ecosystem_status",
+            {ecosystem.id: {"status": ecosystem.status, "connected": False}
+             for ecosystem in manager.ecosystem},
+            namespace="/"
+        )
         sio_logger.info(f"Manager {uid} disconnected")
     except NoResultFound:
         pass
@@ -161,21 +170,23 @@ def registerManager(data):
             del client_blacklist[remote_addr]
         except KeyError:
             pass
-        sio_logger.info(f"Successful registration of manager {manager_uid}, "
-                        f"from {remote_addr}:{remote_port}")
         now = datetime.now(timezone.utc).replace(microsecond=0)
         manager = engineManager(
             uid=manager_uid,
             sid=request.sid,
+            connected=True,
             registration_date=now,
             last_seen=now,
             address=f"{remote_addr}:{remote_port}",
         )
+
         db.session.merge(manager)
         db.session.commit()
         join_room("engineManagers")
 
         sio.emit("register_ack", namespace="/gaia", room=request.sid)
+        sio_logger.info(f"Successful registration of manager {manager_uid}, "
+                        f"from {remote_addr}:{remote_port}")
         request_config(request.sid)
         request_sensors_data(request.sid)
         request_light_data(request.sid)
@@ -277,6 +288,12 @@ def update_cfg(config):
 
                     hardware.measure.append(_measure)
                 db.session.merge(hardware)
+        sio.emit(
+            "ecosystem_status",
+            {ecosystem.id: {"status": ecosystem.status, "connected": True}
+             for ecosystem in manager.ecosystem},
+            namespace="/"
+        )
         db.session.commit()
 
 
@@ -286,6 +303,7 @@ def update_sensors_data(data):
     if manager:
         sio_logger.debug(f"Received 'sensors_data' from manager: {manager.uid}")
         sensorsData.update(data)
+
         sio.emit("current_sensors_data", data, namespace="/")
 
         graph_update = {}

@@ -265,6 +265,7 @@ class engineManager(db.Model):
     __tablename__ = "engine_managers"
     uid = sa.Column(sa.String(length=16), primary_key=True)
     sid = sa.Column(sa.String(length=32))
+    connected = sa.Column(sa.Boolean)
     registration_date = sa.Column(sa.DateTime)
     last_seen = sa.Column(sa.DateTime)
     address = sa.Column(sa.String(length=24))
