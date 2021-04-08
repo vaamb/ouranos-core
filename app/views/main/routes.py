@@ -71,9 +71,9 @@ def menu_info():
         warnings = API.warnings.get_recent_warnings(db.session)
 
     return {
-        "ecosystems": ecosystems_info,
+        "ecosystems_info": ecosystems_info,
         "dropdowns": dropdowns,
-        "plants_in_wiki": plant_articles,
+        "plant_articles": plant_articles,
         "warnings": warnings,
     }
 
@@ -91,7 +91,7 @@ def home():
     light_data = API.ecosystems.get_light_info(ecosystems_qo)
     system_data = system_monitor().system_data
     return render_template("main/home.html", title="Home",
-                           weather_data=current_weather,
+                           current_weather=current_weather,
                            light_data=light_data,
                            sun_times=sun_times,
                            system_data=system_data,
@@ -127,8 +127,8 @@ def sensors(level: str, ecosystem_name: str):
     return render_template("main/sensors.html", title=title,
                            ecosystem_ids=ecosystem_ids,
                            level=level,
-                           current_data=current_sensors_data,
-                           data=historic_sensors_data,
+                           current_sensors_data=current_sensors_data,
+                           historic_sensors_data=historic_sensors_data,
                            parameters=layout.parameters,
                            )
 

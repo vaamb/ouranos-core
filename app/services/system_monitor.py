@@ -1,4 +1,3 @@
-from copy import deepcopy
 from datetime import datetime, timezone
 import logging
 import psutil
@@ -8,7 +7,6 @@ from app import app_name, scheduler, sio, START_TIME
 from app.database import out_of_Flask_data_db as db
 from app.models import System
 from app.services.template import serviceTemplate
-from app.views.views_utils import human_delta_time
 from config import Config
 
 
@@ -46,9 +44,7 @@ class systemMonitor(serviceTemplate):
 
             with lock:
                 self._data = _cache
-
-            self._data.update({"uptime": human_delta_time(
-                START_TIME, datetime.now(timezone.utc))})
+            self._data["start_time"] = START_TIME
             try:
                 sio.emit("current_server_data", self._data, namespace="/admin")
             except AttributeError as e:

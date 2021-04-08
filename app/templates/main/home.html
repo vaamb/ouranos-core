@@ -23,13 +23,13 @@
                 </div>
               </a>
             </div>
-            {% if weather_data %}
+            {% if current_weather %}
             <div class="board">
               <a href="{{ url_for('main.weather') }}">
                 <h1>Current weather</h1>
                 <div class="boardColumnContainer">
                   <!-- TODO: update weatherIcon when needed -->
-                  <div class="weatherIcon" style="height: 115px; line-height: 115px; font-size: 70px;"><i class='{{ weather_data["currently"]["icon"]|getWeatherIcon }}'></i></div>
+                  <div class="weatherIcon" style="height: 115px; line-height: 115px; font-size: 70px;"><i class='{{ current_weather["weather"]["icon"] | getWeatherIcon }}'></i></div>
                   <div class="boardSubTitle" style="flex: 2">
                     <span id="weather_summary"></span>
                   </div>
@@ -117,23 +117,23 @@
             {% endif %}
           </div>
 
-          {% if ecosystems %}
+          {% if ecosystems_info %}
           <h2>Ecosystems overview</h2>
           <div>
-            {% for ecosystem_id in ecosystems %}
+            {% for ecosystem_id in ecosystems_info %}
             <div class="board" style="min-height: 150px;">
               <h1 style="text-align: center;">
-                {{ecosystems[ecosystem_id]["name"]}} &emsp;
-                <i class="fa fa-circle {{ ecosystems[ecosystem_id]["status"] }}" style="margin-left: auto;"></i>
+                {{ecosystems_info[ecosystem_id]["name"]}} &emsp;
+                <i class="fa fa-circle" id="{{ ecosystem_id }}_status" style="margin-left: auto;"></i>
               </h1>
               <div class="boardRowContainer" style="background: #ccc;">
                 {% set any_info = False %}
-                {% if ecosystems[ecosystem_id]["lighting"] %}
+                {% if ecosystems_info[ecosystem_id]["lighting"] %}
                 {% set any_info = True %}
-                <!-- Light parameters for {{ ecosystems[ecosystem_id]["name"] }} -->
+                <!-- Light parameters for {{ ecosystems_info[ecosystem_id]["name"] }} -->
                 <div class="boardFlexItem boardColumnContainer">
                   <div class="boardSubTitle">Light</div>
-                  <div class="boardFlexItemU">Status: <i class="fas fa-sync-alt" id ={{ ecosystem_id }}_light_status></i> </div>
+                  <div class="boardFlexItemU">Status: <i class="fas fa-sync-alt" id="{{ ecosystem_id }}_light_status"></i> </div>
                   {% if light_data[ecosystem_id]["mode"] != "NA" %}
                   {% if light_data[ecosystem_id]["method"] == "fixed" %}
                   <div class="boardFlexItemU">
@@ -164,27 +164,21 @@
                 </div>
                 {% endif %}
 
-                {% if ecosystems[ecosystem_id]["env_sensors"] and current_data[ecosystem_id] %}
+                {% if ecosystems_info[ecosystem_id]["env_sensors"] and current_data[ecosystem_id] %}
                 {% set any_info = True %}
-                <!-- Environmental sensors for {{ ecosystems[ecosystem_id]["name"] }} -->
-                <div class="boardFlexItem boardColumnContainer">
-                <div class="boardSubTitle">Environment</div>
-                  {% for measure in measures[ecosystem_id]["environment"] %}
-                  <div class="boardFlexItemU">
-                    {{ measure.capitalize()|removeUnderscores }}:
-                    <span id="{{ ecosystem_id }}_{{ measure }}_avg">NA</span>{{ parameters['environment']['unit'][measure] }}
-                  </div>
-                  {% endfor %}
+                <!-- Environmental sensors for {{ ecosystems_info[ecosystem_id]["name"] }} -->
+                <div class="boardFlexItem boardColumnContainer" id="{{ ecosystem_id }}_env_sensors">
+                  <div class="boardSubTitle">Environment</div>
+                  <div id="{{ ecosystem_id }}_environment_sensors_data"></div>
                 </div>
                 {% endif %}
 
-                {% if ecosystems[ecosystem_id]["plant_sensors"] and current_data[ecosystem_id] %}
+                {% if ecosystems_info[ecosystem_id]["plant_sensors"] and current_data[ecosystem_id] %}
                 {% set any_info = True %}
-                <!-- Plants sensors for {{ ecosystems[ecosystem_id]["name"] }} -->
-                <div class="boardFlexItem boardColumnContainer">
+                <!-- Plants sensors for {{ ecosystems_info[ecosystem_id]["name"] }} -->
+                <div class="boardFlexItem boardColumnContainer" id="{{ ecosystem_id }}_env_sensors">
                   <div class="boardSubTitle">Plants</div>
-                  <div class="boardFlexItemU">TODO</div>
-                  <div class="boardFlexItemU"></div>
+                  <div id="{{ ecosystem_id }}_plants_sensors_data"></div>
                 </div>
                 {% endif %}
 
@@ -206,136 +200,243 @@
     $('#today_day').text(formattedDate);
 
     {% if sun_times %}
-    let timeSunrise = new Date("{{ sun_times["sunrise"] }}")
-    let timeSunset = new Date("{{ sun_times["sunset"] }}")
-    $('#sunrise').text(timeSunrise.toLocaleTimeString([], {timeStyle: "short"}));
-    $('#sunset').text(timeSunset.toLocaleTimeString([], {timeStyle: "short"}));
+    let sunTimes = {{ sun_times | tojson }};
+
+    function updateSunTimes() {
+      for (const sunTime in sunTimes) {
+        if (sunTimes.hasOwnProperty(sunTime)) {
+          let sunTimeDT = new Date(sunTimes[sunTime]);
+          $('#' + sunTime).text(sunTimeDT.toLocaleTimeString([], {timeStyle: "short"}));
+        }
+      }
+    }
+
+    updateSunTimes()
 
     socket.on('sun_times', function(msg) {
-      timeSunrise = new Date(msg.sunrise)
-      timeSunset = new Date(msg.sunset)
-      $('#sunrise').text(timeSunrise.toLocaleTimeString([], {timeStyle: "short"}));
-      $('#sunset').text(timeSunset.toLocaleTimeString([], {timeStyle: "short"}));
+      sunTimes = msg;
+      updateSunTimes()
     });
     {% endif %}
 
-    {% if weather_data %}
-    // Weather related spans settings and update event
-    $('#weather_summary').text('{{ weather_data["currently"]["summary"] }}');
-    $('#weather_temperature').text(Number({{ weather_data["currently"]["temperature"] }}).toFixed(1));
-    $('#weather_windSpeed').text(Number( {{weather_data["currently"]["windSpeed"] }}).toFixed(1));
-    $('#weather_precipProbability').text(Number({{ weather_data["currently"]["precipProbability"] }} * 100).toFixed(0));
-    $('#weather_humidity').text(Number({{ weather_data["currently"]["humidity"] }} * 100).toFixed(0));
-    $('#weather_cloudCover').text(Number({{ weather_data["currently"]["cloudCover"] }} * 100).toFixed(0));
+    {% if current_weather %}
+    let currentWeatherData = {{ current_weather["weather"] | tojson }};
+    const weatherDataFactors = {"temperature": 1, "windSpeed": 1, "precipProbability": 100, "humidity" : 100, "cloudCover": 100};
+
+    function updateCurrentWeatherSpans() {
+      $('#weather_summary').text(currentWeatherData["summary"]);
+      for (const parameter in weatherDataFactors) {
+        if (weatherDataFactors.hasOwnProperty(parameter)) {
+          $('#weather_' + parameter).text(Number(currentWeatherData[parameter] * weatherDataFactors[parameter]).toFixed(1));
+        }
+      }
+    }
+
+    updateCurrentWeatherSpans();
 
     socket.on('current_weather', function(msg) {
-      $('#weather_summary').text(msg.summary);
-      $('#weather_temperature').text(Number(msg.temperature).toFixed(1));
-      $('#weather_windSpeed').text(Number(msg.windSpeed).toFixed(1));
-      $('#weather_precipProbability').text(Number(msg.precipProbability * 100).toFixed(0));
-      $('#weather_humidity').text(Number(msg.humidity * 100).toFixed(0));
-      $('#weather_cloudCover').text(Number(msg.cloudCover * 100).toFixed(0));
+      currentWeatherData = msg;
+      updateCurrentWeatherSpans()
     });
     {% endif %}
 
     {% if current_user.is_administrator %}
-    // Server related spans settings and update event
-    $('#server_uptime').text('{{ system_data["uptime"] }}');
-    $('#server_CPU_used').text(Number({{ system_data["CPU_used"] }}).toFixed(2));
-    $('#server_CPU_temp').text(Number({{ system_data["CPU_temp"] }}).toFixed(2));
-    $('#server_RAM_used').text(Number({{ system_data["RAM_used"] }}).toFixed(2));
-    $('#server_RAM_total').text(Number({{ system_data["RAM_total"] }}).toFixed(2));
-    $('#server_DISK_used').text(Number({{ system_data["DISK_used"] }}).toFixed(2));
-    $('#server_DISK_total').text(Number({{ system_data["DISK_total"] }}).toFixed(2));
+    const systemDataSpans = ["CPU_temp", "RAM_used", "RAM_total", "DISK_used", "DISK_total"]
+    let systemData = {{ system_data | tojson }};
+    let systemDataCPU = [];
 
-    let server_CPU_used_values = [];
+    function updateUptime() {
+      let now = new Date();
+      let lastSeen = new Date(systemData["datetime"]);
+      let serverStartTime = new Date(systemData["start_time"]);
+      if ((now - lastSeen) > 6000) {
+        $('#server_uptime').text("Lost connection with server");
+      } else {
+        let timeDelta = serverStartTime - now;
+        let uptime = humanizeDuration(timeDelta, {
+          largest: 2, units: ['y', 'mo', 'w', 'd', 'h', 'm', 's'], maxDecimalPoints: 0, delimiter: " and "
+        });
+        $('#server_uptime').text(uptime);
+      }
+    }
+    updateUptime();
+    window.setInterval(updateUptime, 1000);
+
+    function updateSystemDataSpans() {
+      systemDataCPU.push(systemData["CPU_used"]);
+      systemDataCPU = systemDataCPU.slice(-5);
+      let systemDataCPUSum = 0;
+      for (let i = 0; i < systemDataCPU.length; i++) {
+        systemDataCPUSum += systemDataCPU[i];
+      }
+      $('#server_CPU_used').text((Math.round(10 * systemDataCPUSum /
+        systemDataCPU.length) / 10 ).toFixed(2));
+
+      for (const span of systemDataSpans) {
+        $('#server_' + span).text(Number(systemData[span]).toFixed(2));
+      }
+    }
+    updateSystemDataSpans()
 
     socketAdmin.on('current_server_data', function(msg) {
-      $('#server_uptime').text(msg.uptime);
-      $('#server_CPU_temp').text(Number(msg.CPU_temp).toFixed(2));
-      $('#server_RAM_used').text(Number(msg.RAM_used).toFixed(2));
-      $('#server_RAM_total').text(Number(msg.RAM_total).toFixed(2));
-      $('#server_DISK_used').text(Number(msg.DISK_used).toFixed(2));
-      $('#server_DISK_total').text(Number(msg.DISK_total).toFixed(2));
-
-      server_CPU_used_values.push(msg.CPU_used)
-      server_CPU_used_values = server_CPU_used_values.slice(-5);
-      let server_CPU_used_sum = 0;
-      for (i = 0; i < server_CPU_used_values.length; i++)
-          server_CPU_used_sum += server_CPU_used_values[i];
-      $('#server_CPU_used').text((Math.round(10 * server_CPU_used_sum /
-        server_CPU_used_values.length) / 10 ).toFixed(2));
+      systemData = msg;
+      updateSystemDataSpans();
     });
     {% endif %}
 
     {% if current_user.is_authenticated %}
     // Warnings
-    {% if warnings %}
-    {% for i in range(10) %}
-    {% if warnings[i] %}
-    let warning_{{ i }}_dt = new Date("{{ warnings[i].datetime }}");
-    let warning_{{ i }}_formattedDt = "".concat(warning_{{ i }}_dt.getDate(), "/", warning_{{ i }}_dt.getMonth(), " ", warning_{{ i }}_dt.toLocaleTimeString([], {timeStyle: "short"}));
-    $('#warning_{{ i }}_datetime').text(warning_{{ i }}_formattedDt);
-    {% endif %}
-    {% endfor %}
-    {% endif %}
+    warnings = {{ warnings | tojson }};
+
+    function injectWarningDT(warningDT, i) {
+      function formatWarningDT (DT) {
+        return "".concat(DT.getDate(), "/", DT.getMonth(), " ", DT.toLocaleTimeString([], {timeStyle: "short"}));
+      }
+      $('#warning_' + i + '_datetime').text(formatWarningDT(warningDT));
+    }
+
+    for (let i = 0; i < warnings.length; i++) {
+      let warningDT = new Date(warnings[i][0]);
+      injectWarningDT(warningDT, i);
+    }
     {% endif %}
 
-    {% if ecosystems %}
+    {% if ecosystems_info %}
     // Ecosystems
-    {% for ecosystem_id in ecosystems %}
-    // Ecosystem {{ ecosystem_id }}: {{ ecosystems[ecosystem_id]["name"] }}
-    // Sensors related spans settings
-    {% if current_data[ecosystem_id] %}
+    let ecosystemsData = {{ ecosystems_info | tojson }};
+    let lightsData = {{ light_data | tojson }};
+    let currentSensorsData = {{ current_data | tojson }};
+    let sensorsUnit = {
+        "environment": {{ parameters['environment']['unit'] | tojson }},
+        "plants": {{ parameters['plants']['unit'] | tojson }}
+    };
 
-    {% for measure in measures[ecosystem_id]["environment"] %}
-    let {{ ecosystem_id }}_{{ measure }} = [];
-    {% endfor %}
-
-    {% for sensor_id in current_data[ecosystem_id]["data"] %}
-    {% for measure in current_data[ecosystem_id]["data"][sensor_id] %}
-    // TODO: add plants level
-    {% if measure in measures[ecosystem_id]["environment"] %}
-    {{ ecosystem_id }}_{{ measure }}.push(
-        {{ current_data[ecosystem_id]["data"][sensor_id][measure] }});
-    {% endif %}
-    {% endfor %}
-    {% endfor %}
-
-    {% for measure in measures[ecosystem_id]["environment"] %}
-    let {{ ecosystem_id }}_{{ measure }}_sum = 0;
-    for (i = 0; i < {{ ecosystem_id }}_{{ measure }}.length; i++)
-        {{ ecosystem_id }}_{{ measure }}_sum += {{ ecosystem_id }}_{{ measure }}[i];
-    $('#{{ ecosystem_id }}_{{ measure }}_avg').text((Math.round(
-        10 * {{ ecosystem_id }}_{{ measure }}_sum /
-        {{ ecosystem_id }}_{{ measure }}.length) / 10 ).toFixed(1));
-    {% endfor %}
-    {% endif %}
-
-    // Light
-    if ({{ light_data[ecosystem_id]["status"]|toJSBool }}) {
-            $("i#{{ ecosystem_id }}_light_status").addClass("on");
-        } else {
-            $("i#{{ ecosystem_id }}_light_status").addClass("off");
+    // Ecosystems status data
+    function updateStatus() {
+      for (const ecosystem in ecosystemsData) {
+        if (ecosystemsData.hasOwnProperty(ecosystem)) {
+          // Connection influenced info
+          if (ecosystemsData[ecosystem]["connected"]) {
+            // Set up status color
+            if (ecosystemsData[ecosystem]["status"]) {
+              $('i#' + ecosystem +'_status').addClass("on").removeClass("deco");
+            } else {
+              $('i#' + ecosystem +'_status').addClass("off").removeClass("deco");
+            }
+          } else {
+            $('i#' + ecosystem +'_status').addClass("deco").removeClass("on off");
+            $('i#' + ecosystem +'_light_status').addClass("deco").removeClass("on off");
+          }
         }
-    if ("{{ light_data[ecosystem_id]["mode"] }}" == "automatic") {
-            $("i#{{ ecosystem_id }}_light_status").addClass("fa-spin");
+      }
+    }
+
+    updateStatus();
+
+    socket.on("ecosystem_status", function(msg) {
+      for (const ecosystem in msg) {
+        if (msg.hasOwnProperty(ecosystem)) {
+          Object.assign(ecosystemsData[ecosystem], msg[ecosystem]);
         }
+      }
+      updateStatus();
+    });
+
+    // Ecosystems light data
+    function updateLight() {
+      for (const ecosystem in lightsData) {
+        if (lightsData.hasOwnProperty(ecosystem)) {
+          if (ecosystemsData[ecosystem]["connected"]) {
+            if (lightsData[ecosystem]["status"]) {
+              $('i#' + ecosystem + '_light_status').addClass("on").removeClass("off deco");
+            } else {
+              $('i#' + ecosystem + '_light_status').addClass("off").removeClass("on deco");
+            }
+          }
+
+          if (lightsData[ecosystem]["mode"] === "automatic") {
+            $('i#' + ecosystem + '_light_status').addClass("fa-spin");
+          } else {
+            $('i#' + ecosystem + '_light_status').removeClass("fa-spin");
+          }
+        }
+      }
+    }
+
+    updateLight();
 
     socket.on("light_data", function(msg) {
-        if (msg.{{ ecosystem_id }}.status) {
-            $("i#{{ ecosystem_id }}_light_status").addClass("on");
-            $("i#{{ ecosystem_id }}_light_status").removeClass("off");
-        } else {
-            $("i#{{ ecosystem_id }}_light_status").addClass("off");
-            $("i#{{ ecosystem_id }}_light_status").removeClass("on");
+      for (const ecosystem in msg) {
+        if (msg.hasOwnProperty(ecosystem)) {
+          Object.assign(lightsData[ecosystem], msg[ecosystem])
         }
-        if (msg.{{ ecosystem_id }}.mode == "automatic") {
-            $("i#{{ ecosystem_id }}_light_status").addClass("fa-spin");
-        } else {
-            $("i#{{ ecosystem_id }}_light_status").removeClass("fa-spin");
-        }
+      }
+      updateLight();
     });
+
+    // Ecosystems sensors data
+    function updateCurrentSensors() {
+      for (const ecosystem in currentSensorsData) {
+        if (currentSensorsData.hasOwnProperty(ecosystem)) {
+          let store = {}
+          for (const sensor in currentSensorsData[ecosystem]["data"]) {
+            if (currentSensorsData[ecosystem]["data"].hasOwnProperty(sensor)) {
+              for (const measure in currentSensorsData[ecosystem]["data"][sensor]) {
+                if (currentSensorsData[ecosystem]["data"][sensor].hasOwnProperty(measure)) {
+                  store[measure] = store[measure] || [];
+                  store[measure].push(currentSensorsData[ecosystem]["data"][sensor][measure]);
+                }
+              }
+            }
+          }
+
+          for (const sensorLevel in sensorsUnit) {
+            if (sensorsUnit.hasOwnProperty(sensorLevel)) {
+              let newSensorsDiv = document.createElement("div");
+              let sensorsUnitSub = sensorsUnit[sensorLevel];
+
+              for (const measure in sensorsUnitSub) {
+                if (store.hasOwnProperty(measure)) {
+                  let sum = 0;
+                  for (let i = 0; i < store[measure].length; i++) {
+                    sum += store[measure][i]
+                  }
+                  let avg = (Math.round(10 * sum / store[measure].length) / 10).toFixed(1);
+
+                  let newMeasureRow = document.createElement("div");
+                  newMeasureRow.className = "boardFlexItemU";
+                  let measure_text = document.createTextNode(capitalize(measure).replace("_", " ") + ": " + avg + sensorsUnitSub[measure]);
+                  newMeasureRow.appendChild(measure_text);
+                  newSensorsDiv.appendChild(newMeasureRow);
+                }
+              }
+              let oldSensorsDiv = document.getElementById(ecosystem + "_" + sensorLevel + "_sensors_data");
+              if (oldSensorsDiv != null) {
+                newSensorsDiv.setAttribute("id", ecosystem + "_" + sensorLevel + "_sensors_data");
+                let parentDiv = oldSensorsDiv.parentNode;
+                parentDiv.replaceChild(newSensorsDiv, oldSensorsDiv);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    updateCurrentSensors();
+
+    socket.on("current_sensors_data", function(msg) {
+      for (const ecosystem in msg) {
+        if (msg.hasOwnProperty(ecosystem)) {
+          Object.assign(currentSensorsData[ecosystem], msg[ecosystem])
+        }
+      }
+      updateCurrentSensors();
+    });
+
+    // Ecosystems
+    {% for ecosystem_id in ecosystems_info %}
+    // Light
+    // TODO: move this to js
 
     {% if light_data[ecosystem_id]["mode"] != "NA" %}
     let morningStart_{{ ecosystem_id }} = new Date(
@@ -359,43 +460,8 @@
     {% endif %}
     {% endif %}
 
-    //TODO: light socketio events
-    // Plants related spans settings
-    // TODO
     {% endfor %}
 
-    // Socket.IO ecosystems event
-    socket.on('current_sensors_data', function(msg) {
-      {% for ecosystem_id in ecosystems %}
-      {% if current_data[ecosystem_id] %}
-      // Reset measure lists
-      {% for measure in measures %}
-      {{ ecosystem_id }}_{{ measure }} = [];
-      {% endfor %}
-
-      {% for sensor_id in current_data[ecosystem_id]["data"] %}
-      {% for measure in current_data[ecosystem_id]["data"][sensor_id] %}
-      // TODO: add plants level
-      {% if measure in measures[ecosystem_id]["environment"] %}
-      {{ ecosystem_id }}_{{ measure }}.push(
-        msg.{{ ecosystem_id }}.data.{{ sensor_id }}.{{ measure }}
-      );
-      {% endif %}
-      {% endfor %}
-      {% endfor %}
-
-      {% for measure in measures[ecosystem_id]["environment"] %}
-      {{ ecosystem_id }}_{{ measure }}_sum = 0;
-      for (i = 0; i < {{ ecosystem_id }}_{{ measure }}.length; i++)
-        {{ ecosystem_id }}_{{ measure }}_sum += {{ ecosystem_id }}_{{ measure }}[i];
-      $('#{{ ecosystem_id }}_{{ measure }}_avg').text((Math.round(
-        10 * {{ ecosystem_id }}_{{ measure }}_sum /
-        {{ ecosystem_id }}_{{ measure }}.length) / 10 ).toFixed(1));
-      {% endfor %}
-
-      {% endif %}
-      {% endfor %}
-    });
     {% endif %}
     </script>
 {% endblock %}

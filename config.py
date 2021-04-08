@@ -23,6 +23,7 @@ class Config:
     TESTING = False
     # Use this key just to avoid a brute attack
     SECRET_KEY = os.environ.get("SECRET_KEY") or "BXhNmCEmNdoBNngyGXj6jJtooYAcKpt6"
+    JSON_AS_ASCII = False
 
     # Logging config
     LOG_TO_STDOUT = True
@@ -52,7 +53,7 @@ class Config:
     GAIA_ADMIN = os.environ.get("GAIA_ADMIN") or privateConfig.ADMIN
     TEST_CONNECTION_IP = "1.1.1.1"
     RECAP_SENDING_HOUR = 4
-    ECOSYSTEM_TIMEOUT = 150  # in sec
+    ECOSYSTEM_TIMEOUT = 150  # in sec # Not used anymore
     WEATHER_UPDATE_PERIOD = 5  # in min
     GAIA_SECRET_KEY = os.environ.get("GAIA_SECRET_KEY") or \
                       "BXhNmCEmNdoBNngyGXj6jJtooYAcKpt6"

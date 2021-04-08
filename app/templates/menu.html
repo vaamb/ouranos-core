@@ -48,14 +48,12 @@
             <i class="fa fa-chevron-right rightIco" aria-hidden="true"></i>
           </div>
           <ul class="submenuItems">
-            {% for ecosystem in ecosystems %}
-            {% if ecosystems[ecosystem]['env_sensors'] %}
+            {% for ecosystem in dropdowns['env_sensors'] %}
               <li>
-                <a href="{{url_for('main.sensors', level="environment", ecosystem_name=ecosystems[ecosystem]["name"])}}">
-                  {{ecosystems[ecosystem]["name"]}}
+                <a href="{{ url_for('main.sensors', level="environment", ecosystem_name=ecosystem["name"]) }}">
+                  {{ ecosystem["name"] }}
                 </a>
               </li>
-            {% endif %}
             {% endfor %}
           </ul>
         </li>
@@ -68,10 +66,12 @@
             <i class="fa fa-chevron-right rightIco" aria-hidden="true"></i>
           </div>
           <ul class="submenuItems">
-            {% for ecosystem in ecosystems %}
-            {% if ecosystems[ecosystem]["plant_sensors"] %}
-              <li><a href="{{url_for('main.sensors', level="plants", ecosystem_name=ecosystems[ecosystem]["name"])}}">{{ecosystems[ecosystem]["name"]}}</a></li>
-            {% endif %}
+            {% for ecosystem in dropdowns['plant_sensors'] %}
+              <li>
+                <a href="{{ url_for('main.sensors', level="plants", ecosystem_name=ecosystem["name"]) }}">
+                  {{ ecosystem["name"] }}
+                </a>
+              </li>
             {% endfor %}
           </ul>
         </li>
@@ -84,10 +84,12 @@
             <i class="fa fa-chevron-right rightIco" aria-hidden="true"></i>
           </div>
           <ul class="submenuItems">
-            {% for ecosystem in ecosystems %}
-            {% if ecosystems[ecosystem]["health"] %}
-              <li><a href="{{url_for('main.health', ecosystem_name=ecosystems[ecosystem]["name"])}}">{{ecosystems[ecosystem]["name"]}}</a></li>
-            {% endif %}
+            {% for ecosystem in dropdowns["health"] %}
+              <li>
+                <a href="{{ url_for('main.health', ecosystem_name=ecosystem["name"]) }}">
+                  {{ ecosystem["name"] }}
+                </a>
+              </li>
             {% endfor %}
           </ul>
         </li>
@@ -100,10 +102,12 @@
             <i class="fa fa-chevron-right rightIco" aria-hidden="true"></i>
           </div>
           <ul class="submenuItems">
-            {% for ecosystem in ecosystems %}
-            {% if ecosystems[ecosystem]["switches"] %}
-              <li><a href="{{url_for('main.switches', ecosystem_name=ecosystems[ecosystem]["name"])}}">{{ecosystems[ecosystem]["name"]}}</a></li>
-            {% endif %}
+            {% for ecosystem in dropdowns['switches'] %}
+              <li>
+                <a href="{{ url_for('main.switches', ecosystem_name=ecosystem["name"]) }}">
+                  {{ ecosystem["name"] }}
+                </a>
+              </li>
             {% endfor %}
           </ul>
         </li>
@@ -116,15 +120,17 @@
             <i class="fa fa-chevron-right rightIco" aria-hidden="true"></i>
           </div>
           <ul class="submenuItems">
-            {% for ecosystem in ecosystems %}
-            {% if ecosystems[ecosystem]["webcam"] %}
-              <li><a href="#">{{ecosystems[ecosystem]["name"]}}</a></li>
-            {% endif %}
+            {% for ecosystem in dropdowns['webcam'] %}
+              <li>
+                <a href="#">
+                  {{ecosystem["name"]}}
+                </a>
+              </li>
             {% endfor %}
           </ul>
         </li>
         {% endif %}
-        {% if ecosystems %}
+        {% if ecosystems_info %}
         <li>
           <div class="accordionMenuItem dropdownLink">
             <i class="fa fa-cog leftIco"></i>
@@ -132,27 +138,27 @@
             <i class="fa fa-chevron-right rightIco" aria-hidden="true"></i>
           </div>
           <ul class="submenuItems">
-            {% for ecosystem in ecosystems %}
-            <li><a href="{{url_for('main.settings', ecosystem_name=ecosystems[ecosystem]["name"])}}">{{ecosystems[ecosystem]["name"]}}</a></li>
+            {% for ecosystem in ecosystems_info %}
+            <li>
+              <a href="{{ url_for('main.settings', ecosystem_name=ecosystems_info[ecosystem]["name"]) }}">
+                {{ ecosystems_info[ecosystem]["name"] }}
+              </a>
+            </li>
             {% endfor %}
           </ul>
         </li>
         {% endif %}
-        {% if plants_in_wiki != [] %}
+        {% if plant_articles %}
         <li>
           <div class="accordionMenuItem dropdownLink">
             <i class="fa fa-book-medical leftIco"></i>
-            <div class="accordionMenuItemName">Plant care</div>
+            <div class="accordionMenuItemName">Plants care</div>
             <i class="fa fa-chevron-right rightIco" aria-hidden="true"></i>
           </div>
           <ul class="submenuItems">
-            <li><a href="{{url_for('main.care', species='general')}}">General</a></li>
-            {% for species in plants_in_wiki %}
-            <li><a href="{{url_for('main.care', species=species)}}">{{species.capitalize()}}</a></li>
+            {% for article in plant_articles %}
+            <li><a href="{{ url_for('main.care', species=article) }}">{{ article.capitalize() }}</a></li>
             {% endfor %}
-            {% if current_user.is_authenticated %}
-            <li><a href="#"><i class="fas fa-plus"></i></a></li>
-            {% endif %}
           </ul>
         </li>
         {% endif %}
@@ -164,17 +170,17 @@
             <i class="fa fa-chevron-right rightIco" aria-hidden="true"></i>
           </div>
           <ul class="submenuItems">
-            <li><a href="{{url_for('admin.system')}}">System</a></li>
-            <li><a href="{{url_for('admin.log_home')}}">Logs</a></li>
-            <li><a href="{{url_for('admin.mem_snapshot')}}">Memory snapshot</a></li>
-            <li><a href="{{url_for('admin.services_management')}}">Services</a></li>
-            <li><a href="{{url_for('admin.engine_managers')}}">Engine managers</a></li>
+            <li><a href="{{ url_for('admin.system') }}">System</a></li>
+            <li><a href="{{ url_for('admin.log_home') }}">Logs</a></li>
+            <li><a href="{{ url_for('admin.mem_snapshot') }}">Memory snapshot</a></li>
+            <li><a href="{{ url_for('admin.services_management') }}">Services</a></li>
+            <li><a href="{{ url_for('admin.engine_managers') }}">Engine managers</a></li>
           </ul>
         </li>
         {% endif %}
       </ul>
       <div class="bottomBox">
-        <div><a href="{{url_for('main.about')}}" title="About the author"><i class="fa fa-address-card"></i></a></div>
+        <div><a href="{{ url_for('main.about') }}" title="About the author"><i class="fa fa-address-card"></i></a></div>
         <div><a href="#" title="Preferences"><i class="fa fa-user-cog"></i></a></div>
         {% if current_user.is_administrator %}
         <div><a href="#" title="Shutdown GAIA"><i class="fa fa-power-off"></i></a></div>
@@ -193,12 +199,16 @@
         </div>
         <div class="userInfo dropdown" id="userDropdown">
           {% if current_user.is_anonymous %}
-          <a href="{{url_for('auth.login')}}">Log in</a>
+          <a href="{{ url_for('auth.login') }}">
+            <div class="centered" style="position: relative">
+              Log in
+            </div>
+          </a>
           {% else %}
           <button class="dropdownButton ">{{ current_user.username }}</button>
           <div class="dropdownContent" id="userDropdownContent">
-            <a href="{{url_for('main.user_page', username=current_user.username)}}">Profile</a>
-            <a href="{{url_for('auth.logout')}}">Log out</a>
+            <a href="{{ url_for('main.user_page', username=current_user.username) }}">Profile</a>
+            <a href="{{ url_for('auth.logout') }}">Log out</a>
           </div>
 
           {% endif %}
@@ -206,7 +216,7 @@
         <div class="warning">
           {% if current_user.is_authenticated %}
           {% if warnings %}
-          <a href="{{url_for('main.warnings_list')}}">
+          <a href="{{ url_for('main.warnings_list') }}">
             <i class="fas fa-exclamation-triangle"></i>
           </a>
           {% endif %}
@@ -216,13 +226,12 @@
       <div class="contentContainer">
         {% if self.header() %}
         <div class="topLine">
-          <h2 style="margin: auto 0 0 0">{% block header %}{% endblock %}</h2>
+          <h1 style="margin: auto 0 0 0">{% block header %}{% endblock %}</h1>
           <h3 style="margin: auto 0 0 auto">{% block info %}{% endblock %}</h3>
         </div>
         {% endif %}
         {% block content %}{% endblock %}
       </div>
       {% endblock %}
-    </div>
     </div>
 {% endblock %}
