@@ -2,24 +2,24 @@
 
 {% block header %}{{ level.capitalize() }} sensors in {{ ecosystem_ids[1] }}{% endblock %}
 {% block info %}
-{% if current_data[ecosystem_ids[0]] %}
+{% if current_sensors_data[ecosystem_ids[0]] %}
 Last sensors measure at <span id="currentDatetime"></span>
 {% endif %}
 {% endblock %}
 
 {% block content %}
   <div class="subtitleFix"></div>
-  {% for measure in data[ecosystem_ids[0]] %}
+  {% for measure in historic_sensors_data[ecosystem_ids[0]]["data"] %}
     <h2>{{ measure.capitalize()|removeUnderscores }}</h2>
-    {% for sensor_id in data[ecosystem_ids[0]][measure] %}
-      {% if data[ecosystem_ids[0]][measure][sensor_id]["values"]|length > 3 %}
+    {% for sensor_id in historic_sensors_data[ecosystem_ids[0]]["data"][measure] %}
+      {% if historic_sensors_data[ecosystem_ids[0]]["data"][measure][sensor_id]["values"]|length > 3 %}
       <div class="board" style="/*height: 230px;*/">
         <h1>
             <i class="{{ parameters[level]["icon"][measure] }} leftIco"></i>
-            {{ data[ecosystem_ids[0]][measure][sensor_id]["name"] }}
+            {{ historic_sensors_data[ecosystem_ids[0]]["data"][measure][sensor_id]["name"] }}
         </h1>
         <div class="boardRowContainer" style="min-height: 183px; row-gap: 6px"> <!--<div class="boardRowContainer" style="height: 183px;">-->
-          {% if current_data[ecosystem_ids[0]] %}
+          {% if current_sensors_data[ecosystem_ids[0]] %}
           <div class="boardColumnContainer max250OnScreen" style="min-width: 225px; flex:1">
             <div class="gaugeContainer">
               <canvas id="Gauge{{ measure.capitalize() }}_{{ sensor_id }}"></canvas>
@@ -38,7 +38,7 @@ Last sensors measure at <span id="currentDatetime"></span>
 
       {% else %}
         <p>
-          Sorry, GAIA does not have enough {{ measure|removeUnderscores }} data from {{ data[ecosystem_ids[0]][measure][sensor_id]["name"] }}
+          Sorry, GAIA does not have enough {{ measure|removeUnderscores }} data from {{ historic_sensors_data[ecosystem_ids[0]]["data"][measure][sensor_id]["name"] }}
           to build a nice graph yet. Come back later to see your graph.
         </p>
       {% endif %}
@@ -48,19 +48,19 @@ Last sensors measure at <span id="currentDatetime"></span>
 
 {% block scripts %}
     <script type="text/javascript">
-    {% if current_data[ecosystem_ids[0]] %}
+    {% if current_sensors_data[ecosystem_ids[0]] %}
     // Get last sensors measure time
-    let currentDatetime = new Date('{{ current_data[ecosystem_ids[0]]["datetime"] }}');
+    let currentDatetime = new Date('{{ current_sensors_data[ecosystem_ids[0]]["datetime"] }}');
     $('#currentDatetime').text(currentDatetime.toLocaleTimeString());
     {%  endif %}
 
     // Generate Data spans, Gauges and Charts
-    {% for measure in data[ecosystem_ids[0]] %}
-    {% for sensor_id in data[ecosystem_ids[0]][measure] %}
-    {% if current_data[ecosystem_ids[0]] %}
+    {% for measure in historic_sensors_data[ecosystem_ids[0]]["data"] %}
+    {% for sensor_id in historic_sensors_data[ecosystem_ids[0]]["data"][measure] %}
+    {% if current_sensors_data[ecosystem_ids[0]] %}
 
     let currentData{{ measure.capitalize() }}_{{ sensor_id }} = Number(
-        {{ current_data[ecosystem_ids[0]]["data"][sensor_id][measure] }}).toFixed(1);
+        {{ current_sensors_data[ecosystem_ids[0]]["data"][sensor_id][measure] }}).toFixed(1);
     $('#currentData{{ measure.capitalize() }}_{{ sensor_id }}').text(currentData{{ measure.capitalize() }}_{{ sensor_id }});
 
     const gaugeOpts{{ measure.capitalize() }}_{{ sensor_id }} = {
@@ -95,13 +95,13 @@ Last sensors measure at <span id="currentDatetime"></span>
     var ChartData{{ measure.capitalize() }}_{{ sensor_id }} = {
       labels: [
         //formatting as ISO but with utc timezone added
-        {% for item in data[ecosystem_ids[0]][measure][sensor_id]["values"] %}
+        {% for item in historic_sensors_data[ecosystem_ids[0]]["data"][measure][sensor_id]["values"] %}
           new Date("{{ (item[0]).strftime("%Y-%m-%dT%H:%M:%SZ") }}"),
         {% endfor %}
       ],
       datasets: [{
         label: "{{measure.capitalize()}}",
-        data: [{% for item in data[ecosystem_ids[0]][measure][sensor_id]["values"] %}
+        data: [{% for item in historic_sensors_data[ecosystem_ids[0]]["data"][measure][sensor_id]["values"] %}
                  Number({{ item[1] }}).toFixed(1),
                {% endfor %}],
         backgroundColor: 'rgba(255,255,255,0)',
@@ -148,14 +148,14 @@ Last sensors measure at <span id="currentDatetime"></span>
     {% endfor %}
     {% endfor %}
 
-    {% if current_data[ecosystem_ids[0]] %}
+    {% if current_sensors_data[ecosystem_ids[0]] %}
     socket.on('current_sensors_data', function(msg) {
       // Update last sensors measure time
       let currentDatetime = new Date(msg.{{ ecosystem_ids[0] }}.datetime);
       $('#currentDatetime').text(currentDatetime.toLocaleTimeString());
       // Update Data spans and Gauges
-      {% for measure in data[ecosystem_ids[0]] %}
-      {% for sensor_id in data[ecosystem_ids[0]][measure] %}
+      {% for measure in historic_sensors_data[ecosystem_ids[0]]["data"] %}
+      {% for sensor_id in historic_sensors_data[ecosystem_ids[0]]["data"][measure] %}
       currentData{{ measure.capitalize() }}_{{ sensor_id }} = Number(
         msg.{{ ecosystem_ids[0] }}.data.{{ sensor_id }}.{{ measure }}
       ).toFixed(1);
@@ -176,8 +176,8 @@ Last sensors measure at <span id="currentDatetime"></span>
       dataWindowLimit.setDate(lastUpdateTime.getDate() - dayWindow);
 
       // Update Charts
-      {% for measure in data[ecosystem_ids[0]] %}
-      {% for sensor_id in data[ecosystem_ids[0]][measure] %}
+      {% for measure in historic_sensors_data[ecosystem_ids[0]]["data"] %}
+      {% for sensor_id in historic_sensors_data[ecosystem_ids[0]]["data"][measure] %}
       // Push new data for Measure: {{ measure }} - Sensor: {{ sensor_id }}
       ChartData{{ measure.capitalize() }}_{{ sensor_id }}.labels.push(lastUpdateTime);
       ChartData{{ measure.capitalize() }}_{{ sensor_id }}.datasets[0].data.push(
