@@ -89,6 +89,4 @@ def start() -> None:
 
 
 def get_manager():
-    if not services_manager:
-        start()
     return services_manager
