@@ -20,7 +20,7 @@
     </h1>
     <div class="boardRowContainer" style="min-height: 268px; row-gap: 6px">
       <div class="boardColumnContainer max250OnScreen" style="min-width: 225px; flex:1">
-        <div class="boardSubTitle"><span id="today_day"></span></div>
+        <div class="boardSubTitle"><span id="today_date"></span></div>
         <div class="boardFlexItemU"><span id="today_temperature"></span>°C</div>
         <div class="weatherIcon" style="height: 115px; line-height: 115px; font-size: 70px;"><i class="{{weather_data['currently']['icon']|getWeatherIcon}}"></i></div>
         <div class="boardFlexItemU" style="flex: 2"><span id="today_summary"></span></div>
@@ -69,7 +69,6 @@
   <script type="text/javascript">
     let updateTime = new Date({{ weather_data['currently']['time'] }} * 1000);
     $('#update_time').text(updateTime.toLocaleTimeString([], {timeStyle: "short"}));
-    $('#today_day').text(formattedDate);
     $('#today_temperature').text(Number({{ weather_data["currently"]["temperature"] }}).toFixed(1));
     $('#today_summary').text('{{weather_data["currently"]["summary"]}}');
     $('#today_windSpeed').text(Number({{ weather_data["currently"]["windSpeed"] }}).toFixed(2));
@@ -80,7 +79,6 @@
     socket.on('current_weather', function(msg) {
       updateTime = new Date(msg.time * 1000);
       $('#update_time').text(updateTime.toLocaleTimeString([], {timeStyle: "short"}));
-      $('#today_day').text(formattedDate);
       $('#today_temperature').text(Number(msg.temperature).toFixed(1));
       $('#today_summary').text(msg.summary);
       $('#today_windSpeed').text(Number(msg.windSpeed).toFixed(2));

@@ -12,7 +12,7 @@
                 <h1>Calendar</h1>
                 <div class="boardColumnContainer">
                   <div class="boardSubTitle">
-                    <span id="today_day"></span>
+                    <span id="today_date"></span>
                   </div>
                   {% if sun_times %}
                   <div class="boardFlexItemU">
@@ -197,7 +197,7 @@
 
 {% block scripts %}
     <script type="text/javascript">
-    $('#today_day').text(formattedDate);
+
 
     {% if sun_times %}
     let sunTimes = {{ sun_times | tojson }};
