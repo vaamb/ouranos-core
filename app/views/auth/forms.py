@@ -18,7 +18,7 @@ class InvitationForm(FlaskForm):
     submit = SubmitField('Validate')
 
     def validate_token(self, token):
-        user = User.query.filter_by(registration_token=token.data).first()
+        user = User.query.filter_by(token=token.data).first()
         if user is None:
             raise ValidationError('This invitation token is not valid. '
                                   'Please provide a different one.')
