@@ -381,22 +381,24 @@
                 newDiv.appendChild(newLightRow);
               }
             }
-          } else if (
-            lightsData[ecosystem]["lighting_hours"]["morning"]["start"] &&
-            lightsData[ecosystem]["lighting_hours"]["evening"]["end"]
-          ) {
-            const morningStart = new Date(lightsData[ecosystem]["lighting_hours"]["morning"]["start"]);
-            const eveningEnd = new Date(lightsData[ecosystem]["lighting_hours"]["evening"]["end"]);
-            if (morningStart < eveningEnd) {
-              let newLightRow = document.createElement("div");
-              newLightRow.className = "boardFlexItemU";
-              newLightRow.appendChild(
-                document.createTextNode(
-                  "Lighting from " + morningStart.toLocaleTimeString([], {timeStyle: "short"}) +
-                    " to " +   eveningEnd.toLocaleTimeString([], {timeStyle: "short"})
-                )
-              );
+          } else if (lightsData[ecosystem]["method"] === "fixed") {
+            if (
+              lightsData[ecosystem]["lighting_hours"]["morning"]["start"] &&
+              lightsData[ecosystem]["lighting_hours"]["evening"]["end"]
+            ) {
+              const morningStart = new Date(lightsData[ecosystem]["lighting_hours"]["morning"]["start"]);
+              const eveningEnd = new Date(lightsData[ecosystem]["lighting_hours"]["evening"]["end"]);
+              if (morningStart < eveningEnd) {
+                let newLightRow = document.createElement("div");
+                newLightRow.className = "boardFlexItemU";
+                newLightRow.appendChild(
+                  document.createTextNode(
+                    "Lighting from " + morningStart.toLocaleTimeString([], {timeStyle: "short"}) +
+                      " to " +   eveningEnd.toLocaleTimeString([], {timeStyle: "short"})
+                  )
+                );
               newDiv.appendChild(newLightRow);
+              }
             }
           }
           let oldDiv = document.getElementById(ecosystem + "_light_info");
@@ -405,7 +407,6 @@
             let parentDiv = oldDiv.parentNode;
             parentDiv.replaceChild(newDiv, oldDiv);
           }
-          console.log(newDiv)
         }
       }
     }
