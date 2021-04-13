@@ -131,55 +131,19 @@
                 {% if ecosystems_info[ecosystem_id]["lighting"] %}
                 {% set any_info = True %}
                 <!-- Light parameters for {{ ecosystems_info[ecosystem_id]["name"] }} -->
-                <div class="boardFlexItem boardColumnContainer">
-                  <div class="boardSubTitle">Light</div>
-                  <div class="boardFlexItemU">Status: <i class="fas fa-sync-alt" id="{{ ecosystem_id }}_light_status"></i> </div>
-                  {% if light_data[ecosystem_id]["mode"] != "NA" %}
-                  {% if light_data[ecosystem_id]["method"] == "fixed" %}
-                  <div class="boardFlexItemU">
-                    Light: from <span id="lightMorningStart_{{ ecosystem_id }}"></span>
-                    to <span id="lightEveningEnd_{{ ecosystem_id }}"></span>
-                  </div>
-                  {% elif light_data[ecosystem_id]["method"] == "elongate" %}
-                  <div class="boardFlexItemU">
-                    Morning light:
-                    {% if light_data[ecosystem_id]["morning_start"] < light_data[ecosystem_id]["morning_end"] %}
-                    from <span id="lightMorningStart_{{ ecosystem_id }}"></span>
-                    to <span id="lightMorningEnd_{{ ecosystem_id }}"></span>
-                    {% else %}
-                    no lighting
-                    {% endif %}
-                  </div>
-                  <div class="boardFlexItemU">
-                    Evening light:
-                    {% if light_data[ecosystem_id]["evening_start"] < light_data[ecosystem_id]["evening_end"] %}
-                    from <span id="lightEveningStart_{{ ecosystem_id }}"></span>
-                    to <span id="lightEveningEnd_{{ ecosystem_id }}"></span>
-                    {% else %}
-                    no lighting
-                    {% endif %}
-                  </div>
-                  {% endif %}
-                  {% endif %}
-                </div>
+                <div class="boardFlexItem boardColumnContainer" id="{{ ecosystem_id }}_light_info"></div>
                 {% endif %}
 
                 {% if ecosystems_info[ecosystem_id]["env_sensors"] and current_data[ecosystem_id] %}
                 {% set any_info = True %}
                 <!-- Environmental sensors for {{ ecosystems_info[ecosystem_id]["name"] }} -->
-                <div class="boardFlexItem boardColumnContainer" id="{{ ecosystem_id }}_env_sensors">
-                  <div class="boardSubTitle">Environment</div>
-                  <div id="{{ ecosystem_id }}_environment_sensors_data"></div>
-                </div>
+                <div class="boardFlexItem boardColumnContainer" id="{{ ecosystem_id }}_environment_sensors"></div>
                 {% endif %}
 
                 {% if ecosystems_info[ecosystem_id]["plant_sensors"] and current_data[ecosystem_id] %}
                 {% set any_info = True %}
                 <!-- Plants sensors for {{ ecosystems_info[ecosystem_id]["name"] }} -->
-                <div class="boardFlexItem boardColumnContainer" id="{{ ecosystem_id }}_env_sensors">
-                  <div class="boardSubTitle">Plants</div>
-                  <div id="{{ ecosystem_id }}_plants_sensors_data"></div>
-                </div>
+                <div class="boardFlexItem boardColumnContainer" id="{{ ecosystem_id }}_plants_sensors"></div>
                 {% endif %}
 
                 {% if not any_info %}
@@ -197,9 +161,8 @@
 
 {% block scripts %}
     <script type="text/javascript">
-
-
     {% if sun_times %}
+    // Calendar box
     let sunTimes = {{ sun_times | tojson }};
 
     function updateSunTimes() {
@@ -220,6 +183,7 @@
     {% endif %}
 
     {% if current_weather %}
+    // Weather box
     let currentWeatherData = {{ current_weather["weather"] | tojson }};
     const weatherDataFactors = {"temperature": 1, "windSpeed": 1, "precipProbability": 100, "humidity" : 100, "cloudCover": 100};
 
@@ -241,6 +205,7 @@
     {% endif %}
 
     {% if current_user.is_administrator %}
+    // Server box
     const systemDataSpans = ["CPU_temp", "RAM_used", "RAM_total", "DISK_used", "DISK_total"]
     let systemData = {{ system_data | tojson }};
     let systemDataCPU = [];
@@ -285,7 +250,7 @@
     {% endif %}
 
     {% if current_user.is_authenticated %}
-    // Warnings
+    // Warnings box
     warnings = {{ warnings | tojson }};
 
     function injectWarningDT(warningDT, i) {
@@ -302,7 +267,7 @@
     {% endif %}
 
     {% if ecosystems_info %}
-    // Ecosystems
+    // Ecosystems box
     let ecosystemsData = {{ ecosystems_info | tojson }};
     let lightsData = {{ light_data | tojson }};
     let currentSensorsData = {{ current_data | tojson }};
@@ -346,19 +311,101 @@
     function updateLight() {
       for (const ecosystem in lightsData) {
         if (lightsData.hasOwnProperty(ecosystem)) {
+          // Create light div
+          let newDiv = document.createElement("div");
+          newDiv.className = "boardFlexItem boardColumnContainer";
+          let subTitle = document.createElement("div");
+          subTitle.className = "boardSubTitle";
+          subTitle.appendChild(
+            document.createTextNode("Light")
+          );
+          newDiv.appendChild(subTitle);
+          // Add status row with icon
+          let statusRow = document.createElement("div");
+          statusRow.className = "boardFlexItemU";
+          statusRow.appendChild(
+            document.createTextNode("Status: ")
+          );
+          let statusIcon = document.createElement("i");
+          statusIcon.className = "fas fa-sync-alt";
+          statusIcon.setAttribute("id", ecosystem + "_light_status");
+
+          // Add required classes for status icon
           if (ecosystemsData[ecosystem]["connected"]) {
             if (lightsData[ecosystem]["status"]) {
-              $('i#' + ecosystem + '_light_status').addClass("on").removeClass("off deco");
+              statusIcon.classList.add("on");
             } else {
-              $('i#' + ecosystem + '_light_status').addClass("off").removeClass("on deco");
+              statusIcon.classList.add("off");
             }
           }
 
           if (lightsData[ecosystem]["mode"] === "automatic") {
-            $('i#' + ecosystem + '_light_status').addClass("fa-spin");
+            statusIcon.classList.add("fa-spin");
           } else {
-            $('i#' + ecosystem + '_light_status').removeClass("fa-spin");
           }
+          statusRow.appendChild(statusIcon);
+          newDiv.appendChild(statusRow);
+
+
+
+          if (["elongate", "mimic"].includes(lightsData[ecosystem]["method"])) {
+            if (lightsData[ecosystem]["lighting_hours"]["morning"]["start"] &&
+                lightsData[ecosystem]["lighting_hours"]["morning"]["end"]) {
+              const morningStart = new Date(lightsData[ecosystem]["lighting_hours"]["morning"]["start"]);
+              const morningEnd = new Date(lightsData[ecosystem]["lighting_hours"]["morning"]["end"]);
+              if (morningStart < morningEnd) {
+                let newLightRow = document.createElement("div");
+                newLightRow.className = "boardFlexItemU";
+                newLightRow.appendChild(
+                  document.createTextNode(
+                    "Morning lighting from " + morningStart.toLocaleTimeString([], {timeStyle: "short"}) +
+                      " to " +   morningEnd.toLocaleTimeString([], {timeStyle: "short"})
+                  )
+                );
+                newDiv.appendChild(newLightRow);
+              }
+            }
+            if (lightsData[ecosystem]["lighting_hours"]["evening"]["start"] &&
+                lightsData[ecosystem]["lighting_hours"]["evening"]["end"]) {
+              const eveningStart = new Date(lightsData[ecosystem]["lighting_hours"]["evening"]["start"]);
+              const eveningEnd = new Date(lightsData[ecosystem]["lighting_hours"]["evening"]["end"]);
+              if (eveningStart < eveningEnd) {
+                let newLightRow = document.createElement("div");
+                newLightRow.className = "boardFlexItemU";
+                newLightRow.appendChild(
+                  document.createTextNode(
+                    "Evening lighting from " + eveningStart.toLocaleTimeString([], {timeStyle: "short"}) +
+                      " to " +   eveningEnd.toLocaleTimeString([], {timeStyle: "short"})
+                  )
+                );
+                newDiv.appendChild(newLightRow);
+              }
+            }
+          } else if (
+            lightsData[ecosystem]["lighting_hours"]["morning"]["start"] &&
+            lightsData[ecosystem]["lighting_hours"]["evening"]["end"]
+          ) {
+            const morningStart = new Date(lightsData[ecosystem]["lighting_hours"]["morning"]["start"]);
+            const eveningEnd = new Date(lightsData[ecosystem]["lighting_hours"]["evening"]["end"]);
+            if (morningStart < eveningEnd) {
+              let newLightRow = document.createElement("div");
+              newLightRow.className = "boardFlexItemU";
+              newLightRow.appendChild(
+                document.createTextNode(
+                  "Lighting from " + morningStart.toLocaleTimeString([], {timeStyle: "short"}) +
+                    " to " +   eveningEnd.toLocaleTimeString([], {timeStyle: "short"})
+                )
+              );
+              newDiv.appendChild(newLightRow);
+            }
+          }
+          let oldDiv = document.getElementById(ecosystem + "_light_info");
+          if (oldDiv != null) {
+            newDiv.setAttribute("id", ecosystem + "_light_info");
+            let parentDiv = oldDiv.parentNode;
+            parentDiv.replaceChild(newDiv, oldDiv);
+          }
+          console.log(newDiv)
         }
       }
     }
@@ -392,8 +439,17 @@
 
           for (const sensorLevel in sensorsUnit) {
             if (sensorsUnit.hasOwnProperty(sensorLevel)) {
-              let newSensorsDiv = document.createElement("div");
               let sensorsUnitSub = sensorsUnit[sensorLevel];
+
+              let newSensorsDiv = document.createElement("div");
+              newSensorsDiv.className = "boardFlexItem boardColumnContainer";
+              let subTitle = document.createElement("div");
+              subTitle.className = "boardSubTitle";
+              subTitle.appendChild(
+                document.createTextNode(capitalize(sensorLevel))
+              );
+              newSensorsDiv.appendChild(subTitle);
+
 
               for (const measure in sensorsUnitSub) {
                 if (store.hasOwnProperty(measure)) {
@@ -410,9 +466,9 @@
                   newSensorsDiv.appendChild(newMeasureRow);
                 }
               }
-              let oldSensorsDiv = document.getElementById(ecosystem + "_" + sensorLevel + "_sensors_data");
+              let oldSensorsDiv = document.getElementById(ecosystem + "_" + sensorLevel + "_sensors");
               if (oldSensorsDiv != null) {
-                newSensorsDiv.setAttribute("id", ecosystem + "_" + sensorLevel + "_sensors_data");
+                newSensorsDiv.setAttribute("id", ecosystem + "_" + sensorLevel + "_sensors");
                 let parentDiv = oldSensorsDiv.parentNode;
                 parentDiv.replaceChild(newSensorsDiv, oldSensorsDiv);
               }
@@ -432,36 +488,6 @@
       }
       updateCurrentSensors();
     });
-
-    // Ecosystems
-    {% for ecosystem_id in ecosystems_info %}
-    // Light
-    // TODO: move this to js
-
-    {% if light_data[ecosystem_id]["mode"] != "NA" %}
-    let morningStart_{{ ecosystem_id }} = new Date(
-      "{{ light_data[ecosystem_id]["morning_start"] }}")
-    let eveningEnd_{{ ecosystem_id }} = new Date(
-      "{{ light_data[ecosystem_id]["evening_end"] }}")
-    $('#lightMorningStart_{{ ecosystem_id }}').text(
-      morningStart_{{ ecosystem_id }}.toLocaleTimeString([], {timeStyle: "short"}));
-    $('#lightEveningEnd_{{ ecosystem_id }}').text(
-      eveningEnd_{{ ecosystem_id }}.toLocaleTimeString([], {timeStyle: "short"}));
-
-    {% if light_data[ecosystem_id]["method"] == "elongate" %}
-    let morningEnd_{{ ecosystem_id }} = new Date(
-      "{{ light_data[ecosystem_id]["morning_end"] }}")
-    let eveningStart_{{ ecosystem_id }} = new Date(
-      "{{ light_data[ecosystem_id]["evening_start"] }}")
-    $('#lightMorningEnd_{{ ecosystem_id }}').text(
-      morningEnd_{{ ecosystem_id }}.toLocaleTimeString([], {timeStyle: "short"}));
-    $('#lightEveningStart_{{ ecosystem_id }}').text(
-      eveningStart_{{ ecosystem_id }}.toLocaleTimeString([], {timeStyle: "short"}));
-    {% endif %}
-    {% endif %}
-
-    {% endfor %}
-
     {% endif %}
     </script>
 {% endblock %}
