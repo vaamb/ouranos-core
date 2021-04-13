@@ -126,33 +126,7 @@
                 {{ecosystems_info[ecosystem_id]["name"]}} &emsp;
                 <i class="fa fa-circle" id="{{ ecosystem_id }}_status" style="margin-left: auto;"></i>
               </h1>
-              <div class="boardRowContainer" style="background: #ccc;">
-                {% set any_info = False %}
-                {% if ecosystems_info[ecosystem_id]["lighting"] %}
-                {% set any_info = True %}
-                <!-- Light parameters for {{ ecosystems_info[ecosystem_id]["name"] }} -->
-                <div class="boardFlexItem boardColumnContainer" id="{{ ecosystem_id }}_light_info"></div>
-                {% endif %}
-
-                {% if ecosystems_info[ecosystem_id]["env_sensors"] and current_data[ecosystem_id] %}
-                {% set any_info = True %}
-                <!-- Environmental sensors for {{ ecosystems_info[ecosystem_id]["name"] }} -->
-                <div class="boardFlexItem boardColumnContainer" id="{{ ecosystem_id }}_environment_sensors"></div>
-                {% endif %}
-
-                {% if ecosystems_info[ecosystem_id]["plant_sensors"] and current_data[ecosystem_id] %}
-                {% set any_info = True %}
-                <!-- Plants sensors for {{ ecosystems_info[ecosystem_id]["name"] }} -->
-                <div class="boardFlexItem boardColumnContainer" id="{{ ecosystem_id }}_plants_sensors"></div>
-                {% endif %}
-
-                {% if not any_info %}
-                <div class="boardFlexItem boardColumnContainer">
-                  <div class="boardSubTitle">TODO</div>
-                  <div class="boardFlexItemU">Display info when nothing's available</div>
-                </div>
-                {% endif %}
-              </div>
+              <div class="boardRowContainer" id="{{ ecosystem_id }}_info" style="background: #ccc;"></div>
             </div>
             {% endfor %}
             {% endif %}
@@ -268,6 +242,7 @@
 
     {% if ecosystems_info %}
     // Ecosystems box
+    let subBoxesOrder = ["light", "environment", "plants"];
     let ecosystemsData = {{ ecosystems_info | tojson }};
     let lightsData = {{ light_data | tojson }};
     let currentSensorsData = {{ current_data | tojson }};
@@ -276,172 +251,191 @@
         "plants": {{ parameters['plants']['unit'] | tojson }}
     };
 
-    // Ecosystems status data
-    function updateStatus() {
-      for (const ecosystem in ecosystemsData) {
-        if (ecosystemsData.hasOwnProperty(ecosystem)) {
-          // Connection influenced info
-          if (ecosystemsData[ecosystem]["connected"]) {
-            // Set up status color
-            if (ecosystemsData[ecosystem]["status"]) {
-              $('i#' + ecosystem +'_status').addClass("on").removeClass("deco");
-            } else {
-              $('i#' + ecosystem +'_status').addClass("off").removeClass("deco");
-            }
-          } else {
-            $('i#' + ecosystem +'_status').addClass("deco").removeClass("on off");
-            $('i#' + ecosystem +'_light_status').addClass("deco").removeClass("on off");
-          }
+    function fillIfEmpty(ecosystem) {
+      let parentDiv = document.getElementById(ecosystem + "_info");
+      if (! parentDiv.hasChildNodes()) {
+        let newDiv = document.createElement("div");
+        newDiv.className = "boardFlexItem boardColumnContainer";
+        newDiv.setAttribute("id", ecosystem + "_fill_box");
+        let subTitle = document.createElement("div");
+        subTitle.className = "boardSubTitle";
+        subTitle.appendChild(
+        document.createTextNode("TODO")
+        );
+        newDiv.appendChild(subTitle);
+        // Add status row with icon
+        let fillRow = document.createElement("div");
+        fillRow.className = "boardFlexItemU";
+        fillRow.appendChild(
+          document.createTextNode("Display info when nothing's available")
+        );
+        newDiv.appendChild(fillRow);
+        parentDiv.appendChild(newDiv)
+      } else {
+        let oldDiv = document.getElementById(ecosystem + "_fill_box");
+        if (oldDiv != null) {
+          parentDiv.removeChild(oldDiv)
         }
       }
     }
 
-    updateStatus();
+    // Ecosystems status data
+    function updateStatus(ecosystem) {
+      // Connection influenced info
+      if (ecosystemsData[ecosystem]["connected"]) {
+        // Set up status color
+        if (ecosystemsData[ecosystem]["status"]) {
+          $('i#' + ecosystem +'_status').addClass("on").removeClass("deco");
+        } else {
+          $('i#' + ecosystem +'_status').addClass("off").removeClass("deco");
+        }
+      } else {
+        $('i#' + ecosystem +'_status').addClass("deco").removeClass("on off");
+        $('i#' + ecosystem +'_light_status').addClass("deco").removeClass("on off");
+      }
+    }
 
     socket.on("ecosystem_status", function(msg) {
       for (const ecosystem in msg) {
         if (msg.hasOwnProperty(ecosystem)) {
           Object.assign(ecosystemsData[ecosystem], msg[ecosystem]);
+          updateStatus(ecosystem);
+          fillIfEmpty(ecosystem);
         }
       }
-      updateStatus();
     });
 
     // Ecosystems light data
-    function updateLight() {
-      for (const ecosystem in lightsData) {
-        if (lightsData.hasOwnProperty(ecosystem)) {
-          // Create light div
-          let newDiv = document.createElement("div");
-          newDiv.className = "boardFlexItem boardColumnContainer";
-          let subTitle = document.createElement("div");
-          subTitle.className = "boardSubTitle";
-          subTitle.appendChild(
-            document.createTextNode("Light")
-          );
-          newDiv.appendChild(subTitle);
-          // Add status row with icon
-          let statusRow = document.createElement("div");
-          statusRow.className = "boardFlexItemU";
-          statusRow.appendChild(
-            document.createTextNode("Status: ")
-          );
-          let statusIcon = document.createElement("i");
-          statusIcon.className = "fas fa-sync-alt";
-          statusIcon.setAttribute("id", ecosystem + "_light_status");
+    function updateLight(ecosystem) {
+      if (ecosystemsData[ecosystem]["lighting"]) {
+        // Create light div
+        let newDiv = document.createElement("div");
+        newDiv.className = "boardFlexItem boardColumnContainer";
+        // Add subtitle
+        let subTitle = document.createElement("div");
+        subTitle.className = "boardSubTitle";
+        subTitle.appendChild(
+          document.createTextNode("Light")
+        );
+        newDiv.appendChild(subTitle);
+        // Add status row with icon
+        let statusRow = document.createElement("div");
+        statusRow.className = "boardFlexItemU";
+        statusRow.appendChild(
+          document.createTextNode("Status: ")
+        );
+        let statusIcon = document.createElement("i");
+        statusIcon.className = "fas fa-sync-alt";
+        statusIcon.setAttribute("id", ecosystem + "_light_status");
 
-          // Add required classes for status icon
-          if (ecosystemsData[ecosystem]["connected"]) {
-            if (lightsData[ecosystem]["status"]) {
-              statusIcon.classList.add("on");
-            } else {
-              statusIcon.classList.add("off");
-            }
-          }
-
-          if (lightsData[ecosystem]["mode"] === "automatic") {
-            statusIcon.classList.add("fa-spin");
+        // Add required classes for status icon
+        if (ecosystemsData[ecosystem]["connected"]) {
+          if (lightsData[ecosystem]["status"]) {
+            statusIcon.classList.add("on");
           } else {
+            statusIcon.classList.add("off");
           }
-          statusRow.appendChild(statusIcon);
-          newDiv.appendChild(statusRow);
+        }
 
+        if (lightsData[ecosystem]["mode"] === "automatic") {
+          statusIcon.classList.add("fa-spin");
+        }
+        statusRow.appendChild(statusIcon);
+        newDiv.appendChild(statusRow);
 
-
-          if (["elongate", "mimic"].includes(lightsData[ecosystem]["method"])) {
-            if (lightsData[ecosystem]["lighting_hours"]["morning"]["start"] &&
-                lightsData[ecosystem]["lighting_hours"]["morning"]["end"]) {
-              const morningStart = new Date(lightsData[ecosystem]["lighting_hours"]["morning"]["start"]);
-              const morningEnd = new Date(lightsData[ecosystem]["lighting_hours"]["morning"]["end"]);
-              if (morningStart < morningEnd) {
-                let newLightRow = document.createElement("div");
-                newLightRow.className = "boardFlexItemU";
-                newLightRow.appendChild(
-                  document.createTextNode(
-                    "Morning lighting from " + morningStart.toLocaleTimeString([], {timeStyle: "short"}) +
-                      " to " +   morningEnd.toLocaleTimeString([], {timeStyle: "short"})
-                  )
-                );
-                newDiv.appendChild(newLightRow);
-              }
-            }
-            if (lightsData[ecosystem]["lighting_hours"]["evening"]["start"] &&
-                lightsData[ecosystem]["lighting_hours"]["evening"]["end"]) {
-              const eveningStart = new Date(lightsData[ecosystem]["lighting_hours"]["evening"]["start"]);
-              const eveningEnd = new Date(lightsData[ecosystem]["lighting_hours"]["evening"]["end"]);
-              if (eveningStart < eveningEnd) {
-                let newLightRow = document.createElement("div");
-                newLightRow.className = "boardFlexItemU";
-                newLightRow.appendChild(
-                  document.createTextNode(
-                    "Evening lighting from " + eveningStart.toLocaleTimeString([], {timeStyle: "short"}) +
-                      " to " +   eveningEnd.toLocaleTimeString([], {timeStyle: "short"})
-                  )
-                );
-                newDiv.appendChild(newLightRow);
-              }
-            }
-          } else if (lightsData[ecosystem]["method"] === "fixed") {
-            if (
-              lightsData[ecosystem]["lighting_hours"]["morning"]["start"] &&
-              lightsData[ecosystem]["lighting_hours"]["evening"]["end"]
-            ) {
-              const morningStart = new Date(lightsData[ecosystem]["lighting_hours"]["morning"]["start"]);
-              const eveningEnd = new Date(lightsData[ecosystem]["lighting_hours"]["evening"]["end"]);
-              if (morningStart < eveningEnd) {
-                let newLightRow = document.createElement("div");
-                newLightRow.className = "boardFlexItemU";
-                newLightRow.appendChild(
-                  document.createTextNode(
-                    "Lighting from " + morningStart.toLocaleTimeString([], {timeStyle: "short"}) +
-                      " to " +   eveningEnd.toLocaleTimeString([], {timeStyle: "short"})
-                  )
-                );
+        if (["elongate", "mimic"].includes(lightsData[ecosystem]["method"])) {
+          if (lightsData[ecosystem]["lighting_hours"]["morning"]["start"] &&
+              lightsData[ecosystem]["lighting_hours"]["morning"]["end"]) {
+            const morningStart = new Date(lightsData[ecosystem]["lighting_hours"]["morning"]["start"]);
+            const morningEnd = new Date(lightsData[ecosystem]["lighting_hours"]["morning"]["end"]);
+            if (morningStart < morningEnd) {
+              let newLightRow = document.createElement("div");
+              newLightRow.className = "boardFlexItemU";
+              newLightRow.appendChild(
+                document.createTextNode(
+                  "Morning lighting from " + morningStart.toLocaleTimeString([], {timeStyle: "short"}) +
+                    " to " +   morningEnd.toLocaleTimeString([], {timeStyle: "short"})
+                )
+              );
               newDiv.appendChild(newLightRow);
-              }
             }
           }
-          let oldDiv = document.getElementById(ecosystem + "_light_info");
-          if (oldDiv != null) {
-            newDiv.setAttribute("id", ecosystem + "_light_info");
-            let parentDiv = oldDiv.parentNode;
-            parentDiv.replaceChild(newDiv, oldDiv);
+          if (lightsData[ecosystem]["lighting_hours"]["evening"]["start"] &&
+              lightsData[ecosystem]["lighting_hours"]["evening"]["end"]) {
+            const eveningStart = new Date(lightsData[ecosystem]["lighting_hours"]["evening"]["start"]);
+            const eveningEnd = new Date(lightsData[ecosystem]["lighting_hours"]["evening"]["end"]);
+            if (eveningStart < eveningEnd) {
+              let newLightRow = document.createElement("div");
+              newLightRow.className = "boardFlexItemU";
+              newLightRow.appendChild(
+                document.createTextNode(
+                  "Evening lighting from " + eveningStart.toLocaleTimeString([], {timeStyle: "short"}) +
+                    " to " +   eveningEnd.toLocaleTimeString([], {timeStyle: "short"})
+                )
+              );
+              newDiv.appendChild(newLightRow);
+            }
           }
+        } else if (lightsData[ecosystem]["method"] === "fixed") {
+          if (
+            lightsData[ecosystem]["lighting_hours"]["morning"]["start"] &&
+            lightsData[ecosystem]["lighting_hours"]["evening"]["end"]
+          ) {
+            const morningStart = new Date(lightsData[ecosystem]["lighting_hours"]["morning"]["start"]);
+            const eveningEnd = new Date(lightsData[ecosystem]["lighting_hours"]["evening"]["end"]);
+            if (morningStart < eveningEnd) {
+              let newLightRow = document.createElement("div");
+              newLightRow.className = "boardFlexItemU";
+              newLightRow.appendChild(
+                document.createTextNode(
+                  "Lighting from " + morningStart.toLocaleTimeString([], {timeStyle: "short"}) +
+                    " to " +   eveningEnd.toLocaleTimeString([], {timeStyle: "short"})
+                )
+              );
+            newDiv.appendChild(newLightRow);
+            }
+          }
+        }
+        newDiv.setAttribute("id", ecosystem + "_light_info");
+        let parentDiv = document.getElementById(ecosystem + "_info");
+        let oldDiv = document.getElementById(ecosystem + "_light_info");
+        if (oldDiv != null) {
+          parentDiv.replaceChild(newDiv, oldDiv);
+        } else {
+          parentDiv.insertBefore(newDiv, parentDiv.children[subBoxesOrder.indexOf("light")]);
         }
       }
     }
-
-    updateLight();
 
     socket.on("light_data", function(msg) {
       for (const ecosystem in msg) {
         if (msg.hasOwnProperty(ecosystem)) {
           Object.assign(lightsData[ecosystem], msg[ecosystem])
+          updateLight(ecosystem);
+          fillIfEmpty(ecosystem);
         }
       }
-      updateLight();
     });
 
     // Ecosystems sensors data
-    function updateCurrentSensors() {
-      for (const ecosystem in currentSensorsData) {
-        if (currentSensorsData.hasOwnProperty(ecosystem)) {
-          let store = {}
-          for (const sensor in currentSensorsData[ecosystem]["data"]) {
-            if (currentSensorsData[ecosystem]["data"].hasOwnProperty(sensor)) {
-              for (const measure in currentSensorsData[ecosystem]["data"][sensor]) {
-                if (currentSensorsData[ecosystem]["data"][sensor].hasOwnProperty(measure)) {
-                  store[measure] = store[measure] || [];
-                  store[measure].push(currentSensorsData[ecosystem]["data"][sensor][measure]);
-                }
+    function updateCurrentSensors(ecosystem) {
+      let store = {}
+      if (currentSensorsData.hasOwnProperty(ecosystem)) {
+        for (const sensor in currentSensorsData[ecosystem]["data"]) {
+          if (currentSensorsData[ecosystem]["data"].hasOwnProperty(sensor)) {
+            for (const measure in currentSensorsData[ecosystem]["data"][sensor]) {
+              if (currentSensorsData[ecosystem]["data"][sensor].hasOwnProperty(measure)) {
+                store[measure] = store[measure] || [];
+                store[measure].push(currentSensorsData[ecosystem]["data"][sensor][measure]);
               }
             }
           }
+        }
 
-          for (const sensorLevel in sensorsUnit) {
-            if (sensorsUnit.hasOwnProperty(sensorLevel)) {
-              let sensorsUnitSub = sensorsUnit[sensorLevel];
-
+        for (const sensorLevel in sensorsUnit) {
+          if (sensorsUnit.hasOwnProperty(sensorLevel)) {
+            let sensorsUnitSub = sensorsUnit[sensorLevel];
+            if (Object.keys(store).some(measure => Object.keys(sensorsUnitSub).includes(measure))) {
               let newSensorsDiv = document.createElement("div");
               newSensorsDiv.className = "boardFlexItem boardColumnContainer";
               let subTitle = document.createElement("div");
@@ -450,7 +444,6 @@
                 document.createTextNode(capitalize(sensorLevel))
               );
               newSensorsDiv.appendChild(subTitle);
-
 
               for (const measure in sensorsUnitSub) {
                 if (store.hasOwnProperty(measure)) {
@@ -467,11 +460,13 @@
                   newSensorsDiv.appendChild(newMeasureRow);
                 }
               }
+              newSensorsDiv.setAttribute("id", ecosystem + "_" + sensorLevel + "_sensors");
+              let parentDiv = document.getElementById(ecosystem + "_info");
               let oldSensorsDiv = document.getElementById(ecosystem + "_" + sensorLevel + "_sensors");
               if (oldSensorsDiv != null) {
-                newSensorsDiv.setAttribute("id", ecosystem + "_" + sensorLevel + "_sensors");
-                let parentDiv = oldSensorsDiv.parentNode;
                 parentDiv.replaceChild(newSensorsDiv, oldSensorsDiv);
+              } else {
+                parentDiv.insertBefore(newSensorsDiv, parentDiv.children[subBoxesOrder.indexOf(sensorLevel)]);
               }
             }
           }
@@ -479,16 +474,25 @@
       }
     }
 
-    updateCurrentSensors();
-
     socket.on("current_sensors_data", function(msg) {
       for (const ecosystem in msg) {
         if (msg.hasOwnProperty(ecosystem)) {
           Object.assign(currentSensorsData[ecosystem], msg[ecosystem])
+          updateCurrentSensors(ecosystem);
+          fillIfEmpty(ecosystem);
         }
       }
-      updateCurrentSensors();
     });
+
+    // Fill ecosystem info boxes on page load
+    for (const ecosystem in ecosystemsData) {
+      if (ecosystemsData.hasOwnProperty(ecosystem)) {
+        updateStatus(ecosystem);
+        updateLight(ecosystem);
+        updateCurrentSensors(ecosystem);
+        fillIfEmpty(ecosystem);
+      }
+    }
     {% endif %}
     </script>
 {% endblock %}
