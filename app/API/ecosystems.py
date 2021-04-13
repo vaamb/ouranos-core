@@ -1,5 +1,5 @@
 from collections import namedtuple
-from datetime import datetime
+from datetime import date, datetime
 
 import cachetools.func
 from cachetools import cached, TTLCache
@@ -145,6 +145,7 @@ def summarize_ecosystems_info(ecosystems_info, session):
                                    .filter_by(status=1)
                                    .all()]
                   else [],
+        # TODO: check that we have valid lighting times
         "lighting": [{"id": ecosystem, "name": ecosystems_info[ecosystem]["name"]}
                      for ecosystem in ecosystems_info
                      if ecosystems_info[ecosystem]["lighting"]],
@@ -170,14 +171,35 @@ def get_app_functionalities(summarized_ecosystems_info):
 
 
 def get_light_info(ecosystems_query_obj) -> dict:
+    today = date.today()
+
+    def try_datetime(time):
+        try:
+            return datetime.combine(today, time)
+        except TypeError:
+            return None
+
     info = {}
+
     for ecosystem in ecosystems_query_obj:
         light = ecosystem.light.first()
         info[ecosystem.id] = {
             "name": ecosystem.name,
             "status": light.status,
             "mode": light.mode,
+            "method": light.method,
+            "lighting_hours": {
+                "morning": {
+                    "start": try_datetime(light.morning_start),
+                    "end": try_datetime(light.morning_end),
+                },
+                "evening": {
+                    "start": try_datetime(light.evening_start),
+                    "end": try_datetime(light.evening_end),
+                }
+            }
         }
+
     return info
 
 
