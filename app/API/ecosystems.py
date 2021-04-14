@@ -189,15 +189,11 @@ def get_light_info(ecosystems_query_obj) -> dict:
             "mode": light.mode,
             "method": light.method,
             "lighting_hours": {
-                "morning": {
-                    "start": try_datetime(light.morning_start),
-                    "end": try_datetime(light.morning_end),
-                },
-                "evening": {
-                    "start": try_datetime(light.evening_start),
-                    "end": try_datetime(light.evening_end),
-                }
-            }
+                "morning_start": try_datetime(light.morning_start),
+                "morning_end": try_datetime(light.morning_end),
+                "evening_start": try_datetime(light.evening_start),
+                "evening_end": try_datetime(light.evening_end),
+            },
         }
 
     return info
