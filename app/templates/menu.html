@@ -210,7 +210,6 @@
             <a href="{{ url_for('main.user_page', username=current_user.username) }}">Profile</a>
             <a href="{{ url_for('auth.logout') }}">Log out</a>
           </div>
-
           {% endif %}
         </div>
         <div class="warning">
@@ -227,7 +226,7 @@
         {% if self.header() %}
         <div class="topLine">
           <h1 style="margin: auto 0 0 0">{% block header %}{% endblock %}</h1>
-          <h3 style="margin: auto 0 0 auto">{% block info %}{% endblock %}</h3>
+          <h3 style="margin: auto 0 0 0">{% block info %}{% endblock %}</h3>
         </div>
         {% endif %}
         {% block content %}{% endblock %}
