@@ -29,14 +29,14 @@ class RegistrationForm(FlaskForm):
     lastname = StringField('Last name', validators=[DataRequired()])
     username = StringField('Username', validators=[
         DataRequired(), Length(1, 64),
-        Regexp('^[A-Za-z][A-Za-z0-9_.]*$', 0,
-               'Usernames must have only letters, numbers, dots or '
-               'underscores')])
+        Regexp('^[A-Za-z]\w*$', 0,
+               'Usernames must start with a letter and be composed of letters, '
+               'numbers and/or underscores')])
     email = StringField('Email', validators=[DataRequired(), Email()])
     password = PasswordField('Password', validators=[
         DataRequired(), 
         Length(min=8, message='Password must be at least 8 characters long.'),
-        Regexp('\d.*[A-Z]|[A-Z].*\d', 0,
+        Regexp('.*\d.*[A-Z]|.*[A-Z].*\d', 0,
                'Password must have at least one capital letter and one '
                'number')])
     password2 = PasswordField('Confirm Password', validators=[
