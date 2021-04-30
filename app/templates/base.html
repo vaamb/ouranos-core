@@ -43,18 +43,6 @@
         {% endfor %}
         </div>
       </div>
-      <script type="text/javascript">
-        $(document).ready(function() {
-          function flashMsgFadeOut() {
-            $("#flashMessage").fadeOut().empty();
-          };
-          setTimeout(flashMsgFadeOut, 1500);
-
-          $("#flashMessage").click(function() {
-            $("#flashMessage").fadeOut();
-          });
-        });
-      </script>
     {% endif %}
     {% endwith %}
     {% block body %}{% endblock %}
@@ -64,8 +52,5 @@
     </script>
     {% endif %}
     {% block scripts %}{% endblock %}
-    <script type="text/javascript">
-
-    </script>
   </body>
 </html>
