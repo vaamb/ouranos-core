@@ -3,11 +3,10 @@ import secrets
 
 from email_validator import validate_email, EmailNotValidError
 from flask import render_template
-from flask_mail import Message
 from sqlalchemy.orm.exc import NoResultFound
 import jwt
 
-from app import mail
+from app.email import send_email
 from app.models import User, Role, System
 from config import Config
 
@@ -108,21 +107,32 @@ def create_invitation_jwt(db_session,
         if tkn_claims[claim]:
             jwt_tkn.update({claim: tkn_claims[claim]})
 
-    return jwt.encode(jwt_tkn, key=Config.JWT_SECRET_KEY, algorithm="HS256")
+    return jwt.encode(jwt_tkn, key=Config.JWT_SECRET_KEY, algorithm="HS256").decode("utf-8")
 
 
-def send_invitation(address, invitation_jwt, firstname=None, mode="email"):
+def send_invitation(invitation_jwt, mode="email"):
+    decoded = jwt.decode(invitation_jwt, options={"verify_signature": False})
+    firstname = decoded.get("fnm")
+    text = render_template("messages/invitation.txt",
+                           firstname=firstname, invitation_jwt=invitation_jwt)
+    html = render_template("messages/invitation.html",
+                           firstname=firstname, invitation_jwt=invitation_jwt)
     if mode == "email":
-        msg = Message("Welcome to GAIA",
-                      sender=("GAIA team", "gaiaweb.py@gmail.com"),
-                      recipients=[address])
-        msg.body = render_template("messages/invitation.txt",
-                                   firstname=firstname, invitation_jwt=invitation_jwt)
-        msg.html = render_template("messages/invitation.html",
-                                   firstname=firstname, invitation_jwt=invitation_jwt)
-        mail.send(msg)
+        try:
+            recipient = decoded["eml"]
+        except KeyError:
+            raise Exception("No email address present in the JSON Web Token")
+        send_email(subject="Welcome to GAIA",
+                   sender="GAIA team",
+                   recipients=[recipient],
+                   text_body=text,
+                   html_body=html,
+                   sync=True)
     elif mode == "telegram":
-        pass
+        try:
+            recipient = decoded["tgm"]
+        except KeyError:
+            raise Exception("No email address present in the JSON Web Token")
 
 
 def get_system_data(db_session, days=7):

@@ -49,11 +49,8 @@ def invite_user():
                 # TODO: auto copy to clipboard
                 category="display"
             )
-            flash(invitation_jwt, category="copy")
         elif form.invitation_channel.data == "email":
-            API.admin.send_invitation(address=form.email.data,
-                                      invitation_jwt=invitation_jwt,
-                                      firstname=form.firstname.data)
+            API.admin.send_invitation(invitation_jwt=invitation_jwt)
             flash(f"Invitation email sent to {form.email.data}")
         elif form.invitation_channel.data == "telegram":
             # TODO: send invitation
