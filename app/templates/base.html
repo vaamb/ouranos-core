@@ -34,15 +34,15 @@
   </head>
 
   <body>
-    {% with messages = get_flashed_messages() %}
+    {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
-      <div class="eventContainer" id="flashMessage">
+      {% for category, message in messages %}
+      <div class="eventContainer flash-{{ category }}">
         <div class="eventCentralMessage">
-        {% for message in messages %}
-          <span>{{ message }}</span>
-        {% endfor %}
+          {{ message }}
         </div>
       </div>
+      {% endfor %}
     {% endif %}
     {% endwith %}
     {% block body %}{% endblock %}

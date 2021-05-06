@@ -194,7 +194,7 @@
       <div class="bottomBox">
         <div><a href="{{ url_for('main.about') }}" title="About the author"><i class="fa fa-address-card"></i></a></div>
         <div><a href="#" title="Preferences"><i class="fa fa-user-cog"></i></a></div>
-        {% if current_user.is_administrator %}
+        {% if current_user.can(permission.ADMIN) %}
         <div><a href="#" title="Shutdown GAIA"><i class="fa fa-power-off"></i></a></div>
         {% endif %}
       </div>
@@ -205,7 +205,7 @@
       {% block topbar %}
       <div class="topBar">
         <div class="roleInfo">
-          {% if current_user.is_administrator %}
+          {% if current_user.can(permission.ADMIN) %}
           Logged as Admin
           {% endif %}
         </div>
