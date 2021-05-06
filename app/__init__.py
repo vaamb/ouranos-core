@@ -30,14 +30,11 @@ mail = Mail()
 
 def create_app(config_class=DevelopmentConfig):
     if not any((config_class.DEBUG, config_class.TESTING)):
-        if config_class.SECRET_KEY == "BXhNmCEmNdoBNngyGXj6jJtooYAcKpt6":
-            raise Exception("You need to set the environment variable "
-                            "'SECRET_KEY' when using gaiaWeb in a production "
-                            "environment.")
-        if config_class.GAIA_SECRET_KEY == "BXhNmCEmNdoBNngyGXj6jJtooYAcKpt6":
-            raise Exception("You need to set the environment variable "
-                            "'GAIA_SECRET_KEY' when using gaiaWeb in a "
-                            "production environment.")
+        for secret in ("SECRET_KEY", "JWT_SECRET_KEY", "GAIA_SECRET_KEY"):
+            if vars(config_class)[secret] == "BXhNmCEmNdoBNngyGXj6jJtooYAcKpt6":
+                raise Exception("You need to set the environment variable "
+                                f"'{secret}' when using gaiaWeb in a "
+                                "production environment.")
 
     logger.info(f"Creating {app_name} app ...")
     app = Flask(app_name, root_path=root_path)
