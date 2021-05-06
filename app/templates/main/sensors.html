@@ -18,7 +18,7 @@ Last sensors measure at <span id="currentDatetime"></span>
             <i class="{{ parameters[level]["icon"][measure] }} leftIco"></i>
             {{ historic_sensors_data[ecosystem_ids[0]]["data"][measure][sensor_id]["name"] }}
         </h1>
-        <div class="boardRowContainer" style="min-height: 183px; row-gap: 6px"> <!--<div class="boardRowContainer" style="height: 183px;">-->
+        <div class="boardRowContainer" style="row-gap: 6px"> <!--<div class="boardRowContainer" style="height: 183px;">-->
           {% if current_sensors_data[ecosystem_ids[0]] %}
           <div class="boardColumnContainer max250OnScreen" style="min-width: 225px; flex:1">
             <div class="gaugeContainer">
@@ -30,7 +30,7 @@ Last sensors measure at <span id="currentDatetime"></span>
             </div>
           </div>
           {% endif %}
-          <div class="chartContainer" style="flex: 1; height: 185px">
+          <div class="chartContainer boardFlexItem" style="height: 195px">
             <canvas id="Chart{{ measure.capitalize() }}_{{ sensor_id }}"></canvas>
           </div>
         </div>
@@ -122,7 +122,7 @@ Last sensors measure at <span id="currentDatetime"></span>
           time: {
             unit: "day",
             unitStepSize: 1,
-            displayFormats: {"day": "ddd DD MMM"},
+            displayFormats: {"day": "ddd DD"},
             tooltipFormat: 'YYYY-MM-DD HH:mm',
           },
           ticks: {
