@@ -385,21 +385,28 @@ def update_health_data(data):
 @sio.on("light_data", namespace="/gaia")
 def update_light_data(data):
     manager = check_manager_identity("config")
+
+    def try_fromiso(isotime):
+        try:
+            return time.fromisoformat(isotime)
+        except TypeError:
+            return None
+
     if manager:
         sio_logger.debug(f"Received 'light_data' from {manager.uid}")
         for ecosystem_id in data:
             if data[ecosystem_id].get("lighting_hours"):
-                morning_start = time.fromisoformat(
+                morning_start = try_fromiso(
                     data[ecosystem_id]["lighting_hours"]["morning_start"])
-                evening_end = time.fromisoformat(
+                evening_end = try_fromiso(
                     data[ecosystem_id]["lighting_hours"]["evening_end"])
                 try:
-                    morning_end = time.fromisoformat(
+                    morning_end = try_fromiso(
                         data[ecosystem_id]["lighting_hours"]["morning_end"])
                 except KeyError:
                     morning_end = None
                 try:
-                    evening_start = time.fromisoformat(
+                    evening_start = try_fromiso(
                         data[ecosystem_id]["lighting_hours"]["evening_start"])
                 except KeyError:
                     evening_start = None
