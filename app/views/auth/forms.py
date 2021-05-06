@@ -1,9 +1,12 @@
 from flask_wtf import FlaskForm
-from wtforms import BooleanField, PasswordField, StringField, SubmitField
+import jwt
+from wtforms import BooleanField, PasswordField, StringField, SubmitField, \
+    HiddenField
 from wtforms.validators import DataRequired, Email, EqualTo, Length, \
     Regexp, ValidationError
 
 from app.models import User
+from config import Config
 
 
 class LoginForm(FlaskForm):
@@ -18,10 +21,19 @@ class InvitationForm(FlaskForm):
     submit = SubmitField('Validate')
 
     def validate_token(self, token):
-        user = User.query.filter_by(token=token.data).first()
-        if user is None:
-            raise ValidationError('This invitation token is not valid. '
-                                  'Please provide a different one.')
+        try:
+            decoded = jwt.decode(jwt=token.data.strip(), key=Config.JWT_SECRET_KEY,
+                                 algorithms="HS256")
+            user = User.query.filter(User.token == decoded["utk"]).first()
+        except jwt.ExpiredSignatureError:
+            raise ValidationError("This invitation token has expired")
+        except jwt.InvalidSignatureError:
+            raise ValidationError("This invitation token is invalid")
+        except KeyError:
+            raise ValidationError("This invitation token is invalid")
+        if user:
+            raise ValidationError("This invitation token has already been used "
+                                  "for registration")
 
 
 class RegistrationForm(FlaskForm):
@@ -52,7 +64,5 @@ class RegistrationForm(FlaskForm):
     def validate_email(self, email):
         user = User.query.filter_by(email=email.data).first()
         if user is not None:
-            # rem: need to push token once instantiated
-            if user.token != self.token:
-                raise ValidationError('This email address is already used. '
-                                      'Please provide a different one.')
+            raise ValidationError('This email address is already used. '
+                                  'Please provide a different one.')

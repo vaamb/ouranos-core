@@ -10,6 +10,8 @@ except ImportError:
         HOME_COORDINATES = (0.0, 0.0)
         DARKSKY_API_KEY = None
         TELEGRAM_BOT_TOKEN = None
+        MAIL_USERNAME = None
+        MAIL_PASSWORD = None
 
 
 base_dir = Path(__file__).absolute().parents[0]
@@ -24,6 +26,9 @@ class Config:
     # Use this key just to avoid a brute attack
     SECRET_KEY = os.environ.get("SECRET_KEY") or "BXhNmCEmNdoBNngyGXj6jJtooYAcKpt6"
     JSON_AS_ASCII = False
+
+    # JWT config
+    JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY") or SECRET_KEY
 
     # Logging config
     LOG_TO_STDOUT = True
@@ -43,11 +48,13 @@ class Config:
     SQLALCHEMY_ECHO = False
 
     # Mail config
-    MAIL_SERVER = os.environ.get("MAIL_SERVER")
-    MAIL_PORT = int(os.environ.get("MAIL_PORT") or 25)
-    MAIL_USE_TLS = os.environ.get("MAIL_USE_TLS") is not None
-    MAIL_USERNAME = os.environ.get("MAIL_USERNAME")
-    MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD")
+    MAIL_SERVER = os.environ.get("MAIL_SERVER") or "smtp.gmail.com"
+    MAIL_PORT = 465
+    MAIL_USE_TLS = False
+    MAIL_USE_SSL = True
+    MAIL_USERNAME = os.environ.get("MAIL_USERNAME") or privateConfig.MAIL_USERNAME
+    MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD") or privateConfig.MAIL_PASSWORD
+    MAIL_SUPPRESS_SEND = False
 
     # GAIA config
     GAIA_ADMIN = os.environ.get("GAIA_ADMIN") or privateConfig.ADMIN

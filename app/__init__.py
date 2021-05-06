@@ -8,6 +8,7 @@ from flask_login import LoginManager
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from flask_socketio import SocketIO
+from flask_mail import Mail
 
 from config import Config, DevelopmentConfig
 
@@ -24,6 +25,7 @@ login_manager = LoginManager()
 db = SQLAlchemy()
 migrate = Migrate()
 sio = SocketIO(json=json)
+mail = Mail()
 
 
 def create_app(config_class=DevelopmentConfig):
@@ -58,6 +60,7 @@ def create_app(config_class=DevelopmentConfig):
     migrate.init_app(app, db)
     login_manager.init_app(app)
     sio.init_app(app)
+    mail.init_app(app)
     scheduler.start()
 
     @app.route("/eegg")

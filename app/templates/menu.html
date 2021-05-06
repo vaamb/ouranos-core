@@ -162,19 +162,31 @@
           </ul>
         </li>
         {% endif %}
-        {% if current_user.is_administrator %}
+        {% if current_user.can(permission.OPERATE) %}
         <li>
           <div class="accordionMenuItem dropdownLink">
-            <i class="fa fa-user-cog leftIco"></i>
+            <i class="fa fa-tasks leftIco"></i>
+            <div class="accordionMenuItemName">Manage engines</div>
+            <i class="fa fa-chevron-right rightIco" aria-hidden="true"></i>
+          </div>
+          <ul class="submenuItems">
+            <li><a href="{{ url_for('admin.engine_managers') }}">Engine managers</a></li>
+          </ul>
+        </li>
+        {% endif %}
+        {% if current_user.can(permission.ADMIN) %}
+        <li>
+          <div class="accordionMenuItem dropdownLink">
+            <i class="fa fa-users-cog leftIco"></i>
             <div class="accordionMenuItemName">Admin</div>
             <i class="fa fa-chevron-right rightIco" aria-hidden="true"></i>
           </div>
           <ul class="submenuItems">
             <li><a href="{{ url_for('admin.system') }}">System</a></li>
+            <li><a href="{{ url_for('admin.services_management') }}">Services</a></li>
+            <li><a href="{{ url_for('admin.invite_user') }}">Invite user</a></li>
             <li><a href="{{ url_for('admin.log_home') }}">Logs</a></li>
             <li><a href="{{ url_for('admin.mem_snapshot') }}">Memory snapshot</a></li>
-            <li><a href="{{ url_for('admin.services_management') }}">Services</a></li>
-            <li><a href="{{ url_for('admin.engine_managers') }}">Engine managers</a></li>
           </ul>
         </li>
         {% endif %}

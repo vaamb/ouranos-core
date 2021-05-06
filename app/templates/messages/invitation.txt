@@ -1,0 +1,17 @@
+{% if firstname %}
+Hej {{ firstname }}!
+{% else %}
+Hej!
+{% endif %}
+
+You have been invited to use GAIA, the Greenhouse Automation Intuitive App.
+
+To register and start using GAIA, clink on this link: {{ url_for('auth.register', token=invitation_jwt, _external=True) }}
+
+Alternatively, you can go to {{ url_for('auth.register', _external=True) }} and enter this invitation token: {{ invitation_jwt }}
+
+We hope to see you soon!
+
+Sincerly,
+
+The GAIA team

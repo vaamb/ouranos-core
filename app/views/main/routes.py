@@ -10,7 +10,7 @@ from app import db
 from app import API
 from app.API.various import wiki
 from app.dataspace import lock, sensorsData, sensorsDataHistory
-from app.models import Hardware, Health, Service, User
+from app.models import Hardware, Health, Service, User, Permission
 from app.services import get_manager
 from app.views.main import bp, layout
 from app.views.main.forms import EditProfileForm
@@ -71,6 +71,7 @@ def menu_info():
         warnings = API.warnings.get_recent_warnings(db.session)
 
     return {
+        "permission": Permission,
         "ecosystems_info": ecosystems_info,
         "dropdowns": dropdowns,
         "plant_articles": plant_articles,
@@ -252,6 +253,8 @@ def user_page(username: str = None):
     user = User.query.filter_by(username=username).first_or_404()
 
     if user == current_user:
+        # TODO: simply show form without the ability to change anything
+        #  to change: fresh login and redirect to other page
         services = Service.query.filter_by(status=1, level="user").all()
         form = EditProfileForm()
         if form.validate_on_submit():

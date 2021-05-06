@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 from datetime import datetime, timedelta, timezone
-import secrets
 
-from flask import render_template
+from flask import render_template, redirect, url_for, flash
 from flask_login import login_required
+from sqlalchemy.orm.exc import NoResultFound
 import tracemalloc
-from email_validator import validate_email, EmailNotValidError
 
-from app import sio, services, db
+from app import sio, services, db, API
 from app.views.admin import bp
+from app.views.admin.forms import InvitationForm
 from app.views.decorators import permission_required
 from app.views.main import layout
 from app.models import Permission, Service, System, engineManager, User
@@ -24,46 +24,44 @@ s2 = None
 outfile = "mem_leak.debug"
 
 
-def get_system_data(days=7):
-    time_limit = datetime.now(tz=timezone.utc) - timedelta(days=days)
-    data = (System.query.filter(System.datetime >= time_limit)
-                  .with_entities(System.datetime, 
-                                 System.CPU_used, System.CPU_temp,
-                                 System.RAM_used, System.RAM_total,
-                                 System.DISK_used, System.DISK_total).all())
-    return data
+@bp.route("/admin/invite", methods=["GET", "POST"])
+@login_required
+@permission_required(Permission.ADMIN)
+def invite_user():
+    form = InvitationForm()
+    form.expiration.data = 7
 
+    if form.validate_on_submit():
+        invitation_jwt = API.admin.create_invitation_jwt(
+            db_session=db.session,
+            first_name=form.firstname.data,
+            last_name=form.lastname.data,
+            email_address=form.email.data,
+            telegram_chat_id=form.telegram_chat_id.data,
+            role=form.role.data,
+            expiration_delay=timedelta(days=form.expiration.data),
+        )
 
-def send_invitation(email_address: str,
-                    firstname: str = "",
-                    lastname: str = "",
-                    ) -> dict:
-    try:
-        email = validate_email(email_address.strip())
-    except EmailNotValidError as e:
-        return {
-            "status": "failed", "info": (email_address, firstname, lastname)
-        }
+        if form.invitation_channel.data == "link":
+            flash(
+                "Here is the invitation token:\r\n"
+                f"{invitation_jwt}",
+                # TODO: auto copy to clipboard
+                category="display"
+            )
+            flash(invitation_jwt, category="copy")
+        elif form.invitation_channel.data == "email":
+            API.admin.send_invitation(address=form.email.data,
+                                      invitation_jwt=invitation_jwt,
+                                      firstname=form.firstname.data)
+            flash(f"Invitation email sent to {form.email.data}")
+        elif form.invitation_channel.data == "telegram":
+            # TODO: send invitation
+            flash(f"Invitation message sent to telegram user {form.telegram_chat_id.data}")
+        return redirect(url_for("admin.invite_user"))
 
-    while True:
-        token = secrets.token_hex(16)
-        user = User.query.filter(User.token == token)
-        if not user:
-            break
-
-    user = User(
-        email_address=email.email,
-        token=token,
-        firstname=firstname,
-        lastname=lastname,
-    )
-
-    # TODO: send actual invitations
-    db.session.add(user)
-    db.session.commit()
-    return {
-        "status": "success", "info": (email_address, firstname, lastname, token)
-    }
+    return render_template("admin/invite_user.html", title="Invite new user",
+                           form=form)
 
 
 @bp.route('/admin/mem_snapshot')
@@ -90,7 +88,7 @@ def mem_snapshot():
 def system():
     current_data = system_monitor().system_data
     system_measures = [key for key in current_data if current_data[key]]
-    data = get_system_data()
+    data = API.admin.get_system_data(db.session)
     return render_template("admin/system.html", title="Server monitoring",
                            data=data, current_data=current_data,
                            system_measures=system_measures,
@@ -132,15 +130,18 @@ def db_management():
 @login_required
 @permission_required(Permission.ADMIN)
 def services_management():
-    services = Service.query.order_by(Service.name.asc()).all()
-    return render_template("admin/services.html", services=services)
+    services_available = Service.query.order_by(Service.name.asc()).all()
+    return render_template("admin/services.html", services=services_available)
 
 
 @sio.on("manage_service", namespace="/admin")
 def start_service(message):
     service = message["service"]
     action = message["action"]
-    user = User.query.filter_by(id=message["user_id"]).one()
+    try:
+        user = User.query.filter_by(id=message["user_id"]).one()
+    except NoResultFound:
+        return
     if user.is_administrator:
         if action == "start":
             services.get_manager().start_service(service)

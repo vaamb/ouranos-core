@@ -1,14 +1,16 @@
 # -*- coding: utf-8 -*-
 from datetime import datetime, timezone
 
-from flask import flash, redirect, render_template, request, url_for
+from flask import current_app, flash, redirect, render_template, request, \
+    url_for
 from flask_login import current_user, login_user, logout_user
+import jwt
 from werkzeug.urls import url_parse
 
 from app import db
 from app.views.auth import bp
 from app.views.auth.forms import LoginForm, RegistrationForm, InvitationForm
-from app.models import User
+from app.models import User, Role
 
 
 @bp.route("/login", methods=["GET", "POST"])
@@ -45,42 +47,49 @@ def register():
         form = InvitationForm()
         if form.validate_on_submit():
             token = form.token.data
-            return redirect(url_for("auth.register", **{"token": token}))
+            return redirect(url_for("auth.register", token=token))
         return render_template('auth/invitation.html', title='Register',
                                form=form)
 
-    user = User.query.filter(
-        User.token == token).first()
-
-    if user is None:
-        flash("This invitation token is either invalid or expired")
-        return redirect(url_for("auth.register"))
-
-    if user.username:
-        # If the user has a username, he is registered
-        flash(f"This token has already been used for registration")
-        return redirect(url_for('auth.login'))
-
-    if user.registration_exp \
-            and user.registration_exp <= datetime.now(timezone.utc):
+    try:
+        decoded = jwt.decode(token, current_app.config["JWT_SECRET_KEY"],
+                             algorithms="HS256")
+        user = User.query.filter(User.token == decoded["utk"]).first()
+    except jwt.ExpiredSignatureError:
         flash("This invitation token has expired")
         return redirect(url_for("auth.register"))
+    except jwt.InvalidSignatureError:
+        flash("This invitation token is invalid")
+        return redirect(url_for("auth.register"))
+    except KeyError:
+        flash("This invitation token is invalid")
+        return redirect(url_for("auth.register"))
+    if user:
+        flash("This invitation token has already been used for registration")
+        return redirect(url_for("auth.login"))
 
     form = RegistrationForm()
-    form.token = token
+
     if request.method == "GET":
-        form.firstname.data = user.firstname
-        form.lastname.data = user.lastname
-        form.email.data = user.email
+        form.firstname.data = decoded.get("fnm")
+        form.lastname.data = decoded.get("lnm")
+        form.email.data = decoded.get("eml")
+        form.token.data = decoded["utk"]
 
     if form.validate_on_submit():
-        user.firstname = form.firstname.data
-        user.lastname = form.lastname.data
-        user.username = form.username.data
-        user.email = form.email.data
+        role = Role.query.filter_by(name=decoded.get("rle")).first()
+        user = User(
+            firstname=form.firstname.data,
+            lastname=form.lastname.data,
+            username=form.username.data,
+            email=form.email.data,
+            registration_datetime=datetime.now(timezone.utc),
+            token=decoded["utk"],
+            role=role,
+            telegram_chat_id=decoded.get("tgm")
+        )
         user.set_password(form.password.data)
-        user.registration_datetime = datetime.now(timezone.utc)
-        db.session.merge(user)
+        db.session.add(user)
         db.session.commit()
         flash(f"You are now registered {form.username.data}!")
         login_user(user)

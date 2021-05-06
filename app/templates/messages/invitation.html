@@ -1,0 +1,17 @@
+<p>
+  {% if firstname %}
+  Hej {{ firstname }}!
+  {% else %}
+  Hej!
+  {% endif %}
+</p>
+
+<p>You have been invited to use GAIA, the Greenhouse Automation Intuitive App.</p>
+
+<p>To register and start using GAIA, <a href="{{ url_for('auth.register', token=invitation_jwt, _external=True) }}">click here</a>.</p>
+
+<p>Alternatively, copy this link in your navigator: {{ url_for('auth.register', token=invitation_jwt, _external=True) }}</p>
+
+<p>We hope to see you soon!</p>
+
+The GAIA team
