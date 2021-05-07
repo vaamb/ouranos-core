@@ -62,8 +62,7 @@ class Config:
     RECAP_SENDING_HOUR = 4
     ECOSYSTEM_TIMEOUT = 150  # in sec # Not used anymore
     WEATHER_UPDATE_PERIOD = 5  # in min
-    GAIA_SECRET_KEY = os.environ.get("GAIA_SECRET_KEY") or \
-                      "BXhNmCEmNdoBNngyGXj6jJtooYAcKpt6"
+    GAIA_SECRET_KEY = os.environ.get("GAIA_SECRET_KEY") or SECRET_KEY
     GAIA_CLIENT_MAX_ATTEMPT = 3
 
     # Data logging
@@ -81,6 +80,7 @@ class DevelopmentConfig(Config):
     DEBUG = False
     TESTING = True
     LOG_TO_FILE = False
+    MAIL_DEBUG = True
 
 
 class TestingConfig(Config):

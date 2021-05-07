@@ -1,19 +1,36 @@
 from datetime import datetime, timedelta, timezone
 import secrets
+from threading import Thread
 
 from email_validator import validate_email, EmailNotValidError
-from flask import render_template
+from flask import render_template, current_app
+from flask_mail import Message
 from sqlalchemy.orm.exc import NoResultFound
 import jwt
 
-from app.email import send_email
+from app import mail
+from app.API.utils import get_service
 from app.models import User, Role, System
-from config import Config
 
 
-"""
-Users-related API
-"""
+def send_async_email(app, msg):
+    with app.app_context():
+        mail.send(msg)
+
+
+def send_email(subject, sender, recipients, text_body, html_body,
+               attachments=None, sync=False):
+    msg = Message(subject, sender=sender, recipients=recipients)
+    msg.body = text_body
+    msg.html = html_body
+    if attachments:
+        for attachment in attachments:
+            msg.attach(*attachment)
+    if sync:
+        mail.send(msg)
+    else:
+        Thread(target=send_async_email,
+               args=(current_app._get_current_object(), msg)).start()
 
 
 def get_user_query_obj(user: str, session):
@@ -30,7 +47,6 @@ def user_roles_available() -> list:
 
     :return: list, a list with the name of the roles available
     """
-
     roles = Role.query.all()
     return [role.name for role in roles]
 
@@ -107,7 +123,7 @@ def create_invitation_jwt(db_session,
         if tkn_claims[claim]:
             jwt_tkn.update({claim: tkn_claims[claim]})
 
-    return jwt.encode(jwt_tkn, key=Config.JWT_SECRET_KEY, algorithm="HS256").decode("utf-8")
+    return jwt.encode(jwt_tkn, key=current_app.config["JWT_SECRET_KEY"], algorithm="HS256").decode("utf-8")
 
 
 def send_invitation(invitation_jwt, mode="email"):
@@ -135,7 +151,7 @@ def send_invitation(invitation_jwt, mode="email"):
             raise Exception("No email address present in the JSON Web Token")
 
 
-def get_system_data(db_session, days=7):
+def get_historic_system_data(db_session, days=7):
     time_limit = datetime.now(tz=timezone.utc) - timedelta(days=days)
     data = (db_session.query(System).filter(System.datetime >= time_limit)
                       .with_entities(System.datetime,
@@ -145,3 +161,10 @@ def get_system_data(db_session, days=7):
                       .all()
             )
     return data
+
+
+def get_current_system_data():
+    try:
+        return get_service("system_monitor").system_data
+    except RuntimeError:
+        return {}
