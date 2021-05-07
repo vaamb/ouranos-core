@@ -31,7 +31,25 @@ def get_manager_query_obj(*managers,
                           session,
                           time_limit: datetime = None,
                           connected: bool = False) -> list:
-    pass
+    if managers:
+        base_query = (session.query(engineManager)
+                      .filter((engineManager.uid.in_(managers)) |
+                              (engineManager.sid.in_(managers)))
+                      )
+    else:
+        base_query = session.query(engineManager)
+    mid_query = base_query
+
+    if time_limit:
+        mid_query = base_query.filter(engineManager.last_seen >= time_limit)
+
+    end_query = mid_query
+    if connected:
+        end_query = mid_query.filter(engineManager.connected == True)
+
+    manager_qo = end_query.all()
+
+    return manager_qo
 
 
 @cachetools.func.ttl_cache(maxsize=max_ecosystems, ttl=5)
@@ -63,7 +81,7 @@ def get_ecosystem_query_obj(*ecosystems,
                               (Ecosystem.name.in_(ecosystems)))
                      )
     else:
-        base_query = session.query(Ecosystem)
+        base_query = session.query(Ecosystem).join(engineManager)
 
     mid_query = base_query
     if time_limit:
