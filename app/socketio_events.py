@@ -15,7 +15,6 @@ from app.models import sensorData, Ecosystem, engineManager, Hardware, Health, \
     Light, Management, Measure, environmentParameter
 from app.services.system_monitor import systemMonitor
 from app.utils import decrypt_uid, validate_uid_token
-from config import Config
 
 
 sio_logger = logging.getLogger(f"{app_name}.socketio")
@@ -138,11 +137,11 @@ def registerManager(data):
     remote_addr = request.environ["REMOTE_ADDR"]
     remote_port = request.environ["REMOTE_PORT"]
     try:
-        if client_blacklist[remote_addr] == Config.GAIA_CLIENT_MAX_ATTEMPT + 1:
+        if client_blacklist[remote_addr] == current_app.config["GAIA_CLIENT_MAX_ATTEMPT"] + 1:
             sio_logger.warning(f"Received three invalid registration requests "
                                f"from {remote_addr}.")
 
-        if client_blacklist[remote_addr] > Config.GAIA_CLIENT_MAX_ATTEMPT:
+        if client_blacklist[remote_addr] > current_app.config["GAIA_CLIENT_MAX_ATTEMPT"]:
             over_attempts = client_blacklist[remote_addr] - 2
             if over_attempts > 4:
                 over_attempts = 4
@@ -314,7 +313,7 @@ def update_sensors_data(data):
             except KeyError:
                 continue
             sensorsData[ecosystem_id]["datetime"] = dt
-            if dt.minute % Config.SENSORS_LOGGING_PERIOD == 0:
+            if dt.minute % current_app.config["SENSORS_LOGGING_PERIOD"] == 0:
                 # Delete cached data for sensors.html page
                 try:
                     del sensorsDataHistory[ecosystem_id]
@@ -433,7 +432,7 @@ def update_light_data(data):
 # ---------------------------------------------------------------------------
 @sio.on("connect", namespace="/")
 def connect_on_browser():
-    if any((Config.DEBUG, Config.TESTING)):
+    if any((current_app.config["DEBUG"], current_app.config["TESTING"])):
         remote_addr = request.environ["REMOTE_ADDR"]
         remote_port = request.environ["REMOTE_PORT"]
         sio_logger.debug(f"Connection from {remote_addr}:{remote_port}")
@@ -441,7 +440,7 @@ def connect_on_browser():
 
 @sio.on("disconnect", namespace="/")
 def connect_on_browser():
-    if any((Config.DEBUG, Config.TESTING)):
+    if any((current_app.config["DEBUG"], current_app.config["TESTING"])):
         remote_addr = request.environ["REMOTE_ADDR"]
         remote_port = request.environ["REMOTE_PORT"]
         sio_logger.debug(f"Disconnection of {remote_addr}:{remote_port}")
