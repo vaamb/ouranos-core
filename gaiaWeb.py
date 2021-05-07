@@ -1,4 +1,8 @@
 #!/usr/bin/python3
+from setproctitle import setproctitle
+
+setproctitle("gaiaWeb")
+
 import eventlet
 
 eventlet.monkey_patch()
