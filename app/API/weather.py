@@ -3,6 +3,7 @@ from datetime import datetime, time, timedelta, timezone
 from numpy import mean
 from scipy.stats import mode
 
+from app.API import app
 from app.API.utils import get_service
 from app.utils import parse_sun_times
 
@@ -11,7 +12,7 @@ weather_measures = {
     "mean": ["temperature", "temperatureLow", "temperatureHigh", "humidity",
              "windSpeed", "cloudCover", "precipProbability", "dewPoint"],
     "mode": ["summary", "icon"],
-    "other": ["sunriseTime", "sunsetTime"],
+    "other": ["time", "sunriseTime", "sunsetTime"],
 }
 
 weather_data_multiplication_factors = {
@@ -23,11 +24,11 @@ weather_data_multiplication_factors = {
 }
 
 
-def _get_weather_data():
+def _weather_on():
     try:
-        return get_service("weather").get_data()
+        return get_service("weather").status
     except RuntimeError:
-        return {}
+        return False
 
 
 def _get_time_of_day(dt_time: time):
@@ -41,68 +42,36 @@ def _get_time_of_day(dt_time: time):
         return "evening"
 
 
-def _simplify_weather_data(weather_data) -> dict:
-    if weather_data:
-        data = {
-            measure: weather_data[measure]
-            for measure in weather_measures["mean"] + weather_measures["mode"] +
-                           weather_measures["other"]
-            if measure in weather_data
-        }
-        data.update({"datetime": datetime.fromtimestamp(weather_data["time"])})
-        return data
-    return {}
-
-
-def is_on() -> bool:
-    return True if _get_weather_data() else False
-
-
 # Current weather
 def get_current_weather():
-    weather_data = _get_weather_data()
-    if weather_data:
-        return _simplify_weather_data(weather_data["currently"])
+    if _weather_on():
+        return get_service("weather").current_data
     return {}
 
 
 # Weather forecast
-def get_hourly_weather_forecast(time_window=24):
-    weather_data = _get_weather_data()
-    if weather_data:
-        if time_window > len(weather_data["hourly"]):
-            time_window = len(weather_data["hourly"]) - 1
-
-        forecast = [_simplify_weather_data(weather_data["hourly"][hour])
-                    for hour in range(time_window)]
-
+def get_forecast(unit, time_window):
+    if _weather_on():
+        data = get_service("weather").data[unit]
+        if time_window > len(data["forecast"]):
+            time_window = len(data["forecast"]) - 1
+        forecast = [data["forecast"][_] for _ in range(time_window)]
         return {
             "time_window": {
-                "start": forecast[0]["datetime"],
-                "end": forecast[time_window - 1]["datetime"]
+                "start": forecast[0]["time"],
+                "end": forecast[time_window - 1]["time"]
             },
             "forecast": forecast,
         }
     return {}
+
+
+def get_hourly_weather_forecast(time_window=24):
+    return get_forecast("hourly", time_window)
 
 
 def get_daily_weather_forecast(time_window=7):
-    weather_data = _get_weather_data()
-    if weather_data:
-        if time_window > len(weather_data["daily"]):
-            time_window = len(weather_data["daily"]) - 1
-
-        forecast = [_simplify_weather_data(weather_data["daily"][day])
-                    for day in range(time_window)]
-
-        return {
-            "time_window": {
-                "start": forecast[0]["datetime"],
-                "end": forecast[time_window - 1]["datetime"]
-            },
-            "forecast": forecast,
-        }
-    return {}
+    return get_forecast("daily", time_window)
 
 
 def _digest_hourly_weather_forecast(weather_forecast) -> dict:

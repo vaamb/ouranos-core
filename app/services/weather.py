@@ -1,3 +1,4 @@
+from datetime import datetime
 import json
 import os
 import time
@@ -9,16 +10,71 @@ from config import Config, base_dir
 from app.services.template import serviceTemplate
 
 
+weather_measures = {
+    "mean": ["temperature", "temperatureLow", "temperatureHigh", "humidity",
+             "windSpeed", "cloudCover", "precipProbability", "dewPoint"],
+    "mode": ["summary", "icon"],
+    "other": ["time", "sunriseTime", "sunsetTime"],
+}
+
+
+def _simplify_weather_data(weather_data) -> dict:
+    return {
+        measure: weather_data[measure]
+        for measure in weather_measures["mean"] + weather_measures["mode"] +
+            weather_measures["other"]
+        if measure in weather_data
+    }
+
+
+def _format_forecast(forecast, time_window):
+    if time_window > len(forecast):
+        time_window = len(forecast) - 1
+
+    return {
+        "time_window": {
+            "start": forecast[0]["time"],
+            "end": forecast[time_window - 1]["time"]
+        },
+        "forecast": [_simplify_weather_data(forecast[_])
+                     for _ in range(time_window)],
+    }
+
+
+def _safe_emit(event, data):
+    try:
+        sio.emit(event, data)
+    except AttributeError as e:
+        # Discard error raised when SocketIO has not started yet
+        if "NoneType" not in e.args[0]:
+            raise e
+
+
 class Weather(serviceTemplate):
     NAME = "weather"
     LEVEL = "app"
 
     def _init(self) -> None:
         self._file_path = None
-        self._weather_data = {}
+        self._data = {}
         self._coordinates = Config.HOME_COORDINATES
         self._API_key = Config.DARKSKY_API_KEY
         self._started = False
+
+    def _load_data(self, raw_data):
+        self._data["currently"] = _simplify_weather_data(raw_data["currently"])
+        self._data["hourly"] = _format_forecast(raw_data["hourly"],
+                                                time_window=48)
+        self._data["daily"] = _format_forecast(raw_data["daily"],
+                                               time_window=14)
+
+    def _send_events(self):
+        now = datetime.now()
+        _safe_emit("current_weather", self._data["currently"])
+        if now.minute % 15 == 0:
+            _safe_emit("hourly_weather", self._data["hourly"])
+        if now.hour % 3 == 0 and now.minute == 0:
+            _safe_emit("daily_weather", self._data["daily"])
 
     def update_weather_data(self) -> None:
         self._logger.debug("Updating weather data")
@@ -30,27 +86,31 @@ class Weather(serviceTemplate):
                     f"https://api.darksky.net/forecast/{self._API_key}/" +
                     f"{self._coordinates[0]},{self._coordinates[1]}",
                     params=parameters).json()
-                self._weather_data = {"currently": data["currently"],
-                                      "hourly": data["hourly"]["data"],
-                                      "daily": data["daily"]["data"]}
             except ConnectionError:
                 time.sleep(1)
                 continue
             else:
+                raw_data = {
+                    "currently": data["currently"],
+                    "hourly": data["hourly"]["data"],
+                    "daily": data["daily"]["data"]
+                }
+                self._load_data(raw_data)
                 with open(self._file_path, "w+") as file:
-                    json.dump(self._weather_data, file)
+                    json.dump(raw_data, file)
+                self._send_events()
                 self._logger.debug("Weather data updated")
                 return
 
     def _check_recency(self) -> bool:
-        if not self._weather_data:
+        if not self._data:
             try:
                 with open(self._file_path, "r") as file:
-                    self._weather_data = json.load(file)
+                    self._load_data(json.load(file))
             except FileNotFoundError:
                 return False
 
-        if self._weather_data["currently"]["time"] > \
+        if self._data["currently"]["time"] > \
                 time.time() - (Config.WEATHER_UPDATE_PERIOD * 60):
             self._logger.debug("Weather data already up to date")
             return True
@@ -70,9 +130,21 @@ class Weather(serviceTemplate):
 
     def _stop(self) -> None:
         scheduler.remove_job("weather")
-        self._weather_data = {}
+        self._data = {}
 
     """API"""
-    def get_data(self) -> dict:
-        return self._weather_data
+    @property
+    def data(self):
+        return self._data
 
+    @ property
+    def current_data(self) -> dict:
+        return self._data["currently"]
+
+    @ property
+    def hourly_data(self) -> dict:
+        return self._data["hourly"]
+
+    @property
+    def daily_data(self) -> dict:
+        return self._data["daily"]

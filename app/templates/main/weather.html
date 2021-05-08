@@ -53,8 +53,8 @@
     function extractWeatherForecastData(myWeatherArray, dataName) {
       let result = [];
       for (const element in myWeatherArray) {
-        if (dataName === "datetime") {
-          let datetime = new Date(myWeatherArray[element][dataName])
+        if (dataName === "time") {
+          let datetime = new Date(myWeatherArray[element][dataName] * 1000)
           result.push(datetime)
         } else {
           result.push(myWeatherArray[element][dataName])
@@ -77,7 +77,7 @@
     function updateCurrentWeatherSpans() {
 
       // TODO: change icon
-      const updateTime = new Date(currentWeatherData["datetime"]);
+      const updateTime = new Date(currentWeatherData["time"] * 1000);
       $('#update_time').text(updateTime.toLocaleTimeString([], {timeStyle: "short"}));
       $('#current_date').text(formatDate(updateTime));
       let iconClass = getWeatherIconClass(currentWeatherData["icon"]);
@@ -109,7 +109,7 @@
 
     // Create graph
     var chartData = defaultChartData;
-    chartData["labels"] = extractWeatherForecastData(hourlyWeatherData["forecast"], "datetime");
+    chartData["labels"] = extractWeatherForecastData(hourlyWeatherData["forecast"], "time");
     chartData.datasets[0].data = extractWeatherForecastData(hourlyWeatherData["forecast"], currentGraphTab
         ).map(element => element * graphWeatherParameters[currentGraphTab]["dataFactor"]);
     chartData.datasets[0].borderColor = graphWeatherParameters[currentGraphTab]["color"];
@@ -137,7 +137,7 @@
     // Update graph
     function updateWeatherGraph(measure) {
       currentGraphTab = measure;
-      chartData.datasets[0].label = extractWeatherForecastData(hourlyWeatherData["forecast"], "datetime");
+      chartData.datasets[0].label = extractWeatherForecastData(hourlyWeatherData["forecast"], "time");
       chartData.datasets[0].data = extractWeatherForecastData(hourlyWeatherData["forecast"], measure
           ).map(element => element * graphWeatherParameters[measure]["dataFactor"]);
       chartData.datasets[0].borderColor = graphWeatherParameters[measure]["color"];
@@ -172,7 +172,7 @@
         let newDiv = document.createElement("div");
         newDiv.className = "boardFlexItem boardColumnContainer";
         // Format subtitle
-        let date = new Date(dailyWeatherData["forecast"][day]["datetime"]);
+        let date = new Date(dailyWeatherData["forecast"][day]["time"] * 1000);
         let subTitle = document.createElement("div");
         subTitle.className = "boardSubTitle";
         subTitle.appendChild(document.createTextNode(formatDate(date)));
@@ -222,7 +222,7 @@
           } else {
             icon.className = "fas fa-moon";
           }
-          let sunTime = new Date(dailyWeatherData["forecast"][day][params[parameter]]);
+          let sunTime = new Date(dailyWeatherData["forecast"][day][params[parameter]] * 1000);
           console.log(dailyWeatherData["forecast"][day]);
           sunDiv.appendChild(icon);
           sunDiv.appendChild(document.createTextNode(" " + sunTime.toLocaleTimeString([], {timeStyle: "short"})));

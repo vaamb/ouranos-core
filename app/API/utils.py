@@ -14,10 +14,14 @@ def time_limits() -> dict:
     }
 
 
-def get_service(service):
+def service_manager():
     from app.services import get_manager
+    return get_manager()
+
+
+def get_service(service):
     try:
-        return get_manager().services[service]
+        return service_manager().services[service]
     except AttributeError:
         raise RuntimeError(f"Services have not been started, cannot get "
                            f"{service} service")
