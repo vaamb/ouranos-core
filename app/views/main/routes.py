@@ -103,10 +103,18 @@ def home():
 
 @bp.route("/weather")
 def weather():
+    # TODO: use API
+    API.weather.is_on() or abort(404)
+    current_weather = API.weather.get_current_weather()
+    hourly_weather = API.weather.get_hourly_weather_forecast()
+    daily_weather = API.weather.get_daily_weather_forecast()
+
     weather_data = weather_service().get_data() or abort(404)
     return render_template("main/weather.html", title="Weather",
-                           home_city=Config.HOME_CITY,
-                           weather_data=weather_data,
+                           home_city=current_app.config.get("HOME_CITY"),
+                           current_weather=current_weather,
+                           hourly_weather=hourly_weather,
+                           daily_weather=daily_weather,
                            )
 
 

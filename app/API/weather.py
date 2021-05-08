@@ -10,7 +10,8 @@ from app.utils import parse_sun_times
 weather_measures = {
     "mean": ["temperature", "temperatureLow", "temperatureHigh", "humidity",
              "windSpeed", "cloudCover", "precipProbability", "dewPoint"],
-    "mode": ["summary", "icon"]
+    "mode": ["summary", "icon"],
+    "other": ["sunriseTime", "sunsetTime"],
 }
 
 weather_data_multiplication_factors = {
@@ -35,15 +36,19 @@ def _get_time_of_day(dt_time: time):
 
 def _simplify_weather_data(weather_data) -> dict:
     if weather_data:
-        return {
-            "datetime": datetime.fromtimestamp(weather_data["time"]),
-            "weather": {
-                measure: weather_data[measure]
-                for measure in weather_measures["mean"] + weather_measures["mode"]
-                if measure in weather_data
-            }
+        data = {
+            measure: weather_data[measure]
+            for measure in weather_measures["mean"] + weather_measures["mode"] +
+                           weather_measures["other"]
+            if measure in weather_data
         }
+        data.update({"datetime": datetime.fromtimestamp(weather_data["time"])})
+        return data
     return {}
+
+
+def is_on() -> bool:
+    return True if get_weather_data() else False
 
 
 # Current weather

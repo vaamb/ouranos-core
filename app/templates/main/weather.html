@@ -20,14 +20,14 @@
     </h1>
     <div class="boardRowContainer" style="min-height: 268px; row-gap: 6px">
       <div class="boardColumnContainer max250OnScreen" style="min-width: 225px; flex:1">
-        <div class="boardSubTitle"><span id="today_date"></span></div>
-        <div class="boardFlexItemU"><span id="today_temperature"></span>°C</div>
-        <div class="weatherIcon" style="height: 115px; line-height: 115px; font-size: 70px;"><i class="{{weather_data['currently']['icon']|getWeatherIcon}}"></i></div>
-        <div class="boardFlexItemU"><span id="today_summary"></span></div>
-        <div class="boardFlexItemU">Wind: <span id="today_windSpeed"></span> km/h</div>
-        <div class="boardFlexItemU">Precipitation: <span id="today_precipProbability"></span>%</div>
-        <div class="boardFlexItemU">Humidity: <span id="today_humidity"></span>%</div>
-        <div class="boardFlexItemU">Cloud cover: <span id="today_cloudCover"></span>%</div>
+        <div class="boardSubTitle"><span id="current_date"></span></div>
+        <div class="boardFlexItemU"><span id="current_temperature"></span>°C</div>
+        <div class="weatherIcon" style="height: 115px; line-height: 115px; font-size: 70px;"><i id="current_icon"></i></div>
+        <div class="boardFlexItemU"><span id="current_summary"></span></div>
+        <div class="boardFlexItemU">Wind: <span id="current_windSpeed"></span> km/h</div>
+        <div class="boardFlexItemU">Precipitation: <span id="current_precipProbability"></span>%</div>
+        <div class="boardFlexItemU">Humidity: <span id="current_humidity"></span>%</div>
+        <div class="boardFlexItemU">Cloud cover: <span id="current_cloudCover"></span>%</div>
       </div>
       <div style="flex: 1">
         <div style="margin: 10px 0 8px 0;">
@@ -46,107 +46,202 @@
     <h1>
       Week forecast
     </h1>
-    <div class="boardRowContainer" style="min-height: 268px; background: #ccc; row-gap: 1px">
-      {% for day in range(1,7) %}
-      <div class="boardFlexItem boardColumnContainer" style="padding-bottom: 7px">
-        <div class="boardSubTitle">{{weather_data['daily'][day]['time']|getDay}}</div>
-        <div class="boardFlexItemU">{{weather_data['daily'][day]['temperatureLow']|round(1)}} to {{weather_data['daily'][day]['temperatureHigh']|round(1)}}°C</div>
-        <div class="weatherIcon"><i class="{{weather_data['daily'][day]['icon']|getWeatherIcon}}"></i></div>
-        <div class="boardFlexItemU" style="flex: 2">{{weather_data['daily'][day]['summary']}}</div>
-        <div class="boardFlexItemU">Wind: {{weather_data['daily'][day]['windSpeed']}}km/h</div>
-        <div class="boardFlexItemU">Precipitation: {{(weather_data['daily'][day]['precipProbability']*100)|round|int}}%</div>
-        <div class="boardFlexItemU">Humidity: {{(weather_data['daily'][day]['humidity']*100)|round|int}}%</div>
-        <div class="boardFlexItemU">Cloud cover: {{(weather_data['daily'][day]['cloudCover']*100)|round|int}}%</div>
-        <div class="boardFlexItemU">
-          <i class="fas fa-sun" ></i> {{weather_data['daily'][day]['sunriseTime']|getTime}} &emsp; 
-          <i class="fas fa-moon"></i> {{weather_data['daily'][day]['sunsetTime']|getTime}}
-        </div>
-      </div>
-      {% endfor %}
-    </div>
+    <div class="boardRowContainer" id="dailyForecast" style="min-height: 268px; background: #ccc; row-gap: 1px"></div>
   </div>
 
   <script type="text/javascript">
-    let updateTime = new Date({{ weather_data['currently']['time'] }} * 1000);
-    $('#update_time').text(updateTime.toLocaleTimeString([], {timeStyle: "short"}));
-    $('#today_temperature').text(Number({{ weather_data["currently"]["temperature"] }}).toFixed(1));
-    $('#today_summary').text('{{weather_data["currently"]["summary"]}}');
-    $('#today_windSpeed').text(Number({{ weather_data["currently"]["windSpeed"] }}).toFixed(2));
-    $('#today_precipProbability').text(Number({{ weather_data["currently"]["precipProbability"]}} * 100).toFixed(0));
-    $('#today_humidity').text(Number({{ weather_data["currently"]["humidity"]}} * 100).toFixed(0));
-    $('#today_cloudCover').text(Number({{ weather_data["currently"]["cloudCover"]}} * 100).toFixed(0));
+    function extractWeatherForecastData(myWeatherArray, dataName) {
+      let result = [];
+      for (const element in myWeatherArray) {
+        if (dataName === "datetime") {
+          let datetime = new Date(myWeatherArray[element][dataName])
+          result.push(datetime)
+        } else {
+          result.push(myWeatherArray[element][dataName])
+        }
+      }
+      return result;
+    }
 
-    socket.on('current_weather', function(msg) {
-      updateTime = new Date(msg.time * 1000);
+    /* Current weather */
+    let currentWeatherData = {{ current_weather | tojson }};
+    const currentWeatherDataFactors = {
+        "temperature": {"label": "Temperature", "dataFactor": 1, "unit": "°C"},
+        "windSpeed": {"label": "Wind speed", "dataFactor": 1, "unit": "km/h"},
+        "precipProbability": {"label": "Precipitation", "dataFactor": 100, "unit": "%"},
+        "humidity" : {"label": "Humidity", "dataFactor": 1, "unit": "%"},
+        "cloudCover": {"label": "Cloud cover", "dataFactor": 100, "unit": "%"},
+    };
+
+    // Update spans
+    function updateCurrentWeatherSpans() {
+
+      // TODO: change icon
+      const updateTime = new Date(currentWeatherData["datetime"]);
       $('#update_time').text(updateTime.toLocaleTimeString([], {timeStyle: "short"}));
-      $('#today_temperature').text(Number(msg.temperature).toFixed(1));
-      $('#today_summary').text(msg.summary);
-      $('#today_windSpeed').text(Number(msg.windSpeed).toFixed(2));
-      $('#today_precipProbability').text(Number(msg.precipProbability * 100).toFixed(0));
-      $('#today_humidity').text(Number(msg.humidity * 100).toFixed(0));
-      $('#today_cloudCover').text(Number(msg.cloudCover * 100).toFixed(0));
+      $('#current_date').text(formatDate(updateTime));
+      let iconClass = getWeatherIconClass(currentWeatherData["icon"]);
+      $('#current_icon').removeClass().addClass(iconClass);
+      $('#current_summary').text(currentWeatherData["summary"]);
+      for (const measure in currentWeatherDataFactors) {
+        if (currentWeatherDataFactors.hasOwnProperty(measure)) {
+          $('#current_' + measure).text(Number(currentWeatherData[measure] * currentWeatherDataFactors[measure]["dataFactor"]).toFixed(1));
+        }
+      }
+    }
+
+    updateCurrentWeatherSpans();
+
+    // Socket.IO event calls
+    socket.on('current_weather', function(msg) {
+      currentWeatherData = msg;
+      updateCurrentWeatherSpans()
     });
 
-    // Generate Chart
-    var data = {
-        labels: [{% for hour in range(0, 25) %}
-                  {{weather_data['hourly'][hour]['time'] * 1000}},
-                {% endfor %}],
-        datasets: [{
-                label: "Temperature",
-                data: [{% for hour in range(0, 25) %}
-                        {{weather_data['hourly'][hour]['temperature']}},
-                      {% endfor %}],
-                borderColor: "#f0341f",
-                backgroundColor: "rgba(255,255,255,0)",
-                radius: 0,
-                hitRadius: 4,
-                type: "line",
-        }]
+    /* Hourly forecast */
+    let hourlyWeatherData = {{ hourly_weather | tojson }};
+    const graphWeatherParameters = {
+      "temperature": {"label": "Temperature", "color": "#f0341f", "dataFactor": 1, "max": 20},
+      "precipProbability": {"label": "Precipitation", "color": "#226ba3", "dataFactor": 100, "max": 20},
+      "humidity": {"label": "Humidity", "color": "#226ba3", "dataFactor": 100, "max": 100},
     };
-    var chartLayout = {
-      scales: {
-          xAxes: [{
-            type: "time",
-            barPercentage: 1.27,
-            time: {
-              unit: "hour",
-              unitStepSize: 1,
-              displayFormats: {"hour": "H:mm"}
-            }
-          }],
-          yAxes: [{
-            ticks: {
-              suggestedMin: 0,
-              suggestedMax: 25,
+    let currentGraphTab = Object.keys(graphWeatherParameters)[0];
+
+    // Create graph
+    var chartData = defaultChartData;
+    chartData["labels"] = extractWeatherForecastData(hourlyWeatherData["forecast"], "datetime");
+    chartData.datasets[0].data = extractWeatherForecastData(hourlyWeatherData["forecast"], currentGraphTab
+        ).map(element => element * graphWeatherParameters[currentGraphTab]["dataFactor"]);
+    chartData.datasets[0].borderColor = graphWeatherParameters[currentGraphTab]["color"];
+
+    var chartLayout = defaultChartLayout;
+    chartLayout.scales.xAxes[0]["time"] = {
+              "unit": "hour",
+              "unitStepSize": 1,
+              "displayFormats": {"hour": "H:mm"}
+          }
+    chartLayout.scales["yAxes"] = [{
+            "ticks": {
+              "suggestedMin": 0,
+              "suggestedMax": graphWeatherParameters[currentGraphTab]["max"],
             }
           }]
-        },
-      legend: {
-        display: false
-      },
-      maintainAspectRatio: false,
-      responsive: true,
-    };
+
     var ctx = document.getElementById("Chart");
     var myChart = new Chart(ctx, {
         type: "line",
-        data: data,
+        data: chartData,
         options: chartLayout
     });
 
-    // Chart data switch
-    {% for measure in measures %}
-    $("#button_{{ measure }}").click(function() {
-      data.datasets[0].label = "{{ measures[measure]["label"] }}";
-      data.datasets[0].data = [{% for hour in range(0, 25) %}
-                                  {{ weather_data['hourly'][hour][measure] * measures[measure]["unit_modif"] }},
-                                {% endfor %}];
-      data.datasets[0].borderColor = "{{ measures[measure]["color"] }}";
-      chartLayout.scales.yAxes[0].ticks.suggestedMax[{{ measures[measure]["max"] }}];
+    // Update graph
+    function updateWeatherGraph(measure) {
+      currentGraphTab = measure;
+      chartData.datasets[0].label = extractWeatherForecastData(hourlyWeatherData["forecast"], "datetime");
+      chartData.datasets[0].data = extractWeatherForecastData(hourlyWeatherData["forecast"], measure
+          ).map(element => element * graphWeatherParameters[measure]["dataFactor"]);
+      chartData.datasets[0].borderColor = graphWeatherParameters[measure]["color"];
+      chartLayout.scales.yAxes[0].ticks.suggestedMax[graphWeatherParameters[measure]["max"]];
       myChart.update();
-    });
-    {% endfor %}
+    }
 
+    for (const measure in graphWeatherParameters) {
+      if (graphWeatherParameters.hasOwnProperty(measure)) {
+        $("#button_" + measure).click(function() {
+          updateWeatherGraph(measure);
+        });
+      }
+    }
+
+    // Socket.IO event calls
+    socket.on('hourly_weather', function(msg) {
+      hourlyWeatherData = msg;
+      updateWeatherGraph(currentGraphTab);
+    });
+
+    /* Daily forecast */
+    let dailyWeatherData = {{ daily_weather | tojson }};
+    let dailyWeatherDataFactors = currentWeatherDataFactors
+    delete dailyWeatherDataFactors["temperature"]
+
+    function updateDailyWeatherSpans() {
+      let dailyForecast = document.createElement("div");
+      dailyForecast.className = "boardFlexItem boardRowContainer";
+
+      for (const day in dailyWeatherData["forecast"]) {
+        let newDiv = document.createElement("div");
+        newDiv.className = "boardFlexItem boardColumnContainer";
+        // Format subtitle
+        let date = new Date(dailyWeatherData["forecast"][day]["datetime"]);
+        let subTitle = document.createElement("div");
+        subTitle.className = "boardSubTitle";
+        subTitle.appendChild(document.createTextNode(formatDate(date)));
+        newDiv.appendChild(subTitle);
+        // Temperature range
+        let low = dailyWeatherData["forecast"][day]["temperatureLow"].toFixed(1);
+        let high = dailyWeatherData["forecast"][day]["temperatureHigh"].toFixed(1);
+        let tempDiv = document.createElement("div");
+        tempDiv.className = "boardFlexItemU";
+        tempDiv.appendChild(document.createTextNode(low + " to " + high + "°C"));
+        newDiv.appendChild(tempDiv);
+        // Icon
+        let icoDiv = document.createElement("div");
+        icoDiv.className = "weatherIcon";
+        let weatherIcon = document.createElement("i");
+        weatherIcon.className = getWeatherIconClass(dailyWeatherData["forecast"][day]["icon"]);
+        icoDiv.appendChild(weatherIcon);
+        newDiv.appendChild(icoDiv);
+        // Summary
+        let summaryDiv = document.createElement("div");
+        summaryDiv.className = "boardFlexItemU";
+        summaryDiv.style.flex = 2;
+        summaryDiv.appendChild(document.createTextNode(dailyWeatherData["forecast"][day]["summary"]));
+        newDiv.appendChild(summaryDiv);
+        // Other parameters
+        for (const parameter in currentWeatherDataFactors) {
+          if (currentWeatherDataFactors.hasOwnProperty(parameter)) {
+            let measureDiv = document.createElement("div");
+            measureDiv.className = "boardFlexItemU";
+            let text = document.createTextNode(
+                capitalize(dailyWeatherDataFactors[parameter]["label"]) + ": " +
+                Number(dailyWeatherData["forecast"][day][parameter] * dailyWeatherDataFactors[parameter]["dataFactor"]).toFixed(1) +
+                dailyWeatherDataFactors[parameter]["unit"]
+            )
+            measureDiv.appendChild(text);
+            newDiv.appendChild(measureDiv);
+          }
+        }
+        // Add sunrise and sunset times with icons
+        let sunDiv = document.createElement("div");
+        sunDiv.className = "boardFlexItemU";
+        params = ["sunriseTime", "sunsetTime"]
+        for (const parameter in params) {
+          let icon = document.createElement("i");
+          if (params[parameter] === "sunriseTime") {
+            icon.className = "fas fa-sun";
+          } else {
+            icon.className = "fas fa-moon";
+          }
+          let sunTime = new Date(dailyWeatherData["forecast"][day][params[parameter]]);
+          console.log(dailyWeatherData["forecast"][day]);
+          sunDiv.appendChild(icon);
+          sunDiv.appendChild(document.createTextNode(" " + sunTime.toLocaleTimeString([], {timeStyle: "short"})));
+        }
+        newDiv.appendChild(sunDiv);
+        // Add to parent
+        dailyForecast.appendChild(newDiv);
+      }
+
+      let parentDiv = document.getElementById("dailyForecast");
+      parentDiv.innerHTML = dailyForecast.innerHTML;
+
+    }
+    updateDailyWeatherSpans()
+
+    // Socket.IO event calls
+    socket.on('daily_weather', function(msg) {
+      dailyWeatherData = msg;
+      updateDailyWeatherSpans()
+    });
   </script>
 {% endblock %}
