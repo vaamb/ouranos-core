@@ -23,10 +23,3 @@ def get_service(service):
                            f"{service} service")
     except KeyError:
         raise ValueError(f"{service} is not a valid service")
-
-
-def get_weather_data():
-    try:
-        return get_service("weather").get_data()
-    except RuntimeError:
-        return {}

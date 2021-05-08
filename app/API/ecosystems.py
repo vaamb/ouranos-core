@@ -5,7 +5,7 @@ import cachetools.func
 from cachetools import cached, TTLCache
 from numpy import mean
 
-from app.API.utils import time_limits, get_weather_data
+from app.API.utils import time_limits
 from app.dataspace import sensorsData, sensorsDataHistory
 from app.models import sensorData, Hardware, Ecosystem, Health, Management, engineManager, Service
 
@@ -180,12 +180,6 @@ def summarize_ecosystems_info(ecosystems_info, session):
                      for ecosystem in ecosystems_info
                      if ecosystems_info[ecosystem]["switches"]],
     }
-
-
-def get_app_functionalities(summarized_ecosystems_info):
-    app_functionalities = summarized_ecosystems_info
-    app_functionalities["weather"] = True if get_weather_data() else False
-    return app_functionalities
 
 
 def get_light_info(ecosystems_query_obj) -> dict:

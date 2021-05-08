@@ -59,7 +59,7 @@ def menu_info():
         ecosystems_qo, session=db.session)
     summarized_ecosystems_info = API.ecosystems.summarize_ecosystems_info(
         ecosystems_info, session=db.session)
-    dropdowns = API.ecosystems.get_app_functionalities(
+    dropdowns = API.app.get_functionalities(
         summarized_ecosystems_info)
 
     plant_articles = [article for article

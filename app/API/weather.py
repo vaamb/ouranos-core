@@ -3,7 +3,7 @@ from datetime import datetime, time, timedelta, timezone
 from numpy import mean
 from scipy.stats import mode
 
-from app.API.utils import get_weather_data, get_service
+from app.API.utils import get_service
 from app.utils import parse_sun_times
 
 
@@ -21,6 +21,13 @@ weather_data_multiplication_factors = {
     "cloudCover": 100,
     "precipProbability": 100,
 }
+
+
+def _get_weather_data():
+    try:
+        return get_service("weather").get_data()
+    except RuntimeError:
+        return {}
 
 
 def _get_time_of_day(dt_time: time):
@@ -48,12 +55,12 @@ def _simplify_weather_data(weather_data) -> dict:
 
 
 def is_on() -> bool:
-    return True if get_weather_data() else False
+    return True if _get_weather_data() else False
 
 
 # Current weather
 def get_current_weather():
-    weather_data = get_weather_data()
+    weather_data = _get_weather_data()
     if weather_data:
         return _simplify_weather_data(weather_data["currently"])
     return {}
@@ -61,7 +68,7 @@ def get_current_weather():
 
 # Weather forecast
 def get_hourly_weather_forecast(time_window=24):
-    weather_data = get_weather_data()
+    weather_data = _get_weather_data()
     if weather_data:
         if time_window > len(weather_data["hourly"]):
             time_window = len(weather_data["hourly"]) - 1
@@ -80,7 +87,7 @@ def get_hourly_weather_forecast(time_window=24):
 
 
 def get_daily_weather_forecast(time_window=7):
-    weather_data = get_weather_data()
+    weather_data = _get_weather_data()
     if weather_data:
         if time_window > len(weather_data["daily"]):
             time_window = len(weather_data["daily"]) - 1
