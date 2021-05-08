@@ -28,8 +28,7 @@
               <a href="{{ url_for('main.weather') }}">
                 <h1>Current weather</h1>
                 <div class="boardColumnContainer">
-                  <!-- TODO: update weatherIcon when needed -->
-                  <div class="weatherIcon" style="height: 115px; line-height: 115px; font-size: 70px;"><i class='{{ current_weather["weather"]["icon"] | getWeatherIcon }}'></i></div>
+                  <div class="weatherIcon" style="height: 115px; line-height: 115px; font-size: 70px;"><i id="weather_icon"></i></div>
                   <div class="boardSubTitle">
                     <span id="weather_summary"></span>
                   </div>
@@ -158,11 +157,13 @@
 
     {% if current_weather %}
     // Weather box
-    let currentWeatherData = {{ current_weather["weather"] | tojson }};
+    let currentWeatherData = {{ current_weather | tojson }};
     const weatherDataFactors = {"temperature": 1, "windSpeed": 1, "precipProbability": 100, "humidity" : 100, "cloudCover": 100};
 
     function updateCurrentWeatherSpans() {
       $('#weather_summary').text(currentWeatherData["summary"]);
+      let iconClass = getWeatherIconClass(currentWeatherData["icon"]);
+      $('#weather_icon').removeClass().addClass(iconClass);
       for (const parameter in weatherDataFactors) {
         if (weatherDataFactors.hasOwnProperty(parameter)) {
           $('#weather_' + parameter).text(Number(currentWeatherData[parameter] * weatherDataFactors[parameter]).toFixed(1));
