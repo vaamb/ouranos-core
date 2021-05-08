@@ -51,7 +51,7 @@
               </a>
             </div>
             {% endif %}
-            {% if current_user.is_administrator %}
+            {% if current_user.can(Permission.ADMIN) %}
             <div class="board">
               <h1>Server info</h1>
               <div class="boardColumnContainer">
@@ -179,7 +179,7 @@
     });
     {% endif %}
 
-    {% if current_user.is_administrator %}
+    {% if current_user.can(Permission.ADMIN) %}
     // Server box
     const systemDataSpans = ["CPU_temp", "RAM_used", "RAM_total", "DISK_used", "DISK_total"]
     let systemData = {{ system_data | tojson }};

@@ -162,7 +162,7 @@
           </ul>
         </li>
         {% endif %}
-        {% if current_user.can(permission.OPERATE) %}
+        {% if current_user.can(Permission.OPERATE) %}
         <li>
           <div class="accordionMenuItem dropdownLink">
             <i class="fa fa-tasks leftIco"></i>
@@ -174,7 +174,7 @@
           </ul>
         </li>
         {% endif %}
-        {% if current_user.can(permission.ADMIN) %}
+        {% if current_user.can(Permission.ADMIN) %}
         <li>
           <div class="accordionMenuItem dropdownLink">
             <i class="fa fa-users-cog leftIco"></i>
@@ -194,7 +194,7 @@
       <div class="bottomBox">
         <div><a href="{{ url_for('main.about') }}" title="About the author"><i class="fa fa-address-card"></i></a></div>
         <div><a href="#" title="Preferences"><i class="fa fa-user-cog"></i></a></div>
-        {% if current_user.can(permission.ADMIN) %}
+        {% if current_user.can(Permission.ADMIN) %}
         <div><a href="#" title="Shutdown GAIA"><i class="fa fa-power-off"></i></a></div>
         {% endif %}
       </div>
@@ -205,7 +205,7 @@
       {% block topbar %}
       <div class="topBar">
         <div class="roleInfo">
-          {% if current_user.can(permission.ADMIN) %}
+          {% if current_user.can(Permission.ADMIN) %}
           Logged as Admin
           {% endif %}
         </div>

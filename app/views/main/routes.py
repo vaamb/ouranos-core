@@ -71,7 +71,7 @@ def menu_info():
         warnings = API.warnings.get_recent_warnings(db.session)
 
     return {
-        "permission": Permission,
+        "Permission": Permission,
         "ecosystems_info": ecosystems_info,
         "dropdowns": dropdowns,
         "plant_articles": plant_articles,
