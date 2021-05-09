@@ -31,7 +31,13 @@ def _dumps_dt(obj) -> str:
 
 class redisCache:
     """Dict-like object to access Redis-stored data. """
-    def __init__(self, name, redis_client, *args, **kwargs):
+    def __init__(self, name, redis_client, check_client=True, *args, **kwargs):
+        if check_client:
+            if not redis_client.ping():
+                raise RuntimeError(
+                    f"Redis server could not be contacted, unable to "
+                    f"instantiate {self.__class__.__name__}"
+                )
         if self.__class__.__name__ in ("redisCache", "hybridCache"):
             kwargs.pop("ttl")
         self._name = name
