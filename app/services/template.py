@@ -1,6 +1,5 @@
 import logging
 
-from app import app_name
 from app.database import out_of_Flask_app_db as db
 from app.models import Service
 
@@ -9,9 +8,10 @@ class serviceTemplate:
     NAME = "serviceTemplate"
     LEVEL = "base"
 
-    def __init__(self):
-        self._logger = \
-            logging.getLogger(f"{app_name}.services.{self.NAME.lower()}")
+    def __init__(self, config_class):
+        self._config = config_class
+        self._logger = logging.getLogger(
+            f"{config_class.APP_NAME}.services.{self.NAME.lower()}")
         self._service_name = f"{self.NAME.lower()}Service"
         self._logger.debug(f"Initializing {self._service_name}")
         try:

@@ -1,7 +1,7 @@
 import logging
 
-from app import app_name
 from app.database import out_of_Flask_app_db as db
+# TODO: remove all ref from app and base Config related objects
 from app.models import Service
 from app.services.calendar import Calendar
 from app.services.daily_recap import dailyRecap
@@ -20,8 +20,6 @@ for SERVICE in SERVICES:
     _services[SERVICE.LEVEL][SERVICE.NAME] = SERVICE
 
 
-logger = logging.getLogger(f"{app_name}.services")
-
 services_manager = None
 
 
@@ -37,18 +35,20 @@ def log_services_available() -> None:
 
 
 class _servicesManager:
-    def __init__(self) -> None:
-        logger.info(f"Initializing {app_name} services ...")
+    def __init__(self, config_class) -> None:
+        self._config = config_class
+        self.logger = logging.getLogger(f"{self._config.APP_NAME}.services")
+        self.logger.info(f"Initializing {self._config.APP_NAME} services ...")
         log_services_available()
         self.services = {}
         self._services_running = []
         self._init_services()
-        logger.info(f"{app_name} services successfully initialized")
+        self.logger.info(f"{self._config.APP_NAME} services successfully initialized")
 
     def _init_services(self) -> None:
         for level in _services:
             for service in _services[level]:
-                self.services[service] = _services[level][service]()
+                self.services[service] = _services[level][service](self._config)
 
         for service in _services["base"]:
             self.services[service].start()
@@ -62,7 +62,7 @@ class _servicesManager:
                     if status:
                         self.services[service].start()
                         self._services_running.append(service)
-        logger.debug("Service module has been initialized")
+        self.logger.debug("Service module has been initialized")
 
     def start_service(self, service: str) -> None:
         self.services[service].start()
@@ -82,10 +82,10 @@ class _servicesManager:
         return [service.NAME for service in SERVICES]
 
 
-def start() -> None:
+def start(config_class) -> None:
     global services_manager
     if not services_manager:
-        services_manager = _servicesManager()
+        services_manager = _servicesManager(config_class)
 
 
 def get_manager():

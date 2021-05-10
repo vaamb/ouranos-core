@@ -40,7 +40,8 @@ if __name__ == "__main__":
         app_name = config_class.APP_NAME
         logger = logging.getLogger(app_name)
         logger.info(f"Starting {app_name} ...")
-        services.start()
+        dataspace.init(config_class)
+        services.start(config_class)
         app = create_app(config_class)
         logger.info(f"{app_name} successfully started")
         sio.run(app,
@@ -51,4 +52,6 @@ if __name__ == "__main__":
         sio.stop()
         print("Manually closing gaiaWeb")
     finally:
+        # TODO: set managers as not connected on closing
+        #  engineManager.query.update({engineManager.connected: False})
         print("gaiaWeb has been closed")
