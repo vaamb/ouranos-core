@@ -1,4 +1,4 @@
-from collections.abc import Mapping
+from collections.abc import Mapping, MutableMapping
 import datetime
 import json
 import time
@@ -29,7 +29,7 @@ def _dumps_dt(obj) -> str:
         return obj.replace(microsecond=0).isoformat()
 
 
-class redisCache:
+class redisCache(MutableMapping):
     """Dict-like object to access Redis-stored data. """
     def __init__(self, name, redis_client, check_client=True, *args, **kwargs):
         if check_client:
@@ -163,6 +163,10 @@ class redisCache:
         keys = redis_client.hkeys(name)
         redis_client.hdel(name, *keys)
         return cls(name, redis_client, *args, **kwargs)
+
+    @property
+    def name(self):
+        return self._name
 
     @property
     def ttl(self):

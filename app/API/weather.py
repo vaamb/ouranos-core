@@ -5,23 +5,8 @@ from scipy.stats import mode
 
 from app.API import app
 from app.API.utils import get_service
+from app.dataspace import WEATHER_MEASURES
 from app.utils import parse_sun_times
-
-
-weather_measures = {
-    "mean": ["temperature", "temperatureLow", "temperatureHigh", "humidity",
-             "windSpeed", "cloudCover", "precipProbability", "dewPoint"],
-    "mode": ["summary", "icon"],
-    "other": ["time", "sunriseTime", "sunsetTime"],
-}
-
-weather_data_multiplication_factors = {
-    "temperature": 1,
-    "humidity": 100,
-    "windSpeed": 1,
-    "cloudCover": 100,
-    "precipProbability": 100,
-}
 
 
 def _weather_on():
@@ -99,7 +84,7 @@ def _digest_hourly_weather_forecast(weather_forecast) -> dict:
             except KeyError:
                 digest[day][tod] = {}
 
-            for info in weather_measures["mean"] + weather_measures["mode"]:
+            for info in WEATHER_MEASURES["mean"] + WEATHER_MEASURES["mode"]:
                 try:
                     digest[day][tod][info].append(hour["weather"][info])
                 except KeyError:
@@ -126,11 +111,11 @@ def _summarize_digested_weather_forecast(digested_weather_forecast):
             for tod in day_forecast:
                 summary["forecast"][day][tod] = {}
 
-                for info in weather_measures["mode"]:
+                for info in WEATHER_MEASURES["mode"]:
                     summary["forecast"][day][tod][info] = \
                         mode(day_forecast[tod][info])[0]
 
-                for info in weather_measures["mean"]:
+                for info in WEATHER_MEASURES["mean"]:
                     summary["forecast"][day][tod][info] = \
                         round(mean(day_forecast[tod][info]), 1)
 
@@ -146,7 +131,10 @@ def get_summarized_hourly_weather_forecast(time_window=24):
 
 
 def get_suntimes_data():
-    suntimes_service = get_service("sun_times")
+    try:
+        suntimes_service = get_service("sun_times")
+    except RuntimeError:
+        return {}
     suntimes = suntimes_service.get_data()
     return {event: parse_sun_times(suntimes[event]) for event in suntimes
             if event != "day_length"}

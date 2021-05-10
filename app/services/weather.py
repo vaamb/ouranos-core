@@ -6,23 +6,16 @@ import time
 import requests
 
 from app import sio, scheduler
-from config import Config, base_dir
+from app.dataspace import WEATHER_MEASURES
 from app.services.template import serviceTemplate
-
-
-weather_measures = {
-    "mean": ["temperature", "temperatureLow", "temperatureHigh", "humidity",
-             "windSpeed", "cloudCover", "precipProbability", "dewPoint"],
-    "mode": ["summary", "icon"],
-    "other": ["time", "sunriseTime", "sunsetTime"],
-}
+from config import Config, base_dir
 
 
 def _simplify_weather_data(weather_data) -> dict:
     return {
         measure: weather_data[measure]
-        for measure in weather_measures["mean"] + weather_measures["mode"] +
-            weather_measures["other"]
+        for measure in WEATHER_MEASURES["mean"] + WEATHER_MEASURES["mode"] +
+                       WEATHER_MEASURES["other"]
         if measure in weather_data
     }
 
@@ -54,6 +47,7 @@ class Weather(serviceTemplate):
     NAME = "weather"
     LEVEL = "app"
 
+    # Add a config_class in init
     def _init(self) -> None:
         self._file_path = None
         self._data = {}
@@ -107,7 +101,8 @@ class Weather(serviceTemplate):
             try:
                 with open(self._file_path, "r") as file:
                     self._load_data(json.load(file))
-            except FileNotFoundError:
+            except (FileNotFoundError, json.decoder.JSONDecodeError):
+                # No file or empty file
                 return False
 
         if self._data["currently"]["time"] > \
@@ -121,7 +116,7 @@ class Weather(serviceTemplate):
         cache_dir = base_dir / "cache"
         if not cache_dir.exists():
             os.mkdir(cache_dir)
-        self._file_path = cache_dir/"weather.json"
+        self._file_path = cache_dir / "weather.json"
         if not self._check_recency():
             self.update_weather_data()
         scheduler.add_job(self.update_weather_data, "cron",
@@ -133,15 +128,16 @@ class Weather(serviceTemplate):
         self._data = {}
 
     """API"""
+
     @property
     def data(self):
         return self._data
 
-    @ property
+    @property
     def current_data(self) -> dict:
         return self._data["currently"]
 
-    @ property
+    @property
     def hourly_data(self) -> dict:
         return self._data["hourly"]
 

@@ -49,7 +49,7 @@ class Config:
 
     # Mail config
     MAIL_SERVER = os.environ.get("MAIL_SERVER") or "smtp.gmail.com"
-    MAIL_PORT = 465
+    MAIL_PORT = int(os.environ.get("MAIL_PORT") or 465)
     MAIL_USE_TLS = False
     MAIL_USE_SSL = True
     MAIL_USERNAME = os.environ.get("MAIL_USERNAME") or privateConfig.MAIL_USERNAME
@@ -60,7 +60,8 @@ class Config:
     GAIA_ADMIN = os.environ.get("GAIA_ADMIN") or privateConfig.ADMIN
     TEST_CONNECTION_IP = "1.1.1.1"
     RECAP_SENDING_HOUR = 4
-    ECOSYSTEM_TIMEOUT = 150  # in sec # Not used anymore
+    GAIA_ECOSYSTEM_TIMEOUT = 150
+    GAIA_MAX_ECOSYSTEMS = 32
     WEATHER_UPDATE_PERIOD = 5  # in min
     GAIA_SECRET_KEY = os.environ.get("GAIA_SECRET_KEY") or SECRET_KEY
     GAIA_CLIENT_MAX_ATTEMPT = 3
@@ -68,6 +69,8 @@ class Config:
     # Data logging
     SYSTEM_LOGGING_PERIOD = 10
     SENSORS_LOGGING_PERIOD = 10
+    REDIS_URL = os.environ.get("REDIS_URL") or "redis://"
+    USE_REDIS_CACHE = True
 
     # Private parameters
     HOME_CITY = os.environ.get("HOME_CITY") or privateConfig.HOME_CITY
@@ -81,10 +84,12 @@ class DevelopmentConfig(Config):
     TESTING = True
     LOG_TO_FILE = False
     MAIL_DEBUG = True
+    USE_REDIS_CACHE = False
 
 
 class TestingConfig(Config):
     TESTING = True
+    USE_REDIS_CACHE = False
 
 
 class ProductionConfig(Config):

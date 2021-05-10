@@ -9,6 +9,7 @@ from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from flask_socketio import SocketIO
 from flask_mail import Mail
+from redis import Redis
 
 from config import Config, DevelopmentConfig
 
@@ -60,6 +61,11 @@ def create_app(config_class=DevelopmentConfig):
     mail.init_app(app)
     scheduler.start()
 
+    from app import dataspace
+    if not dataspace.status:
+        dataspace.init(config_class)
+    app.redis = dataspace.rd
+
     @app.route("/eegg")
     def hello():
         return "eegg"
@@ -79,7 +85,7 @@ def create_app(config_class=DevelopmentConfig):
     from app.views.api import bp as api_bp
     app.register_blueprint(api_bp)
 
-    from app import database
+#    from app import database
     from app import socketio_events
 
     logger.info(f"{app_name} app successfully created")
