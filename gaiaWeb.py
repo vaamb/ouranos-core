@@ -8,6 +8,7 @@ import eventlet
 eventlet.monkey_patch()
 
 import logging
+import signal
 import sys
 
 from app import create_app, dataspace, services, scheduler, sio
@@ -23,6 +24,16 @@ config_profile = {
 profiles_available = [profile for profile in config_profile]
 
 default_profile = "development"
+
+
+def graceful_exit(*args):
+    services.exit_gracefully()
+    print("gaiaWeb has been closed")
+    sys.exit(0)
+
+
+signal.signal(signal.SIGTERM, graceful_exit)
+# rem: signal.SIGINT is translated into KeyboardInterrupt by python
 
 
 if __name__ == "__main__":
@@ -49,9 +60,7 @@ if __name__ == "__main__":
                 port="5000")
     except KeyboardInterrupt:
         scheduler.remove_all_jobs()
-        sio.stop()
         print("Manually closing gaiaWeb")
     finally:
-        # TODO: set managers as not connected on closing
-        #  engineManager.query.update({engineManager.connected: False})
-        print("gaiaWeb has been closed")
+        sio.stop()
+        graceful_exit()

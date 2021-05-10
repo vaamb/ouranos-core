@@ -1,8 +1,8 @@
 import logging
 
-from app.database import out_of_Flask_app_db as db
+from app.database import out_of_Flask_app_db as db, out_of_Flask_data_db as data_db
 # TODO: remove all ref from app and base Config related objects
-from app.models import Service
+from app.models import engineManager, Service
 from app.services.calendar import Calendar
 from app.services.daily_recap import dailyRecap
 from app.services.sun_times import sunTimes
@@ -86,6 +86,12 @@ def start(config_class) -> None:
     global services_manager
     if not services_manager:
         services_manager = _servicesManager(config_class)
+
+
+def exit_gracefully() -> None:
+    data_db.session.query(engineManager).update(
+        {engineManager.connected: False})
+    data_db.session.commit()
 
 
 def get_manager():
