@@ -48,7 +48,7 @@ class InvitationForm(FlaskForm):
                 raise ValidationError
 
     def validate_role(self, role):
-        if role != "User":
+        if role.data != "User":
             if not any((self.email.data, self.telegram_chat_id.data)):
                 raise ValidationError(
                     "Either 'Email' or 'Telegram chat id' is required when "
