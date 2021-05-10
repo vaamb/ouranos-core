@@ -171,6 +171,7 @@
       for (const day in dailyWeatherData["forecast"]) {
         let newDiv = document.createElement("div");
         newDiv.className = "boardFlexItem boardColumnContainer";
+        newDiv.style.paddingBottom = "17px";
         // Format subtitle
         let date = new Date(dailyWeatherData["forecast"][day]["time"] * 1000);
         let subTitle = document.createElement("div");
