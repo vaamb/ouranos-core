@@ -9,21 +9,10 @@ from flask_sqlalchemy import get_debug_queries
 from app import db
 from app import API
 from app.API.various import wiki
-from app.dataspace import lock, sensorsData, sensorsDataHistory
+from app.dataspace import sensorsData, sensorsDataHistory
 from app.models import Hardware, Health, Service, User, Permission
-from app.services import get_manager
 from app.views.main import bp, layout
 from app.views.main.forms import EditProfileForm
-from config import Config
-
-
-# "Dynamic proxies" for services
-def weather_service():
-    return get_manager().services["weather"]
-
-
-def system_monitor():
-    return get_manager().services["system_monitor"]
 
 
 def get_ecosystem_ids(ecosystem, time_limit=None) -> str:
@@ -90,7 +79,7 @@ def home():
     sun_times = API.weather.get_suntimes_data()
     ecosystems_qo = API.ecosystems.get_recent_ecosystems_query_obj(session=db.session)
     light_data = API.ecosystems.get_light_info(ecosystems_qo)
-    system_data = system_monitor().system_data
+    system_data = API.admin.get_current_system_data()
     return render_template("main/home.html", title="Home",
                            current_weather=current_weather,
                            light_data=light_data,
