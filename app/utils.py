@@ -207,3 +207,15 @@ def generate_secret_key_from_password(password: str, set_env: bool = False) -> s
             # Setting environ in BSD and MacOsX can lead to mem leak (cf. doc)
             os.putenv("GAIA_SECRET_KEY", skey)
     return skey
+
+
+def humanize_list(lst: list) -> str:
+    list_length = len(lst)
+    sentence = []
+    for i in range(list_length):
+        sentence.append(lst[i])
+        if i < list_length - 2:
+            sentence.append(", ")
+        elif i == list_length - 2:
+            sentence.append(" and ")
+    return "".join(sentence)

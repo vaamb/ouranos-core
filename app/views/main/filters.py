@@ -1,6 +1,7 @@
 from datetime import datetime
 from hashlib import sha1
 
+from app.utils import humanize_list
 from app.views.main import bp
 
 
@@ -37,16 +38,8 @@ def get_weather_icon(weather: str) -> str:
 
 
 @bp.app_template_filter('humanizeList')
-def humanize_list(lst: list) -> str:
-    list_length = len(lst)
-    sentence = []
-    for i in range(list_length):
-        sentence.append(lst[i])
-        if i < list_length - 2:
-            sentence.append(", ")
-        elif i == list_length - 2:
-            sentence.append(" and ")
-    return "".join(sentence)
+def _humanize_list(lst: list) -> str:
+    return humanize_list(lst)
 
 
 @bp.app_template_filter('roundDecimals')
