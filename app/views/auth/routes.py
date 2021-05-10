@@ -46,7 +46,7 @@ def register():
     if token is None:
         form = InvitationForm()
         if form.validate_on_submit():
-            token = form.token.data
+            token = form.token.data.strip()
             return redirect(url_for("auth.register", token=token))
         return render_template('auth/invitation.html', title='Register',
                                form=form)
@@ -68,16 +68,25 @@ def register():
         flash("This invitation token has already been used for registration")
         return redirect(url_for("auth.login"))
 
+    role = Role.query.filter_by(name=decoded.get("rle")).first()
+
+    firstname = decoded.get("fnm")
+    lastname = decoded.get("lnm")
+    email = decoded.get("eml")
     form = RegistrationForm()
 
     if request.method == "GET":
-        form.firstname.data = decoded.get("fnm")
-        form.lastname.data = decoded.get("lnm")
-        form.email.data = decoded.get("eml")
-        form.token.data = decoded["utk"]
+        form.firstname.data = firstname
+        form.lastname.data = lastname
+        form.email.data = email
 
     if form.validate_on_submit():
-        role = Role.query.filter_by(name=decoded.get("rle")).first()
+        if not role.default and firstname:
+            form.firstname.data = firstname
+        if not role.default and lastname:
+            form.lastname.data = lastname
+        if email:
+            form.email.data = email
         user = User(
             firstname=form.firstname.data,
             lastname=form.lastname.data,
@@ -94,4 +103,5 @@ def register():
         flash(f"You are now registered {form.username.data}!")
         login_user(user)
         return redirect(url_for("main.home"))
-    return render_template("auth/register.html", title="Register", form=form)
+    return render_template("auth/register.html", title="Register", form=form,
+                           role=role)

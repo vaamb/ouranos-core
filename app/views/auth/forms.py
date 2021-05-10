@@ -1,7 +1,7 @@
 from flask_wtf import FlaskForm
 import jwt
 from wtforms import BooleanField, PasswordField, StringField, SubmitField, \
-    HiddenField
+    IntegerField
 from wtforms.validators import DataRequired, Email, EqualTo, Length, \
     Regexp, ValidationError
 
@@ -44,6 +44,7 @@ class RegistrationForm(FlaskForm):
         Regexp('^[A-Za-z]\w*$', 0,
                'Usernames must start with a letter and be composed of letters, '
                'numbers and/or underscores')])
+    telegram = IntegerField("Telegram chat id")
     email = StringField('Email', validators=[DataRequired(), Email()])
     password = PasswordField('Password', validators=[
         DataRequired(), 
