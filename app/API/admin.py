@@ -126,20 +126,26 @@ def create_invitation_jwt(db_session,
     return jwt.encode(jwt_tkn, key=current_app.config["JWT_SECRET_KEY"], algorithm="HS256").decode("utf-8")
 
 
-def send_invitation(invitation_jwt, mode="email"):
+def send_invitation(invitation_jwt, db_session, mode="email"):
     decoded = jwt.decode(invitation_jwt, options={"verify_signature": False})
     firstname = decoded.get("fnm")
+    exp_date = datetime.fromtimestamp(decoded.get("exp")).strftime("%A %d/%m")
+    role = decoded.get("rle") or db_session.query(Role).filter_by(default=True
+                                                                  ).one().name
+
     text = render_template("messages/invitation.txt",
-                           firstname=firstname, invitation_jwt=invitation_jwt)
+                           firstname=firstname, invitation_jwt=invitation_jwt,
+                           exp_date=exp_date, role=role)
     html = render_template("messages/invitation.html",
-                           firstname=firstname, invitation_jwt=invitation_jwt)
+                           firstname=firstname, invitation_jwt=invitation_jwt,
+                           exp_date=exp_date, role=role)
     if mode == "email":
         try:
             recipient = decoded["eml"]
         except KeyError:
             raise Exception("No email address present in the JSON Web Token")
-        send_email(subject="Welcome to GAIA",
-                   sender="GAIA team",
+        send_email(subject="Welcome to GAIApy",
+                   sender=("GAIApy team", current_app.config["MAIL_USERNAME"]),
                    recipients=[recipient],
                    text_body=text,
                    html_body=html,
