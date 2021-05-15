@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from flask import current_app, flash, redirect, render_template, request, \
     url_for
@@ -53,7 +53,8 @@ def register():
 
     try:
         decoded = jwt.decode(token, current_app.config["JWT_SECRET_KEY"],
-                             algorithms="HS256")
+                             algorithms="HS256",
+                             leeway=timedelta(days=1))
         user = User.query.filter(User.token == decoded["utk"]).first()
     except jwt.ExpiredSignatureError:
         flash("This invitation token has expired")
