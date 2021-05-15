@@ -1,17 +1,17 @@
-from app.API.utils import service_manager
+from app.API.utils import get_services_manager
 
 
 def get_services_available() -> list:
-    manager = service_manager()
-    if manager:
-        return manager.services_available
+    services_manager = get_services_manager()
+    if services_manager:
+        return services_manager.services_available
     return []
 
 
 def get_services_running() -> list:
-    manager = service_manager()
-    if manager:
-        return manager.services_running
+    services_manager = get_services_manager()
+    if services_manager:
+        return services_manager.services_running
     return []
 
 
