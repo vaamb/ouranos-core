@@ -39,7 +39,7 @@ class redisCache(MutableMapping):
                     f"instantiate {self.__class__.__name__}"
                 )
         if self.__class__.__name__ in ("redisCache", "hybridCache"):
-            kwargs.pop("ttl")
+            kwargs.pop("ttl", None)
         self._name = name
         self._redis_client = redis_client
         self._check_ttl_info(ttl="ttl" in kwargs)
@@ -151,6 +151,7 @@ class redisCache(MutableMapping):
         key_list = [key for key in self]
         for key in key_list:
             del self[key]
+        del self["ttl_info"]
 
     def delete(self, *keys):
         for key in keys:
