@@ -1,0 +1,11 @@
+{% extends "messages/base.html" %}
+
+{% block content %}
+  <p>
+    {% if firstname %}
+    Hej {{ firstname }}!
+    {% else %}
+    Hej!
+    {% endif %}
+  </p>
+{% endblock %}
