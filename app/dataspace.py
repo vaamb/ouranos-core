@@ -31,8 +31,6 @@ status = False
 _redis_status = False
 
 
-# Those are potentially thread-shared caches. Only the service module is
-#  allowed to write data on them
 _caches = {
     "sensorsData": {},
     "healthData": {},
@@ -75,7 +73,9 @@ def _setup_cache(cache_name, ttl=None, maxsize=16) -> MutableMapping:
 def create_cache(cache_name, ttl=None, maxsize=16, overwrite=False):
     if _caches.get(cache_name) and not overwrite:
         raise ValueError(f"The cache {cache_name} already exists")
-    _caches[cache_name] = _setup_cache(cache_name, ttl, maxsize)
+    cache = _setup_cache(cache_name, ttl, maxsize)
+    _caches[cache_name] = cache
+    return cache
 
 
 def get_cache(cache_name):
