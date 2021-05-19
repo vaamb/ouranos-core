@@ -3,11 +3,10 @@
 {% block header %}Switches in {{ ecosystem_ids[1] }}{% endblock %}
 {% block info %}{% endblock %}
 
-{% set switches = {"light": light_data} %}
 {% set modes = ("on", "off", "automatic") %}
 
 {% block content %}
-  {% for switch in switches %}
+  {% for switch in ("light", ) %}
   <div class="row">
     <div class="board max400OnScreen">
       <h1>{{ switch.capitalize() }} switch</h1>
@@ -29,47 +28,53 @@
       </div>
     </div>
   </div>
-
-
-
   {% endfor %}
 {% endblock %}
 
 {% block scripts %}
     <script type="text/javascript">
-        {% for switch in switches %}
-        if ({{ switches[switch][ecosystem_ids[0]]["status"]|toJSBool }}) {
-            $("i#{{ switch }}_status").addClass("on");
-        } else {
-            $("i#{{ switch }}_status").addClass("off");
-        }
-        if ("{{ switches[switch][ecosystem_ids[0]]["mode"] }}" == "automatic") {
-            $("i#{{ switch }}_status").addClass("fa-spin");
+        let switches = {{ switches | tojson }};
+
+        function updateSwitches(type) {
+          // Status
+          if (switches[type]["status"]) {
+            $("i#" + type + "_status").addClass("on").removeClass("off");
+          } else {
+            $("i#" + type + "_status").addClass("off").removeClass("on");
+          }
+          // Mode
+          if (switches[type]["mode"] === "automatic") {
+            $("i#" + type + "_status").addClass("fa-spin");
+          } else {
+            $("i#" + type + "_status").removeClass("fa-spin");
+          }
         }
 
-        socket.on("{{ switch }}_data", function(msg) {
-            if (msg.{{ ecosystem_ids[0] }}.status) {
-                $("i#{{ switch }}_status").addClass("on");
-                $("i#{{ switch }}_status").removeClass("off");
-            } else {
-                $("i#{{ switch }}_status").addClass("off");
-                $("i#{{ switch }}_status").removeClass("on");
-            }
-            if (msg.{{ ecosystem_ids[0] }}.mode == "automatic") {
-                $("i#{{ switch }}_status").addClass("fa-spin");
-            } else {
-                $("i#{{ switch }}_status").removeClass("fa-spin");
-            }
-        });
+        for (const type in switches) {
+          if (switches.hasOwnProperty(type)) {
+            // Set switches status
+            updateSwitches(type);
+            // Socket.IO events
+            socket.on(type + "_data", function(msg) {
+              Object.assign(switches[type], msg["{{ ecosystem_ids[0] }}"]);
+              updateSwitches(type);
+            });
+          }
+        }
 
         {% if current_user.is_operator %}
-        {% for mode in modes %}
-        $("button#{{ switch }}_{{ mode }}").click(function() {
-            socket.emit("turn_{{ switch }}", {ecosystem: "{{ ecosystem_ids[0]|safe }}", mode: "{{ mode }}" });
-            return false;
-        });
-        {% endfor %}
+        const switchOptions = ["on", "off", "automatic"]
+
+        for (const type in switches) {
+          if (switches.hasOwnProperty(type)) {
+            for (const option of switchOptions) {
+              $("button#" + type + "_" + option).click(function() {
+                socket.emit("turn_" + type, {ecosystem: "{{ ecosystem_ids[0] }}", mode: option });
+                return false;
+              });
+            }
+          }
+        }
         {% endif %}
-        {% endfor %}
     </script>
 {% endblock %}

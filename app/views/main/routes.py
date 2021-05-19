@@ -155,12 +155,14 @@ def switches(ecosystem_name: str):
     ecosystem_ids = get_ecosystem_ids(
         ecosystem=ecosystem_name, time_limit="connected")
     title = f"{ecosystem_ids[1]} switches control"
-    ecosystems_qo = API.ecosystems.get_ecosystem_query_obj(session=db.session)
+    ecosystems_qo = API.ecosystems.get_ecosystem_query_obj(
+        ecosystem_name, session=db.session)
     light_data = API.ecosystems.get_light_info(ecosystems_qo)
-
     return render_template("main/switches.html", title=title,
                            ecosystem_ids=ecosystem_ids,
-                           light_data=light_data,
+                           switches={
+                               "light": light_data[ecosystem_ids[0]],
+                           },
                            )
 
 
