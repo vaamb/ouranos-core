@@ -1,5 +1,5 @@
 from collections import namedtuple
-from datetime import date, datetime
+from datetime import datetime
 
 import cachetools.func
 from cachetools import cached, TTLCache
@@ -183,12 +183,10 @@ def summarize_ecosystems_info(ecosystems_info, session):
 
 
 def get_light_info(ecosystems_query_obj) -> dict:
-    today = date.today()
-
-    def try_datetime(time):
+    def try_iso_format(timeobj):
         try:
-            return datetime.combine(today, time)
-        except TypeError:
+            return timeobj.isoformat()
+        except AttributeError:
             return None
 
     info = {}
@@ -201,13 +199,12 @@ def get_light_info(ecosystems_query_obj) -> dict:
             "mode": light.mode,
             "method": light.method,
             "lighting_hours": {
-                "morning_start": try_datetime(light.morning_start),
-                "morning_end": try_datetime(light.morning_end),
-                "evening_start": try_datetime(light.evening_start),
-                "evening_end": try_datetime(light.evening_end),
+                "morning_start": try_iso_format(light.morning_start),
+                "morning_end": try_iso_format(light.morning_end),
+                "evening_start": try_iso_format(light.evening_start),
+                "evening_end": try_iso_format(light.evening_end),
             },
         }
-
     return info
 
 
