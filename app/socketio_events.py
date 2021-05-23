@@ -396,20 +396,13 @@ def update_light_data(data):
         for ecosystem_id in data:
             if data[ecosystem_id].get("lighting_hours"):
                 morning_start = try_fromiso(
-                    data[ecosystem_id]["lighting_hours"]["morning_start"])
+                    data[ecosystem_id]["lighting_hours"].get("morning_start"))
+                morning_end = try_fromiso(
+                    data[ecosystem_id]["lighting_hours"].get("morning_end"))
+                evening_start = try_fromiso(
+                    data[ecosystem_id]["lighting_hours"].get("evening_start"))
                 evening_end = try_fromiso(
-                    data[ecosystem_id]["lighting_hours"]["evening_end"])
-                try:
-                    morning_end = try_fromiso(
-                        data[ecosystem_id]["lighting_hours"]["morning_end"])
-                except KeyError:
-                    morning_end = None
-                try:
-                    evening_start = try_fromiso(
-                        data[ecosystem_id]["lighting_hours"]["evening_start"])
-                except KeyError:
-                    evening_start = None
-
+                    data[ecosystem_id]["lighting_hours"].get("evening_end"))
             else:
                 morning_start = morning_end = evening_start = evening_end = None
             light = Light(
