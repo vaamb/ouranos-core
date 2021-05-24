@@ -224,7 +224,6 @@
             icon.className = "fas fa-moon";
           }
           let sunTime = new Date(dailyWeatherData["forecast"][day][params[parameter]] * 1000);
-          console.log(dailyWeatherData["forecast"][day]);
           sunDiv.appendChild(icon);
           sunDiv.appendChild(document.createTextNode(" " + sunTime.toLocaleTimeString([], {timeStyle: "short"})));
         }
