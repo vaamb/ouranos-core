@@ -295,7 +295,7 @@ def update_cfg(config):
         )
         db.session.commit()
 
-
+# TODO: split this in two part: one receiving and logging data, and move the one sending data to a scheduled event
 @sio.on("sensors_data", namespace="/gaia")
 def update_sensors_data(data):
     manager = check_manager_identity("config")
@@ -305,7 +305,6 @@ def update_sensors_data(data):
 
         sio.emit("current_sensors_data", data, namespace="/")
 
-        graph_update = {}
         for ecosystem_id in data:
             try:
                 dt = datetime.fromisoformat(data[ecosystem_id]["datetime"])
@@ -319,7 +318,6 @@ def update_sensors_data(data):
                     del sensorsDataHistory[ecosystem_id]
                 except KeyError:
                     pass
-                graph_update[ecosystem_id] = data[ecosystem_id]
                 measure_values = {}
                 # TODO: add ecosystem name
                 collector.debug(f"Logging sensors data from manager: {manager.uid}")
@@ -357,10 +355,7 @@ def update_sensors_data(data):
                                 value=values_summarized,
                             )
                             db.session.add(aggregated_data)
-
         db.session.commit()
-        if graph_update:
-            sio.emit("update_sensors_graph", graph_update, namespace="/")
 
 
 @sio.on("health_data", namespace="/gaia")
