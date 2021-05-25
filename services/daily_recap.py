@@ -1,4 +1,4 @@
-from app.services.template import serviceTemplate
+from services.template import serviceTemplate
 
 
 class dailyRecap(serviceTemplate):

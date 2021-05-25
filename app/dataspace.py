@@ -1,4 +1,5 @@
 from collections.abc import MutableMapping
+from datetime import datetime, timezone
 import logging
 
 from cachetools import Cache, TTLCache
@@ -7,6 +8,9 @@ from werkzeug.local import LocalProxy
 
 from app.cache import redisCache, redisTTLCache
 
+# TODO: add a pub-sub
+
+START_TIME = datetime.now(timezone.utc)
 
 _CACHES_CLASS_AVAILABLE = [Cache, TTLCache, redisCache, redisTTLCache]
 

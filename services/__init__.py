@@ -3,13 +3,14 @@ import logging
 from app.database import out_of_Flask_app_db as db, out_of_Flask_data_db as data_db
 # TODO: remove all ref from app and base Config related objects
 from app.models import engineManager, Service
-from app.services.calendar import Calendar
-from app.services.daily_recap import dailyRecap
-from app.services.sun_times import sunTimes
-from app.services.system_monitor import systemMonitor
-from app.services.telegram_chat_bot import telegramChatbot
-from app.services.weather import Weather
-from app.services.webcam import Webcam
+from services.calendar import Calendar
+from services.daily_recap import dailyRecap
+from services.sun_times import sunTimes
+from services.system_monitor import systemMonitor
+from services.telegram_chat_bot import telegramChatbot
+from services.shared_resources import scheduler
+from services.weather import Weather
+from services.webcam import Webcam
 
 
 SERVICES = (Calendar, dailyRecap, sunTimes, systemMonitor, telegramChatbot,
@@ -23,7 +24,7 @@ for SERVICE in SERVICES:
 services_manager = None
 
 
-def log_services_available() -> None:
+def _log_services_available() -> None:
     with db.scoped_session() as session:
         for level in ("app", "user"):
             for s in _services[level]:
@@ -39,7 +40,8 @@ class _servicesManager:
         self._config = config_class
         self.logger = logging.getLogger(f"{self._config.APP_NAME}.services")
         self.logger.info(f"Initializing {self._config.APP_NAME} services ...")
-        log_services_available()
+        _log_services_available()
+        scheduler.start()
         self.services = {}
         self._services_running = []
         self._init_services()
@@ -92,6 +94,7 @@ def exit_gracefully() -> None:
     data_db.session.query(engineManager).update(
         {engineManager.connected: False})
     data_db.session.commit()
+    scheduler.shutdown()
 
 
 def get_manager():

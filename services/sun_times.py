@@ -5,11 +5,10 @@ import time
 
 import requests
 
-from app import scheduler, sio
-from app.utils import is_connected
-from config import Config, base_dir
-from app.services.template import serviceTemplate
-from app.utils import parse_sun_times
+from app import sio
+from utils import base_dir, is_connected, parse_sun_times
+from services.template import serviceTemplate
+from services.shared_resources import scheduler
 
 
 class sunTimes(serviceTemplate):
@@ -19,7 +18,7 @@ class sunTimes(serviceTemplate):
     def _init(self):
         self._file_path = None
         self._sun_times_data = {}
-        self.coordinates = Config.HOME_COORDINATES
+        self.coordinates = self._config.HOME_COORDINATES
         self.started = False
 
     def update_sun_times_data(self):

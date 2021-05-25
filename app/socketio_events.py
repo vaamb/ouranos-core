@@ -13,7 +13,6 @@ from app import app_name, db, scheduler, sio
 from app.dataspace import healthData, sensorsData, sensorsDataHistory
 from app.models import sensorData, Ecosystem, engineManager, Hardware, Health, \
     Light, Management, Measure, environmentParameter
-from app.services.system_monitor import systemMonitor
 from app.utils import decrypt_uid, validate_uid_token
 
 
@@ -24,7 +23,6 @@ SYSTEM_UPDATE_PERIOD = 5
 
 # Temporary anchors to keep PyCharm to delete these from import
 anchor1 = sensorsData
-anchor2 = systemMonitor
 
 summarize = {"mean": mean, "std": std}
 

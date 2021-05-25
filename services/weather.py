@@ -5,10 +5,11 @@ import time
 
 import requests
 
-from app import sio, scheduler
+from app import sio
 from app.dataspace import WEATHER_MEASURES
-from app.services.template import serviceTemplate
-from config import Config, base_dir
+from services.template import serviceTemplate
+from services.shared_resources import scheduler
+from utils import base_dir
 
 
 def _simplify_weather_data(weather_data) -> dict:
@@ -51,8 +52,8 @@ class Weather(serviceTemplate):
     def _init(self) -> None:
         self._file_path = None
         self._data = {}
-        self._coordinates = Config.HOME_COORDINATES
-        self._API_key = Config.DARKSKY_API_KEY
+        self._coordinates = self._config.HOME_COORDINATES
+        self._API_key = self._config.DARKSKY_API_KEY
         self._started = False
 
     def _load_data(self, raw_data):
@@ -106,7 +107,7 @@ class Weather(serviceTemplate):
                 return False
 
         if self._data["currently"]["time"] > \
-                time.time() - (Config.WEATHER_UPDATE_PERIOD * 60):
+                time.time() - (self._config.WEATHER_UPDATE_PERIOD * 60):
             self._logger.debug("Weather data already up to date")
             return True
 
@@ -120,7 +121,7 @@ class Weather(serviceTemplate):
         if not self._check_recency():
             self.update_weather_data()
         scheduler.add_job(self.update_weather_data, "cron",
-                          minute=f"*/{Config.WEATHER_UPDATE_PERIOD}",
+                          minute=f"*/{self._config.WEATHER_UPDATE_PERIOD}",
                           misfire_grace_time=5 * 60, id="weather")
 
     def _stop(self) -> None:

@@ -1,15 +1,15 @@
-from app.services.template import serviceTemplate
+from services.template import serviceTemplate
 
 
-class Calendar(serviceTemplate):
-    NAME = "calendar"
+class Webcam(serviceTemplate):
+    NAME = "webcam"
     LEVEL = "app"
 
     def _start(self) -> None:
-        print("Todo: start calendar")
+        print("Todo: start webcam")
 
     def _stop(self) -> None:
-        print("Todo: stop calendar")
+        print("Todo: stop webcam")
 
 
 # TODO: send via socket.io a request to all engineManagers which will return webcamStream status and try to start it if off. 

@@ -1,20 +1,18 @@
 from datetime import datetime, timezone
-import logging
 import psutil
 from threading import Thread, Event, Lock
 
-from app import app_name, scheduler, sio, START_TIME
+from app import sio
+from app.dataspace import START_TIME
 from app.database import out_of_Flask_data_db as db
 from app.models import System
-from app.services.template import serviceTemplate
-from config import Config
+from services.template import serviceTemplate
+from services.shared_resources import scheduler
 
 
 lock = Lock()
 
 SYSTEM_UPDATE_PERIOD = 2
-
-collector = logging.getLogger(f"{app_name}.collector")
 
 
 class systemMonitor(serviceTemplate):
@@ -56,7 +54,7 @@ class systemMonitor(serviceTemplate):
                 break
 
     def _log_resources_data(self) -> None:
-        collector.debug("Logging system resources")
+        self._logger.debug("Logging system resources")
         system = System(
             datetime=self._data["datetime"],
             CPU_used=self._data["CPU_used"],
@@ -76,7 +74,7 @@ class systemMonitor(serviceTemplate):
         self._thread.name = f"services-{systemMonitor}"
         self._thread.start()
         scheduler.add_job(self._log_resources_data, "cron",
-                          minute=f"*/{Config.SYSTEM_LOGGING_PERIOD}",
+                          minute=f"*/{self._config.SYSTEM_LOGGING_PERIOD}",
                           second=1 + SYSTEM_UPDATE_PERIOD,
                           misfire_grace_time=1 * 60, id="system_monitoring")
 

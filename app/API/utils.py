@@ -15,7 +15,7 @@ def time_limits() -> dict:
 
 
 def get_services_manager():
-    from app.services import get_manager
+    from services import get_manager
     return get_manager()
 
 

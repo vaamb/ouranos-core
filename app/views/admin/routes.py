@@ -7,12 +7,13 @@ from sqlalchemy.orm.exc import NoResultFound
 import tracemalloc
 
 # TODO: remove services from here and pass through API.admin
-from app import sio, services, db, API
+from app import sio, db, API
+import services
 from app.views.admin import bp
 from app.views.admin.forms import InvitationForm
 from app.views.decorators import permission_required
 from app.views.main import layout
-from app.models import Permission, Service, System, engineManager, User
+from app.models import Permission, Service, engineManager, User
 
 
 tracemalloc.start()

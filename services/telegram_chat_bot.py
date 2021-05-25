@@ -2,11 +2,12 @@ from telegram import Update
 from telegram.ext import Updater, CommandHandler, CallbackContext,\
     MessageHandler, Filters
 
-from app import API
+# TODO: with new API: import it in _start() to avoid circular import
+#from app import API_old as API
 from config import Config
 from app.database import out_of_Flask_app_db as db
 from app.models import User
-from app.services.template import serviceTemplate
+from services.template import serviceTemplate
 
 
 class telegramChatbot(serviceTemplate):
