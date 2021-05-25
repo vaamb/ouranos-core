@@ -3,7 +3,7 @@
 {% block header %}{{ level.capitalize() }} sensors in {{ ecosystem_ids[1] }}{% endblock %}
 {% block info %}
 {% if current_sensors_data[ecosystem_ids[0]] %}
-<span id="lastSensorsMeasureTime"></span>
+<span id="lastRecordTime"></span>
 {% endif %}
 {% endblock %}
 
@@ -39,92 +39,39 @@
 {% block scripts %}
     <script type="text/javascript">
     const ecosystem_uid = "{{ ecosystem_ids[0] }}";
-    const graphUpdatePeriod = {{ graphUpdatePeriod }};
     const units =  {{ parameters[level]['unit'] | tojson }};
     const maxValues = {{ parameters[level]['max_value'] | tojson }};
     const colors = {{ parameters[level]['color'] | tojson }};
     const historicSensorsData = {{ historic_sensors_data[ecosystem_ids[0]] | tojson }};
     let currentSensorsData = {};
     Object.assign(currentSensorsData, {{ current_sensors_data[ecosystem_ids[0]] | tojson }});
-    let lastSensorsUpdate = new Date();
+    let lastDataUpdate = new Date();
+    const graphUpdatePeriod = {{ graphUpdatePeriod }};
     let lastGraphUpdate = null;
     let graphsUpdated = false;
+    const graphWindowLimit = 7;
 
     function updateLastSensorsUpdateTime() {
-      lastSensorsUpdate = new Date()
-      try {
-        const datetime = new Date(currentSensorsData["datetime"]);
-        $("#lastSensorsMeasureTime").text(
-          "Last sensors measure at " +
-          datetime.toLocaleTimeString()
-        );
-      } catch(err) {}
+      let date = null
+      try {date = new Date(currentSensorsData["datetime"])} catch(err) {}
+      updateLastRecordTime(date, "Last sensors measure at ")
     }
 
     updateLastSensorsUpdateTime();
-
-    function updateGauge(measure, sensor_id) {
-      let newValue = null;
-      try {
-        newValue = Number(currentSensorsData["data"][sensor_id][measure]).toFixed(1);
-      } catch(err) {}
-      let gaugeContainer = document.getElementById("gaugeContainer_" + measure + "_" + sensor_id);
-      if (gaugeContainer !== null) {
-        if (newValue !== null) {
-          // update gauge and span data
-          let gauge = window["gauge_" + measure + "_" + sensor_id];
-          gauge.set(newValue);
-          $("#currentSensorsData_" + measure + "_" + sensor_id).text(newValue);
-        } else {
-          // delete gauge container
-          gaugeContainer.parentNode.removeChild(gaugeContainer);
-        }
-
-      } else {
-        if (newValue !== null) {
-          // create new gauge container
-          gaugeContainer = document.createElement("div");
-          gaugeContainer.className = "boardColumnContainer gaugeContainer max250OnScreen";
-          gaugeContainer.setAttribute("id", "gaugeContainer_" + measure + "_" + sensor_id);
-          // create gauge wrapper
-          let gaugeWrapper = document.createElement("div");
-          gaugeWrapper.className = "gaugeWrapper";
-          let gaugeCanvas = document.createElement("canvas");
-          gaugeCanvas.setAttribute("id", "gaugeCanvas_" + measure + "_" + sensor_id);
-          gaugeWrapper.appendChild(gaugeCanvas);
-          gaugeContainer.appendChild(gaugeWrapper);
-          // create gauge data span
-          let dataDiv = document.createElement("div");
-          let dataSpan = document.createElement("span");
-          dataSpan.setAttribute("id", "currentSensorsData_" + measure + "_" + sensor_id);
-          dataSpan.appendChild(
-            document.createTextNode(newValue)
-          );
-          dataDiv.appendChild(dataSpan);
-          dataDiv.appendChild(
-            document.createTextNode(units[measure])
-          );
-          gaugeContainer.appendChild(dataDiv);
-          let parent = document.getElementById("boardRow_" + measure + "_" + sensor_id);
-          parent.prepend(gaugeContainer);
-          // create the gauge object
-          const target = document.getElementById("gaugeCanvas_" + measure + "_" + sensor_id);
-          var gauge = new Gauge(target).setOptions(defaultGaugeOpts);
-          gauge.setMinValue(0);
-          gauge.maxValue = maxValues[measure];
-          gauge.animationSpeed = 32;
-          gauge.set(newValue);
-          window["gauge_" + measure + "_" + sensor_id] = gauge;
-        }
-      }
-    }
 
     function updateGauges() {
       for (const measure in historicSensorsData["data"]) {
         if (historicSensorsData["data"].hasOwnProperty(measure)) {
           for (const sensor_id in historicSensorsData["data"][measure]) {
             if (historicSensorsData["data"][measure].hasOwnProperty(sensor_id)) {
-              updateGauge(measure, sensor_id);
+              const ID = measure + "_" + sensor_id;
+              let newValue = null;
+              try {
+                newValue = Number(currentSensorsData["data"][sensor_id][measure]).toFixed(1);
+              } catch(err) {}
+              const unit = units[measure];
+              const maxValue = maxValues[measure];
+              updateGaugeContainer(ID, newValue, unit, maxValue);
             }
           }
         }
@@ -189,27 +136,21 @@
     createGraphs();
 
     function updateGraphs() {
-      const dayWindow = 7;
-      let dataWindowLimit = new Date();
-      dataWindowLimit.setDate(currentSensorsData["datetime"].getDate() - dayWindow);
+      let dataLimit = new Date();
+      dataLimit.setDate(dataLimit.getDate() - graphWindowLimit);
       // Loop through existing graphs
       for (const measure in historicSensorsData["data"]) {
         if (historicSensorsData["data"].hasOwnProperty(measure)) {
           for (const sensor_id in historicSensorsData["data"][measure]) {
             if (historicSensorsData["data"][measure].hasOwnProperty(sensor_id)) {
+              const ID = measure + "_" + sensor_id;
+              let newLabel = null;
+              let newData = null;
               try {
-                // Add data to graph
-                const newValue = Number(currentSensorsData["data"][sensor_id][measure]).toFixed(1);
-                chart = window["chart_" + measure + "_" + sensor_id];
-                chart.data.labels.push(currentSensorsData["datetime"]);
-                chart.data.datasets[0]["data"].push(newValue);
-              } finally {
-                // Only keep recent data
-                const dataWindowLength = chart["data"].labels.filter(x => x > dataWindowLimit).length;
-                chart.data.labels = chart["data"].labels.slice(- dataWindowLength);
-                chart.data.datasets[0].data = chart["data"].datasets[0].data.slice(- dataWindowLength);
-                chart.update();
-              }
+                newLabel = currentSensorsData["datetime"];
+                newData = Number(currentSensorsData["data"][sensor_id][measure]).toFixed(1);
+              } catch(err) {}
+              updateGraph(ID, newLabel, newData, dataLimit);
             }
           }
         }
@@ -221,7 +162,7 @@
     setInterval(function() {
       const now = new Date();
       // If too old "currentSensorsData", remove it
-      if (now - lastSensorsUpdate > 1000*90) {
+      if (now - lastDataUpdate > 1000*90) {
         currentSensorsData = {};
         // Clean gauges
         updateGauges();
@@ -237,7 +178,7 @@
       updateLastSensorsUpdateTime();
       updateGauges();
       if (now.getMinutes() !== lastGraphUpdate.getMinutes()) {
-        graphsUpdated = false
+        graphsUpdated = false;
       }
       if ((currentSensorsData["datetime"].getMinutes() % graphUpdatePeriod === 0) && (! graphsUpdated)) {
         updateGraphs();
