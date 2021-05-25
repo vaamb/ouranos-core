@@ -84,7 +84,7 @@ def create_cache(cache_name, ttl=None, maxsize=16, overwrite=False):
 
 
 def get_cache(cache_name):
-    if not status:
+    if not _status:
         raise RuntimeError(f"Please start dataspace before accessing {cache_name}")
     try:
         return _caches[cache_name]
