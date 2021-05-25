@@ -1,21 +1,18 @@
 # -*- coding: utf-8 -*-
 from datetime import datetime, timedelta, timezone
 
-from flask import render_template, redirect, url_for, flash
+from flask import current_app, render_template, redirect, url_for, flash
 from flask_login import login_required
 from sqlalchemy.orm.exc import NoResultFound
 import tracemalloc
 
+# TODO: remove services from here and pass through API.admin
 from app import sio, services, db, API
 from app.views.admin import bp
 from app.views.admin.forms import InvitationForm
 from app.views.decorators import permission_required
 from app.views.main import layout
 from app.models import Permission, Service, System, engineManager, User
-
-
-def system_monitor():
-    return services.get_manager().services["system_monitor"]
 
 
 tracemalloc.start()
@@ -50,7 +47,8 @@ def invite_user():
                 category="display"
             )
         elif form.invitation_channel.data == "email":
-            API.admin.send_invitation(invitation_jwt=invitation_jwt)
+            API.admin.send_invitation(invitation_jwt=invitation_jwt,
+                                      db_session=db.session)
             flash(f"Invitation email sent to {form.email.data}")
         elif form.invitation_channel.data == "telegram":
             # TODO: send invitation
@@ -83,11 +81,15 @@ def mem_snapshot():
 @login_required
 @permission_required(Permission.ADMIN)
 def system():
-    current_data = system_monitor().system_data
-    system_measures = [key for key in current_data if current_data[key]]
-    data = API.admin.get_system_data(db.session)
+    current_system_data = API.admin.get_current_system_data()
+    historic_system_data = API.admin.get_historic_system_data(db.session)["data"]
+    system_measures = [key for key in current_system_data
+                       if current_system_data[key]]
+    graphUpdatePeriod = current_app.config["SYSTEM_LOGGING_PERIOD"]
     return render_template("admin/system.html", title="Server monitoring",
-                           data=data, current_data=current_data,
+                           graphUpdatePeriod=graphUpdatePeriod,
+                           current_system_data=current_system_data,
+                           historic_system_data=historic_system_data,
                            system_measures=system_measures,
                            parameters=layout.parameters)
 

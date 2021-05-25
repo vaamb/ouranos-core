@@ -70,8 +70,6 @@ class systemMonitor(serviceTemplate):
         db.session.commit()
         db.close_scope()
 
-        sio.emit("update_system_graphs", self._data, namespace="/admin")
-
     def _start(self) -> None:
         self._stopEvent.clear()
         self._thread = Thread(target=self._loop)
