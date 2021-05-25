@@ -8,8 +8,8 @@ from redis import Redis, RedisError
 from werkzeug.local import LocalProxy
 
 from dataspace.cache import redisCache, redisTTLCache
+from dataspace.queue import redisQueue
 
-# TODO: add a pub-sub
 
 START_TIME = datetime.now(timezone.utc)
 
@@ -40,9 +40,9 @@ _status: bool = False
 
 
 _caches = {
-    "sensorsData": {},
-    "healthData": {},
-    "systemData": {},
+    "sensorsData": MutableMapping,
+    "healthData": MutableMapping,
+    "systemData": MutableMapping,
     "weatherData": {},
 }
 
@@ -64,21 +64,22 @@ def update_redis_status(config_class):
                 "provide data cache")
 
 
-def _setup_cache(cache_name, ttl=None, maxsize=16) -> MutableMapping:
+def _setup_cache(cache_name: str,
+                 ttl: int = None,
+                 maxsize: int = 16) -> MutableMapping:
     if _redis_status:
         if not ttl:
             return redisCache(cache_name, rd, check_client=False)
         return redisTTLCache(cache_name, rd, ttl, check_client=False)
     if not ttl:
-        cache = Cache(maxsize=maxsize)
-        cache.name = cache_name
-        return cache
-    cache = TTLCache(maxsize=maxsize, ttl=ttl)
-    cache.name = cache_name
-    return cache
+        return Cache(maxsize=maxsize)
+    return TTLCache(maxsize=maxsize, ttl=ttl)
 
 
-def create_cache(cache_name, ttl=None, maxsize=16, overwrite=False):
+def create_cache(cache_name: str,
+                 ttl: int = None,
+                 maxsize: int = 16,
+                 overwrite: bool = False) -> MutableMapping:
     if _caches.get(cache_name) and not overwrite:
         raise ValueError(f"The cache {cache_name} already exists")
     cache = _setup_cache(cache_name, ttl, maxsize)
@@ -86,7 +87,7 @@ def create_cache(cache_name, ttl=None, maxsize=16, overwrite=False):
     return cache
 
 
-def get_cache(cache_name):
+def get_cache(cache_name: str) -> MutableMapping:
     if not _status:
         raise RuntimeError(f"Please start dataspace before accessing {cache_name}")
     try:
@@ -109,11 +110,17 @@ def clean_caches():
                 pass
 
 
+def create_queue(name, *args, **kwargs):
+    if _redis_status:
+        return redisQueue(name, rd, *args, **kwargs)
+    return Queue(*args, **kwargs)
+
+
 def init(config_class):
     global _status, sio_queue, rd
     if not _status:
         rd = Redis.from_url(config_class.REDIS_URL)
-        sio_queue = Queue(maxsize=50)
+        sio_queue = create_queue("sio_queue", maxsize=50)
         reset(config_class)
         _status = True
 

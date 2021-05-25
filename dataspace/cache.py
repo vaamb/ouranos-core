@@ -1,12 +1,8 @@
 from collections.abc import Mapping, MutableMapping
-import datetime
 import json
 import time
 
-from tzlocal import get_localzone
-
-
-localTZ = get_localzone()
+from dataspace.custom_dumps import dumps_dt
 
 
 TTL_INFO_ERROR = json.decoder.JSONDecodeError
@@ -16,17 +12,6 @@ def _str_to_bool(string):
     if string == "True":
         return True
     return False
-
-
-def _dumps_dt(obj) -> str:
-    if isinstance(obj, (datetime.datetime, datetime.date)):
-        obj = obj.astimezone(tz=datetime.timezone.utc)
-        return obj.replace(microsecond=0).isoformat()
-    if isinstance(obj, datetime.time):
-        obj = datetime.datetime.combine(datetime.date.today(), obj)
-        obj = obj.astimezone(tz=localTZ)
-        obj = obj.astimezone(tz=datetime.timezone.utc).time()
-        return obj.replace(microsecond=0).isoformat()
 
 
 class redisCache(MutableMapping):
@@ -111,7 +96,7 @@ class redisCache(MutableMapping):
     def _encode_value(self, value):
         if isinstance(value, bytes):
             raise TypeError("redisDict cannot store bytes object")
-        return json.dumps(value, default=_dumps_dt)
+        return json.dumps(value, default=dumps_dt)
 
     def items(self):
         return [(key, self[key]) for key in self]
@@ -225,7 +210,7 @@ class redisTTLCache(redisCache):
             raise TypeError("redisDict cannot store bytes object")
         ttl = time.time() + self._ttl
         data = {"data": value, "ttl": ttl}
-        return json.dumps(data, default=_dumps_dt)
+        return json.dumps(data, default=dumps_dt)
 
     @property
     def ttl(self):
