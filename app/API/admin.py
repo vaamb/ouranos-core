@@ -166,7 +166,11 @@ def get_historic_system_data(db_session, days=7):
                                      System.DISK_used, System.DISK_total)
                       .all()
             )
-    return data
+    return {
+        "data": data,
+        "order": {0: "datetime", 1: "CPU_used", 2: "CPU_temp", 3: "RAM_used",
+                  4: "RAM_total", 5: "DISK_used", 6: "DISK_total"}
+    }
 
 
 def get_current_system_data():
