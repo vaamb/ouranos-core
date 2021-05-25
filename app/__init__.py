@@ -12,7 +12,6 @@ from flask_mail import Mail
 
 from config import Config, DevelopmentConfig
 
-
 START_TIME = datetime.now(timezone.utc)
 
 app_name = Config.APP_NAME
@@ -43,6 +42,8 @@ def create_app(config_class=DevelopmentConfig):
     app.jinja_env.lstrip_blocks = True
     app.jinja_env.trim_blocks = True
 
+
+
     # Init db
     db.init_app(app)
     from app.models import Role, comChannel
@@ -62,8 +63,7 @@ def create_app(config_class=DevelopmentConfig):
     scheduler.start()
 
     import dataspace
-    if not dataspace.status:
-        dataspace.init(config_class)
+    dataspace.init(config_class)
     app.redis = dataspace.rd
 
     @app.route("/eegg")

@@ -29,10 +29,11 @@ WEATHER_DATA_MULTIPLICATION_FACTORS = {
     "precipProbability": 100,
 }
 
-rd = None
 
-status = False
-_redis_status = False
+rd: Redis
+_redis_status: bool = False
+
+_status: bool = False
 
 
 _caches = {
@@ -106,11 +107,14 @@ def clean_caches():
 
 
 def init(config_class):
-    global rd
-    rd = Redis.from_url(config_class.REDIS_URL)
-    reset(config_class)
-    global status
-    status = True
+    global _status, rd
+    if not _status:
+        rd = Redis.from_url(config_class.REDIS_URL)
+        sio_queue = Queue(maxsize=50)
+        reset(config_class)
+        _status = True
+    else:
+        print("dataspace module has already been initialised")
 
 
 def reset(config_class):
