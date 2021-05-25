@@ -3,7 +3,7 @@ import psutil
 from threading import Thread, Event, Lock
 
 from app import sio
-from app.dataspace import START_TIME
+from dataspace import START_TIME
 from app.database import out_of_Flask_data_db as db
 from app.models import System
 from services.template import serviceTemplate

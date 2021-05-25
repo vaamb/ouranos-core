@@ -3,9 +3,8 @@ from datetime import datetime, time, timedelta, timezone
 from numpy import mean
 from scipy.stats import mode
 
-from app.API import app
 from app.API.utils import get_service
-from app.dataspace import WEATHER_MEASURES
+from dataspace import WEATHER_MEASURES
 from app.utils import parse_sun_times
 
 

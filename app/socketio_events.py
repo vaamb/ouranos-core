@@ -10,7 +10,7 @@ from numpy import mean, std
 from sqlalchemy.orm.exc import NoResultFound
 
 from app import app_name, db, scheduler, sio
-from app.dataspace import healthData, sensorsData, sensorsDataHistory
+from dataspace import healthData, sensorsData, sensorsDataHistory
 from app.models import sensorData, Ecosystem, engineManager, Hardware, Health, \
     Light, Management, Measure, environmentParameter
 from app.utils import decrypt_uid, validate_uid_token

@@ -6,7 +6,7 @@ from cachetools import cached, TTLCache
 from numpy import mean
 
 from app.API.utils import time_limits
-from app.dataspace import sensorsData, sensorsDataHistory
+from dataspace import sensorsData
 from app.models import sensorData, Hardware, Ecosystem, Health, Management, engineManager, Service
 
 

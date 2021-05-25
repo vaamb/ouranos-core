@@ -9,7 +9,6 @@ from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from flask_socketio import SocketIO
 from flask_mail import Mail
-from redis import Redis
 
 from config import Config, DevelopmentConfig
 
@@ -57,11 +56,12 @@ def create_app(config_class=DevelopmentConfig):
 
     migrate.init_app(app, db)
     login_manager.init_app(app)
+    # TODO: catch if use REDIS and add "message_queue=$redis_url"
     sio.init_app(app)
     mail.init_app(app)
     scheduler.start()
 
-    from app import dataspace
+    import dataspace
     if not dataspace.status:
         dataspace.init(config_class)
     app.redis = dataspace.rd

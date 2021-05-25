@@ -6,7 +6,7 @@ from cachetools import Cache, TTLCache
 from redis import Redis, RedisError
 from werkzeug.local import LocalProxy
 
-from app.cache import redisCache, redisTTLCache
+from dataspace.cache import redisCache, redisTTLCache
 
 # TODO: add a pub-sub
 

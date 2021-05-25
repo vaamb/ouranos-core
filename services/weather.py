@@ -6,7 +6,7 @@ import time
 import requests
 
 from app import sio
-from app.dataspace import WEATHER_MEASURES
+from dataspace import WEATHER_MEASURES
 from services.template import serviceTemplate
 from services.shared_resources import scheduler
 from utils import base_dir

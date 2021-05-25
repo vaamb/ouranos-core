@@ -12,7 +12,8 @@ import logging
 import signal
 import sys
 
-from app import create_app, dataspace, scheduler, sio
+from app import create_app, scheduler, sio
+import dataspace
 import services
 from app.utils import configure_logging, humanize_list
 from config import DevelopmentConfig, TestingConfig, ProductionConfig

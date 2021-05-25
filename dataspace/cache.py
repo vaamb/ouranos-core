@@ -277,4 +277,9 @@ class hybridTTLCache(redisTTLCache, hybridCache):
                f"grace_time={self.grace_time})"
 
 
+# TODO: use this cache for weather and sun times data
+class fileCache(MutableMapping):
+    pass
+
+
 __all__ = "redisCache", "redisTTLCache", "hybridCache", "hybridTTLCache"

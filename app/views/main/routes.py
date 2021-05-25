@@ -9,7 +9,7 @@ from flask_sqlalchemy import get_debug_queries
 from app import db
 from app import API
 from app.API.various import wiki
-from app.dataspace import sensorsData, sensorsDataHistory
+from dataspace import sensorsData
 from app.models import Hardware, Health, Service, User, Permission
 from app.views.main import bp, layout
 from app.views.main.forms import EditProfileForm
