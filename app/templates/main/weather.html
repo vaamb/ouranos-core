@@ -75,8 +75,6 @@
 
     // Update spans
     function updateCurrentWeatherSpans() {
-
-      // TODO: change icon
       const updateTime = new Date(currentWeatherData["time"] * 1000);
       $('#update_time').text(updateTime.toLocaleTimeString([], {timeStyle: "short"}));
       $('#current_date').text(formatDate(updateTime));
