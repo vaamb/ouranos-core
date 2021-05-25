@@ -1,6 +1,7 @@
 from collections.abc import MutableMapping
 from datetime import datetime, timezone
 import logging
+from queue import Queue
 
 from cachetools import Cache, TTLCache
 from redis import Redis, RedisError
@@ -32,6 +33,8 @@ WEATHER_DATA_MULTIPLICATION_FACTORS = {
 
 rd: Redis
 _redis_status: bool = False
+
+sio_queue: Queue
 
 _status: bool = False
 
@@ -107,14 +110,12 @@ def clean_caches():
 
 
 def init(config_class):
-    global _status, rd
+    global _status, sio_queue, rd
     if not _status:
         rd = Redis.from_url(config_class.REDIS_URL)
         sio_queue = Queue(maxsize=50)
         reset(config_class)
         _status = True
-    else:
-        print("dataspace module has already been initialised")
 
 
 def reset(config_class):

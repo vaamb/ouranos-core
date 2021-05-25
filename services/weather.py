@@ -5,7 +5,6 @@ import time
 
 import requests
 
-from app import sio
 from dataspace import WEATHER_MEASURES
 from services.template import serviceTemplate
 from services.shared_resources import scheduler
@@ -35,25 +34,15 @@ def _format_forecast(forecast, time_window):
     }
 
 
-def _safe_emit(event, data):
-    try:
-        sio.emit(event, data)
-    except AttributeError as e:
-        # Discard error raised when SocketIO has not started yet
-        if "NoneType" not in e.args[0]:
-            raise e
-
-
 class Weather(serviceTemplate):
     NAME = "weather"
     LEVEL = "app"
 
-    # Add a config_class in init
     def _init(self) -> None:
         self._file_path = None
         self._data = {}
-        self._coordinates = self._config.HOME_COORDINATES
-        self._API_key = self._config.DARKSKY_API_KEY
+        self._coordinates = self.config.HOME_COORDINATES
+        self._API_key = self.config.DARKSKY_API_KEY
         self._started = False
 
     def _load_data(self, raw_data):
@@ -65,11 +54,17 @@ class Weather(serviceTemplate):
 
     def _send_events(self):
         now = datetime.now()
-        _safe_emit("current_weather", self._data["currently"])
+        self.manager.event_dispatcher.put({
+            "event": "current_weather", "data": self._data["currently"]
+        })
         if now.minute % 15 == 0:
-            _safe_emit("hourly_weather", self._data["hourly"])
+            self.manager.event_dispatcher.put({
+                "event": "hourly_weather", "data": self._data["hourly"]
+            })
         if now.hour % 3 == 0 and now.minute == 0:
-            _safe_emit("daily_weather", self._data["daily"])
+            self.manager.event_dispatcher.put({
+                "event": "daily_weather", "data": self._data["daily"]
+            })
 
     def update_weather_data(self) -> None:
         self._logger.debug("Updating weather data")
@@ -107,7 +102,7 @@ class Weather(serviceTemplate):
                 return False
 
         if self._data["currently"]["time"] > \
-                time.time() - (self._config.WEATHER_UPDATE_PERIOD * 60):
+                time.time() - (self.config.WEATHER_UPDATE_PERIOD * 60):
             self._logger.debug("Weather data already up to date")
             return True
 
@@ -121,7 +116,7 @@ class Weather(serviceTemplate):
         if not self._check_recency():
             self.update_weather_data()
         scheduler.add_job(self.update_weather_data, "cron",
-                          minute=f"*/{self._config.WEATHER_UPDATE_PERIOD}",
+                          minute=f"*/{self.config.WEATHER_UPDATE_PERIOD}",
                           misfire_grace_time=5 * 60, id="weather")
 
     def _stop(self) -> None:

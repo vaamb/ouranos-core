@@ -1,4 +1,5 @@
 import logging
+import weakref
 
 from app.database import out_of_Flask_app_db as db
 from app.models import Service
@@ -8,10 +9,11 @@ class serviceTemplate:
     NAME = "serviceTemplate"
     LEVEL = "base"
 
-    def __init__(self, config_class):
-        self._config = config_class
+    def __init__(self, manager):
+        self.manager = weakref.proxy(manager)
+        self.config = self.manager.config
         self._logger = logging.getLogger(
-            f"{config_class.APP_NAME}.services.{self.NAME.lower()}")
+            f"{self.config.APP_NAME}.services.{self.NAME.lower()}")
         self._service_name = f"{self.NAME.lower()}Service"
         self._logger.debug(f"Initializing {self._service_name}")
         try:

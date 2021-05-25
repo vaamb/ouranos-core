@@ -5,7 +5,6 @@ import time
 
 import requests
 
-from app import sio
 from utils import base_dir, is_connected, parse_sun_times
 from services.template import serviceTemplate
 from services.shared_resources import scheduler
@@ -18,7 +17,7 @@ class sunTimes(serviceTemplate):
     def _init(self):
         self._file_path = None
         self._sun_times_data = {}
-        self.coordinates = self._config.HOME_COORDINATES
+        self.coordinates = self.config.HOME_COORDINATES
         self.started = False
 
     def update_sun_times_data(self):
@@ -43,7 +42,9 @@ class sunTimes(serviceTemplate):
                             self._sun_times_data["sunset"]),
                     }
                     try:
-                        sio.emit("sun_times", data=sun_times)
+                        self.manager.event_dispatcher.put({
+                            "event": "sun_times", "data": sun_times
+                        })
                     except AttributeError as e:
                         # Discard error when SocketIO has not started yet
                         if "NoneType" not in e.args[0]:

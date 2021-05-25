@@ -2,7 +2,6 @@ from datetime import datetime, timezone
 import psutil
 from threading import Thread, Event, Lock
 
-from app import sio
 from dataspace import START_TIME
 from app.database import out_of_Flask_data_db as db
 from app.models import System
@@ -44,7 +43,12 @@ class systemMonitor(serviceTemplate):
                 self._data = _cache
             self._data["start_time"] = START_TIME
             try:
-                sio.emit("current_server_data", self._data, namespace="/admin")
+                message = {
+                    "event": "current_server_data",
+                    "data": self._data,
+                    "namespace": "/admin"
+                }
+                self.manager.event_dispatcher.put(message)
             except AttributeError as e:
                 # Discard error when SocketIO has not started yet
                 if "NoneType" not in e.args[0]:
@@ -74,7 +78,7 @@ class systemMonitor(serviceTemplate):
         self._thread.name = f"services-{systemMonitor}"
         self._thread.start()
         scheduler.add_job(self._log_resources_data, "cron",
-                          minute=f"*/{self._config.SYSTEM_LOGGING_PERIOD}",
+                          minute=f"*/{self.config.SYSTEM_LOGGING_PERIOD}",
                           second=1 + SYSTEM_UPDATE_PERIOD,
                           misfire_grace_time=1 * 60, id="system_monitoring")
 

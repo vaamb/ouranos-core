@@ -4,7 +4,6 @@ from telegram.ext import Updater, CommandHandler, CallbackContext,\
 
 # TODO: with new API: import it in _start() to avoid circular import
 #from app import API_old as API
-from config import Config
 from app.database import out_of_Flask_app_db as db
 from app.models import User
 from services.template import serviceTemplate
@@ -103,7 +102,7 @@ class telegramChatbot(serviceTemplate):
 
     # Put in dummy class
     def _start(self):
-        self.updater = Updater(Config.TELEGRAM_BOT_TOKEN, use_context=True)
+        self.updater = Updater(self.config.TELEGRAM_BOT_TOKEN, use_context=True)
         self.dispatcher = self.updater.dispatcher
         # TODO: Move in a dict loop
         self.dispatcher.add_handler(CommandHandler("start", self.welcome))

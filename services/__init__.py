@@ -4,6 +4,7 @@ from app.database import out_of_Flask_app_db as db, out_of_Flask_data_db as data
 # TODO: remove all ref from app and base Config related objects
 from app.models import engineManager, Service
 import dataspace
+
 from services.calendar import Calendar
 from services.daily_recap import dailyRecap
 from services.sun_times import sunTimes
@@ -38,21 +39,22 @@ def _log_services_available() -> None:
 
 class _servicesManager:
     def __init__(self, config_class) -> None:
-        self._config = config_class
-        self.logger = logging.getLogger(f"{self._config.APP_NAME}.services")
-        self.logger.info(f"Initializing {self._config.APP_NAME} services ...")
+        self.config = config_class
+        self.logger = logging.getLogger(f"{self.config.APP_NAME}.services")
+        self.logger.info(f"Initializing {self.config.APP_NAME} services ...")
         dataspace.init(config_class)
+        self.event_dispatcher = dataspace.sio_queue
         _log_services_available()
         scheduler.start()
         self.services = {}
         self._services_running = []
         self._init_services()
-        self.logger.info(f"{self._config.APP_NAME} services successfully initialized")
+        self.logger.info(f"{self.config.APP_NAME} services successfully initialized")
 
     def _init_services(self) -> None:
         for level in _services:
             for service in _services[level]:
-                self.services[service] = _services[level][service](self._config)
+                self.services[service] = _services[level][service](self)
 
         for service in _services["base"]:
             self.services[service].start()
