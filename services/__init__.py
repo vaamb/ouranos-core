@@ -1,4 +1,5 @@
 import logging
+from threading import Thread
 
 from services.database import db
 from app.models import engineManager, Service
@@ -12,9 +13,6 @@ from services.telegram_chat_bot import telegramChatbot
 from services.shared_resources import scheduler
 from services.weather import Weather
 from services.webcam import Webcam
-
-
-# TODO: add a background task which listens to a queue to start and stop services
 
 
 SERVICES = (Calendar, dailyRecap, sunTimes, systemMonitor, telegramChatbot,
@@ -33,10 +31,12 @@ class _servicesManager:
         self.config = config_class
         self.logger = logging.getLogger(f"{self.config.APP_NAME}.services")
         self.logger.info(f"Initializing {self.config.APP_NAME} services ...")
-        self.event_dispatcher = dataspace.sio_queue
+        self.event_dispatcher = dataspace.services_to_app_queue
         self.services = {}
         self._services_running = []
         self._init_services()
+        self._thread = None
+        self.start_events_loop()
         self.logger.info(f"{self.config.APP_NAME} services successfully initialized")
 
     def _init_services(self) -> None:
@@ -58,14 +58,29 @@ class _servicesManager:
                         self._services_running.append(service)
         self.logger.debug("Service module has been initialized")
 
-    def start_service(self, service: str) -> None:
+    def start_service(self, service: str, *args) -> None:
         self.services[service].start()
         self._services_running.append(service)
 
-    def stop_service(self, service: str) -> None:
+    def stop_service(self, service: str, *args) -> None:
         self.services[service].stop()
         index = self._services_running.index(service)
         del self._services_running[index]
+
+    def _events_loop(self):
+        queue = dataspace.app_to_services_queue
+        while True:
+            message = queue.get()
+            if message == "STOP":
+                break
+            target = getattr(self, message["target"])
+            args = message.get("args", ())
+            target(*args)
+            queue.task_done()
+
+    def start_events_loop(self):
+        self._thread = Thread(target=self._events_loop)
+        self._thread.start()
 
     @property
     def services_running(self) -> list:

@@ -8,12 +8,12 @@ import tracemalloc
 
 # TODO: remove services from here and pass through API.admin
 from app import sio, db, API
-import services
 from app.views.admin import bp
 from app.views.admin.forms import InvitationForm
 from app.views.decorators import permission_required
 from app.views.main import layout
 from app.models import Permission, Service, engineManager, User
+import dataspace
 
 
 tracemalloc.start()
@@ -144,9 +144,10 @@ def start_service(message):
         return
     if user.can(Permission.ADMIN):
         if action == "start":
-            services.get_manager().start_service(service)
-            return
-        services.get_manager().stop_service(service)
+            order = {"target": "start_service", "args": (service, )}
+        else:
+            order = {"target": "stop_service", "args": (service,)}
+        dataspace.app_to_services_queue.put(order)
 
 
 @bp.route("/admin/engine_managers")

@@ -34,7 +34,8 @@ WEATHER_DATA_MULTIPLICATION_FACTORS = {
 rd: Redis
 _redis_status: bool = False
 
-sio_queue: Queue
+services_to_app_queue: Queue
+app_to_services_queue: Queue
 
 _status: bool = False
 
@@ -117,10 +118,11 @@ def create_queue(name, *args, **kwargs):
 
 
 def init(config_class):
-    global _status, sio_queue, rd
+    global _status, app_to_services_queue, services_to_app_queue, rd
     if not _status:
         rd = Redis.from_url(config_class.REDIS_URL)
-        sio_queue = create_queue("sio_queue", maxsize=50)
+        app_to_services_queue = create_queue("app_to_services", maxsize=50)
+        services_to_app_queue = create_queue("services_to_app", maxsize=50)
         reset(config_class)
         _status = True
 
