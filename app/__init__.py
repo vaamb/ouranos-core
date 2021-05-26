@@ -42,8 +42,6 @@ def create_app(config_class=DevelopmentConfig):
     app.jinja_env.lstrip_blocks = True
     app.jinja_env.trim_blocks = True
 
-
-
     # Init db
     db.init_app(app)
     from app.models import Role, comChannel

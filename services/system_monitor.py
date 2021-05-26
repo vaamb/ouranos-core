@@ -3,7 +3,7 @@ import psutil
 from threading import Thread, Event, Lock
 
 from dataspace import START_TIME
-from app.database import out_of_Flask_data_db as db
+from services.database import db
 from app.models import System
 from services.template import serviceTemplate
 from services.shared_resources import scheduler
@@ -59,18 +59,18 @@ class systemMonitor(serviceTemplate):
 
     def _log_resources_data(self) -> None:
         self._logger.debug("Logging system resources")
-        system = System(
-            datetime=self._data["datetime"],
-            CPU_used=self._data["CPU_used"],
-            CPU_temp=self._data.get("CPU_temp", None),
-            RAM_total=self._data["RAM_total"],
-            RAM_used=self._data["RAM_used"],
-            DISK_total=self._data["DISK_total"],
-            DISK_used=self._data["DISK_used"],
-        )
-        db.session.add(system)
-        db.session.commit()
-        db.close_scope()
+        with db.scoped_session() as session:
+            system = System(
+                datetime=self._data["datetime"],
+                CPU_used=self._data["CPU_used"],
+                CPU_temp=self._data.get("CPU_temp", None),
+                RAM_total=self._data["RAM_total"],
+                RAM_used=self._data["RAM_used"],
+                DISK_total=self._data["DISK_total"],
+                DISK_used=self._data["DISK_used"],
+            )
+            session.add(system)
+            session.commit()
 
     def _start(self) -> None:
         self._stopEvent.clear()

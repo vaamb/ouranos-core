@@ -1,6 +1,5 @@
 from datetime import date, datetime, time, timedelta
 import logging
-from statistics import mean, mode
 from time import sleep
 
 import requests

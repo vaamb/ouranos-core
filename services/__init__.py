@@ -1,6 +1,6 @@
 import logging
 
-from app.database import out_of_Flask_app_db as db, out_of_Flask_data_db as data_db
+from services.database import db
 from app.models import engineManager, Service
 import dataspace
 
@@ -14,6 +14,9 @@ from services.weather import Weather
 from services.webcam import Webcam
 
 
+# TODO: add a background task which listens to a queue to start and stop services
+
+
 SERVICES = (Calendar, dailyRecap, sunTimes, systemMonitor, telegramChatbot,
             Weather, Webcam)
 
@@ -25,26 +28,12 @@ for SERVICE in SERVICES:
 services_manager = None
 
 
-def _log_services_available() -> None:
-    with db.scoped_session() as session:
-        for level in ("app", "user"):
-            for s in _services[level]:
-                service = session.query(Service).filter_by(name=s).first()
-                if service is None:
-                    service = Service(name=s, level=level)
-                session.add(service)
-        session.commit()
-
-
 class _servicesManager:
     def __init__(self, config_class) -> None:
         self.config = config_class
         self.logger = logging.getLogger(f"{self.config.APP_NAME}.services")
         self.logger.info(f"Initializing {self.config.APP_NAME} services ...")
-        dataspace.init(config_class)
         self.event_dispatcher = dataspace.sio_queue
-        _log_services_available()
-        scheduler.start()
         self.services = {}
         self._services_running = []
         self._init_services()
@@ -59,7 +48,7 @@ class _servicesManager:
             self.services[service].start()
             self._services_running.append(service)
 
-        with db.scoped_session() as session:
+        with db.scoped_session("app") as session:
             for level in ("app", "user"):
                 for service in _services[level]:
                     status = (session.query(Service).filter_by(name=service)
@@ -87,16 +76,36 @@ class _servicesManager:
         return [service.NAME for service in SERVICES]
 
 
+def _init_dependencies(config_class) -> None:
+    dataspace.init(config_class)
+    db.init(config_class=config_class)
+    _log_services_available()
+    scheduler.start()
+
+
+def _log_services_available() -> None:
+    with db.scoped_session("app") as session:
+        for level in ("app", "user"):
+            for s in _services[level]:
+                service = session.query(Service).filter_by(name=s).first()
+                if service is None:
+                    service = Service(name=s, level=level)
+                session.add(service)
+        session.commit()
+
+
 def start(config_class) -> None:
     global services_manager
     if not services_manager:
+        _init_dependencies(config_class)
         services_manager = _servicesManager(config_class)
 
 
 def exit_gracefully() -> None:
-    data_db.session.query(engineManager).update(
-        {engineManager.connected: False})
-    data_db.session.commit()
+    with db.scoped_session() as session:
+        session.query(engineManager).update(
+            {engineManager.connected: False})
+        session.commit()
     scheduler.shutdown()
 
 

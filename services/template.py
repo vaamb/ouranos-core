@@ -1,7 +1,7 @@
 import logging
 import weakref
 
-from app.database import out_of_Flask_app_db as db
+from services.database import db
 from app.models import Service
 
 
@@ -40,7 +40,7 @@ class serviceTemplate:
             try:
                 self._start()
                 if self.LEVEL in ("app", "user"):
-                    with db.scoped_session() as session:
+                    with db.scoped_session("app") as session:
                         db_service = (session.query(Service)
                                       .filter_by(name=self.NAME)
                                       .one())
@@ -65,7 +65,7 @@ class serviceTemplate:
             try:
                 self._stop()
                 if self.LEVEL in ("app", "user"):
-                    with db.scoped_session() as session:
+                    with db.scoped_session("app") as session:
                         db_service = (session.query(Service)
                                       .filter_by(name=self.NAME)
                                       .one())

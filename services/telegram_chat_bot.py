@@ -4,7 +4,7 @@ from telegram.ext import Updater, CommandHandler, CallbackContext,\
 
 # TODO: with new API: import it in _start() to avoid circular import
 #from app import API_old as API
-from app.database import out_of_Flask_app_db as db
+from services.database import db
 from app.models import User
 from services.template import serviceTemplate
 
@@ -18,7 +18,7 @@ class telegramChatbot(serviceTemplate):
         self.dispatcher = None
 
     def get_user_firstname(self, chat_id):
-        with db.scoped_session() as session:
+        with db.scoped_session("app") as session:
             firstname = (session.query(User)
                          .filter_by(telegram_chat_id=chat_id)
                          .first()
@@ -28,7 +28,7 @@ class telegramChatbot(serviceTemplate):
         return ""
 
     def get_user_permission(self, chat_id, permission):
-        with db.scoped_session() as session:
+        with db.scoped_session("app") as session:
             user = (session.query(User)
                     .filter_by(telegram_chat_id=chat_id)
                     .first())
