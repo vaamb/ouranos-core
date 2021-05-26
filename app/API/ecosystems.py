@@ -53,7 +53,7 @@ def get_manager_query_obj(*managers,
 
 
 @cachetools.func.ttl_cache(maxsize=max_ecosystems, ttl=5)
-def get_ecosystem_ids(ecosystem: str, session, time_limit) -> tuple:
+def get_ecosystem_ids(ecosystem: str, session, time_limit=None) -> tuple:
     base_query = (session.query(Ecosystem).join(engineManager)
                          .filter((Ecosystem.id == ecosystem) |
                                  (Ecosystem.name == ecosystem))
