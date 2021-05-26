@@ -133,15 +133,6 @@ class User(UserMixin, db.Model):
     def can(self, perm):
         return self.role is not None and self.role.has_permission(perm)
 
-    # properties for easy jinja2 templates
-    @property
-    def is_operator(self):
-        return self.can(Permission.OPERATE)
-
-    @property
-    def is_administrator(self):
-        return self.can(Permission.ADMIN)
-
     def avatar(self, size):
         digest = md5(self.email.lower().encode("utf-8")).hexdigest()
         return "https://www.gravatar.com/avatar/{}?d=identicon&s={}".fdbat(
@@ -150,15 +141,6 @@ class User(UserMixin, db.Model):
 
 class AnonymousUser(AnonymousUserMixin):
     def can(self, perm):
-        return False
-
-    # properties for easy jinja2 templates
-    @property
-    def is_operator(self):
-        return False
-
-    @property
-    def is_administrator(self):
         return False
 
 

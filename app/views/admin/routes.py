@@ -142,7 +142,7 @@ def start_service(message):
         user = User.query.filter_by(id=message["user_id"]).one()
     except NoResultFound:
         return
-    if user.is_administrator:
+    if user.can(Permission.ADMIN):
         if action == "start":
             services.get_manager().start_service(service)
             return

@@ -12,7 +12,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from app import app_name, db, scheduler, sio
 from dataspace import healthData, sensorsData, sensorsDataHistory
 from app.models import sensorData, Ecosystem, engineManager, Hardware, Health, \
-    Light, Management, Measure, environmentParameter
+    Light, Management, Measure, environmentParameter, Permission
 from app.utils import decrypt_uid, validate_uid_token
 
 
@@ -440,7 +440,7 @@ def ping_pong():
 
 @sio.on("turn_light", namespace="/")
 def turn_light(message):
-    if not current_user.is_operator:
+    if not current_user.can(Permission.OPERATE):
         return False
     ecosystem_id = message["ecosystem"]
     sid = Ecosystem.query.filter_by(id=ecosystem_id).one().manager.sid
@@ -469,7 +469,7 @@ def admin_background_thread(app):
 @sio.on("connect", namespace="/admin")
 def connect_on_admin():
     # Close connection if request not from an authenticated admin
-    if not current_user.is_administrator:
+    if not current_user.can(Permission.ADMIN):
         disconnect()
     global admin_thread
     if admin_thread is None:

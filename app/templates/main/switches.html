@@ -18,7 +18,7 @@
         </div>
         <div class="boardColumnContainer" style="margin: auto; min-width: 0;">
           {% for mode in modes %}
-          {% if current_user.is_operator %}
+          {% if current_user.can(Permission.OPERATE) %}
           <button id="{{ switch }}_{{ mode }}" title="Turn {{ switch }} {{ mode }}">{{ mode.capitalize() }}</button>
           {% else %}
           <button id="{{ switch }}_{{ mode }}" disabled title="You need to be an operator to turn {{ switch }} {{ mode }}">{{ mode.capitalize() }}</button>
@@ -62,7 +62,7 @@
           }
         }
 
-        {% if current_user.is_operator %}
+        {% if current_user.can(Permission.OPERATE) %}
         const switchOptions = ["on", "off", "automatic"]
 
         for (const type in switches) {
