@@ -117,7 +117,7 @@ def sensors(level: str, ecosystem_name: str):
     )
     historic_sensors_data = API.ecosystems.get_historic_sensors_data(
         ecosystem_qo, session=db.session, level=(level, ))
-    current_sensors_data = {ecosystem_ids[0]: sensorsData.get(ecosystem_ids[0])}
+    current_sensors_data = {ecosystem_ids[0]: sensorsData.get(ecosystem_ids[0])}  # Make sure we get a dict and not None
     title = f"{ecosystem_ids[1]} {level} data"
     graphUpdatePeriod = current_app.config["SENSORS_LOGGING_PERIOD"]
     return render_template("main/sensors.html", title=title,

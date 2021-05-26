@@ -21,8 +21,6 @@ collector = logging.getLogger(f"{app_name}.collector")
 
 SYSTEM_UPDATE_PERIOD = 5
 
-# Temporary anchors to keep PyCharm to delete these from import
-anchor1 = sensorsData
 
 summarize = {"mean": mean, "std": std}
 

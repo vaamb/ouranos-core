@@ -56,7 +56,6 @@ class sqlalchemy_wrapper:
         if bind is None:
             return self._config["SQLALCHEMY_DATABASE_URI"]
         binds = self._config.get("SQLALCHEMY_BINDS", ())
-        print(self._config)
         assert bind in binds, f"Set bind {bind} in the config "\
                               f"'SQLALCHEMY_BINDS' in order to use it."
         return binds[bind]

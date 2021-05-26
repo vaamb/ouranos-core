@@ -9,8 +9,8 @@ from sqlalchemy.orm.exc import NoResultFound
 import jwt
 
 from app import mail
-from app.API.utils import get_service
 from app.models import User, Role, System
+from dataspace import systemData
 
 
 def send_async_email(app, msg):
@@ -174,7 +174,4 @@ def get_historic_system_data(db_session, days=7):
 
 
 def get_current_system_data():
-    try:
-        return get_service("system_monitor").system_data
-    except RuntimeError:
-        return {}
+    return {**systemData}

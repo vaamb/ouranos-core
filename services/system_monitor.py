@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 import psutil
 from threading import Thread, Event, Lock
 
-from dataspace import START_TIME
+from dataspace import START_TIME, systemData
 from services.database import db
 from app.models import System
 from services.template import serviceTemplate
@@ -42,6 +42,7 @@ class systemMonitor(serviceTemplate):
             with lock:
                 self._data = _cache
             self._data["start_time"] = START_TIME
+            systemData.update(self._data)
             try:
                 message = {
                     "event": "current_server_data",
