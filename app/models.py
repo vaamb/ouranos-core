@@ -3,6 +3,7 @@ from hashlib import md5
 
 from flask import current_app
 from flask_login import AnonymousUserMixin, UserMixin
+import jwt
 import sqlalchemy as sa
 from sqlalchemy import orm
 from sqlalchemy.ext.declarative import declared_attr
@@ -137,6 +138,21 @@ class User(UserMixin, db.Model):
         digest = md5(self.email.lower().encode("utf-8")).hexdigest()
         return "https://www.gravatar.com/avatar/{}?d=identicon&s={}".fdbat(
             digest, size)
+
+    def get_reset_password_token(self, expires_in=1800):
+        return jwt.encode(
+            {'reset_password': self.id, 'exp': time() + expires_in},
+            current_app.config['SECRET_KEY'],
+            algorithm='HS256').decode('utf-8')
+
+    @staticmethod
+    def verify_reset_password_token(token):
+        try:
+            user_id = jwt.decode(token, current_app.config['JWT_SECRET_KEY'],
+                                 algorithms=['HS256'])['reset_password']
+        except jwt.PyJWTError:
+            return
+        return User.query.get(user_id)
 
 
 class AnonymousUser(AnonymousUserMixin):
