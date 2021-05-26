@@ -173,34 +173,13 @@ def switches(ecosystem_name: str):
 def settings(ecosystem_name: str):
     ecosystem_ids = get_ecosystem_ids(ecosystem=ecosystem_name)
     title = f"{ecosystem_ids[1]} settings"
-
-    # TODO: first generate a ecosystem query, then use it
-    environmental_sensors = (
-        Hardware.query.filter_by(ecosystem_id=ecosystem_ids[0])
-                      .filter_by(type="sensor")
-                      .filter_by(level="environment")
-                      .all()
+    ecosystem_qo = API.ecosystems.get_ecosystem_query_obj(
+        ecosystem_name, session=db.session
     )
-    plants_sensors = (
-        Hardware.query.filter_by(ecosystem_id=ecosystem_ids[0])
-                      .filter_by(type="sensor")
-                      .filter_by(level="plants")
-                      .all()
-    )
-    actuators = (
-        Hardware.query.filter_by(ecosystem_id=ecosystem_ids[0])
-                      .filter(Hardware.type != "sensor")
-                      .filter_by(level="environment")
-                      .all()
-    )
-    hardware_dict = {
-        "Environmental sensors": environmental_sensors,
-        "Plants sensors": plants_sensors,
-        "Actuators": actuators,
-    }
+    hardware = API.ecosystems.get_hardware(ecosystem_qo, db.session)
     return render_template("main/settings.html", title=title,
                            ecosystem_ids=ecosystem_ids,
-                           hardware_dict=hardware_dict,
+                           hardware=hardware,
                            )
 
 

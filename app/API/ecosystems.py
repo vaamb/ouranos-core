@@ -391,3 +391,46 @@ def summarize_sensors_data(sensors_data: dict, precision: int = 2):
             datatype = "historic"
         summarized_data[ecosystem] = summarize_data(ecosystem, datatype)
     return summarized_data
+
+
+def get_hardware(ecosystems_query_obj, session, level="all",
+                 hardware_type="all"):
+    all_hardware = ["sensor", "light", "heater", "cooler", "humidifier",
+                    "dehumidifier"]
+    if isinstance(level, str):
+        if level == "all":
+            level = ("environment", "plants")
+        else:
+            level = (level, )
+    if isinstance(hardware_type, str):
+        if hardware_type == "all":
+            hardware_type = all_hardware
+        elif hardware_type == "actuators":
+            hardware_type = all_hardware.remove("sensor")
+        else:
+            hardware_type = (hardware_type, )
+
+    result = {}
+
+    for ecosystem in ecosystems_query_obj:
+        result[ecosystem.id] = {}
+
+        for hardware in (
+                session.query(Hardware).join(Ecosystem)
+                       .filter(Ecosystem.id == ecosystem.id)
+                       .filter(Hardware.type.in_(hardware_type))
+                       .filter(Hardware.level.in_(level))
+                       .order_by(Hardware.type)
+                       .order_by(Hardware.level)
+                       .all()
+        ):
+            result[ecosystem.id][hardware.id] = {
+                "name": hardware.name,
+                "address": hardware.address,
+                "level": hardware.level,
+                "type": hardware.type,
+                "model": hardware.model,
+                "last_log": hardware.last_log,
+            }
+
+    return result

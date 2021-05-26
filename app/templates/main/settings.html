@@ -4,46 +4,57 @@
 {% block info %}{% endblock %}
 
 {% block content %}
-  {% for hardware_group in hardware_dict %}
-    {% if hardware_dict[hardware_group] %}
-      <h3>
-        {{ hardware_group }}
-      </h3>
-      <table style="table-layout: fixed; width: 100%; text-align: left;">
-        <tr>
-          <th>UID</th>
-          <th>Name</th>
-          <th>Address</th>
-          <th>Type</th>
-          <th>Model</th>
-          <th>{% if hardware_group != "Actuators" %}Last log entry{% endif %}</th>
-        </tr>
-        {% for hardware in hardware_dict[hardware_group] %}
-        <tr>
-          <td>{{ hardware.id }}</td>
-          <td>{{ hardware.name }}</td>
-          <td>{{ hardware.address }}</td>
-          <td>{{ hardware.type }}</td>
-          <td>{{ hardware.model }}</td>
-          <td><span id="last_log_{{ hardware.id }}"></span></td>
-        </tr>
-        {% endfor %}
-      </table>
-    {% endif %}
-  {% endfor %}
+  <table style="table-layout: fixed; width: 100%; text-align: left;">
+    <tr>
+      <th>Name</th>
+      <th>UID</th>
+      <th>Address</th>
+      <th>Type</th>
+      <th>Level</th>
+      <th>Model</th>
+      <th>Last log entry</th>
+      <th>Action</th>
+    </tr>
+    {% for hardware_id in hardware[ecosystem_ids[0]] %}
+    {% set hardware_obj = hardware[ecosystem_ids[0]][hardware_id] %}
+    <tr>
+      <td>{{ hardware_obj["name"] }}</td>
+      <td>{{ hardware_id }}</td>
+      <td>{{ hardware_obj["address"] }}</td>
+      <td>{{ hardware_obj["type"] }}</td>
+      <td>{{ hardware_obj["level"] }}</td>
+      <td>{{ hardware_obj["model"] }}</td>
+      <td><span id="last_log_{{ hardware_id }}"></span></td>
+      <td>
+        <div>
+          <button id="edit_{{ hardware_id }}" style="font-size: 18px"><i class="fas fa-edit"></i></button> &emsp;
+          <button id="delete_{{ hardware_id }}" style="font-size: 18px"><i class="fas fa-trash"></i></button>
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
 {% endblock %}
 
 {% block scripts %}
     <script type="text/javascript">
-      {% for hardware_group in hardware_dict %}
-      {% if hardware_dict[hardware_group] %}
-      {% for hardware in hardware_dict[hardware_group] %}
-      {% if hardware_group != "Actuators" %}
-      let lastLog_{{ hardware.id }} = new Date("{{ hardware.last_log }}");
-      $('#last_log_{{ hardware.id }}').text(lastLog_{{ hardware.id }}.toLocaleString());
-      {% endif %}
-      {% endfor %}
-      {% endif %}
-      {% endfor %}
+      let hardware = {{ hardware[ecosystem_ids[0]] | tojson }};
+
+      for (const h in hardware) {
+        if (hardware.hasOwnProperty(h)) {
+          if (hardware[h]["last_log"] !== null){
+            const date = new Date(hardware[h]["last_log"]);
+            $("#last_log_" + h).text(date.toLocaleString());
+          }
+
+          $("button#delete_" + h).click(function() {
+            if (confirm("Are you sure you wan to delete " + hardware[h]["type"] + " " + h + "?")){
+              alert(capitalize(hardware[h]["type"]) + " " + h + " has been deleted.")
+            } else {
+              alert("You chose wisely")
+            }
+          });
+        }
+      }
     </script>
 {% endblock %}
