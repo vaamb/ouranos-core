@@ -1,7 +1,6 @@
 import logging
 
 from app.database import out_of_Flask_app_db as db, out_of_Flask_data_db as data_db
-# TODO: remove all ref from app and base Config related objects
 from app.models import engineManager, Service
 import dataspace
 
