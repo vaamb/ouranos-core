@@ -85,8 +85,10 @@ def create_app(config_class=DevelopmentConfig):
     from app.views.api import bp as api_bp
     app.register_blueprint(api_bp)
 
-#    from app import database
     from app import socketio_events
+
+    from app import events_dispatcher
+    events_dispatcher.start()
 
     logger.info(f"{app_name} app successfully created")
 
