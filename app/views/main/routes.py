@@ -79,13 +79,14 @@ def home():
     sun_times = API.weather.get_suntimes_data()
     ecosystems_qo = API.ecosystems.get_recent_ecosystems_query_obj(session=db.session)
     light_data = API.ecosystems.get_light_info(ecosystems_qo)
-    system_data = API.admin.get_current_system_data()
+    current_system_data = API.admin.get_current_system_data()
+    current_sensors_data = {**sensorsData}
     return render_template("main/home.html", title="Home",
                            current_weather=current_weather,
                            light_data=light_data,
                            sun_times=sun_times,
-                           system_data=system_data,
-                           current_data={**sensorsData},
+                           current_system_data=current_system_data,
+                           current_sensors_data=current_sensors_data,
                            parameters=layout.parameters,
                            )
 

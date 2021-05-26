@@ -209,47 +209,13 @@ def get_light_info(ecosystems_query_obj) -> dict:
 
 
 # TODO: add a level filter?
-def get_current_sensors_data(*ecosystems, session) -> dict:
+def get_current_sensors_data() -> dict:
     """ Get the current data for the given ecosystems
 
     Returns a dict with the current data for the given ecosystems if they exist
     and recently sent sensors data.
     """
-    if not ecosystems:
-        ecosystems = [id for id in sensorsData]
-    data = {}
-    for ecosystem in ecosystems:
-        ids = get_ecosystem_ids(ecosystem, session)
-        if ids:
-            try:
-                reorganized = {}
-                for sensor in sensorsData[ids.uid]["data"]:
-                    sensor_name = (session.query(Hardware)
-                                   .filter(Hardware.id == sensor)
-                                   .first()
-                                   .name
-                                   )
-                    for measure in sensorsData[ids.uid]["data"][sensor]:
-                        try:
-                            reorganized[measure][sensor] = {
-                                "name": sensor_name,
-                                "value": sensorsData[ids.uid]["data"][
-                                    sensor][measure]
-                            }
-                        except KeyError:
-                            reorganized[measure] = {sensor: {
-                                "name": sensor_name,
-                                "value": sensorsData[ids.uid]["data"][
-                                    sensor][measure]
-                            }}
-                data[ids.uid] = {
-                    "name": ids.name,
-                    "datetime": sensorsData[ids.uid]["datetime"],
-                    "data": reorganized
-                }
-            except KeyError:
-                pass
-    return data
+    return {**sensorsData}
 
 
 # TODO: make sure it is done outside the main process when querying more
