@@ -3,16 +3,8 @@ from datetime import datetime, time, timedelta, timezone
 from numpy import mean
 from scipy.stats import mode
 
-from app.API.utils import get_service
-from dataspace import WEATHER_MEASURES
+from dataspace import WEATHER_MEASURES, weatherData, sunTimesData
 from app.utils import parse_sun_times
-
-
-def _weather_on():
-    try:
-        return get_service("weather").status
-    except RuntimeError:
-        return False
 
 
 def _get_time_of_day(dt_time: time):
@@ -28,15 +20,13 @@ def _get_time_of_day(dt_time: time):
 
 # Current weather
 def get_current_weather():
-    if _weather_on():
-        return get_service("weather").current_data
-    return {}
+    return weatherData.get("currently", {})
 
 
 # Weather forecast
-def get_forecast(unit, time_window):
-    if _weather_on():
-        data = get_service("weather").data[unit]
+def get_forecast(time_unit, time_window):
+    data = weatherData.get(time_unit)
+    if data:
         if time_window > len(data["forecast"]):
             time_window = len(data["forecast"]) - 1
         forecast = [data["forecast"][_] for _ in range(time_window)]
@@ -130,10 +120,7 @@ def get_summarized_hourly_weather_forecast(time_window=24):
 
 
 def get_suntimes_data():
-    try:
-        suntimes_service = get_service("sun_times")
-    except RuntimeError:
-        return {}
-    suntimes = suntimes_service.get_data()
-    return {event: parse_sun_times(suntimes[event]) for event in suntimes
-            if event != "day_length"}
+    return {
+        event: parse_sun_times(sunTimesData[event]) for event in sunTimesData
+        if event != "day_length"
+    }

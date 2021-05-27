@@ -14,7 +14,7 @@ def dispatch_events():
         event = message["event"]
         data = message["data"]
         namespace = message.get("namespace", "/")
-        sio.emit(event=event, data=data, namespace=namespace)
+        sio.emit(event=event, data={**data}, namespace=namespace)
         services_to_app_queue.task_done()
 
 

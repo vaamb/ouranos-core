@@ -45,6 +45,7 @@ _caches = {
     "healthData": MutableMapping,
     "systemData": MutableMapping,
     "weatherData": {},
+    "sunTimesData": {},
 }
 
 
@@ -133,7 +134,7 @@ def reset(config_class):
                  maxsize=config_class.GAIA_MAX_ECOSYSTEMS, overwrite=True)
     create_cache("healthData", ttl=60*60*36,
                  maxsize=config_class.GAIA_MAX_ECOSYSTEMS, overwrite=True)
-    create_cache("systemData", ttl=60 * 2, maxsize=2, overwrite=True)
+    create_cache("systemData", ttl=60 * 2, maxsize=16, overwrite=True)
 
 
 # Potentially workers-shared caches
@@ -142,6 +143,7 @@ healthData = LocalProxy(lambda: get_cache("healthData"))
 systemData = LocalProxy(lambda: get_cache("systemData"))
 # TODO: weather cache based on file (save 2 files: raw_data and data)
 weatherData = LocalProxy(lambda: get_cache("weatherData"))
+sunTimesData = LocalProxy(lambda: get_cache("sunTimesData"))
 
 
 # Workers-specific caches

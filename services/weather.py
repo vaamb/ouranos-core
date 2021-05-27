@@ -5,7 +5,7 @@ import time
 
 import requests
 
-from dataspace import WEATHER_MEASURES
+from dataspace import WEATHER_MEASURES, weatherData
 from services.template import serviceTemplate
 from services.shared_resources import scheduler
 from utils import base_dir
@@ -14,7 +14,8 @@ from utils import base_dir
 def _simplify_weather_data(weather_data) -> dict:
     return {
         measure: weather_data[measure]
-        for measure in WEATHER_MEASURES["mean"] + WEATHER_MEASURES["mode"] +
+        for measure in WEATHER_MEASURES["mean"] +
+                       WEATHER_MEASURES["mode"] +
                        WEATHER_MEASURES["other"]
         if measure in weather_data
     }
@@ -40,17 +41,20 @@ class Weather(serviceTemplate):
 
     def _init(self) -> None:
         self._file_path = None
-        self._data = {}
+        self._data = weatherData
         self._coordinates = self.config.HOME_COORDINATES
         self._API_key = self.config.DARKSKY_API_KEY
         self._started = False
 
     def _load_data(self, raw_data):
-        self._data["currently"] = _simplify_weather_data(raw_data["currently"])
-        self._data["hourly"] = _format_forecast(raw_data["hourly"],
-                                                time_window=48)
-        self._data["daily"] = _format_forecast(raw_data["daily"],
-                                               time_window=14)
+        data = {
+            "currently": _simplify_weather_data(raw_data["currently"]),
+            "hourly": _format_forecast(raw_data["hourly"],
+                                       time_window=48),
+            "daily": _format_forecast(raw_data["daily"],
+                                      time_window=14),
+        }
+        self._data.update(data)
 
     def _send_events(self):
         now = datetime.now()
@@ -121,7 +125,7 @@ class Weather(serviceTemplate):
 
     def _stop(self) -> None:
         scheduler.remove_job("weather")
-        self._data = {}
+        self._data.clear()
 
     """API"""
 

@@ -12,18 +12,3 @@ def time_limits() -> dict:
         "health": (now_utc - timedelta(days=31)).replace(tzinfo=None),
         "warnings": (now_utc - timedelta(days=7)).replace(tzinfo=None),
     }
-
-
-def get_services_manager():
-    from services import get_manager
-    return get_manager()
-
-
-def get_service(service):
-    try:
-        return get_services_manager().services[service]
-    except AttributeError:
-        raise RuntimeError(f"Services have not been started, cannot get "
-                           f"{service} service")
-    except KeyError:
-        raise ValueError(f"{service} is not a valid service")

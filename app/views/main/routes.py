@@ -49,7 +49,7 @@ def menu_info():
     summarized_ecosystems_info = API.ecosystems.summarize_ecosystems_info(
         ecosystems_info, session=db.session)
     dropdowns = API.app.get_functionalities(
-        summarized_ecosystems_info)
+        summarized_ecosystems_info, db.session)
 
     plant_articles = [article for article
                       in sorted(wiki.articles_available["plants_care"])]
@@ -93,7 +93,7 @@ def home():
 
 @bp.route("/weather")
 def weather():
-    "weather" in API.app.get_services_running() or abort(404)
+    "weather" in API.app.get_services_running(db.session) or abort(404)
     current_weather = API.weather.get_current_weather()
     hourly_weather = API.weather.get_hourly_weather_forecast()
     daily_weather = API.weather.get_daily_weather_forecast()

@@ -5,6 +5,7 @@ import time
 
 import requests
 
+from dataspace import sunTimesData
 from utils import base_dir, is_connected, parse_sun_times
 from services.template import serviceTemplate
 from services.shared_resources import scheduler
@@ -16,7 +17,7 @@ class sunTimes(serviceTemplate):
 
     def _init(self):
         self._file_path = None
-        self._sun_times_data = {}
+        self._sun_times_data = sunTimesData
         self.coordinates = self.config.HOME_COORDINATES
         self.started = False
 
@@ -34,7 +35,7 @@ class sunTimes(serviceTemplate):
                     continue
                 else:
                     with open(self._file_path, "w+") as file:
-                        json.dump(self._sun_times_data, file)
+                        json.dump({**self._sun_times_data}, file)
                     sun_times = {
                         "sunrise": parse_sun_times(
                             self._sun_times_data["sunrise"]),
@@ -83,7 +84,7 @@ class sunTimes(serviceTemplate):
 
     def _stop(self):
         scheduler.remove_job("suntimes")
-        self._sun_times_data = {}
+        self._sun_times_data.clear()
 
     """Functions to pass data to higher modules"""
     def get_data(self):

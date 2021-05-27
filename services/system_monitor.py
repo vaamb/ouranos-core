@@ -19,7 +19,7 @@ class systemMonitor(serviceTemplate):
     LEVEL = "base"
 
     def _init(self) -> None:
-        self._data = {}
+        self._data = systemData
         self._thread = None
         self._stopEvent = Event()
 
@@ -37,12 +37,11 @@ class systemMonitor(serviceTemplate):
                 _cache["CPU_temp"] = round(psutil.sensors_temperatures()
                                                  .get("cpu_thermal")[0][1], 2)
             except (AttributeError, KeyError):
-                _cache["CPU_temp"] = 0
+                _cache["CPU_temp"] = None
 
+            _cache["start_time"] = START_TIME
             with lock:
-                self._data = _cache
-            self._data["start_time"] = START_TIME
-            systemData.update(self._data)
+                self._data.update(_cache)
             try:
                 message = {
                     "event": "current_server_data",
@@ -84,6 +83,7 @@ class systemMonitor(serviceTemplate):
                           misfire_grace_time=1 * 60, id="system_monitoring")
 
     def _stop(self) -> None:
+        self._data.clear()
         self._stopEvent.set()
         self._thread.join()
         self._thread = None
