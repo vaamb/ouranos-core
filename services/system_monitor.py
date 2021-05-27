@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 import psutil
-from threading import Thread, Event, Lock
+from threading import Thread, Event
 
 from dataspace import START_TIME, systemData
 from services.database import db
@@ -8,8 +8,6 @@ from app.models import System
 from services.template import serviceTemplate
 from services.shared_resources import scheduler
 
-
-lock = Lock()
 
 SYSTEM_UPDATE_PERIOD = 2
 
@@ -24,6 +22,13 @@ class systemMonitor(serviceTemplate):
         self._stopEvent = Event()
 
     def _loop(self) -> None:
+        def try_get_temp():
+            try:
+                return round(psutil.sensors_temperatures()
+                             .get("cpu_thermal")[0][1], 2)
+            except (AttributeError, KeyError):
+                return None
+
         while True:
             _cache = {
                 "datetime": datetime.now(timezone.utc).replace(microsecond=0),
@@ -31,28 +36,19 @@ class systemMonitor(serviceTemplate):
                 "RAM_total": round(psutil.virtual_memory()[0]/(1024*1024*1024), 2),
                 "RAM_used": round(psutil.virtual_memory()[3]/(1024*1024*1024), 2),
                 "DISK_total": round(psutil.disk_usage("/")[0]/(1024*1024*1024), 2),
-                "DISK_used": round(psutil.disk_usage("/")[1]/(1024*1024*1024), 2)
+                "DISK_used": round(psutil.disk_usage("/")[1]/(1024*1024*1024), 2),
+                "CPU_temp": try_get_temp(),
+                "start_time": START_TIME,
             }
-            try:
-                _cache["CPU_temp"] = round(psutil.sensors_temperatures()
-                                                 .get("cpu_thermal")[0][1], 2)
-            except (AttributeError, KeyError):
-                _cache["CPU_temp"] = None
-
-            _cache["start_time"] = START_TIME
-            with lock:
+            with self.mutex:
                 self._data.update(_cache)
-            try:
-                message = {
-                    "event": "current_server_data",
-                    "data": self._data,
-                    "namespace": "/admin"
-                }
-                self.manager.event_dispatcher.put(message)
-            except AttributeError as e:
-                # Discard error when SocketIO has not started yet
-                if "NoneType" not in e.args[0]:
-                    raise e
+            message = {
+                "event": "current_server_data",
+                "data": self._data,
+                "namespace": "/admin"
+            }
+            self.manager.event_dispatcher.put(message)
+
             self._stopEvent.wait(SYSTEM_UPDATE_PERIOD)
             if self._stopEvent.isSet():
                 break

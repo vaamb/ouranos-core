@@ -47,14 +47,14 @@ class Weather(serviceTemplate):
         self._started = False
 
     def _load_data(self, raw_data):
-        data = {
-            "currently": _simplify_weather_data(raw_data["currently"]),
-            "hourly": _format_forecast(raw_data["hourly"],
-                                       time_window=48),
-            "daily": _format_forecast(raw_data["daily"],
-                                      time_window=14),
-        }
-        self._data.update(data)
+        with self.mutex:
+            self._data.update({
+                "currently": _simplify_weather_data(raw_data["currently"]),
+                "hourly": _format_forecast(raw_data["hourly"],
+                                           time_window=48),
+                "daily": _format_forecast(raw_data["daily"],
+                                          time_window=14),
+            })
 
     def _send_events(self):
         now = datetime.now()

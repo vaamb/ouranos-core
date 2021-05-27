@@ -29,7 +29,8 @@ class sunTimes(serviceTemplate):
                     data = requests.get(
                         f"https://api.sunrise-sunset.org/json?lat={self.coordinates[0]}" +
                         f"&lng={self.coordinates[1]}").json()
-                    self._sun_times_data.update(data["results"])
+                    with self.mutex:
+                        self._sun_times_data.update(data["results"])
                 except ConnectionError:
                     time.sleep(1)
                     continue

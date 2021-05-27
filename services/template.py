@@ -1,4 +1,5 @@
 import logging
+import threading
 import weakref
 
 from services.database import db
@@ -12,9 +13,10 @@ class serviceTemplate:
     def __init__(self, manager):
         self.manager = weakref.proxy(manager)
         self.config = self.manager.config
+        self.mutex = threading.Lock()
+        self._service_name = f"{self.NAME.lower()}Service"
         self._logger = logging.getLogger(
             f"{self.config.APP_NAME}.services.{self.NAME.lower()}")
-        self._service_name = f"{self.NAME.lower()}Service"
         self._logger.debug(f"Initializing {self._service_name}")
         try:
             self._init()
