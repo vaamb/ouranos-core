@@ -1,0 +1,15 @@
+{% if weather["currently"] %}
+Currently, the weather is {{ weather["currently"]["summary"].lower() }}.
+It is {{ weather["currently"]["temperature"] | int }}°C and the relative humidity is of {{ weather["currently"]["humidity"] | round(2) * 100 | int }}%.
+The wind speed is of {{ weather["currently"]['windSpeed'] | int }}km/h and the cloud coverage is of {{ weather["currently"]["cloudCover"] | round(2) * 100 | int }}%.
+{% endif %}
+{% if weather["hourly"] %}
+In the incoming hours, the weather will be {{ weather["hourly"]["summary"].lower() }}.
+The temperature will be between {{ weather["hourly"]["temperatureLow"] | int }} and {{ weather["hourly"]["temperatureHigh"] | int }}°C, with an average humidity of {{ weather["hourly"]["humidity"] | round(2) * 100 | int }}%.
+{% endif %}
+{% if weather["tomorrow"] %}
+Tomorrow, the temperature will be between {{ weather["tomorrow"]["temperatureLow"] | int }} and {{ weather["tomorrow"]["temperatureHigh"] | int }}°C and the weather will be mostly {{ weather["tomorrow"]["summary"].lower() }}.
+{% if weather["tomorrow"]["sunriseTime"] %}
+The sunrise and sunset will be at {{ weather["tomorrow"]["sunriseTime"] }} and {{ weather["tomorrow"]["sunsetTime"] }} respectively, giving you a total of {{ weather["tomorrow"]["dayLength"] }}h of day light.
+{% endif %}
+{% endif %}

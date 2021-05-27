@@ -1,7 +1,9 @@
+from collections import Counter
 from datetime import datetime, time, timedelta, timezone
 
-from numpy import mean
-from scipy.stats import mode
+#from numpy import mean
+
+from statistics import mean
 
 from dataspace import WEATHER_MEASURES, weatherData, sunTimesData
 from app.utils import parse_sun_times
@@ -16,6 +18,10 @@ def _get_time_of_day(dt_time: time):
         return "afternoon"
     elif time(18, 30) < dt_time:
         return "evening"
+
+
+def mode(iterable):
+    return Counter(iterable).most_common()[0][0]
 
 
 # Current weather
@@ -46,6 +52,36 @@ def get_hourly_weather_forecast(time_window=24):
 
 def get_daily_weather_forecast(time_window=7):
     return get_forecast("daily", time_window)
+
+
+def summarize_forecast(forecast):
+    digest = {}
+    result = {}
+    data = forecast["forecast"]
+    for elem in data:
+        for info in WEATHER_MEASURES["mode"] + WEATHER_MEASURES["mean"]:
+            try:
+                d = elem[info]
+            except KeyError:
+                continue
+            if digest.get(info):
+                digest[info].append(d)
+            else:
+                digest[info] = [d]
+
+    for info in digest:
+        if info in WEATHER_MEASURES["mode"]:
+            result[info] = mode(digest[info])
+        elif info in WEATHER_MEASURES["mean"]:
+            result[info] = mean(digest[info])
+        if info in WEATHER_MEASURES["range"]:
+            result[f"{info}High"] = max(digest[info])
+            result[f"{info}Low"] = min(digest[info])
+
+    return {
+        "time_window": forecast["time_window"],
+        "forecast": result,
+    }
 
 
 def _digest_hourly_weather_forecast(weather_forecast) -> dict:
@@ -112,7 +148,7 @@ def _summarize_digested_weather_forecast(digested_weather_forecast):
     return {}
 
 
-def get_summarized_hourly_weather_forecast(time_window=24):
+def get_digested_hourly_weather_forecast(time_window=24):
     forecast = get_hourly_weather_forecast(time_window=time_window)
     digest = _digest_hourly_weather_forecast(forecast)
     summary = _summarize_digested_weather_forecast(digest)

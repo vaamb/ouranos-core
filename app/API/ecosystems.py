@@ -195,6 +195,7 @@ def get_light_info(ecosystems_query_obj) -> dict:
         light = ecosystem.light.first()
         info[ecosystem.id] = {
             "name": ecosystem.name,
+            "active": ecosystem.manages(Management["light"]),
             "status": light.status,
             "mode": light.mode,
             "method": light.method,
