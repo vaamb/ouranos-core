@@ -126,10 +126,3 @@ class sqlalchemy_wrapper:
 
 
 db = sqlalchemy_wrapper()
-"""
-
-engines_db = sqlalchemy_wrapper(uri=Config.SQLALCHEMY_DATABASE_URI)
-app_db = sqlalchemy_wrapper(uri=Config.SQLALCHEMY_BINDS["app"])
-archive_db = sqlalchemy_wrapper(uri=Config.SQLALCHEMY_BINDS["archive"])
-
-"""
