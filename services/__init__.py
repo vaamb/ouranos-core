@@ -23,7 +23,11 @@ for SERVICE in SERVICES:
     _services[SERVICE.LEVEL][SERVICE.NAME] = SERVICE
 
 
-services_manager = None
+def _init_dependencies(config_class) -> None:
+    dataspace.init(config_class)
+    db.init(config_class=config_class)
+    _log_services_available()
+    scheduler.start()
 
 
 class _servicesManager:
@@ -67,7 +71,7 @@ class _servicesManager:
         index = self._services_running.index(service)
         del self._services_running[index]
 
-    def _events_loop(self):
+    def _events_loop(self) -> None:
         queue = dataspace.app_to_services_queue
         while True:
             message = queue.get()
@@ -91,11 +95,7 @@ class _servicesManager:
         return [service.NAME for service in SERVICES]
 
 
-def _init_dependencies(config_class) -> None:
-    dataspace.init(config_class)
-    db.init(config_class=config_class)
-    _log_services_available()
-    scheduler.start()
+services_manager: _servicesManager = None
 
 
 def _log_services_available() -> None:
@@ -124,5 +124,5 @@ def exit_gracefully() -> None:
     scheduler.shutdown()
 
 
-def get_manager():
+def get_manager() -> _servicesManager:
     return services_manager

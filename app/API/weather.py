@@ -9,7 +9,7 @@ from dataspace import WEATHER_MEASURES, weatherData, sunTimesData
 from app.utils import parse_sun_times
 
 
-def _get_time_of_day(dt_time: time):
+def _get_time_of_day(dt_time: time) -> str:
     if dt_time < time(7, 0):
         return "night"
     elif time(7, 0) <= dt_time <= time(12, 0):
@@ -20,17 +20,17 @@ def _get_time_of_day(dt_time: time):
         return "evening"
 
 
-def mode(iterable):
+def mode(iterable) -> str:
     return Counter(iterable).most_common()[0][0]
 
 
 # Current weather
-def get_current_weather():
+def get_current_weather() -> dict:
     return weatherData.get("currently", {})
 
 
 # Weather forecast
-def get_forecast(time_unit, time_window):
+def get_forecast(time_unit: str, time_window: int) -> dict:
     data = weatherData.get(time_unit)
     if data:
         if time_window > len(data["forecast"]):
@@ -46,15 +46,15 @@ def get_forecast(time_unit, time_window):
     return {}
 
 
-def get_hourly_weather_forecast(time_window=24):
+def get_hourly_weather_forecast(time_window: int = 24) -> dict:
     return get_forecast("hourly", time_window)
 
 
-def get_daily_weather_forecast(time_window=7):
+def get_daily_weather_forecast(time_window: int = 7) -> dict:
     return get_forecast("daily", time_window)
 
 
-def summarize_forecast(forecast):
+def summarize_forecast(forecast: dict) -> dict:
     digest = {}
     result = {}
     data = forecast["forecast"]
@@ -84,7 +84,7 @@ def summarize_forecast(forecast):
     }
 
 
-def _digest_hourly_weather_forecast(weather_forecast) -> dict:
+def _digest_hourly_weather_forecast(weather_forecast: dict) -> dict:
     if weather_forecast:
         now = datetime.now(timezone.utc)
         digest = {}
@@ -122,7 +122,7 @@ def _digest_hourly_weather_forecast(weather_forecast) -> dict:
     return {}
 
 
-def _summarize_digested_weather_forecast(digested_weather_forecast):
+def _summarize_digested_weather_forecast(digested_weather_forecast: dict) -> dict:
     if digested_weather_forecast:
         summary = {
             "time_window": digested_weather_forecast["time_window"],
@@ -148,14 +148,14 @@ def _summarize_digested_weather_forecast(digested_weather_forecast):
     return {}
 
 
-def get_digested_hourly_weather_forecast(time_window=24):
+def get_digested_hourly_weather_forecast(time_window: int = 24) -> dict:
     forecast = get_hourly_weather_forecast(time_window=time_window)
     digest = _digest_hourly_weather_forecast(forecast)
     summary = _summarize_digested_weather_forecast(digest)
     return summary
 
 
-def get_suntimes_data():
+def get_suntimes_data() -> dict:
     return {
         event: parse_sun_times(sunTimesData[event]) for event in sunTimesData
         if event != "day_length"
