@@ -11,6 +11,9 @@ from dataspace.cache import redisCache, redisTTLCache
 from dataspace.queue import redisQueue
 
 
+# TODO: add locks
+
+
 START_TIME = datetime.now(timezone.utc)
 
 _CACHES_CLASS_AVAILABLE = [Cache, TTLCache, redisCache, redisTTLCache]
@@ -18,8 +21,9 @@ _CACHES_CLASS_AVAILABLE = [Cache, TTLCache, redisCache, redisTTLCache]
 WEATHER_MEASURES = {
     "mean": ["temperature", "temperatureLow", "temperatureHigh", "humidity",
              "windSpeed", "cloudCover", "precipProbability", "dewPoint"],
-    "mode": ["summary", "icon"],
+    "mode": ["summary", "icon", "sunriseTime", "sunsetTime"],
     "other": ["time", "sunriseTime", "sunsetTime"],
+    "range": ["temperature"],
 }
 
 WEATHER_DATA_MULTIPLICATION_FACTORS = {

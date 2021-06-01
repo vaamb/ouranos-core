@@ -1,0 +1,23 @@
+{% if timedelta %}
+{% if timedelta == 1 %}
+Here is an overview of your sensors data for the last day:
+{% else %}
+Here is an overview of your sensors data for the last {{ timedelta }} days:
+{% endif %}
+{% else %}
+{% if sensors | length < 2 %}
+Here is an overview of your current ecosystem sensors data:
+{% else %}
+Here is an overview of your current ecosystems sensors data:
+{% endif %}
+{% endif %}
+
+{% for ecosystem_uid in sensors %}
+{{ sensors[ecosystem_uid]["name"] }}
+{% for measure in sensors[ecosystem_uid]["data"] %}
+-- {{ measure | replace_underscore }}: {{ sensors[ecosystem_uid]["data"][measure] }}{{ units[measure] }}
+{% endfor %}
+{% if loop.index < sensors | length %}
+-----------
+{% endif %}
+{% endfor %}
