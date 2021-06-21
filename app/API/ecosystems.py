@@ -1,11 +1,11 @@
 from collections import namedtuple
 from datetime import datetime
 
-import cachetools.func
-from cachetools import cached, TTLCache
+from cachetools import cached, TTLCache, FIFOCache
 from numpy import mean
 
 from app.API.utils import time_limits
+from config import Config
 from dataspace import sensorsData
 from app.models import sensorData, Hardware, Ecosystem, Health, Management, engineManager, Service
 
@@ -52,7 +52,6 @@ def get_manager_query_obj(*managers,
     return manager_qo
 
 
-@cachetools.func.ttl_cache(maxsize=max_ecosystems, ttl=5)
 def get_ecosystem_ids(ecosystem: str, session, time_limit=None) -> tuple:
     base_query = (session.query(Ecosystem).join(engineManager)
                          .filter((Ecosystem.id == ecosystem) |
@@ -69,7 +68,6 @@ def get_ecosystem_ids(ecosystem: str, session, time_limit=None) -> tuple:
     return ()
 
 
-# @cachetools.func.ttl_cache(maxsize=max_ecosystems, ttl=5*60)
 def get_ecosystem_query_obj(*ecosystems,
                             session,
                             time_limit: datetime = None,
@@ -113,42 +111,44 @@ def get_recent_ecosystems_query_obj(session):
 def get_ecosystems_info(ecosystems_query_obj, session) -> dict:
     limits = time_limits()
 
-    # Dummy function to allow memoization
-    @cached(cache_ecosystem_info)
     def get_info(ecosystem):
-        return {
-            "name": ecosystem.name,
-            "connected": ecosystem.manager.connected,
-            "status": ecosystem.status,
-            "webcam": ecosystem.manages(Management["webcam"]),
-            "lighting": True if (
-                    ecosystem.manages(Management["light"])
-                    and ecosystem.hardware.filter_by(type="light").first()
-            ) else False,
-            "health": True if (
-                session.query(Health)
-                .filter_by(ecosystem_id=ecosystem.id)
-                .filter(Health.datetime >= limits["health"])
-                .first()
+        # Dummy function to allow memoization
+        @cached(cache_ecosystem_info)
+        def cached_func(ecosystem_id):
+            return {
+                "name": ecosystem.name,
+                "connected": ecosystem.manager.connected,
+                "status": ecosystem.status,
+                "webcam": ecosystem.manages(Management["webcam"]),
+                "lighting": True if (
+                        ecosystem.manages(Management["light"])
+                        and ecosystem.hardware.filter_by(type="light").first()
                 ) else False,
-            "env_sensors": True if (
-                session.query(Hardware)
-                .filter_by(ecosystem_id=ecosystem.id)
-                .filter_by(type="sensor", level="environment")
-                .filter(Hardware.last_log >= limits["sensors"])
-                .first()
-                ) else False,
-            "plant_sensors": True if (
-                session.query(Hardware)
-                .filter_by(ecosystem_id=ecosystem.id)
-                .filter_by(type="sensor", level="plants")
-                .filter(Hardware.last_log >= limits["sensors"])
-                .first()
-                ) else False,
-            "switches": True if ecosystem.hardware.filter_by(type="light").first()
-                        and ecosystem.manages(Management["light"])
-                        and ecosystem.id in sensorsData else False,
-        }
+                "health": True if (
+                    session.query(Health)
+                    .filter_by(ecosystem_id=ecosystem.id)
+                    .filter(Health.datetime >= limits["health"])
+                    .first()
+                    ) else False,
+                "env_sensors": True if (
+                    session.query(Hardware)
+                    .filter_by(ecosystem_id=ecosystem.id)
+                    .filter_by(type="sensor", level="environment")
+                    .filter(Hardware.last_log >= limits["sensors"])
+                    .first()
+                    ) else False,
+                "plant_sensors": True if (
+                    session.query(Hardware)
+                    .filter_by(ecosystem_id=ecosystem.id)
+                    .filter_by(type="sensor", level="plants")
+                    .filter(Hardware.last_log >= limits["sensors"])
+                    .first()
+                    ) else False,
+                "switches": True if ecosystem.hardware.filter_by(type="light").first()
+                            and ecosystem.manages(Management["light"])
+                            and ecosystem.id in sensorsData else False,
+            }
+        return cached_func(ecosystem.id)
 
     ecosystems_info = {ecosystem.id: get_info(ecosystem) for ecosystem in ecosystems_query_obj}
     return ecosystems_info
@@ -209,7 +209,6 @@ def get_light_info(ecosystems_query_obj) -> dict:
     return info
 
 
-# TODO: add a level filter?
 def get_raw_current_sensors_data() -> dict:
     """ Get the current data for the given ecosystems
 
@@ -262,31 +261,36 @@ def get_current_sensors_data(*ecosystems, session) -> dict:
     return data
 
 
-
 # TODO: make sure it is done outside the main process when querying more
 #  than one ecosystem as it is quite expensive
 def get_historic_sensors_data(ecosystems_query_obj,
                               session,
-                              level: tuple = (),
-                              time_windows: tuple = (None, None),
+                              level: tuple = ("environment", "plants"),
+                              time_window: tuple = (None, None),
                               ) -> dict:
 
-    if not level:
-        level = ("environment", "plants")
+    def round_time(dt: datetime) -> datetime:
+        dt = dt.replace(second=0, microsecond=0)
+        minutes = dt.minute
+        if minutes % Config.SENSORS_LOGGING_PERIOD == 1:
+            return dt
+        minutes = (minutes // Config.SENSORS_LOGGING_PERIOD
+                   * Config.SENSORS_LOGGING_PERIOD) + 1
+        return dt.replace(minute=minutes)
 
-    if not time_windows[0]:
-        window_start = time_limits()["sensors"]
+    if time_window[0]:
+        window_start = round_time(time_window[0])
     else:
-        window_start = time_windows[0]
+        window_start = round_time(time_limits()["sensors"])
 
-    if not time_windows[1]:
-        window_end = datetime.now().replace(tzinfo=None)
+    if time_window[1]:
+        window_end = round_time(time_window[1])
     else:
-        window_end = time_windows[1]
+        window_end = round_time(datetime.now().replace(tzinfo=None))
 
     # Dummy function to allow memoization
     @cached(cache_sensors_data_raw)
-    def get_data(ecosystem):
+    def get_data(ecosystem_id, level, window_start, window_end):
         data = {}
         if level:
             base_filter = (session.query(sensorData).join(Hardware)
@@ -298,7 +302,7 @@ def get_historic_sensors_data(ecosystems_query_obj,
         measures = [
             d.measure for d in
             base_filter
-                .filter(sensorData.ecosystem_id == ecosystem.id)
+                .filter(sensorData.ecosystem_id == ecosystem_id)
                 .filter((sensorData.datetime > window_start) &
                         (sensorData.datetime <= window_end))
                 .group_by(sensorData.measure)
@@ -308,7 +312,7 @@ def get_historic_sensors_data(ecosystems_query_obj,
         for measure in measures:
             data[measure] = {}
             data_points = (session.query(sensorData).join(Hardware)
-                           .filter(sensorData.ecosystem_id == ecosystem.id)
+                           .filter(sensorData.ecosystem_id == ecosystem_id)
                            .filter(Hardware.level.in_(level))
                            .filter(sensorData.measure == measure)
                            .group_by(sensorData.sensor_id)
@@ -317,7 +321,7 @@ def get_historic_sensors_data(ecosystems_query_obj,
 
             for data_point in data_points:
                 values = (session.query(sensorData).join(Hardware)
-                          .filter(sensorData.ecosystem_id == ecosystem.id)
+                          .filter(sensorData.ecosystem_id == ecosystem_id)
                           .filter(Hardware.level.in_(level))
                           .filter(sensorData.measure == measure)
                           .filter(sensorData.sensor_id == data_point.sensor.id)
@@ -340,7 +344,7 @@ def get_historic_sensors_data(ecosystems_query_obj,
                 "start": window_start,
                 "end": window_end,
             },
-            "data": get_data(ecosystem),
+            "data": get_data(ecosystem.id, level, window_start, window_end),
         }
         for ecosystem in ecosystems_query_obj
     }
@@ -349,10 +353,10 @@ def get_historic_sensors_data(ecosystems_query_obj,
 def average_historic_sensors_data(sensors_data: dict, precision: int = 2):
     # Dummy function to allow memoization
     @cached(cache_sensors_data_average)
-    def average_data(ecosystem):
+    def average_data(ecosystem, time_window):
         summary = {
             "name": sensors_data[ecosystem]["name"],
-            "time_window": sensors_data[ecosystem]["time_window"],
+            "time_window": time_window,
             "data": {}
         }
         for measure in sensors_data[ecosystem]["data"]:
@@ -368,13 +372,13 @@ def average_historic_sensors_data(sensors_data: dict, precision: int = 2):
                 }
         return summary
 
-    return {ecosystem: average_data(ecosystem)
+    return {ecosystem: average_data(ecosystem, sensors_data[ecosystem]["time_window"])
             for ecosystem in sensors_data}
 
 
 def summarize_sensors_data(sensors_data: dict, precision: int = 2):
     # Dummy function to allow memoization
-    @cached(cache_sensors_data_summary)
+    # @cached(cache_sensors_data_summary)
     def summarize_data(ecosystem, datatype: str = "historic"):
         data = sensors_data[ecosystem]["data"]
         values = {}

@@ -151,4 +151,3 @@ sunTimesData = LocalProxy(lambda: get_cache("sunTimesData"))
 
 
 # Workers-specific caches
-sensorsDataHistory = TTLCache(maxsize=32, ttl=15 * 60)
