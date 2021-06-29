@@ -3,6 +3,7 @@ from threading import Thread
 
 from app.models import engineManager, Service
 import dataspace
+from dataspace import STOP_SIGNAL
 
 from services.archiver import Archiver
 from services.calendar import Calendar
@@ -75,7 +76,7 @@ class _servicesManager:
         queue = dataspace.app_to_services_queue
         while True:
             message = queue.get()
-            if message == "STOP":
+            if message == STOP_SIGNAL:
                 break
             target = getattr(self, message["target"])
             args = message.get("args", ())

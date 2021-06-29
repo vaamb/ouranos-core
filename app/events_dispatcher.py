@@ -1,5 +1,5 @@
 from app import sio
-from dataspace import services_to_app_queue
+from dataspace import services_to_app_queue, STOP_SIGNAL
 
 
 _thread = None
@@ -8,7 +8,7 @@ _thread = None
 def dispatch_events():
     while True:
         message = services_to_app_queue.get()
-        if message == "STOP":
+        if message == STOP_SIGNAL:
             services_to_app_queue.task_done()
             break
         event = message["event"]
@@ -25,7 +25,7 @@ def start():
 
 
 def stop():
-    services_to_app_queue.put("STOP")
+    services_to_app_queue.put(STOP_SIGNAL)
     services_to_app_queue.join()
     global _thread
     _thread = None
