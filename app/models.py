@@ -1,5 +1,7 @@
+from dataclasses import dataclass
 from datetime import datetime, time, timedelta, timezone
 from hashlib import md5
+import time as ctime
 
 from flask import current_app
 from flask_login import AnonymousUserMixin, UserMixin
@@ -11,6 +13,18 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from app import db, login_manager
 from database import Base
+
+
+@dataclass(frozen=True)
+class archive_link:
+    name: str
+    status: str
+
+    def __init__(self, name, status):
+        if status not in ("archive", "recent"):
+            raise ValueError("status has to be 'archive' or 'recent'")
+        object.__setattr__(self, "name", name)
+        object.__setattr__(self, "status", status)
 
 
 # TODO: add an archive function in models which can be archived and add a task to apscheduler every monday at 1 which archive old data
@@ -142,7 +156,7 @@ class User(UserMixin, Base):
 
     def get_reset_password_token(self, expires_in=1800):
         return jwt.encode(
-            {'reset_password': self.id, 'exp': time() + expires_in},
+            {'reset_password': self.id, 'exp': ctime.time() + expires_in},
             current_app.config['SECRET_KEY'],
             algorithm='HS256').decode('utf-8')
 
@@ -291,6 +305,7 @@ class Ecosystem(Base):
     status = sa.Column(sa.Boolean, default=False)
     last_seen = sa.Column(sa.DateTime)
     management = sa.Column(sa.Integer)
+    # TODO: update day_start and night_start based on config data + morning_start and morning_end
     day_start = sa.Column(sa.Time, default=time(8, 00))
     night_start = sa.Column(sa.Time, default=time(20, 00))
     manager_uid = sa.Column(sa.Integer, sa.ForeignKey("engine_managers.uid"))
@@ -398,15 +413,11 @@ class Plant(Base):
 
 class sensorData(baseData):
     __tablename__ = "sensors_data"
+    __archive_link__ = archive_link("sensor", "recent")
 
     # relationships
     ecosystem = orm.relationship("Ecosystem", back_populates="data")
     sensor = orm.relationship("Hardware", back_populates="data")
-
-    @staticmethod
-    def archive():
-        pass
-        # TODO
 
 
 class Light(Base):
@@ -427,6 +438,7 @@ class Light(Base):
 
 class Health(baseHealth):
     __tablename__ = "health"
+    __archive_link__ = archive_link("health", "recent")
 
     # relationships
     ecosystem = orm.relationship("Ecosystem", back_populates="health_data")
@@ -439,6 +451,7 @@ class Warning_table(baseWarning):
 
 class System(baseSystem):
     __tablename__ = "system"
+    __archive_link__ = archive_link("system", "recent")
 
 
 # ---------------------------------------------------------------------------
@@ -447,6 +460,7 @@ class System(baseSystem):
 class archiveData(baseData):
     __tablename__ = "data_archive"
     __bind_key__ = "archive"
+    __archive_link__ = archive_link("sensor", "archive")
 
     ecosystem_id = sa.Column(sa.String(length=8), primary_key=True)
     sensor_id = sa.Column(sa.String(length=16), primary_key=True)
@@ -455,6 +469,7 @@ class archiveData(baseData):
 class archiveHealth(baseHealth):
     __tablename__ = "health_archive"
     __bind_key__ = "archive"
+    __archive_link__ = archive_link("health", "archive")
 
     ecosystem_id = sa.Column(sa.String(length=8), primary_key=True)
 
@@ -469,3 +484,4 @@ class archiveWarning(baseWarning):
 class archiveSystem(baseSystem):
     __tablename__ = "system_archive"
     __bind_key__ = "archive"
+    __archive_link__ = archive_link("system", "archive")

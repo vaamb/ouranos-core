@@ -4,6 +4,7 @@ from threading import Thread
 from app.models import engineManager, Service
 import dataspace
 
+from services.archiver import Archiver
 from services.calendar import Calendar
 from services.daily_recap import dailyRecap
 from services.shared_resources import db, scheduler
@@ -14,8 +15,8 @@ from services.weather import Weather
 from services.webcam import Webcam
 
 
-SERVICES = (Calendar, dailyRecap, sunTimes, systemMonitor, telegramChatbot,
-            Weather, Webcam)
+SERVICES = (Archiver, Calendar, dailyRecap, sunTimes, systemMonitor,
+            telegramChatbot, Weather, Webcam)
 
 _services = {"base": {}, "app": {}, "user": {}}
 for SERVICE in SERVICES:

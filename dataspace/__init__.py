@@ -12,7 +12,7 @@ from dataspace.queue import redisQueue
 
 
 # TODO: add locks
-
+STOP_SIGNAL = "__STOP__"
 
 START_TIME = datetime.now(timezone.utc)
 
