@@ -10,6 +10,7 @@ from sqlalchemy.ext.declarative import declared_attr
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app import db, login_manager
+from database import Base
 
 
 # TODO: add an archive function in models which can be archived and add a task to apscheduler every monday at 1 which archive old data
@@ -28,7 +29,7 @@ class Permission:
     ADMIN = 8
 
 
-class Role(db.Model):
+class Role(Base):
     __tablename__ = "roles"
     __bind_key__ = "app"
     id = sa.Column(sa.Integer, primary_key=True)
@@ -83,7 +84,7 @@ class Role(db.Model):
         return f"<Role {self.name}>"
 
 
-class User(UserMixin, db.Model):
+class User(UserMixin, Base):
     __tablename__ = "users"
     __bind_key__ = "app"
     id = sa.Column(sa.Integer, primary_key=True)
@@ -169,7 +170,7 @@ def load_user(id):
     return User.query.get(int(id))
 
 
-class Service(db.Model):
+class Service(Base):
     __tablename__ = "services"
     __bind_key__ = "app"
     id = sa.Column(sa.Integer, primary_key=True)
@@ -178,7 +179,7 @@ class Service(db.Model):
     status = sa.Column(sa.Boolean, default=False)
 
 
-class comChannel(db.Model):
+class comChannel(Base):
     __tablename__ = "communication_channels"
     __bind_key__ = "app"
     id = sa.Column(sa.Integer, primary_key=True)
@@ -203,7 +204,7 @@ class comChannel(db.Model):
 # ---------------------------------------------------------------------------
 #   Base models common to main app and archive
 # ---------------------------------------------------------------------------
-class baseData(db.Model):
+class baseData(Base):
     __abstract__ = True
     measure = sa.Column(sa.Integer, primary_key=True)
     datetime = sa.Column(sa.DateTime, primary_key=True)
@@ -220,7 +221,7 @@ class baseData(db.Model):
                          primary_key=True)
 
 
-class baseHealth(db.Model):
+class baseHealth(Base):
     __abstract__ = True
     datetime = sa.Column(sa.DateTime, nullable=False, primary_key=True)
     green = sa.Column(sa.Integer)
@@ -233,7 +234,7 @@ class baseHealth(db.Model):
                          index=True, primary_key=True)
 
 
-class baseWarning(db.Model):
+class baseWarning(Base):
     __abstract__ = True
     row_id = sa.Column(sa.Integer, primary_key=True)
     datetime = sa.Column(sa.DateTime, nullable=False)
@@ -245,7 +246,7 @@ class baseWarning(db.Model):
     solved = sa.Column(sa.Boolean)
 
 
-class baseSystem(db.Model):
+class baseSystem(Base):
     __abstract__ = True
     datetime = sa.Column(sa.DateTime, nullable=False, primary_key=True)
     CPU_used = sa.Column(sa.Float(precision=1))
@@ -259,7 +260,7 @@ class baseSystem(db.Model):
 # ---------------------------------------------------------------------------
 #   Main app-related models, located in db_main and db_archive
 # ---------------------------------------------------------------------------
-class engineManager(db.Model):
+class engineManager(Base):
     __tablename__ = "engine_managers"
     uid = sa.Column(sa.String(length=16), primary_key=True)
     sid = sa.Column(sa.String(length=32))
@@ -283,7 +284,7 @@ Management = {
 }
 
 
-class Ecosystem(db.Model):
+class Ecosystem(Base):
     __tablename__ = "ecosystems"
     id = sa.Column(sa.String(length=8), primary_key=True)
     name = sa.Column(sa.String(length=32))
@@ -323,7 +324,7 @@ class Ecosystem(db.Model):
         self.management = 0
 
 
-class environmentParameter(db.Model):
+class environmentParameter(Base):
     __tablename__ = "environment_parameters"
     ecosystem_id = sa.Column(sa.String(length=8), sa.ForeignKey("ecosystems.id"),
                              primary_key=True)
@@ -337,7 +338,7 @@ class environmentParameter(db.Model):
 
 
 associationHardwareMeasure = db.Table(
-    "association_hardware_measures", db.Model.metadata,
+    "association_hardware_measures", Base.metadata,
     sa.Column('hardware_id',
               sa.String(length=32),
               sa.ForeignKey('hardware.id')),
@@ -347,7 +348,7 @@ associationHardwareMeasure = db.Table(
 )
 
 
-class Hardware(db.Model):
+class Hardware(Base):
     __tablename__ = "hardware"
     id = sa.Column(sa.String(length=32), primary_key=True)
     ecosystem_id = sa.Column(sa.String(length=8),
@@ -371,7 +372,7 @@ class Hardware(db.Model):
 sa.Index("idx_sensors_type", Hardware.type, Hardware.level)
 
 
-class Measure(db.Model):
+class Measure(Base):
     __tablename__ = "measures"
     name = sa.Column(sa.String(length=16), primary_key=True)
     unit = sa.Column(sa.String(length=16))
@@ -382,7 +383,7 @@ class Measure(db.Model):
 
 
 """
-class Plant(db.Model):
+class Plant(Base):
     __tablename__ = "plants"
     id = sa.Column(sa.String(16), primary_key=True)
     name = sa.Column(sa.String(32))
@@ -408,7 +409,7 @@ class sensorData(baseData):
         # TODO
 
 
-class Light(db.Model):
+class Light(Base):
     __tablename__ = "light"
     ecosystem_id = sa.Column(sa.String(length=8), sa.ForeignKey("ecosystems.id"), primary_key=True)
     status = sa.Column(sa.Boolean)
@@ -434,9 +435,6 @@ class Health(baseHealth):
 # TODO: When problems solved, after x days: goes to archive
 class Warning_table(baseWarning):
     __tablename__ = "warnings"
-
-    # relationship
-    ecosystem = orm.relationship("Ecosystem", back_populates="warnings")
 
 
 class System(baseSystem):

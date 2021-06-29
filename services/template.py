@@ -2,8 +2,8 @@ import logging
 import threading
 import weakref
 
-from services.database import db
 from app.models import Service
+from services.shared_resources import db
 
 
 class serviceTemplate:
@@ -14,7 +14,7 @@ class serviceTemplate:
         self.manager = weakref.proxy(manager)
         self.config = self.manager.config
         self.mutex = threading.Lock()
-        self._service_name = f"{self.NAME.lower()}Service"
+        self._service_name = f"{self.NAME.lower()} service"
         self._logger = logging.getLogger(
             f"{self.config.APP_NAME}.services.{self.NAME.lower()}")
         self._logger.debug(f"Initializing {self._service_name}")
@@ -42,7 +42,7 @@ class serviceTemplate:
             try:
                 self._start()
                 if self.LEVEL in ("app", "user"):
-                    with db.scoped_session("app") as session:
+                    with db.scoped_session() as session:
                         db_service = (session.query(Service)
                                       .filter_by(name=self.NAME)
                                       .one())
@@ -50,8 +50,7 @@ class serviceTemplate:
                             db_service.status = 1
                             session.commit()
                 self._started = True
-                self._logger.debug(f"{self._service_name} "
-                                   f"successfully started")
+                self._logger.info(f"{self._service_name} started")
             except Exception as e:
                 self._logger.error(
                     f"{self._service_name} was not "
@@ -67,7 +66,7 @@ class serviceTemplate:
             try:
                 self._stop()
                 if self.LEVEL in ("app", "user"):
-                    with db.scoped_session("app") as session:
+                    with db.scoped_session() as session:
                         db_service = (session.query(Service)
                                       .filter_by(name=self.NAME)
                                       .one())
@@ -75,8 +74,7 @@ class serviceTemplate:
                             db_service.status = 0
                             session.commit()
                 self._started = False
-                self._logger.debug(f"{self._service_name} "
-                                   f"successfully stopped")
+                self._logger.info(f"{self._service_name} stopped")
             except Exception as e:
                 self._logger.error(
                     f"{self._service_name} was not "

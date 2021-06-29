@@ -1,16 +1,15 @@
 import logging
 from threading import Thread
 
-from services.database import db
 from app.models import engineManager, Service
 import dataspace
 
 from services.calendar import Calendar
 from services.daily_recap import dailyRecap
+from services.shared_resources import db, scheduler
 from services.sun_times import sunTimes
 from services.system_monitor import systemMonitor
 from services.telegram_chat_bot import telegramChatbot
-from services.shared_resources import scheduler
 from services.weather import Weather
 from services.webcam import Webcam
 
@@ -52,7 +51,7 @@ class _servicesManager:
             self.services[service].start()
             self._services_running.append(service)
 
-        with db.scoped_session("app") as session:
+        with db.scoped_session() as session:
             for level in ("app", "user"):
                 for service in _services[level]:
                     status = (session.query(Service).filter_by(name=service)
@@ -99,7 +98,7 @@ services_manager: _servicesManager = None
 
 
 def _log_services_available() -> None:
-    with db.scoped_session("app") as session:
+    with db.scoped_session() as session:
         for level in ("app", "user"):
             for s in _services[level]:
                 service = session.query(Service).filter_by(name=s).first()

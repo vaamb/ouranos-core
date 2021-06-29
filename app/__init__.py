@@ -11,6 +11,7 @@ from flask_socketio import SocketIO
 from flask_mail import Mail
 
 from config import Config, DevelopmentConfig
+from database import Base
 
 START_TIME = datetime.now(timezone.utc)
 
@@ -21,7 +22,7 @@ logger = logging.getLogger(app_name)
 
 scheduler = BackgroundScheduler()
 login_manager = LoginManager()
-db = SQLAlchemy()
+db = SQLAlchemy(model_class=Base)
 migrate = Migrate()
 sio = SocketIO(json=json)
 mail = Mail()

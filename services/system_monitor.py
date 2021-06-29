@@ -3,10 +3,9 @@ import psutil
 from threading import Thread, Event
 
 from dataspace import START_TIME, systemData
-from services.database import db
 from app.models import System
 from services.template import serviceTemplate
-from services.shared_resources import scheduler
+from services.shared_resources import db, scheduler
 
 
 SYSTEM_UPDATE_PERIOD = 2
