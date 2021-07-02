@@ -4,5 +4,3 @@ from app.wiki import simpleWiki
 
 
 wiki = simpleWiki()
-
-

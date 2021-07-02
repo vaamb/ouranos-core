@@ -26,7 +26,7 @@ for SERVICE in SERVICES:
 
 def _init_dependencies(config_class) -> None:
     dataspace.init(config_class)
-    db.init(config_class=config_class)
+    db.init(config_class)
     _log_services_available()
     scheduler.start()
 
