@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from apscheduler.schedulers.background import BackgroundScheduler
-from flask import json, Flask
+from flask import Flask
 from flask_login import LoginManager
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
@@ -12,6 +12,7 @@ from flask_mail import Mail
 
 from config import Config, DevelopmentConfig
 from database import Base
+from utils import jsonWrapper, customJSONEncoder
 
 START_TIME = datetime.now(timezone.utc)
 
@@ -24,7 +25,7 @@ scheduler = BackgroundScheduler()
 login_manager = LoginManager()
 db = SQLAlchemy(model_class=Base)
 migrate = Migrate()
-sio = SocketIO(json=json)
+sio = SocketIO(json=jsonWrapper)
 mail = Mail()
 
 
@@ -42,6 +43,7 @@ def create_app(config_class=DevelopmentConfig):
     app.config.from_object(config_class)
     app.jinja_env.lstrip_blocks = True
     app.jinja_env.trim_blocks = True
+    app.json_encoder = customJSONEncoder
 
     # Init db
     db.init_app(app)
