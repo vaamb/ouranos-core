@@ -1,3 +1,5 @@
+from werkzeug.local import LocalProxy
+
 from app import sio
 from dataspace import services_to_app_queue, STOP_SIGNAL
 
@@ -12,9 +14,14 @@ def dispatch_events():
             services_to_app_queue.task_done()
             break
         event = message["event"]
-        data = message["data"]
-        namespace = message.get("namespace", "/")
-        sio.emit(event=event, data={**data}, namespace=namespace)
+        kwargs = {}
+        for k in ("data", "namespace", "room"):
+            load = message.get(k)
+            if load:
+                if isinstance(load, LocalProxy):
+                    load = {**load}  # Need to unpack and repack for LocalProxy
+                kwargs.update({k: load})
+        sio.emit(event=event, **kwargs)
         services_to_app_queue.task_done()
 
 
