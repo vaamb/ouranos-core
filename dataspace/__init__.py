@@ -8,11 +8,13 @@ from redis import Redis, RedisError
 from werkzeug.local import LocalProxy
 
 from dataspace.cache import redisCache, redisTTLCache
+from dataspace.dispatcher import PubSubDispatcher, RedisDispatcher
+from dataspace.pubsub import StupidPubSub
 from dataspace.queue import redisQueue
 
 
-# TODO: add locks
 STOP_SIGNAL = "__STOP__"
+USE_REDIS: bool = False
 
 START_TIME = datetime.now(timezone.utc)
 
@@ -36,7 +38,7 @@ WEATHER_DATA_MULTIPLICATION_FACTORS = {
 
 
 rd: Redis
-_redis_status: bool = False
+pubsub: StupidPubSub
 
 services_to_app_queue: Queue
 app_to_services_queue: Queue
@@ -52,28 +54,34 @@ _caches = {
     "sunTimesData": {},
 }
 
+_dispatchers = {}
+
 
 def update_redis_status(config_class):
-    global _redis_status
+    global USE_REDIS
     logger = logging.getLogger(config_class.APP_NAME)
     if config_class.USE_REDIS_CACHE:
         try:
             rd.ping()
-            _redis_status = True
+            USE_REDIS = True
             logger.debug(
                 "Successful connection to Redis server, Redis will be used "
-                "to provide data cache")
+                "to provide data cache"
+            )
         except RedisError:
-            _redis_status = False
+            USE_REDIS = False
             logger.warning(
                 "Failed to connect to Redis server, using 'cachetools' to "
-                "provide data cache")
+                "provide data cache"
+            )
+    else:
+        USE_REDIS = False
 
 
 def _setup_cache(cache_name: str,
                  ttl: int = None,
                  maxsize: int = 16) -> MutableMapping:
-    if _redis_status:
+    if USE_REDIS:
         if not ttl:
             return redisCache(cache_name, rd, check_client=False)
         return redisTTLCache(cache_name, rd, ttl, check_client=False)
@@ -107,7 +115,7 @@ def caches_available() -> list:
 
 
 def clean_caches():
-    if _redis_status:
+    if USE_REDIS:
         # Remove unnecessary data
         for cache in _caches:
             try:
@@ -117,9 +125,27 @@ def clean_caches():
 
 
 def create_queue(name, *args, **kwargs):
-    if _redis_status:
+    if USE_REDIS:
         return redisQueue(name, rd, *args, **kwargs)
     return Queue(*args, **kwargs)
+
+
+def get_dispatcher(name):
+    try:
+        return _dispatchers[name]
+    except KeyError:
+        global _dispatcher
+        if USE_REDIS:
+            dispatcher = RedisDispatcher(name, rd)
+            _dispatcher[name] = dispatcher
+            return dispatcher
+        else:
+            global pubsub
+            if not pubsub:
+                pubsub = StupidPubSub()
+            dispatcher = PubSubDispatcher(pubsub)
+            _dispatcher[name] = dispatcher
+            return dispatcher
 
 
 def init(config_class):
