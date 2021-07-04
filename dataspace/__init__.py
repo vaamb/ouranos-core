@@ -7,8 +7,9 @@ from cachetools import Cache, TTLCache
 from redis import Redis, RedisError
 from werkzeug.local import LocalProxy
 
+from config import Config  # for type hint only
 from dataspace.cache import redisCache, redisTTLCache
-from dataspace.dispatcher import PubSubDispatcher, RedisDispatcher
+from dataspace.dispatcher import BaseDispatcher, PubSubDispatcher, RedisDispatcher
 from dataspace.pubsub import StupidPubSub
 from dataspace.queue import redisQueue
 
@@ -42,7 +43,7 @@ rd: Redis
 services_to_app_queue: Queue
 app_to_services_queue: Queue
 
-_status: bool = False
+_initialized: bool = False
 
 
 _caches = {
@@ -56,7 +57,7 @@ _caches = {
 _dispatchers = {}
 
 
-def update_redis_status(config_class):
+def update_redis_initialized(config_class: Config) -> None:
     global USE_REDIS
     logger = logging.getLogger(config_class.APP_NAME)
     if config_class.USE_REDIS_CACHE:
@@ -77,9 +78,24 @@ def update_redis_status(config_class):
         USE_REDIS = False
 
 
-def _setup_cache(cache_name: str,
+def create_cache(cache_name: str,
                  ttl: int = None,
-                 maxsize: int = 16) -> MutableMapping:
+                 maxsize: int = 16,
+                 overwrite: bool = False) -> MutableMapping:
+    if not _initialized:
+        raise RuntimeError(
+            f"Please init dataspace before creatting cache {cache_name}"
+        )
+    if _caches.get(cache_name) and not overwrite:
+        raise ValueError(f"The cache {cache_name} already exists")
+    cache = _get_cache_class(cache_name, ttl, maxsize)
+    _caches[cache_name] = cache
+    return cache
+
+
+def _get_cache_class(cache_name: str,
+                     ttl: int = None,
+                     maxsize: int = 16) -> MutableMapping:
     if USE_REDIS:
         if not ttl:
             return redisCache(cache_name, rd, check_client=False)
@@ -89,20 +105,11 @@ def _setup_cache(cache_name: str,
     return TTLCache(maxsize=maxsize, ttl=ttl)
 
 
-def create_cache(cache_name: str,
-                 ttl: int = None,
-                 maxsize: int = 16,
-                 overwrite: bool = False) -> MutableMapping:
-    if _caches.get(cache_name) and not overwrite:
-        raise ValueError(f"The cache {cache_name} already exists")
-    cache = _setup_cache(cache_name, ttl, maxsize)
-    _caches[cache_name] = cache
-    return cache
-
-
 def get_cache(cache_name: str) -> MutableMapping:
-    if not _status:
-        raise RuntimeError(f"Please start dataspace before accessing {cache_name}")
+    if not _initialized:
+        raise RuntimeError(
+            f"Please init dataspace before getting cache {cache_name}"
+        )
     try:
         return _caches[cache_name]
     except KeyError:
@@ -113,7 +120,11 @@ def caches_available() -> list:
     return [cache for cache in _caches]
 
 
-def clean_caches():
+def clean_caches() -> None:
+    if not _initialized:
+        raise RuntimeError(
+            f"Please init dataspace before cleaning caches"
+        )
     if USE_REDIS:
         # Remove unnecessary data
         for cache in _caches:
@@ -123,13 +134,21 @@ def clean_caches():
                 pass
 
 
-def create_queue(name, *args, **kwargs):
+def create_queue(name: str, *args, **kwargs) -> Queue:
+    if not _initialized:
+        raise RuntimeError(
+            f"Please init dataspace before creating queue {name}"
+        )
     if USE_REDIS:
         return redisQueue(name, rd, *args, **kwargs)
     return Queue(*args, **kwargs)
 
 
-def get_dispatcher(name):
+def get_dispatcher(name: str) -> BaseDispatcher:
+    if not _initialized:
+        raise RuntimeError(
+            f"Please init dataspace before getting dispatcher {name}"
+        )
     global _dispatchers
     try:
         return _dispatchers[name]
@@ -145,18 +164,18 @@ def get_dispatcher(name):
             return dispatcher
 
 
-def init(config_class):
-    global _status, app_to_services_queue, services_to_app_queue, rd
-    if not _status:
+def init(config_class: Config) -> None:
+    global _initialized, app_to_services_queue, services_to_app_queue, rd
+    if not _initialized:
+        _initialized = True
         rd = Redis.from_url(config_class.REDIS_URL)
         app_to_services_queue = create_queue("app_to_services", maxsize=50)
         services_to_app_queue = create_queue("services_to_app", maxsize=50)
         reset(config_class)
-        _status = True
 
 
-def reset(config_class):
-    update_redis_status(config_class)
+def reset(config_class: Config) -> None:
+    update_redis_initialized(config_class)
     create_cache("sensorsData", ttl=config_class.GAIA_ECOSYSTEM_TIMEOUT,
                  maxsize=config_class.GAIA_MAX_ECOSYSTEMS, overwrite=True)
     create_cache("healthData", ttl=60*60*36,
