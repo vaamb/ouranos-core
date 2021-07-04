@@ -38,7 +38,6 @@ WEATHER_DATA_MULTIPLICATION_FACTORS = {
 
 
 rd: Redis
-pubsub: StupidPubSub
 
 services_to_app_queue: Queue
 app_to_services_queue: Queue
@@ -131,20 +130,18 @@ def create_queue(name, *args, **kwargs):
 
 
 def get_dispatcher(name):
+    global _dispatchers
     try:
         return _dispatchers[name]
     except KeyError:
-        global _dispatcher
         if USE_REDIS:
             dispatcher = RedisDispatcher(name, rd)
-            _dispatcher[name] = dispatcher
+            _dispatchers[name] = dispatcher
             return dispatcher
         else:
-            global pubsub
-            if not pubsub:
-                pubsub = StupidPubSub()
-            dispatcher = PubSubDispatcher(pubsub)
-            _dispatcher[name] = dispatcher
+            pubsub = StupidPubSub()
+            dispatcher = PubSubDispatcher(name, pubsub)
+            _dispatchers[name] = dispatcher
             return dispatcher
 
 
