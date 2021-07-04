@@ -4,7 +4,7 @@ from flask_socketio import disconnect
 from sqlalchemy.orm.exc import NoResultFound
 
 from app import sio
-import dataspace
+from app.events import dispatcher
 from app.models import Permission, User
 
 
@@ -39,7 +39,12 @@ def start_service(message):
         return
     if user.can(Permission.ADMIN):
         if action == "start":
-            order = {"target": "start_service", "args": (service, )}
+            dispatcher.emit("services", "start_service", service)
         else:
-            order = {"target": "stop_service", "args": (service,)}
-        dataspace.app_to_services_queue.put(order)
+            dispatcher.emit("services", "stop_service", service)
+
+
+@dispatcher.on("current_server_data")
+def _current_server_data(*args, **kwargs):
+    data = kwargs.pop("data", {})
+    sio.emit(event="current_server_data", data=data, namespace="/admin")

@@ -44,9 +44,9 @@ class sunTimes(serviceTemplate):
                             self._sun_times_data["sunset"]),
                     }
                     try:
-                        self.manager.event_dispatcher.put({
-                            "event": "sun_times", "data": sun_times
-                        })
+                        self.manager.dispatcher.emit(
+                            "Socket.IO", "sun_times", data=sun_times
+                        )
                     except AttributeError as e:
                         # Discard error when SocketIO has not started yet
                         if "NoneType" not in e.args[0]:

@@ -1,14 +1,13 @@
 import logging
-from threading import Thread
 
 from app.models import engineManager, Service
 import dataspace
-from dataspace import STOP_SIGNAL
+from dataspace import get_dispatcher
 
 from services.archiver import Archiver
 from services.calendar import Calendar
 from services.daily_recap import dailyRecap
-from services.shared_resources import db, scheduler
+from services.shared_resources import db, scheduler, registerEventMixin
 from services.sun_times import sunTimes
 from services.system_monitor import systemMonitor
 from services.telegram_chat_bot import telegramChatbot
@@ -31,17 +30,18 @@ def _init_dependencies(config_class) -> None:
     scheduler.start()
 
 
-class _servicesManager:
+class _servicesManager(registerEventMixin):
     def __init__(self, config_class) -> None:
         self.config = config_class
         self.logger = logging.getLogger(f"{self.config.APP_NAME}.services")
         self.logger.info(f"Initializing {self.config.APP_NAME} services ...")
-        self.event_dispatcher = dataspace.services_to_app_queue
+        self.dispatcher = get_dispatcher("services")
+        self._register_dispatcher_events(self.dispatcher)
+        self.dispatcher.start()
         self.services = {}
         self._services_running = []
         self._init_services()
         self._thread = None
-        self.start_events_loop()
         self.logger.info(f"{self.config.APP_NAME} services successfully initialized")
 
     def _init_services(self) -> None:
@@ -63,29 +63,20 @@ class _servicesManager:
                         self._services_running.append(service)
         self.logger.debug("Service module has been initialized")
 
-    def start_service(self, service: str, *args) -> None:
-        self.services[service].start()
+    def start_service(self, service: str, *args, **kwargs) -> None:
+        try:
+            self.services[service].start()
+        except RuntimeError as e:
+            self.logger.error(e)
         self._services_running.append(service)
 
-    def stop_service(self, service: str, *args) -> None:
-        self.services[service].stop()
+    def stop_service(self, service: str, *args, **kwargs) -> None:
+        try:
+            self.services[service].stop()
+        except RuntimeError as e:
+            self.logger.error(e)
         index = self._services_running.index(service)
         del self._services_running[index]
-
-    def _events_loop(self) -> None:
-        queue = dataspace.app_to_services_queue
-        while True:
-            message = queue.get()
-            if message == STOP_SIGNAL:
-                break
-            target = getattr(self, message["target"])
-            args = message.get("args", ())
-            target(*args)
-            queue.task_done()
-
-    def start_events_loop(self):
-        self._thread = Thread(target=self._events_loop)
-        self._thread.start()
 
     @property
     def services_running(self) -> list:
@@ -94,6 +85,12 @@ class _servicesManager:
     @property
     def services_available(self) -> list:
         return [service.NAME for service in SERVICES]
+
+    def dispatch_start_service(self, *args, **kwargs):
+        self.start_service(*args)
+
+    def dispatch_stop_service(self, *args, **kwargs):
+        self.stop_service(*args)
 
 
 services_manager: _servicesManager = None

@@ -89,8 +89,6 @@ def create_app(config_class=DevelopmentConfig):
     from app import socketio_events
 
     from app import events
-    from app.events import dispatcher
-    dispatcher.start()
 
     logger.info(f"{app_name} app successfully created")
 

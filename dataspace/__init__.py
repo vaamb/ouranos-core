@@ -40,8 +40,6 @@ WEATHER_DATA_MULTIPLICATION_FACTORS = {
 
 rd: Redis
 
-services_to_app_queue: Queue
-app_to_services_queue: Queue
 
 _initialized: bool = False
 
@@ -165,12 +163,10 @@ def get_dispatcher(name: str) -> BaseDispatcher:
 
 
 def init(config_class: Config) -> None:
-    global _initialized, app_to_services_queue, services_to_app_queue, rd
+    global _initialized, rd
     if not _initialized:
         _initialized = True
         rd = Redis.from_url(config_class.REDIS_URL)
-        app_to_services_queue = create_queue("app_to_services", maxsize=50)
-        services_to_app_queue = create_queue("services_to_app", maxsize=50)
         reset(config_class)
 
 

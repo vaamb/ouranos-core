@@ -41,13 +41,7 @@ class systemMonitor(serviceTemplate):
             }
             with self.mutex:
                 self._data.update(_cache)
-            message = {
-                "event": "current_server_data",
-                "data": self._data,
-                "namespace": "/admin"
-            }
-            self.manager.event_dispatcher.put(message)
-
+            self.manager.dispatcher.emit("Socket.IO", "current_server_data", data={**self._data})
             self._stopEvent.wait(SYSTEM_UPDATE_PERIOD)
             if self._stopEvent.isSet():
                 break

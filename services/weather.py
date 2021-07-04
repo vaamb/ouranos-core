@@ -58,17 +58,17 @@ class Weather(serviceTemplate):
 
     def _send_events(self):
         now = datetime.now()
-        self.manager.event_dispatcher.put({
-            "event": "current_weather", "data": self._data["currently"]
-        })
+        self.manager.dispatcher.emit(
+            "Socket.IO", "current_weather", data=self._data["currently"]
+        )
         if now.minute % 15 == 0:
-            self.manager.event_dispatcher.put({
-                "event": "hourly_weather", "data": self._data["hourly"]
-            })
+            self.manager.dispatcher.emit(
+                "Socket.IO", "hourly_weather", data=self._data["hourly"]
+            )
         if now.hour % 3 == 0 and now.minute == 0:
-            self.manager.event_dispatcher.put({
-                "event": "daily_weather", "data": self._data["daily"]
-            })
+            self.manager.dispatcher.emit(
+                "Socket.IO", "daily_weather", data=self._data["daily"]
+            )
 
     def update_weather_data(self) -> None:
         self._logger.debug("Updating weather data")

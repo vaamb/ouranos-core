@@ -3,10 +3,10 @@ import threading
 import weakref
 
 from app.models import Service
-from services.shared_resources import db
+from services.shared_resources import db, registerEventMixin
 
 
-class serviceTemplate:
+class serviceTemplate(registerEventMixin):
     NAME = "serviceTemplate"
     LEVEL = "base"
 
@@ -18,6 +18,7 @@ class serviceTemplate:
         self._logger = logging.getLogger(
             f"{self.config.APP_NAME}.services.{self.NAME.lower()}")
         self._logger.debug(f"Initializing {self._service_name}")
+        self._register_dispatcher_events(self.manager.dispatcher)
         try:
             self._init()
             self._logger.debug(f"{self._service_name} was successfully "

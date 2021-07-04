@@ -1,10 +1,11 @@
+import logging
 from threading import Event, Thread
 import time
 
 from utils import jsonWrapper as json
 
 
-_thread = None
+logger = logging.getLogger("dispatcher")
 
 
 class BaseDispatcher:
@@ -43,10 +44,12 @@ class BaseDispatcher:
     def fallback(self, fct):
         self._fallback = fct
 
-    def emit(self, namespace: str, event: str, data: dict = None):
+    def emit(self, namespace: str, event: str, *args, **kwargs):
         payload = {"event": event}
-        if data:
-            payload.update({"args": data})
+        if args:
+            payload.update({"args": args})
+        if kwargs:
+            payload.update({"kwargs": kwargs})
         self._publish(f"to_{namespace}", payload)
 
     def main_loop(self):
@@ -54,8 +57,9 @@ class BaseDispatcher:
             message = self._parse_payload(self._get_message())
             if message:
                 event = message["event"]
-                data = message.get("data", {})
-                self._trigger_event(event, **data)
+                args = message.get("args", ())
+                kwargs = message.get("kwargs", {})
+                self._trigger_event(event, *args, **kwargs)
             time.sleep(0.01)
 
     def _get_message(self) -> dict:
@@ -70,10 +74,18 @@ class BaseDispatcher:
 
     def _trigger_event(self, event: str, *args, **kwargs):
         if event in self.handlers:
-            return self.handlers[event](*args, **kwargs)
+            try:
+                return self.handlers[event](*args, **kwargs)
+            except Exception as e:
+                logger.error(e)
+                return
         else:
             if self._fallback:
-                return self._fallback(*args, **kwargs)
+                try:
+                    return self._fallback(*args, **kwargs)
+                except Exception as e:
+                    logger.error(e)
+                    return
 
     def start_background_task(self, target, *args):
         """Override to use another threading method"""
@@ -108,7 +120,8 @@ class PubSubDispatcher(BaseDispatcher):
         return self.pubsub.get_message()
     
     def _parse_payload(self, payload):
-        return payload
+        message = payload.get("data", {})
+        return message
 
 
 class RedisDispatcher(BaseDispatcher):
