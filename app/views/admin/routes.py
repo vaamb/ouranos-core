@@ -3,17 +3,14 @@ from datetime import datetime, timedelta, timezone
 
 from flask import current_app, render_template, redirect, url_for, flash
 from flask_login import login_required
-from sqlalchemy.orm.exc import NoResultFound
 import tracemalloc
 
-# TODO: remove services from here and pass through API.admin
-from app import sio, db, API
+from app import db, API
 from app.views.admin import bp
 from app.views.admin.forms import InvitationForm
 from app.views.decorators import permission_required
 from app.views.main import layout
-from app.models import Permission, Service, engineManager, User
-import dataspace
+from app.models import Permission, Service, engineManager
 
 
 tracemalloc.start()
@@ -132,22 +129,6 @@ def db_management():
 def services_management():
     services_available = Service.query.order_by(Service.name.asc()).all()
     return render_template("admin/services.html", services=services_available)
-
-
-@sio.on("manage_service", namespace="/admin")
-def start_service(message):
-    service = message["service"]
-    action = message["action"]
-    try:
-        user = User.query.filter_by(id=message["user_id"]).one()
-    except NoResultFound:
-        return
-    if user.can(Permission.ADMIN):
-        if action == "start":
-            order = {"target": "start_service", "args": (service, )}
-        else:
-            order = {"target": "stop_service", "args": (service,)}
-        dataspace.app_to_services_queue.put(order)
 
 
 @bp.route("/admin/engine_managers")

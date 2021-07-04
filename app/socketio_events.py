@@ -445,27 +445,3 @@ def turn_light(message):
              {"ecosystem": ecosystem_id, "mode": mode, "countdown": countdown},
              namespace="/gaia", room=sid)
     return False
-
-
-# ---------------------------------------------------------------------------
-#   SocketIO events coming from browser admin
-# ---------------------------------------------------------------------------
-admin_thread = None
-
-
-def admin_background_thread(app):
-    return True
-    with app.app_context():
-        pass
-
-
-@sio.on("connect", namespace="/admin")
-def connect_on_admin():
-    # Close connection if request not from an authenticated admin
-    if not current_user.can(Permission.ADMIN):
-        disconnect()
-    global admin_thread
-    if admin_thread is None:
-        app = current_app._get_current_object()
-        admin_thread = sio.start_background_task(
-            admin_background_thread, app=app)
