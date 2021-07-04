@@ -3,11 +3,12 @@ import logging
 from app.models import engineManager, Service
 import dataspace
 from dataspace import get_dispatcher
+from dataspace.dispatcher import registerEventMixin
 
 from services.archiver import Archiver
 from services.calendar import Calendar
 from services.daily_recap import dailyRecap
-from services.shared_resources import db, scheduler, registerEventMixin
+from services.shared_resources import db, scheduler
 from services.sun_times import sunTimes
 from services.system_monitor import systemMonitor
 from services.telegram_chat_bot import telegramChatbot

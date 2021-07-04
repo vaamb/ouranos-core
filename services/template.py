@@ -3,7 +3,8 @@ import threading
 import weakref
 
 from app.models import Service
-from services.shared_resources import db, registerEventMixin
+from dataspace.dispatcher import registerEventMixin
+from services.shared_resources import db
 
 
 class serviceTemplate(registerEventMixin):
