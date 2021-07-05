@@ -13,7 +13,7 @@ lib
 *.db
 **/*private*
 
-*test*
+*debug*
 *old*
 remoteLauncher.py
 /migrations/
