@@ -25,6 +25,7 @@ def login():
             return redirect(url_for("auth.login", **request.args))
         login_user(user, remember=form.remember_me.data)
         next_page = request.args.get("next")
+        flash(f"You are now logged in {current_user.username}")
         if not next_page or url_parse(next_page).netloc != "":
             next_page = url_for("main.home")
         return redirect(next_page)
@@ -34,6 +35,7 @@ def login():
 @bp.route("/logout")
 def logout():
     logout_user()
+    flash(f"You are now logged out")
     return redirect(url_for("main.home"))
 
 
@@ -65,11 +67,16 @@ def register():
     except KeyError:
         flash("This invitation token is invalid")
         return redirect(url_for("auth.register"))
+    except jwt.InvalidTokenError:
+        flash("This invitation token is invalid")
+        return redirect(url_for("auth.register"))
     if user:
         flash("This invitation token has already been used for registration")
         return redirect(url_for("auth.login"))
 
     role = Role.query.filter_by(name=decoded.get("rle")).first()
+    if not role:
+        role = Role.query.filter_by(default=True).first()
 
     firstname = decoded.get("fnm")
     lastname = decoded.get("lnm")
@@ -82,6 +89,7 @@ def register():
         form.email.data = email
 
     if form.validate_on_submit():
+        # Make sure Operators and Admin keep their invitation name
         if not role.default and firstname:
             form.firstname.data = firstname
         if not role.default and lastname:

@@ -87,8 +87,17 @@
       };
       const sensorData = historicSensorsData["data"][measure][sensor_id]["values"];
       for (const elem in sensorData) {
-        result["labels"].push(new Date(sensorData[elem][0]));
-        result["data"].push(Number(sensorData[elem][1]).toFixed(1));
+        if (Array.isArray(sensorData[elem])) {
+          result["labels"].push(new Date(sensorData[elem][0]));
+          result["data"].push(Number(sensorData[elem][1]).toFixed(1));
+        } else if (typeof sensorData[elem] === "object" && sensorData[elem] !== null) {
+          result["labels"].push(new Date(sensorData[elem]["datetime"]));
+          result["data"].push(Number(sensorData[elem]["value"]).toFixed(1));
+        } else {
+          console.log("Unexpected data format in historicSensorsData - ",
+            measure, " - ", sensor_id);
+        }
+
       }
       return result
     }

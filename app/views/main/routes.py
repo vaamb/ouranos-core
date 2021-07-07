@@ -15,7 +15,7 @@ from app.views.main import bp, layout
 from app.views.main.forms import EditProfileForm
 
 
-def get_ecosystem_ids(ecosystem, time_limit=None) -> str:
+def get_ecosystem_ids_or_404(ecosystem, time_limit=None) -> str:
     ids = API.ecosystems.get_ecosystem_ids(ecosystem=ecosystem,
                                            session=db.session,
                                            time_limit=time_limit)
@@ -108,7 +108,7 @@ def weather():
 @bp.route("/sensors/<level>/<ecosystem_name>")
 def sensors(level: str, ecosystem_name: str):
     # TODO: send the sensor model info
-    ecosystem_ids = get_ecosystem_ids(ecosystem=ecosystem_name,
+    ecosystem_ids = get_ecosystem_ids_or_404(ecosystem=ecosystem_name,
                                       time_limit=API.utils.time_limits()[
                                           "sensors"]
                                       )
@@ -134,7 +134,7 @@ def sensors(level: str, ecosystem_name: str):
 @bp.route("/health")
 @bp.route("/health/<ecosystem_name>")
 def health(ecosystem_name: str):
-    ecosystem_ids = get_ecosystem_ids(ecosystem=ecosystem_name,
+    ecosystem_ids = get_ecosystem_ids_or_404(ecosystem=ecosystem_name,
                                       time_limit=API.utils.time_limits()[
                                           "health"]
                                       )
@@ -155,7 +155,7 @@ def health(ecosystem_name: str):
 @bp.route("/switches")
 @bp.route("/switches/<ecosystem_name>")
 def switches(ecosystem_name: str):
-    ecosystem_ids = get_ecosystem_ids(
+    ecosystem_ids = get_ecosystem_ids_or_404(
         ecosystem=ecosystem_name, time_limit="connected")
     title = f"{ecosystem_ids[1]} switches control"
     ecosystems_qo = API.ecosystems.get_ecosystem_query_obj(
@@ -172,7 +172,7 @@ def switches(ecosystem_name: str):
 @bp.route("/settings")
 @bp.route("/settings/<ecosystem_name>")
 def settings(ecosystem_name: str):
-    ecosystem_ids = get_ecosystem_ids(ecosystem=ecosystem_name)
+    ecosystem_ids = get_ecosystem_ids_or_404(ecosystem=ecosystem_name)
     title = f"{ecosystem_ids[1]} settings"
     ecosystem_qo = API.ecosystems.get_ecosystem_query_obj(
         ecosystem_name, session=db.session
@@ -197,7 +197,7 @@ def care(species: str = "general"):
 
 @bp.route("/warnings")
 @login_required
-def warnings_list():
+def warnings_():
     warnings = API.warnings.get_recent_warnings(db.session)
     return render_template("main/warning.html", title="Warnings",
                            warnings=warnings
@@ -210,7 +210,7 @@ def about():
 
 
 @bp.route("/license")
-def the_license():
+def license_():
     return render_template("main/license.html")
 
 

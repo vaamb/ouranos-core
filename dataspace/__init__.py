@@ -4,10 +4,11 @@ import logging
 from queue import Queue
 
 from cachetools import Cache, TTLCache
+import hiredis  # Make sure it is installed for faster redis parsing
 from redis import Redis, RedisError
 from werkzeug.local import LocalProxy
 
-from config import Config  # for type hint only
+from config import Config  # For type hint only
 from dataspace.cache import redisCache, redisTTLCache
 from dataspace.dispatcher import BaseDispatcher, PubSubDispatcher, RedisDispatcher
 from dataspace.pubsub import StupidPubSub

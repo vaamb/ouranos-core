@@ -227,7 +227,7 @@
         <div class="warning">
           {% if current_user.is_authenticated %}
           {% if warnings %}
-          <a href="{{ url_for('main.warnings_list') }}">
+          <a href="{{ url_for('main.warnings_') }}">
             <i class="fas fa-exclamation-triangle"></i>
           </a>
           {% endif %}

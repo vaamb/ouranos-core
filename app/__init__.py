@@ -61,7 +61,9 @@ def create_app(config_class=DevelopmentConfig):
     # TODO: catch if use REDIS and add "message_queue=$redis_url"
     sio.init_app(app)
     mail.init_app(app)
-    scheduler.start()
+
+    if config_class.__name__ != "TestingConfig":
+        scheduler.start()
 
     import dataspace
     dataspace.init(config_class)

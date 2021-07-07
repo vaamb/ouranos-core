@@ -2,13 +2,13 @@ from queue import Queue
 
 
 class Broker:
-    def __init__(self):
+    def __init__(self) -> None:
         self.clients = set()
 
-    def link(self, client):
+    def link(self, client) -> None:
         self.clients.add(client)
 
-    def push(self, payload):
+    def push(self, payload: dict) -> int:
         pushed = 0
         for client in self.clients:
             if payload["channel"] in client.channels:
@@ -21,7 +21,7 @@ _broker = Broker()
 
 
 class StupidPubSub:
-    def __init__(self, broker=None):
+    def __init__(self, broker: Broker = None) -> None:
         if not broker:
             self.broker = _broker
         else:
@@ -33,18 +33,18 @@ class StupidPubSub:
         self.channels = set()
         self.messages = Queue()
 
-    def subscribe(self, channel):
+    def subscribe(self, channel: str) -> None:
         self.channels.add(channel)
 
-    def unsubscribe(self, channel):
+    def unsubscribe(self, channel: str) -> None:
         self.channels.remove(channel)
 
-    def publish(self, channel, message):
+    def publish(self, channel: str, message: dict) -> int:
         payload = {"channel": channel, "data": message}
         published = self.broker.push(payload)
         return published
 
-    def get_message(self):
+    def get_message(self) -> dict:
         if self.messages.qsize():
             return self.messages.get()
         return {}
