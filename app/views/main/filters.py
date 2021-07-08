@@ -1,8 +1,41 @@
 from datetime import datetime
 from hashlib import sha1
 
+from jinja2 import Markup
+from sqlalchemy.engine import Row
+from flask.json import tojson_filter
+
 from app.utils import humanize_list
 from app.views.main import bp
+
+
+try:
+    import orjson
+    _ORJSON = True
+except ImportError:
+    # Not available on 32 bits systems
+    _ORJSON = False
+
+
+def orjson_default(o):
+    if isinstance(o, Row):
+        return o._data
+    raise TypeError(f'Object of type {o.__class__.__name__} '
+                    f'is not orJSON serializable')
+
+
+@bp.app_template_filter('fast_json')
+def fast_json(o) -> str:
+    if _ORJSON:
+        return Markup(orjson.dumps(o, default=orjson_default)
+                      .decode('utf-8')
+                      .replace(u"<", u"\\u003c")
+                      .replace(u">", u"\\u003e")
+                      .replace(u"&", u"\\u0026")
+                      .replace(u"'", u"\\u0027")
+                      )
+    else:
+        return tojson_filter(o)
 
 
 @bp.app_template_filter('removeUnderscores')
