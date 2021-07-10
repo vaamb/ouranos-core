@@ -12,7 +12,7 @@ def get_recent_warnings(session):
             .filter(Warning_table.datetime >= time_limit)
             .filter(Warning_table.solved == False)
             .order_by(Warning_table.level.desc())
-            .order_by(Warning_table.row_id)
+            .order_by(Warning_table.id)
             .with_entities(Warning_table.datetime, Warning_table.emergency,
                            Warning_table.title)
             .all()

@@ -9,6 +9,7 @@ import jwt
 import sqlalchemy as sa
 from sqlalchemy import orm
 from sqlalchemy.ext.declarative import declared_attr
+from sqlalchemy.schema import UniqueConstraint
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app import db, login_manager
@@ -220,19 +221,25 @@ class comChannel(Base):
 # ---------------------------------------------------------------------------
 class baseData(Base):
     __abstract__ = True
-    measure = sa.Column(sa.Integer, primary_key=True)
-    datetime = sa.Column(sa.DateTime, primary_key=True)
-    value = sa.Column(sa.Float(precision=2))
+    id = sa.Column(sa.Integer, primary_key=True)
+    measure = sa.Column(sa.Integer, nullable=False)
+    datetime = sa.Column(sa.DateTime, nullable=False)
+    value = sa.Column(sa.Float(precision=2), nullable=False)
 
     @declared_attr
     def ecosystem_id(cls):
         return sa.Column(sa.String(length=8), sa.ForeignKey("ecosystems.id"),
-                         primary_key=True)
+                         nullable=False)
 
     @declared_attr
     def sensor_id(cls):
         return sa.Column(sa.String(length=16), sa.ForeignKey("hardware.id"),
-                         primary_key=True)
+                         nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("measure", "datetime", "value", "ecosystem_id",
+                         "sensor_id", name="_no_repost_constraint"),
+    )
 
 
 class baseHealth(Base):
@@ -250,7 +257,7 @@ class baseHealth(Base):
 
 class baseWarning(Base):
     __abstract__ = True
-    row_id = sa.Column(sa.Integer, primary_key=True)
+    id = sa.Column(sa.Integer, primary_key=True)
     datetime = sa.Column(sa.DateTime, nullable=False)
     emergency = sa.Column(sa.Integer)
     level = sa.Column(sa.String(length=16))
@@ -262,7 +269,8 @@ class baseWarning(Base):
 
 class baseSystem(Base):
     __abstract__ = True
-    datetime = sa.Column(sa.DateTime, nullable=False, primary_key=True)
+    id = sa.Column(sa.Integer, primary_key=True)
+    datetime = sa.Column(sa.DateTime, nullable=False)
     CPU_used = sa.Column(sa.Float(precision=1))
     CPU_temp = sa.Column(sa.Float(precision=1))
     RAM_total = sa.Column(sa.Float(precision=2))
