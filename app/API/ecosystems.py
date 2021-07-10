@@ -1,11 +1,12 @@
 from collections import namedtuple
 from datetime import datetime
+from typing import Union
 
 from cachetools import cached, TTLCache, FIFOCache
 from numpy import mean
+from sqlalchemy.orm.session import Session
 
-from app.API.utils import time_limits
-from config import Config
+from app.API.utils import time_limits, timeWindow
 from dataspace import sensorsData
 from app.models import sensorData, Hardware, Ecosystem, Health, Management, engineManager, Service
 
@@ -13,12 +14,13 @@ from app.models import sensorData, Hardware, Ecosystem, Health, Management, engi
 max_ecosystems = 32
 
 cache_ecosystem_info = TTLCache(maxsize=max_ecosystems, ttl=60)
-cache_sensors_data_raw = TTLCache(maxsize=max_ecosystems, ttl=900)
+cache_sensors_data_skeleton = TTLCache(maxsize=max_ecosystems, ttl=900)
+cache_sensors_data_raw = TTLCache(maxsize=max_ecosystems*32, ttl=900)
 cache_sensors_data_average = TTLCache(maxsize=max_ecosystems, ttl=300)
 cache_sensors_data_summary = TTLCache(maxsize=max_ecosystems*2, ttl=300)
 
 
-ids_tuple = namedtuple("ecosystem_ids", ["uid", "name"])
+ecosystemIds = namedtuple("ecosystemIds", ("uid", "name"))
 
 
 def on_off(value: bool) -> str:
@@ -27,8 +29,8 @@ def on_off(value: bool) -> str:
     return "off"
 
 
-def get_manager_query_obj(*managers,
-                          session,
+def get_manager_query_obj(*managers: str,
+                          session: Session,
                           time_limit: datetime = None,
                           connected: bool = False) -> list:
     if managers:
@@ -52,7 +54,9 @@ def get_manager_query_obj(*managers,
     return manager_qo
 
 
-def get_ecosystem_ids(ecosystem: str, session, time_limit=None) -> tuple:
+def get_ecosystem_ids(ecosystem: str,
+                      session: Session,
+                      time_limit: datetime = None) -> ecosystemIds:
     base_query = (session.query(Ecosystem).join(engineManager)
                          .filter((Ecosystem.id == ecosystem) |
                                  (Ecosystem.name == ecosystem))
@@ -64,12 +68,13 @@ def get_ecosystem_ids(ecosystem: str, session, time_limit=None) -> tuple:
     else:
         ids = base_query.first()
     if ids:
-        return ids_tuple(ids.id, ids.name)
+        return ecosystemIds(ids.id, ids.name)
     return ()
 
 
-def get_ecosystem_query_obj(*ecosystems,
-                            session,
+# TODO: add a s to ecosystem
+def get_ecosystem_query_obj(*ecosystems: str,
+                            session: Session,
                             time_limit: datetime = None,
                             connected: bool = False) -> list:
 
@@ -77,15 +82,15 @@ def get_ecosystem_query_obj(*ecosystems,
         base_query = (session.query(Ecosystem).join(engineManager)
                       .filter((Ecosystem.id.in_(ecosystems)) |
                               (Ecosystem.name.in_(ecosystems)))
-                     )
+                      )
     else:
         base_query = session.query(Ecosystem).join(engineManager)
 
     mid_query = base_query
     if time_limit:
-        mid_query = (base_query
-                     .filter(Ecosystem.last_seen >= time_limit)
-                     )
+        mid_query = (
+            base_query.filter(Ecosystem.last_seen >= time_limit)
+        )
 
     end_query = mid_query
     if connected:
@@ -96,19 +101,22 @@ def get_ecosystem_query_obj(*ecosystems,
     return ecosystems_qo
 
 
-def get_connected_ecosystems_query_obj(session) -> list:
-    ecosystems_qo = get_ecosystem_query_obj(session=session,
-                                            connected=True)
+def get_connected_ecosystems_query_obj(session: Session) -> list:
+    ecosystems_qo = get_ecosystem_query_obj(
+        session=session, connected=True)
     return ecosystems_qo
 
 
-def get_recent_ecosystems_query_obj(session):
+def get_recent_ecosystems_query_obj(session: Session):
     time_limit = time_limits()["recent"]
-    ecosystems_qo = get_ecosystem_query_obj(time_limit=time_limit, session=session)
+    ecosystems_qo = get_ecosystem_query_obj(
+        time_limit=time_limit, session=session)
     return ecosystems_qo
 
 
-def get_ecosystems_info(ecosystems_query_obj, session) -> dict:
+# TODO: improve
+def get_ecosystems_info(ecosystems_query_obj: list[Ecosystem],
+                        session: Session) -> dict:
     limits = time_limits()
 
     def get_info(ecosystem):
@@ -150,18 +158,19 @@ def get_ecosystems_info(ecosystems_query_obj, session) -> dict:
             }
         return cached_func(ecosystem.id)
 
-    ecosystems_info = {ecosystem.id: get_info(ecosystem) for ecosystem in ecosystems_query_obj}
+    ecosystems_info = {ecosystem.id: get_info(ecosystem)
+                       for ecosystem in ecosystems_query_obj}
     return ecosystems_info
 
 
-def summarize_ecosystems_info(ecosystems_info, session):
+def summarize_ecosystems_info(ecosystems_info: dict, session: Session) -> dict:
     return {
         "webcam": [{"id": ecosystem, "name": ecosystems_info[ecosystem]["name"]}
                    for ecosystem in ecosystems_info
                    if ecosystems_info[ecosystem]["webcam"]]
-                  if "webcam" in [s.name for s in session.query(Service)
-                                   .filter_by(status=1)
-                                   .all()]
+                   if "webcam" in [s.name for s in session.query(Service)
+                                    .filter_by(status=1)
+                                    .all()]
                   else [],
         # TODO: check that we have valid lighting times
         "lighting": [{"id": ecosystem, "name": ecosystems_info[ecosystem]["name"]}
@@ -182,7 +191,7 @@ def summarize_ecosystems_info(ecosystems_info, session):
     }
 
 
-def get_light_info(ecosystems_query_obj) -> dict:
+def get_light_info(ecosystems_query_obj: list[Ecosystem]) -> dict:
     def try_iso_format(timeobj):
         try:
             return timeobj.isoformat()
@@ -218,7 +227,7 @@ def get_raw_current_sensors_data() -> dict:
     return {**sensorsData}
 
 
-def get_current_sensors_data(*ecosystems, session) -> dict:
+def get_current_sensors_data(*ecosystems: str, session: Session) -> dict:
     """ Get the current data for the given ecosystems
 
     Returns a dict with the current data for the given ecosystems if they exist
@@ -261,96 +270,91 @@ def get_current_sensors_data(*ecosystems, session) -> dict:
     return data
 
 
-# TODO: make sure it is done outside the main process when querying more
-#  than one ecosystem as it is quite expensive
-def get_historic_sensors_data(ecosystems_query_obj,
-                              session,
-                              level: tuple = ("environment", "plants"),
-                              time_window: tuple = (None, None),
+def get_sensors_data_skeleton(session: Session,
+                              ecosystem_id: str,
+                              time_window: timeWindow,
+                              level: tuple[str] = ("environment", "plants"),
                               ) -> dict:
+    rv = {}
 
-    def round_time(dt: datetime) -> datetime:
-        dt = dt.replace(second=0, microsecond=0)
-        minutes = dt.minute
-        if minutes % Config.SENSORS_LOGGING_PERIOD == 1:
-            return dt
-        minutes = (minutes // Config.SENSORS_LOGGING_PERIOD
-                   * Config.SENSORS_LOGGING_PERIOD) + 1
-        return dt.replace(minute=minutes)
+    # No group_by: Faster by 0.2 ms in small dataset
+    subquery = (
+        session.query(sensorData.sensor_id).join(Hardware)
+            .filter(Hardware.level.in_(level))
+            .filter(sensorData.ecosystem_id == ecosystem_id)
+            .filter((sensorData.datetime > time_window[0]) &
+                    (sensorData.datetime <= time_window[1]))
+            .subquery()
+    )
 
-    if time_window[0]:
-        window_start = round_time(time_window[0])
-    else:
-        window_start = round_time(time_limits()["sensors"])
+    sensors = (
+        session.query(Hardware).filter(Hardware.id.in_(subquery)).all()
+    )
 
-    if time_window[1]:
-        window_end = round_time(time_window[1])
-    else:
-        window_end = round_time(datetime.now().replace(tzinfo=None))
+    for sensor in sensors:
+        for measure in sensor.measure:
+            try:
+                rv[measure.name][sensor.id] = {}
+            except KeyError:
+                rv[measure.name] = {sensor.id: {}}
+    return rv
 
-    # Dummy function to allow memoization
-    @cached(cache_sensors_data_raw)
-    def get_data(ecosystem_id, level, window_start, window_end):
-        data = {}
-        if level:
-            base_filter = (session.query(sensorData).join(Hardware)
-                           .filter(Hardware.level.in_(level))
-                           )
-        else:
-            base_filter = session.query(sensorData).join(Hardware)
 
-        measures = [
-            d.measure for d in
-            base_filter
-                .filter(sensorData.ecosystem_id == ecosystem_id)
-                .filter((sensorData.datetime > window_start) &
-                        (sensorData.datetime <= window_end))
-                .group_by(sensorData.measure)
-                .all()
-        ]
+@cached(cache_sensors_data_raw)
+def get_historic_sensor_data(session: Session,
+                             ecosystem_id: str,
+                             sensor_id: str,
+                             measure: str,
+                             time_window: timeWindow) -> dict:
+    sensor_name = session.query(Hardware).filter(
+        Hardware.id == sensor_id).one().name
+    values = (session.query(sensorData)
+              .filter(sensorData.ecosystem_id == ecosystem_id)
+              .filter(sensorData.measure == measure)
+              .filter(sensorData.sensor_id == sensor_id)
+              .filter((sensorData.datetime > time_window[0]) &
+                      (sensorData.datetime <= time_window[1]))
+              .with_entities(sensorData.datetime,
+                             sensorData.value)
+              .all()
+              )
+    return {
+        "name": sensor_name,
+        "values": values,
+    }
 
-        for measure in measures:
-            data[measure] = {}
-            data_points = (session.query(sensorData).join(Hardware)
-                           .filter(sensorData.ecosystem_id == ecosystem_id)
-                           .filter(Hardware.level.in_(level))
-                           .filter(sensorData.measure == measure)
-                           .group_by(sensorData.sensor_id)
-                           .all()
-                           )
 
-            for data_point in data_points:
-                values = (session.query(sensorData).join(Hardware)
-                          .filter(sensorData.ecosystem_id == ecosystem_id)
-                          .filter(Hardware.level.in_(level))
-                          .filter(sensorData.measure == measure)
-                          .filter(sensorData.sensor_id == data_point.sensor.id)
-                          .filter((sensorData.datetime > window_start) &
-                                  (sensorData.datetime <= window_end))
-                          .with_entities(sensorData.datetime,
-                                         sensorData.value)
-                          .all()
-                          )
-                data[measure][data_point.sensor.id] = {
-                    "name": data_point.sensor.name,
-                    "values": values
-                }
-        return data
+def get_ecosystems_historic_sensors_data(ecosystems_query_obj: list[Ecosystem],
+                                         session: Session,
+                                         time_window: timeWindow,
+                                         level: tuple = ("environment", "plants"),
+                                         ) -> dict:
+    def get_data(ecosystem_id, level, time_window):
+        rv = get_sensors_data_skeleton(
+            session, ecosystem_id, time_window, level
+        )
+        for measure in rv:
+            for sensor_id in rv[measure]:
+                rv[measure][sensor_id] = get_historic_sensor_data(
+                    session, ecosystem_id, sensor_id, measure, time_window
+                )
+        return rv
 
     return {
         ecosystem.id: {
             "name": ecosystem.name,
             "time_window": {
-                "start": window_start,
-                "end": window_end,
+                "start": time_window.start,
+                "end": time_window.end,
             },
-            "data": get_data(ecosystem.id, level, window_start, window_end),
+            "data": get_data(ecosystem.id, level, time_window),
         }
         for ecosystem in ecosystems_query_obj
     }
 
 
-def average_historic_sensors_data(sensors_data: dict, precision: int = 2):
+def average_historic_sensors_data(sensors_data: dict,
+                                  precision: int = 2) -> dict:
     # Dummy function to allow memoization
     @cached(cache_sensors_data_average)
     def average_data(ecosystem, time_window):
@@ -376,7 +380,7 @@ def average_historic_sensors_data(sensors_data: dict, precision: int = 2):
             for ecosystem in sensors_data}
 
 
-def summarize_sensors_data(sensors_data: dict, precision: int = 2):
+def summarize_sensors_data(sensors_data: dict, precision: int = 2) -> dict:
     # Dummy function to allow memoization
     # @cached(cache_sensors_data_summary)
     def summarize_data(ecosystem, datatype: str = "historic"):
@@ -408,8 +412,11 @@ def summarize_sensors_data(sensors_data: dict, precision: int = 2):
     return summarized_data
 
 
-def get_hardware(ecosystems_query_obj, session, level="all",
-                 hardware_type="all"):
+def get_hardware(ecosystems_query_obj: list[Ecosystem],
+                 session: Session,
+                 level: Union[str, tuple, list] = "all",
+                 hardware_type: Union[str, tuple, list] = "all"
+                 ) -> dict:
     all_hardware = ["sensor", "light", "heater", "cooler", "humidifier",
                     "dehumidifier"]
     if isinstance(level, str):

@@ -81,8 +81,9 @@ def recap_sensors_info(*ecosystems, session,
     window_start = datetime.now()-timedelta(days=days_ago)
     ecosystem_qo = API.ecosystems.get_ecosystem_query_obj(
         *ecosystems, session=session)
-    raw_sensors = API.ecosystems.get_historic_sensors_data(
-        ecosystem_qo, session, time_window=(window_start, None)
+    time_window = API.utils.create_time_window(start=window_start)
+    raw_sensors = API.ecosystems.get_ecosystems_historic_sensors_data(
+        ecosystem_qo, session, time_window=time_window
     )
     sensors = {e: raw_sensors[e] for e in raw_sensors
                if raw_sensors[e]["data"]}

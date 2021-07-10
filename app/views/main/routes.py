@@ -116,8 +116,11 @@ def sensors(level: str, ecosystem_name: str):
     ecosystem_qo = API.ecosystems.get_ecosystem_query_obj(
         ecosystem_name, session=db.session
     )
-    historic_sensors_data = API.ecosystems.get_historic_sensors_data(
-        ecosystem_qo, session=db.session, level=(level, ))
+    time_window = API.utils.create_time_window()
+    historic_sensors_data = API.ecosystems.get_ecosystems_historic_sensors_data(
+        ecosystem_qo, session=db.session, time_window=time_window,
+        level=(level, )
+    )
     current_sensors_data = {ecosystem_ids[0]: sensorsData.get(ecosystem_ids[0])}  # Make sure we get a dict and not None
     title = f"{ecosystem_ids[1]} {level} data"
     graphUpdatePeriod = current_app.config["SENSORS_LOGGING_PERIOD"]
