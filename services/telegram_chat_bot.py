@@ -3,7 +3,7 @@ from telegram.ext import Updater, CommandHandler, CallbackContext,\
     MessageHandler, Filters
 
 from app import API
-from app.models import User, Role
+from app.models import User, Role, Permission
 from services.shared_resources import db
 from services.template import serviceTemplate
 
@@ -17,7 +17,7 @@ class telegramChatbot(serviceTemplate):
         self.dispatcher = None
 
     def get_firstname(self, chat_id):
-        with db.scoped_session("app") as session:
+        with db.scoped_session() as session:
             user = (session.query(User)
                           .filter_by(telegram_chat_id=chat_id)
                           .first())
@@ -26,7 +26,7 @@ class telegramChatbot(serviceTemplate):
         return ""
 
     def get_role(self, chat_id):
-        with db.scoped_session("app") as session:
+        with db.scoped_session() as session:
             user = (session.query(User)
                     .filter_by(telegram_chat_id=chat_id)
                     .first())
@@ -40,7 +40,7 @@ class telegramChatbot(serviceTemplate):
 
     def user_can(self, chat_id, permission):
         role = self.get_role(chat_id)
-        role.has_permission(permission)
+        return role.has_permission(permission)
 
     def on_start(self, update: Update, context: CallbackContext) -> None:
         chat_id = update.effective_chat.id
@@ -93,7 +93,51 @@ class telegramChatbot(serviceTemplate):
         update.message.reply_text(message)
 
     def on_turn_lights(self, update: Update, context: CallbackContext) -> None:
-        pass
+        chat_id = update.effective_chat.id
+
+        if self.user_can(chat_id, Permission.OPERATE):
+            args = context.args
+            if len(args) < 2 or len(args) > 3:
+                update.message.reply_text(
+                    "You need to provide the ecosystem, the mode and "
+                    "optionally a timing"
+                )
+            else:
+                ecosystem = args[0]
+                mode = args[1]
+                if mode not in ("on", "off", "auto", "automatic"):
+                    update.message.reply_text(
+                        "Mode has to be 'on', 'off' or 'automatic'"
+                    )
+                if mode == "auto":
+                    mode = "automatic"
+                if len(args) == 3:
+                    countdown = args[2]
+                else:
+                    countdown = 0
+                with db.scoped_session() as session:
+                    ecosystem_qo = API.ecosystems.get_ecosystem_query_obj(
+                        ecosystem, session=session)
+                    lights = API.ecosystems.get_light_info(ecosystem_qo)
+                    if lights:
+                        ecosystem_id = API.ecosystems.get_ecosystem_ids(
+                            ecosystem, session=session).uid
+                        data = {"ecosystem": ecosystem_id, "mode": mode,
+                                "countdown": countdown}
+                        self.manager.dispatcher.emit("Socket.IO", "turn_light",
+                                                     data=data)
+                        update.message.reply_text(
+                            f"Lights have been turn to mode {mode} in {ecosystem}"
+                        )
+                    else:
+                        update.message.reply_text(
+                            f"Ecosystem {ecosystem} either does not exist or has "
+                            f"no light"
+                        )
+        else:
+            update.message.reply_text("You are not allowed to turn lights on "
+                                      "or off")
+
 
     def on_recap(self, update: Update, context: CallbackContext) -> None:
         pass
@@ -122,8 +166,8 @@ class telegramChatbot(serviceTemplate):
         chat_id = update.effective_chat.id
         firstname = self.get_firstname(chat_id=chat_id)
         update.message.reply_text(
-            f"Sorry{firstname}, I did not understand that command. Use /help to see"
-            f"commands available"
+            f"Sorry {firstname} I did not understand that command. Use /help "
+            f"to see the commands available"
         )
 
     # Put in dummy class

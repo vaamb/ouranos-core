@@ -72,8 +72,10 @@ def current_sensors_info(*ecosystems, session):
     raw_sensors = API.ecosystems.get_current_sensors_data(
         *ecosystems, session=session)
     sensors = API.ecosystems.summarize_sensors_data(raw_sensors)
-    return API.messages.render_template(
-        "telegram/sensors.html", sensors=sensors, units=units)
+    if sensors:
+        return API.messages.render_template(
+            "telegram/sensors.html", sensors=sensors, units=units)
+    return "There is currently no sensors connected"
 
 
 def recap_sensors_info(*ecosystems, session,

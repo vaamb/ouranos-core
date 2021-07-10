@@ -202,19 +202,20 @@ def get_light_info(ecosystems_query_obj: list[Ecosystem]) -> dict:
 
     for ecosystem in ecosystems_query_obj:
         light = ecosystem.light.first()
-        info[ecosystem.id] = {
-            "name": ecosystem.name,
-            "active": ecosystem.manages(Management["light"]),
-            "status": light.status,
-            "mode": light.mode,
-            "method": light.method,
-            "lighting_hours": {
-                "morning_start": try_iso_format(light.morning_start),
-                "morning_end": try_iso_format(light.morning_end),
-                "evening_start": try_iso_format(light.evening_start),
-                "evening_end": try_iso_format(light.evening_end),
-            },
-        }
+        if light:
+            info[ecosystem.id] = {
+                "name": ecosystem.name,
+                "active": ecosystem.manages(Management["light"]),
+                "status": light.status,
+                "mode": light.mode,
+                "method": light.method,
+                "lighting_hours": {
+                    "morning_start": try_iso_format(light.morning_start),
+                    "morning_end": try_iso_format(light.morning_end),
+                    "evening_start": try_iso_format(light.evening_start),
+                    "evening_end": try_iso_format(light.evening_end),
+                },
+            }
     return info
 
 
@@ -356,7 +357,7 @@ def get_ecosystems_historic_sensors_data(ecosystems_query_obj: list[Ecosystem],
 def average_historic_sensors_data(sensors_data: dict,
                                   precision: int = 2) -> dict:
     # Dummy function to allow memoization
-    @cached(cache_sensors_data_average)
+    # @cached(cache_sensors_data_average)
     def average_data(ecosystem, time_window):
         summary = {
             "name": sensors_data[ecosystem]["name"],
