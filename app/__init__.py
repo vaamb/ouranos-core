@@ -1,9 +1,10 @@
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
+import time
 
 from apscheduler.schedulers.background import BackgroundScheduler
-from flask import Flask
+from flask import Flask, g
 from flask_login import LoginManager
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
@@ -45,6 +46,10 @@ def create_app(config_class=DevelopmentConfig):
     app.jinja_env.trim_blocks = True
     app.json_encoder = customJSONEncoder
 
+    import dataspace
+    dataspace.init(config_class)
+    app.redis = dataspace.rd
+
     # Init db
     db.init_app(app)
     from app.models import Role, comChannel
@@ -58,20 +63,21 @@ def create_app(config_class=DevelopmentConfig):
 
     migrate.init_app(app, db)
     login_manager.init_app(app)
-    # TODO: catch if use REDIS and add "message_queue=$redis_url"
     sio.init_app(app)
     mail.init_app(app)
 
     if config_class.__name__ != "TestingConfig":
         scheduler.start()
 
-    import dataspace
-    dataspace.init(config_class)
-    app.redis = dataspace.rd
-
     @app.route("/eegg")
     def hello():
         return "eegg"
+
+    @app.before_request
+    def before_request():
+        g.request_start_time = time.time()
+        g.time_since_request = lambda: "%.5fs" % (time.time() -
+                                                  g.request_start_time)
 
     from app.views.errors import bp as errors_bp
     app.register_blueprint(errors_bp)

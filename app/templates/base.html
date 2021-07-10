@@ -53,5 +53,6 @@
     </script>
     {% endif %}
     {% block scripts %}{% endblock %}
+    Time to generate the page: {{ g.time_since_request() }}s
   </body>
 </html>
