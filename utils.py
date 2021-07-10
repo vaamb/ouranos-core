@@ -37,8 +37,8 @@ def config_dict_from_class(obj) -> dict:
 class customJSONEncoder(json.JSONEncoder):
     def default(self, o):
         if isinstance(o, Row):
-            # return {**o._mapping}  # return a dict
             return o._data  # return a tuple
+#             return {**o._mapping}  # return a dict
         return super(customJSONEncoder, self).default(o)
 
 

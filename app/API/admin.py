@@ -10,6 +10,7 @@ import jwt
 
 from app import mail
 from app.models import User, Role, System
+from config import Config
 from dataspace import systemData
 
 
@@ -31,6 +32,7 @@ def send_email(subject, sender, recipients, text_body, html_body,
     else:
         Thread(target=send_async_email,
                args=(current_app._get_current_object(), msg)).start()
+        # TODO: discard thread after use
 
 
 def get_user_query_obj(user: str, session):
@@ -123,7 +125,7 @@ def create_invitation_jwt(db_session,
         if tkn_claims[claim]:
             jwt_tkn.update({claim: tkn_claims[claim]})
 
-    return jwt.encode(jwt_tkn, key=current_app.config["JWT_SECRET_KEY"], algorithm="HS256").decode("utf-8")
+    return jwt.encode(jwt_tkn, key=Config.JWT_SECRET_KEY, algorithm="HS256")
 
 
 def send_invitation(invitation_jwt, db_session, mode="email"):
