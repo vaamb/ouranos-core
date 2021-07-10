@@ -42,7 +42,7 @@
     const units =  {{ parameters[level]['unit'] | tojson }};
     const maxValues = {{ parameters[level]['max_value'] | tojson }};
     const colors = {{ parameters[level]['color'] | tojson }};
-    const historicSensorsData = {{ historic_sensors_data[ecosystem_ids[0]] | tojson }};
+    const historicSensorsData = {{ historic_sensors_data[ecosystem_ids[0]] | fast_json }};
     let currentSensorsData = {};
     Object.assign(currentSensorsData, {{ current_sensors_data[ecosystem_ids[0]] | tojson }});
     let lastDataUpdate = new Date();
