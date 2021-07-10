@@ -2,10 +2,9 @@ from telegram import Update
 from telegram.ext import Updater, CommandHandler, CallbackContext,\
     MessageHandler, Filters
 
-# TODO: with new API: import it in _start() to avoid circular import
-#from app import API_old as API
-from services.database import db
-from app.models import User
+from app import API
+from app.models import User, Role
+from services.shared_resources import db
 from services.template import serviceTemplate
 
 
@@ -17,84 +16,111 @@ class telegramChatbot(serviceTemplate):
         self.updater = None
         self.dispatcher = None
 
-    def get_user_firstname(self, chat_id):
+    def get_firstname(self, chat_id):
         with db.scoped_session("app") as session:
-            firstname = (session.query(User)
-                         .filter_by(telegram_chat_id=chat_id)
-                         .first()
-                         .firstname)
-        if firstname:
-            return firstname.rjust(len(firstname) + 1)
+            user = (session.query(User)
+                          .filter_by(telegram_chat_id=chat_id)
+                          .first())
+        if user:
+            return user.firstname
         return ""
 
-    def get_user_permission(self, chat_id, permission):
+    def get_role(self, chat_id):
         with db.scoped_session("app") as session:
             user = (session.query(User)
                     .filter_by(telegram_chat_id=chat_id)
                     .first())
-        if user:
-            return user.can(permission)
-        return False
+            if user:
+                return user.role
 
-    def welcome(self, update: Update, context: CallbackContext) -> None:
+            default_role = (session.query(Role)
+                            .filter_by(default=True)
+                            .first())
+            return default_role
+
+    def user_can(self, chat_id, permission):
+        role = self.get_role(chat_id)
+        role.has_permission(permission)
+
+    def on_start(self, update: Update, context: CallbackContext) -> None:
         chat_id = update.effective_chat.id
-        firstname = self.get_user_firstname(chat_id=chat_id)
-        update.message.reply_text(
-            f"Hello{firstname}, welcome to GAIA! To see the commands available, type "
-            f"/help."
+        firstname = self.get_firstname(chat_id=chat_id)
+        update.message.reply_html(
+            f"Hello{firstname}, welcome to GAIA! To see the commands available, "
+            f"type /help."
         )
 
-    def get_light_info(self, update: Update, context: CallbackContext) -> None:
-        args = context.args
-        ecosystem_uids = API.get_listed_ecosystems(args)
-        # TODO: finish this
-        info = {}
-        for ecosystem_uid in ecosystem_uids:
-            info.update(API.ecosystems.get_ecosystem_light_info(ecosystem_uid))
-        update.message.reply_text(info)
+    def on_light_info(self, update: Update, context: CallbackContext) -> None:
+        ecosystems = context.args
+        with db.scoped_session() as session:
+            message = API.messages.light_info(*ecosystems, session=session)
+        update.message.reply_text(message)
 
-    def get_info(self, update: Update, context: CallbackContext) -> None:
-        chat_id = update.effective_chat.id
-        firstname = self.get_user_firstname(chat_id=chat_id)
-        # TODO: finish this with a tree of decision
-
-    def get_weather(self, update: Update, context: CallbackContext) -> None:
+    def on_weather(self, update: Update, context: CallbackContext) -> None:
         args = context.args
         if "forecast" in args:
-            weather_forecast = API.get_weather_forecast()
-            digested_weather = API.digest_weather_forecast(weather_forecast)
-            summarized_weather = API.summarize_weather_forecast(
-                digested_weather)
-            message = API.format_weather_forecast(summarized_weather)
-            update.message.reply_text(message)
-            return
-        current_weather = API.get_current_weather()
-        message = API.format_current_weather(current_weather)
-        update.message.reply_text(message)
-        return
+            forecast = True
+        else:
+            forecast = False
+        update.message.reply_text(
+            API.messages.weather(forecast=forecast)
+        )
 
-    def get_recap(self, update: Update, context: CallbackContext) -> None:
-        message = API.Messages.recap()
+    def on_sensors(self, update: Update, context: CallbackContext):
+        ecosystems = context.args
+        with db.scoped_session() as session:
+            message = API.messages.current_sensors_info(
+                *ecosystems, session=session)
         update.message.reply_text(message)
 
-    def get_current_data(self, update: Update, context: CallbackContext) -> None:
+    def on_sensors_recap(self, update: Update, context: CallbackContext):
         args = context.args
-        message = API.Messages.current_data(ecosystem_names=args)
+        to_remove = None
+        days = 1
+        for arg in args:
+            if "day" in arg:
+                to_remove = arg
+                days = int("".join(i for i in arg if i.isdigit()))
+                break
+        if days > 5:
+            days = 5
+        if to_remove:
+            args.remove(to_remove)
+        ecosystems = args
+        with db.scoped_session() as session:
+            message = API.messages.recap_sensors_info(
+                *ecosystems, session=session, days_ago=days)
         update.message.reply_text(message)
 
-    def help(self, update: Update, context: CallbackContext) -> None:
+    def on_turn_lights(self, update: Update, context: CallbackContext) -> None:
+        pass
+
+    def on_recap(self, update: Update, context: CallbackContext) -> None:
+        pass
+
+    def base_of_tree(self, update: Update, context: CallbackContext) -> None:
+        chat_id = update.effective_chat.id
+        firstname = self.get_firstname(chat_id=chat_id)
+        # TODO: finish this with a tree of decision
+
+    def on_help(self, update: Update, context: CallbackContext) -> None:
         message = "Here is a list of the commands available:\n"
-        message += "/weather : provides the current weather by default or the " \
+        message += "/weather : provides the current weather by default and the " \
                    "weather forecast if 'forecast' is provided as an argument.\n"
+        message += "/light_info : provides the all the light info for all the" \
+                   "ecosystems, or the specified one(s).\n"
+        message += "/sensors : provides the current sensors data for all the " \
+                   "ecosystems by default, or the specified one(s).\n"
+        message += "/sensors_recap : provides the sensors data for the last day" \
+                   "for all the ecosystems by default. The number of days " \
+                   "covered can be specified by adding '#days' as an argument.\n"
         message += "/recap : send a recap with sensors data of the last 24h, " \
                    "weather forecast, warnings and calendar events.\n"
-        message += "/current_data : provides the current sensors data for all the " \
-                   "ecosystems by default, or the specified one(s)."
         update.message.reply_text(message)
 
     def unknown_command(self, update: Update, context: CallbackContext):
         chat_id = update.effective_chat.id
-        firstname = self.get_user_firstname(chat_id=chat_id)
+        firstname = self.get_firstname(chat_id=chat_id)
         update.message.reply_text(
             f"Sorry{firstname}, I did not understand that command. Use /help to see"
             f"commands available"
@@ -104,14 +130,10 @@ class telegramChatbot(serviceTemplate):
     def _start(self):
         self.updater = Updater(self.config.TELEGRAM_BOT_TOKEN, use_context=True)
         self.dispatcher = self.updater.dispatcher
-        # TODO: Move in a dict loop
-        self.dispatcher.add_handler(CommandHandler("start", self.welcome))
-        self.dispatcher.add_handler(CommandHandler("get_info", self.get_info))
-        self.dispatcher.add_handler(
-            CommandHandler("current_data", self.get_current_data))
-        self.dispatcher.add_handler(CommandHandler("weather", self.get_weather))
-        self.dispatcher.add_handler(CommandHandler("recap", self.get_recap))
-        self.dispatcher.add_handler(CommandHandler("help", self.help))
+        for key in dir(self):
+            if key.startswith("on_"):
+                callback = getattr(self, key)
+                self.dispatcher.add_handler(CommandHandler(key[3:], callback))
         # Keep this handler last, it will catch all non recognized commands
         self.dispatcher.add_handler(
             MessageHandler(Filters.command, self.unknown_command))
