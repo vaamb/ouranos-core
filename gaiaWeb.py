@@ -15,26 +15,21 @@ import sys
 from src.app import create_app, scheduler, sio
 from src import dataspace, services
 from src.utils import configure_logging, humanize_list
-from config import DevelopmentConfig, TestingConfig, ProductionConfig
+from config import config
 
 
-config_profile = {
-    "development": DevelopmentConfig,
-    "testing": TestingConfig,
-    "production": ProductionConfig
-}
-profiles_available = [profile for profile in config_profile]
+profiles_available = [profile for profile in config]
 
 default_profile = "development"
 
 
 def get_config(profile):
     if profile.lower() in ("dev", "development"):
-        return config_profile["development"]
+        return config["development"]
     elif profile.lower() in ("test", "testing"):
-        return config_profile["testing"]
+        return config["testing"]
     elif profile.lower() in ("prod", "production"):
-        return config_profile["production"]
+        return config["production"]
     else:
         print(f"{profile} is not a valid profile. Valid profiles are "
               f"{humanize_list(profiles_available)}.")

@@ -93,8 +93,19 @@ class TestingConfig(Config):
     TESTING = True
     SERVER_NAME = "127.0.0.1:5000"
     WTF_CSRF_ENABLED = False
-    USE_REDIS_CACHE = False
+    SQLALCHEMY_DATABASE_URI = "sqlite:///db_ecosystems.db"
+    SQLALCHEMY_BINDS = {
+        "app": "sqlite:///db_app.db",
+        "archive": "sqlite:///db_archive.db"
+    }
 
 
 class ProductionConfig(Config):
     DATABASE_URI = "mysql://user@localhost/foo"
+
+
+config = {
+    "development": DevelopmentConfig,
+    "testing": TestingConfig,
+    "production": ProductionConfig
+}
