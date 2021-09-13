@@ -1,7 +1,6 @@
 from datetime import date, datetime
 import json
 import os
-import time
 
 import requests
 
@@ -46,7 +45,7 @@ class sunTimes(serviceTemplate):
                 }
                 try:
                     self.manager.dispatcher.emit(
-                        "Socket.IO", "sun_times", data=sun_times
+                        "application", "sun_times", data=sun_times
                     )
                 except AttributeError as e:
                     # Discard error when SocketIO has not started yet

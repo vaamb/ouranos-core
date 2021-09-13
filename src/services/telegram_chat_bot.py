@@ -131,7 +131,8 @@ class telegramChatbot(serviceTemplate):
                                 "actuator": "light",
                                 "mode": mode,
                                 "countdown": countdown}
-                        self.manager.dispatcher.emit("Socket.IO", "turn_actuator",
+                        self.manager.dispatcher.emit("application",
+                                                     "turn_actuator",
                                                      data=data)
                         update.message.reply_text(
                             f"Lights have been turn to mode {mode} in {ecosystem}"

@@ -41,9 +41,9 @@ class systemMonitor(serviceTemplate):
             }
             with self.mutex:
                 self._data.update(_cache)
-            self.manager.dispatcher.emit("Socket.IO", "current_server_data", data={**self._data})
+            self.manager.dispatcher.emit("application", "current_server_data", data={**self._data})
             self._stopEvent.wait(SYSTEM_UPDATE_PERIOD)
-            if self._stopEvent.isSet():
+            if self._stopEvent.is_set():
                 break
 
     def _log_resources_data(self) -> None:
