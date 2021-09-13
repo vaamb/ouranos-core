@@ -1,0 +1,63 @@
+{% extends "menu.html" %}
+
+{% block header %}Engines managers{% endblock %}
+{% block info %}{% endblock %}
+
+{% block content %}
+<table class="table-base">
+  <thead>
+    <tr>
+      <th></th>
+      <th>UID</th>
+      <th>SID/Name</th>
+      <th>Status</th>
+      <th>IP address</th>
+      <th>Last seen</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for manager in managers %}
+    <tr>
+      <td style="width: 15px">
+        <button id="button-manager-{{ manager["uid"] }}"><i class="fas fa-chevron-right"></i></button>
+      </td>
+      <td>{{ manager["uid"] }}</td>
+      <td>{{ manager["sid"] }}</td>
+      <td>{{ manager["connected"] }}</td>
+      {% if current_user.can(Permission.OPERATE) %}
+      <td>{{ manager["address"].split(":")[0] }}</td>
+      {% endif %}
+      <td><span id="last_seen_{{ manager["uid"] }}"></span></td>
+    </tr>
+    {% for ecosystem in manager["ecosystems"] %}
+    <tr id="manager-{{ manager["uid"] }}-ecosystem-{{ ecosystem["uid"] }}" class="hide">
+      <td></td>
+      <td>{{ ecosystem["uid"] }}</td>
+      <td>{{ ecosystem["name"] }}</td>
+      <td>{{ ecosystem["status"] }}</td>
+      <td></td>
+      <td><span id="last_seen_{{ ecosystem["uid"] }}"></span></td>
+    </tr>
+    {% endfor %}
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
+
+{% block scripts %}
+<script type="text/javascript">
+let engineManagers = {{ managers | tojson }};
+
+for (const manager of engineManagers) {
+  const manager_date = new Date(manager["last_seen"]);
+  $("span#last_seen_" + manager["uid"]).text(manager_date.toLocaleString());
+  $("button#button-manager-" + manager["uid"]).click(function() {
+    $("tr[id^='manager-" + manager["uid"] + "-ecosystem']").toggleClass("hide");
+  });
+  for (const ecosystem of manager["ecosystems"]) {
+    const ecosystem_date = new Date(ecosystem["last_seen"]);
+    $("#last_seen_" + ecosystem["uid"]).text(ecosystem_date.toLocaleString());
+  }
+}
+</script>
+{% endblock %}

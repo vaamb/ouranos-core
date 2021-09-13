@@ -1,0 +1,76 @@
+{% extends 'menu.html' %}
+
+{% block header %}Global plants health in {{ecosystem_ids[1]}}{% endblock %}
+{% block info %}{% endblock %}
+
+{% block content %}
+  {% for measure in ['index', 'green', 'necrosis'] %}
+    <div class="board" style="/*height: 230px;*/">
+      <h1>
+        <i class="{{parameters['plants_health']['icon'][measure]}} leftIco"></i>
+        {{parameters['plants_health']['measure'][measure]}}
+      </h1>
+      <div class="boardRowContainer" style="min-height: 183px; row-gap: 6px">
+        <div class="boardColumnContainer max250OnScreen" style="min-width: 225px; flex:1">
+          <div>
+            Future linear model
+          </div>
+        </div>
+        <div class="chartContainer">
+          <canvas id="{{measure}}Chart" style="height: 100%"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var {{measure}}ChartData = {
+        labels: [{% for item in data %}
+                   "{{item[0]}}",
+                 {% endfor %}],
+        datasets: [{
+          label: "CPU usage",
+          data: [{% for item in data %}
+                   {{item[parameters["plants_health"]["list_index"][measure]]}},
+                 {% endfor %}],
+          backgroundColor: "rgba(255,255,255,0)",
+          radius: 0,
+          hitRadius: 4,
+          borderColor: "#f0341f",
+          borderJoinStyle: "round",
+          borderWidth: 2,
+        }]
+      };
+      var {{measure}}chartLayout = {
+        legend:{
+          display: false
+        },
+        scales: {
+          xAxes: [{
+            type: "time",
+            time: {
+              unit: "day",
+              unitStepSize: 3,
+              displayFormats: {"day": "ddd DD MMM"}
+            }
+          }],
+          yAxes: [{
+            display: true,
+            ticks: {
+              beginAtZero: true,
+              suggestedMax: {{parameters['plants_health']['max_value'][measure]}},
+              steps: {{parameters['plants_health']['max_value'][measure]/10}},
+            }
+          }]
+        },
+        maintainAspectRatio: false,
+        responsive: true,
+      };
+      var {{measure}}ctx = document.getElementById("{{measure}}Chart");
+      var {{measure}}Chart = new Chart({{measure}}ctx, {
+        type: "line",
+        data: {{measure}}ChartData,
+        options: {{measure}}chartLayout,
+      });
+    </script>
+  {% endfor %}
+{% endblock %}

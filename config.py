@@ -69,6 +69,8 @@ class Config:
     # Data logging
     SYSTEM_LOGGING_PERIOD = 10
     SENSORS_LOGGING_PERIOD = 10
+
+    # REDIS config
     REDIS_URL = os.environ.get("REDIS_URL") or "redis://"
     USE_REDIS_CACHE = True
 
@@ -89,7 +91,6 @@ class DevelopmentConfig(Config):
 
 class TestingConfig(Config):
     TESTING = True
-    USE_REDIS_CACHE = False
     SERVER_NAME = "127.0.0.1:5000"
     WTF_CSRF_ENABLED = False
     USE_REDIS_CACHE = False

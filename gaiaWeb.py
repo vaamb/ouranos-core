@@ -12,10 +12,9 @@ import logging
 import signal
 import sys
 
-from app import create_app, scheduler, sio
-import dataspace
-import services
-from app.utils import configure_logging, humanize_list
+from src.app import create_app, scheduler, sio
+from src import dataspace, services
+from src.utils import configure_logging, humanize_list
 from config import DevelopmentConfig, TestingConfig, ProductionConfig
 
 
@@ -46,9 +45,9 @@ parser = argparse.ArgumentParser()
 parser.add_argument("-p", "--profile", default=default_profile)
 
 
-def graceful_exit(*args):
+def graceful_exit(*args, logger):
     services.exit_gracefully()
-    print("gaiaWeb has been closed")
+    logger.info("gaiaWeb has been closed")
     sys.exit(0)
 
 
@@ -57,12 +56,12 @@ signal.signal(signal.SIGTERM, graceful_exit)
 
 
 if __name__ == "__main__":
+    args = parser.parse_args()
+    config_class = get_config(args.profile)
+    configure_logging(config_class)
+    app_name = config_class.APP_NAME
+    logger = logging.getLogger(app_name)
     try:
-        args = parser.parse_args()
-        config_class = get_config(args.profile)
-        configure_logging(config_class)
-        app_name = config_class.APP_NAME
-        logger = logging.getLogger(app_name)
         logger.info(f"Starting {app_name} ...")
         dataspace.init(config_class)
         services.start(config_class)
@@ -76,4 +75,4 @@ if __name__ == "__main__":
         print("Manually closing gaiaWeb")
     finally:
         sio.stop()
-        graceful_exit()
+        graceful_exit(logger)

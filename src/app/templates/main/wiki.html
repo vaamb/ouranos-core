@@ -1,0 +1,18 @@
+{% extends 'menu.html' %}
+
+{% block header %}
+  {{ article.metadata["title"][0] }}
+{% endblock %}
+
+{% if article.metadata["authors"] %}
+{% block info %}
+By {{ article.metadata["authors"] | humanizeList }}
+{% endblock %}
+{% endif %}
+
+{% block content %}
+  <div class="wiki-article">
+    {{ article.html | safe }}
+  </div>
+
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends 'menu.html' %}
+
+{% block content %}
+  <div class="topLine">
+    <h1 style="float: left">
+      User: {{ user.username }}
+    </h1>
+  </div>
+  {% for post in posts %}
+    <p>
+      {{ post.author.username }} says: <b>{{ post.body }}</b>
+    </p>
+  {% endfor %}
+{% endblock %}

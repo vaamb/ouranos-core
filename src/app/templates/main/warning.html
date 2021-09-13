@@ -1,0 +1,43 @@
+{% extends 'menu.html' %}
+
+{% block header %}Warnings{% endblock %}
+{% block info %}{% endblock %}
+
+{% block content %}
+  <div class = "warnings">
+    {% if warnings %}
+    <table style="table-layout: auto; width: 100%;">
+      <tr>
+        <th>Date</th>
+        <th>Emergency</th>
+        <th>Level</th>
+        <th>Title</th>
+        <th>Solved</th>
+      </tr>
+      {% for warning in warnings %}
+      <tr>
+        <td><span id="warning_{{ loop.index }}_datetime"></span></td>
+        <td>{{ warning.emergency }}</td>
+        <td>{{ warning.level }}</td>
+        <td>{{ warning.title }}</td>
+        <td>{{ warning.solved }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% else %}
+      There is currently no warning
+    {% endif %}
+  </div>
+{% endblock %}
+
+{% block scripts %}
+    <script type="text/javascript">
+    {% if warnings %}
+    {% for warning in warnings %}
+    let warning_{{ loop.index }}_dt = new Date("{{ warning.datetime }}");
+    let warning_{{ loop.index }}_formattedDt = "".concat(warning_{{ loop.index }}_dt.getDate(), "/", warning_{{ loop.index }}_dt.getMonth(), " ", warning_{{ loop.index }}_dt.toLocaleTimeString([], {timeStyle: "short"}));
+    $('#warning_{{ loop.index }}_datetime').text(warning_{{ loop.index }}_formattedDt);
+    {% endfor %}
+    {% endif %}
+    </script>
+{% endblock %}

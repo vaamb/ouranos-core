@@ -1,0 +1,116 @@
+{% extends 'menu.html' %}
+
+{% block header %}{{ ecosystem_ids.name }} settings{% endblock %}
+{% block info %}{% endblock %}
+
+{% block content %}
+<table class="table-base table-alternate-colors">
+  <thead>
+    <tr>
+      <th>Level</th>
+      <th>Type</th>
+      <th>Name</th>
+      <th>UID</th>
+      <th>Address</th>
+      <th>Model</th>
+      <th>Last log entry</th>
+      <th>Action</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% set hardware_list = hardware[0]["hardware"] %}
+    {% for h in hardware_list %}
+    <tr>
+      <td>{{ h["level"] }}</td>
+      <td>{{ h["type"] }}</td>
+      <td>{{ h["name"] }}</td>
+      <td>{{ h["uid"] }}</td>
+      <td>{{ h["address"] }}</td>
+      <td>{{ h["model"] }}</td>
+      <td><span id="last_log_{{ h["uid"] }}"></span></td>
+      <td>
+        <div>
+          {% if current_user.can(Permission.OPERATE) %}
+          <button id="edit_{{ h["uid"] }}" title="Edit {{ h["type"] }} {{ h["name"] }}">
+            <i class="fas fa-edit"></i>
+          </button>
+          <button id="delete_{{ h["uid"] }}" title="Delete {{ h["type"] }} {{ h["name"] }}">
+            <i class="fas fa-trash"></i>
+          </button>
+          {% else %}
+          <button disabled title="You need to be an operator to edit {{ h["type"] }} {{ h["name"] }}"><i class="fas fa-edit"></i></button>
+          <button disabled title="You need to be an operator to delete {{ h["type"] }} {{ h["name"] }}"><i class="fas fa-trash"></i></button>
+          {% endif %}
+          {% if h["type"] == "sensor" %}
+          <button id="see_{{ h["uid"] }}" title="See {{ h["name"] }} data"><i class="fas fa-search"></i></button>
+          {% endif %}
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+  {% if current_user.can(Permission.OPERATE) %}
+  <tbody>
+    <tr>
+      <td colspan="8" style="text-align: center; vertical-align: middle;">
+        <button id="add_hardware" class="table-bigger-line" title="Add a new hardware to {{ ecosystem_ids.name }}"><i class="far fa-plus-square"></i></button>
+      </td>
+    </tr>
+  </tbody>
+  {% endif %}
+</table>
+{% endblock %}
+
+{% block scripts %}
+<script type="text/javascript">
+  let hardware = {{ hardware | tojson }};
+  const ecosystemUID = hardware[0]["uid"]
+  for (const h of hardware[0]["hardware"]) {
+    if (h["last_log"] !== null){
+        const date = new Date(h["last_log"]);
+        $("#last_log_" + h["uid"]).text(date.toLocaleString());
+    }
+
+    $("button#edit_" + h["uid"]).click(function() {
+      alert(capitalize(h["type"]) + " " + h["uid"] + " has been edited.");
+      // TODO: Open embeded window
+    });
+
+    $("button#delete_" + h["uid"]).click(function() {
+      if (confirm("Are you sure you wan to delete " + h["type"] + " " + h["uid"] + "?")){
+        alert(capitalize(h["type"]) + " " + h["uid"] + " has been deleted.");
+      } else {
+        alert("You chose wisely");
+      }
+    });
+
+    $("button#see_" + h["uid"]).click(function() {
+      $("div#modal-root").toggleClass("hide");
+      let modalContent = $("div#modal-content");
+      let newTitle = $("<h1/>").text("Sensor " + h["name"])
+      modalContent.append(newTitle);
+      for (const measure of h["measures"]) {
+        $.ajax({url: "/api/ecosystems/sensor/" + h["uid"] + "/" + measure, success: function(response) {
+          let newSubTitle = $("<h2/>").text(capitalize(measure.replace("_", " ")));
+          modalContent.append(newSubTitle);
+          let newCanvas = $("<canvas/>", {
+            id: "chartCanvas-" + h["uid"] + "-" + measure
+          }).prop({
+            width: 200,
+            height: 200
+          });
+          let newCanvasContainer = $("<div/>", {class: "chartContainer boardFlexItem", css: {height: "180px", "min-width": "60vw"}});
+          newCanvasContainer.append(newCanvas);
+          modalContent.append(newCanvasContainer);
+          let historicSensorsData = formatHistoricSensorsData(response);
+          createGraph(historicSensorsData);
+        }});
+      }
+    });
+  }
+
+  $("button#add_hardware").click(function() {
+    alert("Add a new hardware");
+  });
+</script>
+{% endblock %}

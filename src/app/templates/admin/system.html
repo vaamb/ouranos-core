@@ -1,0 +1,133 @@
+{% extends 'menu.html' %}
+
+{% block header %}System performance{% endblock %}
+{% block info %}
+<span id="lastRecordTime"></span>
+{% endblock %}
+
+{% block content %}
+  {% for measure in ['CPU_used', 'CPU_temp', 'RAM_used', 'DISK_used'] %}
+    {% if measure in system_measures %}
+    <div class="board" style="/*height: 230px;*/">
+      <h1>
+        <i class="{{ parameters['server']['icon'][measure] }} leftIco"></i>
+        {{ parameters["server"]["measure"][measure] }}
+      </h1>
+      <div id="boardRow_{{ measure }}" class="boardRowContainer" style="min-height: 183px; row-gap: 6px">
+        <div class="chartContainer" style="flex: 1; height: 185px">
+          <canvas id="chartCanvas_{{ measure }}"></canvas>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+  {% endfor %}
+{% endblock %}
+
+{% block scripts %}
+    <script type="text/javascript">
+    const historicSystemData = extractHistoricSystemData({{ historic_system_data | tojson }});
+    let currentSystemData = {{ current_system_data | tojson }};
+    const units = {{ parameters["server"]["unit"] | tojson }};
+
+    let measures = ["CPU_used", "CPU_temp", "RAM_used", "DISK_used"];
+    if (! historicSystemData.hasOwnProperty("CPU_temp")) {
+      measures.splice(measures.indexOf("CPU_temp"), 1)
+    }
+    const graphSystemParameters = {
+      "CPU_used": {"label": "CPU usage", "max": 100},
+      "CPU_temp": {"label": "CPU temperature", "max": 75},
+      "RAM_used": {"label": "RAM usage", "max": currentSystemData["RAM_total"]},
+      "DISK_used": {"label": "DISK space usage", "max": currentSystemData["DISK_total"]},
+    };
+
+    let lastDataUpdate = new Date();
+    const graphUpdatePeriod = {{ graphUpdatePeriod }};
+    let lastGraphUpdate = null;
+    let graphsUpdated = false;
+    const graphWindowLimit = 7;
+
+    function updateGauges() {
+      for (const measure in measures) {
+        const ID = measures[measure];
+        let newValue = null;
+        try {
+          newValue = Number(currentSystemData[measures[measure]]).toFixed(1);
+        } catch(err) {}
+        const unit = units[measures[measure]];
+        const maxValue = graphSystemParameters[measures[measure]]["max"];
+        updateGaugeContainer(ID, newValue, unit, maxValue);
+      }
+    }
+
+    updateGauges();
+    updateLastRecordTime(currentSystemData["datetime"]);
+
+    for (const measure in measures) {
+      // Chart data
+      let chartData = JSON.parse(JSON.stringify(defaultChartData));
+      chartData["labels"] = historicSystemData["datetime"];
+      chartData["datasets"][0]["label"] = graphSystemParameters[measures[measure]["label"]];
+      chartData["datasets"][0]["data"] = historicSystemData[measures[measure]];
+      chartData["datasets"][0]["borderColor"] = "#f0341f";
+      // Chart layout
+      let chartLayout = JSON.parse(JSON.stringify(sensorChartLayout));
+      const maxValue = graphSystemParameters[measures[measure]]["max"]
+      chartLayout["scales"]["yAxes"][0]["ticks"]["suggestedMax"] = maxValue;
+      chartLayout["scales"]["yAxes"][0]["ticks"]["steps"] = maxValue/10;
+      // Create chart
+      const ctx = document.getElementById("chartCanvas_" + measures[measure]);
+      let chart = new Chart(ctx, {
+        type: "line",
+        data: chartData,
+        options: chartLayout,
+      });
+      window["chart_" + measures[measure]] = chart;
+    }
+    lastGraphUpdate = new Date();
+    graphsUpdated = true;
+
+    function updateGraphs() {
+      for (const measure in measures) {
+        let dataLimit = new Date();
+        dataLimit.setDate(dataLimit.getDate() - graphWindowLimit);
+        const ID = measures[measure];
+        let newLabel = null;
+        let newData = null;
+        try {
+          newLabel = currentSystemData["datetime"];
+          newData = Number(currentSystemData[measures[measure]]).toFixed(1);
+        } catch(err) {}
+        updateGraph(ID, newLabel, newData, dataLimit);
+      }
+      lastGraphUpdate = new Date();
+      graphsUpdated = true;
+    }
+
+    setInterval(function() {
+      const now = new Date();
+      // If too old "currentSensorsData", remove it
+      if (now - lastDataUpdate > 1000*90) {
+        currentSystemData = {};
+        // Clean gauges
+        updateGauges();
+        // Remove old graph points
+        updateGraphs();
+      }
+    }, 1000*60)
+
+    socketAdmin.on('current_server_data', function(msg) {
+      const now = new Date();
+      Object.assign(currentSystemData, msg);
+      currentSystemData["datetime"] = new Date(currentSystemData["datetime"]);
+      updateLastRecordTime(currentSystemData["datetime"]);
+      updateGauges();
+      if (now.getMinutes() !== lastGraphUpdate.getMinutes()) {
+        graphsUpdated = false;
+      }
+      if ((currentSystemData["datetime"].getMinutes() % graphUpdatePeriod === 0) && (! graphsUpdated)) {
+        console.log("here")
+        updateGraphs();
+      }
+    });
+    </script>
+{% endblock %}

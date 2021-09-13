@@ -1,0 +1,28 @@
+{% extends 'menu.html' %}
+
+{% block header %}{{title}}{% endblock %}
+{% block info %}{% endblock %}
+
+{% block content %}
+  <table class="table-base table-alternate-colors">
+    <thead>
+      <tr>
+        <td>Date and time</td>
+        <td>Level</td>
+        <td>Logger</td>
+        <td>Message</td>
+      </tr>
+    </thead>
+    <tbody>
+      {% for line in logs %}
+      <tr>
+        {% set col = line.split('--') %}
+        <td>{{col[0]}}</td>
+        <td>{{col[1]}}</td>
+        <td>{{col[2]}}</td>
+        <td>{{col[3]}}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

@@ -1,0 +1,64 @@
+{% extends 'menu.html' %}
+
+{% block header %}{% endblock %}
+{% block info %}{% endblock %}
+
+{% block content %}
+    <form action="" method="post">
+      {{ form.hidden_tag() }}
+      <h2>User information</h2>
+      <div>
+        {{ form.firstname.label }}
+        {{ form.firstname(size=32) }}
+        {% for error in form.firstname.errors %}
+        <span style="color: red;">[{{ error }}]</span>
+        {% endfor %}
+      </div>
+      <div>
+        {{ form.lastname.label }}
+        {{ form.lastname(size=32) }}
+        {% for error in form.lastname.errors %}
+        <span style="color: red;">[{{ error }}]</span>
+        {% endfor %}
+      </div>
+      <div>
+        {{ form.username.label }}
+        {{ form.username(size=32) }}
+        {% for error in form.username.errors %}
+        <span style="color: red;">[{{ error }}]</span>
+        {% endfor %}
+      </div>
+      <div>
+        {{ form.email.label }}
+        {{ form.email(size=32) }}
+        {% for error in form.lastname.errors %}
+        <span style="color: red;">[{{ error }}]</span>
+        {% endfor %}
+      </div>
+      <div>
+        Role: {{ user.role.name }}
+      </div>
+
+      <h2>Services</h2>
+      <div>
+        {{ form.daily_recap.label }}
+        {{ form.daily_recap() }}
+      </div>
+      <div id="recap-channel" style="display:none">
+        {{ form.daily_recap_channels.label }}<br>
+        {{ form.daily_recap_channels() }}<br>
+      </div>
+      <div>
+        {{ form.telegram.label }}
+        {{ form.telegram() }}
+      </div>
+      <div>
+        {{ form.telegram_chat_id.label }}<br>
+        {{ form.telegram_chat_id() }}<br>
+        {% for error in form.telegram_chat_id.errors %}
+        <span style="color: red;">[{{ error }}]</span>
+        {% endfor %}
+      </div>
+      <div>{{ form.submit(class_="errorButton") }}</div>
+    </form>
+{% endblock %}
