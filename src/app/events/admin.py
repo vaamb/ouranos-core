@@ -6,6 +6,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from src.app import sio
 from src.app.events import dispatcher
 from src.app.models import Permission, User
+from src.dataspace import systemData
 
 
 admin_thread = None
@@ -45,6 +46,6 @@ def start_service(message):
 
 
 @dispatcher.on("current_server_data")
-def _current_server_data(*args, **kwargs):
-    data = kwargs.pop("data", {})
+def current_server_data(data):
+    systemData.update(data)
     sio.emit(event="current_server_data", data=data, namespace="/admin")

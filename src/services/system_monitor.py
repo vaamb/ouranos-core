@@ -11,6 +11,7 @@ from src.services.shared_resources import db, scheduler
 SYSTEM_UPDATE_PERIOD = 2
 
 
+# TODO: allow multiple serve to report system data (use an id before dict)
 class systemMonitor(serviceTemplate):
     NAME = "system_monitor"
     LEVEL = "base"

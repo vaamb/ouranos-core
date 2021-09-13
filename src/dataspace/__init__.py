@@ -8,18 +8,15 @@ from redis import Redis, RedisError
 from werkzeug.local import LocalProxy
 
 from config import Config  # For type hint only
-from src.dataspace.cache import redisCache, redisTTLCache
 from src.dataspace.dispatcher import BaseDispatcher, PubSubDispatcher, RedisDispatcher
 from src.dataspace.pubsub import StupidPubSub
-from src.dataspace.queue import redisQueue
 
 
 STOP_SIGNAL = "__STOP__"
+# TODO: find a better way
 USE_REDIS: bool = False
 
-START_TIME = datetime.now(timezone.utc)
-
-_CACHES_CLASS_AVAILABLE = [Cache, TTLCache, redisCache, redisTTLCache]
+START_TIME = datetime.now(timezone.utc).replace(microsecond=0)
 
 WEATHER_MEASURES = {
     "mean": ["temperature", "temperatureLow", "temperatureHigh", "humidity",
@@ -45,9 +42,9 @@ _initialized: bool = False
 
 
 _caches = {
-    "sensorsData": MutableMapping,
-    "healthData": MutableMapping,
-    "systemData": MutableMapping,
+    "sensorsData": Cache,
+    "healthData": Cache,
+    "systemData": Cache,
     "weatherData": {},
     "sunTimesData": {},
 }
@@ -77,33 +74,24 @@ def update_redis_initialized(config_class: Config) -> None:
 
 
 def create_cache(cache_name: str,
-                 ttl: int = None,
                  maxsize: int = 16,
-                 overwrite: bool = False) -> MutableMapping:
+                 ttl: int = None,
+                 overwrite: bool = False) -> Cache:
     if not _initialized:
         raise RuntimeError(
             f"Please init dataspace before creatting cache {cache_name}"
         )
     if _caches.get(cache_name) and not overwrite:
         raise ValueError(f"The cache {cache_name} already exists")
-    cache = _get_cache_class(cache_name, ttl, maxsize)
+    if not ttl:
+        cache = Cache(maxsize=maxsize)
+    else:
+        cache = TTLCache(maxsize=maxsize, ttl=ttl)
     _caches[cache_name] = cache
     return cache
 
 
-def _get_cache_class(cache_name: str,
-                     ttl: int = None,
-                     maxsize: int = 16) -> MutableMapping:
-    if USE_REDIS:
-        if not ttl:
-            return redisCache(cache_name, rd, check_client=False)
-        return redisTTLCache(cache_name, rd, ttl, check_client=False)
-    if not ttl:
-        return Cache(maxsize=maxsize)
-    return TTLCache(maxsize=maxsize, ttl=ttl)
-
-
-def get_cache(cache_name: str) -> MutableMapping:
+def get_cache(cache_name: str) -> Cache:
     if not _initialized:
         raise RuntimeError(
             f"Please init dataspace before getting cache {cache_name}"
@@ -118,36 +106,11 @@ def caches_available() -> list:
     return [cache for cache in _caches]
 
 
-def clean_caches() -> None:
-    if not _initialized:
-        raise RuntimeError(
-            f"Please init dataspace before cleaning caches"
-        )
-    if USE_REDIS:
-        # Remove unnecessary data
-        for cache in _caches:
-            try:
-                _caches[cache].clean()
-            except AttributeError:  # The cache is not a redisCache
-                pass
-
-
-def create_queue(name: str, *args, **kwargs) -> Queue:
-    if not _initialized:
-        raise RuntimeError(
-            f"Please init dataspace before creating queue {name}"
-        )
-    if USE_REDIS:
-        return redisQueue(name, rd, *args, **kwargs)
-    return Queue(*args, **kwargs)
-
-
 def get_dispatcher(name: str) -> BaseDispatcher:
     if not _initialized:
         raise RuntimeError(
             f"Please init dataspace before getting dispatcher {name}"
         )
-    global _dispatchers
     try:
         return _dispatchers[name]
     except KeyError:
@@ -166,12 +129,14 @@ def init(config_class: Config) -> None:
     global _initialized, rd
     if not _initialized:
         _initialized = True
+        # TODO: check if use redis first
         rd = Redis.from_url(config_class.REDIS_URL)
         reset(config_class)
 
 
 def reset(config_class: Config) -> None:
     update_redis_initialized(config_class)
+    # TODO: reset all dicts, including _dispatcher
     create_cache("sensorsData", ttl=config_class.GAIA_ECOSYSTEM_TIMEOUT,
                  maxsize=config_class.GAIA_MAX_ECOSYSTEMS, overwrite=True)
     create_cache("healthData", ttl=60*60*36,
@@ -188,6 +153,5 @@ systemData = LocalProxy(lambda: get_cache("systemData"))
 # TODO: weather cache based on file (save 2 files: raw_data and data)
 weatherData = LocalProxy(lambda: get_cache("weatherData"))
 sunTimesData = LocalProxy(lambda: get_cache("sunTimesData"))
-
 
 # Workers-specific caches

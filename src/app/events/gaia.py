@@ -199,6 +199,7 @@ def check_manager_identity(event):
         sio_logger.warning(f"Received '{event}' event on '/gaia' from unknown "
                            f"client with address {remote_addr}:{remote_port}")
         sio.emit("register", namespace="/gaia", room=request.sid)
+        # TODO: raise error?
         return False
     return manager
 
@@ -302,8 +303,8 @@ def update_sensors_data(data):
     manager = check_manager_identity("config")
     if manager:
         sio_logger.debug(f"Received 'sensors_data' from manager: {manager.uid}")
-        sensorsData.update(data)
-
+        dispatcher.emit("application", "sensors_data", data=data)
+        #sensorsData.update(data)
         # TODO: add a room specific for each ecosystem
         sio.emit("current_sensors_data", data, namespace="/")
 
@@ -313,7 +314,7 @@ def update_sensors_data(data):
             # When launching, gaiaEngine is sometimes still loading its sensors
             except KeyError:
                 continue
-            sensorsData[ecosystem_id]["datetime"] = dt
+            #sensorsData[ecosystem_id]["datetime"] = dt
             if dt.minute % current_app.config["SENSORS_LOGGING_PERIOD"] == 0:
                 measure_values = {}
                 # TODO: add ecosystem name
@@ -367,7 +368,8 @@ def update_health_data(data):
     manager = check_manager_identity("config")
     if manager:
         sio_logger.debug(f"Received 'update_health_data' from {manager.uid}")
-        healthData.update(data)
+        dispatcher.emit("application", "health_data", data=data)
+        # healthData.update(data)
         for ecosystem_id in data:
             health = Health(
                 ecosystem_id=ecosystem_id,
@@ -384,7 +386,7 @@ def update_health_data(data):
 def update_light_data(data):
     manager = check_manager_identity("config")
 
-    def try_fromiso(isotime):
+    def try_from_iso(isotime):
         try:
             return time.fromisoformat(isotime)
         except TypeError:
@@ -394,13 +396,13 @@ def update_light_data(data):
         sio_logger.debug(f"Received 'light_data' from {manager.uid}")
         for ecosystem_id in data:
             if data[ecosystem_id].get("lighting_hours"):
-                morning_start = try_fromiso(
+                morning_start = try_from_iso(
                     data[ecosystem_id]["lighting_hours"].get("morning_start"))
-                morning_end = try_fromiso(
+                morning_end = try_from_iso(
                     data[ecosystem_id]["lighting_hours"].get("morning_end"))
-                evening_start = try_fromiso(
+                evening_start = try_from_iso(
                     data[ecosystem_id]["lighting_hours"].get("evening_start"))
-                evening_end = try_fromiso(
+                evening_end = try_from_iso(
                     data[ecosystem_id]["lighting_hours"].get("evening_end"))
             else:
                 morning_start = morning_end = evening_start = evening_end = None
@@ -420,7 +422,7 @@ def update_light_data(data):
 
 
 # ---------------------------------------------------------------------------
-#   Dispatcher events for engineManagers
+#   Dispatcher events
 # ---------------------------------------------------------------------------
 @dispatcher.on("turn_light")
 def _turn_light(*args, **kwargs):
@@ -428,5 +430,15 @@ def _turn_light(*args, **kwargs):
 
 
 @dispatcher.on("turn_actuator")
-def _turn_light(*args, **kwargs):
+def _turn_actuator(*args, **kwargs):
     sio.emit("turn_actuator", namespace="/gaia", **kwargs)
+
+
+@dispatcher.on("sensors_data")
+def update_sensors_data(data):
+    sensorsData.update(data)
+
+
+@dispatcher.on("health_data")
+def update_health_data(data):
+    healthData.update(data)
