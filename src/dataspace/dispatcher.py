@@ -154,7 +154,7 @@ class RedisDispatcher(BaseDispatcher):
 
     def _listen(self):
         for message in self.pubsub.listen():
-            yield(message)
+            yield message
 
     def _parse_payload(self, payload: dict) -> dict:
         if payload:
