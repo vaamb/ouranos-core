@@ -36,8 +36,11 @@ class StupidPubSub:
     def subscribe(self, channel: str) -> None:
         self.channels.add(channel)
 
-    def unsubscribe(self, channel: str) -> None:
-        self.channels.remove(channel)
+    def unsubscribe(self, channel: str = None) -> None:
+        if channel:
+            self.channels.remove(channel)
+        else:
+            self.channels.clear()
 
     def publish(self, channel: str, message: dict) -> int:
         payload = {"channel": channel, "data": message}
@@ -46,5 +49,13 @@ class StupidPubSub:
 
     def get_message(self) -> dict:
         if self.messages.qsize():
-            return self.messages.get()
+            return self.messages.get(timeout=0.01)
         return {}
+
+    def listen(self):
+        while self.subscribed:
+            yield self.messages.get()
+
+    @property
+    def subscribed(self) -> bool:
+        return bool(self.channels)
