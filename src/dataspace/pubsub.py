@@ -54,7 +54,9 @@ class StupidPubSub:
 
     def listen(self):
         while self.subscribed:
-            yield self.messages.get()
+            response = self.messages.get()
+            if response is not None:
+                yield response
 
     @property
     def subscribed(self) -> bool:
