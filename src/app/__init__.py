@@ -6,10 +6,10 @@ import time
 from apscheduler.schedulers.background import BackgroundScheduler
 from flask import Flask, g
 from flask_login import LoginManager
+from flask_mail import Mail
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from flask_socketio import SocketIO
-from flask_mail import Mail
 
 from config import Config, DevelopmentConfig
 from src.database import Base
@@ -52,12 +52,13 @@ def create_app(config_class=DevelopmentConfig):
 
     # Init db
     db.init_app(app)
-    from src.app.models import Role, comChannel
+    from src.app.models import CommunicationChannel, Role, User
     with app.app_context():
         try:
             db.create_all()
             Role.insert_roles()
-            comChannel.insert_channels()
+            User.insert_gaia()
+            CommunicationChannel.insert_channels()
         except Exception as e:
             logger.error(e)
 

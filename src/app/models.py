@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime, time, timedelta, timezone
+from datetime import datetime, time, timezone
 from hashlib import md5
 import time as ctime
 
@@ -97,20 +97,19 @@ class User(UserMixin, Base):
     __tablename__ = "users"
     __bind_key__ = "app"
     id = sa.Column(sa.Integer, primary_key=True)
-
-    # User authentication fields
-    email = sa.Column(sa.String(120), index=True, unique=True)
-    confirmed = sa.Column(sa.Boolean, default=False)
     username = sa.Column(sa.String(64), index=True, unique=True)
+    email = sa.Column(sa.String(120), index=True, unique=True)
+    
+    # User authentication fields
     password_hash = sa.Column(sa.String(128))
+    confirmed = sa.Column(sa.Boolean, default=False)
+    role_id = sa.Column(sa.Integer, sa.ForeignKey("roles.id"))
 
     # User registration fields
     token = sa.Column(sa.String(32))
-    registration_exp = sa.Column(sa.DateTime)
     registration_datetime = sa.Column(sa.DateTime)
 
     # User information fields
-    role_id = sa.Column(sa.Integer, sa.ForeignKey("roles.id"))
     firstname = sa.Column(sa.String(64))
     lastname = sa.Column(sa.String(64))
     last_seen = sa.Column(sa.DateTime, default=datetime.now(timezone.utc))
@@ -124,7 +123,8 @@ class User(UserMixin, Base):
 
     # relationship
     role = orm.relationship("Role", back_populates="users")
-    daily_recap_channel = orm.relationship("comChannel", back_populates="users")
+    daily_recap_channel = orm.relationship("CommunicationChannel", back_populates="users")
+    calendar = orm.relationship("CalendarEvent", back_populates="user")
 
     def __init__(self, **kwargs):
         super(User, self).__init__(**kwargs)
@@ -133,6 +133,15 @@ class User(UserMixin, Base):
                 self.role = Role.query.filter_by(name="Administrator").first()
             else:
                 self.role = Role.query.filter_by(default=True).first()
+    
+    @staticmethod
+    def insert_gaia():
+        gaia = db.session.query(User).filter_by(username="Gaia").first()
+        if not gaia:
+            admin = db.session.query(Role).filter_by(name="Administrator").first()
+            gaia = User(username="Gaia", confirmed=True, role=admin)
+            db.session.add(gaia)
+            db.session.commit()
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(
@@ -149,20 +158,52 @@ class User(UserMixin, Base):
         return "https://www.gravatar.com/avatar/{}?d=identicon&s={}".fdbat(
             digest, size)
 
-    def get_reset_password_token(self, expires_in=1800):
+    def get_user_id_token(self, expires_in: int = 1800,
+                          usage: str = None) -> str:
+        payload = {"user_id": self.id, "exp": ctime.time() + expires_in}
+        if usage:
+            payload.update({"usage": usage})
         return jwt.encode(
-            {'reset_password': self.id, 'exp': ctime.time() + expires_in},
-            current_app.config['SECRET_KEY'],
-            algorithm='HS256').decode('utf-8')
+            payload, current_app.config["SECRET_KEY"], algorithm="HS256"
+        ).decode("utf-8")
 
     @staticmethod
-    def verify_reset_password_token(token):
+    def load_from_token(token: str, usage: str = None):
         try:
-            user_id = jwt.decode(token, current_app.config['JWT_SECRET_KEY'],
-                                 algorithms=['HS256'])['reset_password']
+            payload = jwt.decode(token, current_app.config["JWT_SECRET_KEY"],
+                                 algorithms=["HS256"])
         except jwt.PyJWTError:
             return
+        if payload.get("usage") != usage:
+            return
+        user_id = payload["user_id"]
         return User.query.get(user_id)
+
+    @staticmethod
+    def token_can(token: str, perm: int, usage: str = None) -> bool:
+        user = User.load_from_token(token, usage)
+        if user:
+            return user.can(perm)
+        return False
+
+    def to_dict(self, complete=False) -> dict:
+        rv = {
+            "username": self.username,
+            "firstname": self.firstname,
+            "lastname": self.lastname,
+            "email": self.email,
+            "role": self.role.name,
+            "last_seen": self.last_seen,
+        }
+        if complete:
+            rv.update({
+                "registration": self.registration_datetime,  # TODO: change var name
+                "daily_recap": self.daily_recap,
+                "daily_recap_channel_id": self.daily_recap_channel_id,
+                "telegram": self.telegram,
+                "telegram_chat_id": self.telegram_chat_id,
+            })
+        return rv
 
 
 class AnonymousUser(AnonymousUserMixin):
@@ -171,12 +212,12 @@ class AnonymousUser(AnonymousUserMixin):
 
 
 login_manager.anonymous_user = AnonymousUser
-login_manager.login_view = 'auth.login'
+login_manager.login_view = "auth.login"
 
 
 @login_manager.user_loader
-def load_user(id):
-    return User.query.get(int(id))
+def load_user(user_id):
+    return User.query.get(int(user_id))
 
 
 class Service(Base):
@@ -187,8 +228,16 @@ class Service(Base):
     level = sa.Column(sa.String(length=4))
     status = sa.Column(sa.Boolean, default=False)
 
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "level": self.level,
+            "status": self.status,
+        }
 
-class comChannel(Base):
+
+class CommunicationChannel(Base):
     __tablename__ = "communication_channels"
     __bind_key__ = "app"
     id = sa.Column(sa.Integer, primary_key=True)
@@ -203,17 +252,37 @@ class comChannel(Base):
     def insert_channels():
         channels = ["telegram"]
         for c in channels:
-            channel = comChannel.query.filter_by(name=c).first()
+            channel = CommunicationChannel.query.filter_by(name=c).first()
             if channel is None:
-                channel = comChannel(name=c)
+                channel = CommunicationChannel(name=c)
             db.session.add(channel)
         db.session.commit()
+
+
+class CalendarEvent(Base):  # TODO: apply similar to warnings
+    __tablename__ = "calendar_events"
+    __bind_key__ = "app"
+    id = sa.Column(sa.Integer, primary_key=True)
+    user_id = sa.Column(sa.Integer, sa.ForeignKey("users.id"))
+    start_time = sa.Column(sa.DateTime, nullable=False)
+    end_time = sa.Column(sa.DateTime, nullable=False)
+    type = sa.Column(sa.Integer)
+    title = sa.Column(sa.String(length=256))
+    description = sa.Column(sa.String(length=2048))
+    created_at = sa.Column(sa.DateTime, nullable=False)
+    updated_at = sa.Column(sa.DateTime, nullable=False)
+    active = sa.Column(sa.Boolean, default=True)
+    URL = sa.Column(sa.String(length=1024))
+    content = sa.Column(sa.String)
+
+    # relationship
+    user = orm.relationship("User", back_populates="calendar")
 
 
 # ---------------------------------------------------------------------------
 #   Base models common to main app and archive
 # ---------------------------------------------------------------------------
-class baseData(Base):
+class BaseSensorData(Base):
     __abstract__ = True
     id = sa.Column(sa.Integer, primary_key=True)
     measure = sa.Column(sa.Integer, nullable=False)
@@ -236,7 +305,22 @@ class baseData(Base):
     )
 
 
-class baseHealth(Base):
+class BaseActuatorData(Base):
+    __abstract__ = True
+    id = sa.Column(sa.Integer, primary_key=True)
+    ecosystem_uid = sa.Column(sa.String(length=8))
+    actuator_type = sa.Column(sa.String(length=16))
+    datetime = sa.Column(sa.DateTime, nullable=False)
+    mode = sa.Column(sa.String(length=16))
+    status = sa.Column(sa.Boolean)
+
+    @declared_attr
+    def ecosystem_id(cls):
+        return sa.Column(sa.String(length=8), sa.ForeignKey("ecosystems.id"),
+                         index=True, primary_key=True)
+
+
+class BaseHealthData(Base):
     __abstract__ = True
     datetime = sa.Column(sa.DateTime, nullable=False, primary_key=True)
     green = sa.Column(sa.Integer)
@@ -249,19 +333,21 @@ class baseHealth(Base):
                          index=True, primary_key=True)
 
 
-class baseWarning(Base):
+class BaseEcosystemWarning(Base):
     __abstract__ = True
     id = sa.Column(sa.Integer, primary_key=True)
-    datetime = sa.Column(sa.DateTime, nullable=False)
     emergency = sa.Column(sa.Integer)
     level = sa.Column(sa.String(length=16))
-    title = sa.Column(sa.String(length=32))
-    message = sa.Column(sa.String)
-    seen = sa.Column(sa.Boolean)
-    solved = sa.Column(sa.Boolean)
+    title = sa.Column(sa.String(length=256))
+    description = sa.Column(sa.String(length=2048))
+    content = sa.Column(sa.String)
+    message = sa.Column(sa.String)  # TODO: change by description
+    created = sa.Column(sa.DateTime)
+    seen = sa.Column(sa.DateTime)
+    solved = sa.Column(sa.DateTime)
 
 
-class baseSystem(Base):
+class BaseSystemData(Base):
     __abstract__ = True
     id = sa.Column(sa.Integer, primary_key=True)
     datetime = sa.Column(sa.DateTime, nullable=False)
@@ -276,17 +362,34 @@ class baseSystem(Base):
 # ---------------------------------------------------------------------------
 #   Main app-related models, located in db_main and db_archive
 # ---------------------------------------------------------------------------
-class engineManager(Base):
+class EngineManager(Base):
     __tablename__ = "engine_managers"
     uid = sa.Column(sa.String(length=16), primary_key=True)
     sid = sa.Column(sa.String(length=32))
-    connected = sa.Column(sa.Boolean)
     registration_date = sa.Column(sa.DateTime)
-    last_seen = sa.Column(sa.DateTime)
     address = sa.Column(sa.String(length=24))
+    last_seen = sa.Column(sa.DateTime)
+    connected = sa.Column(sa.Boolean)  # TODO: remove? and use based on last_seen?
 
     # relationship
     ecosystem = orm.relationship("Ecosystem", back_populates="manager", lazy="dynamic")
+
+    # TODO: finish and add in others
+    def to_dict(self):
+        return {
+            "uid": self.uid,
+            "sid": self.sid,
+            "registration_date": self.registration_date,
+            "address": self.address,
+            "last_seen": self.last_seen,
+            "connected": self.connected,
+            "ecosystems": [{
+                "uid": ecosystem.id,
+                "name": ecosystem.name,
+                "status": ecosystem.status,
+                "last_seen": ecosystem.last_seen,
+            } for ecosystem in self.ecosystem]
+        }
 
 
 Management = {
@@ -313,12 +416,14 @@ class Ecosystem(Base):
     manager_uid = sa.Column(sa.Integer, sa.ForeignKey("engine_managers.uid"))
 
     # relationship
-    manager = orm.relationship("engineManager", back_populates="ecosystem")
-    environment_parameters = orm.relationship("environmentParameter", back_populates="ecosystem")
+    manager = orm.relationship("EngineManager", back_populates="ecosystem")
+    environment_parameters = orm.relationship("EnvironmentParameter", back_populates="ecosystem")
     hardware = orm.relationship("Hardware", back_populates="ecosystem", lazy="dynamic")
-    # plants = orm.relationship("Plant", back_populates="ecosystem")
-    data = orm.relationship("sensorData", back_populates="ecosystem", lazy="dynamic")
-    health_data = orm.relationship("Health", back_populates="ecosystem", lazy="dynamic")
+    plants = orm.relationship("Plant", back_populates="ecosystem", lazy="dynamic")
+    # TODO: rename data to sensor_data
+    data = orm.relationship("SensorData", back_populates="ecosystem", lazy="dynamic")
+    actuator_data = orm.relationship("ActuatorData", back_populates="ecosystem", lazy="dynamic")
+    health_data = orm.relationship("HealthData", back_populates="ecosystem", lazy="dynamic")
     light = orm.relationship("Light", back_populates="ecosystem", lazy="dynamic")
 
     def __init__(self, **kwargs):
@@ -340,18 +445,41 @@ class Ecosystem(Base):
     def reset_managements(self):
         self.management = 0
 
+    def to_dict(self):
+        return {
+            "uid": self.id,
+            "name": self.name,
+            "manager_uid": self.manager_uid,
+            "status": self.status,
+            "last_seen": self.last_seen,
+            "connected": self.manager.connected,
+            "day_start": self.day_start,
+            "night_start": self.night_start,
+        }
 
-class environmentParameter(Base):
+
+class EnvironmentParameter(Base):
     __tablename__ = "environment_parameters"
     ecosystem_id = sa.Column(sa.String(length=8), sa.ForeignKey("ecosystems.id"),
                              primary_key=True)
     parameter = sa.Column(sa.String(length=16), primary_key=True)
-    moment_of_day = sa.Column(sa.String(length=8), primary_key=True)
-    value = sa.Column(sa.Float(precision=2))
+    day = sa.Column(sa.Float(precision=2))
+    night = sa.Column(sa.Float(precision=2))
     hysteresis = sa.Column(sa.Float(precision=2))
 
     # relationship
     ecosystem = orm.relationship("Ecosystem", back_populates="environment_parameters")
+
+    def to_dict(self, display_ecosystem_uid=False):
+        rv = {
+            "parameter": self.parameter,
+            "day": self.day,
+            "night": self.night,
+            "hysteresis": self.hysteresis,
+        }
+        if display_ecosystem_uid:
+            return {**{"ecosystem_uid": self.ecosystem_id}, **rv}
+        return rv
 
 
 associationHardwareMeasure = db.Table(
@@ -376,14 +504,29 @@ class Hardware(Base):
     type = sa.Column(sa.String(length=16))
     model = sa.Column(sa.String(length=32))
     last_log = sa.Column(sa.DateTime)
-    # plant_id = sa.Column(sa.String(8), sa.ForeignKey("plants.id"))
+    plant_id = sa.Column(sa.String(8), sa.ForeignKey("plants.id"))
 
     # relationship
     ecosystem = orm.relationship("Ecosystem", back_populates="hardware")
     measure = orm.relationship("Measure", back_populates="hardware",
                                secondary=associationHardwareMeasure)
-    # plants = orm.relationship("Plant", back_populates="sensors")
-    data = orm.relationship("sensorData", back_populates="sensor", lazy="dynamic")
+    plants = orm.relationship("Plant", back_populates="sensors")
+    data = orm.relationship("SensorData", back_populates="sensor", lazy="dynamic")
+
+    def to_dict(self, display_ecosystem_uid=False):
+        rv = {
+            "uid": self.id,
+            "name": self.name,
+            "address": self.address,
+            "level": self.level,
+            "type": self.type,
+            "model": self.model,
+            "last_log": self.last_log,
+            "measures": [measure.name for measure in self.measure],
+        }
+        if display_ecosystem_uid:
+            return {**{"ecosystem_uid": self.ecosystem_id}, **rv}
+        return rv
 
 
 sa.Index("idx_sensors_type", Hardware.type, Hardware.level)
@@ -398,22 +541,38 @@ class Measure(Base):
     hardware = orm.relationship("Hardware", back_populates="measure",
                                 secondary=associationHardwareMeasure)
 
+    def to_dict(self):
+        return {
+            "name": self.name,
+            "unit": self.unit,
+            "sensors": [sensor.id for sensor in self.hardware],
+        }
 
-"""
+
 class Plant(Base):
     __tablename__ = "plants"
     id = sa.Column(sa.String(16), primary_key=True)
     name = sa.Column(sa.String(32))
-    ecosystem_id = sa.Column(sa.String(8), sa.ForeignKey("ecosystems.id"))
+    ecosystem_uid = sa.Column(sa.String(length=8), sa.ForeignKey("ecosystems.id"))
     species = sa.Column(sa.String(32), index=True, nullable=False)
     sowing_date = sa.Column(sa.DateTime)
+
     #relationship
     ecosystem = orm.relationship("Ecosystem", back_populates="plants")
     sensors = orm.relationship("Hardware", back_populates="plants")
-"""
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "ecosystem_uid": self.ecosystem_uid,
+            "species": self.species,
+            "sowing_date": self.sowing_date,
+            "sensors": [sensor.id for sensor in self.sensors],
+        }
 
 
-class sensorData(baseData):
+class SensorData(BaseSensorData):
     __tablename__ = "sensors_data"
     __archive_link__ = archive_link("sensor", "recent")
 
@@ -422,11 +581,18 @@ class sensorData(baseData):
     sensor = orm.relationship("Hardware", back_populates="data")
 
 
+class ActuatorData(BaseActuatorData):
+    __tablename__ = "actuators_data"
+    __archive_link__ = archive_link("light", "recent")
+
+    # relationships
+    ecosystem = orm.relationship("Ecosystem", back_populates="actuator_data")
+
+
 class Light(Base):
     __tablename__ = "light"
     ecosystem_id = sa.Column(sa.String(length=8), sa.ForeignKey("ecosystems.id"), primary_key=True)
     status = sa.Column(sa.Boolean)
-    expected_status = sa.Column(sa.Boolean)
     mode = sa.Column(sa.String(length=12))
     method = sa.Column(sa.String(length=12))
     morning_start = sa.Column(sa.Time)
@@ -437,9 +603,21 @@ class Light(Base):
     # relationships
     ecosystem = orm.relationship("Ecosystem", back_populates="light")
 
+    def to_dict(self):
+        return {
+            "ecosystem_uid": self.ecosystem_id,
+            "method": self.method,
+            "mode": self.mode,
+            "status": self.status,
+            "morning_start": self.morning_start,
+            "morning_end": self.morning_end,
+            "evening_start": self.evening_start,
+            "evening_end": self.evening_end,
+        }
 
-class Health(baseHealth):
-    __tablename__ = "health"
+
+class HealthData(BaseHealthData):
+    __tablename__ = "health_data"
     __archive_link__ = archive_link("health", "recent")
 
     # relationships
@@ -447,20 +625,21 @@ class Health(baseHealth):
 
 
 # TODO: When problems solved, after x days: goes to archive
-class Warning_table(baseWarning):
-    __tablename__ = "warnings"
+class EcosystemWarning(BaseEcosystemWarning):
+    __tablename__ = "ecosystem_warnings"
+    __archive_link__ = archive_link("ecosystem_warnings", "recent")
 
 
-class System(baseSystem):
-    __tablename__ = "system"
+class System(BaseSystemData):
+    __tablename__ = "system_data"
     __archive_link__ = archive_link("system", "recent")
 
 
 # ---------------------------------------------------------------------------
 #   Models used for archiving, located in db_archive
 # ---------------------------------------------------------------------------
-class archiveData(baseData):
-    __tablename__ = "data_archive"
+class ArchiveSensorData(BaseSensorData):
+    __tablename__ = "sensors_archive"
     __bind_key__ = "archive"
     __archive_link__ = archive_link("sensor", "archive")
 
@@ -468,7 +647,7 @@ class archiveData(baseData):
     sensor_id = sa.Column(sa.String(length=16), primary_key=True)
 
 
-class archiveHealth(baseHealth):
+class ArchiveHealthData(BaseHealthData):
     __tablename__ = "health_archive"
     __bind_key__ = "archive"
     __archive_link__ = archive_link("health", "archive")
@@ -476,14 +655,14 @@ class archiveHealth(baseHealth):
     ecosystem_id = sa.Column(sa.String(length=8), primary_key=True)
 
 
-class archiveWarning(baseWarning):
+class ArchiveEcosystemWarning(BaseEcosystemWarning):
     __tablename__ = "warnings_archive"
     __bind_key__ = "archive"
 
     ecosystem_id = sa.Column(sa.String(length=8), primary_key=True)
 
 
-class archiveSystem(baseSystem):
+class archiveSystem(BaseSystemData):
     __tablename__ = "system_archive"
     __bind_key__ = "archive"
     __archive_link__ = archive_link("system", "archive")
