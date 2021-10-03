@@ -4,132 +4,118 @@
 {% block info %}{% endblock %}
 
 {% block content %}
-          <div class="subtitleFix"></div>
-          <h2>Global overview</h2>
-          <div class="row">
-            <div class="board">
-              <a>
-                <h1>Calendar</h1>
-                <div class="boardColumnContainer">
-                  <div class="boardSubTitle">
-                    <span id="today_date"></span>
-                  </div>
-                  {% if sun_times %}
-                  <div class="boardFlexItemU">
-                    sunrise: <span id="sunrise"></span> -
-                    sunset: <span id="sunset"></span>
-                  </div>
-                  {% endif %}
-                </div>
-              </a>
-            </div>
-            {% if current_weather %}
-            <div class="board">
-              <a href="{{ url_for('main.weather') }}">
-                <h1>Current weather</h1>
-                <div class="boardColumnContainer">
-                  <div class="weatherIcon" style="height: 115px; line-height: 115px; font-size: 70px;"><i id="weather_icon"></i></div>
-                  <div class="boardSubTitle">
-                    <span id="weather_summary"></span>
-                  </div>
-                  <div class="boardFlexItemU">
-                    Temperature: <span id="weather_temperature"></span>°C
-                  </div>
-                  <div class="boardFlexItemU">
-                    Wind: <span id="weather_windSpeed"></span>km/h
-                  </div>
-                  <div class="boardFlexItemU">
-                    Precipitation: <span id="weather_precipProbability"></span>%
-                  </div>
-                  <div class="boardFlexItemU">
-                    Humidity: <span id="weather_humidity"></span>%
-                  </div>
-                  <div class="boardFlexItemU">
-                    Cloud cover: <span id="weather_cloudCover"></span>%
-                  </div>
-                </div>
-              </a>
-            </div>
-            {% endif %}
-            {% if current_user.can(Permission.ADMIN) %}
-            <div class="board">
-              <h1>Server info</h1>
-              <div class="boardColumnContainer">
-                <div class="boardSubTitle">Uptime</div>
-                <div class="boardFlexItemU"><span id="server_uptime"></span></div>
-                <div class="boardSubTitle" style="margin-top: 10px;">Average latency</div>
-                <div class="boardFlexItemU">
-                  <span id="ping-pong">Na</span>ms
-                </div>
-                <div class="boardSubTitle" style="margin-top: 10px;">
-                  System utilization
-                </div>
-                <div class="boardFlexItemU">
-                  Average CPU load: <span id="server_CPU_used"></span>%
-                </div>
-                {% if current_system_data["CPU_temp"] %}
-                <div class="boardFlexItemU">
-                    CPU temperature: <span id="server_CPU_temp"></span>°C
-                </div>
-                {% endif %}
-                <div class="boardFlexItemU">
-                  RAM used:
-                    <span id="server_RAM_used"></span>GB /
-                    <span id="server_RAM_total"></span>GB
-                </div>
-                <div class="boardFlexItemU">
-                  Disk used:
-                    <span id="server_DISK_used"></span>GB /
-                    <span id="server_DISK_total"></span>GB
-                </div>
-              </div>
-            </div>
-            {% endif %}
-            {% if current_user.is_authenticated %}
-            <div class="board">
-              <a href="{{url_for('main.warnings_')}}">
-                <h1>Warnings overview</h1>
-                <div class="boardColumnContainer">
-                  {% if warnings %}
-                  <table style="table-layout: auto; width: 100%; margin-top: 10px;">
-                    <tr>
-                      <th>Date</th>
-                      <th>!</th>
-                      <th>Title</th>
-                    </tr>
-                    {% for i in range(10) %}
-                    {% if warnings[i] %}
-                    <tr>
-                      <td><span id="warning_{{ i }}_datetime"></span></td>
-                      <td>{{ warnings[i].emergency }}</td>
-                      <td>{{ warnings[i].title }}</td>
-                    </tr>
-                    {% endif %}
-                    {% endfor %}
-                  </table>
-                  {% else %}
-                  <p style="margin-top: 10px">No warning</p>
-                  {% endif %}
-                </div>
-              </a>
-            </div>
-            {% endif %}
+<div id="generalOverview">
+  <h2>General overview</h2>
+  <div class="row" id="generalContent">
+    <div class="board">
+      <a>
+        <h1>Calendar</h1>
+        <div class="boardColumnContainer">
+          <div class="boardSubTitle">
+            <span id="today_date"></span>
           </div>
-
-          {% if ecosystems_info %}
-          <h2>Ecosystems overview</h2>
-          <div>
-            {% for ecosystem_id in ecosystems_info %}
-            <div class="board" style="min-height: 150px;">
-              <h1 style="text-align: center;">
-                {{ecosystems_info[ecosystem_id]["name"]}} &emsp;
-                <i class="fa fa-circle" id="{{ ecosystem_id }}_status" style="margin-left: auto;"></i>
-              </h1>
-              <div class="boardRowContainer" id="{{ ecosystem_id }}_info" style="background: #ccc;"></div>
-            </div>
+          {% if sun_times %}
+          <div class="boardFlexItemU">
+            sunrise: <span id="sunrise"></span> -
+            sunset: <span id="sunset"></span>
+          </div>
+          {% endif %}
+        </div>
+      </a>
+    </div>
+    {% if current_weather %}
+    <div class="board">
+      <a href="{{ url_for('main.weather') }}">
+        <h1>Current weather</h1>
+        <div class="boardColumnContainer">
+          <div class="weatherIcon" style="height: 115px; line-height: 115px; font-size: 70px;"><i id="weather_icon"></i></div>
+          <div class="boardSubTitle">
+            <span id="weather_summary"></span>
+          </div>
+          <div class="boardFlexItemU">
+            Temperature: <span id="weather_temperature"></span>°C
+          </div>
+          <div class="boardFlexItemU">
+            Wind: <span id="weather_windSpeed"></span>km/h
+          </div>
+          <div class="boardFlexItemU">
+            Precipitation: <span id="weather_precipProbability"></span>%
+          </div>
+          <div class="boardFlexItemU">
+            Humidity: <span id="weather_humidity"></span>%
+          </div>
+          <div class="boardFlexItemU">
+            Cloud cover: <span id="weather_cloudCover"></span>%
+          </div>
+        </div>
+      </a>
+    </div>
+    {% endif %}
+    {% if current_user.can(Permission.ADMIN) %}
+    <div class="board">
+      <h1>Server info</h1>
+      <div class="boardColumnContainer">
+        <div class="boardSubTitle">Uptime</div>
+        <div class="boardFlexItemU"><span id="server_uptime"></span></div>
+        <div class="boardSubTitle" style="margin-top: 10px;">Average latency</div>
+        <div class="boardFlexItemU">
+          <span id="ping-pong">Na</span>ms
+        </div>
+        <div class="boardSubTitle" style="margin-top: 10px;">
+          System utilization
+        </div>
+        <div class="boardFlexItemU">
+          Average CPU load: <span id="server_CPU_used"></span>%
+        </div>
+        {% if current_system_data["CPU_temp"] %}
+        <div class="boardFlexItemU">
+            CPU temperature: <span id="server_CPU_temp"></span>°C
+        </div>
+        {% endif %}
+        <div class="boardFlexItemU">
+          RAM used:
+            <span id="server_RAM_used"></span>GB /
+            <span id="server_RAM_total"></span>GB
+        </div>
+        <div class="boardFlexItemU">
+          Disk used:
+            <span id="server_DISK_used"></span>GB /
+            <span id="server_DISK_total"></span>GB
+        </div>
+      </div>
+    </div>
+    {% endif %}
+    {% if current_user.is_authenticated %}
+    <div class="board">
+      <a href="{{url_for('main.warnings_')}}">
+        <h1>Warnings overview</h1>
+        <div class="boardColumnContainer">
+          {% if warnings %}
+          <table style="table-layout: auto; width: 100%; margin-top: 10px;">
+            <tr>
+              <th>Date</th>
+              <th>!</th>
+              <th>Title</th>
+            </tr>
+            {% for i in range(10) %}
+            {% if warnings[i] %}
+            <tr>
+              <td><span id="warning_{{ i }}_datetime"></span></td>
+              <td>{{ warnings[i].emergency }}</td>
+              <td>{{ warnings[i].title }}</td>
+            </tr>
+            {% endif %}
             {% endfor %}
-            {% endif %}
-          </div>
+          </table>
+          {% else %}
+          <p style="margin-top: 10px">No warning</p>
+          {% endif %}
+        </div>
+      </a>
+    </div>
+    {% endif %}
+  </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -164,7 +150,7 @@
 
     function updateCurrentWeatherSpans() {
       $('#weather_summary').text(currentWeatherData["summary"]);
-      let iconClass = getWeatherIconClass(currentWeatherData["icon"]);
+      let iconClass = utils.getWeatherIconClass(currentWeatherData["icon"]);
       $('#weather_icon').removeClass().addClass(iconClass);
       for (const parameter in weatherDataFactors) {
         if (weatherDataFactors.hasOwnProperty(parameter)) {
@@ -182,48 +168,7 @@
     {% endif %}
 
     {% if current_user.can(Permission.ADMIN) %}
-    // Server box
-    const systemDataSpans = ["CPU_temp", "RAM_used", "RAM_total", "DISK_used", "DISK_total"]
-    let currentSystemData = {{ current_system_data | tojson }};
-    let systemDataCPU = [];
-
-    function updateUptime() {
-      let now = new Date();
-      let lastSeen = new Date(currentSystemData["datetime"]);
-      let serverStartTime = new Date(currentSystemData["start_time"]);
-      if ((now - lastSeen) > 6000) {
-        $('#server_uptime').text("Lost connection with server");
-      } else {
-        let timeDelta = serverStartTime - now;
-        let uptime = humanizeDuration(timeDelta, {
-          largest: 2, units: ['y', 'mo', 'w', 'd', 'h', 'm', 's'], maxDecimalPoints: 0, delimiter: " and "
-        });
-        $('#server_uptime').text(uptime);
-      }
-    }
-    updateUptime();
-    window.setInterval(updateUptime, 1000);
-
-    function updateSystemDataSpans() {
-      systemDataCPU.push(currentSystemData["CPU_used"]);
-      systemDataCPU = systemDataCPU.slice(-5);
-      let systemDataCPUSum = 0;
-      for (let i = 0; i < systemDataCPU.length; i++) {
-        systemDataCPUSum += systemDataCPU[i];
-      }
-      $('#server_CPU_used').text((Math.round(10 * systemDataCPUSum /
-        systemDataCPU.length) / 10 ).toFixed(2));
-
-      for (const span of systemDataSpans) {
-        $('#server_' + span).text(Number(currentSystemData[span]).toFixed(2));
-      }
-    }
-    updateSystemDataSpans()
-
-    socketAdmin.on('current_server_data', function(msg) {
-      currentSystemData = msg;
-      updateSystemDataSpans();
-    });
+    UI.injectHomeServerBoard()
     {% endif %}
 
     {% if current_user.is_authenticated %}
@@ -242,260 +187,7 @@
       injectWarningDT(warningDT, i);
     }
     {% endif %}
-
-    {% if ecosystems_info %}
-    // Ecosystems box
-    let subBoxesOrder = ["light", "environment", "plants"];
-    let ecosystemsData = {{ ecosystems_info | tojson }};
-    let lightsData = {{ light_data | tojson }};
-    let currentSensorsData = {{ current_sensors_data | tojson }};
-    let sensorsUnit = {
-        "environment": {{ parameters['environment']['unit'] | tojson }},
-        "plants": {{ parameters['plants']['unit'] | tojson }}
-    };
-
-    function fillIfEmpty(ecosystem) {
-      let parentDiv = document.getElementById(ecosystem + "_info");
-      if (! parentDiv.hasChildNodes()) {
-        let newDiv = document.createElement("div");
-        newDiv.className = "boardFlexItem boardColumnContainer";
-        newDiv.setAttribute("id", ecosystem + "_fill_box");
-        let subTitle = document.createElement("div");
-        subTitle.className = "boardSubTitle";
-        subTitle.appendChild(
-        document.createTextNode("TODO")
-        );
-        newDiv.appendChild(subTitle);
-        // Add status row with icon
-        let fillRow = document.createElement("div");
-        fillRow.className = "boardFlexItemU";
-        fillRow.appendChild(
-          document.createTextNode("Display info when nothing's available")
-        );
-        newDiv.appendChild(fillRow);
-        parentDiv.appendChild(newDiv)
-      } else {
-        let oldDiv = document.getElementById(ecosystem + "_fill_box");
-        if (oldDiv != null) {
-          parentDiv.removeChild(oldDiv)
-        }
-      }
-    }
-
-    // Ecosystems status data
-    function updateStatus(ecosystem) {
-      // Connection influenced info
-      if (ecosystemsData[ecosystem]["connected"]) {
-        // Set up status color
-        if (ecosystemsData[ecosystem]["status"]) {
-          $('i#' + ecosystem +'_status').addClass("on").removeClass("deco");
-        } else {
-          $('i#' + ecosystem +'_status').addClass("off").removeClass("deco");
-        }
-      } else {
-        $('i#' + ecosystem +'_status').addClass("deco").removeClass("on off");
-        $('i#' + ecosystem +'_light_status').addClass("deco").removeClass("on off");
-      }
-    }
-
-    socket.on("ecosystem_status", function(msg) {
-      for (const ecosystem in msg) {
-        if (msg.hasOwnProperty(ecosystem)) {
-          Object.assign(ecosystemsData[ecosystem], msg[ecosystem]);
-          updateStatus(ecosystem);
-          fillIfEmpty(ecosystem);
-        }
-      }
-    });
-
-    // Ecosystems light data
-    function updateLight(ecosystem) {
-      if (ecosystemsData[ecosystem]["lighting"]) {
-        // Create light div
-        let newDiv = document.createElement("div");
-        newDiv.className = "boardFlexItem boardColumnContainer";
-        // Add subtitle
-        let subTitle = document.createElement("div");
-        subTitle.className = "boardSubTitle";
-        subTitle.appendChild(
-          document.createTextNode("Light")
-        );
-        newDiv.appendChild(subTitle);
-        // Add status row with icon
-        let statusRow = document.createElement("div");
-        statusRow.className = "boardFlexItemU";
-        statusRow.appendChild(
-          document.createTextNode("Status: ")
-        );
-        let statusIcon = document.createElement("i");
-        statusIcon.className = "fas fa-sync-alt";
-        statusIcon.setAttribute("id", ecosystem + "_light_status");
-
-        // Add required classes for status icon
-        if (ecosystemsData[ecosystem]["connected"]) {
-          if (lightsData[ecosystem]["status"]) {
-            statusIcon.classList.add("on");
-          } else {
-            statusIcon.classList.add("off");
-          }
-        }
-
-        if (lightsData[ecosystem]["mode"] === "automatic") {
-          statusIcon.classList.add("fa-spin");
-        }
-        statusRow.appendChild(statusIcon);
-        newDiv.appendChild(statusRow);
-
-        if (["elongate", "mimic"].includes(lightsData[ecosystem]["method"])) {
-          if (lightsData[ecosystem]["lighting_hours"]["morning_start"] &&
-              lightsData[ecosystem]["lighting_hours"]["morning_end"]) {
-            const morningStart = new Date(lightsData[ecosystem]["lighting_hours"]["morning_start"]);
-            const morningEnd = new Date(lightsData[ecosystem]["lighting_hours"]["morning_end"]);
-            if (morningStart < morningEnd) {
-              let newLightRow = document.createElement("div");
-              newLightRow.className = "boardFlexItemU";
-              newLightRow.appendChild(
-                document.createTextNode(
-                  "Morning lighting from " + morningStart.toLocaleTimeString([], {timeStyle: "short"}) +
-                    " to " +   morningEnd.toLocaleTimeString([], {timeStyle: "short"})
-                )
-              );
-              newDiv.appendChild(newLightRow);
-            }
-          }
-          if (lightsData[ecosystem]["lighting_hours"]["evening_start"] &&
-              lightsData[ecosystem]["lighting_hours"]["evening_end"]) {
-            const eveningStart = new Date(lightsData[ecosystem]["lighting_hours"]["evening_start"]);
-            const eveningEnd = new Date(lightsData[ecosystem]["lighting_hours"]["evening_end"]);
-            if (eveningStart < eveningEnd) {
-              let newLightRow = document.createElement("div");
-              newLightRow.className = "boardFlexItemU";
-              newLightRow.appendChild(
-                document.createTextNode(
-                  "Evening lighting from " + eveningStart.toLocaleTimeString([], {timeStyle: "short"}) +
-                    " to " +   eveningEnd.toLocaleTimeString([], {timeStyle: "short"})
-                )
-              );
-              newDiv.appendChild(newLightRow);
-            }
-          }
-        } else if (lightsData[ecosystem]["method"] === "fixed") {
-          if (
-            lightsData[ecosystem]["lighting_hours"]["morning"]["start"] &&
-            lightsData[ecosystem]["lighting_hours"]["evening"]["end"]
-          ) {
-            const morningStart = new Date(lightsData[ecosystem]["lighting_hours"]["morning_start"]);
-            const eveningEnd = new Date(lightsData[ecosystem]["lighting_hours"]["evening"]["end"]);
-            if (morningStart < eveningEnd) {
-              let newLightRow = document.createElement("div");
-              newLightRow.className = "boardFlexItemU";
-              newLightRow.appendChild(
-                document.createTextNode(
-                  "Lighting from " + morningStart.toLocaleTimeString([], {timeStyle: "short"}) +
-                    " to " +   eveningEnd.toLocaleTimeString([], {timeStyle: "short"})
-                )
-              );
-            newDiv.appendChild(newLightRow);
-            }
-          }
-        }
-        newDiv.setAttribute("id", ecosystem + "_light_info");
-        let parentDiv = document.getElementById(ecosystem + "_info");
-        let oldDiv = document.getElementById(ecosystem + "_light_info");
-        if (oldDiv != null) {
-          parentDiv.replaceChild(newDiv, oldDiv);
-        } else {
-          parentDiv.insertBefore(newDiv, parentDiv.children[subBoxesOrder.indexOf("light")]);
-        }
-      }
-    }
-
-    socket.on("light_data", function(msg) {
-      for (const ecosystem in msg) {
-        if (msg.hasOwnProperty(ecosystem)) {
-          Object.assign(lightsData[ecosystem], msg[ecosystem])
-          updateLight(ecosystem);
-          fillIfEmpty(ecosystem);
-        }
-      }
-    });
-
-    // Ecosystems sensors data
-    function updateCurrentSensors(ecosystem) {
-      let store = {}
-      if (currentSensorsData.hasOwnProperty(ecosystem)) {
-        for (const sensor in currentSensorsData[ecosystem]["data"]) {
-          if (currentSensorsData[ecosystem]["data"].hasOwnProperty(sensor)) {
-            for (const measure in currentSensorsData[ecosystem]["data"][sensor]) {
-              if (currentSensorsData[ecosystem]["data"][sensor].hasOwnProperty(measure)) {
-                store[measure] = store[measure] || [];
-                store[measure].push(currentSensorsData[ecosystem]["data"][sensor][measure]);
-              }
-            }
-          }
-        }
-
-        for (const sensorLevel in sensorsUnit) {
-          if (sensorsUnit.hasOwnProperty(sensorLevel)) {
-            let sensorsUnitSub = sensorsUnit[sensorLevel];
-            if (Object.keys(store).some(measure => Object.keys(sensorsUnitSub).includes(measure))) {
-              let newSensorsDiv = document.createElement("div");
-              newSensorsDiv.className = "boardFlexItem boardColumnContainer";
-              let subTitle = document.createElement("div");
-              subTitle.className = "boardSubTitle";
-              subTitle.appendChild(
-                document.createTextNode(capitalize(sensorLevel))
-              );
-              newSensorsDiv.appendChild(subTitle);
-
-              for (const measure in sensorsUnitSub) {
-                if (store.hasOwnProperty(measure)) {
-                  let sum = 0;
-                  for (let i = 0; i < store[measure].length; i++) {
-                    sum += store[measure][i]
-                  }
-                  let avg = (Math.round(10 * sum / store[measure].length) / 10).toFixed(1);
-
-                  let newMeasureRow = document.createElement("div");
-                  newMeasureRow.className = "boardFlexItemU";
-                  let measure_text = document.createTextNode(capitalize(measure).replace("_", " ") + ": " + avg + sensorsUnitSub[measure]);
-                  newMeasureRow.appendChild(measure_text);
-                  newSensorsDiv.appendChild(newMeasureRow);
-                }
-              }
-              newSensorsDiv.setAttribute("id", ecosystem + "_" + sensorLevel + "_sensors");
-              let parentDiv = document.getElementById(ecosystem + "_info");
-              let oldSensorsDiv = document.getElementById(ecosystem + "_" + sensorLevel + "_sensors");
-              if (oldSensorsDiv != null) {
-                parentDiv.replaceChild(newSensorsDiv, oldSensorsDiv);
-              } else {
-                parentDiv.insertBefore(newSensorsDiv, parentDiv.children[subBoxesOrder.indexOf(sensorLevel)]);
-              }
-            }
-          }
-        }
-      }
-    }
-
-    socket.on("current_sensors_data", function(msg) {
-      for (const ecosystem in msg) {
-        if (msg.hasOwnProperty(ecosystem)) {
-          Object.assign(currentSensorsData[ecosystem], msg[ecosystem])
-          updateCurrentSensors(ecosystem);
-          fillIfEmpty(ecosystem);
-        }
-      }
-    });
-
-    // Fill ecosystem info boxes on page load
-    for (const ecosystem in ecosystemsData) {
-      if (ecosystemsData.hasOwnProperty(ecosystem)) {
-        updateStatus(ecosystem);
-        updateLight(ecosystem);
-        updateCurrentSensors(ecosystem);
-        fillIfEmpty(ecosystem);
-      }
-    }
-    {% endif %}
+    // Ecosystems boxes
+    UI.injectHomeEcosystemBoards()
     </script>
 {% endblock %}

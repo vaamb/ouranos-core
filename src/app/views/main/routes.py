@@ -8,13 +8,13 @@ from flask_sqlalchemy import get_debug_queries
 
 from src.app import API, db
 from src.app.API.ecosystems import ecosystemIds
-from src.app.models import Health, Service, User, Permission
+from src.app.models import HealthData, Service, User, Permission
 from src.app.views import layout
 from src.app.views.decorators import permission_required
 from src.app.views.main import bp
 from src.app.views.main.forms import EditProfileForm
 from src.app.wiki import get_wiki
-from src.dataspace import sensorsData
+
 
 wiki_engine = get_wiki()
 
@@ -49,28 +49,26 @@ def update_user_last_seen(response):
 @bp.app_context_processor
 @cachetools.func.ttl_cache(ttl=60)
 def menu_info():
-    ecosystems_qo = API.ecosystems.get_recent_ecosystems_query_obj(session=db.session)
-    ecosystems_info = API.ecosystems.get_ecosystems_info(
+    ecosystems_qo = API.ecosystems.get_ecosystems_query_obj(
+        session=db.session, ecosystems="recent")
+    ecosystems_management = API.ecosystems.get_ecosystems_management(
         session=db.session, ecosystems_query_obj=ecosystems_qo)
-    summarized_ecosystems_info = API.ecosystems.summarize_ecosystems_info(
-        session=db.session, ecosystems_info=ecosystems_info)
+    summarized_ecosystems_management = API.ecosystems.summarize_ecosystems_management(
+        session=db.session, ecosystems_info=ecosystems_management)
     dropdowns = API.app.get_functionalities(
-        summarized_ecosystems_info, db.session)
-
+        summarized_ecosystems_management, db.session
+    )
     plant_articles = [article for article
                       in sorted(wiki_engine.articles_available(("plants_care",))["plants_care"])]
     plant_articles.insert(0, plant_articles.pop(plant_articles.index("general")))
 
-    warnings = []
-    if current_user.is_authenticated:
-        warnings = API.warnings.get_recent_warnings(db.session, limit=8)
+    anyWarnings = API.warnings.check_any_recent_warnings(db.session)
 
     return {
         "Permission": Permission,
-        "ecosystems_info": ecosystems_info,
         "dropdowns": dropdowns,
         "plant_articles": plant_articles,
-        "warnings": warnings,
+        "anyWarnings": anyWarnings,
     }
 
 
@@ -81,18 +79,18 @@ def to_home():
 
 @bp.route("/home")
 def home():
-    current_weather = API.weather.get_current_weather()
     sun_times = API.weather.get_suntimes_data()
-    ecosystems_qo = API.ecosystems.get_recent_ecosystems_query_obj(session=db.session)
-    light_data = API.ecosystems.get_light_info(ecosystems_qo)
-    current_system_data = API.admin.get_current_system_data()  # TODO: move to api route
-    current_sensors_data = {**sensorsData}
+    current_weather = API.weather.get_current_weather()
+    current_system_data = API.admin.get_current_system_data()
+    if current_user.is_authenticated:
+        warnings = API.warnings.get_recent_warnings(db.session, limit=8)
+    else:
+        warnings = []
     return render_template("main/home.html", title="Home",
-                           current_weather=current_weather,
-                           light_data=light_data,
                            sun_times=sun_times,
+                           current_weather=current_weather,
                            current_system_data=current_system_data,
-                           current_sensors_data=current_sensors_data,
+                           warnings=warnings,
                            parameters=layout.parameters,
                            )
 
@@ -132,16 +130,16 @@ def sensors(level: str, ecosystem_name: str):
         time_window=time_window, level=level
     )
 
-    current_sensors_data = {ecosystem_ids[0]: sensorsData.get(ecosystem_ids[0])}  # Make sure we get a dict and not None
+    current_sensors_data = API.ecosystems.get_current_sensors_data(
+            session=db.session, ecosystems_query_obj=ecosystem_qo
+    )
 
     graphUpdatePeriod = current_app.config["SENSORS_LOGGING_PERIOD"]
     return render_template("main/sensors.html", title=title,
                            sensors_skeleton=sensors_skeleton,
-
                            ecosystem_ids=ecosystem_ids,
                            level=level,
                            current_sensors_data=current_sensors_data,
-
                            graphUpdatePeriod=graphUpdatePeriod,
                            parameters=layout.parameters,
                            )
@@ -157,11 +155,11 @@ def health(ecosystem_name: str):
     if ecosystem_ids.uid not in recent_ecosystems:
         abort(404)
 
-    data = (Health.query.filter(Health.ecosystem_id == ecosystem_ids[0])
+    data = (HealthData.query.filter(HealthData.ecosystem_id == ecosystem_ids[0])
             .filter(
-        Health.datetime >= API.utils.time_limits()["health"])
-            .with_entities(Health.datetime, Health.health_index, Health.green,
-                           Health.necrosis)
+        HealthData.datetime >= API.utils.time_limits()["health"])
+            .with_entities(HealthData.datetime, HealthData.health_index, HealthData.green,
+                           HealthData.necrosis)
             .all())
     title = f"{ecosystem_ids[1]} plants health"
     return render_template("main/health.html", title=title,
@@ -186,7 +184,7 @@ def switches(ecosystem_name: str):
     return render_template("main/switches.html", title=title,
                            ecosystem_ids=ecosystem_ids,
                            switches={
-                               "light": light_data[ecosystem_ids[0]],
+                               "light": light_data[0],
                            },
                            )
 
@@ -271,11 +269,30 @@ def settings(ecosystem_name: str):
     ecosystem_qo = API.ecosystems.get_ecosystems_query_obj(
         session=db.session, ecosystems=ecosystem_name
     )
-    hardware = API.ecosystems.get_hardware(session=db.session,
-                                           ecosystems_qo=ecosystem_qo)
+    ecosystem = API.ecosystems.get_ecosystems(
+        session=db.session, ecosystems_query_obj=ecosystem_qo
+    )
+    managements = API.ecosystems.get_ecosystems_management(
+        session=db.session, ecosystems_query_obj=ecosystem_qo
+    )
+    light = API.ecosystems.get_light_info(ecosystem_qo)
+    environmental_param = API.ecosystems.get_environmental_parameters(
+        session=db.session, ecosystems_query_obj=ecosystem_qo
+    )
+    hardware = API.ecosystems.get_hardware(
+        session=db.session, ecosystems_query_obj=ecosystem_qo
+    )
+    plants = API.ecosystems.get_plants(
+        session=db.session, ecosystems_query_obj=ecosystem_qo
+    )
     return render_template("main/settings.html", title=title,
                            ecosystem_ids=ecosystem_ids,
+                           ecosystem=ecosystem,
+                           managements=managements,
+                           light=light,
+                           environmental_param=environmental_param,
                            hardware=hardware,
+                           plants=plants,
                            )
 
 

@@ -123,31 +123,33 @@
                 {% for ecosystem in dropdowns['webcam'] %}
                 <li>
                   <a href="#">
-                    {{ecosystem["name"]}}
+                    {{ ecosystem["name"] }}
                   </a>
                 </li>
                 {% endfor %}
               </ul>
             </li>
             {% endif %}
-            {% if ecosystems_info %}
+            <!--TODO: need to check if need condition-->
             <li>
               <div class="accordionMenuItem dropdownLink">
                 <i class="fa fa-cog leftIco"></i>
-                <div class="accordionMenuItemName">Hardware</div>
+                <div class="accordionMenuItemName">Settings</div>
                 <i class="fa fa-chevron-right rightIco" aria-hidden="true"></i>
               </div>
               <ul class="submenuItems">
-                {% for ecosystem in ecosystems_info %}
+                {% if current_user.can(Permission.OPERATE) %}
+                <li><a href="{{ url_for('main.engine_managers') }}">Engine managers</a></li>
+                {% endif %}
+                {% for ecosystem in dropdowns['recent'] %}
                 <li>
-                  <a href="{{ url_for('main.settings', ecosystem_name=ecosystems_info[ecosystem]["name"]) }}">
-                    {{ ecosystems_info[ecosystem]["name"] }}
+                  <a href="{{ url_for('main.settings', ecosystem_name=ecosystem["name"]) }}">
+                    {{ ecosystem["name"] }}
                  </a>
                 </li>
                 {% endfor %}
               </ul>
             </li>
-            {% endif %}
             {% if plant_articles %}
             <li>
               <div class="accordionMenuItem dropdownLink">
@@ -159,18 +161,6 @@
                 {% for article in plant_articles %}
                 <li><a href="{{ url_for('wiki.index', category='plants_care' , article=article) }}">{{ article.capitalize() }}</a></li>
                 {% endfor %}
-              </ul>
-            </li>
-            {% endif %}
-            {% if current_user.can(Permission.OPERATE) %}
-            <li>
-              <div class="accordionMenuItem dropdownLink">
-                <i class="fa fa-tasks leftIco"></i>
-                <div class="accordionMenuItemName">Operator</div>
-                <i class="fa fa-chevron-right rightIco" aria-hidden="true"></i>
-              </div>
-              <ul class="submenuItems">
-                <li><a href="{{ url_for('main.engine_managers') }}">Engine managers</a></li>
               </ul>
             </li>
             {% endif %}
@@ -226,7 +216,7 @@
           </div>
           <div class="warning-button">
             {% if current_user.is_authenticated %}
-            {% if warnings %}
+            {% if anyWarnings %}
             <a href="{{ url_for('main.warnings_') }}">
             <i class="fas fa-exclamation-triangle"></i>
             </a>
@@ -234,13 +224,14 @@
             {% endif %}
           </div>
         </div>
-        <div class="contentContainer">
+        <div class="contentContainer" id="contentContainer">
           {% if self.header() %}
           <div class="topLine">
             <h1 style="margin: auto 0 0 0">{% block header %}{% endblock %}</h1>
             <h3 style="margin: auto 0 0 auto">{% block info %}{% endblock %}</h3>
           </div>
           {% endif %}
+
           {% block content %}{% endblock %}
         </div>
         {% endblock %}

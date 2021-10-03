@@ -19,7 +19,11 @@
     {% for manager in managers %}
     <tr>
       <td style="width: 15px">
+        {% if manager["ecosystems"] %}
         <button id="button-manager-{{ manager["uid"] }}"><i class="fas fa-chevron-right"></i></button>
+        {% else %}
+        <i class="fas fa-sm fa-circle"></i>
+        {% endif %}
       </td>
       <td>{{ manager["uid"] }}</td>
       <td>{{ manager["sid"] }}</td>
@@ -53,6 +57,7 @@ for (const manager of engineManagers) {
   $("span#last_seen_" + manager["uid"]).text(manager_date.toLocaleString());
   $("button#button-manager-" + manager["uid"]).click(function() {
     $("tr[id^='manager-" + manager["uid"] + "-ecosystem']").toggleClass("hide");
+    $("button#button-manager-" + manager["uid"]).toggleClass('open');
   });
   for (const ecosystem of manager["ecosystems"]) {
     const ecosystem_date = new Date(ecosystem["last_seen"]);

@@ -31,13 +31,16 @@ class JSONEncoder(_json.JSONEncoder):
         if isinstance(o, date):
             return o.isoformat()
         if isinstance(o, time):
-            return o.isoformat(timespec="seconds")
+            return (
+                datetime.combine(date.today(), o).replace(tzinfo=timezone.utc)
+                        .isoformat(timespec="seconds")
+            )
         if isinstance(o, uuid.UUID):
             return str(o)
         if isinstance(o, Row):
             return o._data  # return a tuple
 #             return {**o._mapping}  # return a dict
-        if dataclasses and dataclasses.is_dataclass(o):
+        if dataclasses.is_dataclass(o):
             return dataclasses.asdict(o)
         if hasattr(o, "__html__"):
             return text_type(o.__html__())
@@ -75,6 +78,13 @@ def parse_sun_times(moment: str) -> datetime:
     _time = datetime.strptime(moment, "%I:%M:%S %p").time()
     return datetime.combine(date.today(), _time,
                             tzinfo=timezone.utc)
+
+
+def try_iso_format(time_obj):
+    try:
+        return time_to_datetime(time_obj).isoformat()
+    except TypeError:  # time_obj is None or Null
+        return None
 
 
 def config_dict_from_class(obj) -> dict:

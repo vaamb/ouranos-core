@@ -1,6 +1,6 @@
 import logging
 
-from src.app.models import engineManager, Service
+from src.app.models import EngineManager, Service
 from src import dataspace
 from src.dataspace import get_dispatcher
 from src.dataspace.dispatcher import registerEventMixin
@@ -117,8 +117,8 @@ def start(config_class) -> None:
 
 def exit_gracefully() -> None:
     with db.scoped_session() as session:
-        session.query(engineManager).update(
-            {engineManager.connected: False})
+        session.query(EngineManager).update(
+            {EngineManager.connected: False})
         session.commit()
     scheduler.shutdown()
 

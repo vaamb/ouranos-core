@@ -11,6 +11,8 @@ By {{ article.metadata["authors"] | humanizeList }}
 {% endif %}
 
 {% block content %}
+
+<!-- TODO: move this template to wiki/templates/_entry_point.html -->
   <div class="wiki-article">
     {{ article.html | safe }}
   </div>

@@ -1,154 +1,24 @@
 {% extends 'menu.html' %}
 
 {% block header %}{{ level.capitalize() }} sensors in {{ ecosystem_ids[1] }}{% endblock %}
-{% block info %}
-{% if current_sensors_data[ecosystem_ids[0]] %}
-<span id="lastRecordTime"></span>
-{% endif %}
-{% endblock %}
+{% block info %}<span id="lastRecordTime"></span>{% endblock %}
 
 {% block content %}
-  <div class="subtitleFix"></div>
-  {% for measure in sensors_skeleton[0]["sensors_skeleton"] %}
-  <div id = "block_{{ measure }}">
-    <h2>{{ measure.capitalize() | removeUnderscores }}</h2>
-    {% for sensor_id in sensors_skeleton[0]["sensors_skeleton"][measure] %}
-    <div class="board" id="board-{{ measure }}-{{ sensor_id }}">
-      <h1>
-        <i class="{{ parameters[level]["icon"][measure] }} leftIco"></i>
-        {{ sensors_skeleton[0]["sensors_skeleton"][measure][sensor_id] }}
-      </h1>
-      <div id="boardRow_{{ measure }}_{{ sensor_id }}" class="boardRowContainer" style="row-gap: 6px">
-        <div class="chartContainer boardFlexItem" style="height: 195px">
-          <canvas id="chartCanvas-{{ sensor_id }}-{{ measure }}"></canvas>
-        </div>
-      </div>
-    </div>
-    {% endfor %}
-  </div>
-  {% endfor %}
 {% endblock %}
 
 {% block scripts %}
-    <script type="text/javascript">
-    const ecosystem_uid = "{{ ecosystem_ids[0] }}";
-    const sensorsSkeleton = {{ sensors_skeleton | tojson }};
-    let currentSensorsData = {};
-    Object.assign(currentSensorsData, {{ current_sensors_data[ecosystem_ids[0]] | tojson }});
-    let lastDataUpdate = new Date();
-    const graphUpdatePeriod = {{ graphUpdatePeriod }};
-    let lastGraphUpdate = null;
-    let graphsUpdated = false;
-    const graphWindowLimit = 7;
+<script type="text/javascript">
+  sensorsSkeleton = $.ajax({
+    url: "{{ url_for('api.get_sensors_skeleton') }}",
+    type: "get",
+    data: {ecosystems: {{ ecosystem_ids[0] | tojson}}, level: {{ level | tojson }},}
+  }).promise();
 
-
-    const units =  {{ parameters[level]['unit'] | tojson }};
-    const maxValues = {{ parameters[level]['max_value'] | tojson }};
-    const colors = {{ parameters[level]['color'] | tojson }};
-    window[colors] = colors;
-    function updateLastSensorsUpdateTime() {
-      let date = null
-      try {date = new Date(currentSensorsData["datetime"])} catch(error) {console.log(error)}
-      updateLastRecordTime(date, "Last sensors measure at ")
-    }
-
-    updateLastSensorsUpdateTime();
-
-    function updateGauges() {
-      for (const measure in sensorsSkeleton[0]["sensors_skeleton"]) {
-        if (sensorsSkeleton[0]["sensors_skeleton"].hasOwnProperty(measure)) {
-          for (const sensor_id in sensorsSkeleton[0]["sensors_skeleton"][measure]) {
-            if (sensorsSkeleton[0]["sensors_skeleton"][measure].hasOwnProperty(sensor_id)) {
-              const ID = measure + "_" + sensor_id;
-              let newValue = null;
-              try {
-                newValue = Number(currentSensorsData["data"][sensor_id][measure]).toFixed(1);
-              } catch(err) {}
-              const unit = units[measure];
-              const maxValue = maxValues[measure];
-              updateGaugeContainer(ID, newValue, unit, maxValue);
-            }
-          }
-        }
-      }
-    }
-
-    updateGauges();
-
-    function createGraphs() {
-      for (const measure in sensorsSkeleton[0]["sensors_skeleton"]) {
-        if (sensorsSkeleton[0]["sensors_skeleton"].hasOwnProperty(measure)) {
-          for (const sensor_id in sensorsSkeleton[0]["sensors_skeleton"][measure]) {
-            if (sensorsSkeleton[0]["sensors_skeleton"][measure].hasOwnProperty(sensor_id)) {
-              $.ajax({
-                url: "/api/ecosystems/sensor/" + sensor_id + "/" + measure,
-                async: true,
-                dataType: "json",
-                type: "get",
-                success: function(response) {
-                  let historicSensorsData = formatHistoricSensorsData(response);
-                  createGraph(historicSensorsData);
-                }
-              });
-            }
-          }
-        }
-      }
-      lastGraphUpdate = new Date();
-      graphsUpdated = true;
-    }
-
-    createGraphs();
-
-    function updateGraphs() {
-      let dataLimit = new Date();
-      dataLimit.setDate(dataLimit.getDate() - graphWindowLimit);
-      // Loop through existing graphs
-      for (const measure in sensorsSkeleton[0]["sensors_skeleton"]) {
-        if (sensorsSkeleton[0]["sensors_skeleton"].hasOwnProperty(measure)) {
-          for (const sensor_id in sensorsSkeleton[0]["sensors_skeleton"][measure]) {
-            if (sensorsSkeleton[0]["sensors_skeleton"][measure].hasOwnProperty(sensor_id)) {
-
-              const ID = sensor_id + "_" + measure;
-              let newLabel = null;
-              let newData = null;
-              try {
-                newLabel = currentSensorsData["datetime"];
-                newData = Number(currentSensorsData["data"][sensor_id][measure]).toFixed(1);
-              } catch(err) {}
-              updateGraph(ID, newLabel, newData, dataLimit);
-            }
-          }
-        }
-      }
-      lastGraphUpdate = new Date();
-      graphsUpdated = true;
-    }
-
-    setInterval(function() {
-      const now = new Date();
-      // If too old "currentSensorsData", remove it
-      if (now - lastDataUpdate > 1000*90) {
-        currentSensorsData = {};
-        // Clean gauges
-        updateGauges();
-        // Remove old graph points
-        updateGraphs();
-      }
-    }, 1000*60)
-
-    socket.on('current_sensors_data', function(msg) {
-      const now = new Date();
-      Object.assign(currentSensorsData, msg[ecosystem_uid]);
-      currentSensorsData["datetime"] = new Date(currentSensorsData["datetime"]);
-      updateLastSensorsUpdateTime();
-      updateGauges();
-      if (now.getMinutes() !== lastGraphUpdate.getMinutes()) {
-        graphsUpdated = false;
-      }
-      if ((currentSensorsData["datetime"].getMinutes() % graphUpdatePeriod === 0) && (! graphsUpdated)) {
-        updateGraphs();
-      }
-    });
-    </script>
+  sensorsSkeleton.then(function(skeleton) {
+    UI.createSensorBoardsFromSkeleton(skeleton);
+    UI.createSensorBoardsGauges(skeleton)
+    UI.createSensorBoardsGraphsFromSkeleton(skeleton, {{ graphUpdatePeriod | tojson }})
+    UI.updateSensorBoardsFromSensorsCurrentData(skeleton, {{ graphUpdatePeriod | tojson }})
+  });
+</script>
 {% endblock %}

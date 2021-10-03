@@ -173,8 +173,8 @@ def get_historic_system_data(db_session, days=7):
             )
     return {
         "data": data,
-        "order": {0: "datetime", 1: "CPU_used", 2: "CPU_temp", 3: "RAM_used",
-                  4: "RAM_total", 5: "DISK_used", 6: "DISK_total"}
+        "order": ["datetime", "CPU_used", "CPU_temp", "RAM_used",
+                  "RAM_total", "DISK_used", "DISK_total"]
     }
 
 

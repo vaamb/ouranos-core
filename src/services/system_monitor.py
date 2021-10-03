@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import os
 import psutil
 from threading import Thread, Event
 
@@ -8,7 +9,8 @@ from src.services.template import serviceTemplate
 from src.services.shared_resources import db, scheduler
 
 
-SYSTEM_UPDATE_PERIOD = 2
+SYSTEM_UPDATE_PERIOD = 5
+current_process = psutil.Process(os.getpid())
 
 
 # TODO: allow multiple serve to report system data (use an id before dict)
@@ -38,6 +40,7 @@ class systemMonitor(serviceTemplate):
                 "DISK_total": round(psutil.disk_usage("/")[0]/(1024*1024*1024), 2),
                 "DISK_used": round(psutil.disk_usage("/")[1]/(1024*1024*1024), 2),
                 "CPU_temp": try_get_temp(),
+                "RAM_process": round(current_process.memory_info().rss/(1024*1024*1024), 2),
                 "start_time": START_TIME,
             }
             with self.mutex:
@@ -58,6 +61,7 @@ class systemMonitor(serviceTemplate):
                 RAM_used=self._data["RAM_used"],
                 DISK_total=self._data["DISK_total"],
                 DISK_used=self._data["DISK_used"],
+                # TODO: add RAM_process
             )
             session.add(system)
             session.commit()

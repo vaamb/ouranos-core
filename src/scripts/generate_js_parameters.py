@@ -1,6 +1,5 @@
-'''
-Small module to customize graphs colors for the different html pages
-'''
+import json
+import pathlib
 
 parameters = {
     "subBoxesOrder": ["light", "environment", "plants"],
@@ -43,3 +42,16 @@ parameters = {
         "partly-cloudy-night": "wi wi-night-alt-cloudy",
     },
 }
+
+script_path = pathlib.Path(__file__).absolute()
+js_path = script_path.parents[1]/"app/static/js/parameters.js"
+print(js_path)
+update = False
+try:
+    if script_path.stat().st_mtime > js_path.stat().st_mtime:
+        update = True
+except FileNotFoundError:
+    update = True
+if update:
+    with open(script_path, "w") as file:
+        json.dump(parameters, file, indent=4)

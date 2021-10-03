@@ -3,7 +3,7 @@ from flask_wtf import FlaskForm
 from wtforms import BooleanField, IntegerField, SelectField, StringField, SubmitField
 from wtforms.validators import DataRequired, Email, Length, Optional, Regexp, ValidationError
 
-from src.app.models import comChannel, User
+from src.app.models import CommunicationChannel, User
 
 
 class EditProfileForm(FlaskForm):

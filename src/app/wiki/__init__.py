@@ -14,14 +14,14 @@ class ArticleNotAvailable(Exception):
     """The article doesn't exist"""
 
 
-article_tuple = namedtuple("article_tuple", ["metadata", "html"])
+article_tuple = namedtuple("article_tuple", ["metadata", "html"])  # TODO: change html by "raw" and add a property html which has a self._html = None and parse it when required
 
 
 class simpleWiki:
     def __init__(self) -> None:
         self.wiki_path = pathlib.Path(__file__).parent.absolute()
-        self.md_parser = markdown.Markdown(
-            # TODO: bake a custom image size selector instead of attr_list
+        self.md_parser = markdown.Markdown(  # TODO: move out of the class
+            # TODO: bake a custom image size selector instead of using attr_list
             extensions=["extra", "meta", "attr_list"])
 
     @property

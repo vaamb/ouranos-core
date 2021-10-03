@@ -1,20 +1,30 @@
 import cachetools.func
 
 from src.app.API.utils import time_limits
-from src.app.models import Warning_table
+from src.app.models import EcosystemWarning
 
 
 @cachetools.func.ttl_cache(ttl=60)
-def get_recent_warnings(session, limit: int = 10) -> list[Warning_table]:
+def get_recent_warnings(session, limit: int = 10) -> list[EcosystemWarning]:
     time_limit = time_limits()["warnings"]
 
-    return (session.query(Warning_table)
-            .filter(Warning_table.datetime >= time_limit)
-            .filter(Warning_table.solved == False)
-            .order_by(Warning_table.level.desc())
-            .order_by(Warning_table.id)
-            .with_entities(Warning_table.datetime, Warning_table.emergency,
-                           Warning_table.title)
+    return (session.query(EcosystemWarning)
+            .filter(EcosystemWarning.created >= time_limit)
+            .filter(EcosystemWarning.solved is None)
+            .order_by(EcosystemWarning.level.desc())
+            .order_by(EcosystemWarning.id)
+            .with_entities(EcosystemWarning.created, EcosystemWarning.emergency,
+                           EcosystemWarning.title)
             .limit(limit)
             .all()
             )
+
+
+def check_any_recent_warnings(session) -> bool:
+    time_limit = time_limits()["warnings"]
+    return bool(
+        session.query(EcosystemWarning)
+               .filter(EcosystemWarning.created >= time_limit)
+               .filter(EcosystemWarning.solved is None)
+               .first()
+    )

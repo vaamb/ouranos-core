@@ -1,7 +1,6 @@
 from collections.abc import MutableMapping
 from datetime import datetime, timezone
 import logging
-from queue import Queue
 
 from cachetools import Cache, TTLCache
 from redis import Redis, RedisError
@@ -148,7 +147,7 @@ def reset(config_class: Config) -> None:
 # Potentially workers-shared caches
 # TODO: change sensorsData to avoid confusion
 sensorsData = LocalProxy(lambda: get_cache("sensorsData"))
-healthData = LocalProxy(lambda: get_cache("healthData"))
+healthData = LocalProxy(lambda: get_cache("healthData"))  # TODO: del healthData as all data points are logged
 systemData = LocalProxy(lambda: get_cache("systemData"))
 # TODO: weather cache based on file (save 2 files: raw_data and data)
 weatherData = LocalProxy(lambda: get_cache("weatherData"))

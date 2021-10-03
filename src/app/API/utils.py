@@ -9,7 +9,7 @@ timeWindow = namedtuple("timeWindow", ("start", "end"))
 
 def round_time_to_nearest_multiple(dt: datetime,
                                    rounding_base: int = 10,
-                                   grace_time: int = 20) -> datetime:
+                                   grace_time: int = 60) -> datetime:
     grace_time = timedelta(seconds=grace_time)
     rounded_minute = dt.minute // rounding_base * rounding_base
     return (dt.replace(minute=rounded_minute, second=0, microsecond=0)

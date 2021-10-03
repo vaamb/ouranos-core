@@ -1,15 +1,13 @@
 from datetime import datetime, timedelta, timezone
 
 from flask import current_app, render_template, redirect, url_for, flash
-from flask_login import login_required
 import tracemalloc
 
 from src.app import db, API
 from src.app.views import layout
 from src.app.views.admin import bp
 from src.app.views.admin.forms import InvitationForm
-from src.app.views.decorators import permission_required
-from src.app.models import Permission, Service
+from src.app.models import Service
 
 
 """Remark:
@@ -79,14 +77,11 @@ def mem_snapshot():
 @bp.route("/system")
 def system():
     current_system_data = API.admin.get_current_system_data()
-    historic_system_data = API.admin.get_historic_system_data(db.session)["data"]
     system_measures = [key for key in current_system_data
                        if current_system_data[key]]
     graphUpdatePeriod = current_app.config["SYSTEM_LOGGING_PERIOD"]
     return render_template("admin/system.html", title="Server monitoring",
                            graphUpdatePeriod=graphUpdatePeriod,
-                           current_system_data=current_system_data,
-                           historic_system_data=historic_system_data,
                            system_measures=system_measures,
                            parameters=layout.parameters)
 
@@ -113,5 +108,9 @@ def db_management(db):
 
 @bp.route("/services")
 def services_management():
-    services_available = Service.query.order_by(Service.name.asc()).all()
+    # TODO: move to API
+    services_available = [
+        service.to_dict() for service in
+        Service.query.order_by(Service.name.asc()).all()
+    ]
     return render_template("admin/services.html", services=services_available)

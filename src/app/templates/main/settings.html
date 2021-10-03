@@ -4,6 +4,60 @@
 {% block info %}{% endblock %}
 
 {% block content %}
+<h2>Managements</h2>
+<div class="board">
+  <form>
+    <table class="table-aligner">
+      <tbody>
+        {% for management in ("sensors", "light", "climate", "watering", "health", "alarms", "webcam") %}
+        <tr>
+          <td>{{ management.capitalize() }}</td>
+          <td>
+            <label class="switch">
+              <input type="checkbox" {{ 'checked' if managements[0][management] else '' }} id="{{ management }}_toggle">
+              <span class="slider"></span>
+            </label>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </form>
+</div>
+
+<h2>Environmental parameters</h2>
+<table class="table-base table-alternate-colors">
+  <thead>
+    <tr>
+      <th>Parameter</th>
+      <th>Day (start at {{ ecosystem[0]["day_start"] }})</th>
+      <th>Night (start at {{ ecosystem[0]["night_start"] }})</th>
+      <th>Hysteresis</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for parameter in environmental_param[0]["environmental_parameters"] %}
+    <tr>
+      <td>{{ parameter["parameter"] }}</td>
+      <td>{{ parameter["day"] }}</td>
+      <td>{{ parameter["night"] }}</td>
+      <td>{{ parameter["hysteresis"] }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+  {% if current_user.can(Permission.OPERATE) %}
+  <tbody>
+    <tr>
+      <td colspan="8" style="text-align: center; vertical-align: middle;">
+        <button id="add_parameter" class="table-bigger-line" title="Add a new parameter to {{ ecosystem_ids.name }}"><i class="far fa-plus-square"></i></button>
+      </td>
+    </tr>
+  </tbody>
+  {% endif %}
+</table>
+
+{% if hardware[0]["hardware"] %}
+<h2>Hardware</h2>
 <table class="table-base table-alternate-colors">
   <thead>
     <tr>
@@ -18,8 +72,7 @@
     </tr>
   </thead>
   <tbody>
-    {% set hardware_list = hardware[0]["hardware"] %}
-    {% for h in hardware_list %}
+    {% for h in hardware[0]["hardware"] %}
     <tr>
       <td>{{ h["level"] }}</td>
       <td>{{ h["type"] }}</td>
@@ -59,12 +112,64 @@
   </tbody>
   {% endif %}
 </table>
+{% endif %}
+
+{% if plants[0]["plants"] %}
+<h2>Hardware</h2>
+<table class="table-base table-alternate-colors">
+  <thead>
+    <tr>
+      <th>Species</th>
+      <th>Name</th>
+      <th>Sowing date</th>
+      <th>Look sensors data</th>
+      <th>Action</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for plant in plants[0]["plants"] %}
+    <tr>
+      <td>{{ plant["species"] }}</td>
+      <td>{{ plant["name"] }}</td>
+      <td>{{ plant["sowing_date"] }}</td>
+      <td>
+        {% if plant["sensors"] %}
+        <button id="see_{{ plant["id"] }}" title="See {{ plant["name"] }} data"><i class="fas fa-search"></i></button>
+        {% endif %}
+      </td>
+      <td>
+        {% if current_user.can(Permission.OPERATE) %}
+        <button id="edit_{{ plant["id"] }}" title="Edit {{ plant["name"] }}">
+          <i class="fas fa-edit"></i>
+        </button>
+        <button id="delete_{{ plant["id"] }}" title="Delete {{ plant["name"] }}">
+          <i class="fas fa-trash"></i>
+        </button>
+        {% else %}
+        <button disabled title="You need to be an operator to edit {{ plant["name"] }}"><i class="fas fa-edit"></i></button>
+        <button disabled title="You need to be an operator to delete {{ plant["name"] }}"><i class="fas fa-trash"></i></button>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+  {% if current_user.can(Permission.OPERATE) %}
+  <tbody>
+    <tr>
+      <td colspan="8" style="text-align: center; vertical-align: middle;">
+        <button id="add_hardware" class="table-bigger-line" title="Add a new hardware to {{ ecosystem_ids.name }}"><i class="far fa-plus-square"></i></button>
+      </td>
+    </tr>
+  </tbody>
+  {% endif %}
+</table>
+{% endif %}
+
 {% endblock %}
 
 {% block scripts %}
 <script type="text/javascript">
   let hardware = {{ hardware | tojson }};
-  const ecosystemUID = hardware[0]["uid"]
   for (const h of hardware[0]["hardware"]) {
     if (h["last_log"] !== null){
         const date = new Date(h["last_log"]);
@@ -87,24 +192,25 @@
     $("button#see_" + h["uid"]).click(function() {
       $("div#modal-root").toggleClass("hide");
       let modalContent = $("div#modal-content");
-      let newTitle = $("<h1/>").text("Sensor " + h["name"])
-      modalContent.append(newTitle);
+      modalContent.append($("<h1/>").text("Sensor " + h["name"]));
       for (const measure of h["measures"]) {
-        $.ajax({url: "/api/ecosystems/sensor/" + h["uid"] + "/" + measure, success: function(response) {
-          let newSubTitle = $("<h2/>").text(capitalize(measure.replace("_", " ")));
-          modalContent.append(newSubTitle);
-          let newCanvas = $("<canvas/>", {
-            id: "chartCanvas-" + h["uid"] + "-" + measure
-          }).prop({
-            width: 200,
-            height: 200
-          });
-          let newCanvasContainer = $("<div/>", {class: "chartContainer boardFlexItem", css: {height: "180px", "min-width": "60vw"}});
-          newCanvasContainer.append(newCanvas);
-          modalContent.append(newCanvasContainer);
-          let historicSensorsData = formatHistoricSensorsData(response);
-          createGraph(historicSensorsData);
-        }});
+        $.ajax({
+          url: "/api/ecosystems/sensors/" + h["uid"] + "/" + measure,
+          type: "get",
+          success: function(response) {
+            modalContent.append($("<h2/>").text(capitalize(measure.replace("_", " "))));
+            let newCanvasContainer = $("<div/>", {class: "chartContainer boardFlexItem", css: {height: "180px", "min-width": "60vw"}});
+            newCanvasContainer.append($("<canvas/>", {
+              id: "chartCanvas-" + h["uid"] + "-" + measure
+            }).prop({
+              width: 200,
+              height: 200
+            }));
+            modalContent.append(newCanvasContainer);
+            let sensorHistoricData = graphs.formatSingleSensorHistoricData(response);
+            graphs.create(sensorHistoricData);
+          }
+        });
       }
     });
   }

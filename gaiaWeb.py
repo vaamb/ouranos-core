@@ -9,6 +9,7 @@ eventlet.monkey_patch()
 
 import argparse
 import logging
+import os
 import signal
 import sys
 
@@ -18,9 +19,9 @@ from src.utils import configure_logging, humanize_list
 from config import config
 
 
-profiles_available = [profile for profile in config]
+config_profiles_available = [profile for profile in config]
 
-default_profile = "development"
+default_profile = os.environ.get("GAIA_CONFIG") or "development"
 
 
 def get_config(profile):
@@ -32,7 +33,7 @@ def get_config(profile):
         return config["production"]
     else:
         print(f"{profile} is not a valid profile. Valid profiles are "
-              f"{humanize_list(profiles_available)}.")
+              f"{humanize_list(config_profiles_available)}.")
 
 
 parser = argparse.ArgumentParser()

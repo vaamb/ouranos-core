@@ -20,6 +20,7 @@ units = {
 }
 
 
+#TODO: redo all
 def replace_underscore(s: str, replacement: str = " ") -> str:
     return s.replace("_", replacement)
 
@@ -69,7 +70,7 @@ def light_info(*ecosystems, session, **kwargs):
 
 
 def current_sensors_info(*ecosystems, session):
-    raw_sensors = API.ecosystems.get_current_sensors_data(
+    raw_sensors = API.ecosystems.get_current_sensors_data_old(
         *ecosystems, session=session)
     sensors = API.ecosystems.summarize_sensors_data(raw_sensors)
     if sensors:

@@ -10,8 +10,8 @@ from sqlalchemy.exc import IntegrityError, NoResultFound
 
 from src.app import app_name, db, scheduler, sio
 from src.app.events import dispatcher
-from src.app.models import Ecosystem, engineManager, environmentParameter, \
-    Hardware, Health, Light, Management, Measure, sensorData
+from src.app.models import Ecosystem, EngineManager, EnvironmentParameter, \
+    Hardware, HealthData, Light, Management, Measure, SensorData
 from src.app.utils import decrypt_uid, validate_uid_token
 from src.dataspace import healthData, sensorsData
 
@@ -101,7 +101,7 @@ def connect_on_gaia():
 @sio.on("disconnect", namespace="/gaia")
 def disconnect():
     try:
-        manager = engineManager.query.filter_by(sid=request.sid).one()
+        manager = EngineManager.query.filter_by(sid=request.sid).one()
         uid = manager.uid
         leave_room("engineManagers")
         manager.connected = False
@@ -120,7 +120,7 @@ def disconnect():
 @sio.on("pong", namespace="/gaia")
 def pong(data):
     now = datetime.now(timezone.utc).replace(microsecond=0)
-    manager = engineManager.query.filter_by(sid=request.sid).one()
+    manager = EngineManager.query.filter_by(sid=request.sid).one()
     manager.last_seen = now
     for ecosystem_uid in data:
         ecosystem = Ecosystem.query.filter_by(id=ecosystem_uid).one()
@@ -168,7 +168,7 @@ def registerManager(data):
             pass
         now = datetime.now(timezone.utc).replace(microsecond=0)
         # TODO: check if manager not already connected
-        manager = engineManager(
+        manager = EngineManager(
             uid=manager_uid,
             sid=request.sid,
             connected=True,
@@ -191,8 +191,8 @@ def registerManager(data):
 
 
 # TODO: transform into a wrap?
-def check_manager_identity(event):
-    manager = engineManager.query.filter_by(sid=request.sid).first()
+def check_manager_identity(event) -> EngineManager:
+    manager = EngineManager.query.filter_by(sid=request.sid).first()
     if not manager:
         remote_addr = request.environ["REMOTE_ADDR"]
         remote_port = request.environ["REMOTE_PORT"]
@@ -200,7 +200,7 @@ def check_manager_identity(event):
                            f"client with address {remote_addr}:{remote_port}")
         sio.emit("register", namespace="/gaia", room=request.sid)
         # TODO: raise error?
-        return False
+        return EngineManager()
     return manager
 
 
@@ -217,83 +217,89 @@ def reload_all():
 @sio.on("config", namespace="/gaia")
 def update_cfg(config):
     manager = check_manager_identity("config")
-    if manager:
-        for ecosystem_id in config:
+    for ecosystem_id in config:
+        try:
+            day_start = datetime.strptime(
+                config[ecosystem_id]["environment"]["day"]["start"], "%Hh%M"
+            ).time()
+            night_start = datetime.strptime(
+                config[ecosystem_id]["environment"]["night"]["start"],
+                "%Hh%M"
+            ).time()
+        except KeyError:
+            day_start = night_start = None
+        ecosystem = Ecosystem(
+            id=ecosystem_id,
+            name=config[ecosystem_id]["name"],
+            status=config[ecosystem_id]["status"],
+            manager_uid=manager.uid,
+            day_start=day_start,
+            night_start=night_start,
+        )
+
+        for m in Management:
             try:
-                day_start = datetime.strptime(
-                    config[ecosystem_id]["environment"]["day"]["start"], "%Hh%M"
-                ).time()
-                night_start = datetime.strptime(
-                    config[ecosystem_id]["environment"]["night"]["start"],
-                    "%Hh%M"
-                ).time()
+                if config[ecosystem_id]["management"][m]:
+                    ecosystem.add_management(Management[m])
             except KeyError:
-                day_start = night_start = None
-            ecosystem = Ecosystem(
-                id=ecosystem_id,
-                name=config[ecosystem_id]["name"],
-                status=config[ecosystem_id]["status"],
-                manager_uid=manager.uid,
-                day_start=day_start,
-                night_start=night_start,
+                # Not implemented yet
+                pass
+        db.session.merge(ecosystem)
+
+        for parameter in ("temperature", "humidity", "light"):
+            try:
+                environment_parameter = (
+                    db.session.query(EnvironmentParameter)
+                              .filter_by(ecosystem_id=ecosystem_id)
+                              .filter_by(parameter=parameter)
+                              .one_or_none()
+                )
+                if not environment_parameter:
+                    environment_parameter = EnvironmentParameter(
+                        ecosystem_id=ecosystem_id,
+                        parameter=parameter,
+                    )
+                environment_parameter.day = (config[ecosystem_id]
+                    ["environment"]["day"][parameter])
+                environment_parameter.night = (config[ecosystem_id]
+                    ["environment"]["night"][parameter])
+                environment_parameter.hysteresis = (config[ecosystem_id]
+                    ["environment"]["hysteresis"][parameter])
+                db.session.add(environment_parameter)
+            except KeyError:
+                pass
+
+        # TODO: first delete all hardware from this ecosystem present there
+        #  before, so if delete in config, deleted here too
+        for hardware_uid in config[ecosystem_id].get("IO", {}):
+            hardware = Hardware(
+                id=hardware_uid,
+                ecosystem_id=ecosystem_id,
+                name=config[ecosystem_id]["IO"][hardware_uid]["name"],
+                address=config[ecosystem_id]["IO"][hardware_uid]["address"],
+                type=config[ecosystem_id]["IO"][hardware_uid]["type"],
+                level=config[ecosystem_id]["IO"][hardware_uid]["level"],
+                model=config[ecosystem_id]["IO"][hardware_uid]["model"],
             )
 
-            for m in Management:
-                try:
-                    if config[ecosystem_id]["management"][m]:
-                        ecosystem.add_management(Management[m])
-                except KeyError:
-                    # Not implemented yet
-                    pass
-            db.session.merge(ecosystem)
-
-            for parameter in ("temperature", "humidity", "light"):
-                for moment_of_day in ("day", "night"):
-                    try:
-                        environment_parameter = environmentParameter(
-                            ecosystem_id=ecosystem_id,
-                            parameter=parameter,
-                            moment_of_day=moment_of_day,
-                            value=(config[ecosystem_id]["environment"]
-                                         [moment_of_day][parameter]),
-                            hysteresis=(config[ecosystem_id]["environment"]
-                                              ["hysteresis"][parameter]),
-                        )
-                        db.session.merge(environment_parameter)
-                    except KeyError:
-                        pass
-
-            # TODO: first delete all hardware from this ecosystem present there
-            #  before, so if delete in config, deleted here too
-            for hardware_uid in config[ecosystem_id].get("IO", {}):
-                hardware = Hardware(
-                    id=hardware_uid,
-                    ecosystem_id=ecosystem_id,
-                    name=config[ecosystem_id]["IO"][hardware_uid]["name"],
-                    address=config[ecosystem_id]["IO"][hardware_uid]["address"],
-                    type=config[ecosystem_id]["IO"][hardware_uid]["type"],
-                    level=config[ecosystem_id]["IO"][hardware_uid]["level"],
-                    model=config[ecosystem_id]["IO"][hardware_uid]["model"],
+            measures = config[ecosystem_id]["IO"][hardware_uid].get(
+                    "measure", [])
+            if isinstance(measures, str):
+                measures = [measures]
+            for measure in measures:
+                _measure = Measure(
+                    name=measure
                 )
 
-                measures = config[ecosystem_id]["IO"][hardware_uid].get(
-                        "measure", [])
-                if isinstance(measures, str):
-                    measures = [measures]
-                for measure in measures:
-                    _measure = Measure(
-                        name=measure
-                    )
-
-                    hardware.measure.append(_measure)
-                db.session.merge(hardware)
-        sio.emit(
-            "ecosystem_status",
-            {ecosystem.id: {"status": ecosystem.status, "connected": True}
-             for ecosystem in manager.ecosystem},
-            namespace="/"
-        )
-        db.session.commit()
+                hardware.measure.append(_measure)
+            db.session.merge(hardware)
+    sio.emit(
+        "ecosystem_status",
+        [{"uid": ecosystem.id, "status": ecosystem.status, "connected": True}
+         for ecosystem in manager.ecosystem],
+        namespace="/"
+    )
+    db.session.commit()
 
 
 # TODO: split this in two part: one receiving and logging data, and move the
@@ -304,29 +310,27 @@ def update_sensors_data(data):
     if manager:
         sio_logger.debug(f"Received 'sensors_data' from manager: {manager.uid}")
         dispatcher.emit("application", "sensors_data", data=data)
-        #sensorsData.update(data)
-        # TODO: add a room specific for each ecosystem
+        # TODO: add a room specific for each ecosystem?
         sio.emit("current_sensors_data", data, namespace="/")
-
-        for ecosystem_id in data:
+        for ecosystem in data:
             try:
-                dt = datetime.fromisoformat(data[ecosystem_id]["datetime"])
+                dt = datetime.fromisoformat(ecosystem["datetime"])
             # When launching, gaiaEngine is sometimes still loading its sensors
             except KeyError:
                 continue
-            #sensorsData[ecosystem_id]["datetime"] = dt
+
             if dt.minute % current_app.config["SENSORS_LOGGING_PERIOD"] == 0:
                 measure_values = {}
-                # TODO: add ecosystem name
-                collector.debug(f"Logging sensors data from manager: {manager.uid}")
+                collector.debug(f"Logging sensors data from ecosystem: {ecosystem['ecosystem_uid']}")
 
-                for sensor_id in data[ecosystem_id]["data"]:
-                    for measure in data[ecosystem_id]["data"][sensor_id]:
-                        value = float(data[ecosystem_id]["data"][sensor_id][measure])
-                        sensor_data = sensorData(
-                            ecosystem_id=ecosystem_id,
-                            sensor_id=sensor_id,
-                            measure=measure,
+                for sensor in ecosystem["data"]:
+                    sensor_uid = sensor["sensor_uid"]
+                    for measure in sensor["measures"]:
+                        value = float(measure["values"])
+                        sensor_data = SensorData(
+                            ecosystem_id=ecosystem["ecosystem_uid"],
+                            sensor_id=sensor_uid,
+                            measure=measure["name"],
                             datetime=dt,
                             value=value,
                         )
@@ -334,26 +338,27 @@ def update_sensors_data(data):
                         try:
                             db.session.add(sensor_data)
                             Hardware.query.filter_by(
-                                id=sensor_id).one().last_log = dt
+                                id=sensor_uid).one().last_log = dt
                         except IntegrityError:
                             collector.warning(
-                                f"Already have a {measure} data point at {dt} "
-                                f"for {sensor_id}"
+                                f"Already have a {measure['name']} data point at {dt} "
+                                f"for {sensor_uid}"
                             )
 
                         try:
-                            measure_values[measure].append(value)
+                            measure_values[measure["name"]].append(value)
                         except KeyError:
-                            measure_values[measure] = [value]
+                            measure_values[measure["name"]] = [value]
 
                 for method in summarize:
                     for measure in measure_values:
                         # Set a minimum threshold before summarizing values
+                        # TODO: add the option to summarize or not
                         if len(measure_values[measure]) >= 3:
                             values_summarized = round(
                                 summarize[method](measure_values[measure]), 2)
-                            aggregated_data = sensorData(
-                                ecosystem_id=ecosystem_id,
+                            aggregated_data = SensorData(
+                                ecosystem_id=ecosystem["ecosystem_uid"],
                                 sensor_id=method,
                                 measure=measure,
                                 datetime=dt,
@@ -370,13 +375,13 @@ def update_health_data(data):
         sio_logger.debug(f"Received 'update_health_data' from {manager.uid}")
         dispatcher.emit("application", "health_data", data=data)
         # healthData.update(data)
-        for ecosystem_id in data:
-            health = Health(
-                ecosystem_id=ecosystem_id,
-                datetime=datetime.fromisoformat(data[ecosystem_id]["datetime"]),
-                green=data[ecosystem_id]["green"],
-                necrosis=data[ecosystem_id]["necrosis"],
-                health_index=data[ecosystem_id]["health_index"]
+        for d in data:
+            health = HealthData(
+                ecosystem_id=d["ecosystem_uid"],
+                datetime=datetime.fromisoformat(d["datetime"]),
+                green=d["green"],
+                necrosis=d["necrosis"],
+                health_index=d["health_index"]
             )
             db.session.add(health)
         db.session.commit()
@@ -384,6 +389,7 @@ def update_health_data(data):
 
 @sio.on("light_data", namespace="/gaia")
 def update_light_data(data):
+    # TODO: log status 
     manager = check_manager_identity("config")
 
     def try_from_iso(isotime):
@@ -394,23 +400,16 @@ def update_light_data(data):
 
     if manager:
         sio_logger.debug(f"Received 'light_data' from {manager.uid}")
-        for ecosystem_id in data:
-            if data[ecosystem_id].get("lighting_hours"):
-                morning_start = try_from_iso(
-                    data[ecosystem_id]["lighting_hours"].get("morning_start"))
-                morning_end = try_from_iso(
-                    data[ecosystem_id]["lighting_hours"].get("morning_end"))
-                evening_start = try_from_iso(
-                    data[ecosystem_id]["lighting_hours"].get("evening_start"))
-                evening_end = try_from_iso(
-                    data[ecosystem_id]["lighting_hours"].get("evening_end"))
-            else:
-                morning_start = morning_end = evening_start = evening_end = None
+        for d in data:
+            morning_start = try_from_iso(d.get("morning_start", None))
+            morning_end = try_from_iso(d.get("morning_end", None))
+            evening_start = try_from_iso(d.get("evening_start", None))
+            evening_end = try_from_iso(d.get("evening_end", None))
             light = Light(
-                ecosystem_id=ecosystem_id,
-                status=data[ecosystem_id]["status"],
-                mode=data[ecosystem_id]["mode"],
-                method=data[ecosystem_id]["method"],
+                ecosystem_id=d["ecosystem_uid"],
+                status=d["status"],
+                mode=d["mode"],
+                method=d["method"],
                 morning_start=morning_start,
                 morning_end=morning_end,
                 evening_start=evening_start,
@@ -436,9 +435,6 @@ def _turn_actuator(*args, **kwargs):
 
 @dispatcher.on("sensors_data")
 def update_sensors_data(data):
-    sensorsData.update(data)
-
-
-@dispatcher.on("health_data")
-def update_health_data(data):
-    healthData.update(data)
+    sensorsData.update(
+        {ecosystem["ecosystem_uid"]: ecosystem for ecosystem in data}
+    )
