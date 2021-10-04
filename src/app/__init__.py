@@ -4,7 +4,7 @@ from pathlib import Path
 import time
 
 from apscheduler.schedulers.background import BackgroundScheduler
-from flask import Flask, g
+from flask import Flask, g, session
 from flask_login import LoginManager
 from flask_mail import Mail
 from flask_migrate import Migrate
@@ -92,13 +92,13 @@ def create_app(config_class=DevelopmentConfig):
     from src.app.views.errors import bp as errors_bp
     app.register_blueprint(errors_bp)
 
+    logger.debug("Loading api blueprint")
+    from src.app.routes import bp as api_bp
+    app.register_blueprint(api_bp)
+
     logger.debug("Loading admin blueprint")
     from src.app.views.admin import bp as admin_bp
     app.register_blueprint(admin_bp)
-
-    logger.debug("Loading api blueprint")
-    from src.app.views.api import bp as api_bp
-    app.register_blueprint(api_bp)
 
     logger.debug("Loading auth blueprint")
     from src.app.views.auth import bp as auth_bp

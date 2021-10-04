@@ -191,7 +191,7 @@ def summarize_ecosystems_management(session: Session,
     limits = time_limits()
     return {
         "env_sensors": [
-            ecosystemIds(ecosystem["uid"], ecosystem["name"])
+            ecosystemIds(ecosystem["uid"], ecosystem["name"])._asdict()
             for ecosystem in ecosystems_info
             if bool(
                 session.query(Hardware)
@@ -202,7 +202,7 @@ def summarize_ecosystems_management(session: Session,
             )
         ],
         "plant_sensors": [
-            ecosystemIds(ecosystem["uid"], ecosystem["name"])
+            ecosystemIds(ecosystem["uid"], ecosystem["name"])._asdict()
             for ecosystem in ecosystems_info
             if bool(
                 session.query(Hardware)
@@ -214,35 +214,35 @@ def summarize_ecosystems_management(session: Session,
         ],
         # TODO: check that we have valid lighting times
         "light": [
-            ecosystemIds(ecosystem["uid"], ecosystem["name"])
+            ecosystemIds(ecosystem["uid"], ecosystem["name"])._asdict()
             for ecosystem in ecosystems_info if ecosystem["light"]
         ],
         "climate": [
-            ecosystemIds(ecosystem["uid"], ecosystem["name"])
+            ecosystemIds(ecosystem["uid"], ecosystem["name"])._asdict()
             for ecosystem in ecosystems_info if ecosystem["climate"]
         ],
         "watering": [
-            ecosystemIds(ecosystem["uid"], ecosystem["name"])
+            ecosystemIds(ecosystem["uid"], ecosystem["name"])._asdict()
             for ecosystem in ecosystems_info if ecosystem["watering"]
         ],
         "health": [
-            ecosystemIds(ecosystem["uid"], ecosystem["name"])
+            ecosystemIds(ecosystem["uid"], ecosystem["name"])._asdict()
             for ecosystem in ecosystems_info if ecosystem["health"]
         ],
         "alarms": [
-            ecosystemIds(ecosystem["uid"], ecosystem["name"])
+            ecosystemIds(ecosystem["uid"], ecosystem["name"])._asdict()
             for ecosystem in ecosystems_info if ecosystem["alarms"]
         ],
         "webcam": [
-            ecosystemIds(ecosystem["uid"], ecosystem["name"])
+            ecosystemIds(ecosystem["uid"], ecosystem["name"])._asdict()
             for ecosystem in ecosystems_info if ecosystem["webcam"]
         ],
         "switches": [
-            ecosystemIds(ecosystem["uid"], ecosystem["name"])
+            ecosystemIds(ecosystem["uid"], ecosystem["name"])._asdict()
             for ecosystem in ecosystems_info if ecosystem["switches"]
         ],
         "recent": [
-            ecosystemIds(ecosystem["uid"], ecosystem["name"])
+            ecosystemIds(ecosystem["uid"], ecosystem["name"])._asdict()
             for ecosystem in ecosystems_info
         ],
     }
