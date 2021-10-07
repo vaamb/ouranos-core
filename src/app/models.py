@@ -4,7 +4,7 @@ from hashlib import md5
 import time as ctime
 
 from flask import current_app
-from flask_login import AnonymousUserMixin, UserMixin
+from flask_login import UserMixin
 import jwt
 import sqlalchemy as sa
 from sqlalchemy import orm
@@ -12,7 +12,7 @@ from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.schema import UniqueConstraint
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from src.app import db, login_manager
+from . import db
 from src.database import Base
 
 
@@ -204,20 +204,6 @@ class User(UserMixin, Base):
                 "telegram_chat_id": self.telegram_chat_id,
             })
         return rv
-
-
-class AnonymousUser(AnonymousUserMixin):
-    def can(self, perm):
-        return False
-
-
-login_manager.anonymous_user = AnonymousUser
-login_manager.login_view = "auth.login"
-
-
-@login_manager.user_loader
-def load_user(user_id):
-    return User.query.get(int(user_id))
 
 
 class Service(Base):

@@ -4,7 +4,7 @@ from pathlib import Path
 import time
 
 from apscheduler.schedulers.background import BackgroundScheduler
-from flask import Flask, g, session
+from flask import Flask, g
 from flask_login import LoginManager
 from flask_mail import Mail
 from flask_migrate import Migrate
@@ -63,7 +63,7 @@ def create_app(config_class=DevelopmentConfig):
             logger.error(e)
 
     migrate.init_app(app, db)
-    login_manager.init_app(app)
+    login_manager.init_app(app)  # TODO: add_context_processor=False
     sio.init_app(app)
     mail.init_app(app)
 
