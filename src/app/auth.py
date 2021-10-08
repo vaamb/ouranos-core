@@ -1,11 +1,10 @@
-import pickle
-
 from flask import current_app
 from flask_login import AnonymousUserMixin
 import jwt
 
 from . import db, login_manager
-from .models import User
+from src.models import User
+from src.utils import ExpiredTokenError, InvalidTokenError, Tokenizer
 
 
 class AnonymousUser(AnonymousUserMixin):
@@ -32,9 +31,14 @@ def load_user(request):
     else:
         token = request.args.get("token")
     if token:
-        user_id = decode_user_id_token(token)
-        if user_id:
+        try:
+            payload = check_auth_token(token)
+            if payload.get("use") != "auth":
+                return None
+            user_id = payload.get["user_id"]
             return get_user(user_id)
+        except (ExpiredTokenError, InvalidTokenError):
+            return None
     return None
 
 
@@ -43,15 +47,18 @@ def get_user(user_id: int) -> User:
     return db.session.query(User).get(int(user_id))
 
 
-def create_user_id_token(user_id: int):
-    payload = {"user_id": user_id}
-    return jwt.encode(payload, key=current_app.config["JWT_SECRET_KEY"], algorithm="HS256")
+def create_auth_token(user: User,
+                      expires_in: int = None,
+                      secret_key: str = None
+                      ) -> str:
+    return user.create_token("auth", expires_in=expires_in,
+                             secret_key=secret_key)
 
 
-def decode_user_id_token(token) -> int:
-    try:
-        payload = jwt.decode(token, current_app.config["JWT_SECRET_KEY"],
-                             algorithms=["HS256"])
-        return payload.get("user_id", 0)
-    except jwt.PyJWTError:  # Invalid/expired token
-        return 0
+def check_auth_token(token: str,
+                     secret_key: str = current_app.config["SECRET_KEY"]
+                     ) -> dict:
+    payload = Tokenizer.loads(secret_key, token)
+    if payload.get("use") != "auth":
+        raise InvalidTokenError
+    return payload

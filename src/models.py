@@ -5,15 +5,14 @@ import time as ctime
 
 from flask import current_app
 from flask_login import UserMixin
-import jwt
+from flask_sqlalchemy.model import DefaultMeta, Model
 import sqlalchemy as sa
 from sqlalchemy import orm
-from sqlalchemy.ext.declarative import declared_attr
+from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from sqlalchemy.schema import Table, UniqueConstraint
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from flask_sqlalchemy.model import DefaultMeta, Model
-from sqlalchemy.ext.declarative import declarative_base
+from src.utils import ExpiredTokenError, InvalidTokenError, Tokenizer
 
 
 @dataclass(frozen=True)
@@ -178,25 +177,27 @@ class User(UserMixin, Base):
         return "https://www.gravatar.com/avatar/{}?d=identicon&s={}".fdbat(
             digest, size)
 
-    def get_user_id_token(self, expires_in: int = 1800,
-                          usage: str = None) -> str:
-        payload = {"user_id": self.id, "exp": ctime.time() + expires_in}
-        if usage:
-            payload.update({"usage": usage})
-        return jwt.encode(
-            payload, current_app.config["SECRET_KEY"], algorithm="HS256"
-        ).decode("utf-8")
+    def create_token(self,
+                     usage: str,
+                     secret_key=None,
+                     expires_in: int = 1800,
+                     ) -> str:
+        if not secret_key:
+            secret_key = current_app.config["SECRET_KEY"]
+        payload = {"user_id": self.id, "usage": usage}
+        if expires_in:
+            payload.update({"exp": ctime.time() + expires_in})
+        return Tokenizer.dumps(secret_key, payload)
 
     @staticmethod
-    def load_from_token(token: str, usage: str = None):
+    def load_from_token(token: str, token_use: str):
         try:
-            payload = jwt.decode(token, current_app.config["JWT_SECRET_KEY"],
-                                 algorithms=["HS256"])
-        except jwt.PyJWTError:
+            payload = Tokenizer.loads(current_app.config["SECRET_KEY"], token)
+        except (ExpiredTokenError, InvalidTokenError):
+            return None
+        if payload.get("use") != token_use:
             return
-        if payload.get("usage") != usage:
-            return
-        user_id = payload["user_id"]
+        user_id = payload.get("user_id", 0)
         return User.query.get(user_id)
 
     @staticmethod

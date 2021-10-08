@@ -10,6 +10,7 @@ import uuid
 
 from flask.json import text_type
 from flask import json as _json
+import jwt
 from sqlalchemy.engine import Row
 
 
@@ -57,6 +58,34 @@ class json:
     @staticmethod
     def loads(*args, **kwargs):
         return _json.loads(*args, **kwargs)
+
+
+class ExpiredTokenError(Exception):
+    pass
+
+
+class InvalidTokenError(Exception):
+    pass
+
+
+class Tokenizer:
+    algorithm = "HS256"
+
+    @staticmethod
+    def dumps(secret_key: str, payload: dict) -> str:
+        payload = json.dumps(payload)
+        return jwt.encode(payload, secret_key, algorithm=Tokenizer.algorithm)
+
+    @staticmethod
+    def loads(secret_key: str, token: str) -> dict:
+        try:
+            payload = jwt.decode(token, secret_key,
+                                 algorithms=[Tokenizer.algorithm])
+            return json.loads(payload)
+        except jwt.ExpiredSignatureError:
+            raise ExpiredTokenError
+        except jwt.PyJWTError:
+            raise InvalidTokenError
 
 
 def is_connected(ip_to_connect: str = "1.1.1.1") -> bool:
