@@ -5,6 +5,6 @@ from src.app import API, db
 
 
 namespace = Namespace(
-    "app",
+    "base",
     description="Base information for the app interface.",
 )

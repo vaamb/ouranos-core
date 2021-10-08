@@ -2,6 +2,7 @@ from flask import request, jsonify
 from flask_restx import Namespace, Resource
 
 from src.app import API, db
+from .decorators import login_required
 
 
 namespace = Namespace(
@@ -14,6 +15,7 @@ namespace = Namespace(
 @namespace.route("/current_data")
 @namespace.hide
 class CurrentData(Resource):
+    @login_required
     def get(self):
         response = API.admin.get_current_system_data()
         return jsonify(response)
@@ -22,6 +24,7 @@ class CurrentData(Resource):
 @namespace.route("/data")
 @namespace.hide
 class Data(Resource):
+    @login_required
     def get(self):
         historic_system_data = API.admin.get_historic_system_data(db.session)
         return jsonify(historic_system_data)
