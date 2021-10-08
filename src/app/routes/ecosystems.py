@@ -1,10 +1,51 @@
 from flask import request, jsonify
 from flask_restx import Namespace, Resource, fields
+from marshmallow import ValidationError, Schema, fields as ma_fields, \
+    validate, validates
 
 from src.app import API, db
 
-
+ALL_HARDWARE = (*API.ecosystems.ALL_HARDWARE, "all")
+SENSOR_LEVELS = ("plants", "ecosystems", "all")
 DEFAULT_ECOSYSTEMS = "recent"
+
+
+class StringToTuple(ma_fields.Field):
+    def _deserialize(self, value, attr, data, **kwargs) -> tuple:
+        rv = None
+        if isinstance(value, (list, tuple)):
+            rv = *value,
+        if isinstance(value, str):
+            rv = *value.split(","),
+        else:
+            raise ValidationError("Field should be str, list or tuple")
+        if "all" in rv:
+            return "all",
+        return rv
+
+
+class EcosystemsQuerySchema(Schema):
+    ecosystems = StringToTuple(missing="recent")
+    scope = ma_fields.String(missing="current",
+                             validate=validate.OneOf(("current", "historic")))
+    start_time = ma_fields.DateTime(format="iso")
+    end_time = ma_fields.DateTime(format="iso")
+    level = StringToTuple(missing=("all",))
+    hardware_type = StringToTuple(missing=("all",))
+
+    @validates("level")
+    def validate_level(self, value):
+        if isinstance(value, str):
+            value = (value, )
+        if not all([item in SENSOR_LEVELS for item in value]):
+            raise ValidationError(f"Elements must be of {SENSOR_LEVELS}")
+
+    @validates("hardware_type")
+    def validate_hardware(self, value):
+        if isinstance(value, str):
+            value = (value, )
+        if not all([item in ALL_HARDWARE for item in value]):
+            raise ValidationError(f"Elements must be of {ALL_HARDWARE}")
 
 
 namespace = Namespace(
@@ -155,6 +196,7 @@ class Sensor(Resource):
             "type": "str",
         }
     })
+    @namespace.marshal_with(sensor_data)
     def get(self, uid: str, measure: str = None):
         start_time = request.args.get("start_time", None)
         end_time = request.args.get("end_time", None)
