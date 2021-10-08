@@ -1,9 +1,9 @@
 from collections.abc import Callable
 import logging
+import pickle
 from threading import Event, Thread
 
 from src.dataspace.pubsub import StupidPubSub  # For type hint only
-from src.utils import json as json
 from redis import Redis  # For type hint only
 
 
@@ -146,7 +146,7 @@ class RedisDispatcher(BaseDispatcher):
         self.pubsub.subscribe(channel)
 
     def _publish(self, channel: str, payload: dict) -> int:
-        message = json.dumps(payload)
+        message = pickle.dumps(payload)
         return self.redis.publish(channel, message)
 
     def _get_message(self) -> dict:
@@ -160,7 +160,7 @@ class RedisDispatcher(BaseDispatcher):
         if payload:
             message = payload["data"]
             if isinstance(message, bytes):
-                message = json.loads(message.decode("utf-8"))
+                message = pickle.loads(message)
             return message
         return {}
 
