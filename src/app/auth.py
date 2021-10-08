@@ -1,6 +1,5 @@
 from flask import current_app
 from flask_login import AnonymousUserMixin
-import jwt
 
 from . import db, login_manager
 from src.models import User
@@ -35,7 +34,7 @@ def load_user(request):
             payload = check_auth_token(token)
             if payload.get("use") != "auth":
                 return None
-            user_id = payload.get["user_id"]
+            user_id = payload.get("user_id")
             return get_user(user_id)
         except (ExpiredTokenError, InvalidTokenError):
             return None
@@ -56,8 +55,10 @@ def create_auth_token(user: User,
 
 
 def check_auth_token(token: str,
-                     secret_key: str = current_app.config["SECRET_KEY"]
+                     secret_key: str = None
                      ) -> dict:
+    if not secret_key:
+        secret_key = current_app.config["SECRET_KEY"]
     payload = Tokenizer.loads(secret_key, token)
     if payload.get("use") != "auth":
         raise InvalidTokenError
