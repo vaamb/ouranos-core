@@ -50,7 +50,7 @@ def create_app(config_class=DevelopmentConfig):
 
     from src import dataspace
     dataspace.init(config_class)
-    app.redis = dataspace.rd
+    app.redis = dataspace.redis
 
     # Init db
     db.init_app(app)

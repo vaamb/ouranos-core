@@ -1,6 +1,6 @@
-from collections.abc import MutableMapping
 from datetime import datetime, timezone
 import logging
+from typing import Union
 
 from cachetools import Cache, TTLCache
 from redis import Redis, RedisError
@@ -12,8 +12,6 @@ from src.dataspace.pubsub import StupidPubSub
 
 
 STOP_SIGNAL = "__STOP__"
-# TODO: find a better way
-USE_REDIS: bool = False
 
 START_TIME = datetime.now(timezone.utc).replace(microsecond=0)
 
@@ -33,13 +31,6 @@ WEATHER_DATA_MULTIPLICATION_FACTORS = {
     "precipProbability": 100,
 }
 
-
-rd: Redis
-
-
-_initialized: bool = False
-
-
 _caches = {
     "sensorsData": Cache,
     "healthData": Cache,
@@ -50,36 +41,47 @@ _caches = {
 
 _dispatchers = {}
 
+_store = {}
 
-def update_redis_initialized(config_class: Config) -> None:
-    global USE_REDIS
-    logger = logging.getLogger(config_class.APP_NAME)
-    if config_class.USE_REDIS_CACHE:
-        try:
-            rd.ping()
-            USE_REDIS = True
-            logger.debug(
-                "Successful connection to Redis server, Redis will be used "
-                "to provide data cache"
-            )
-        except RedisError:
-            USE_REDIS = False
-            logger.warning(
-                "Failed to connect to Redis server, using 'cachetools' to "
-                "provide data cache"
-            )
-    else:
-        USE_REDIS = False
+
+def _check_init():
+    if not _store.get("initialized"):
+        raise RuntimeError("Please use 'dataspace.init(Config)' before")
+
+
+def _get_redis() -> Redis:
+    _check_init()
+    try:
+        return _store["redis"]
+    except KeyError:
+        cfg = _store["config"]
+        logger = logging.getLogger(cfg.APP_NAME)
+        rd = Redis.from_url(cfg.REDIS_URL)
+        if cfg.USE_REDIS_CACHE:
+            try:
+                rd.ping()
+                logger.debug(
+                    "Successful connection to Redis server, Redis will be used "
+                    "to provide data cache"
+                )
+                _store["redis"] = rd
+            except RedisError:
+                logger.warning(
+                    "Failed to connect to Redis server, using 'cachetools' to "
+                    "provide data cache"
+                    # TODO: say won't work when using several instances
+                )
+                _store["redis"] = None
+        else:
+            _store["redis"] = None
+    return _store["redis"]
 
 
 def create_cache(cache_name: str,
                  maxsize: int = 16,
                  ttl: int = None,
                  overwrite: bool = False) -> Cache:
-    if not _initialized:
-        raise RuntimeError(
-            f"Please init dataspace before creatting cache {cache_name}"
-        )
+    _check_init()
     if _caches.get(cache_name) and not overwrite:
         raise ValueError(f"The cache {cache_name} already exists")
     if not ttl:
@@ -90,11 +92,8 @@ def create_cache(cache_name: str,
     return cache
 
 
-def get_cache(cache_name: str) -> Cache:
-    if not _initialized:
-        raise RuntimeError(
-            f"Please init dataspace before getting cache {cache_name}"
-        )
+def get_cache(cache_name: str) -> Union[Cache, dict]:
+    _check_init()
     try:
         return _caches[cache_name]
     except KeyError:
@@ -106,42 +105,41 @@ def caches_available() -> list:
 
 
 def get_dispatcher(name: str) -> BaseDispatcher:
-    if not _initialized:
-        raise RuntimeError(
-            f"Please init dataspace before getting dispatcher {name}"
-        )
+    _check_init()
     try:
         return _dispatchers[name]
     except KeyError:
-        if USE_REDIS:
-            dispatcher = RedisDispatcher(name, rd)
-            _dispatchers[name] = dispatcher
-            return dispatcher
+        rd = redis
+        if rd:
+            _dispatcher = RedisDispatcher(name, rd)
+            _dispatchers[name] = _dispatcher
+            return _dispatcher
         else:
-            pubsub = StupidPubSub()
-            dispatcher = PubSubDispatcher(name, pubsub)
-            _dispatchers[name] = dispatcher
-            return dispatcher
+            _pubsub = StupidPubSub()
+            _dispatcher = PubSubDispatcher(name, _pubsub)
+            _dispatchers[name] = _dispatcher
+            return _dispatcher
 
 
 def init(config_class: Config) -> None:
-    global _initialized, rd
-    if not _initialized:
-        _initialized = True
-        # TODO: check if use redis first
-        rd = Redis.from_url(config_class.REDIS_URL)
-        reset(config_class)
+    if not _store.get("initialized"):
+        _store["initialized"] = True
+        _store["config"] = config_class
+        reset()
 
 
-def reset(config_class: Config) -> None:
-    update_redis_initialized(config_class)
+def reset() -> None:
     # TODO: reset all dicts, including _dispatcher
-    create_cache("sensorsData", ttl=config_class.GAIA_ECOSYSTEM_TIMEOUT,
-                 maxsize=config_class.GAIA_MAX_ECOSYSTEMS, overwrite=True)
+    cfg = _store["config"]
+    create_cache("sensorsData", ttl=cfg.GAIA_ECOSYSTEM_TIMEOUT,
+                 maxsize=cfg.GAIA_MAX_ECOSYSTEMS, overwrite=True)
     create_cache("healthData", ttl=60*60*36,
-                 maxsize=config_class.GAIA_MAX_ECOSYSTEMS, overwrite=True)
+                 maxsize=cfg.GAIA_MAX_ECOSYSTEMS, overwrite=True)
     create_cache("systemData", ttl=90,
                  maxsize=16, overwrite=True)
+
+
+redis = LocalProxy(lambda: _get_redis())
 
 
 # Potentially workers-shared caches
