@@ -58,7 +58,7 @@ class BaseDispatcher:
         while self._running.is_set():
             for payload in self._listen():
                 message = self._parse_payload(payload)
-                if message:
+                if isinstance(message, dict):
                     event = message["event"]
                     args = message.get("args", ())
                     kwargs = message.get("kwargs", {})
@@ -117,19 +117,19 @@ class PubSubDispatcher(BaseDispatcher):
     def __init__(self, name: str, pubsub: StupidPubSub) -> None:
         self.pubsub = pubsub
         super(PubSubDispatcher, self).__init__(name)
-    
+
     def _subscribe(self, channel: str) -> None:
         self.pubsub.subscribe(channel)
-    
+
     def _publish(self, channel: str, payload: dict) -> int:
         return self.pubsub.publish(channel, payload)
-    
+
     def _get_message(self) -> dict:
         return self.pubsub.get_message()
 
     def _listen(self):
         for message in self.pubsub.listen():
-            yield(message)
+            yield message
 
     def _parse_payload(self, payload: dict) -> dict:
         message = payload.get("data", {})
@@ -158,8 +158,9 @@ class RedisDispatcher(BaseDispatcher):
 
     def _parse_payload(self, payload: dict) -> dict:
         if payload:
-            message = payload["data"].decode("utf-8")
-            message = json.loads(message)
+            message = payload["data"]
+            if isinstance(message, bytes):
+                message = json.loads(message.decode("utf-8"))
             return message
         return {}
 
