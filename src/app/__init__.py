@@ -65,7 +65,12 @@ def create_app(config_class=DevelopmentConfig):
 
     migrate.init_app(app, db)
     login_manager.init_app(app)  # TODO: add_context_processor=False
-    sio.init_app(app)
+
+    if app.redis and app.config["USE_REDIS_DISPATCHER"]:
+        sio.init_app(app, message_queue=app.config["REDIS_URL"])
+    else:
+        sio.init_app(app)
+
     mail.init_app(app)
 
     if config_class.__name__ != "TestingConfig":

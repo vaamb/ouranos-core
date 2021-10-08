@@ -73,6 +73,7 @@ class Config:
     # REDIS config
     REDIS_URL = os.environ.get("REDIS_URL") or "redis://"
     USE_REDIS_CACHE = True
+    USE_REDIS_DISPATCHER = True
 
     # Private parameters
     HOME_CITY = os.environ.get("HOME_CITY") or privateConfig.HOME_CITY

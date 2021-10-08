@@ -57,7 +57,7 @@ def _get_redis() -> Redis:
         cfg = _store["config"]
         logger = logging.getLogger(cfg.APP_NAME)
         rd = Redis.from_url(cfg.REDIS_URL)
-        if cfg.USE_REDIS_CACHE:
+        if cfg.USE_REDIS_CACHE or cfg.USE_REDIS_DISPATCHER:
             try:
                 rd.ping()
                 logger.debug(
@@ -110,15 +110,15 @@ def get_dispatcher(name: str) -> BaseDispatcher:
         return _dispatchers[name]
     except KeyError:
         rd = redis
-        if rd:
+        cfg = _store["config"]
+        if rd and cfg.USE_REDIS_DISPATCHER:
             _dispatcher = RedisDispatcher(name, rd)
             _dispatchers[name] = _dispatcher
-            return _dispatcher
         else:
             _pubsub = StupidPubSub()
             _dispatcher = PubSubDispatcher(name, _pubsub)
             _dispatchers[name] = _dispatcher
-            return _dispatcher
+        return _dispatcher
 
 
 def init(config_class: Config) -> None:
