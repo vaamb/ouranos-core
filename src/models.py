@@ -9,11 +9,11 @@ import jwt
 import sqlalchemy as sa
 from sqlalchemy import orm
 from sqlalchemy.ext.declarative import declared_attr
-from sqlalchemy.schema import UniqueConstraint
+from sqlalchemy.schema import Table, UniqueConstraint
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from . import db
-from src.database import Base
+from flask_sqlalchemy.model import DefaultMeta, Model
+from sqlalchemy.ext.declarative import declarative_base
 
 
 @dataclass(frozen=True)
@@ -26,6 +26,26 @@ class archive_link:
             raise ValueError("status has to be 'archive' or 'recent'")
         object.__setattr__(self, "name", name)
         object.__setattr__(self, "status", status)
+
+
+class ArchiveMetaMixin(type):
+    def __init__(cls, name, bases, d):
+        archive_link = (
+            d.pop('__archive_link__', None)
+            or getattr(cls, '__archive_link__', None)
+        )
+
+        super(ArchiveMetaMixin, cls).__init__(name, bases, d)
+
+        if archive_link is not None and getattr(cls, '__table__', None) is not None:
+            cls.__table__.info['archive_link'] = archive_link
+
+
+class CustomMeta(ArchiveMetaMixin, DefaultMeta):
+    pass
+
+
+Base = declarative_base(cls=Model, name="Model", metaclass=CustomMeta)
 
 
 # ---------------------------------------------------------------------------
@@ -55,7 +75,7 @@ class Role(Base):
             self.permissions = 0
 
     @staticmethod
-    def insert_roles():
+    def insert_roles(db):
         roles = {
             "User": [Permission.VIEW, Permission.EDIT],
             "Operator": [Permission.VIEW, Permission.EDIT,
@@ -99,7 +119,7 @@ class User(UserMixin, Base):
     id = sa.Column(sa.Integer, primary_key=True)
     username = sa.Column(sa.String(64), index=True, unique=True)
     email = sa.Column(sa.String(120), index=True, unique=True)
-    
+
     # User authentication fields
     password_hash = sa.Column(sa.String(128))
     confirmed = sa.Column(sa.Boolean, default=False)
@@ -135,7 +155,7 @@ class User(UserMixin, Base):
                 self.role = Role.query.filter_by(default=True).first()
     
     @staticmethod
-    def insert_gaia():
+    def insert_gaia(db):
         gaia = db.session.query(User).filter_by(username="Gaia").first()
         if not gaia:
             admin = db.session.query(Role).filter_by(name="Administrator").first()
@@ -235,7 +255,7 @@ class CommunicationChannel(Base):
                              lazy="dynamic")
 
     @staticmethod
-    def insert_channels():
+    def insert_channels(db):
         channels = ["telegram"]
         for c in channels:
             channel = CommunicationChannel.query.filter_by(name=c).first()
@@ -468,7 +488,7 @@ class EnvironmentParameter(Base):
         return rv
 
 
-associationHardwareMeasure = db.Table(
+associationHardwareMeasure = Table(
     "association_hardware_measures", Base.metadata,
     sa.Column('hardware_id',
               sa.String(length=32),

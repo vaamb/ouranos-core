@@ -12,8 +12,9 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_socketio import SocketIO
 
 from config import Config, DevelopmentConfig
-from src.database import Base
+from src.models import Base, CommunicationChannel, Role, User
 from src.utils import json, JSONEncoder
+
 
 START_TIME = datetime.now(timezone.utc)
 
@@ -21,6 +22,7 @@ app_name = Config.APP_NAME
 app_path = Path(__file__).absolute().parents[0]
 
 logger = logging.getLogger(app_name)
+
 
 scheduler = BackgroundScheduler()
 login_manager = LoginManager()
@@ -52,13 +54,12 @@ def create_app(config_class=DevelopmentConfig):
 
     # Init db
     db.init_app(app)
-    from src.app.models import CommunicationChannel, Role, User
     with app.app_context():
         try:
             db.create_all()
-            Role.insert_roles()
-            User.insert_gaia()
-            CommunicationChannel.insert_channels()
+            Role.insert_roles(db)
+            User.insert_gaia(db)
+            CommunicationChannel.insert_channels(db)
         except Exception as e:
             logger.error(e)
 
