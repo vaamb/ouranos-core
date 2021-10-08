@@ -1,7 +1,7 @@
 from flask import abort, Blueprint, current_app
 from flask_login import current_user
 
-from src.app.models import Permission
+from src.models import Permission
 
 
 bp = Blueprint("admin", __name__, url_prefix="/admin")
@@ -17,3 +17,4 @@ def restrict_to_admins():
 
 
 from src.app.views.admin import routes
+

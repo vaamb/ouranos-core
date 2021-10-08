@@ -4,15 +4,16 @@ from typing import Union
 
 from cachetools import cached, TTLCache
 from numpy import mean
-from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm.session import Session
 
 from src.app.API.exceptions import NoEcosystemFound
 from src.app.API.utils import time_limits, timeWindow
 from src.dataspace import sensorsData
-from src.app.models import Ecosystem, EngineManager, Hardware, HealthData, \
-    Management, SensorData, Service, Plant
-from src.utils import time_to_datetime
+from src.models import Ecosystem, EngineManager, Hardware, Management, SensorData, Service
+
+ALL_HARDWARE = ["sensor", "light", "heater", "cooler", "humidifier",
+                "dehumidifier"]
+
 
 # TODO: move this into config
 max_ecosystems = 32
@@ -558,8 +559,6 @@ def get_hardware(session: Session,
                  level: Union[str, tuple, list] = "all",
                  hardware_type: Union[str, tuple, list] = "all"
                  ) -> list[dict]:
-    all_hardware = ["sensor", "light", "heater", "cooler", "humidifier",
-                    "dehumidifier"]
     if isinstance(level, str):
         if level == "all":
             level = ("environment", "plants")
@@ -567,9 +566,9 @@ def get_hardware(session: Session,
             level = (level,)
     if isinstance(hardware_type, str):
         if hardware_type == "all":
-            hardware_type = all_hardware
+            hardware_type = ALL_HARDWARE
         elif hardware_type == "actuators":
-            hardware_type = all_hardware.remove("sensor")
+            hardware_type = ALL_HARDWARE.remove("sensor")
         else:
             hardware_type = (hardware_type,)
 

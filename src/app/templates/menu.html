@@ -131,6 +131,7 @@
             </li>
             {% endif %}
             <!--TODO: need to check if need condition-->
+            {% if current_user.can(Permission.OPERATE) or dropdowns['recent'] %}
             <li>
               <div class="accordionMenuItem dropdownLink">
                 <i class="fa fa-cog leftIco"></i>
@@ -150,6 +151,7 @@
                 {% endfor %}
               </ul>
             </li>
+            {% endif %}
             {% if plant_articles %}
             <li>
               <div class="accordionMenuItem dropdownLink">
@@ -217,7 +219,7 @@
           <div class="warning-button">
             {% if current_user.is_authenticated %}
             {% if anyWarnings %}
-            <a href="{{ url_for('main.warnings_') }}">
+            <a href="{{ url_for('main.warnings') }}">
             <i class="fas fa-exclamation-triangle"></i>
             </a>
             {% endif %}

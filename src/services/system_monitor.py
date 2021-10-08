@@ -4,7 +4,7 @@ import psutil
 from threading import Thread, Event
 
 from src.dataspace import START_TIME, systemData
-from src.app.models import System
+from src.models import System
 from src.services.template import serviceTemplate
 from src.services.shared_resources import db, scheduler
 

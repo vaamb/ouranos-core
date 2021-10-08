@@ -11,7 +11,7 @@ from sqlalchemy.orm.exc import NoResultFound
 import jwt
 
 from src.app import mail
-from src.app.models import User, Role, System
+from src.models import User, Role, System
 from config import Config
 from src.dataspace import systemData
 from src.utils import logs_dir

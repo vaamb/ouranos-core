@@ -3,7 +3,7 @@ from telegram.ext import Updater, CommandHandler, CallbackContext,\
     MessageHandler, Filters
 
 from src.app import API
-from src.app.models import User, Role, Permission
+from src.models import User, Role, Permission
 from src.services.shared_resources import db
 from src.services.template import serviceTemplate
 

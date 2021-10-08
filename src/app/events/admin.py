@@ -5,7 +5,7 @@ from sqlalchemy.orm.exc import NoResultFound
 
 from src.app import sio
 from src.app.events import dispatcher
-from src.app.models import Permission, User
+from src.models import Permission, User
 from src.dataspace import systemData
 
 

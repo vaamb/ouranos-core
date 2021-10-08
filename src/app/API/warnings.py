@@ -1,7 +1,7 @@
 import cachetools.func
 
 from src.app.API.utils import time_limits
-from src.app.models import EcosystemWarning
+from src.models import EcosystemWarning
 
 
 @cachetools.func.ttl_cache(ttl=60)

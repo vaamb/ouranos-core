@@ -1,6 +1,6 @@
 import logging
 
-from src.app.models import EngineManager, Service
+from src.models import EngineManager, Service
 from src import dataspace
 from src.dataspace import get_dispatcher
 from src.dataspace.dispatcher import registerEventMixin

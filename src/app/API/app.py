@@ -1,6 +1,6 @@
 import cachetools.func
 
-from src.app.models import Service
+from src.models import Service
 
 
 _cache = {}

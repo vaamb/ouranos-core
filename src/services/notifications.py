@@ -8,7 +8,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from src.app import app_name, scheduler
 import src.services.API_old as API
 from src.services.shared_resources import db
-from src.app.models import User
+from src.models import User
 from config import Config
 
 base_logger = logging.getLogger(f"{app_name}.notification")

@@ -8,9 +8,8 @@ from flask_sqlalchemy import get_debug_queries
 
 from src.app import API, db
 from src.app.API.ecosystems import ecosystemIds
-from src.app.models import HealthData, Service, User, Permission
+from src.models import HealthData, Service, User, Permission
 from src.app.views import layout
-from src.app.views.decorators import permission_required
 from src.app.views.main import bp
 from src.app.views.main.forms import EditProfileForm
 from src.app.wiki import get_wiki
@@ -191,7 +190,7 @@ def switches(ecosystem_name: str):
 
 @bp.route("/warnings")
 @login_required
-def warnings_():
+def warnings():
     warnings = API.warnings.get_recent_warnings(db.session)
     return render_template("main/warning.html", title="Warnings",
                            warnings=warnings
@@ -204,7 +203,7 @@ def about():
 
 
 @bp.route("/license")
-def license_():
+def _license():
     return render_template("main/license.html")
 
 
@@ -263,6 +262,7 @@ def user_page(username: str = None):
 
 
 @bp.route("/settings/<ecosystem_name>")
+@login_required
 def settings(ecosystem_name: str):
     ecosystem_ids = get_ecosystem_ids_or_404(ecosystem=ecosystem_name)
     title = f"{ecosystem_ids[1]} settings"
@@ -296,7 +296,8 @@ def settings(ecosystem_name: str):
                            )
 
 
-@bp.route("/engine_managers")
+@bp.route("/settings/engine_managers")
+@login_required
 def engine_managers():
     managers_qo = API.ecosystems.get_managers_query_obj(session=db.session)
     managers = API.ecosystems.get_managers(session=db.session,

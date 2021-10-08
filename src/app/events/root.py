@@ -6,7 +6,7 @@ from flask_socketio import join_room
 
 from src.app import app_name, sio
 from src.app.events import dispatcher
-from src.app.models import Ecosystem, Permission
+from src.models import Ecosystem, Permission
 
 
 # TODO: change name

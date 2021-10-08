@@ -2,7 +2,7 @@ import logging
 import threading
 import weakref
 
-from src.app.models import Service
+from src.models import Service
 from src.dataspace.dispatcher import registerEventMixin
 from src.services.shared_resources import db
 

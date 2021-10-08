@@ -10,7 +10,7 @@ from sqlalchemy.exc import IntegrityError, NoResultFound
 
 from src.app import app_name, db, scheduler, sio
 from src.app.events import dispatcher
-from src.app.models import Ecosystem, EngineManager, EnvironmentParameter, \
+from src.models import Ecosystem, EngineManager, EnvironmentParameter, \
     Hardware, HealthData, Light, Management, Measure, SensorData
 from src.app.utils import decrypt_uid, validate_uid_token
 from src.dataspace import healthData, sensorsData

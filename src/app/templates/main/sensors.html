@@ -9,11 +9,14 @@
 {% block scripts %}
 <script type="text/javascript">
   sensorsSkeleton = $.ajax({
-    url: "{{ url_for('api.get_sensors_skeleton') }}",
+    url: "{{ url_for('api.ecosystems_sensors_skeleton') }}",
     type: "get",
     data: {ecosystems: {{ ecosystem_ids[0] | tojson}}, level: {{ level | tojson }},}
   }).promise();
-
+$.ajax({
+    url: "/api/auth/test",
+    type: "get",
+  })
   sensorsSkeleton.then(function(skeleton) {
     UI.createSensorBoardsFromSkeleton(skeleton);
     UI.createSensorBoardsGauges(skeleton)

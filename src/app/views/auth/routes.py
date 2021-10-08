@@ -10,7 +10,7 @@ from werkzeug.urls import url_parse
 from src.app import db
 from src.app.views.auth import bp
 from src.app.views.auth.forms import LoginForm, RegistrationForm, InvitationForm
-from src.app.models import User, Role
+from src.models import User, Role
 
 
 @bp.route("/login", methods=["GET", "POST"])

@@ -5,7 +5,7 @@ from wtforms import BooleanField, PasswordField, StringField, SubmitField, \
 from wtforms.validators import DataRequired, Email, EqualTo, Length, \
     Regexp, ValidationError
 
-from src.app.models import User
+from src.models import User
 from config import Config
 
 

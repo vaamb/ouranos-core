@@ -7,7 +7,7 @@ from src.app import db, API
 from src.app.views import layout
 from src.app.views.admin import bp
 from src.app.views.admin.forms import InvitationForm
-from src.app.models import Service
+from src.models import Service
 
 
 """Remark:

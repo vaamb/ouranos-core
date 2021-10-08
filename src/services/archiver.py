@@ -4,7 +4,7 @@ from multiprocessing import Process, Queue
 from flask_sqlalchemy import Model
 from sqlalchemy import inspect
 
-from src.app import models
+from src import models
 from src.dataspace import STOP_SIGNAL
 from src.services.shared_resources import db, scheduler
 from src.services.template import serviceTemplate
