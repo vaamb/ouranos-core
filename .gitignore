@@ -1,11 +1,11 @@
-__pycache__
+__pycache__/
 .idea/
-.pytest_cache
+.pytest_cache/
 
-cache
-logs
-venv
-migrations
+cache/
+logs/
+venv/
+migrations/
 
 *.db
 *private*
