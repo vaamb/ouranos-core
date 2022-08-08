@@ -1,84 +1,84 @@
 import logging
+import re
 import threading
 import weakref
 
-from src.models import Service
-from src.dataspace.dispatcher import registerEventMixin
+from dispatcher import RegisterEventMixin
+
+from src.database.models.app import Service
 from src.services.shared_resources import db
 
 
-class serviceTemplate(registerEventMixin):
-    NAME = "serviceTemplate"
+pattern = re.compile(r'(?<!^)(?=[A-Z])')
+
+
+class ServiceTemplate(RegisterEventMixin):
     LEVEL = "base"
 
     def __init__(self, manager):
         self.manager = weakref.proxy(manager)
         self.config = self.manager.config
         self.mutex = threading.Lock()
-        self._service_name = f"{self.NAME.lower()} service"
-        self._logger = logging.getLogger(
-            f"{self.config.APP_NAME}.services.{self.NAME.lower()}")
-        self._logger.debug(f"Initializing {self._service_name}")
-        self._register_dispatcher_events(self.manager.dispatcher)
-        try:
-            self._init()
-            self._logger.debug(f"{self._service_name} was successfully "
-                               f"initialized")
-            self._started = False
-        except Exception as e:
-            self._logger.error(f"{self._service_name} was not successfully "
-                               f"initialized. ERROR msg: {e}")
-            raise e
+        self._service_name = pattern.sub('_', self.__class__.__name__).lower()
+        self.logger = logging.getLogger(
+            f"{self.config.APP_NAME.lower()}.services.{self._service_name}"
+        )
+        self.logger.debug(f"Initializing {self._service_name}")
+        self.register_dispatcher_events(self.manager.dispatcher)
+        self._started = False
 
-    def _init(self):
-        print(f"_init method was not overwritten for {self.NAME}")
+    def _finish_init(self):
+        self.logger.debug("Initialization successfully")
 
     def _start(self):
-        print(f"_start method was not overwritten for {self.NAME}")
+        raise NotImplementedError(
+            "This method must be implemented in a subclass"
+        )
 
     def _stop(self):
-        print(f"_stop method was not overwritten for {self.NAME}")
+        raise NotImplementedError(
+            "This method must be implemented in a subclass"
+        )
 
     def start(self):
         if not self._started:
-            try:
-                self._start()
-                if self.LEVEL in ("app", "user"):
-                    with db.scoped_session() as session:
-                        db_service = (session.query(Service)
-                                      .filter_by(name=self.NAME)
-                                      .one())
-                        if not db_service.status:
-                            db_service.status = 1
-                            session.commit()
-                self._started = True
-                self._logger.info(f"{self._service_name} started")
-            except Exception as e:
-                self._logger.error(
-                    f"{self._service_name} was not "
-                    f"successfully started. ERROR msg: {e}")
-                raise e
+            self._start()
+            if self.LEVEL in ("app", "user"):
+                with db.scoped_session() as session:
+                    db_service = (session.query(Service)
+                                  .filter_by(name=self._service_name)
+                                  .one())
+                    if not db_service.status:
+                        db_service.status = 1
+                        session.commit()
+            self._started = True
+            self.logger.debug(
+                f"{self._service_name.replace('_', ' ').capitalize()} service started"
+            )
         else:
-            raise RuntimeError(f"{self._service_name} is "
-                               f"already running ")
+            raise RuntimeError(
+                f"{self._service_name} is already running"
+            )
 
     def stop(self):
         if self._started:
-            self._logger.info(f"Stopping {self._service_name}")
+            self.logger.debug(f"Stopping {self._service_name}")
             try:
                 self._stop()
                 if self.LEVEL in ("app", "user"):
                     with db.scoped_session() as session:
-                        db_service = (session.query(Service)
-                                      .filter_by(name=self.NAME)
-                                      .one())
+                        db_service = (
+                            session.query(Service)
+                                .filter_by(name=self._service_name)
+                                .one()
+                        )
                         if db_service.status:
                             db_service.status = 0
                             session.commit()
                 self._started = False
-                self._logger.info(f"{self._service_name} stopped")
+                self.logger.debug(f"{self._service_name} stopped")
             except Exception as e:
-                self._logger.error(
+                self.logger.error(
                     f"{self._service_name} was not "
                     f"successfully stopped. ERROR msg: {e}")
                 raise e

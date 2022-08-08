@@ -1,8 +1,7 @@
-from src.services.template import serviceTemplate
+from src.services.template import ServiceTemplate
 
 
-class Webcam(serviceTemplate):
-    NAME = "webcam"
+class Webcam(ServiceTemplate):
     LEVEL = "app"
 
     def _start(self) -> None:

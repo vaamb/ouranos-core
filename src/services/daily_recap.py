@@ -1,8 +1,7 @@
-from src.services.template import serviceTemplate
+from src.services.template import ServiceTemplate
 
 
-class dailyRecap(serviceTemplate):
-    NAME = "daily_recap"
+class DailyRecap(ServiceTemplate):
     LEVEL = "user"
 
     def _start(self) -> None:

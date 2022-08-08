@@ -2,17 +2,17 @@ from telegram import Update
 from telegram.ext import Updater, CommandHandler, CallbackContext,\
     MessageHandler, Filters
 
-from src.app import API
-from src.models import User, Role, Permission
+from src import api
+from src.database.models.app import User, Role, Permission
 from src.services.shared_resources import db
-from src.services.template import serviceTemplate
+from src.services.template import ServiceTemplate
 
 
-class telegramChatbot(serviceTemplate):
-    NAME = "telegram_chatbot"
+class TelegramChatBot(ServiceTemplate):
     LEVEL = "user"
 
-    def _init(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.updater = None
         self.dispatcher = None
 
@@ -53,7 +53,7 @@ class telegramChatbot(serviceTemplate):
     def on_light_info(self, update: Update, context: CallbackContext) -> None:
         ecosystems = context.args
         with db.scoped_session() as session:
-            message = API.messages.light_info(*ecosystems, session=session)
+            message = api.messages.light_info(*ecosystems, session=session)
         update.message.reply_text(message)
 
     def on_weather(self, update: Update, context: CallbackContext) -> None:
@@ -63,13 +63,13 @@ class telegramChatbot(serviceTemplate):
         else:
             forecast = False
         update.message.reply_text(
-            API.messages.weather(forecast=forecast)
+            api.messages.weather(forecast=forecast)
         )
 
     def on_sensors(self, update: Update, context: CallbackContext):
         ecosystems = context.args
         with db.scoped_session() as session:
-            message = API.messages.current_sensors_info(
+            message = api.messages.current_sensors_info(
                 *ecosystems, session=session)
         update.message.reply_text(message)
 
@@ -88,7 +88,7 @@ class telegramChatbot(serviceTemplate):
             args.remove(to_remove)
         ecosystems = args
         with db.scoped_session() as session:
-            message = API.messages.recap_sensors_info(
+            message = api.messages.recap_sensors_info(
                 *ecosystems, session=session, days_ago=days)
         update.message.reply_text(message)
 
@@ -116,12 +116,12 @@ class telegramChatbot(serviceTemplate):
                 else:
                     countdown = 0
                 with db.scoped_session() as session:
-                    ecosystem_qo = API.ecosystems.get_ecosystems_query_obj(
+                    ecosystem_qo = api.gaia.get_ecosystems(
                         session=session, ecosystems=(ecosystem, ))
-                    lights = API.ecosystems.get_light_info(ecosystem_qo)
+                    lights = api.gaia.get_light_info(ecosystem_qo)
                     if lights:
                         try:
-                            ecosystem_id = API.ecosystems.get_ecosystem_ids(
+                            ecosystem_id = api.gaia.get_ecosystem_ids(
                                 session=session, ecosystem=ecosystem).uid
                         except ValueError:
                             update.message.reply_text(

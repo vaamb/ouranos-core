@@ -3,9 +3,10 @@ import os
 import psutil
 from threading import Thread, Event
 
-from src.dataspace import START_TIME, systemData
-from src.models import System
-from src.services.template import serviceTemplate
+from src.cache import systemData
+from src.consts import START_TIME
+from src.database.models.system import SystemHistory
+from src.services.template import ServiceTemplate
 from src.services.shared_resources import db, scheduler
 
 
@@ -14,11 +15,11 @@ current_process = psutil.Process(os.getpid())
 
 
 # TODO: allow multiple serve to report system data (use an id before dict)
-class systemMonitor(serviceTemplate):
-    NAME = "system_monitor"
+class SystemMonitor(ServiceTemplate):
     LEVEL = "base"
 
-    def _init(self) -> None:
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self._data = systemData
         self._thread = None
         self._stopEvent = Event()
@@ -51,9 +52,9 @@ class systemMonitor(serviceTemplate):
                 break
 
     def _log_resources_data(self) -> None:
-        self._logger.debug("Logging system resources")
+        self.logger.debug("Logging system resources")
         with db.scoped_session() as session:
-            system = System(
+            system = SystemHistory(
                 datetime=self._data["datetime"],
                 CPU_used=self._data["CPU_used"],
                 CPU_temp=self._data.get("CPU_temp", None),
@@ -69,7 +70,7 @@ class systemMonitor(serviceTemplate):
     def _start(self) -> None:
         self._stopEvent.clear()
         self._thread = Thread(target=self._loop)
-        self._thread.name = f"services-{systemMonitor}"
+        self._thread.name = f"services-{SystemMonitor}"
         self._thread.start()
         scheduler.add_job(self._log_resources_data, "cron",
                           minute=f"*/{self.config.SYSTEM_LOGGING_PERIOD}",

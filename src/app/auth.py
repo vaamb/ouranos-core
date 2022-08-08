@@ -1,9 +1,7 @@
-from flask import current_app
 from flask_login import AnonymousUserMixin
 
-from . import db, login_manager
-from src.models import User
-from src.utils import ExpiredTokenError, InvalidTokenError, Tokenizer
+from . import db, jwtManager, login_manager
+from src.database.models.app import User
 
 
 class AnonymousUser(AnonymousUserMixin):
@@ -12,7 +10,17 @@ class AnonymousUser(AnonymousUserMixin):
 
 
 login_manager.anonymous_user = AnonymousUser
-login_manager.login_view = "auth.login"
+
+
+@jwtManager.user_identity_loader
+def user_identity_lookup(user):
+    return user.id
+
+
+@jwtManager.user_lookup_loader
+def user_lookup_callback(_jwt_header, jwt_data):
+    user_id = jwt_data["sub"]
+    return get_user(user_id)
 
 
 @login_manager.user_loader
@@ -20,46 +28,5 @@ def load_user(user_id):
     return get_user(user_id)
 
 
-@login_manager.request_loader
-def load_user(request):
-    auth = request.headers.get("Authorization")
-    if auth:
-        auth_type, token = request.headers["Authorization"].split(None, 1)
-        if auth_type.lower() not in ("bearer", "token"):
-            return None
-    else:
-        token = request.args.get("token")
-    if token:
-        try:
-            payload = check_auth_token(token)
-            if payload.get("use") != "auth":
-                return None
-            user_id = payload.get("user_id")
-            return get_user(user_id)
-        except (ExpiredTokenError, InvalidTokenError):
-            return None
-    return None
-
-
 def get_user(user_id: int) -> User:
-    # TODO: can cache user on redis, memcache ... from here
-    return db.session.query(User).get(int(user_id))
-
-
-def create_auth_token(user: User,
-                      expires_in: int = None,
-                      secret_key: str = None
-                      ) -> str:
-    return user.create_token("auth", expires_in=expires_in,
-                             secret_key=secret_key)
-
-
-def check_auth_token(token: str,
-                     secret_key: str = None
-                     ) -> dict:
-    if not secret_key:
-        secret_key = current_app.config["SECRET_KEY"]
-    payload = Tokenizer.loads(secret_key, token)
-    if payload.get("use") != "auth":
-        raise InvalidTokenError
-    return payload
+    return db.session.query(User).filter_by(id=user_id).one_or_none()

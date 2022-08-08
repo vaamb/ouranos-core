@@ -6,9 +6,8 @@ import requests
 from sqlalchemy.orm.exc import NoResultFound
 
 from src.app import app_name, scheduler
-import src.services.API_old as API
 from src.services.shared_resources import db
-from src.models import User
+from src.database.models.app import User
 from config import Config
 
 base_logger = logging.getLogger(f"{app_name}.notification")
@@ -105,16 +104,17 @@ notification_means = [telegram]
 
 
 @scheduler.scheduled_job(id="daily_recap", trigger="cron",
-                         hour=Config.RECAP_SENDING_HOUR,
+                         hour=Config.OURANOS_RECAP_SENDING_HOUR,
                          misfire_grace_time=30 * 60)
 def send_daily_recap():
     start = datetime.combine(date.today() - timedelta(days=1), time())
     stop = datetime.combine(date.today(), time())
-    recap_message = API.get_recap_message(
-        start, stop, ecosystem_message_base="Yesterday sensors average:\n")
+    # import src.services.API_old as API
+    # recap_message = API.get_recap_message(
+    #     start, stop, ecosystem_message_base="Yesterday sensors average:\n")
 
-    base_logger.debug(f"Sending recap message: '''\n{recap_message}\n'''")
+    # base_logger.debug(f"Sending recap message: '''\n{recap_message}\n'''")
 
-    for notif_mean in notification_means:
-        response = notif_mean.send_message(recap_message)
-        notif_mean.logger.debug(f"{response['status']}")
+    # for notif_mean in notification_means:
+    #     response = notif_mean.send_message(recap_message)
+    #     notif_mean.logger.debug(f"{response['status']}")

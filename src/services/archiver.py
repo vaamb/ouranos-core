@@ -1,29 +1,30 @@
 from datetime import datetime, timedelta, timezone
 from multiprocessing import Process, Queue
 
+from dispatcher import STOP_SIGNAL
 from flask_sqlalchemy import Model
 from sqlalchemy import inspect
 
-from src import models
-from src.dataspace import STOP_SIGNAL
+from src.database.models import archives, gaia
 from src.services.shared_resources import db, scheduler
-from src.services.template import serviceTemplate
+from src.services.template import ServiceTemplate
 
 
 number_of_processes = 1
 
-archive_limit = {
-    "sensor": 180,
-    "health": 360,
-    "system": 90
-}
 
-
-class Archiver(serviceTemplate):
-    NAME = "archiver"
+class Archiver(ServiceTemplate):
     LEVEL = "base"
 
-    def _init(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._mapping = {}
+        self.archive_limit = {
+            "sensor": 180,
+            "health": 360,
+            "system": 90
+        }
+        self.map_archives()
         self._task_list = Queue()
         self._task_done = Queue()
         self._processes = []
@@ -44,38 +45,41 @@ class Archiver(serviceTemplate):
         scheduler.remove_job("archiver")
 
     def map_archives(self):
-        result = {}
-        models_ = [cls for name, cls in models.__dict__.items()
-                   if isinstance(cls, type) and issubclass(cls, Model)]
+        models_ = [
+            cls for name, cls in [
+                *archives.__dict__.items(),
+                *gaia.__dict__.items(),
+            ]
+            if isinstance(cls, type) and issubclass(cls, Model)
+        ]
         for model in models_:
             link = getattr(model, '__archive_link__', None)
             if link:
                 try:
-                    result[link.name].update({link.status: model})
+                    self._mapping[link.name].update({link.status: model})
                 except KeyError:
-                    result[link.name] = {link.status: model}
-        return result
+                    self._mapping[link.name] = {link.status: model}
 
     def archive_loop(self):
-        mapping = self.map_archives()
-        for data in mapping:
-            if all(k in mapping[data] for k in ("recent", "archive")):
-                recent = mapping[data]["recent"]
-                archive = mapping[data]["archive"]
+        self.map_archives()
+        for data in self._mapping:
+            if all(k in self._mapping[data] for k in ("recent", "archive")):
+                recent = self._mapping[data]["recent"]
+                archive = self._mapping[data]["archive"]
                 self.archive(data, recent, archive)
                 # TODO: use celery
                 # task = (data, recent, archived)
                 # self._task_list.put(task)
             else:
-                if "archive" not in mapping[data]:
-                    self._logger.warning(f"Data '{data}' only has recent table "
+                if "archive" not in self._mapping[data]:
+                    self.logger.warning(f"Data '{data}' only has recent table "
                                          f"and cannot be archived")
                 else:
-                    self._logger.warning(f"Data '{data}' does not have any "
+                    self.logger.warning(f"Data '{data}' does not have any "
                                          f"recent table, no archiving possible")
 
     def archive(self, data_name, recent_model, archive_model):
-        days_limit = archive_limit.get(data_name, 180)
+        days_limit = self.archive_limit.get(data_name, 180)
         now_utc = datetime.now(timezone.utc)
         time_limit = now_utc - timedelta(days=days_limit)
         columns = inspect(recent_model).columns.keys()
@@ -90,6 +94,7 @@ class Archiver(serviceTemplate):
             old_data.delete()
             session.commit()
 
+    # TODO: finish to use multiprocessor
     def mp_loop(self):
         while True:
             task = self._task_list.get()

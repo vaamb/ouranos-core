@@ -1,8 +1,11 @@
-from flask import request, jsonify
+from flask import jsonify
 from flask_restx import Namespace, Resource
 
-from src.app import API, db
-from .decorators import login_required
+from .decorators import permission_required
+from .utils import get_time_window_from_request_args
+from src import api
+from src.app import db
+from src.database.models.app import Permission
 
 
 namespace = Namespace(
@@ -13,18 +16,21 @@ namespace = Namespace(
 
 
 @namespace.route("/current_data")
-@namespace.hide
 class CurrentData(Resource):
-    @login_required
+    @namespace.doc(security="cookie_auth")
+    @permission_required(Permission.ADMIN)
     def get(self):
-        response = API.admin.get_current_system_data()
+        response = api.admin.get_current_system_data()
         return jsonify(response)
 
 
 @namespace.route("/data")
-@namespace.hide
 class Data(Resource):
-    @login_required
+    @namespace.doc(security="cookie_auth")
+    @permission_required(Permission.ADMIN)
     def get(self):
-        historic_system_data = API.admin.get_historic_system_data(db.session)
+        time_window = get_time_window_from_request_args()
+        historic_system_data = api.admin.get_historic_system_data(
+            db.session, time_window
+        )
         return jsonify(historic_system_data)

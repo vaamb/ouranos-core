@@ -2,6 +2,7 @@ import base64
 import os
 from pathlib import Path
 import platform
+from typing import Union
 
 import cachetools
 from cryptography.fernet import Fernet, InvalidToken
@@ -16,6 +17,18 @@ base_dir = Path(__file__).absolute().parents[1]
 
 
 coordinates = cachetools.LFUCache(maxsize=16)
+
+
+def arg_to_bool(arg: Union[bool, int, str]) -> bool:
+    if isinstance(arg, bool):
+        return arg
+    if isinstance(arg, int):
+        return bool(arg)
+    if arg.lower() == "true":
+        return True
+    elif arg.lower() == "false":
+        return False
+    raise ValueError("string must be 1, 0, 'true' or 'false'")
 
 
 def get_coordinates(city: str) -> dict:

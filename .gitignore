@@ -1,18 +1,11 @@
 __pycache__
 .idea/
+.pytest_cache
 
-venv
-instance
-logs
 cache
+logs
+venv
 migrations
-lib
-
-*.pyc
 
 *.db
-**/*private*
-
-*debug*
-*old*
-/migrations/
+*private*

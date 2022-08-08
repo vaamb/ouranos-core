@@ -1,6 +1,5 @@
 import dataclasses
 from datetime import date, datetime, time, timezone
-import json as _json
 import logging
 import logging.config
 import os
@@ -8,7 +7,6 @@ from pathlib import Path
 import socket
 import uuid
 
-from flask.json import text_type
 from flask import json as _json
 import jwt
 from sqlalchemy.engine import Row
@@ -44,8 +42,31 @@ class JSONEncoder(_json.JSONEncoder):
         if dataclasses.is_dataclass(o):
             return dataclasses.asdict(o)
         if hasattr(o, "__html__"):
-            return text_type(o.__html__())
+            return str(o.__html__())
         return _json.JSONEncoder.default(self, o)
+
+
+class JSONDecoder(_json.JSONDecoder):
+    def decode(self, string, *args, **kwargs):
+        result = super(JSONDecoder, self).decode(string, *args, **kwargs)
+        return self._convert_number(result)
+
+    def _convert_number(self, o):
+        if isinstance(o, str):
+            try:
+                return int(o)
+            except ValueError:
+                try:
+                    return float(o)
+                except ValueError:
+                    return o
+        elif isinstance(o, dict):
+            # If needed, can convert key too
+            return {k: self._convert_number(v) for k, v in o.items()}
+        elif isinstance(o, list):
+            return [self._convert_number(v) for v in o]
+        else:
+            return o
 
 
 class json:
@@ -57,6 +78,8 @@ class json:
 
     @staticmethod
     def loads(*args, **kwargs):
+        if 'cls' not in kwargs:
+            kwargs['cls'] = JSONDecoder
         return _json.loads(*args, **kwargs)
 
 
@@ -73,7 +96,6 @@ class Tokenizer:
 
     @staticmethod
     def dumps(secret_key: str, payload: dict) -> str:
-        payload = json.dumps(payload)
         return jwt.encode(payload, secret_key, algorithm=Tokenizer.algorithm)
 
     @staticmethod
@@ -81,7 +103,7 @@ class Tokenizer:
         try:
             payload = jwt.decode(token, secret_key,
                                  algorithms=[Tokenizer.algorithm])
-            return json.loads(payload)
+            return payload
         except jwt.ExpiredSignatureError:
             raise ExpiredTokenError
         except jwt.PyJWTError:
@@ -99,7 +121,10 @@ def is_connected(ip_to_connect: str = "1.1.1.1") -> bool:
     return False
 
 
-def time_to_datetime(_time: time) -> datetime:
+def time_to_datetime(_time: time):
+    # return _time in case it is None
+    if not isinstance(_time, time):
+        return _time
     return datetime.combine(date.today(), _time, tzinfo=timezone.utc)
 
 
@@ -138,7 +163,6 @@ def humanize_list(lst: list) -> str:
 
 def configure_logging(config_class):
     DEBUG = config_class.DEBUG
-    TESTING = config_class.TESTING
     LOG_TO_STDOUT = config_class.LOG_TO_STDOUT
     LOG_TO_FILE = config_class.LOG_TO_FILE
     LOG_ERROR = config_class.LOG_ERROR
@@ -148,14 +172,14 @@ def configure_logging(config_class):
     if LOG_TO_STDOUT:
         handlers.append("streamHandler")
 
-    if LOG_TO_FILE or LOG_ERROR:
+    if any((LOG_TO_FILE, LOG_ERROR)):
         if not os.path.exists(logs_dir):
             os.mkdir(logs_dir)
 
-    if LOG_TO_FILE:
+    if LOG_TO_FILE & 0:
         handlers.append("fileHandler")
 
-    if LOG_ERROR:
+    if LOG_ERROR & 0:
         handlers.append("errorFileHandler")
 
     LOGGING_CONFIG = {
@@ -164,26 +188,36 @@ def configure_logging(config_class):
 
         "formatters": {
             "streamFormat": {
-                "format": "%(asctime)s [%(levelname)-4.4s] %(name)-20.20s: %(message)s",
+                "format": "%(asctime)s %(levelname)-4.4s [%(filename)-20.20s:%(lineno)3d] %(name)-35.35s: %(message)s",
                 "datefmt": "%Y-%m-%d %H:%M:%S"
             },
             "fileFormat": {
                 "format": "%(asctime)s -- %(levelname)s  -- %(name)s -- %(message)s",
                 "datefmt": "%Y-%m-%d %H:%M:%S"
             },
-            "errorFormat": {
-                'format': '%(asctime)s %(levelname)-4.4s %(module)-17s ' +
-                          'line:%(lineno)-4d  %(message)s',
-                "datefmt": "%Y-%m-%d %H:%M:%S"
-            },
         },
-
         "handlers": {
             "streamHandler": {
                 "level": f"{'DEBUG' if DEBUG else 'INFO'}",
                 "formatter": "streamFormat",
                 "class": "logging.StreamHandler",
             },
+#            "fileHandler": {
+#                "level": f"{'DEBUG' if DEBUG else 'INFO'}",
+#                "formatter": "fileFormat",
+#                "class": "logging.handlers.RotatingFileHandler",
+#                'filename': 'logs/base.log',
+#                'mode': 'w+',
+#                'maxBytes': 1024 * 512,
+#                'backupCount': 5,
+#            },
+#            "errorFileHandler": {
+#                "level": "ERROR",
+#                "formatter": "fileFormat",
+#                "class": "logging.FileHandler",
+#                'filename': 'logs/errors.log',
+#                'mode': 'a',
+#            }
         },
 
         "loggers": {
@@ -209,31 +243,4 @@ def configure_logging(config_class):
             },
         },
     }
-
-    # TODO: move to main handlers?
-    # Append file handlers to config as if they are needed they require logs file
-    if LOG_TO_FILE:
-        LOGGING_CONFIG["handlers"].update({
-            "fileHandler": {
-                "level": f"{'DEBUG' if DEBUG or TESTING else 'INFO'}",
-                "formatter": "fileFormat",
-                "class": "logging.handlers.RotatingFileHandler",
-                'filename': 'logs/gaiaWeb.log',
-                'mode': 'w+',
-                'maxBytes': 1024 * 512,
-                'backupCount': 5,
-            }
-        })
-
-    if LOG_ERROR:
-        LOGGING_CONFIG["handlers"].update({
-            "errorFileHandler": {
-                "level": f"ERROR",
-                "formatter": "errorFormat",
-                "class": "logging.FileHandler",
-                'filename': 'logs/gaiaWeb_errors.log',
-                'mode': 'a',
-            }
-        })
-
     logging.config.dictConfig(LOGGING_CONFIG)

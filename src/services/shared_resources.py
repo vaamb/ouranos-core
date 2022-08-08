@@ -1,6 +1,7 @@
 from apscheduler.schedulers.background import BackgroundScheduler
-from src.database import Base, SQLAlchemyWrapper
+
+from src.database import SQLAlchemyWrapper
 
 
 scheduler = BackgroundScheduler()
-db = SQLAlchemyWrapper(model=Base)
+db = SQLAlchemyWrapper()

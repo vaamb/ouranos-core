@@ -4,35 +4,39 @@ import os
 
 import requests
 
-from src.dataspace import sunTimesData
+from src.cache import sunTimesData
 from src.utils import base_dir, is_connected, parse_sun_times
-from src.services.template import serviceTemplate
+from src.services.template import ServiceTemplate
 from src.services.shared_resources import scheduler
 
 
-class sunTimes(serviceTemplate):
-    NAME = "sun_times"
-    LEVEL = "base"
+class SunTimes(ServiceTemplate):
+    LEVEL = "app"
 
-    def _init(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self._file_path = None
         self._sun_times_data = sunTimesData
         self.coordinates = self.config.HOME_COORDINATES
 
     def update_sun_times_data(self):
-        self._logger.debug("Updating sun times")
+        self.logger.debug("Updating sun times")
         if is_connected():
             try:
+                latitude = self.coordinates[0]
+                longitude = self.coordinates[1]
                 data = requests.get(
-                    f"https://api.sunrise-sunset.org/json?lat={self.coordinates[0]}" +
-                    f"&lng={self.coordinates[1]}", timeout=3.0
+                    f"https://api.sunrise-sunset.org/json",
+                    params={"lat": latitude, "lng": longitude},
+                    timeout=1.0,
+                    verify=False,
                 ).json()
                 with self.mutex:
                     self._sun_times_data.update(data["results"])
             except requests.exceptions.ConnectionError:
                 with self.mutex:
                     self._sun_times_data.clear()
-                    self._logger.error(
+                    self.logger.error(
                         "ConnectionError, cannot update sun times")
             else:
                 with open(self._file_path, "w+") as file:
@@ -51,11 +55,11 @@ class sunTimes(serviceTemplate):
                     # Discard error when SocketIO has not started yet
                     if "NoneType" not in e.args[0]:
                         raise e
-                self._logger.debug("Sun times data updated")
+                self.logger.debug("Sun times data updated")
         else:
             with self.mutex:
                 self._sun_times_data.clear()
-                self._logger.error("ConnectionError, cannot update sun times")
+                self.logger.error("ConnectionError, cannot update sun times")
 
     def _check_recency(self) -> bool:
         try:
@@ -70,7 +74,7 @@ class sunTimes(serviceTemplate):
         with open(self._file_path, "r") as file:
             data = json.load(file)
         self._sun_times_data = data
-        self._logger.debug(
+        self.logger.debug(
             "Sun times data already up to date")
         return True
 
