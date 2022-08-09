@@ -29,7 +29,7 @@ class SystemMonitor(ServiceTemplate):
             try:
                 return round(psutil.sensors_temperatures()
                              .get("cpu_thermal")[0][1], 2)
-            except (AttributeError, KeyError):
+            except (AttributeError, KeyError, TypeError):
                 return None
 
         while True:
