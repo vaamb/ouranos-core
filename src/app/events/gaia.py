@@ -6,7 +6,7 @@ from typing import Union
 import cachetools
 from flask import current_app, request
 from flask_socketio import disconnect, join_room, leave_room
-from numpy import mean, std
+from statistics import mean, stdev as std
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, NoResultFound
 
