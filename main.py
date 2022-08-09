@@ -21,7 +21,6 @@ from src.app import create_app, scheduler, sio
 from src.utils import configure_logging, humanize_list
 
 
-
 config_profiles_available = [profile for profile in config]
 
 default_profile = os.environ.get("OURANOS_PROFILE") or "development"
@@ -44,7 +43,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("-p", "--profile", default=default_profile)
 
 
-def graceful_exit(*args, logger):
+def graceful_exit(logger):
     services.exit_gracefully()
     logger.info("Ouranos has been closed")
     sys.exit(0)
@@ -70,8 +69,7 @@ if __name__ == "__main__":
                 host="0.0.0.0",
                 port="5000")
     except KeyboardInterrupt:
+        logger.info("Manually closing gaiaWeb")
         scheduler.remove_all_jobs()
-        print("Manually closing gaiaWeb")
-    finally:
         sio.stop()
         graceful_exit(logger)

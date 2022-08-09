@@ -73,8 +73,12 @@ class SQLAlchemyWrapper:
         self._session = scoped_session(self._session_factory)
         self._initialized = True
 
+    def _get_binds_list(self) -> list:
+        return [None] + list(self._config.get("SQLALCHEMY_BINDS", {}).keys())
+
     def get_binds_mapping(self) -> dict:
-        binds = [None] + list(self._config.get("SQLALCHEMY_BINDS", ()))
+        binds = self._get_binds_list()
+        print(self._config.get("SQLALCHEMY_BINDS", ()))
         result = {}
         for bind in binds:
             engine = self._get_engine_for_bind(bind)
@@ -115,14 +119,14 @@ class SQLAlchemyWrapper:
             self._session.remove()
 
     def create_all(self):
-        binds = [None] + list(self._config.get("DATABASE_BINDS", ()))
+        binds = self._get_binds_list()
         for bind in binds:
             engine = self._get_engine_for_bind(bind)
             tables = self._get_tables_for_bind(bind)
             self.Model.metadata.create_all(bind=engine, tables=tables)
 
     def drop_all(self):
-        binds = [None] + list(self._config.get("DATABASE_BINDS", ()))
+        binds = self._get_binds_list()
         for bind in binds:
             engine = self._get_engine_for_bind(bind)
             tables = self._get_tables_for_bind(bind)

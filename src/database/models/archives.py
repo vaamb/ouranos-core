@@ -22,8 +22,8 @@ class ArchiveSensorData(BaseSensorHistory):
     __bind_key__ = "archive"
     __archive_link__ = archive_link("sensor", "archive")
 
-    ecosystem_uid = sa.Column(sa.String(length=8), primary_key=True)
-    sensor_uid = sa.Column(sa.String(length=16), primary_key=True)
+    ecosystem_uid = sa.Column(sa.String(length=8))
+    sensor_uid = sa.Column(sa.String(length=16))
 
 
 class ArchiveHealthData(BaseHealth):
@@ -31,7 +31,7 @@ class ArchiveHealthData(BaseHealth):
     __bind_key__ = "archive"
     __archive_link__ = archive_link("health", "archive")
 
-    ecosystem_uid = sa.Column(sa.String(length=8), primary_key=True)
+    ecosystem_uid = sa.Column(sa.String(length=8))
 
 
 class ArchiveAppWarning(BaseAppWarning):
@@ -39,4 +39,4 @@ class ArchiveAppWarning(BaseAppWarning):
     __bind_key__ = "archive"
     __archive_link__ = archive_link("warnings", "archive")
 
-    ecosystem_uid = sa.Column(sa.String(length=8), primary_key=True)
+    ecosystem_uid = sa.Column(sa.String(length=8))

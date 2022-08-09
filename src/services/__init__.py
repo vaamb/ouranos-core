@@ -35,6 +35,7 @@ SERVICES = {
 def _init_dependencies(config_class) -> None:
     configure_dispatcher(config_class, silent=True)
     db.init(config_class)
+    db.create_all()
     _log_services_available()
     scheduler.start()
 
