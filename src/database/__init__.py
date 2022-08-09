@@ -78,7 +78,6 @@ class SQLAlchemyWrapper:
 
     def get_binds_mapping(self) -> dict:
         binds = self._get_binds_list()
-        print(self._config.get("SQLALCHEMY_BINDS", ()))
         result = {}
         for bind in binds:
             engine = self._get_engine_for_bind(bind)
