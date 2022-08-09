@@ -1,8 +1,8 @@
 from collections import namedtuple
+from statistics import mean
 from typing import Union
 
 from cachetools import cached, TTLCache
-from numpy import mean
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm.session import Session
 

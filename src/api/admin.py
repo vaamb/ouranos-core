@@ -5,14 +5,14 @@ from threading import Thread
 
 from email_validator import validate_email, EmailNotValidError
 from flask import render_template, current_app
-from flask_mail import Message
-from lz.reversal import reverse
+# from flask_mail import Message  # not currently used
+# from lz.reversal import reverse  # not currently used
 from sqlalchemy.orm.exc import NoResultFound
 import jwt
 
 from config import Config
 from src.api.utils import timeWindow
-from src.app import mail
+# from src.app import mail
 from src.cache import systemData
 from src.database.models.app import User, Role
 from src.database.models.system import SystemHistory

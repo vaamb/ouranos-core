@@ -5,10 +5,10 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from dispatcher import configure_dispatcher
 from flask import Flask
 from flask_cors import CORS
-from flask_jwt_extended import JWTManager
+#from flask_jwt_extended import JWTManager
 from flask_login import LoginManager
-from flask_mail import Mail
-from flask_migrate import Migrate
+#from flask_mail import Mail
+#from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from flask_socketio import SocketIO
 
@@ -26,10 +26,10 @@ logger = logging.getLogger(f"{app_name.lower()}.app")
 scheduler = BackgroundScheduler()
 
 db = SQLAlchemy(model_class=base)
-jwtManager = JWTManager()
+#jwtManager = JWTManager()
 login_manager = LoginManager()
-mail = Mail()
-migrate = Migrate()
+#mail = Mail()
+#migrate = Migrate()
 sio = SocketIO(json=json, cors_allowed_origins="*")
 cors = CORS()
 
@@ -76,10 +76,10 @@ def create_app(config_class=DevelopmentConfig):
         supports_credentials=True,
     )
 
-    jwtManager.init_app(app)
+    #jwtManager.init_app(app)
     login_manager.init_app(app)  # TODO: look at add_context_processor=False
-    mail.init_app(app)
-    migrate.init_app(app, db)
+    #mail.init_app(app)
+    #migrate.init_app(app, db)
 
     # TODO: first check connection to server, and use Kombu instead
     if 0 and app.config["USE_REDIS_DISPATCHER"]:
