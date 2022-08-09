@@ -1,10 +1,10 @@
 from flask import jsonify, request
 from flask_login import login_user, logout_user, current_user
-from flask_jwt_extended import (create_access_token, create_refresh_token,
-                                jwt_required)
+#from flask_jwt_extended import (create_access_token, create_refresh_token,
+#                                jwt_required)
 from flask_restx import Namespace, Resource
 
-from src.app import auth, db
+from src.app import db
 from src.database.models.app import User
 
 
@@ -28,16 +28,16 @@ class Login(Resource):
             if user is None or not user.check_password(password):
                 return {"msg": "Wrong username or password"}, 401
             login_user(user, remember=remember)
-            access_token = create_access_token(
-                identity=user,
-                additional_claims={"perm": user.role.permissions}
-            )
-            refresh_token = create_refresh_token(identity=user)
+            #access_token = create_access_token(
+            #    identity=user,
+            #    additional_claims={"perm": user.role.permissions}
+            #)
+            #refresh_token = create_refresh_token(identity=user)
 
             return {
                 "msg": "You are logged in",
-                "access_token": access_token,
-                "refresh_token": refresh_token,
+            #    "access_token": access_token,
+            #    "refresh_token": refresh_token,
                 "user": user.to_dict(),
             }
         return {"msg": "No credential received"}, 401
@@ -69,6 +69,7 @@ class CurrentUser(Resource):
         }
 
 
+"""
 @namespace.route("/refresh")
 class Token(Resource):
     @jwt_required(refresh=True)
@@ -86,3 +87,4 @@ class Token(Resource):
         else:
             return {"msg": "Invalid 'token_type' argument. Must be 'access' "
                            "or 'refresh'"}, 400
+"""
