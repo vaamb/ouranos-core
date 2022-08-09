@@ -1,9 +1,7 @@
 from collections import deque
 from collections.abc import MutableMapping
 import time
-from typing import Iterator
-
-from redis import Redis
+import typing as t
 
 from src.utils import json
 
@@ -12,7 +10,7 @@ class RedisCache(MutableMapping):
     """A cache using a redis server as backend
 
     """
-    def __init__(self, name: str, redis_client: Redis, *args, **kwargs):
+    def __init__(self, name: str, redis_client, *args, **kwargs):
         self._name = name
         self._key_store = deque()
         self._client = redis_client
@@ -44,7 +42,7 @@ class RedisCache(MutableMapping):
     def __len__(self) -> int:
         return self._client.hlen(self._name)
 
-    def __iter__(self) -> Iterator:
+    def __iter__(self) -> t.Iterator:
         # works but inefficient
         mem_cached = self._client.hgetall(self._name)
         for key in mem_cached:
@@ -64,7 +62,7 @@ class RedisTTLCache(RedisCache):
             self,
             name: str,
             ttl: int,
-            redis_client: Redis,
+            redis_client,
             *args,
             **kwargs
     ) -> None:

@@ -4,8 +4,12 @@ import logging
 from typing import Union, Type
 
 from cachetools import Cache, TTLCache
-from redis import Redis, RedisError
 from werkzeug.local import LocalProxy
+
+try:
+    import redis
+except ImportError:
+    redis = None
 
 from config import Config
 from .redis_cache import RedisCache, RedisTTLCache
@@ -63,12 +67,18 @@ def _create_cache(
     _CACHE_CREATED = True
     url = _get_url(config)
     if url.startswith("redis"):
-        _redis = Redis.from_url(url)
+        if redis is None:
+            raise RuntimeError(
+                "redis package with hiredis is required. Run "
+                "`pip install redis[hiredis]` in your virtual "
+                "env."
+            )
+        _redis = redis.Redis.from_url(url)
         if _CACHING_SERVER_REACHABLE == 2:
             try:
                 _redis.ping()
                 _CACHING_SERVER_REACHABLE = 1
-            except RedisError:
+            except redis.RedisError:
                 logger.warning(
                     "Cannot connect to Redis server, using base dispatcher "
                     "instead."
