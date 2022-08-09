@@ -1,6 +1,7 @@
-from telegram import Update
-from telegram.ext import Updater, CommandHandler, CallbackContext,\
-    MessageHandler, Filters
+try:
+    import telegram
+except ImportError:
+    telegram = None
 
 from src import api
 from src.database.models.app import User, Role, Permission
@@ -12,6 +13,11 @@ class TelegramChatBot(ServiceTemplate):
     LEVEL = "user"
 
     def __init__(self, *args, **kwargs):
+        if not telegram:
+            raise RuntimeError(
+                "python-telegram-bot package is required. Run "
+                "`pip install python-telegram-bot` in your virtual env."
+            )
         super().__init__(*args, **kwargs)
         self.updater = None
         self.dispatcher = None
@@ -42,7 +48,7 @@ class TelegramChatBot(ServiceTemplate):
         role = self.get_role(chat_id)
         return role.has_permission(permission)
 
-    def on_start(self, update: Update, context: CallbackContext) -> None:
+    def on_start(self, update: telegram.Update, context: telegram.ext.CallbackContext) -> None:
         chat_id = update.effective_chat.id
         firstname = self.get_firstname(chat_id=chat_id)
         update.message.reply_html(
@@ -50,13 +56,13 @@ class TelegramChatBot(ServiceTemplate):
             f"type /help."
         )
 
-    def on_light_info(self, update: Update, context: CallbackContext) -> None:
+    def on_light_info(self, update: telegram.Update, context: telegram.ext.CallbackContext) -> None:
         ecosystems = context.args
         with db.scoped_session() as session:
             message = api.messages.light_info(*ecosystems, session=session)
         update.message.reply_text(message)
 
-    def on_weather(self, update: Update, context: CallbackContext) -> None:
+    def on_weather(self, update: telegram.Update, context: telegram.ext.CallbackContext) -> None:
         args = context.args
         if "forecast" in args:
             forecast = True
@@ -66,14 +72,14 @@ class TelegramChatBot(ServiceTemplate):
             api.messages.weather(forecast=forecast)
         )
 
-    def on_sensors(self, update: Update, context: CallbackContext):
+    def on_sensors(self, update: telegram.Update, context: telegram.ext.CallbackContext):
         ecosystems = context.args
         with db.scoped_session() as session:
             message = api.messages.current_sensors_info(
                 *ecosystems, session=session)
         update.message.reply_text(message)
 
-    def on_sensors_recap(self, update: Update, context: CallbackContext):
+    def on_sensors_recap(self, update: telegram.Update, context: telegram.ext.CallbackContext):
         args = context.args
         to_remove = None
         days = 1
@@ -92,7 +98,7 @@ class TelegramChatBot(ServiceTemplate):
                 *ecosystems, session=session, days_ago=days)
         update.message.reply_text(message)
 
-    def on_turn_lights(self, update: Update, context: CallbackContext) -> None:
+    def on_turn_lights(self, update: telegram.Update, context: telegram.ext.CallbackContext) -> None:
         chat_id = update.effective_chat.id
 
         if self.user_can(chat_id, Permission.OPERATE):
@@ -147,15 +153,15 @@ class TelegramChatBot(ServiceTemplate):
                                       "or off")
 
 
-    def on_recap(self, update: Update, context: CallbackContext) -> None:
+    def on_recap(self, update: telegram.Update, context: telegram.ext.CallbackContext) -> None:
         pass
 
-    def base_of_tree(self, update: Update, context: CallbackContext) -> None:
+    def base_of_tree(self, update: telegram.Update, context: telegram.ext.CallbackContext) -> None:
         chat_id = update.effective_chat.id
         firstname = self.get_firstname(chat_id=chat_id)
         # TODO: finish this with a tree of decision
 
-    def on_help(self, update: Update, context: CallbackContext) -> None:
+    def on_help(self, update: telegram.Update, context: telegram.ext.CallbackContext) -> None:
         message = "Here is a list of the commands available:\n"
         message += "/weather : provides the current weather by default and the " \
                    "weather forecast if 'forecast' is provided as an argument.\n"
@@ -170,7 +176,7 @@ class TelegramChatBot(ServiceTemplate):
                    "weather forecast, warnings and calendar events.\n"
         update.message.reply_text(message)
 
-    def unknown_command(self, update: Update, context: CallbackContext):
+    def unknown_command(self, update: telegram.Update, context: telegram.ext.CallbackContext):
         chat_id = update.effective_chat.id
         firstname = self.get_firstname(chat_id=chat_id)
         update.message.reply_text(
@@ -180,15 +186,15 @@ class TelegramChatBot(ServiceTemplate):
 
     # Put in dummy class
     def _start(self):
-        self.updater = Updater(self.config.TELEGRAM_BOT_TOKEN, use_context=True)
+        self.updater = telegram.ext.Updater(self.config.TELEGRAM_BOT_TOKEN, use_context=True)
         self.dispatcher = self.updater.dispatcher
         for key in dir(self):
             if key.startswith("on_"):
                 callback = getattr(self, key)
-                self.dispatcher.add_handler(CommandHandler(key[3:], callback))
+                self.dispatcher.add_handler(telegram.ext.CommandHandler(key[3:], callback))
         # Keep this handler last, it will catch all non recognized commands
         self.dispatcher.add_handler(
-            MessageHandler(Filters.command, self.unknown_command))
+            telegram.ext.MessageHandler(telegram.ext.Filters.command, self.unknown_command))
         self.updater.start_polling()
 
     def _stop(self):
