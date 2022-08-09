@@ -57,7 +57,7 @@ def get_ecosystem_or_create_it(uid: str) -> Ecosystem:
         select(Ecosystem).where(Ecosystem.uid == uid)
     ).scalars().first()
     if not ecosystem:
-        ecosystem = Ecosystem(uid="test")
+        ecosystem = Ecosystem(uid=uid)
         db.session.add(ecosystem)
     return ecosystem
 
@@ -210,7 +210,7 @@ def get_engine(event) -> Engine:
                            f"client with address {remote_addr}:{remote_port}")
         sio.emit("register", namespace="/gaia", room=request.sid)
         # TODO: raise error?
-        raise Exception
+        # raise Exception
     return engine
 
 
