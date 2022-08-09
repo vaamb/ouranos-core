@@ -13,7 +13,7 @@ PROTECTED_CATEGORIES = ("plants_care", )
 
 rel_path = pathlib.Path(__file__).parent.absolute().relative_to(app_path)
 
-wiki_engine = get_wiki()
+# wiki_engine = get_wiki()
 bp = Blueprint("wiki", __name__)
 
 

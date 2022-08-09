@@ -3,8 +3,8 @@ from datetime import datetime, timezone
 import pathlib
 
 import cachetools.func
-import markdown
-import markdown.extensions.extra
+# import markdown
+# import markdown.extensions.extra
 
 
 WIKI_STATIC_URL = "wiki_static"

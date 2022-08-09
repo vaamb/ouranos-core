@@ -91,8 +91,8 @@ def create_app(config_class=DevelopmentConfig):
         scheduler.start()
 
     logger.debug("Adding wiki static folder")
-    from src.app.wiki.routing import bp as wiki_bp
-    app.register_blueprint(wiki_bp)
+    # from src.app.wiki.routing import bp as wiki_bp
+    # app.register_blueprint(wiki_bp)
 
     logger.debug("Loading api blueprint")
     from src.app.routes import bp as api_bp
