@@ -4,6 +4,8 @@ from config import Config
 
 db = SQLAlchemyWrapper(Config)
 
+db.create_all()
+
 """import logging
 from pathlib import Path
 

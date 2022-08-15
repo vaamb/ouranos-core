@@ -1,7 +1,7 @@
 from fastapi import FastAPI, APIRouter
 
 from .docs import tags_metadata
-from .routes import weather
+from .routes import weather, auth
 from config import Config
 
 
@@ -16,5 +16,6 @@ app = FastAPI(
 prefix = APIRouter(prefix="/api")
 
 prefix.include_router(weather.router)
+prefix.include_router(auth.router)
 
 app.include_router(prefix)
