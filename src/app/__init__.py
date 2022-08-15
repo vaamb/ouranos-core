@@ -1,14 +1,17 @@
-import logging
+from src.database.wrapper import SQLAlchemyWrapper
+from config import Config
+
+
+db = SQLAlchemyWrapper(Config)
+
+"""import logging
 from pathlib import Path
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from dispatcher import configure_dispatcher
 from flask import Flask
 from flask_cors import CORS
-#from flask_jwt_extended import JWTManager
 from flask_login import LoginManager
-#from flask_mail import Mail
-#from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from flask_socketio import SocketIO
 
@@ -106,3 +109,4 @@ def create_app(config_class=DevelopmentConfig):
     logger.info(f"{app_name} app successfully created")
 
     return app
+"""

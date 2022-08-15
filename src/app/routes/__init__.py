@@ -1,4 +1,4 @@
-from flask import Blueprint
+"""from flask import Blueprint
 from flask_restx import Api
 
 from .api_doc import authorizations
@@ -29,3 +29,4 @@ api.add_namespace(auth_ns, path="/auth")
 api.add_namespace(gaia_ns, path="/gaia")
 api.add_namespace(system_ns, path="/system")
 api.add_namespace(weather_ns, path="/weather")
+"""

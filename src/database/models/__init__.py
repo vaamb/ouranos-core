@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from flask_sqlalchemy.model import DefaultMeta, Model
+#from flask_sqlalchemy.model import DefaultMeta, Model
 from sqlalchemy.ext.declarative import declarative_base
 
 
@@ -29,8 +29,8 @@ class ArchiveMetaMixin(type):
             cls.__table__.info['archive_link'] = archive_link
 
 
-class CustomMeta(ArchiveMetaMixin, DefaultMeta):
-    pass
+"""class CustomMeta(ArchiveMetaMixin, DefaultMeta):
+    pass"""
 
 
-base = declarative_base(cls=Model, name="Model", metaclass=CustomMeta)
+base = declarative_base()

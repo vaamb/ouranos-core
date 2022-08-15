@@ -1,15 +1,5 @@
-from flask import abort, request, jsonify
-from flask_restx import Resource
-
-from . import namespace
-from ..api_doc import (
-    hardware_query_schema, hardware_param, level_param, type_param, model_param,
-    measure_param, data_params, no_default
-)
-from ..decorators import permission_required
 from ..utils import get_time_window_from_request_args
 from src import api
-from src.app import db
 from src.database.models.app import Permission
 
 
@@ -24,13 +14,6 @@ ecosystem_param = {
 
 @namespace.route("/hardware")
 class Hardware(Resource):
-    @namespace.doc(
-        description="Get the info of the list of hardware listed in the query string",
-        params={
-            **ecosystem_param, **hardware_param, **level_param, **type_param,
-            **model_param
-        }
-    )
     def get(self):
         qs = hardware_query_schema.load(request.args)
         qs["e_uid"] = request.args.get("ecosystem_uid", "all")

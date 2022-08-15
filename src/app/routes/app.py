@@ -16,7 +16,6 @@ namespace = Namespace(
 @namespace.route("/version")
 class Version(Resource):
     def get(self):
-
         return jsonify(current_app.config.get("VERSION"))
 
 

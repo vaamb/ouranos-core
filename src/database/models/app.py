@@ -2,8 +2,8 @@ from datetime import datetime, timezone
 from hashlib import md5
 import time as ctime
 
-from flask import current_app
-from flask_login import UserMixin
+#from flask import current_app
+#from flask_login import UserMixin
 import sqlalchemy as sa
 from sqlalchemy import orm
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -78,7 +78,7 @@ class Role(base):
         return f"<Role {self.name}>"
 
 
-class User(UserMixin, base):
+class User(base):  # add UserMixin
     __tablename__ = "users"
     __bind_key__ = "app"
     id = sa.Column(sa.Integer, primary_key=True)

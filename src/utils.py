@@ -7,8 +7,8 @@ from pathlib import Path
 import socket
 import uuid
 
-from flask import json as _json
-import jwt
+import json as _json
+"""import jwt"""
 from sqlalchemy.engine import Row
 
 

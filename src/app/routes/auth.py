@@ -1,46 +1,37 @@
-from flask import jsonify, request
-from flask_login import login_user, logout_user, current_user
-#from flask_jwt_extended import (create_access_token, create_refresh_token,
-#                                jwt_required)
-from flask_restx import Namespace, Resource
+from fastapi import APIRouter
+from fastapi.security import HTTPBasicCredentials
 
 from src.app import db
 from src.database.models.app import User
 
 
-namespace = Namespace(
-    "auth",
-    description="Information about the system. Rem: it is required to be "
-                "logged in to access data.",
+router = APIRouter(
+    prefix="/auth",
+    responses={404: {"description": "Not found"}},
+    tags=["auth"],
 )
 
 
-@namespace.route("/login")
-class Login(Resource):
-    @namespace.doc(description="Login the user", security="basic_auth")
-    def get(self):
-        remember = request.args.get("remember", False)
-        auth_header = request.authorization
-        if auth_header:
-            username = auth_header.username
-            password = auth_header.password
-            user = db.session.query(User).filter_by(username=username).first()
-            if user is None or not user.check_password(password):
-                return {"msg": "Wrong username or password"}, 401
-            login_user(user, remember=remember)
-            #access_token = create_access_token(
-            #    identity=user,
-            #    additional_claims={"perm": user.role.permissions}
-            #)
-            #refresh_token = create_refresh_token(identity=user)
+@router.get("/login")
+def login(credentials: HTTPBasicCredentials, remember: bool = False):
+    username = credentials.username
+    password = credentials.password
+    user = db.session.query(User).filter_by(username=username).first()
+    if user is None or not user.check_password(password):
+        return {"msg": "Wrong username or password"}, 401
+    #login_user(user, remember=remember)
+    #access_token = create_access_token(
+    #    identity=user,
+    #    additional_claims={"perm": user.role.permissions}
+    #)
+    #refresh_token = create_refresh_token(identity=user)
 
-            return {
-                "msg": "You are logged in",
-            #    "access_token": access_token,
-            #    "refresh_token": refresh_token,
-                "user": user.to_dict(),
-            }
-        return {"msg": "No credential received"}, 401
+    return {
+        "msg": "You are logged in",
+    #    "access_token": access_token,
+    #    "refresh_token": refresh_token,
+        "user": user.to_dict(),
+    }
 
 
 @namespace.route("/logout")
