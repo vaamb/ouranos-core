@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 
-#from flask_sqlalchemy.model import DefaultMeta, Model
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.ext.declarative import declarative_base, DeclarativeMeta
 
 
 @dataclass(frozen=True)
@@ -14,6 +13,20 @@ class archive_link:
             raise ValueError("status has to be 'archive' or 'recent'")
         object.__setattr__(self, "name", name)
         object.__setattr__(self, "status", status)
+
+
+class BindMetaMixin(type):
+    # From Flask-SQLAlchemy
+    def __init__(cls, name, bases, d):
+        bind_key = (
+            d.pop('__bind_key__', None)
+            or getattr(cls, '__bind_key__', None)
+        )
+
+        super(BindMetaMixin, cls).__init__(name, bases, d)
+
+        if bind_key is not None and getattr(cls, '__table__', None) is not None:
+            cls.__table__.info['bind_key'] = bind_key
 
 
 class ArchiveMetaMixin(type):
@@ -29,8 +42,8 @@ class ArchiveMetaMixin(type):
             cls.__table__.info['archive_link'] = archive_link
 
 
-"""class CustomMeta(ArchiveMetaMixin, DefaultMeta):
-    pass"""
+class CustomMeta(ArchiveMetaMixin, BindMetaMixin, DeclarativeMeta):
+    pass
 
 
-base = declarative_base()
+base = declarative_base(metaclass=CustomMeta)

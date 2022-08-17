@@ -1,11 +1,10 @@
-from hashlib import sha512
-
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 from src.app import db
+from src.app.auth import login_user
 from src.database.models.app import User
-import jwt
+
 
 security = HTTPBasic()
 
@@ -17,24 +16,16 @@ router = APIRouter(
 )
 
 
-def _create_session_id(remote_address, user_agent):
-    base = f"{remote_address}|{user_agent}"
-    h = sha512()
-    h.update(base.encode("utf8"))
-    return h.hexdigest()
-
-
 @router.get("/login")
 def login(
         request: Request,
+        response: Response,
         credentials: HTTPBasicCredentials = Depends(security),
         remember: bool = False
 ):
     username = credentials.username
     password = credentials.password
-    with db.scoped_session() as session:
-        user = session.query(User).filter_by(username=username).first()
-    print(username)
+    user = db.session.query(User).filter_by(username=username).first()
 
     if user is None or not user.check_password(password):
         return HTTPException(
@@ -42,27 +33,18 @@ def login(
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Basic"},
         )
-    # TODO: use remember
-    remote_address = request.client.host
-    user_agent = request.headers.get("user-agent")
-
-    session = {
-        "id": _create_session_id(remote_address, user_agent),
-        "user_id": user.id,
-    }
-
-    #login_user(user, remember=remember)
+    login_user(user, remember, request, response)
     #access_token = create_access_token(
     #    identity=user,
     #    additional_claims={"perm": user.role.permissions}
     #)
     #refresh_token = create_refresh_token(identity=user)
-    print(credentials)
+    # TODO: close sessio after requests
     return {
         "msg": "You are logged in",
     #    "access_token": access_token,
     #    "refresh_token": refresh_token,
-    #    "user": user.to_dict(),
+        "user": user.to_dict(),
     }
 
 """

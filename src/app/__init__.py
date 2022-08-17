@@ -1,3 +1,4 @@
+from src.database.models import app, archives, gaia, system
 from src.database.wrapper import SQLAlchemyWrapper
 from config import Config
 

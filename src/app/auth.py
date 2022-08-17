@@ -1,31 +1,58 @@
-from flask_login import AnonymousUserMixin
+from hashlib import sha512
+import typing as t
 
-from . import db, jwtManager, login_manager
+import jwt
+
+from . import db
 from src.database.models.app import User
+from config import Config
 
 
-class AnonymousUser(AnonymousUserMixin):
-    def can(self, perm):
-        return False
+if t.TYPE_CHECKING:
+    from fastapi import Request, Response
 
 
-login_manager.anonymous_user = AnonymousUser
+def encode_payload(
+        payload: dict,
+        key: str = None,
+        algorithm: str = "HS256",
+) -> str:
+    if not key:
+        key = Config.SECRET_KEY
+    return jwt.encode(payload, key, algorithm)
 
 
-@jwtManager.user_identity_loader
-def user_identity_lookup(user):
-    return user.id
+def decode_token(
+        token: str,
+        key: str = None,
+        algorithm: str = "HS256",
+) -> dict:
+    return jwt.decode(token, key, algorithm)
 
 
-@jwtManager.user_lookup_loader
-def user_lookup_callback(_jwt_header, jwt_data):
-    user_id = jwt_data["sub"]
-    return get_user(user_id)
+def create_session_id(remote_address, user_agent):
+    base = f"{remote_address}|{user_agent}"
+    h = sha512()
+    h.update(base.encode("utf8"))
+    return h.hexdigest()
 
 
-@login_manager.user_loader
-def load_user(user_id):
-    return get_user(user_id)
+def login_user(
+        user: User,
+        remember: bool,
+        request,
+        response,
+) -> None:
+    remote_address = request.client.host
+    user_agent = request.headers.get("user-agent")
+    session_id = create_session_id(remote_address, user_agent)
+    # TODO: use remember
+    session = {
+        "id": session_id,
+        "user_id": user.id,
+    }
+    token = encode_payload(session)
+    response.set_cookie("session", token)
 
 
 def get_user(user_id: int) -> User:

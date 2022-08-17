@@ -10,14 +10,13 @@ from sqlalchemy.engine import create_engine, Engine
 from sqlalchemy.orm import scoped_session, sessionmaker
 
 from src.database.models import base
-from src.utils import config_dict_from_class
+from src.utils import base_dir, config_dict_from_class
 
 
 class SQLAlchemyWrapper:
-    """Wrapper to use SQLAlchemy in parallel of Flask-SQLAlchemy
-    outside of app context
+    """Convenience wrapper to use SQLAlchemy
 
-    For a safe use, use as follow:
+    For a safe use, use as follows:
     ``
     db = SQLAlchemyWrapper()
     with db.scoped_session() as session:
@@ -30,7 +29,6 @@ class SQLAlchemyWrapper:
 
     def __init__(self, config=None, model=_Model, create=False):
         self.Model = model
-
         self._initialized = False
         self._session_factory = sessionmaker()
         self._session = scoped_session(None)  # For type hint only
@@ -67,23 +65,16 @@ class SQLAlchemyWrapper:
             self._config = config_object
         else:
             raise TypeError("config_object can either be a str, a dict or a class")
-        assert "SQLALCHEMY_DATABASE_URI" in self._config
-        from .models import app, archives, gaia, system
+        if "SQLALCHEMY_DATABASE_URI" not in self._config:
+            db_file = base_dir / "database.db"
+            uri = f"sqlite:///{db_file}"
+            self._config["SQLALCHEMY_DATABASE_URI"] = uri
         self._session_factory = sessionmaker(binds=self.get_binds_mapping())
         self._session = scoped_session(self._session_factory)
         self._initialized = True
 
     def _get_binds_list(self) -> list:
         return [None] + list(self._config.get("SQLALCHEMY_BINDS", {}).keys())
-
-    def get_binds_mapping(self) -> dict:
-        binds = self._get_binds_list()
-        result = {}
-        for bind in binds:
-            engine = self._get_engine_for_bind(bind)
-            result.update(
-                {table: engine for table in self._get_tables_for_bind(bind)})
-        return result
 
     def _get_tables_for_bind(self, bind: str = None) -> list:
         return [
@@ -100,7 +91,7 @@ class SQLAlchemyWrapper:
         return binds[bind]
 
     def _get_engine_for_bind(self, bind: str = None) -> Engine:
-        assert self._config, "sqlalchemy_wrapper was not fully initialized"
+        assert self._config, "SQLAlchemyWrapper was not fully initialized"
         engine = self._engines.get(bind, None)
         if engine is None:
             engine = create_engine(self._get_uri_for_bind(bind), convert_unicode=True)
@@ -110,12 +101,21 @@ class SQLAlchemyWrapper:
     @contextmanager
     def scoped_session(self):
         try:
-            yield self.session
+            yield self._session()
         except Exception as e:
-            self.session.rollback()
+            self._session.rollback()
             raise e
         finally:
             self._session.remove()
+
+    def get_binds_mapping(self) -> dict:
+        binds = self._get_binds_list()
+        result = {}
+        for bind in binds:
+            engine = self._get_engine_for_bind(bind)
+            result.update(
+                {table: engine for table in self._get_tables_for_bind(bind)})
+        return result
 
     def create_all(self):
         binds = self._get_binds_list()
@@ -131,14 +131,5 @@ class SQLAlchemyWrapper:
             tables = self._get_tables_for_bind(bind)
             self.Model.metadata.drop_all(bind=engine, tables=tables)
 
-    def add(self, *args, **kwargs):
-        return self.session.add(*args, **kwargs)
-
-    def commit(self):
-        return self.session.commit()
-
-    def rollback(self):
-        return self.session.rollback()
-
     def close(self):
-        return self.session.remove()
+        return self._session.remove()
