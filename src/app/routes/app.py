@@ -1,53 +1,51 @@
-from flask import current_app, jsonify, request
-from flask_restx import Namespace, Resource
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from .decorators import permission_required
 from src import api
-from src.app import db
-from src.database.models.app import Permission
+from src.app import app_config, db
+from src.app.auth import get_current_user
+from src.app.pydantic.models.app import PydanticUserMixin
 
 
-namespace = Namespace(
-    "app",
-    description="Information about the app",
+router = APIRouter(
+    prefix="/app",
+    responses={404: {"description": "Not found"}},
+    tags=["app"],
 )
 
 
-@namespace.route("/version")
-class Version(Resource):
-    def get(self):
-        return jsonify(current_app.config.get("VERSION"))
+@router.get("/version")
+async def get_version():
+    return app_config.get("VERSION")
 
 
-@namespace.route("/logging_period")
-class LoggingConfig(Resource):
-    def get(self):
-        return jsonify({
-            "weather": current_app.config.get("OURANOS_WEATHER_UPDATE_PERIOD", None),
-            "system": current_app.config.get("SYSTEM_LOGGING_PERIOD", None),
-            "sensors": current_app.config.get("SENSORS_LOGGING_PERIOD", None),
-        })
+@router.get("/logging_period")
+async def get_logging_config():
+    return {
+        "weather": app_config.get("OURANOS_WEATHER_UPDATE_PERIOD", None),
+        "system": app_config.get("SYSTEM_LOGGING_PERIOD", None),
+        "sensors": app_config.get("SENSORS_LOGGING_PERIOD", None),
+    }
 
 
-@namespace.route("/services")
-class Functionalities(Resource):
-    def get(self):
-        level = request.args.get("level", "all").split(",")
-        response = api.app.get_services(session=db.session, level=level)
-        return jsonify(response)
+@router.get("/services")
+async def get_services(level: str = Query(default="all")):
+    response = api.app.get_services(session=db.session, level=level)
+    return response
 
 
 # TODO: for future use
-@namespace.route("/flash_message")
-class FlashMessage(Resource):
-    def get(self):
-        response = {}
-        return jsonify(response)
+@router.get("/flash_message")
+async def get_flash_message():
+    response = {}
+    return response
 
 
-@namespace.route("/warnings")
-class Warnings(Resource):
-    @permission_required(Permission.VIEW)
-    def get(self):
+@router.get("/warnings")
+async def get_warnings(current_user: PydanticUserMixin = Depends(get_current_user)):
+    if current_user.is_authenticated:
         response = api.warnings.get_recent_warnings(db.session, limit=8)
-        return jsonify(response)
+        return response
+    raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access forbidden",
+            )

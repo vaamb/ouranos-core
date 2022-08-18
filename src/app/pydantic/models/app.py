@@ -1,3 +1,5 @@
+import typing as t
+
 from pydantic import BaseModel
 from pydantic_sqlalchemy import sqlalchemy_to_pydantic
 
@@ -9,6 +11,14 @@ class PydanticLimitedUser(BaseModel):
     firstname: str
     lastname: str
     permissions: int
+
+
+class PydanticUserMixin(BaseModel):
+    is_authenticated: bool
+    is_anonymous: bool
+    get_id: t.Optional[int]
+    can: bool
+    to_dict: dict
 
 
 PydanticUser = sqlalchemy_to_pydantic(User)

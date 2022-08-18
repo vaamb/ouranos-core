@@ -1,6 +1,9 @@
 from src.database.models import app, archives, gaia, system
 from src.database.wrapper import SQLAlchemyWrapper
+from src.utils import config_dict_from_class
 from config import Config
+
+app_config = config_dict_from_class(Config)
 
 
 db = SQLAlchemyWrapper(Config)
