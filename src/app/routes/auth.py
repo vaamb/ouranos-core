@@ -1,16 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends
 from fastapi.security import HTTPBasicCredentials
 
 from src.app.auth import (
     LoginManager, basic_auth, get_login_manager, get_current_user
 )
-
-from pydantic import BaseModel
-
-
-class User(BaseModel):
-    def to_dict(self) -> dict:
-        pass
+from src.app.pydantic.models.app import PydanticLimitedUser, PydanticUser
 
 
 router = APIRouter(
@@ -39,14 +33,14 @@ async def login(
 @router.get("/logout")
 async def logout(
         login_manager: LoginManager = Depends(get_login_manager),
-        current_user: User = Depends(get_current_user)
+        current_user: PydanticUser = Depends(get_current_user)
 ):
     login_manager.logout()
     return {"msg": "Logged out"}
 
 
-@router.get("/current_user")
-def get_current_user(current_user: User = Depends(get_current_user)):
+@router.get("/current_user", response_model=PydanticLimitedUser)
+def get_current_user(current_user: PydanticUser = Depends(get_current_user)):
     return current_user.to_dict()
 
 
@@ -57,10 +51,6 @@ class Register(Resource):
         pass
 
 
-
-
-"""
-"""
 @namespace.route("/refresh")
 class Token(Resource):
     @jwt_required(refresh=True)
