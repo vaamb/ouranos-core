@@ -3,6 +3,19 @@ from src.database.wrapper import SQLAlchemyWrapper
 from src.utils import config_dict_from_class
 from config import Config
 
+try:
+    import orjson
+except ImportError:
+    try:
+        import ujson
+    except ImportError:
+        from fastapi.responses import JSONResponse
+    else:
+        from fastapi.responses import UJSONResponse as JSONResponse
+else:
+    from fastapi.responses import ORJSONResponse as JSONResponse
+
+
 app_config = config_dict_from_class(Config)
 
 

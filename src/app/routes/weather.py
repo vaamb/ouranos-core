@@ -3,6 +3,8 @@ import typing as t
 from fastapi import APIRouter, Query
 
 from src import api
+from src.app import JSONResponse
+
 
 router = APIRouter(
     prefix="/weather",
@@ -11,13 +13,13 @@ router = APIRouter(
 )
 
 
-@router.get("/sun_times")
+@router.get("/sun_times", response_class=JSONResponse)
 async def get_sun_times() -> dict:
     response = api.weather.get_suntimes_data()
     return response
 
 
-@router.get("/forecast")
+@router.get("/forecast", response_class=JSONResponse)
 async def get_forecast(exclude: t.Union[list[str], None] = Query(default=None)) -> dict:
     response = {}
     if "currently" not in exclude:
@@ -35,19 +37,19 @@ async def get_forecast(exclude: t.Union[list[str], None] = Query(default=None)) 
     return response
 
 
-@router.get("/forecast/currently")
+@router.get("/forecast/currently", response_class=JSONResponse)
 async def get_current_forecast() -> dict:
     response = api.weather.get_current_weather()
     return response
 
 
-@router.get("/forecast/hourly")
+@router.get("/forecast/hourly", response_class=JSONResponse)
 async def get_current_forecast() -> dict:
     response = api.weather.get_hourly_weather_forecast()
     return response
 
 
-@router.get("/forecast/daily")
+@router.get("/forecast/daily", response_class=JSONResponse)
 async def get_current_forecast() -> dict:
     response = api.weather.get_daily_weather_forecast()
     return response
