@@ -156,7 +156,7 @@ class User(base, UserMixin):
     telegram_chat_id = sa.Column(sa.String(16), unique=True)
 
     # relationship
-    role = orm.relationship("Role", back_populates="users")
+    role = orm.relationship("Role", back_populates="users", lazy="joined")
     daily_recap_channel = orm.relationship("CommunicationChannel",
                                            back_populates="users")
     calendar = orm.relationship("CalendarEvent", back_populates="user")

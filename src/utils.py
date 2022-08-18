@@ -5,12 +5,15 @@ import logging.config
 import os
 from pathlib import Path
 import socket
+import typing as t
 import uuid
 
 import json as _json
-"""import jwt"""
+import jwt
 from sqlalchemy.engine import Row
 
+#TODO: use local context?
+from config import Config
 
 base_dir = Path(__file__).absolute().parents[1]
 logs_dir = base_dir/"logs"
@@ -95,11 +98,15 @@ class Tokenizer:
     algorithm = "HS256"
 
     @staticmethod
-    def dumps(secret_key: str, payload: dict) -> str:
+    def dumps(payload: dict, secret_key: t.Optional[str] = None) -> str:
+        if not secret_key:
+            secret_key = Config.SECRET_KEY
         return jwt.encode(payload, secret_key, algorithm=Tokenizer.algorithm)
 
     @staticmethod
-    def loads(secret_key: str, token: str) -> dict:
+    def loads(token: str, secret_key: t.Optional[str] = None) -> dict:
+        if not secret_key:
+            secret_key = Config.SECRET_KEY
         try:
             payload = jwt.decode(token, secret_key,
                                  algorithms=[Tokenizer.algorithm])

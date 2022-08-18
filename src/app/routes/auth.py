@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import HTTPBasicCredentials
 
-from src.app import db
-from src.app.auth import basic_auth, get_current_user, login_user, logout_user
+from src.app.auth import (
+    LoginManager, basic_auth, get_login_manager, get_current_user
+)
 
 from pydantic import BaseModel
 
@@ -20,40 +21,27 @@ router = APIRouter(
 
 
 @router.get("/login")
-def login(
-        request: Request,
-        response: Response,
+async def login(
+        login_manager: LoginManager = Depends(get_login_manager),
         credentials: HTTPBasicCredentials = Depends(basic_auth),
         remember: bool = False
 ):
     username = credentials.username
     password = credentials.password
-    user = db.session.query(User).filter_by(username=username).first()
-
-    if user is None or not user.check_password(password):
-        return HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Basic"},
-        )
-    login_user(user, remember, request, response)
-    #access_token = create_access_token(
-    #    identity=user,
-    #    additional_claims={"perm": user.role.permissions}
-    #)
-    #refresh_token = create_refresh_token(identity=user)
-    # TODO: close session after requests
+    user = login_manager.authenticate(username, password)
+    login_manager.login(user, remember)
     return {
         "msg": "You are logged in",
-    #    "access_token": access_token,
-    #    "refresh_token": refresh_token,
         "user": user.to_dict(),
     }
 
 
 @router.get("/logout")
-def logout(response: Response, current_user: User = Depends(get_current_user)):
-    logout_user(response)
+async def logout(
+        login_manager: LoginManager = Depends(get_login_manager),
+        current_user: User = Depends(get_current_user)
+):
+    login_manager.logout()
     return {"msg": "Logged out"}
 
 
