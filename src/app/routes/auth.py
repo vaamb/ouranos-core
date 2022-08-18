@@ -1,12 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.security import HTTPBasicCredentials
 
 from src.app import db
-from src.app.auth import login_user
-from src.database.models.app import User
+from src.app.auth import basic_auth, get_current_user, login_user, logout_user
+
+from pydantic import BaseModel
 
 
-security = HTTPBasic()
+class User(BaseModel):
+    def to_dict(self) -> dict:
+        pass
 
 
 router = APIRouter(
@@ -20,7 +23,7 @@ router = APIRouter(
 def login(
         request: Request,
         response: Response,
-        credentials: HTTPBasicCredentials = Depends(security),
+        credentials: HTTPBasicCredentials = Depends(basic_auth),
         remember: bool = False
 ):
     username = credentials.username
@@ -39,7 +42,7 @@ def login(
     #    additional_claims={"perm": user.role.permissions}
     #)
     #refresh_token = create_refresh_token(identity=user)
-    # TODO: close sessio after requests
+    # TODO: close session after requests
     return {
         "msg": "You are logged in",
     #    "access_token": access_token,
@@ -47,31 +50,26 @@ def login(
         "user": user.to_dict(),
     }
 
+
+@router.get("/logout")
+def logout(response: Response, current_user: User = Depends(get_current_user)):
+    logout_user(response)
+    return {"msg": "Logged out"}
+
+
+@router.get("/current_user")
+def get_current_user(current_user: User = Depends(get_current_user)):
+    return current_user.to_dict()
+
+
 """
-@namespace.route("/logout")
-class Logout(Resource):
-    def get(self):
-        logout_user()
-        return {"msg": "Logged out"}
-
-
 @namespace.route("/register")
 class Register(Resource):
     def post(self):
         pass
 
 
-@namespace.route("/current_user")
-class CurrentUser(Resource):
-    def get(self):
-        if current_user.is_authenticated:
-            return current_user.to_dict()
-        return {
-            "username": "",
-            "firstname": "",
-            "lastname": "",
-            "permissions": 0,
-        }
+
 
 """
 """

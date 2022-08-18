@@ -1,15 +1,31 @@
-from hashlib import sha512
 import typing as t
+from hashlib import sha512
 
+from fastapi import Request, Response, Depends
+from fastapi.security.http import HTTPBasic, HTTPBearer
+from fastapi.security.utils import get_authorization_scheme_param
 import jwt
 
 from . import db
-from src.database.models.app import User
+from src.database.models.app import anonymous_user, User, UserMixin
 from config import Config
 
 
-if t.TYPE_CHECKING:
-    from fastapi import Request, Response
+class HTTPCookieBearer(HTTPBearer):
+    async def __call__(self, request: Request) -> t.Optional[str]:
+        authorization_cookie: str = request.cookies.get("Authorization")
+        authorization_header: str = request.headers.get("Authorization")
+        for authorization in (authorization_cookie, authorization_header):
+            if not authorization:
+                break
+            scheme, param = get_authorization_scheme_param(authorization)
+            if scheme.lower() == "bearer":
+                return param
+        return None
+
+
+basic_auth = HTTPBasic()
+cookie_bearer_auth = HTTPCookieBearer()
 
 
 def encode_payload(
@@ -37,11 +53,16 @@ def create_session_id(remote_address, user_agent):
     return h.hexdigest()
 
 
-def login_user(
+def authenticate_user(db_session, username: str, password: str):
+    #TODO
+    pass
+
+
+def login_user(  # TODO: replace cleaner
         user: User,
         remember: bool,
-        request,
-        response,
+        request: Request,
+        response: Response,
 ) -> None:
     remote_address = request.client.host
     user_agent = request.headers.get("user-agent")
@@ -52,8 +73,31 @@ def login_user(
         "user_id": user.id,
     }
     token = encode_payload(session)
-    response.set_cookie("session", token)
+    response.set_cookie("Authorization", f"Bearer {token}", httponly=True)
 
 
+def logout_user(response: Response) -> None:
+    response.delete_cookie("Authorization")
+
+
+# TODO: use async
 def get_user(user_id: int) -> User:
     return db.session.query(User).filter_by(id=user_id).one_or_none()
+
+
+async def _get_current_user(token: str = Depends(cookie_bearer_auth)) -> UserMixin:
+    if not token:
+        return anonymous_user
+    try:
+        payload = decode_token(token)
+        user_id = payload.get("user_id", None)
+    except jwt.PyJWTError:
+        return anonymous_user
+    user = get_user(user_id)
+    if user:
+        return user
+    return anonymous_user
+
+
+async def get_current_user(user: UserMixin = Depends(_get_current_user)) -> UserMixin:
+    return user

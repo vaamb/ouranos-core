@@ -78,7 +78,56 @@ class Role(base):
         return f"<Role {self.name}>"
 
 
-class User(base):  # add UserMixin
+class UserMixin:
+    @property
+    def is_authenticated(self) -> bool:
+        return True
+
+    @property
+    def is_anonymous(self) -> bool:
+        return False
+
+    def get_id(self) -> int:
+        try:
+            return self.id
+        except AttributeError:
+            raise NotImplementedError("No `id` attribute - override `get_id`")
+
+    def can(self) -> bool:
+        raise NotImplementedError
+
+    def to_dict(self) -> dict:
+        raise NotImplementedError
+
+
+class AnonymousUserMixin(UserMixin):
+    @property
+    def is_authenticated(self) -> bool:
+        return False
+
+    @property
+    def is_anonymous(self) -> bool:
+        return True
+
+    def get_id(self) -> None:
+        return
+
+    def can(self) -> bool:
+        return False
+
+    def to_dict(self) -> dict:
+        return {
+            "username": "",
+            "firstname": "",
+            "lastname": "",
+            "permissions": 0,
+        }
+
+
+anonymous_user = AnonymousUserMixin()
+
+
+class User(base, UserMixin):
     __tablename__ = "users"
     __bind_key__ = "app"
     id = sa.Column(sa.Integer, primary_key=True)
