@@ -4,10 +4,8 @@ import secrets
 from threading import Thread
 
 from email_validator import validate_email, EmailNotValidError
-from flask import render_template, current_app
-# from flask_mail import Message  # not currently used
 # from lz.reversal import reverse  # not currently used
-from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.exc import NoResultFound
 import jwt
 
 from config import Config

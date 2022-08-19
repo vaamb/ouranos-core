@@ -8,7 +8,7 @@ from fastapi.security.utils import get_authorization_scheme_param
 import jwt
 
 from src.app.dependencies import get_session
-from src.database.models.app import anonymous_user, User, UserMixin
+from src.database.models.app import anonymous_user, Permission, User, UserMixin
 from src.utils import Tokenizer
 
 
@@ -42,9 +42,14 @@ cookie_bearer_auth = HTTPCookieBearer()
 
 
 class LoginManager:
-    __slots__ = "request", "response"
+    __slots__ = "request", "response", "_user_callback"
 
-    def __init__(self, request: Request, response: Response) -> None:
+    def __init__(self):
+        self.request = None
+        self.response = None
+        self._user_callback = None
+
+    def __call__(self, request: Request, response: Response) -> None:
         self.request = request
         self.response = response
 
@@ -63,7 +68,7 @@ class LoginManager:
             )
         return user
 
-    def login(self, user, remember: bool):
+    def login(self, user: User, remember: bool) -> None:
         remote_address = self.request.client.host
         user_agent = self.request.headers.get("user-agent")
         session_id = _create_session_id(remote_address, user_agent)
@@ -77,23 +82,33 @@ class LoginManager:
         token = Tokenizer.dumps(payload)
         self.response.set_cookie(LOGIN_COOKIE_NAME, f"Bearer {token}", httponly=True)
 
-    def logout(self):
+    def logout(self) -> None:
         self.response.delete_cookie(LOGIN_COOKIE_NAME)
 
+    def user_loader(self, callback) -> None:
+        self._user_callback = callback
 
-def get_login_manager(request: Request, response: Response) -> LoginManager:
-    return LoginManager(request, response)
+    def get_user(self, user_id: int) -> User:
+        if self._user_callback:
+            return self._user_callback(user_id)
+        raise NotImplementedError(
+            "Set your user_loader call back using `@login_manager.user_loader`"
+        )
 
 
 # TODO: use async
-def get_user(user_id: int, session=Depends(get_session)) -> User:
+login_manager = LoginManager()
+
+
+@login_manager.user_loader
+def load_user(user_id: int, session=Depends(get_session)) -> User:
     return session.query(User).filter_by(id=user_id).one_or_none()
 
 
 async def _get_current_user(
         response: Response,
         token: str = Depends(cookie_bearer_auth)
-) -> UserMixin:
+) -> User:
     if not token:
         return anonymous_user
     try:
@@ -103,7 +118,7 @@ async def _get_current_user(
         response.delete_cookie(LOGIN_COOKIE_NAME)
         return anonymous_user  # TODO: raise an HTTP error
     else:
-        user = get_user(user_id)
+        user = login_manager.get_user(user_id)
         if user:
             """iat = payload["iat"]
             remember = payload.get("remember", False)
@@ -115,5 +130,23 @@ async def _get_current_user(
         return anonymous_user
 
 
-async def get_current_user(user: UserMixin = Depends(_get_current_user)) -> UserMixin:
+async def get_current_user(user: User = Depends(_get_current_user)) -> User:
     return user
+
+
+async def is_logged_user(current_user: User = Depends(get_current_user)) -> bool:
+    if not current_user.is_authenticated:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Incorrect email or password",
+        )
+    return True
+
+
+async def is_admin(current_user: User = Depends(get_current_user)) -> bool:
+    if not current_user.can(Permission.ADMIN):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Incorrect email or password",
+        )
+    return True

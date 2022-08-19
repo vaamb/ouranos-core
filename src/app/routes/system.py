@@ -1,36 +1,32 @@
-from flask import jsonify
-from flask_restx import Namespace, Resource
+from fastapi import APIRouter, Depends
 
-from .decorators import permission_required
-from .utils import get_time_window_from_request_args
 from src import api
-from src.app import db
-from src.database.models.app import Permission
+from src.app.dependencies import get_session, get_time_window
+from src.app.auth import is_admin
 
 
-namespace = Namespace(
-    "system",
-    description="Information about the system. Rem: it is required to be "
-                "logged in to access data.",
+router = APIRouter(
+    prefix="/system",
+    responses={404: {"description": "Not found"}},
+    tags=["system"],
 )
 
 
-@namespace.route("/current_data")
-class CurrentData(Resource):
-    @namespace.doc(security="cookie_auth")
-    @permission_required(Permission.ADMIN)
-    def get(self):
-        response = api.admin.get_current_system_data()
-        return jsonify(response)
+@router.get("/current_data")
+async def get_current_system_data(
+        is_admin: bool = Depends(is_admin),
+):
+    response = api.admin.get_current_system_data()
+    return response
 
 
-@namespace.route("/data")
-class Data(Resource):
-    @namespace.doc(security="cookie_auth")
-    @permission_required(Permission.ADMIN)
-    def get(self):
-        time_window = get_time_window_from_request_args()
-        historic_system_data = api.admin.get_historic_system_data(
-            db.session, time_window
-        )
-        return jsonify(historic_system_data)
+@router.get("/data")
+async def get_historic_system_data(
+        is_admin: bool = Depends(is_admin),
+        session=Depends(get_session),
+        time_window=Depends(get_time_window),
+):
+    historic_system_data = api.admin.get_historic_system_data(
+        session, time_window
+    )
+    return historic_system_data

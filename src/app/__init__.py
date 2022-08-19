@@ -56,6 +56,10 @@ def create_app(config) -> FastAPI:
     app_router.default_response_class = JSONResponse
     prefix.include_router(auth_router)
 
+    from .routes.system import router as system_router
+    system_router.default_response_class = JSONResponse
+    prefix.include_router(system_router)
+
     from .routes.weather import router as weather_router
     app_router.default_response_class = JSONResponse
     prefix.include_router(weather_router)
