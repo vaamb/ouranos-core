@@ -42,6 +42,8 @@ cookie_bearer_auth = HTTPCookieBearer()
 
 
 class LoginManager:
+    __slots__ = "request", "response"
+
     def __init__(self, request: Request, response: Response) -> None:
         self.request = request
         self.response = response
@@ -57,7 +59,7 @@ class LoginManager:
             )
         return user
 
-    def login(self, user, remember: bool) -> str:
+    def login(self, user, remember: bool):
         remote_address = self.request.client.host
         user_agent = self.request.headers.get("user-agent")
         session_id = _create_session_id(remote_address, user_agent)
