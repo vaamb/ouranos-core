@@ -133,3 +133,6 @@ class SQLAlchemyWrapper:
 
     def close(self):
         return self._session.remove()
+
+    def rollback(self):
+        return self._session.rollback()

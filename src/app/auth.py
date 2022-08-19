@@ -7,7 +7,7 @@ from fastapi.security.http import HTTPBasic, HTTPBearer
 from fastapi.security.utils import get_authorization_scheme_param
 import jwt
 
-from . import db
+from src.app.dependencies import get_session
 from src.database.models.app import anonymous_user, User, UserMixin
 from src.utils import Tokenizer
 
@@ -48,9 +48,13 @@ class LoginManager:
         self.request = request
         self.response = response
 
-    def authenticate(self, username: str, password: str) -> User:
-        with db.scoped_session() as session:
-            user = session.query(User).filter_by(username=username).first()
+    def authenticate(
+            self,
+            username: str,
+            password: str,
+            session=Depends(get_session)
+    ) -> User:
+        user = session.query(User).filter_by(username=username).first()
         if user is None or not user.check_password(password):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -82,8 +86,8 @@ def get_login_manager(request: Request, response: Response) -> LoginManager:
 
 
 # TODO: use async
-def get_user(user_id: int) -> User:
-    return db.session.query(User).filter_by(id=user_id).one_or_none()
+def get_user(user_id: int, session=Depends(get_session)) -> User:
+    return session.query(User).filter_by(id=user_id).one_or_none()
 
 
 async def _get_current_user(

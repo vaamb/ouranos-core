@@ -18,7 +18,9 @@ class PydanticUserMixin(BaseModel):
     is_anonymous: bool
     get_id: t.Optional[int]
     can: bool
-    to_dict: dict
+
+    def to_dict(self) -> dict:
+        pass
 
 
 PydanticUser = sqlalchemy_to_pydantic(User)
