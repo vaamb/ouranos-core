@@ -1,4 +1,6 @@
-from src.database.models import app, archives, gaia, system
+from fastapi import APIRouter, FastAPI, HTTPException, status
+
+from src.app.docs import tags_metadata
 from src.database.wrapper import SQLAlchemyWrapper
 from src.utils import config_dict_from_class
 from config import Config
@@ -16,12 +18,63 @@ else:
     from fastapi.responses import ORJSONResponse as JSONResponse
 
 
-app_config = config_dict_from_class(Config)
+app_config: dict[str, str] = {}
 
 
-db = SQLAlchemyWrapper(Config)
+db = SQLAlchemyWrapper()
 
-db.create_all()
+
+def create_app(config) -> FastAPI:
+    config_dict = config_dict_from_class(Config)
+
+    global app_config
+    app_config = config_dict
+
+    app = FastAPI(
+        title=config_dict.get("APP_NAME"),
+        version=config_dict.get("VERSION"),
+        openapi_tags=tags_metadata,
+        docs_url="/api/docs",
+        redoc_url="/api/redoc",
+        default_response_class=JSONResponse
+    )
+    # Init db
+    from src.database.models import app as app_models, archives, gaia, system
+    db.init(config)
+    db.create_all()
+    app.db = db
+
+    # Add a router with "/api" path prefixed to it
+    prefix = APIRouter(prefix="/api")
+
+    # Load routes onto prefixed router
+    from .routes.app import router as app_router
+    app_router.default_response_class = JSONResponse
+    prefix.include_router(app_router)
+
+    from .routes.auth import router as auth_router
+    app_router.default_response_class = JSONResponse
+    prefix.include_router(auth_router)
+
+    from .routes.weather import router as weather_router
+    app_router.default_response_class = JSONResponse
+    prefix.include_router(weather_router)
+
+    # Load prefixed routes
+    app.include_router(prefix)
+
+    # Teapots should not brew coffee
+    @app.get("/coffee", include_in_schema=False)
+    async def get_coffee():
+        raise HTTPException(
+            status_code=status.HTTP_418_IM_A_TEAPOT,
+            detail="I'm a teapot, I can't brew coffee"
+        )
+    return app
+
+
+app = create_app(Config)
+
 
 """import logging
 from pathlib import Path

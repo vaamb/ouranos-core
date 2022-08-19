@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends
 from fastapi.security import HTTPBasicCredentials
 
-from src.app import JSONResponse
 from src.app.auth import (
     LoginManager, basic_auth, get_login_manager, get_current_user
 )
@@ -15,7 +14,7 @@ router = APIRouter(
 )
 
 
-@router.get("/login", response_class=JSONResponse)
+@router.get("/login")
 async def login(
         login_manager: LoginManager = Depends(get_login_manager),
         credentials: HTTPBasicCredentials = Depends(basic_auth),
@@ -31,7 +30,7 @@ async def login(
     }
 
 
-@router.get("/logout", response_class=JSONResponse)
+@router.get("/logout")
 async def logout(
         login_manager: LoginManager = Depends(get_login_manager),
         current_user: PydanticUser = Depends(get_current_user)
@@ -40,11 +39,7 @@ async def logout(
     return {"msg": "Logged out"}
 
 
-@router.get(
-    path="/current_user",
-    response_model=PydanticLimitedUser,
-    response_class=JSONResponse
-)
+@router.get("/current_user", response_model=PydanticLimitedUser)
 def get_current_user(current_user: PydanticUser = Depends(get_current_user)):
     return current_user.to_dict()
 

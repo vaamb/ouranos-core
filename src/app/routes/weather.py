@@ -3,7 +3,6 @@ import typing as t
 from fastapi import APIRouter, HTTPException, Query, status
 
 from src import api
-from src.app import JSONResponse
 from src.app.pydantic.models.weather import (
     PydanticCurrentWeather, PydanticHourlyWeather, PydanticDailyWeather,
     PydanticSunTimes
@@ -20,11 +19,7 @@ router = APIRouter(
 )
 
 
-@router.get(
-    path="/sun_times",
-    response_model=PydanticSunTimes,
-    response_class=JSONResponse
-)
+@router.get("/sun_times", response_model=PydanticSunTimes)
 async def get_sun_times() -> dict:
     response = api.weather.get_suntimes_data()
     if response:
@@ -43,8 +38,7 @@ async def get_sun_times() -> dict:
             list[PydanticHourlyWeather],
             list[PydanticDailyWeather]
         ]
-    ],
-    response_class=JSONResponse
+    ]
 )
 async def get_forecast(exclude: t.Union[list[str], None] = Query(default=None)) -> dict:
     response = {}
@@ -74,11 +68,7 @@ async def get_forecast(exclude: t.Union[list[str], None] = Query(default=None)) 
     )
 
 
-@router.get(
-    path="/forecast/currently",
-    response_model=PydanticCurrentWeather,
-    response_class=JSONResponse
-)
+@router.get("/forecast/currently", response_model=PydanticCurrentWeather)
 async def get_current_forecast() -> dict:
     response = api.weather.get_current_weather()
     if response:
@@ -89,11 +79,7 @@ async def get_current_forecast() -> dict:
     )
 
 
-@router.get(
-    path="/forecast/hourly",
-    response_model=list[PydanticHourlyWeather],
-    response_class=JSONResponse
-)
+@router.get("/forecast/hourly", response_model=list[PydanticHourlyWeather])
 async def get_current_forecast() -> dict:
     response = api.weather.get_hourly_weather_forecast()
     if response:
@@ -104,11 +90,7 @@ async def get_current_forecast() -> dict:
     )
 
 
-@router.get(
-    path="/forecast/daily",
-    response_model=list[PydanticDailyWeather],
-    response_class=JSONResponse
-)
+@router.get("/forecast/daily", response_model=list[PydanticDailyWeather])
 async def get_current_forecast() -> dict:
     response = api.weather.get_daily_weather_forecast()
     if response:
