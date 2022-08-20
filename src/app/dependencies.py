@@ -8,7 +8,7 @@ from src import api
 
 def get_session() -> t.Generator:
     try:
-        yield db.session()
+        yield db.session
     except Exception as e:
         db.rollback()
         raise e
