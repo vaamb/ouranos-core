@@ -41,17 +41,13 @@ basic_auth = HTTPBasic()
 cookie_bearer_auth = HTTPCookieBearer()
 
 
-class LoginManager:
-    __slots__ = "request", "response", "_user_callback"
+class Authenticator:
+    __slots__ = "_secret_key", "request", "response"
 
-    def __init__(self):
-        self.request = None
-        self.response = None
-        self._user_callback = None
-
-    def __call__(self, request: Request, response: Response) -> None:
+    def __int__(self, login_manager: "LoginManager", request, response):
         self.request = request
         self.response = response
+        self._secret_key = login_manager._secret_key
 
     def authenticate(
             self,
@@ -79,11 +75,27 @@ class LoginManager:
         }
         if remember:
             payload.update({"remember": remember})
-        token = Tokenizer.dumps(payload)
+        token = Tokenizer.dumps(payload, secret_key=self._secret_key)
         self.response.set_cookie(LOGIN_COOKIE_NAME, f"Bearer {token}", httponly=True)
 
     def logout(self) -> None:
         self.response.delete_cookie(LOGIN_COOKIE_NAME)
+
+
+class LoginManager:
+    def __init__(self, config: dict = None):
+        self._secret_key = None
+        self._user_callback = None
+        if config:
+            self.init(config)
+
+    def __call__(self, request: Request, response: Response) -> Authenticator:
+        return Authenticator(self, request, response)
+
+    def init(self, config):
+        self._secret_key = config.get("SECRET_KEY")
+        if not self._secret_key:
+            raise RuntimeError("config must have an entry 'SECRET_KEY'")
 
     def user_loader(self, callback) -> None:
         self._user_callback = callback

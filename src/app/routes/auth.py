@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from fastapi.security import HTTPBasicCredentials
 
 from src.app.auth import (
-    basic_auth, get_current_user, login_manager, LoginManager
+    Authenticator, basic_auth, get_current_user, login_manager, LoginManager
 )
 from src.app.pydantic.models.app import PydanticLimitedUser, PydanticUserMixin
 
@@ -16,14 +16,14 @@ router = APIRouter(
 
 @router.get("/login")
 async def login(
-        login_manager: LoginManager = Depends(login_manager),
+        authenticator: Authenticator = Depends(login_manager),
         credentials: HTTPBasicCredentials = Depends(basic_auth),
         remember: bool = False
 ):
     username = credentials.username
     password = credentials.password
-    user = login_manager.authenticate(username, password)
-    login_manager.login(user, remember)
+    user = authenticator.authenticate(username, password)
+    authenticator.login(user, remember)
     return {
         "msg": "You are logged in",
         "user": user.to_dict(),
@@ -32,12 +32,12 @@ async def login(
 
 @router.get("/logout")
 async def logout(
-        login_manager: LoginManager = Depends(login_manager),
+        authenticator: Authenticator = Depends(login_manager),
         current_user: PydanticUserMixin = Depends(get_current_user)
 ):
     if current_user.is_anonymous:
         return {"msg": "You were not logged in"}
-    login_manager.logout()
+    authenticator.logout()
     return {"msg": "Logged out"}
 
 
