@@ -3,21 +3,19 @@ from setproctitle import setproctitle
 
 setproctitle("Ouranos")
 
-import eventlet
-
-eventlet.monkey_patch()
-
 import argparse
 import logging
 import os
 import signal
 import sys
 
-from dispatcher import configure_dispatcher
+import uvicorn
+
+# from dispatcher import configure_dispatcher
 
 from config import config
-from src import services
-from src.app import create_app, scheduler, sio
+# from src import services
+from src.app import create_app  # , scheduler, sio
 from src.utils import configure_logging, humanize_list
 
 
@@ -44,7 +42,7 @@ parser.add_argument("-p", "--profile", default=default_profile)
 
 
 def graceful_exit(logger):
-    services.exit_gracefully()
+    # services.exit_gracefully()
     logger.info("Ouranos has been closed")
     sys.exit(0)
 
@@ -61,15 +59,13 @@ if __name__ == "__main__":
     logger = logging.getLogger(app_name.lower())
     try:
         logger.info(f"Starting {app_name} ...")
-        configure_dispatcher(config_class)
-        services.start(config_class)
+        # configure_dispatcher(config_class)
+        # services.start(config_class)
         app = create_app(config_class)
         logger.info(f"{app_name} successfully started")
-        sio.run(app,
-                host="0.0.0.0",
-                port="5000")
+        uvicorn.run(app, port=5000)
     except KeyboardInterrupt:
-        logger.info("Manually closing gaiaWeb")
-        scheduler.remove_all_jobs()
-        sio.stop()
+        # logger.info("Manually closing gaiaWeb")
+        # scheduler.remove_all_jobs()
+        # sio.stop()
         graceful_exit(logger)
