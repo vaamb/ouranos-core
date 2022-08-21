@@ -77,9 +77,6 @@ def create_app(config) -> FastAPI:
     return app
 
 
-app = create_app(Config)
-
-
 """import logging
 from pathlib import Path
 
