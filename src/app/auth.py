@@ -42,12 +42,13 @@ cookie_bearer_auth = HTTPCookieBearer()
 
 
 class Authenticator:
-    __slots__ = "_secret_key", "request", "response"
+    __slots__ = "_secret_key", "_session", "request", "response"
 
-    def __int__(self, login_manager: "LoginManager", request, response):
+    def __init__(self, login_manager: "LoginManager", session, request, response):
+        self._secret_key = login_manager._secret_key
+        self._session = session
         self.request = request
         self.response = response
-        self._secret_key = login_manager._secret_key
 
     def authenticate(
             self,
@@ -55,7 +56,7 @@ class Authenticator:
             password: str,
             session=Depends(get_session)
     ) -> User:
-        user = session.query(User).filter_by(username=username).first()
+        user = self._session.query(User).filter_by(username=username).first()
         if user is None or not user.check_password(password):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -89,8 +90,13 @@ class LoginManager:
         if config:
             self.init(config)
 
-    def __call__(self, request: Request, response: Response) -> Authenticator:
-        return Authenticator(self, request, response)
+    def __call__(
+            self,
+            request: Request,
+            response: Response,
+            session=Depends(get_session)
+    ) -> Authenticator:
+        return Authenticator(self, session, request, response)
 
     def init(self, config):
         self._secret_key = config.get("SECRET_KEY")
