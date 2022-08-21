@@ -1,14 +1,14 @@
 #!/usr/bin/python3
 from setproctitle import setproctitle
 
-setproctitle("Ouranos")
-
 import argparse
 import logging
 import os
 import signal
 import sys
+import uuid
 
+import psutil
 import uvicorn
 
 # from dispatcher import configure_dispatcher
@@ -57,10 +57,25 @@ if __name__ == "__main__":
     configure_logging(config_class)
     app_name = config_class.APP_NAME
     logger = logging.getLogger(app_name.lower())
+
+    MAIN = True
+    for process in psutil.process_iter():
+        if "ouranos" in process.name():
+            MAIN = False
+            break
+
+    if MAIN:
+        setproctitle("ouranos")
+    else:
+        uid = uuid.uuid4().hex[:8]
+        setproctitle(f"ouranos-{uid}")
+
     try:
         logger.info(f"Starting {app_name} ...")
-        # configure_dispatcher(config_class)
-        # services.start(config_class)
+        if MAIN:
+            # configure_dispatcher(config_class)
+            # services.start(config_class)
+            pass
         app = create_app(config_class)
         logger.info(f"{app_name} successfully started")
         uvicorn.run(app, port=5000)
