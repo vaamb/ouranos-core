@@ -24,8 +24,8 @@ app_config: dict[str, str] = {}
 db = SQLAlchemyWrapper()
 
 
-def create_app(config) -> FastAPI:
-    config_dict = config_dict_from_class(Config)
+def create_app(config=Config) -> FastAPI:
+    config_dict = config_dict_from_class(config)
 
     global app_config
     app_config = config_dict
