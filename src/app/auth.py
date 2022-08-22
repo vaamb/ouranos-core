@@ -66,7 +66,7 @@ class Authenticator:
             )
         return user
 
-    def login(self, user: User, remember: bool) -> None:
+    def login(self, user: User, remember: bool) -> str:
         remote_address = self.request.client.host
         user_agent = self.request.headers.get("user-agent")
         session_id = _create_session_id(remote_address, user_agent)
@@ -79,6 +79,7 @@ class Authenticator:
             payload.update({"remember": remember})
         token = Tokenizer.dumps(payload, secret_key=self._secret_key)
         self.response.set_cookie(LOGIN_COOKIE_NAME, f"Bearer {token}", httponly=True)
+        return token
 
     def logout(self) -> None:
         self.response.delete_cookie(LOGIN_COOKIE_NAME)
