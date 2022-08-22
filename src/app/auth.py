@@ -108,7 +108,6 @@ class LoginManager:
         self._user_callback = callback
 
     def get_user(self, user_id: int, session) -> User:
-        print(1)
         if self._user_callback:
             return self._user_callback(user_id, session)
         raise NotImplementedError(
