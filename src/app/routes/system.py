@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
 
 from src import api
+from src.api.utils import timeWindow
 from src.app.dependencies import get_session, get_time_window
 from src.app.auth import is_admin
 
@@ -12,19 +14,16 @@ router = APIRouter(
 )
 
 
-@router.get("/current_data")
-async def get_current_system_data(
-        is_admin: bool = Depends(is_admin),
-):
+@router.get("/current_data", dependencies=[Depends(is_admin)])
+async def get_current_system_data():
     response = api.admin.get_current_system_data()
     return response
 
 
-@router.get("/data")
+@router.get("/data", dependencies=[Depends(is_admin)])
 async def get_historic_system_data(
-        is_admin: bool = Depends(is_admin),
-        session=Depends(get_session),
-        time_window=Depends(get_time_window),
+        session: Session = Depends(get_session),
+        time_window: timeWindow = Depends(get_time_window),
 ):
     historic_system_data = api.admin.get_historic_system_data(
         session, time_window
