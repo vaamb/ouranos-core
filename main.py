@@ -67,6 +67,15 @@ if __name__ == "__main__":
     if MAIN:
         setproctitle("ouranos")
     else:
+        if not (
+            vars(config_class).get("MESSAGE_BROKER_URL") and
+            vars(config_class).get("CACHING_SERVER_URL")
+        ):
+            logger.warning(
+                "'MESSAGE_BROKER_URL' and 'CACHING_SERVER_URL' are not defined, "
+                "communication between processes won't be allowed, leading to "
+                "several issues"
+            )
         uid = uuid.uuid4().hex[:8]
         setproctitle(f"ouranos-{uid}")
 
