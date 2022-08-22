@@ -40,7 +40,7 @@ class Role(base):
             self.permissions = 0
 
     @staticmethod
-    def insert_roles(db):
+    def insert_roles(session):
         roles = {
             "User": [Permission.VIEW, Permission.EDIT],
             "Operator": [Permission.VIEW, Permission.EDIT,
@@ -50,15 +50,15 @@ class Role(base):
         }
         default_role = "User"
         for r in roles:
-            role = Role.query.filter_by(name=r).first()
+            role = session.query(Role).filter_by(name=r).first()
             if role is None:
                 role = Role(name=r)
             role.reset_permissions()
             for perm in roles[r]:
                 role.add_permission(perm)
             role.default = (role.name == default_role)
-            db.session.add(role)
-        db.session.commit()
+            session.add(role)
+        session.commit()
 
     def has_permission(self, perm):
         return self.permissions & perm == perm
@@ -170,14 +170,14 @@ class User(base, UserMixin):
                 self.role = Role.query.filter_by(default=True).first()
 
     @staticmethod
-    def insert_gaia(db):
-        gaia = db.session.query(User).filter_by(username="Ouranos").first()
+    def insert_gaia(session):
+        gaia = session.query(User).filter_by(username="Ouranos").first()
         if not gaia:
             admin = db.session.query(Role).filter_by(
                 name="Administrator").first()
             gaia = User(username="Ouranos", confirmed=True, role=admin)
-            db.session.add(gaia)
-            db.session.commit()
+            session.add(gaia)
+            session.commit()
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(
@@ -277,14 +277,14 @@ class CommunicationChannel(base):
                              lazy="dynamic")
 
     @staticmethod
-    def insert_channels(db):
+    def insert_channels(session):
         channels = ["telegram"]
         for c in channels:
-            channel = CommunicationChannel.query.filter_by(name=c).first()
+            channel = session.query(CommunicationChannel).filter_by(name=c).first()
             if channel is None:
                 channel = CommunicationChannel(name=c)
-            db.session.add(channel)
-        db.session.commit()
+            session.add(channel)
+        session.commit()
 
 
 # TODO: When problems solved, after x days: goes to archive
