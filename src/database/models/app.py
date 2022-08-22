@@ -79,6 +79,8 @@ class Role(base):
 
 
 class UserMixin:
+    is_fresh: bool = False
+
     @property
     def is_authenticated(self) -> bool:
         return True

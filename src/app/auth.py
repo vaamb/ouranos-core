@@ -152,19 +152,22 @@ async def get_current_user(user: User = Depends(_get_current_user)) -> User:
     return user
 
 
-async def is_logged_user(current_user: User = Depends(get_current_user)) -> bool:
-    if not current_user.is_authenticated:
+async def user_can(user: User, permission: int):
+    if not user.can(permission):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Incorrect email or password",
+            detail="You cannot access this resource",
         )
     return True
+
+
+async def is_authenticated(current_user: User = Depends(get_current_user)) -> bool:
+    return await user_can(current_user, Permission.VIEW)
+
+
+async def is_operator(current_user: User = Depends(get_current_user)) -> bool:
+    return await user_can(current_user, Permission.ADMIN)
 
 
 async def is_admin(current_user: User = Depends(get_current_user)) -> bool:
-    if not current_user.can(Permission.ADMIN):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Incorrect email or password",
-        )
-    return True
+    return await user_can(current_user, Permission.ADMIN)

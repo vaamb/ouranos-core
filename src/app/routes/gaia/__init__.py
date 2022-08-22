@@ -1,8 +1,9 @@
-from flask_restx import Namespace
+from fastapi import APIRouter
 
-namespace = Namespace(
-    "gaia",
-    description="Information about the registered ecosystems.",
+router = APIRouter(
+    prefix="/gaia",
+    responses={404: {"description": "Not found"}},
+    tags=["gaia"],
 )
 
-from . import ecosystem, hardware, engine
+from . import engine

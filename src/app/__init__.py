@@ -56,12 +56,16 @@ def create_app(config) -> FastAPI:
     app_router.default_response_class = JSONResponse
     prefix.include_router(auth_router)
 
+    from .routes.gaia import router as gaia_router
+    gaia_router.default_response_class = JSONResponse
+    prefix.include_router(gaia_router)
+
     from .routes.system import router as system_router
     system_router.default_response_class = JSONResponse
     prefix.include_router(system_router)
 
     from .routes.weather import router as weather_router
-    app_router.default_response_class = JSONResponse
+    weather_router.default_response_class = JSONResponse
     prefix.include_router(weather_router)
 
     # Load prefixed routes
