@@ -69,9 +69,10 @@ def create_app(config=DevelopmentConfig) -> FastAPI:
         @app.middleware("http")
         async def add_brewing_time_header(request: Request, call_next):
             start_time = ctime.monotonic()
-            response = call_next(request)
-            brewing_time = start_time - ctime.monotonic()
+            response = await call_next(request)
+            brewing_time = ctime.monotonic() - start_time
             response.headers["X-Brewing-Time"] = str(brewing_time)
+            return response
 
     @app.on_event("startup")
     def startup():
