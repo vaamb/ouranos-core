@@ -15,14 +15,6 @@ async def get_engines(uid: list = ["all"], session=Depends(get_session)):
     return response
 
 
-@router.put("/engine/u", dependencies=[Depends(is_admin)])
-async def put_engine(
-        uid: str,
-        session=Depends(get_session),
-):
-    pass
-
-
 @router.get("/engine/u/<uid>")
 async def get_engine(uid: str, session=Depends(get_session)):
     def exception():
@@ -37,6 +29,14 @@ async def get_engine(uid: str, session=Depends(get_session)):
         response = api.gaia.get_engine_info(session, engine[0])
         return response
     exception()
+
+
+@router.put("/engine/u/<uid>", dependencies=[Depends(is_admin)])
+async def put_engine(
+        uid: str,
+        session=Depends(get_session),
+):
+    pass
 
 
 @router.delete("/engine/u/<uid>", dependencies=[Depends(is_admin)])

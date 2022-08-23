@@ -1,79 +1,68 @@
-from flask import abort, request, jsonify
-from flask_restx import Resource
+from fastapi import Depends, HTTPException, status
 
-from . import namespace
-from ..api_doc import (
-    ecosystem_query_schema, ecosystem_param, time_window_params, level_param,
-    no_default
-)
-from ..decorators import permission_required
-from ..utils import get_time_window_from_request_args
+from . import router
 from src import api
-from src.app import db
-from src.database.models.app import Permission
+from src.app.auth import is_operator
+from src.app.dependencies import get_session
 
 
-def ecosystems_or_abort(ecosystems):
+def ecosystems_or_abort(session, ecosystems):
     ecosystems_qo = api.gaia.get_ecosystems(
-        session=db.session, ecosystems=ecosystems
+        session=session, ecosystems=ecosystems
     )
     if ecosystems_qo:
         return ecosystems_qo
-    abort(404, {"error": f"Ecosystem(s) not found"})
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Ecosystem(s) not found"
+    )
 
 
-@namespace.route("/ecosystem")
-class Ecosystem(Resource):
-    @namespace.doc(params={**ecosystem_param})
-    def get(self):
-        qs = ecosystem_query_schema.load(request.args)
-        ecosystems = ecosystems_or_abort(qs["uid"])
-        response = [api.gaia.get_ecosystem_info(
-            db.session, ecosystem
-        ) for ecosystem in ecosystems]
-        return jsonify(response)
+@router.get("/ecosystem")
+async def get_ecosystems(uid: list = ["all"], session=Depends(get_session)):
+    ecosystems = ecosystems_or_abort(uid)
+    response = [api.gaia.get_ecosystem_info(
+        session, ecosystem
+    ) for ecosystem in ecosystems]
+    return response
 
 
-@namespace.route("/ecosystem/u")
-class EcosystemUPost(Resource):
-    @permission_required(Permission.OPERATE)
-    def post(self):
+@router.post("/ecosystem/u", dependencies=[Depends(is_operator)])
+async def post_ecosystem(session=Depends(get_session)):
+    pass
+
+
+@router.get("/ecosystem/u/<uid>")
+async def get_ecosystem(uid: str, session=Depends(get_session)):
+    def exception():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "Engine not found"}
+        )
+    if "all" in uid or len(uid.split(",")) > 1:
+        exception()
+    ecosystem = ecosystems_or_abort(session, uid)
+    response = api.gaia.get_ecosystem_info(session, ecosystem[0])
+    return response
+
+
+@router.put("/ecosystem/u/<uid>", dependencies=[Depends(is_operator)])
+async def put_ecosystem(uid: str, session=Depends(get_session)):
         pass
 
 
-@namespace.route("/ecosystem/u/<uid>")
-class EcosystemS(Resource):
-    @namespace.doc(params={**no_default(ecosystem_param)})
-    def get(self, uid: str):
-        if "all" in uid or len(uid.split(",")) > 1:
-            abort(303, {"error": "Use api/gaia/ecosystems to get more than one ecosystem"})
-        ecosystem = ecosystems_or_abort(uid)
-        if ecosystem:
-            response = api.gaia.get_ecosystem_info(db.session, ecosystem[0])
-            return jsonify(response)
-        return {"error": "Ecosystem not found"}, 404
-
-    @namespace.doc(params={**no_default(ecosystem_param)})
-    @permission_required(Permission.OPERATE)
-    def put(self, uid: str):
-        pass
-
-    @namespace.doc(params={**no_default(ecosystem_param)})
-    @permission_required(Permission.OPERATE)
-    def delete(self, uid: str):
-        pass
+@router.delete("/ecosystem/u/<uid>", dependencies=[Depends(is_operator)])
+async def delete_ecosystem(uid: str, session=Depends(get_session)):
+    pass
 
 
-@namespace.route("/ecosystem/management")
-class Management(Resource):
-    @namespace.doc(params={**ecosystem_param})
-    def get(self):
-        qs = ecosystem_query_schema.load(request.args)
-        ecosystems = ecosystems_or_abort(qs["uid"])
-        response = [api.gaia.get_ecosystem_management(
-            db.session, ecosystem
-        ) for ecosystem in ecosystems]
-        return jsonify(response)
+@router.get("/ecosystem/management")
+async def get_managements(uid: list = ["all"], session=Depends(get_session)):
+    ecosystems = ecosystems_or_abort(session, uid)
+    response = [api.gaia.get_ecosystem_management(
+        session, ecosystem
+    ) for ecosystem in ecosystems]
+    return response
 
 
 @namespace.route("/ecosystem/u/<uid>/management")
