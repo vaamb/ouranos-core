@@ -7,6 +7,7 @@
 from contextlib import contextmanager
 
 from sqlalchemy.engine import create_engine, Engine
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
 
 from src.database.models import base
@@ -57,6 +58,11 @@ class SQLAlchemyWrapper:
             return self._session()
 
     def init(self, config_object) -> None:
+        self._init_config(config_object)
+        self._create_session_factory()
+        self._initialized = True
+
+    def _init_config(self, config_object):
         if isinstance(config_object, type):
             self._config = config_dict_from_class(config_object)
         elif isinstance(config_object, str):
@@ -69,9 +75,13 @@ class SQLAlchemyWrapper:
             db_file = base_dir / "database.db"
             uri = f"sqlite:///{db_file}"
             self._config["SQLALCHEMY_DATABASE_URI"] = uri
+
+    def _create_session_factory(self):
         self._session_factory = sessionmaker(binds=self.get_binds_mapping())
         self._session = scoped_session(self._session_factory)
-        self._initialized = True
+
+    def _create_engine(self, uri, **kwargs):
+        return create_engine(uri, **kwargs)
 
     def _get_binds_list(self) -> list:
         return [None] + list(self._config.get("SQLALCHEMY_BINDS", {}).keys())
@@ -91,10 +101,10 @@ class SQLAlchemyWrapper:
         return binds[bind]
 
     def _get_engine_for_bind(self, bind: str = None) -> Engine:
-        assert self._config, "SQLAlchemyWrapper was not fully initialized"
+        assert self._config, "SQLAlchemyWrapper has not been initialized"
         engine = self._engines.get(bind, None)
         if engine is None:
-            engine = create_engine(
+            engine = self._create_engine(
                 self._get_uri_for_bind(bind),
                 convert_unicode=True,
                 connect_args={"check_same_thread": False},
@@ -140,3 +150,25 @@ class SQLAlchemyWrapper:
 
     def rollback(self):
         return self._session.rollback()
+
+
+class AsyncSQLAlchemyWrapper(SQLAlchemyWrapper):
+    def _create_session_factory(self):
+        self._session_factory = sessionmaker(
+            binds=self.get_binds_mapping(),
+            class_=AsyncSession
+        )
+        self._session = scoped_session(self._session_factory)
+
+    def _create_engine(self, uri, **kwargs):
+        return create_async_engine(uri, **kwargs)
+
+    @contextmanager
+    def scoped_session(self):
+        try:
+            yield self._session()
+        except Exception as e:
+            self._session.rollback()
+            raise e
+        finally:
+            self._session.remove()
