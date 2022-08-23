@@ -80,13 +80,12 @@ if __name__ == "__main__":
         setproctitle(f"ouranos-{uid}")
 
     try:
-        logger.info(f"Starting {app_name} ...")
         if MAIN:
             # configure_dispatcher(config_class)
             # services.start(config_class)
             pass
         app = create_app(config_class)
-        logger.info(f"{app_name} successfully started")
+        logger.info(f"Starting {app_name} ...")
         uvicorn.run(app, port=5000)
     except KeyboardInterrupt:
         # logger.info("Manually closing gaiaWeb")

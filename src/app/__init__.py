@@ -64,6 +64,7 @@ def create_app(config=DevelopmentConfig) -> FastAPI:
         allow_headers=["*"],
     )
 
+    # Add processing (brewing) time in headers when testing and debugging
     if config_dict.get("DEBUG") or config_dict.get("TESTING"):
         @app.middleware("http")
         async def add_brewing_time_header(request: Request, call_next):
@@ -71,6 +72,10 @@ def create_app(config=DevelopmentConfig) -> FastAPI:
             response = call_next(request)
             brewing_time = start_time - ctime.monotonic()
             response.headers["X-Brewing-Time"] = str(brewing_time)
+
+    @app.on_event("startup")
+    def startup():
+        logger.info(f"{config_dict['APP_NAME']} worker successfully started")
 
     # Init db
     from src.database.models import app as app_models, archives, gaia, system  # noqa # need import for sqlalchemy metadata generation
