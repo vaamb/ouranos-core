@@ -1,6 +1,7 @@
 import logging
+import time as ctime
 
-from fastapi import APIRouter, FastAPI, HTTPException, status
+from fastapi import APIRouter, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.app.docs import tags_metadata
@@ -62,6 +63,14 @@ def create_app(config=DevelopmentConfig) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    if config_dict.get("DEBUG") or config_dict.get("TESTING"):
+        @app.middleware("http")
+        async def add_brewing_time_header(request: Request, call_next):
+            start_time = ctime.monotonic()
+            response = call_next(request)
+            brewing_time = start_time - ctime.monotonic()
+            response.headers["X-Brewing-Time"] = str(brewing_time)
 
     # Init db
     from src.database.models import app as app_models, archives, gaia, system  # noqa # need import for sqlalchemy metadata generation
