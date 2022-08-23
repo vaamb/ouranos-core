@@ -1,4 +1,6 @@
-from fastapi import Depends, HTTPException, status
+import typing as t
+
+from fastapi import Depends, HTTPException, Query, status
 
 from . import router
 from src import api
@@ -7,8 +9,11 @@ from src.app.dependencies import get_session
 
 
 @router.get("/engine")
-async def get_engines(uid: list = ["all"], session=Depends(get_session)):
-    engines = api.gaia.get_engines(session, uid)
+async def get_engines(
+        engines_id: t.Optional[list[str]] = Query(default=None),
+        session=Depends(get_session)
+):
+    engines = api.gaia.get_engines(session, engines_id)
     response = [api.gaia.get_engine_info(
         session, engine
     ) for engine in engines]
@@ -20,7 +25,7 @@ async def get_engine(uid: str, session=Depends(get_session)):
     def exception():
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail={"error": "Engine not found"}
+            detail="Engine not found"
         )
     if uid == "all":
         exception()

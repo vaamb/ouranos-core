@@ -6,4 +6,4 @@ router = APIRouter(
     tags=["gaia"],
 )
 
-from . import engine
+from . import ecosystem, engine

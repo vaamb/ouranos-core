@@ -33,6 +33,8 @@ def get_engines(
         session: Session,
         engines: Union[str, tuple, list] = "all",
 ) -> list[Engine]:
+    if engines is None:
+        engines = "all"
     if "all" in engines:
         query = (
             select(Engine)
@@ -85,6 +87,8 @@ def get_ecosystems(
         session: Session,
         ecosystems: Union[str, tuple, list] = "all",
 ) -> list[Ecosystem]:
+    if ecosystems is None:
+        ecosystems = "all"
     if isinstance(ecosystems, str):
         ecosystems = ecosystems.split(",")
     if "all" in ecosystems:
@@ -256,6 +260,8 @@ def get_ecosystem_sensors_data_skeleton(
         time_window: timeWindow,
         level: Union[str, tuple, list] = "all",
 ) -> dict:
+    if level is None:
+        level = "all"
     @cached(cache_sensors_data_skeleton)
     def inner_func(
             session: Session,
