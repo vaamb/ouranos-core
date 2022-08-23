@@ -1,4 +1,4 @@
-from fastapi import Depends
+from fastapi import Depends, HTTPException, status
 
 from . import router
 from src import api
@@ -15,24 +15,28 @@ async def get_engines(uid: list = ["all"], session=Depends(get_session)):
     return response
 
 
-@router.get("/engine/u/<uid>")
-async def get_engine(uid: str, session=Depends(get_session)):
-    # TODO: make sure "all" is not used
-    if uid == "all":
-        return {"error": "Engine not found"}, 404
-    engine = api.gaia.get_engines(session, uid)
-    if engine:
-        response = api.gaia.get_engine_info(session, engine[0])
-        return response
-    return {"error": "Engine not found"}, 404
-
-
-@router.put("/engine/u/<uid>", dependencies=[Depends(is_admin)])
+@router.put("/engine/u", dependencies=[Depends(is_admin)])
 async def put_engine(
         uid: str,
         session=Depends(get_session),
 ):
     pass
+
+
+@router.get("/engine/u/<uid>")
+async def get_engine(uid: str, session=Depends(get_session)):
+    def exception():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "Engine not found"}
+        )
+    if uid == "all":
+        exception()
+    engine = api.gaia.get_engines(session, uid)
+    if engine:
+        response = api.gaia.get_engine_info(session, engine[0])
+        return response
+    exception()
 
 
 @router.delete("/engine/u/<uid>", dependencies=[Depends(is_admin)])
