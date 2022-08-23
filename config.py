@@ -29,7 +29,7 @@ class Config:
     # Logging config
     LOG_TO_STDOUT = True
     LOG_TO_FILE = True
-    LOG_ERROR = True  # TODO: test if True
+    LOG_ERROR = True
 
     # Ouranos and Gaia config
     TEST_CONNECTION_IP = "1.1.1.1"
@@ -60,9 +60,6 @@ class Config:
     SLOW_DB_QUERY_TIME = 0.5
     SQLALCHEMY_ECHO = False
 
-    # Enforce httpOnly cookie in Flask-login
-    REMEMBER_COOKIE_HTTPONLY = True
-
     # Mail config
     MAIL_SERVER = os.environ.get("MAIL_SERVER") or "smtp.gmail.com"
     MAIL_PORT = int(os.environ.get("MAIL_PORT") or 465)
@@ -72,12 +69,9 @@ class Config:
     MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD") or privateConfig.MAIL_PASSWORD
     MAIL_SUPPRESS_SEND = False
 
-    # REDIS config
-    REDIS_URL = os.environ.get("REDIS_URL") or "redis://"
-    USE_REDIS_CACHE = True
-    USE_REDIS_DISPATCHER = True
-
+    # Dispatcher config
     MESSAGE_BROKER_URL = "memory://"
+    # CACHING_SERVER_URL
 
     # Data logging
     SYSTEM_LOGGING_PERIOD = 10
@@ -92,16 +86,13 @@ class Config:
 
 
 class DevelopmentConfig(Config):
-    DEBUG = False
+    DEBUG = True
     TESTING = True
     MAIL_DEBUG = True
-    USE_REDIS_CACHE = False
 
 
 class TestingConfig(Config):
     TESTING = True
-    SERVER_NAME = "127.0.0.1:5000"
-    WTF_CSRF_ENABLED = False
     SQLALCHEMY_DATABASE_URI = "sqlite:///"
     SQLALCHEMY_BINDS = {
         "app": "sqlite:///",
@@ -111,7 +102,7 @@ class TestingConfig(Config):
 
 
 class ProductionConfig(Config):
-    DATABASE_URI = "mysql://user@localhost/foo"
+    SQLALCHEMY_DATABASE_URI = "mysql://user@localhost/foo"
 
 
 config = {

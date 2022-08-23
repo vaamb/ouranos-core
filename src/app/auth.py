@@ -6,6 +6,7 @@ from fastapi import Depends, HTTPException, Request, Response, status
 from fastapi.security.http import HTTPBasic, HTTPBearer
 from fastapi.security.utils import get_authorization_scheme_param
 import jwt
+from sqlalchemy.orm import Session
 
 from src.app.dependencies import get_session
 from src.database.models.app import anonymous_user, Permission, User, UserMixin
@@ -65,7 +66,7 @@ class Authenticator:
             )
         return user
 
-    def login(self, user: User, remember: bool) -> None:
+    def login(self, user: User, remember: bool) -> str:
         remote_address = self.request.client.host
         user_agent = self.request.headers.get("user-agent")
         session_id = _create_session_id(remote_address, user_agent)
@@ -78,6 +79,7 @@ class Authenticator:
             payload.update({"remember": remember})
         token = Tokenizer.dumps(payload, secret_key=self._secret_key)
         self.response.set_cookie(LOGIN_COOKIE_NAME, f"Bearer {token}", httponly=True)
+        return token
 
     def logout(self) -> None:
         self.response.delete_cookie(LOGIN_COOKIE_NAME)
@@ -106,9 +108,9 @@ class LoginManager:
     def user_loader(self, callback) -> None:
         self._user_callback = callback
 
-    def get_user(self, user_id: int) -> User:
+    def get_user(self, user_id: int, session) -> User:
         if self._user_callback:
-            return self._user_callback(user_id)
+            return self._user_callback(user_id, session)
         raise NotImplementedError(
             "Set your user_loader call back using `@login_manager.user_loader`"
         )
@@ -119,13 +121,15 @@ login_manager = LoginManager()
 
 
 @login_manager.user_loader
-def load_user(user_id: int, session=Depends(get_session)) -> User:
+def load_user(user_id: int, session: Session) -> User:
     return session.query(User).filter_by(id=user_id).one_or_none()
 
 
 async def _get_current_user(
         response: Response,
-        token: str = Depends(cookie_bearer_auth)
+        #get_user=Depends(login_manager.get_user),
+        session=Depends(get_session),
+        token: str = Depends(cookie_bearer_auth),
 ) -> User:
     if not token:
         return anonymous_user
@@ -136,7 +140,7 @@ async def _get_current_user(
         response.delete_cookie(LOGIN_COOKIE_NAME)
         return anonymous_user  # TODO: raise an HTTP error
     else:
-        user = login_manager.get_user(user_id)
+        user = login_manager.get_user(user_id, session)
         if user:
             """iat = payload["iat"]
             remember = payload.get("remember", False)

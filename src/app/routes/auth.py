@@ -23,10 +23,13 @@ async def login(
     username = credentials.username
     password = credentials.password
     user = authenticator.authenticate(username, password)
-    authenticator.login(user, remember)
+    token = authenticator.login(user, remember)
     return {
         "msg": "You are logged in",
-        "user": user.to_dict(),
+        "data": {
+            "user": user.to_dict(),
+            "token": token,
+        },
     }
 
 
@@ -46,13 +49,11 @@ def get_current_user(current_user: PydanticUserMixin = Depends(get_current_user)
     return current_user.to_dict()
 
 
+@router.post("/register")
+async def register():
+    pass
+
 """
-@namespace.route("/register")
-class Register(Resource):
-    def post(self):
-        pass
-
-
 @namespace.route("/refresh")
 class Token(Resource):
     @jwt_required(refresh=True)
