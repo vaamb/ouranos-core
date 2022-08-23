@@ -27,19 +27,17 @@ async def get_unique_engine(uid: str, session=Depends(get_session)):
     return {"error": "Engine not found"}, 404
 
 
-@router.put("/engine/u/<uid>")
+@router.put("/engine/u/<uid>", dependencies=[Depends(is_admin)])
 async def put_unique_engine(
         uid: str,
-        admin: bool = Depends(is_admin),
         session=Depends(get_session),
 ):
     pass
 
 
-@router.delete("/engine/u/<uid>")
+@router.delete("/engine/u/<uid>", dependencies=[Depends(is_admin)])
 async def delete_unique_engine(
         uid: str,
-        admin: bool = Depends(is_admin),
         session=Depends(get_session),
 ):
     pass
