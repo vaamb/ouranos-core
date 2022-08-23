@@ -3,10 +3,11 @@ import time as ctime
 
 from fastapi import APIRouter, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from src.app.docs import tags_metadata
 from src.database.wrapper import SQLAlchemyWrapper
-from src.utils import config_dict_from_class
+from src.utils import base_dir, config_dict_from_class
 from config import DevelopmentConfig
 
 try:
@@ -131,6 +132,12 @@ def create_app(config=DevelopmentConfig) -> FastAPI:
             detail="I'm a teapot, I can't brew coffee"
         )
     logger.debug("Brewing coffee???")
+
+    frontend_static_dir = base_dir/"frontend/dist"
+    frontend_index = frontend_static_dir/"index.html"
+    if frontend_index.exists():
+        logger.debug("Ouranos frontend detected, mounting it")
+        app.mount("/", StaticFiles(directory=frontend_static_dir, html=True))
 
     logger.info(f"{config_dict['APP_NAME']} app successfully created")
     return app
