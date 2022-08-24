@@ -8,7 +8,6 @@ from fastapi.staticfiles import StaticFiles
 from src.app.docs import tags_metadata
 from src.database.wrapper import SQLAlchemyWrapper
 from src.utils import base_dir, config_dict_from_class
-from config import DevelopmentConfig
 
 try:
     import orjson
@@ -29,7 +28,7 @@ app_config: dict[str, str] = {}
 db = SQLAlchemyWrapper()
 
 
-def create_app(config=DevelopmentConfig) -> FastAPI:
+def create_app(config) -> FastAPI:
     config_dict = config_dict_from_class(config)
 
     if not any((config_dict.get("DEBUG"), config_dict.get("TESTING"))):
@@ -42,8 +41,9 @@ def create_app(config=DevelopmentConfig) -> FastAPI:
 
     global app_config
     app_config = config_dict
-
-    logger = logging.getLogger(f"{config_dict['APP_NAME'].lower()}.app")
+    logger_name = config_dict['APP_NAME'].lower() if config_dict["_MAIN"] else \
+        config_dict['_WORKER_NAME']
+    logger = logging.getLogger(f"{logger_name}.app")
     logger.info(f"Creating {config_dict['APP_NAME']} app ...")
 
     app = FastAPI(
@@ -54,6 +54,8 @@ def create_app(config=DevelopmentConfig) -> FastAPI:
         redoc_url="/api/redoc",
         default_response_class=JSONResponse
     )
+
+    app.extra["logger"] = logger
 
     # Set up CORS
     origins = ["http://127.0.0.1:8080", "http://localhost:8080"]
@@ -90,7 +92,7 @@ def create_app(config=DevelopmentConfig) -> FastAPI:
             app_models.CommunicationChannel.insert_channels(session)
         except Exception as e:
             logger.error(e)
-    app.db = db
+    app.extra["db"] = db
 
     # Add a router with "/api" path prefixed to it
     prefix = APIRouter(prefix="/api")
