@@ -26,7 +26,7 @@ default_profile = os.environ.get("OURANOS_PROFILE") or "development"
 
 def get_config(profile: t.Optional[str]):
     if profile is None or profile.lower() in ("def", "default"):
-        return config_dict["default"]
+        return config_dict[default_profile]
     elif profile.lower() in ("dev", "development"):
         return config_dict["development"]
     elif profile.lower() in ("test", "testing"):
