@@ -45,15 +45,15 @@ class Config:
     # SQLAlchemy config
     SQLALCHEMY_DATABASE_URI = (
             os.environ.get("ECOSYSTEM_DATABASE_URI") or
-            "sqlite:///" + os.path.join(base_dir, "db_ecosystems.db")
+            "sqlite+aiosqlite:///" + os.path.join(base_dir, "db_ecosystems.db")
     )
     SQLALCHEMY_BINDS = {
         "app": (os.environ.get("APP_DATABASE_URI") or
-                "sqlite:///" + os.path.join(base_dir, "db_app.db")),
+                "sqlite+aiosqlite:///" + os.path.join(base_dir, "db_app.db")),
         "system": (os.environ.get("SYSTEM_DATABASE_URI") or
-                   "sqlite:///" + os.path.join(base_dir, "db_system.db")),
+                   "sqlite+aiosqlite:///" + os.path.join(base_dir, "db_system.db")),
         "archive": (os.environ.get("ARCHIVE_DATABASE_URI") or
-                    "sqlite:///" + os.path.join(base_dir, "db_archive.db"))
+                    "sqlite+aiosqlite:///" + os.path.join(base_dir, "db_archive.db"))
     }
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_RECORD_QUERIES = True

@@ -1,4 +1,4 @@
-from flask import url_for
+"""from flask import url_for
 from flask_login import login_user
 
 from src.app import db
@@ -14,7 +14,7 @@ def create_users():
         user = User(username=f"Test{role.capitalize()}", role=role_qo)
         user.set_password(password)
         db.session.add(user)
-    
+
     for role in ("User", "Operator", "Administrator"):
         create_user(role)
 
@@ -61,3 +61,4 @@ def test_protected_views_user(client):
     rv = client.get(url_for(f"main.user_page", username="Invalid"),
                     follow_redirects=True)
     assert b"Please log in to access this page" not in rv.data
+"""

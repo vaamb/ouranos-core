@@ -5,11 +5,13 @@ import time as ctime
 #from flask import current_app
 #from flask_login import UserMixin
 import sqlalchemy as sa
-from sqlalchemy import orm
+from sqlalchemy import orm, select
+from sqlalchemy.ext.asyncio import AsyncSession
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from . import archive_link, base
 from . common import BaseAppWarning
+from src.app import app_config
 from src.utils import ExpiredTokenError, InvalidTokenError, Tokenizer
 
 
@@ -40,7 +42,7 @@ class Role(base):
             self.permissions = 0
 
     @staticmethod
-    def insert_roles(session):
+    async def insert_roles(session: AsyncSession):
         roles = {
             "User": [Permission.VIEW, Permission.EDIT],
             "Operator": [Permission.VIEW, Permission.EDIT,
@@ -49,8 +51,15 @@ class Role(base):
                               Permission.OPERATE, Permission.ADMIN],
         }
         default_role = "User"
+        stmt = select(Role)
+        result = await session.execute(stmt)
+        roles_in_db = result.scalars().all()
         for r in roles:
-            role = session.query(Role).filter_by(name=r).first()
+            role = None
+            for role_in_db in roles_in_db:
+                if role_in_db.name == r:
+                    role = role_in_db
+                    break
             if role is None:
                 role = Role(name=r)
             role.reset_permissions()
@@ -58,7 +67,7 @@ class Role(base):
                 role.add_permission(perm)
             role.default = (role.name == default_role)
             session.add(role)
-        session.commit()
+        await session.commit()
 
     def has_permission(self, perm):
         return self.permissions & perm == perm
@@ -95,7 +104,7 @@ class UserMixin:
         except AttributeError:
             raise NotImplementedError("No `id` attribute - override `get_id`")
 
-    def can(self) -> bool:
+    def can(self, perm) -> bool:
         raise NotImplementedError
 
     def to_dict(self) -> dict:
@@ -114,7 +123,7 @@ class AnonymousUserMixin(UserMixin):
     def get_id(self) -> None:
         return
 
-    def can(self) -> bool:
+    def can(self, perm) -> bool:
         return False
 
     def to_dict(self) -> dict:
@@ -166,20 +175,23 @@ class User(base, UserMixin):
     def __init__(self, **kwargs):
         super(User, self).__init__(**kwargs)
         if self.role is None:
-            if self.email in current_app.config["OURANOS_ADMIN"]:
+            if self.email in app_config.get("OURANOS_ADMIN", ()):
                 self.role = Role.query.filter_by(name="Administrator").first()
             else:
                 self.role = Role.query.filter_by(default=True).first()
 
     @staticmethod
-    def insert_gaia(session):
-        gaia = session.query(User).filter_by(username="Ouranos").first()
+    async def insert_gaia(session: AsyncSession):
+        stmt = select(User).where(User.username == "Ouranos")
+        result = await session.execute(stmt)
+        gaia = result.scalars().first()
         if not gaia:
-            admin = db.session.query(Role).filter_by(
-                name="Administrator").first()
+            stmt = select(Role).where(Role.name == "Administrator")
+            result = await session.execute(stmt)
+            admin = result.scalars().first()
             gaia = User(username="Ouranos", confirmed=True, role=admin)
             session.add(gaia)
-            session.commit()
+            await session.commit()
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(
@@ -204,18 +216,18 @@ class User(base, UserMixin):
             **kwargs
     ) -> str:
         if not secret_key:
-            secret_key = current_app.config["SECRET_KEY"]
+            secret_key = app_config["SECRET_KEY"]
         payload = {"user_id": self.id, "use": use}
         if expires_in:
             payload.update({"exp": ctime.time() + expires_in})
         if kwargs:
             payload.update(**kwargs)
-        return Tokenizer.dumps(secret_key, payload)
+        return Tokenizer.dumps(payload, secret_key)
 
     @staticmethod
     def load_from_token(token: str, token_use: str):
         try:
-            payload = Tokenizer.loads(current_app.config["SECRET_KEY"], token)
+            payload = Tokenizer.loads(token, app_config["SECRET_KEY"])
         except (ExpiredTokenError, InvalidTokenError):
             return None
         if payload.get("use") != token_use:
@@ -279,14 +291,21 @@ class CommunicationChannel(base):
                              lazy="dynamic")
 
     @staticmethod
-    def insert_channels(session):
+    async def insert_channels(session: AsyncSession):
         channels = ["telegram"]
+        stmt = select(CommunicationChannel)
+        result = await session.execute(stmt)
+        channels_in_db = result.scalars().all()
         for c in channels:
-            channel = session.query(CommunicationChannel).filter_by(name=c).first()
+            channel = None
+            for channel_in_db in channels_in_db:
+                if channel_in_db.name == c:
+                    channel = channel_in_db
+                    break
             if channel is None:
                 channel = CommunicationChannel(name=c)
             session.add(channel)
-        session.commit()
+        await session.commit()
 
 
 # TODO: When problems solved, after x days: goes to archive

@@ -1,12 +1,13 @@
 import typing as t
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, Response, status
 
 from src import api
 from src.app.pydantic.models.weather import (
     PydanticCurrentWeather, PydanticHourlyWeather, PydanticDailyWeather,
     PydanticSunTimes
 )
+from src.app.routes.utils import empty_result
 
 
 router = APIRouter(
@@ -42,6 +43,7 @@ async def get_sun_times() -> dict:
 )
 async def get_forecast(exclude: t.Union[list[str], None] = Query(default=None)) -> dict:
     response = {}
+    exclude = exclude or []
     if "currently" not in exclude:
         currently = api.weather.get_current_weather()
         if currently:
@@ -62,10 +64,7 @@ async def get_forecast(exclude: t.Union[list[str], None] = Query(default=None)) 
             })
     if response:
         return response
-    raise HTTPException(
-        status_code=status.HTTP_204_NO_CONTENT,
-        detail="Empty result",
-    )
+    return empty_result({})
 
 
 @router.get("/forecast/currently", response_model=PydanticCurrentWeather)
@@ -73,10 +72,7 @@ async def get_current_forecast() -> dict:
     response = api.weather.get_current_weather()
     if response:
         return response
-    raise HTTPException(
-        status_code=status.HTTP_204_NO_CONTENT,
-        detail="Empty result",
-    )
+    return empty_result({})
 
 
 @router.get("/forecast/hourly", response_model=list[PydanticHourlyWeather])
@@ -84,10 +80,7 @@ async def get_current_forecast() -> dict:
     response = api.weather.get_hourly_weather_forecast()
     if response:
         return response
-    raise HTTPException(
-        status_code=status.HTTP_204_NO_CONTENT,
-        detail="Empty result",
-    )
+    return empty_result({})
 
 
 @router.get("/forecast/daily", response_model=list[PydanticDailyWeather])
@@ -95,7 +88,4 @@ async def get_current_forecast() -> dict:
     response = api.weather.get_daily_weather_forecast()
     if response:
         return response
-    raise HTTPException(
-        status_code=status.HTTP_204_NO_CONTENT,
-        detail="Empty result",
-    )
+    return empty_result({})

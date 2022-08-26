@@ -4,7 +4,7 @@ from typing import Union
 
 from cachetools import cached, TTLCache
 from sqlalchemy import delete, select, update
-from sqlalchemy.orm.session import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.exceptions import NoEcosystemFound, WrongDataFormat
 from src.api.utils import time_limits, timeWindow, create_time_window
@@ -29,47 +29,48 @@ class ecosystemIds(namedtuple("ecosystemIds", ("uid", "name"))):
     __slots__ = ()
 
 
-def get_engines(
-        session: Session,
+async def get_engines(
+        session: AsyncSession,
         engines: Union[str, tuple, list] = "all",
 ) -> list[Engine]:
     if engines is None:
         engines = "all"
     if "all" in engines:
-        query = (
+        stmt = (
             select(Engine)
-                .order_by(Engine.last_seen.desc())
+            .order_by(Engine.last_seen.desc())
         )
     elif "recent" in engines:
         time_limit = time_limits()["recent"]
-        query = (
+        stmt = (
             select(Engine)
-                .where(Engine.last_seen >= time_limit)
-                .order_by(Engine.last_seen.desc())
+            .where(Engine.last_seen >= time_limit)
+            .order_by(Engine.last_seen.desc())
         )
     elif "connected" in engines:
-        query = (
+        stmt = (
             select(Engine)
-                .where(Engine.connected)
-                .order_by(Engine.uid.asc())
+            .where(Engine.connected)
+            .order_by(Engine.uid.asc())
         )
     else:
-        query = (
+        stmt = (
             select(Engine)
-                .where(
-                    Engine.uid.in_(engines) |
-                    Engine.sid.in_(engines)
-                )
-                .order_by(Engine.uid.asc())
+            .where(
+                Engine.uid.in_(engines) |
+                Engine.sid.in_(engines)
+            )
+            .order_by(Engine.uid.asc())
         )
-    return session.execute(query).scalars().all()
+    result = await session.execute(stmt)
+    return result.scalars().all()
 
 
-def get_engine_info(session: Session, engine: Engine) -> dict:
+def get_engine_info(session: AsyncSession, engine: Engine) -> dict:
     return engine.to_dict()
 
 
-def get_ecosystem_ids(session: Session, ecosystem: str) -> ecosystemIds:
+def get_ecosystem_ids(session: AsyncSession, ecosystem: str) -> ecosystemIds:
     query = (
         select(Ecosystem)
         .where(
@@ -83,8 +84,8 @@ def get_ecosystem_ids(session: Session, ecosystem: str) -> ecosystemIds:
     raise NoEcosystemFound
 
 
-def get_ecosystems(
-        session: Session,
+async def get_ecosystems(
+        session: AsyncSession,
         ecosystems: Union[str, tuple, list] = "all",
 ) -> list[Ecosystem]:
     if ecosystems is None:
@@ -122,15 +123,16 @@ def get_ecosystems(
                 .order_by(Ecosystem.last_seen.desc(),
                           Ecosystem.name.asc())
         )
-    return session.execute(query).scalars().all()
+    result = await session.execute(query)
+    return result.scalars().all()
 
 
-def get_ecosystem_info(session: Session, ecosystem: Ecosystem) -> dict:
+def get_ecosystem_info(session: AsyncSession, ecosystem: Ecosystem) -> dict:
     return ecosystem.to_dict()
 
 
 def get_ecosystem_management(
-        session: Session,
+        session: AsyncSession,
         ecosystem: Ecosystem,
 ) -> dict:
     limits = time_limits()
@@ -172,7 +174,7 @@ def get_ecosystem_management(
 
 
 # TODO: delete
-def summarize_ecosystems_management(session: Session,
+def summarize_ecosystems_management(session: AsyncSession,
                                     ecosystems_info: list) -> dict:
     limits = time_limits()
     return {
@@ -234,12 +236,12 @@ def summarize_ecosystems_management(session: Session,
     }
 
 
-def get_light_info(session: Session, ecosystem: Ecosystem) -> dict:
+def get_light_info(session: AsyncSession, ecosystem: Ecosystem) -> dict:
     return ecosystem.light.first().to_dict()
 
 
 def get_environmental_parameters(
-        session: Session,
+        session: AsyncSession,
         ecosystem: Ecosystem,
 ) -> dict:
     return {
@@ -255,7 +257,7 @@ def get_environmental_parameters(
 
 
 def get_ecosystem_sensors_data_skeleton(
-        session: Session,
+        session: AsyncSession,
         ecosystem: Ecosystem,
         time_window: timeWindow,
         level: Union[str, tuple, list] = "all",
@@ -264,7 +266,7 @@ def get_ecosystem_sensors_data_skeleton(
         level = "all"
     @cached(cache_sensors_data_skeleton)
     def inner_func(
-            session: Session,
+            session: AsyncSession,
             ecosystem_id: str,
             time_window: timeWindow,
             level: Union[str, list, tuple],
@@ -344,7 +346,7 @@ def _get_hardware_query(
 
 
 def get_hardware(
-        session: Session,
+        session: AsyncSession,
         hardware_uids: Union[str, tuple, list] = "all",
         ecosystem_uids: Union[str, tuple, list] = "all",
         levels: Union[str, tuple, list] = "all",
@@ -358,7 +360,7 @@ def get_hardware(
 
 
 def get_sensors(
-        session: Session,
+        session: AsyncSession,
         hardware_uids: Union[str, tuple, list] = "all",
         ecosystem_uids: Union[str, tuple, list] = "all",
         levels: Union[str, tuple, list] = "all",
@@ -381,14 +383,14 @@ def get_sensors(
 
 
 def get_hardware_info(
-        session: Session,
+        session: AsyncSession,
         hardware: Hardware
 ) -> dict:
     return hardware.to_dict()
 
 
 # TODO: cache?
-def _get_measure_unit(session: Session, measure_name: str) -> str:
+def _get_measure_unit(session: AsyncSession, measure_name: str) -> str:
     return (
         session.query(Measure)
             .filter(Measure.name == measure_name)
@@ -398,7 +400,7 @@ def _get_measure_unit(session: Session, measure_name: str) -> str:
 
 
 def _get_historic_sensor_data_record(
-        session: Session,
+        session: AsyncSession,
         sensor_obj: Hardware,
         measure: str,
         time_window: timeWindow
@@ -422,7 +424,7 @@ def _get_historic_sensor_data_record(
 
 
 def _get_historic_sensors_data(
-        session: Session,
+        session: AsyncSession,
         sensor_obj: Hardware,
         measures: Union[str, tuple, list],
         time_window: timeWindow,
@@ -446,7 +448,7 @@ def _get_historic_sensors_data(
 
 
 def _get_current_sensors_data(
-        session: Session,
+        session: AsyncSession,
         sensor_obj: Hardware,
         measures: Union[str, tuple, list],
 ) -> list:
@@ -472,7 +474,7 @@ def _get_current_sensors_data(
 
 
 def get_sensor_info(
-        session: Session,
+        session: AsyncSession,
         sensor: Hardware,
         measures: Union[str, tuple, list] = "all",
         current_data: bool = True,
@@ -514,7 +516,7 @@ def get_sensor_info(
 
 # TODO: rewrite or delete
 def _get_ecosystem_historic_sensors_data(
-        session: Session,
+        session: AsyncSession,
         ecosystem: Ecosystem,
         time_window: timeWindow,
         level: Union[str, tuple, list] = "all",
@@ -606,7 +608,7 @@ def create_hardware():
 
 
 def update_hardware(
-        session: Session,
+        session: AsyncSession,
         hardware_uid: str,
         hardware_dict: dict[str]
 ) -> None:
@@ -626,7 +628,7 @@ def update_hardware(
 
 
 def delete_hardware(
-        session: Session,
+        session: AsyncSession,
         hardware_uid: str,
 ) -> None:
     query = delete(Hardware).where(Hardware.uid == hardware_uid)
@@ -634,7 +636,7 @@ def delete_hardware(
 
 
 def get_ecosystems_hardware(
-        session: Session,
+        session: AsyncSession,
         ecosystems_query_obj: list[Ecosystem],
         level: Union[str, tuple, list] = "all",
         hardware_type: Union[str, tuple, list] = "all"
@@ -662,7 +664,7 @@ def get_ecosystems_hardware(
 
 
 def get_plants(
-        session: Session,
+        session: AsyncSession,
         ecosystems_query_obj: list[Ecosystem],
 ) -> list[dict[str, Union[str, list[dict[str, str]]]]]:
     return [{
@@ -675,5 +677,5 @@ def get_plants(
     } for ecosystem in ecosystems_query_obj]
 
 
-def get_measures(session: Session) -> list:
+def get_measures(session: AsyncSession) -> list:
     return [measure.to_dict() for measure in session.query(Measure).all()]

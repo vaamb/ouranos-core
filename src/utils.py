@@ -1,5 +1,7 @@
+import asyncio
 import dataclasses
 from datetime import date, datetime, time, timezone
+from functools import wraps
 import logging
 import logging.config
 import os
@@ -17,6 +19,15 @@ from config import Config
 
 base_dir = Path(__file__).absolute().parents[1]
 logs_dir = base_dir/"logs"
+
+
+def async_to_sync(func):
+    """Decorator to allow calling an async function like a sync function"""
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        ret = asyncio.run(func(*args, **kwargs))
+        return ret
+    return wrapper
 
 
 class JSONEncoder(_json.JSONEncoder):

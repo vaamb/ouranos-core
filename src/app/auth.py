@@ -6,7 +6,8 @@ from fastapi import Depends, HTTPException, Request, Response, status
 from fastapi.security.http import HTTPBasic, HTTPBearer
 from fastapi.security.utils import get_authorization_scheme_param
 import jwt
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.app.dependencies import get_session
 from src.database.models.app import anonymous_user, Permission, User, UserMixin
@@ -51,13 +52,15 @@ class Authenticator:
         self.request = request
         self.response = response
 
-    def authenticate(
+    async def authenticate(
             self,
+            session: AsyncSession,
             username: str,
             password: str,
-            session=Depends(get_session)
     ) -> User:
-        user = self._session.query(User).filter_by(username=username).first()
+        stmt = select(User).where(User.username == username)
+        result = await session.execute(stmt)
+        user = result.scalars().first()
         if user is None or not user.check_password(password):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -96,7 +99,7 @@ class LoginManager:
             self,
             request: Request,
             response: Response,
-            session=Depends(get_session)
+            session: AsyncSession = Depends(get_session)
     ) -> Authenticator:
         return Authenticator(self, session, request, response)
 
@@ -116,19 +119,21 @@ class LoginManager:
         )
 
 
-# TODO: use async
 login_manager = LoginManager()
 
 
 @login_manager.user_loader
-def load_user(user_id: int, session: Session) -> User:
-    return session.query(User).filter_by(id=user_id).one_or_none()
+async def load_user(user_id: int, session: AsyncSession) -> User:
+    stmt = select(User).where(User.id == user_id)
+    result = await session.execute(stmt)
+    user = result.scalars().one_or_none()
+    return user
 
 
 async def _get_current_user(
         response: Response,
         #get_user=Depends(login_manager.get_user),
-        session=Depends(get_session),
+        session: AsyncSession = Depends(get_session),
         token: str = Depends(cookie_bearer_auth),
 ) -> User:
     if not token:
@@ -138,9 +143,9 @@ async def _get_current_user(
         user_id = payload.get("user_id", None)
     except jwt.PyJWTError:
         response.delete_cookie(LOGIN_COOKIE_NAME)
-        return anonymous_user  # TODO: raise an HTTP error
+        return anonymous_user
     else:
-        user = login_manager.get_user(user_id, session)
+        user = await login_manager.get_user(user_id, session)
         if user:
             """iat = payload["iat"]
             remember = payload.get("remember", False)

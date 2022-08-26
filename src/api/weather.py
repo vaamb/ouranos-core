@@ -52,6 +52,8 @@ def get_hourly_weather_forecast(time_window: int = 24) -> dict:
 def get_daily_weather_forecast(time_window: int = 7,
                                skip_today: bool = True) -> dict:
     data = get_forecast("daily", time_window)
+    if not data:
+        return {}
     if skip_today:
         del data["forecast"][0]
     return data

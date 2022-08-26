@@ -4,6 +4,7 @@ from fastapi.security import HTTPBasicCredentials
 from src.app.auth import (
     Authenticator, basic_auth, get_current_user, login_manager, LoginManager
 )
+from src.app.dependencies import get_session
 from src.app.pydantic.models.app import PydanticLimitedUser, PydanticUserMixin
 
 
@@ -16,13 +17,14 @@ router = APIRouter(
 
 @router.get("/login")
 async def login(
+        remember: bool = False,
         authenticator: Authenticator = Depends(login_manager),
         credentials: HTTPBasicCredentials = Depends(basic_auth),
-        remember: bool = False
+        session=Depends(get_session),
 ):
     username = credentials.username
     password = credentials.password
-    user = authenticator.authenticate(username, password)
+    user = await authenticator.authenticate(session, username, password)
     token = authenticator.login(user, remember)
     return {
         "msg": "You are logged in",

@@ -1,11 +1,12 @@
 import os
 import shutil
 import tempfile
+import typing as t
 
+from fastapi.testclient import TestClient
 import pytest
 
-from src.app import create_app, db
-from src.app.models import Service
+from src.app import create_app
 from config import TestingConfig
 
 
@@ -18,23 +19,17 @@ SERVICES = {
 }
 
 
-def patch_config(ConfigClass, temp_directory):
+def patch_config(config_class: t.Type[TestingConfig], temp_directory):
     """Change database URIs to use a temporary directory"""
-    ConfigClass.SQLALCHEMY_DATABASE_URI = (
-            "sqlite:///" + os.path.join(temp_directory, "db_ecosystems.db")
+    config_class.SQLALCHEMY_DATABASE_URI = (
+            "sqlite+aiosqlite:///" + os.path.join(temp_directory, "db_ecosystems.db")
     )
-    ConfigClass.SQLALCHEMY_BINDS = {
-        "app": "sqlite:///" + os.path.join(temp_directory, "db_app.db"),
-        "archive": "sqlite:///" + os.path.join(temp_directory, "db_archive.db")
+    config_class.SQLALCHEMY_BINDS = {
+        "app": "sqlite+aiosqlite:///" + os.path.join(temp_directory, "db_app.db"),
+        "archive": "sqlite+aiosqlite:///" + os.path.join(temp_directory, "db_archive.db"),
+        "system": "sqlite+aiosqlite:///" + os.path.join(temp_directory, "db_system.db"),
     }
-    return ConfigClass
-
-
-def log_and_enable_services():
-    for service in SERVICES:
-        s = Service(name=service, level=SERVICES[service], status=1)
-        db.session.add(s)
-    db.session.commit()
+    return config_class
 
 
 @pytest.fixture(scope="session")
@@ -42,8 +37,6 @@ def app():
     temp_directory = tempfile.mkdtemp(suffix="gaiaWeb")
     config = patch_config(TestingConfig, temp_directory)
     app = create_app(config)
-    with app.app_context():
-        log_and_enable_services()
     try:
         yield app
     finally:
@@ -54,9 +47,7 @@ def app():
             pass
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture()
 def client(app):
-    ctx = app.app_context()
-    ctx.push()
-    with app.test_client(use_cookies=True) as client:
-        yield client
+    client = TestClient(app)
+    yield client

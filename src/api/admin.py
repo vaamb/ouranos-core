@@ -5,7 +5,9 @@ from threading import Thread
 
 from email_validator import validate_email, EmailNotValidError
 # from lz.reversal import reverse  # not currently used
+from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound
+from sqlalchemy.ext.asyncio import AsyncSession
 import jwt
 
 from config import Config
@@ -162,21 +164,22 @@ def send_invitation(invitation_jwt, db_session, mode="email"):
             raise Exception("No email address present in the JSON Web Token")
 
 
-def get_historic_system_data(session, time_window: timeWindow):
-    data = (
-        session.query(SystemHistory)
-            .filter(
-                (SystemHistory.datetime > time_window.start) &
-                (SystemHistory.datetime <= time_window.end)
-            )
-            .with_entities(
-                SystemHistory.datetime, SystemHistory.CPU_used,
-                SystemHistory.CPU_temp, SystemHistory.RAM_used,
-                SystemHistory.RAM_total, SystemHistory.DISK_used,
-                SystemHistory.DISK_total
-            )
-            .all()
+async def get_historic_system_data(session: AsyncSession, time_window: timeWindow):
+    stmt = (
+        select(SystemHistory)
+        .where(
+            (SystemHistory.datetime > time_window.start) &
+            (SystemHistory.datetime <= time_window.end)
+        )
+        .with_entities(
+            SystemHistory.datetime, SystemHistory.CPU_used,
+            SystemHistory.CPU_temp, SystemHistory.RAM_used,
+            SystemHistory.RAM_total, SystemHistory.DISK_used,
+            SystemHistory.DISK_total
+        )
     )
+    result = await session.execute(stmt)
+    data = result.scalars().all()
     return {
         "data": data,
         "order": ["datetime", "CPU_used", "CPU_temp", "RAM_used",

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src import api
 from src.api.utils import timeWindow
@@ -22,7 +22,7 @@ async def get_current_system_data():
 
 @router.get("/data", dependencies=[Depends(is_admin)])
 async def get_historic_system_data(
-        session: Session = Depends(get_session),
+        session: AsyncSession = Depends(get_session),
         time_window: timeWindow = Depends(get_time_window),
 ):
     historic_system_data = api.admin.get_historic_system_data(

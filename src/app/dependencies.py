@@ -1,19 +1,15 @@
 import typing as t
 
 from fastapi import HTTPException, Query, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import db
 from src import api
 
 
-def get_session() -> t.Generator:
-    try:
-        yield db.session
-    except Exception as e:
-        db.rollback()
-        raise e
-    finally:
-        db.close()
+async def get_session() -> AsyncSession:
+    async with db.scoped_session() as session:
+        yield session
 
 
 def get_time_window(

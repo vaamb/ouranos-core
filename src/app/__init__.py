@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import time as ctime
 
@@ -6,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from src.app.docs import tags_metadata
-from src.database.wrapper import SQLAlchemyWrapper
+from src.database.wrapper import AsyncSQLAlchemyWrapper
 from src.utils import base_dir, config_dict_from_class
 
 try:
@@ -25,7 +26,7 @@ else:
 app_config: dict[str, str] = {}
 
 
-db = SQLAlchemyWrapper()
+db = AsyncSQLAlchemyWrapper()
 
 
 def create_app(config) -> FastAPI:
@@ -84,14 +85,19 @@ def create_app(config) -> FastAPI:
     # Init db
     from src.database.models import app as app_models, archives, gaia, system  # noqa # need import for sqlalchemy metadata generation
     db.init(config)
-    db.create_all()
-    with db.scoped_session() as session:
-        try:
-            app_models.Role.insert_roles(session)
-            app_models.User.insert_gaia(session)
-            app_models.CommunicationChannel.insert_channels(session)
-        except Exception as e:
-            logger.error(e)
+
+    async def create_base_data():
+        async with db.scoped_session() as session:
+            try:
+                await app_models.Role.insert_roles(session)
+                await app_models.User.insert_gaia(session)
+                await app_models.CommunicationChannel.insert_channels(session)
+            except Exception as e:
+                logger.error(e)
+                raise e
+    loop = asyncio.get_running_loop()
+    loop.create_task(db.create_all())
+    loop.create_task(create_base_data())
     app.extra["db"] = db
 
     # Add a router with "/api" path prefixed to it

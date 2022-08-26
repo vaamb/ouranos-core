@@ -34,7 +34,7 @@ class Engine(base):
     connected = sa.Column(sa.Boolean)
 
     # relationship
-    ecosystems = orm.relationship("Ecosystem", back_populates="engine", lazy="dynamic")
+    ecosystems = orm.relationship("Ecosystem", back_populates="engine")  # , lazy="joined")
 
     # TODO: finish and add in others
     def to_dict(self):
@@ -45,7 +45,7 @@ class Engine(base):
             "address": self.address,
             "last_seen": self.last_seen,
             "connected": self.connected,
-            "ecosystems": [ecosystem.uid for ecosystem in self.ecosystems]
+            # "ecosystems": [ecosystem.uid for ecosystem in self.ecosystems]  # TODO
         }
 
 
@@ -95,7 +95,7 @@ class Ecosystem(base):
             "name": self.name,
             "status": self.status,
             "last_seen": self.last_seen,
-            "connected": self.engine.connected,
+            # "connected": self.engine.connected,  # TODO: re enable
             "engine_uid": self.engine_uid,
         }
 

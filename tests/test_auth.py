@@ -1,20 +1,19 @@
 from datetime import timedelta
 
-from flask import url_for
-
-from src.app import API, db
+from fastapi.testclient import TestClient
 
 
 username = "TestLogin"
 password = "Password1"
 
 
-def login(client, username, password):
+def login(client: TestClient, username: str, password: str):
     return client.post(
-        url_for("auth.login"), data={
+        url="/api/auth/login",
+        data={
             "username": username,
             "password": password
-        }, follow_redirects=True
+        },
     )
 
 

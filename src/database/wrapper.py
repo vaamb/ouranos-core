@@ -4,14 +4,17 @@
 # If working inside app context, DO NOT use this!
 
 
-from contextlib import contextmanager
+from asyncio import current_task
+from contextlib import asynccontextmanager, contextmanager
 
 from sqlalchemy.engine import create_engine, Engine
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncSession, create_async_engine, async_scoped_session
+)
 from sqlalchemy.orm import scoped_session, sessionmaker
 
 from src.database.models import base
-from src.utils import base_dir, config_dict_from_class
+from src.utils import async_to_sync, base_dir, config_dict_from_class
 
 
 class SQLAlchemyWrapper:
@@ -46,16 +49,6 @@ class SQLAlchemyWrapper:
                 )
             else:
                 self.create_all()
-
-    @property
-    def session(self):
-        if not self._initialized:
-            raise RuntimeError(
-                "No config option was provided. Use db.init(config) to finish "
-                "db initialization"
-            )
-        else:
-            return self._session()
 
     def init(self, config_object) -> None:
         self._init_config(config_object)
@@ -117,10 +110,10 @@ class SQLAlchemyWrapper:
         try:
             yield self._session()
         except Exception as e:
-            self._session.rollback()
+            self.rollback()
             raise e
         finally:
-            self._session.remove()
+            self.close()
 
     def get_binds_mapping(self) -> dict:
         binds = self._get_binds_list()
@@ -156,19 +149,43 @@ class AsyncSQLAlchemyWrapper(SQLAlchemyWrapper):
     def _create_session_factory(self):
         self._session_factory = sessionmaker(
             binds=self.get_binds_mapping(),
+            expire_on_commit=False,
             class_=AsyncSession
         )
-        self._session = scoped_session(self._session_factory)
+        self._session = async_scoped_session(self._session_factory, current_task)
 
     def _create_engine(self, uri, **kwargs):
         return create_async_engine(uri, **kwargs)
 
-    @contextmanager
-    def scoped_session(self):
+    @asynccontextmanager
+    async def scoped_session(self):
         try:
             yield self._session()
         except Exception as e:
-            self._session.rollback()
+            await self.rollback()
             raise e
         finally:
-            self._session.remove()
+            await self.close()
+
+    async def create_all(self):
+        binds = self._get_binds_list()
+        for bind in binds:
+            engine = self._get_engine_for_bind(bind)
+            tables = self._get_tables_for_bind(bind)
+            async with engine.begin() as conn:
+                await conn.run_sync(
+                    self.Model.metadata.create_all, tables=tables
+                )
+
+    async def drop_all(self):
+        binds = self._get_binds_list()
+        for bind in binds:
+            engine = self._get_engine_for_bind(bind)
+            tables = self._get_tables_for_bind(bind)
+            self.Model.metadata.drop_all(bind=engine, tables=tables)
+
+    async def close(self):
+        return await self._session.remove()
+
+    async def rollback(self):
+        return await self._session.rollback()
