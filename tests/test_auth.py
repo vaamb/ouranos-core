@@ -1,63 +1,44 @@
 from datetime import timedelta
 
-from fastapi.testclient import TestClient
+from src import api
 
 
 username = "TestLogin"
 password = "Password1"
 
 
-def login(client: TestClient, username: str, password: str):
-    return client.post(
-        url="/api/auth/login",
+def test_register_new_user(app, client):
+    invitation_token = api.admin.create_invitation_token(
+        session=app.extra["db"].session,
+    )
+
+    rv = client.post(
+        url="api/auth/register",
+        params={"invitation_token": invitation_token},
         data={
+            "firstname": "John",
+            "lastname": "Doe",
+            "email": "john.doe@test.com",
             "username": username,
-            "password": password
+            "password": password,
         },
     )
 
-
-def logout(client):
-    return client.get(url_for("auth.logout"), follow_redirects=True)
-
-
-def test_register_new_user(client):
-    invitation_jwt = API.admin.create_invitation_jwt(
-        db_session=db.session,
-        first_name="New_user",
-        role="default",
-    )
-
-    rv = client.post(url_for("auth.register"),
-                     query_string={"token": invitation_jwt},
-                     data={
-                         "firstname": "John",
-                         "lastname": "Doe",
-                         "email": "john.doe@test.com",
-                         "username": username,
-                         "password": password,
-                         "password2": password,
-                         },
-                     follow_redirects=True)
-
     assert b"You are now registered" in rv.data
 
-    logout(client)
 
-    rv = client.post(url_for("auth.register"),
-                     query_string={"token": invitation_jwt},
-                     follow_redirects=True)
-    assert b"already been used" in rv.data
+"""
+    logout(client)
 
     rv = client.post(url_for("auth.register"),
                      query_string={"token": f"{invitation_jwt}r"},
                      follow_redirects=True)
     assert b"token is invalid" in rv.data
 
-    expired_invitation_jwt = API.admin.create_invitation_jwt(
-        db_session=db.session,
+    expired_invitation_token = api.admin.create_invitation_token(
+        session=app.extra["db"].session,
         first_name="New_user",
-        role="default",
+        role_name="default",
         expiration_delay=timedelta(days=-7)
     )
 
@@ -80,3 +61,4 @@ def test_login(client):
 
     rv = login(client, username, f"{password}r")
     assert b"Invalid username or password" in rv.data
+"""

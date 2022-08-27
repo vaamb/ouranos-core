@@ -152,7 +152,7 @@ class User(base, UserMixin):
 
     # User registration fields
     token = sa.Column(sa.String(32))
-    registration_datetime = sa.Column(sa.DateTime)
+    registration_datetime = sa.Column(sa.DateTime, default=datetime.now(timezone.utc))
 
     # User information fields
     firstname = sa.Column(sa.String(64))
@@ -172,13 +172,17 @@ class User(base, UserMixin):
                                            back_populates="users")
     calendar = orm.relationship("CalendarEvent", back_populates="user")
 
-    def __init__(self, **kwargs):
-        super(User, self).__init__(**kwargs)
-        if self.role is None:
-            if self.email in app_config.get("OURANOS_ADMIN", ()):
-                self.role = Role.query.filter_by(name="Administrator").first()
+    @classmethod
+    async def create(cls, session: AsyncSession, **kwargs):
+        user = User(**kwargs)
+        if user.role is None:
+            if user.email in app_config.get("OURANOS_ADMIN", ()):
+                stmt = select(Role).where(Role.name == "Administrator")
             else:
-                self.role = Role.query.filter_by(default=True).first()
+                stmt = select(Role).where(Role.default is True)
+            result = await session.execute(stmt)
+            user.role = result.scalars().first()
+        return user
 
     @staticmethod
     async def insert_gaia(session: AsyncSession):

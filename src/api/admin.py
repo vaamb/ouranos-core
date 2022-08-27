@@ -7,9 +7,39 @@ from email_validator import validate_email, EmailNotValidError
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .exceptions import NoResultFound
+from .exceptions import DuplicatedEntry, NoResultFound
 from src.database.models.app import User, Role
 from src.utils import Tokenizer
+
+
+async def create_user(
+        session: AsyncSession,
+        username: str,
+        password: str,
+        **kwargs
+) -> User:
+    error = []
+    stmt = select(User).where(User.username == username)
+    if "email" in kwargs:
+        stmt = stmt.where(User.email == kwargs["mail"])
+    if "telegram_id" in kwargs:
+        stmt = stmt.where(User.telegram_chat_id == kwargs["telegram_id"])
+    result = await session.execute(stmt)
+    previous_user: User = result.scalars().first()
+    if previous_user:
+        if previous_user.username == username:
+            error.append("username")
+        if previous_user.email == kwargs.get("email", False):
+            error.append("email")
+        if previous_user.telegram_chat_id == kwargs.get("telegram_id", False):
+            error.append("telegram_id")
+        raise DuplicatedEntry(error)
+    kwargs.update({"username": username})
+    user = await User.create(session, **kwargs)
+    user.set_password(password)
+    session.add(user)
+    await session.commit()
+    return user
 
 
 async def get_user(session: AsyncSession, user: str) -> User:
@@ -76,7 +106,7 @@ async def create_invitation_token(
         role = default_role
     role_name = role.name
     if role_name == default_role.name:
-        # simple user doesn't need to know they are simple
+        # simple users don't need to know they are simple
         role_name = None
 
     tkn_claims = {

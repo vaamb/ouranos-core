@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.app.dependencies import get_session
-from src.database.models.app import anonymous_user, Permission, User, UserMixin
+from src.database.models.app import anonymous_user, Permission, User
 from src.utils import Tokenizer
 
 
@@ -167,6 +167,10 @@ async def user_can(user: User, permission: int):
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You cannot access this resource",
         )
+    return True
+
+
+async def base_restriction(current_user: User = Depends(get_current_user)) -> bool:
     return True
 
 

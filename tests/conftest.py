@@ -1,3 +1,4 @@
+import asyncio
 import os
 import shutil
 import tempfile
@@ -5,8 +6,12 @@ import typing as t
 
 from fastapi.testclient import TestClient
 import pytest
+from sqlalchemy import select
 
+from .utils import user, operator, admin
 from src.app import create_app
+from src.database.wrapper import AsyncSQLAlchemyWrapper
+from src.database.models.app import Role, User
 from config import TestingConfig
 
 
@@ -37,6 +42,25 @@ def app():
     temp_directory = tempfile.mkdtemp(suffix="gaiaWeb")
     config = patch_config(TestingConfig, temp_directory)
     app = create_app(config)
+    db: AsyncSQLAlchemyWrapper = app.extra["db"]
+
+    async def create_fake_users():
+        async with db.scoped_session() as session:
+            for usr in (user, operator, admin):
+                stmt = select(Role).where(Role.name == usr.role)
+                result = await session.execute(stmt)
+                u = User(
+                    username=usr.username,
+                    firstname=usr.firstname,
+                    lastname=usr.lastname,
+                    role=result.scalars().first(),
+                )
+                u.set_password(usr.password)
+                session.add(u)
+            session.commit()
+
+    asyncio.run(create_fake_users())
+
     try:
         yield app
     finally:

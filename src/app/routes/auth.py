@@ -1,19 +1,20 @@
-from datetime import datetime
-
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from fastapi.security import HTTPBasicCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src import api
+from src.api.exceptions import DuplicatedEntry
 from src.app.auth import (
     Authenticator, basic_auth, get_current_user, login_manager
 )
+
 from src.app.dependencies import get_session
 from src.app.pydantic.models.app import (
     LoginResponse, PydanticLimitedUser, PydanticUserMixin
 )
 from src.app.pydantic.models.common import BaseMsg
+from src.utils import ExpiredTokenError, InvalidTokenError, Tokenizer
 
-from src.database.models.app import User
 
 router = APIRouter(
     prefix="/auth",
@@ -60,25 +61,43 @@ def get_current_user(
     return current_user.to_dict()
 
 
+def check_invitation_token(invitation_token: str) -> dict:
+    try:
+        payload = Tokenizer.loads(invitation_token)
+    except ExpiredTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Expired token"
+        )
+    except InvalidTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Invalid token"
+        )
+    else:
+        return payload
+
+
 @router.post("/register")
-async def register(
-        registration_form,
+async def register_new_user(
+        registration_payload: dict = Body(),
+        invitation_token: str = Query(),
         current_user: PydanticUserMixin = Depends(get_current_user),
         session: AsyncSession = Depends(get_session),
 ):
     if current_user.is_authenticated:
         return {"msg": "You cannot register, you are already logged in"}
-    user = User(
-        username=registration_form["username"],
-        email=registration_form["email"],
-        firstname=registration_form["firstname"],
-        lastname=registration_form["lastname"],
-        registration_datetime=datetime.now(),
-    )
-    user.set_password(registration_form["password"])
-    session.add(user)
-    await session.commit()
-    return user.to_dict()
+    check_invitation_token(invitation_token)
+    try:
+        user = await api.admin.create_user(session, **registration_payload)
+    except DuplicatedEntry as e:
+        args = e.args[0]
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=args
+        )
+    else:
+        return user.to_dict()
 
 """
 @namespace.route("/refresh")

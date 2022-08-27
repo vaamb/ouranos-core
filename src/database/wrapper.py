@@ -168,7 +168,7 @@ class AsyncSQLAlchemyWrapper(SQLAlchemyWrapper):
         return create_async_engine(uri, **kwargs)
 
     @asynccontextmanager
-    async def scoped_session(self):
+    async def scoped_session(self) -> AsyncSession:
         try:
             yield self._session()
         except Exception as e:

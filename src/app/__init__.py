@@ -6,7 +6,7 @@ from fastapi import APIRouter, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from src.app.docs import description, tags_metadata
+from .docs import description, tags_metadata
 from src.database.wrapper import AsyncSQLAlchemyWrapper
 from src.utils import base_dir, config_dict_from_class, Tokenizer
 
@@ -42,8 +42,7 @@ def create_app(config) -> FastAPI:
 
     global app_config
     app_config = config_dict
-    logger_name = config_dict['APP_NAME'].lower() if config_dict["_MAIN"] else \
-        config_dict['_WORKER_NAME']
+    logger_name = config_dict['APP_NAME'].lower()
     logger = logging.getLogger(f"{logger_name}.app")
     logger.info(f"Creating {config_dict['APP_NAME']} app ...")
 
@@ -56,7 +55,7 @@ def create_app(config) -> FastAPI:
         openapi_tags=tags_metadata,
         docs_url="/api/docs",
         redoc_url="/api/redoc",
-        default_response_class=JSONResponse
+        default_response_class=JSONResponse,
     )
 
     app.extra["logger"] = logger
@@ -98,7 +97,7 @@ def create_app(config) -> FastAPI:
             except Exception as e:
                 logger.error(e)
                 raise e
-    loop = asyncio.get_running_loop()
+    loop = asyncio.get_event_loop()
     loop.create_task(db.create_all())
     loop.create_task(create_base_data())
     app.extra["db"] = db
