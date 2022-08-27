@@ -50,6 +50,16 @@ class SQLAlchemyWrapper:
             else:
                 self.create_all()
 
+    @property
+    def session(self):
+        if not self._initialized:
+            raise RuntimeError(
+                "No config option was provided. Use db.init(config) to finish "
+                "db initialization"
+            )
+        else:
+            return self._session()
+
     def init(self, config_object) -> None:
         self._init_config(config_object)
         self._create_session_factory()
