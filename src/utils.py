@@ -14,8 +14,8 @@ import json as _json
 import jwt
 from sqlalchemy.engine import Row
 
-#TODO: use local context?
 from config import Config
+
 
 base_dir = Path(__file__).absolute().parents[1]
 logs_dir = base_dir/"logs"
@@ -107,17 +107,16 @@ class InvalidTokenError(Exception):
 
 class Tokenizer:
     algorithm = "HS256"
+    secret_key = Config.SECRET_KEY
 
     @staticmethod
     def dumps(payload: dict, secret_key: t.Optional[str] = None) -> str:
-        if not secret_key:
-            secret_key = Config.SECRET_KEY
+        secret_key = secret_key or Tokenizer.secret_key
         return jwt.encode(payload, secret_key, algorithm=Tokenizer.algorithm)
 
     @staticmethod
     def loads(token: str, secret_key: t.Optional[str] = None) -> dict:
-        if not secret_key:
-            secret_key = Config.SECRET_KEY
+        secret_key = secret_key or Tokenizer.secret_key
         try:
             payload = jwt.decode(token, secret_key,
                                  algorithms=[Tokenizer.algorithm])

@@ -2,7 +2,7 @@ import sqlalchemy as sa
 
 from . import archive_link
 from .common import (
-    BaseActuatorHistory, BaseAppWarning, BaseHealth, BaseSensorHistory
+    BaseActuatorHistory, BaseWarning, BaseHealth, BaseSensorHistory
 )
 
 
@@ -34,7 +34,7 @@ class ArchiveHealthData(BaseHealth):
     ecosystem_uid = sa.Column(sa.String(length=8))
 
 
-class ArchiveAppWarning(BaseAppWarning):
+class ArchiveAppWarning(BaseWarning):
     __tablename__ = "warnings_archive"
     __bind_key__ = "archive"
     __archive_link__ = archive_link("warnings", "archive")

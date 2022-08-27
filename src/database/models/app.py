@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from . import archive_link, base
-from . common import BaseAppWarning
+from . common import BaseWarning
 from src.app import app_config
 from src.utils import ExpiredTokenError, InvalidTokenError, Tokenizer
 
@@ -210,19 +210,18 @@ class User(base, UserMixin):
 
     def create_token(
             self,
-            use: str,
-            secret_key=None,
+            payload: dict,
+            secret_key: str = None,
             expires_in: int = 1800,
             **kwargs
     ) -> str:
-        if not secret_key:
-            secret_key = app_config["SECRET_KEY"]
-        payload = {"user_id": self.id, "use": use}
+        _payload = {"user_id": self.id}
+        _payload.update(payload)
         if expires_in:
-            payload.update({"exp": ctime.time() + expires_in})
+            _payload.update({"exp": ctime.time() + expires_in})
         if kwargs:
-            payload.update(**kwargs)
-        return Tokenizer.dumps(payload, secret_key)
+            _payload.update(**kwargs)
+        return Tokenizer.dumps(_payload, secret_key)
 
     @staticmethod
     def load_from_token(token: str, token_use: str):
@@ -309,8 +308,8 @@ class CommunicationChannel(base):
 
 
 # TODO: When problems solved, after x days: goes to archive
-class AppWarning(BaseAppWarning):
-    __tablename__ = "warnings"
+class FlashMessage(BaseWarning):
+    __tablename__ = "flash_message"
     __archive_link__ = archive_link("warnings", "recent")
 
 

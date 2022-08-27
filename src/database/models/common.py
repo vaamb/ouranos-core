@@ -60,15 +60,25 @@ class BaseHealth(base):
                          index=True)
 
 
-class BaseAppWarning(base):
+class BaseWarning(base):
     __abstract__ = True
     id = sa.Column(sa.Integer, primary_key=True)
     emergency = sa.Column(sa.Integer)
-    level = sa.Column(sa.String(length=16))
     title = sa.Column(sa.String(length=256))
     description = sa.Column(sa.String(length=2048))
     content = sa.Column(sa.String)
-    message = sa.Column(sa.String)  # TODO: change by description
     created = sa.Column(sa.DateTime)
     seen = sa.Column(sa.DateTime)
+    is_solved = sa.Column(sa.Boolean)
     solved = sa.Column(sa.DateTime)
+
+    def to_dict(self) -> dict:
+        return {
+            "emergency": self.emergency,
+            "title": self.title,
+            "description": self.description,
+            "content": self.content,
+        }
+
+    def content_only(self) -> str:
+        return self.content

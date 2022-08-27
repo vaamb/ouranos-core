@@ -1,12 +1,19 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends
 from fastapi.security import HTTPBasicCredentials
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.app.auth import (
-    Authenticator, basic_auth, get_current_user, login_manager, LoginManager
+    Authenticator, basic_auth, get_current_user, login_manager
 )
 from src.app.dependencies import get_session
-from src.app.pydantic.models.app import PydanticLimitedUser, PydanticUserMixin
+from src.app.pydantic.models.app import (
+    LoginResponse, PydanticLimitedUser, PydanticUserMixin
+)
+from src.app.pydantic.models.common import BaseMsg
 
+from src.database.models.app import User
 
 router = APIRouter(
     prefix="/auth",
@@ -15,12 +22,12 @@ router = APIRouter(
 )
 
 
-@router.get("/login")
+@router.get("/login", response_model=LoginResponse)
 async def login(
         remember: bool = False,
         authenticator: Authenticator = Depends(login_manager),
         credentials: HTTPBasicCredentials = Depends(basic_auth),
-        session=Depends(get_session),
+        session: AsyncSession = Depends(get_session),
 ):
     username = credentials.username
     password = credentials.password
@@ -35,10 +42,10 @@ async def login(
     }
 
 
-@router.get("/logout")
+@router.get("/logout", response_model=BaseMsg)
 async def logout(
         authenticator: Authenticator = Depends(login_manager),
-        current_user: PydanticUserMixin = Depends(get_current_user)
+        current_user: PydanticUserMixin = Depends(get_current_user),
 ):
     if current_user.is_anonymous:
         return {"msg": "You were not logged in"}
@@ -47,13 +54,31 @@ async def logout(
 
 
 @router.get("/current_user", response_model=PydanticLimitedUser)
-def get_current_user(current_user: PydanticUserMixin = Depends(get_current_user)):
+def get_current_user(
+        current_user: PydanticUserMixin = Depends(get_current_user)
+):
     return current_user.to_dict()
 
 
 @router.post("/register")
-async def register():
-    pass
+async def register(
+        registration_form,
+        current_user: PydanticUserMixin = Depends(get_current_user),
+        session: AsyncSession = Depends(get_session),
+):
+    if current_user.is_authenticated:
+        return {"msg": "You cannot register, you are already logged in"}
+    user = User(
+        username=registration_form["username"],
+        email=registration_form["email"],
+        firstname=registration_form["firstname"],
+        lastname=registration_form["lastname"],
+        registration_datetime=datetime.now(),
+    )
+    user.set_password(registration_form["password"])
+    session.add(user)
+    await session.commit()
+    return user.to_dict()
 
 """
 @namespace.route("/refresh")

@@ -1,5 +1,17 @@
-class NoEcosystemFound(Exception):
+class OuranosException(Exception):
+    pass
+
+
+class NoResultFound(OuranosException):
+    pass
+
+
+class NoEcosystemFound(NoResultFound):
     """No ecosystem could be found"""
 
 
-class WrongDataFormat(Exception): pass
+class WrongDataFormat(OuranosException):
+    pass
+
+
+

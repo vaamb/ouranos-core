@@ -30,26 +30,12 @@ async def get_logging_config():
 
 @router.get("/services")
 async def get_services(level: str = Query(default="all"), session=Depends(get_session)):
-    response = api.app.get_services(session=session, level=level)
+    response = await api.app.get_services(session=session, level=level)
     return response
 
 
 # TODO: for future use
-@router.get("/flash_message")
-async def get_flash_message():
+@router.get("/flash_messages")
+async def get_flash_messages():
     response = {}
     return response
-
-
-@router.get("/warnings")
-async def get_warnings(
-        current_user: PydanticUserMixin = Depends(get_current_user),
-        session=Depends(get_session)
-):
-    if current_user.is_authenticated:
-        response = api.warnings.get_recent_warnings(session, limit=8)
-        return response
-    raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access forbidden",
-            )

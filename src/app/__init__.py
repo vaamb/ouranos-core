@@ -6,9 +6,9 @@ from fastapi import APIRouter, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from src.app.docs import tags_metadata
+from src.app.docs import description, tags_metadata
 from src.database.wrapper import AsyncSQLAlchemyWrapper
-from src.utils import base_dir, config_dict_from_class
+from src.utils import base_dir, config_dict_from_class, Tokenizer
 
 try:
     import orjson
@@ -47,9 +47,12 @@ def create_app(config) -> FastAPI:
     logger = logging.getLogger(f"{logger_name}.app")
     logger.info(f"Creating {config_dict['APP_NAME']} app ...")
 
+    Tokenizer.secret_key = app_config["SECRET_KEY"]
+
     app = FastAPI(
         title=config_dict.get("APP_NAME"),
         version=config_dict.get("VERSION"),
+        description=description,
         openapi_tags=tags_metadata,
         docs_url="/api/docs",
         redoc_url="/api/redoc",

@@ -6,7 +6,9 @@ from sqlalchemy.schema import Table
 
 
 from . import archive_link, base
-from .common import BaseActuatorHistory, BaseHealth, BaseSensorHistory
+from .common import (
+    BaseActuatorHistory, BaseHealth, BaseSensorHistory, BaseWarning
+)
 from src.utils import time_to_datetime
 
 
@@ -276,3 +278,8 @@ class Health(BaseHealth):
 
     # relationships
     ecosystem = orm.relationship("Ecosystem", back_populates="health")
+
+
+class GaiaWarning(BaseWarning):
+    __tablename__ = "warnings"
+    __archive_link__ = archive_link("warnings", "recent")
