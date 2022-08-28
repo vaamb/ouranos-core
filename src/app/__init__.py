@@ -97,6 +97,7 @@ def create_app(config) -> FastAPI:
             except Exception as e:
                 logger.error(e)
                 raise e
+
     loop = asyncio.get_event_loop()
     loop.create_task(db.create_all())
     loop.create_task(create_base_data())
