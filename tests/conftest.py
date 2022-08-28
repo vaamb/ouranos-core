@@ -6,11 +6,11 @@ import typing as t
 
 from fastapi.testclient import TestClient
 import pytest
+import pytest_asyncio
 from sqlalchemy import select
 
 from .utils import user, operator, admin
-from src.app import create_app
-from src.database.wrapper import AsyncSQLAlchemyWrapper
+from src.app import create_app, db as _db
 from src.database.models.app import Role, User
 from config import TestingConfig
 
@@ -38,14 +38,50 @@ def patch_config(config_class: t.Type[TestingConfig], temp_directory):
 
 
 @pytest.fixture(scope="session")
-def app():
+def event_loop():
+    loop = asyncio.get_event_loop()
+    yield loop
+    loop.close()
+
+
+@pytest.fixture(scope="session")
+def temp_dir():
     temp_directory = tempfile.mkdtemp(suffix="gaiaWeb")
-    config = patch_config(TestingConfig, temp_directory)
+    try:
+        yield temp_directory
+    finally:
+        try:
+            shutil.rmtree(temp_directory)
+        except PermissionError:
+            # Raised in Windows although the directory is effectively deleted
+            pass
+
+
+@pytest.fixture(scope="session")
+def config(temp_dir):
+    config = patch_config(TestingConfig, temp_dir)
+    yield config
+
+
+@pytest.fixture(scope="session")
+def db():
+    yield _db
+
+
+@pytest.fixture(scope="session")
+def app(config, db):
+    # Patch dependencies
+    async def patched_session():
+        yield db._session_factory()
+
+    from src.app.dependencies import get_session
+
+    get_session = patched_session
+
     app = create_app(config)
-    db: AsyncSQLAlchemyWrapper = app.extra["db"]
 
     async def create_fake_users():
-        async with db.scoped_session() as session:
+        async with db._session() as session:
             for usr in (user, operator, admin):
                 stmt = select(Role).where(Role.name == usr.role)
                 result = await session.execute(stmt)
@@ -60,15 +96,7 @@ def app():
             session.commit()
 
     asyncio.run(create_fake_users())
-
-    try:
-        yield app
-    finally:
-        try:
-            shutil.rmtree(temp_directory)
-        except PermissionError:
-            # Raised in Windows although the directory is effectively deleted
-            pass
+    yield app
 
 
 @pytest.fixture()

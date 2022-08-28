@@ -97,9 +97,14 @@ def create_app(config) -> FastAPI:
             except Exception as e:
                 logger.error(e)
                 raise e
-    loop = asyncio.get_event_loop()
-    loop.create_task(db.create_all())
-    loop.create_task(create_base_data())
+
+    if not config_dict.get("TESTING"):
+        loop = asyncio.get_event_loop()
+        loop.create_task(db.create_all())
+        loop.create_task(create_base_data())
+    else:
+        asyncio.run(db.create_all())
+        asyncio.run(create_base_data())
     app.extra["db"] = db
 
     # Add a router with "/api" path prefixed to it
