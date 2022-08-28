@@ -5,6 +5,7 @@ import time as ctime
 from fastapi import APIRouter, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from socketio import AsyncServer, ASGIApp
 
 from .docs import description, tags_metadata
 from src.database.wrapper import AsyncSQLAlchemyWrapper
@@ -27,6 +28,9 @@ app_config: dict[str, str] = {}
 
 
 db = AsyncSQLAlchemyWrapper()
+sio = AsyncServer(
+    async_mode='asgi'
+)
 
 
 def create_app(config) -> FastAPI:
@@ -60,11 +64,15 @@ def create_app(config) -> FastAPI:
 
     app.extra["logger"] = logger
 
+    if app_config.get("TESTING"):
+        allowed_origins = ("http://127.0.0.1:8080", "http://localhost:8080")
+    else:
+        allowed_origins = ()
+
     # Set up CORS
-    origins = ["http://127.0.0.1:8080", "http://localhost:8080"]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=origins,
+        allow_origins=allowed_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -143,6 +151,11 @@ def create_app(config) -> FastAPI:
             detail="I'm a teapot, I can't brew coffee"
         )
     logger.debug("Brewing coffee???")
+
+    # Workaround so python-socketio doesn't add its own headers, which leads to CORS issues
+    sio.eio.cors_allowed_origins = []
+    sio_app = ASGIApp(socketio_server=sio)
+    app.mount(path="/", app=sio_app)
 
     frontend_static_dir = base_dir/"frontend/dist"
     frontend_index = frontend_static_dir/"index.html"
