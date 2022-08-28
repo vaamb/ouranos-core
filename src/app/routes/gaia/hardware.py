@@ -44,9 +44,7 @@ async def get_multiple_hardware(
     response = [api.gaia.get_sensor_info(
         session, h, measures, current_data, historic_data, time_window
     ) for h in hardware]
-    if response:
-        return response
-    return empty_result([])
+    return response
 
 
 @router.get("/hardware/models_available")
@@ -73,9 +71,7 @@ async def get_hardware(
     assert_single_uid(uid)
     hardware = await hardware_or_abort(session, uid)
     response = api.gaia.get_hardware_info(session, hardware[0])
-    if response:
-        return response
-    return empty_result({})
+    return response
 
 
 @router.put("/hardware/u/<uid>", dependencies=[Depends(is_operator)])
@@ -108,9 +104,7 @@ async def get_sensors(
         session, sensor, measures, current_data,
         historic_data, time_window
     ) for sensor in sensors]
-    if response:
-        return response
-    return empty_result({})
+    return response
 
 
 @router.get("/sensor/measures_available")
@@ -131,9 +125,7 @@ async def get_sensor(
     response = await api.gaia.get_sensor_info(
         session, sensor[0], "all", current_data, historic_data, time_window,
     )
-    if response:
-        return response
-    return empty_result({})
+    return response
 
 
 @router.get("/sensor/u/<uid>/<measure>")
@@ -154,6 +146,4 @@ async def get_measure_for_sensor(
             session, sensor[0], measure, current_data, historic_data,
             time_window
         )
-    if response:
-        return response
-    return empty_result({})
+    return response

@@ -2,10 +2,7 @@ from fastapi import HTTPException, status
 
 
 def empty_result(result):
-    raise HTTPException(
-        status_code=status.HTTP_204_NO_CONTENT,
-        detail="Empty result",
-    )
+    return result
 
 
 def assert_single_uid(uid: str, name: str = "uid"):

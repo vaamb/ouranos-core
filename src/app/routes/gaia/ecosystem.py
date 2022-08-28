@@ -6,7 +6,7 @@ from fastapi import Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import router
-from ..utils import assert_single_uid, empty_result
+from ..utils import assert_single_uid
 from src import api
 from src.api.utils import timeWindow
 from src.app.auth import is_operator
@@ -31,18 +31,16 @@ async def ecosystems_or_abort(
 
 @router.get("/ecosystem")
 async def get_ecosystems(
-        ecosystems_id: t.Optional[list[str]] = Query(default=None),
+        ecosystems: t.Optional[list[str]] = Query(default=None),
         session: AsyncSession = Depends(get_session),
 ) -> list[dict[str: str]]:
-    ecosystems = await api.gaia.get_ecosystems(
-        session=session, ecosystems=ecosystems_id
+    ecosystems_qo = await api.gaia.get_ecosystems(
+        session=session, ecosystems=ecosystems
     )
     response = [api.gaia.get_ecosystem_info(
         session, ecosystem
-    ) for ecosystem in ecosystems]
-    if response:
-        return response
-    return empty_result([])
+    ) for ecosystem in ecosystems_qo]
+    return response
 
 
 @router.post("/ecosystem/u", dependencies=[Depends(is_operator)])
@@ -80,10 +78,10 @@ async def delete_ecosystem(ecosystem_id: str, session=Depends(get_session)):
 
 @router.get("/ecosystem/management")
 async def get_ecosystems_management(
-        ecosystems_id: t.Optional[list[str]] = Query(default=None),
+        ecosystems: t.Optional[list[str]] = Query(default=None),
         session: AsyncSession = Depends(get_session)
 ):
-    ecosystems = await ecosystems_or_abort(session, ecosystems_id)
+    ecosystems = await api.gaia.get_ecosystems(session, ecosystems)
     response = [api.gaia.get_ecosystem_management(
         session, ecosystem
     ) for ecosystem in ecosystems]
@@ -96,7 +94,7 @@ async def get_ecosystem_management(
         session: AsyncSession = Depends(get_session)
 ):
     assert_single_uid(ecosystem_id)
-    ecosystem = await ecosystems_or_abort(ecosystem_id)
+    ecosystem = await ecosystems_or_abort(session, ecosystem_id)
     response = api.gaia.get_ecosystem_management(
         session, ecosystem[0]
     )
@@ -110,7 +108,7 @@ async def get_ecosystems_sensors_skeleton(
         time_window: timeWindow = Depends(get_time_window),
         session: AsyncSession = Depends(get_session)
 ):
-    ecosystems = await ecosystems_or_abort(session, ecosystems_id)
+    ecosystems = await api.gaia.get_ecosystems(session, ecosystems_id)
     response = [api.gaia.get_ecosystem_sensors_data_skeleton(
         session, ecosystem, time_window, level
     ) for ecosystem in ecosystems]
@@ -126,11 +124,10 @@ async def get_ecosystem_sensors_skeleton(
 ):
     assert_single_uid(ecosystem_id)
     ecosystem = await ecosystems_or_abort(session, ecosystem_id)
-    if ecosystem:
-        response = api.gaia.get_ecosystem_sensors_data_skeleton(
-            session, ecosystem[0], time_window, level
-        )
-        return response
+    response = api.gaia.get_ecosystem_sensors_data_skeleton(
+        session, ecosystem[0], time_window, level
+    )
+    return response
 
 
 @router.get("/ecosystem/light")
@@ -138,7 +135,7 @@ async def get_ecosystems_light(
         ecosystems_id: t.Optional[list[str]] = Query(default=None),
         session: AsyncSession = Depends(get_session)
 ):
-    ecosystems = await ecosystems_or_abort(session, ecosystems_id)
+    ecosystems = await api.gaia.get_ecosystems(session, ecosystems_id)
     response = [api.gaia.get_light_info(
         session, ecosystem
     ) for ecosystem in ecosystems]
@@ -152,9 +149,8 @@ async def get_ecosystem_light(
 ):
     assert_single_uid(ecosystem_id)
     ecosystem = await ecosystems_or_abort(session, ecosystem_id)
-    if ecosystem:
-        response = api.gaia.get_light_info(session, ecosystem[0])
-        return response
+    response = api.gaia.get_light_info(session, ecosystem[0])
+    return response
 
 
 @router.get("/ecosystem/environment_parameters")
@@ -162,7 +158,7 @@ async def get_ecosystems_environment_parameters(
         ecosystems_id: t.Optional[list[str]] = Query(default=None),
         session: AsyncSession = Depends(get_session)
 ):
-    ecosystems = await ecosystems_or_abort(session, ecosystems_id)
+    ecosystems = await api.gaia.get_ecosystems(session, ecosystems_id)
     response = [api.gaia.get_environmental_parameters(
         session, ecosystem
     ) for ecosystem in ecosystems]
@@ -176,8 +172,7 @@ async def get_ecosystems_environment_parameters(
 ):
     assert_single_uid(ecosystem_id)
     ecosystem = await ecosystems_or_abort(session, ecosystem_id)
-    if ecosystem:
-        response = api.gaia.get_environmental_parameters(
-            session, ecosystem[0]
-        )
-        return response
+    response = api.gaia.get_environmental_parameters(
+        session, ecosystem[0]
+    )
+    return response
