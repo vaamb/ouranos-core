@@ -69,11 +69,11 @@ async def get_engines(
 
 async def get_engine(
         session: AsyncSession,
-        engine_uid: str,
+        engine_id: str,
 ) -> Engine:
     stmt = (
-        select(Ecosystem)
-        .where(Ecosystem.uid == engine_uid)
+        select(Engine)
+        .where((Engine.uid == engine_id) | (Engine.sid == engine_id))
     )
     result = await session.execute(stmt)
     return result.scalars().one_or_none()

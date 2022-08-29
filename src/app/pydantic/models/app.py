@@ -1,6 +1,6 @@
 import typing as t
 
-from pydantic import BaseModel
+from pydantic import BaseModel, create_model
 from pydantic_sqlalchemy import sqlalchemy_to_pydantic
 
 from src.database.models.app import User
@@ -11,6 +11,11 @@ class PydanticLimitedUser(BaseModel):
     firstname: str
     lastname: str
     permissions: int
+
+
+class LoginResponse(BaseModel):
+    msg: str
+    data: create_model("tr", user=(dict, PydanticLimitedUser))
 
 
 class PydanticUserMixin(BaseModel):

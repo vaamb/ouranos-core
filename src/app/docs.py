@@ -1,5 +1,5 @@
 description = """
-### Ouranos API helps you to manage multiple instances of Gaia which are looking after your plants 🌱
+### Ouranos API helps you to manage multiple instances of Gaia (which is looking after your plants 🌱)
 
 The following options are available
 
@@ -37,7 +37,9 @@ tags_metadata = [
     },
     {
         "name": "gaia",
-        "description": "Manage Gaia's registered ecosystems",
+        "description": "Manage Gaia's registered ecosystems. Rem creating, "
+                       "updating and deleting ecosystems or hardware require "
+                       "to be logged in as an operator",
     },
     {
         "name": "system",
