@@ -7,7 +7,7 @@ from . import base
 
 # TODO: add indexes
 # ---------------------------------------------------------------------------
-#   Base models common to main app and archive
+#   Base models common.py to main app and archive
 # ---------------------------------------------------------------------------
 class BaseSensorHistory(base):
     __abstract__ = True

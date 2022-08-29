@@ -1,1 +1,1 @@
-﻿from src.app.events import clients, gaia
+﻿from . import clients  # , gaia

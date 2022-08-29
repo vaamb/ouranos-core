@@ -1,17 +1,15 @@
+import asyncio
+from asyncio import sleep
 from datetime import datetime, time, timezone
 import logging
 import random
 from typing import Union
 
 import cachetools
-from flask import current_app, request
-from flask_socketio import disconnect, join_room, leave_room
 from statistics import mean, stdev as std
-from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError, NoResultFound
 
-from .shared_resources import dispatcher
-from src.app import app_name, db, sio
+from src import api
+from src.app import app_config, db, dispatcher, sio
 from src.app.utils import decrypt_uid, validate_uid_token
 from src.cache import sensorsData
 from src.database.models.gaia import (
@@ -20,17 +18,18 @@ from src.database.models.gaia import (
 )
 
 
-sio_logger = logging.getLogger(f"{app_name.lower()}.socketio")
+sio_logger = logging.getLogger(f"{app_config['APP_NAME'].lower()}.socketio")
 # TODO: better use
-collector_logger = logging.getLogger(f"{app_name.lower()}.collector")
+collector_logger = logging.getLogger(f"{app_config['APP_NAME'].lower()}.collector")
 
 
 _thread = None
-
+# TODO: create a thread local asyncio name for loop
 
 summarize = {"mean": mean, "std": std}
 
 
+# TODO: share for gaia and clients
 managers_blacklist = cachetools.TTLCache(maxsize=62, ttl=60 * 60 * 24)
 
 
@@ -52,13 +51,11 @@ def clear_client_blacklist(client_address: str = None) -> None:
             pass
 
 
-def get_ecosystem_or_create_it(uid: str) -> Ecosystem:
-    ecosystem = db.session.execute(
-        select(Ecosystem).where(Ecosystem.uid == uid)
-    ).scalars().first()
-    if not ecosystem:
-        ecosystem = Ecosystem(uid=uid)
-        db.session.add(ecosystem)
+async def get_ecosystem_or_create_it(ecosystem_uid: str) -> Ecosystem:
+    with db.scoped_session() as session:
+        ecosystem = await api.gaia.get_ecosystem(session, ecosystem_uid)
+        if not ecosystem:
+            ecosystem = api.gaia.create_ecosystem(session, {"uid": ecosystem_uid})
     return ecosystem
 
 
@@ -66,65 +63,61 @@ def get_ecosystem_or_create_it(uid: str) -> Ecosystem:
 # ---------------------------------------------------------------------------
 #   Data requests to engineManagers
 # ---------------------------------------------------------------------------
-def request_sensors_data(room="engineManagers"):
+async def request_sensors_data(room="engineManagers"):
     sio_logger.debug(f"Sending sensors data request to {room}")
-    sio.emit("send_sensors_data", namespace="/gaia", room=room)
+    await sio.emit("send_sensors_data", namespace="/gaia", room=room)
 
 
-def request_config(room="engineManagers"):
+async def request_config(room="engineManagers"):
     sio_logger.debug(f"Sending config request to {room}")
-    sio.emit("send_config", namespace="/gaia", room=room)
+    await sio.emit("send_config", namespace="/gaia", room=room)
 
 
-def request_health_data(room="engineManagers"):
+async def request_health_data(room="engineManagers"):
     sio_logger.debug(f"Sending health data request to {room}")
-    sio.emit("send_health_data", namespace="/gaia", room=room)
+    await sio.emit("send_health_data", namespace="/gaia", room=room)
 
 
-def request_light_data(room="engineManagers"):
+async def request_light_data(room="engineManagers"):
     sio_logger.debug(f"Sending light data request to {room}")
-    sio.emit("send_light_data", namespace="/gaia", room=room)
+    await sio.emit("send_light_data", namespace="/gaia", room=room)
 
 
-def gaia_background_thread(app):
-    with app.app_context():
-        while True:
-            sio.emit("ping", namespace="/gaia", room="engineManagers")
-            sio.sleep(15)
+async def gaia_background_task():
+    while True:
+        await sio.emit("ping", namespace="/gaia", room="engineManagers")
+        await sleep(15)
 
 
 # ---------------------------------------------------------------------------
-#   SocketIO events coming from engineManagers
+#   SocketIO events coming from Gaia instances
 # ---------------------------------------------------------------------------
 @sio.on("connect", namespace="/gaia")
-def connect_on_gaia():
-    global _thread
-    if _thread is None:
-        _thread = []
-        app = current_app._get_current_object()
-        _thread.append(sio.start_background_task(
-            gaia_background_thread, app=app))
+async def connect_on_gaia():
+    loop = asyncio.get_event_loop()
+    loop.create_task(gaia_background_task())
 
 
 @sio.on("disconnect", namespace="/gaia")
-def disconnect():
-    try:
-        manager = Engine.query.filter_by(sid=request.sid).one()
-        uid = manager.uid
-        leave_room("engineManagers")
-        manager.connected = False
-        db.session.commit()
+async def disconnect(sid):
+    with db.scoped_session() as session:
+        engine = await api.gaia.get_engine(session, engine_uid=sid)
+        if not engine:
+            return
+        uid = engine.uid
+        sio.leave_room(sid, "engineManagers", namespace="/gaia")
+        engine.connected = False
+        session.commit()
         sio.emit(
             "ecosystem_status",
             {ecosystem.uid: {"status": ecosystem.status, "connected": False}
-             for ecosystem in manager.ecosystems},
+             for ecosystem in engine.ecosystems},
             namespace="/"
         )
         sio_logger.info(f"Manager {uid} disconnected")
-    except NoResultFound:
-        pass
 
 
+"""
 @sio.on("pong", namespace="/gaia")
 def pong(data):
     now = datetime.now(timezone.utc).replace(microsecond=0)
@@ -559,3 +552,4 @@ def _turn_light(*args, **kwargs):
 @dispatcher.on("turn_actuator")
 def _turn_actuator(*args, **kwargs):
     sio.emit("turn_actuator", namespace="/gaia", **kwargs)
+"""

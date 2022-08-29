@@ -67,6 +67,18 @@ async def get_engines(
     return result.scalars().all()
 
 
+async def get_engine(
+        session: AsyncSession,
+        engine_uid: str,
+) -> Engine:
+    stmt = (
+        select(Ecosystem)
+        .where(Ecosystem.uid == engine_uid)
+    )
+    result = await session.execute(stmt)
+    return result.scalars().one_or_none()
+
+
 def get_engine_info(session: AsyncSession, engine: Engine) -> dict:
     return engine.to_dict()
 
@@ -84,6 +96,16 @@ async def get_ecosystem_ids(session: AsyncSession, ecosystem: str) -> ecosystemI
     if ecosystem:
         return ecosystemIds(ecosystem.uid, ecosystem.name)
     raise NoEcosystemFound
+
+
+async def create_ecosystem(
+        session: AsyncSession,
+        ecosystem_info: dict,
+):
+    ecosystem = Ecosystem(**ecosystem_info)
+    session.add(ecosystem)
+    await session.commit()
+    return ecosystem
 
 
 async def get_ecosystems(
@@ -121,6 +143,19 @@ async def get_ecosystems(
         )
     result = await session.execute(stmt)
     return result.scalars().all()
+
+
+async def get_ecosystem(
+        session: AsyncSession,
+        ecosystem_id: str,
+) -> Ecosystem:
+    ecosystem_id = (ecosystem_id, )
+    stmt = (
+        select(Ecosystem)
+        .where(Ecosystem.uid.in_(ecosystem_id) | Ecosystem.name.in_(ecosystem_id))
+    )
+    result = await session.execute(stmt)
+    return result.scalars().one_or_none()
 
 
 def get_ecosystem_info(session: AsyncSession, ecosystem: Ecosystem) -> dict:

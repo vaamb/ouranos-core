@@ -2,10 +2,12 @@ import asyncio
 import logging
 import time as ctime
 
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from dispatcher import configure_dispatcher, get_dispatcher
 from fastapi import APIRouter, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from socketio import AsyncServer, ASGIApp
+from socketio import AsyncServer, ASGIApp, AsyncManager
 
 from .docs import description, tags_metadata
 from src.database.wrapper import AsyncSQLAlchemyWrapper
@@ -28,33 +30,33 @@ app_config: dict[str, str] = {}
 
 
 db = AsyncSQLAlchemyWrapper()
-sio = AsyncServer(
-    async_mode='asgi'
-)
+dispatcher = get_dispatcher(namespace="application")
+scheduler = AsyncIOScheduler()
+sio = AsyncServer(async_mode='asgi')
 
 
 def create_app(config) -> FastAPI:
     config_dict = config_dict_from_class(config)
+    global app_config
+    app_config = config_dict
 
-    if not any((config_dict.get("DEBUG"), config_dict.get("TESTING"))):
+    if not any((app_config.get("DEBUG"), app_config.get("TESTING"))):
         for secret in ("SECRET_KEY", "JWT_SECRET_KEY", "GAIA_SECRET_KEY"):
-            if config_dict.get(secret) == "BXhNmCEmNdoBNngyGXj6jJtooYAcKpt6":
+            if app_config.get(secret) == "BXhNmCEmNdoBNngyGXj6jJtooYAcKpt6":
                 raise Exception(
                     f"You need to set the environment variable '{secret}' when "
                     f"using gaiaWeb in a production environment."
                 )
 
-    global app_config
-    app_config = config_dict
-    logger_name = config_dict['APP_NAME'].lower()
+    logger_name = app_config['APP_NAME'].lower()
     logger = logging.getLogger(f"{logger_name}.app")
-    logger.info(f"Creating {config_dict['APP_NAME']} app ...")
+    logger.info(f"Creating {app_config['APP_NAME']} app ...")
 
     Tokenizer.secret_key = app_config["SECRET_KEY"]
 
     app = FastAPI(
-        title=config_dict.get("APP_NAME"),
-        version=config_dict.get("VERSION"),
+        title=app_config.get("APP_NAME"),
+        version=app_config.get("VERSION"),
         description=description,
         openapi_tags=tags_metadata,
         docs_url="/api/docs",
@@ -79,7 +81,7 @@ def create_app(config) -> FastAPI:
     )
 
     # Add processing (brewing) time in headers when testing and debugging
-    if config_dict.get("DEBUG") or config_dict.get("TESTING"):
+    if app_config.get("DEBUG") or app_config.get("TESTING"):
         @app.middleware("http")
         async def add_brewing_time_header(request: Request, call_next):
             start_time = ctime.monotonic()
@@ -90,7 +92,7 @@ def create_app(config) -> FastAPI:
 
     @app.on_event("startup")
     def startup():
-        logger.info(f"{config_dict['APP_NAME']} worker successfully started")
+        logger.info(f"{app_config['APP_NAME']} worker successfully started")
 
     # Init db
     from src.database.models import app as app_models, archives, gaia, system  # noqa # need import for sqlalchemy metadata generation
@@ -152,10 +154,24 @@ def create_app(config) -> FastAPI:
         )
     logger.debug("Brewing coffee???")
 
+    # Load event dispatcher and start it
+    configure_dispatcher(app_config, silent=True)
+    dispatcher.start()
+
+    # Start the background scheduler
+    scheduler.start()
+
+    # Configure Socket.IO and load the events
+    logger.debug("Loading Socket.IO events")
+    if 0 and app_config.get("USE_REDIS_DISPATCHER", False):
+        # sio.init_app(app, message_queue=app_config["REDIS_URL"])  # TODO
+        sio.manager = AsyncManager()
+        sio.manager.set_server(sio)
     # Workaround so python-socketio doesn't add its own headers, which leads to CORS issues
     sio.eio.cors_allowed_origins = []
     sio_app = ASGIApp(socketio_server=sio)
     app.mount(path="/", app=sio_app)
+    from . import events
 
     frontend_static_dir = base_dir/"frontend/dist"
     frontend_index = frontend_static_dir/"index.html"
@@ -163,41 +179,15 @@ def create_app(config) -> FastAPI:
         logger.debug("Ouranos frontend detected, mounting it")
         app.mount("/", StaticFiles(directory=frontend_static_dir, html=True))
 
-    logger.info(f"{config_dict['APP_NAME']} app successfully created")
+    logger.info(f"{app_config['APP_NAME']} app successfully created")
     return app
 
 
 """import logging
-from apscheduler.schedulers.background import BackgroundScheduler
-from dispatcher import configure_dispatcher
-from flask_socketio import SocketIO
-
-
-scheduler = BackgroundScheduler()
-
-sio = SocketIO(json=json, cors_allowed_origins="*")
-
 def create_app(config_class=DevelopmentConfig):
-
-    configure_dispatcher(config_class, silent=True)
-
-    # TODO: first check connection to server, and use Kombu instead
-    if 0 and app.config["USE_REDIS_DISPATCHER"]:
-        sio.init_app(app, message_queue=app.config["REDIS_URL"])
-    else:
-        sio.init_app(app)
-
-    if config_class.__name__ != "TestingConfig":
-        scheduler.start()
-
     logger.debug("Adding wiki static folder")
     # from src.app.wiki.routing import bp as wiki_bp
     # app.register_blueprint(wiki_bp)
-
-    logger.debug("Loading events")
-    from src.app import events
-    from src.app.events.shared_resources import dispatcher
-    dispatcher.start()
 
     return app
 """
