@@ -117,20 +117,25 @@ async def disconnect(sid):
         sio_logger.info(f"Manager {uid} disconnected")
 
 
-"""
 @sio.on("pong", namespace="/gaia")
-def pong(data):
+async def pong(sid, data):
     now = datetime.now(timezone.utc).replace(microsecond=0)
-    manager = Engine.query.filter_by(sid=request.sid).one()
-    manager.last_seen = now
-    for ecosystem_uid in data:
-        ecosystem = Ecosystem.query.filter_by(uid=ecosystem_uid).one()
-        ecosystem.last_seen = now
-    db.session.commit()
+    with db.scoped_session() as session:
+        engine = await api.gaia.get_engine(session, sid)
+        if not engine:
+            return
+        engine.last_seen = now
+        for ecosystem_uid in data:
+            ecosystem = await api.gaia.get_ecosystem(ecosystem_uid)
+            ecosystem.last_seen = now
+        await session.commit()
 
 
 @sio.on("register_engine", namespace="/gaia")
-def register_manager(data):
+async def register_manager(sid, data):
+    print("register_engine")
+
+    '''
     remote_addr = request.environ["REMOTE_ADDR"]
     remote_port = request.environ["REMOTE_PORT"]
     try:
@@ -153,9 +158,10 @@ def register_manager(data):
     except KeyError:
         # Not in blacklist
         pass
-
+    '''
     engine_uid = decrypt_uid(data["ikys"])
 
+    '''
     if not validate_uid_token(data["uid_token"], engine_uid):
         try:
             managers_blacklist[remote_addr] += 1
@@ -190,6 +196,7 @@ def register_manager(data):
         request_sensors_data(request.sid)
         request_light_data(request.sid)
         request_health_data(request.sid)
+'''
 
 
 # TODO: transform into a wrap?
