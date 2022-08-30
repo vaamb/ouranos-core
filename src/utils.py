@@ -201,7 +201,7 @@ def configure_logging(config_class):
 
     LOGGING_CONFIG = {
         "version": 1,
-        "disable_existing_loggers": False,
+        "disable_existing_loggers": True,
 
         "formatters": {
             "streamFormat": {
@@ -219,44 +219,58 @@ def configure_logging(config_class):
                 "formatter": "streamFormat",
                 "class": "logging.StreamHandler",
             },
-#            "fileHandler": {
-#                "level": f"{'DEBUG' if DEBUG else 'INFO'}",
-#                "formatter": "fileFormat",
-#                "class": "logging.handlers.RotatingFileHandler",
-#                'filename': 'logs/base.log',
-#                'mode': 'w+',
-#                'maxBytes': 1024 * 512,
-#                'backupCount': 5,
-#            },
-#            "errorFileHandler": {
-#                "level": "ERROR",
-#                "formatter": "fileFormat",
-#                "class": "logging.FileHandler",
-#                'filename': 'logs/errors.log',
-#                'mode': 'a',
-#            }
+            "fileHandler": {
+                "level": f"{'DEBUG' if DEBUG else 'INFO'}",
+                "formatter": "fileFormat",
+                "class": "logging.handlers.RotatingFileHandler",
+                "filename": "logs/base.log",
+                "mode": "a",
+                "maxBytes": 1024 * 512,
+                "backupCount": 5,
+            },
+            "errorFileHandler": {
+                "level": "ERROR",
+                "formatter": "fileFormat",
+                "class": "logging.FileHandler",
+                "filename": "logs/errors.log",
+                "mode": "a",
+            }
         },
-
         "loggers": {
             "": {
                 "handlers": handlers,
                 "level": f"{'DEBUG' if DEBUG else 'INFO'}"
             },
+            "aiosqlite": {
+                "handlers": handlers,
+                "level": "WARNING",
+                "propagate": False,
+            },
             "apscheduler": {
                 "handlers": handlers,
-                "level": "WARNING"
+                "level": "WARNING",
+                "propagate": False,
             },
             "urllib3": {
                 "handlers": handlers,
-                "level": "WARNING"
+                "level": "WARNING",
+                "propagate": False,
             },
             "engineio": {
                 "handlers": handlers,
-                "level": "INFO"
+                "level": f"{'DEBUG' if DEBUG else 'INFO'}",
+                "propagate": False,
             },
             "socketio": {
                 "handlers": handlers,
-                "level": "INFO"
+                "level": f"{'DEBUG' if DEBUG else 'INFO'}",
+                "propagate": False,
+
+            },
+            "uvicorn": {
+                "handlers": handlers,
+                "level": f"{'DEBUG' if DEBUG else 'INFO'}",
+                "propagate": False,
             },
         },
     }
