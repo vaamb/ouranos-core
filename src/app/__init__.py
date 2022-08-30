@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import logging
 import time as ctime
@@ -26,7 +28,7 @@ else:
     from fastapi.responses import ORJSONResponse as JSONResponse
 
 
-app_config: dict[str, str] = {}
+app_config: dict[str, str | int] = {}
 
 
 db = AsyncSQLAlchemyWrapper()
