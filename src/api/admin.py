@@ -48,7 +48,7 @@ async def get_user(session: AsyncSession, user: str) -> User:
         .where((User.id == user) | (User.username == user))
     )
     result = await session.execute(stmt)
-    return result.scalars().first()
+    return result.scalars().one_or_none()
 
 
 async def update_user(

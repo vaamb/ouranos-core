@@ -33,11 +33,11 @@ class ecosystemIds(namedtuple("ecosystemIds", ("uid", "name"))):
 
 async def _create_entry(
         session: AsyncSession,
-        Model,
+        model_class,
         model_info: dict,
 ) -> Engine:
     # TODO: call GAIA
-    model = Model(**model_info)
+    model = model_class(**model_info)
     session.add(model)
     await session.commit()
     return model
@@ -45,7 +45,7 @@ async def _create_entry(
 
 async def _update_entry(
         session: AsyncSession,
-        Model,
+        model_class,
         model_info: dict,
         uid: t.Optional[str] = None,
 ) -> None:
@@ -56,8 +56,8 @@ async def _update_entry(
             "Provide uid either as a parameter or as a key in the updated info"
         )
     stmt = (
-        update(Model)
-        .where(Model.uid == uid)
+        update(model_class)
+        .where(model_class.uid == uid)
         .values(**model_info)
     )
     await session.execute(stmt)
@@ -65,11 +65,11 @@ async def _update_entry(
 
 async def _delete_entry(
         session: AsyncSession,
-        Model,
+        model_class,
         uid: t.Optional[str] = None,
 ) -> None:
     # TODO: call GAIA
-    stmt = delete(Model).where(Model.uid == uid)
+    stmt = delete(model_class).where(model_class.uid == uid)
     await session.execute(stmt)
 
 
