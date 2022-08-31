@@ -334,3 +334,11 @@ class CalendarEvent(base):  # TODO: apply similar to warnings
 
     # relationship
     user = orm.relationship("User", back_populates="calendar")
+
+
+class GaiaJob(base):
+    __tablename__ = "gaia_jobs"
+    id = sa.Column(sa.Integer, primary_key=True)
+    command = sa.Column(sa.String)
+    arguments = sa.Column(sa.String)
+    done = sa.Column(sa.Boolean)
