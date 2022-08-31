@@ -1,6 +1,6 @@
 import sqlalchemy as sa
 
-from . import base
+from ._base import base
 
 
 # ---------------------------------------------------------------------------

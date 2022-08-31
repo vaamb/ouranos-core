@@ -2,7 +2,7 @@ import sqlalchemy as sa
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.schema import UniqueConstraint
 
-from . import base
+from ._base import base
 
 
 # TODO: add indexes

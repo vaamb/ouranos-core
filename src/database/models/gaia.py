@@ -5,7 +5,7 @@ from sqlalchemy import orm
 from sqlalchemy.schema import Table
 
 
-from . import archive_link, base
+from ._base import ArchiveLink, base
 from .common import (
     BaseActuatorHistory, BaseHealth, BaseSensorHistory, BaseWarning
 )
@@ -230,7 +230,7 @@ class Plant(base):
 
 class SensorHistory(BaseSensorHistory):
     __tablename__ = "sensors_history"
-    __archive_link__ = archive_link("sensor", "recent")
+    __archive_link__ = ArchiveLink("sensor", "recent")
 
     # relationships
     ecosystem = orm.relationship("Ecosystem", back_populates="sensors_history")
@@ -239,7 +239,7 @@ class SensorHistory(BaseSensorHistory):
 
 class ActuatorHistory(BaseActuatorHistory):
     __tablename__ = "actuators_history"
-    __archive_link__ = archive_link("actuator", "recent")
+    __archive_link__ = ArchiveLink("actuator", "recent")
 
     # relationships
     ecosystem = orm.relationship("Ecosystem", back_populates="actuators_history")
@@ -274,7 +274,7 @@ class Light(base):
 
 class Health(BaseHealth):
     __tablename__ = "health"
-    __archive_link__ = archive_link("health", "recent")
+    __archive_link__ = ArchiveLink("health", "recent")
 
     # relationships
     ecosystem = orm.relationship("Ecosystem", back_populates="health")
@@ -282,4 +282,4 @@ class Health(BaseHealth):
 
 class GaiaWarning(BaseWarning):
     __tablename__ = "warnings"
-    __archive_link__ = archive_link("warnings", "recent")
+    __archive_link__ = ArchiveLink("warnings", "recent")

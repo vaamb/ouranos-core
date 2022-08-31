@@ -2,15 +2,13 @@ from datetime import datetime, timezone
 from hashlib import md5
 import time as ctime
 
-#from flask import current_app
-#from flask_login import UserMixin
 import sqlalchemy as sa
 from sqlalchemy import orm, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from . import archive_link, base
-from . common import BaseWarning
+from ._base import ArchiveLink, base
+from .common import BaseWarning
 from src.app import app_config
 from src.utils import ExpiredTokenError, InvalidTokenError, Tokenizer
 
@@ -87,6 +85,7 @@ class Role(base):
         return f"<Role {self.name}>"
 
 
+# TODO: move elsewhere
 class UserMixin:
     is_fresh: bool = False
 
@@ -314,7 +313,7 @@ class CommunicationChannel(base):
 # TODO: When problems solved, after x days: goes to archive
 class FlashMessage(BaseWarning):
     __tablename__ = "flash_message"
-    __archive_link__ = archive_link("warnings", "recent")
+    __archive_link__ = ArchiveLink("warnings", "recent")
 
 
 class CalendarEvent(base):  # TODO: apply similar to warnings
