@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import asyncio
 import logging
 import time as ctime
@@ -12,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from socketio import AsyncServer, ASGIApp, AsyncManager
 
 from .docs import description, tags_metadata
+from .utils import set_app_config
 from src.database.wrapper import AsyncSQLAlchemyWrapper
 from src.utils import base_dir, config_dict_from_class, Tokenizer
 
@@ -28,9 +27,6 @@ else:
     from fastapi.responses import ORJSONResponse as JSONResponse
 
 
-app_config: dict[str, str | int] = {}
-
-
 db = AsyncSQLAlchemyWrapper()
 dispatcher = get_dispatcher(namespace="application")
 scheduler = AsyncIOScheduler()
@@ -39,8 +35,8 @@ sio = AsyncServer(async_mode='asgi')
 
 def create_app(config) -> FastAPI:
     config_dict = config_dict_from_class(config)
-    global app_config
-    app_config = config_dict
+    set_app_config(config_dict)
+    from .utils import app_config
 
     if not any((app_config.get("DEBUG"), app_config.get("TESTING"))):
         for secret in ("SECRET_KEY", "JWT_SECRET_KEY", "GAIA_SECRET_KEY"):
@@ -158,10 +154,12 @@ def create_app(config) -> FastAPI:
 
     # Load event dispatcher and start it
     configure_dispatcher(app_config, silent=True)
-    dispatcher.start()
+    # dispatcher.start()
 
     # Start the background scheduler
-    scheduler.start()
+    @app.on_event("startup")
+    def start_scheduler():
+        scheduler.start()
 
     # Configure Socket.IO and load the events
     logger.debug("Loading Socket.IO events")

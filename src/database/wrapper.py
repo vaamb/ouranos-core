@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.orm import scoped_session, sessionmaker
 
-from src.database.models import base
+from src.database.models._base import base
 from src.utils import base_dir, config_dict_from_class
 
 

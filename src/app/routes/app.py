@@ -1,10 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query
 
 from src import api
-from src.app import app_config
-from src.app.auth import get_current_user
 from src.app.dependencies import get_session
 from src.app.pydantic.models.app import PydanticUserMixin
+from src.app.utils import app_config
 
 
 router = APIRouter(

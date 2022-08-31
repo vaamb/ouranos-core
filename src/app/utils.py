@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 import base64
 import os
-from pathlib import Path
 import platform
 from typing import Union
 
@@ -13,10 +14,15 @@ import geopy
 from config import Config
 
 
-base_dir = Path(__file__).absolute().parents[1]
+app_config: dict[str, str | int] = {}
 
 
 coordinates = cachetools.LFUCache(maxsize=16)
+
+
+def set_app_config(config: dict):
+    global app_config
+    app_config = config
 
 
 def arg_to_bool(arg: Union[bool, int, str]) -> bool:

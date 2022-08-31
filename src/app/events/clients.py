@@ -2,7 +2,8 @@ import logging
 
 from .decorators import permission_required
 from src import api
-from src.app import app_config, db, dispatcher, sio
+from src.app import db, dispatcher, sio
+from src.app.utils import app_config
 from src.cache import systemData
 
 

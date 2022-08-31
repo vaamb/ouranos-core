@@ -9,8 +9,8 @@ import cachetools
 from statistics import mean, stdev as std
 
 from src import api
-from src.app import app_config, db, dispatcher, sio
-from src.app.utils import decrypt_uid, validate_uid_token
+from src.app import db, dispatcher, sio
+from src.app.utils import app_config, decrypt_uid, validate_uid_token
 from src.database.models.gaia import (
     Ecosystem, Engine, EnvironmentParameter, Hardware, Health, Light,
     Management, Measure, SensorHistory

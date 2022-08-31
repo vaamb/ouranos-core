@@ -9,7 +9,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from ._base import ArchiveLink, base
 from .common import BaseWarning
-from src.app import app_config
+from src.app.utils import app_config
 from src.utils import ExpiredTokenError, InvalidTokenError, Tokenizer
 
 
