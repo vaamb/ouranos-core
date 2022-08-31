@@ -7,9 +7,9 @@ from src.database.models.app import User
 
 
 class PydanticLimitedUser(BaseModel):
-    username: str
-    firstname: str
-    lastname: str
+    username: t.Optional[str]
+    firstname: t.Optional[str]
+    lastname: t.Optional[str]
     permissions: int
 
 
