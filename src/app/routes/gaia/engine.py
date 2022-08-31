@@ -7,14 +7,15 @@ from . import router
 from ..utils import assert_single_uid
 from src import api
 from src.app.dependencies import get_session
+from src.database.models.gaia import Engine
 
 
-async def engines_or_abort(session: AsyncSession, engines):
-    engines_qo = await api.gaia.get_engines(
-        session=session, engines=engines
+async def engine_or_abort(session: AsyncSession, engine_id: str) -> Engine:
+    engine = await api.gaia.get_engine(
+        session=session, engine_id=engine_id
     )
-    if engines_qo:
-        return engines_qo
+    if engine:
+        return engine
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
         detail="No ecosystem(s) found"
@@ -39,6 +40,6 @@ async def get_engine(
         session: AsyncSession = Depends(get_session)
 ):
     assert_single_uid(uid)
-    engine = await engines_or_abort(session, uid)
-    response = api.gaia.get_engine_info(session, engine[0])
+    engine = await engine_or_abort(session, uid)
+    response = api.gaia.get_engine_info(session, engine)
     return response

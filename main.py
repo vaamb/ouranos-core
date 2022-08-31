@@ -108,17 +108,17 @@ if __name__ == "__main__":
     configure_logging(config)
     app_name = config.APP_NAME
     logger = logging.getLogger(app_name.lower())
-    worker = create_worker(config_profile)
+    #worker = create_worker(config_profile)
     try:
-        if worker.extra.get("main"):
-            logger.info(f"Starting {app_name} server")
-        else:
-            logger.info(f"Starting {worker.extra['worker_name']} worker")
+    #    if worker.extra.get("main"):
+    #        logger.info(f"Starting {app_name} server")
+    #    else:
+    #        logger.info(f"Starting {worker.extra['worker_name']} worker")
         uvicorn.run("main:create_worker", port=5000, factory=True)
     except KeyboardInterrupt:
-        if worker.extra.get("main"):
-            logger.info(f"Stopping {app_name} server")
-            # scheduler.remove_all_jobs()
-            graceful_exit(logger, app_name)
-        else:
-            logger.info(f"Stopping {worker.extra['worker_name']} worker")
+    #    if worker.extra.get("main"):
+    #        logger.info(f"Stopping {app_name} server")
+    #        # scheduler.remove_all_jobs()
+        graceful_exit(logger, app_name)
+    #    else:
+    #        logger.info(f"Stopping {worker.extra['worker_name']} worker")

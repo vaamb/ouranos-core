@@ -3,7 +3,7 @@ from asyncio import sleep
 from datetime import datetime, time, timezone
 import logging
 import random
-from typing import Union
+import typing as t
 
 import cachetools
 from statistics import mean, stdev as std
@@ -11,7 +11,6 @@ from statistics import mean, stdev as std
 from src import api
 from src.app import app_config, db, dispatcher, sio
 from src.app.utils import decrypt_uid, validate_uid_token
-from src.cache import sensorsData
 from src.database.models.gaia import (
     Ecosystem, Engine, EnvironmentParameter, Hardware, Health, Light,
     Management, Measure, SensorHistory
@@ -23,17 +22,17 @@ sio_logger = logging.getLogger(f"{app_config['APP_NAME'].lower()}.socketio")
 collector_logger = logging.getLogger(f"{app_config['APP_NAME'].lower()}.collector")
 
 
-_thread = None
+_BACKGROUND_TASK_STARTED = False
 # TODO: create a thread local asyncio name for loop
 
 summarize = {"mean": mean, "std": std}
 
 
 # TODO: share for gaia and clients
-managers_blacklist = cachetools.TTLCache(maxsize=62, ttl=60 * 60 * 24)
+engines_blacklist = cachetools.TTLCache(maxsize=62, ttl=60 * 60 * 24)
 
 
-def try_time_from_iso(iso_str: str) -> Union[None, time]:
+def try_time_from_iso(iso_str: str) -> t.Optional[time]:
     try:
         return time.fromisoformat(iso_str)
     except (TypeError, AttributeError):
@@ -41,21 +40,55 @@ def try_time_from_iso(iso_str: str) -> Union[None, time]:
 
 
 def clear_client_blacklist(client_address: str = None) -> None:
-    global managers_blacklist
+    global engines_blacklist
     if not client_address:
-        managers_blacklist = cachetools.TTLCache(maxsize=62, ttl=60 * 60 * 24)
+        engines_blacklist = cachetools.TTLCache(maxsize=62, ttl=60 * 60 * 24)
     else:
         try:
-            del managers_blacklist[client_address]
+            del engines_blacklist[client_address]
         except KeyError:
             pass
 
 
-async def get_ecosystem_or_create_it(ecosystem_uid: str) -> Ecosystem:
-    with db.scoped_session() as session:
-        ecosystem = await api.gaia.get_ecosystem(session, ecosystem_uid)
-        if not ecosystem:
-            ecosystem = api.gaia.create_ecosystem(session, {"uid": ecosystem_uid})
+async def get_engine_or_create_it(
+        engine_info: t.Optional[dict] = None,
+        uid: t.Optional[str] = None,
+) -> Engine:
+    engine_info = engine_info or {}
+    uid = uid or engine_info.pop("uid", None)
+    if not uid:
+        raise ValueError(
+            "Provide uid either as a parameter or as a key in the updated info"
+        )
+    async with db.scoped_session() as session:
+        engine = await api.gaia.get_engine(session, uid)
+        if engine:
+            await api.gaia.update_engine(session, engine_info, uid)
+        else:
+            if "uid" not in engine_info:
+                engine_info["uid"] = uid
+            engine = await api.gaia.create_engine(session, engine_info)
+    return engine
+
+
+async def get_ecosystem_or_create_it(
+        ecosystem_info: t.Optional[dict] = None,
+        uid: t.Optional[str] = None,
+) -> Engine:
+    ecosystem_info = ecosystem_info or {}
+    uid = uid or ecosystem_info.pop("uid", None)
+    if not uid:
+        raise ValueError(
+            "Provide uid either as a parameter or as a key in the updated info"
+        )
+    async with db.scoped_session() as session:
+        ecosystem = await api.gaia.get_ecosystem(session, uid)
+        if ecosystem:
+            await api.gaia.update_ecosystem(session, ecosystem_info, uid)
+        else:
+            if "uid" not in ecosystem_info:
+                ecosystem_info["uid"] = uid
+            ecosystem = api.gaia.create_ecosystem(session, ecosystem_info)
     return ecosystem
 
 
@@ -93,22 +126,43 @@ async def gaia_background_task():
 #   SocketIO events coming from Gaia instances
 # ---------------------------------------------------------------------------
 @sio.on("connect", namespace="/gaia")
-async def connect_on_gaia():
-    loop = asyncio.get_event_loop()
-    loop.create_task(gaia_background_task())
+async def connect_on_gaia(sid, environ):
+    global _BACKGROUND_TASK_STARTED
+    if not _BACKGROUND_TASK_STARTED:
+        loop = asyncio.get_event_loop()
+        loop.create_task(gaia_background_task())
+        _BACKGROUND_TASK_STARTED = True
+    async with sio.session(sid, namespace="/gaia") as session:
+        remote_addr = session["REMOTE_ADDR"] = environ["REMOTE_ADDR"]
+        attempts = engines_blacklist.get(remote_addr, 0)
+        max_attempts: int = app_config.get("GAIA_CLIENT_MAX_ATTEMPT", 2)
+        if attempts == max_attempts:
+            sio_logger.warning(
+                f"Received {max_attempts} invalid registration requests "
+                f"from {remote_addr}."
+            )
+        if attempts >= max_attempts:
+            over_attempts = attempts - max_attempts
+            if over_attempts > 4:
+                over_attempts = 4
+            fix_tempering = 1.5 ** over_attempts  # max 5 secs
+            random_tempering = 2 * random.random() - 1  # [-1: 1]
+            await sio.sleep(fix_tempering + random_tempering)
+            engines_blacklist[remote_addr] += 1
+            return False
 
 
 @sio.on("disconnect", namespace="/gaia")
 async def disconnect(sid):
-    with db.scoped_session() as session:
-        engine = await api.gaia.get_engine(session, engine_uid=sid)
+    async with db.scoped_session() as session:
+        engine = await api.gaia.get_engine(session, engine_id=sid)
         if not engine:
             return
         uid = engine.uid
         sio.leave_room(sid, "engineManagers", namespace="/gaia")
         engine.connected = False
         session.commit()
-        sio.emit(
+        await sio.emit(
             "ecosystem_status",
             {ecosystem.uid: {"status": ecosystem.status, "connected": False}
              for ecosystem in engine.ecosystems},
@@ -117,81 +171,63 @@ async def disconnect(sid):
         sio_logger.info(f"Manager {uid} disconnected")
 
 
-"""
 @sio.on("pong", namespace="/gaia")
-def pong(data):
+async def pong(sid, data):
     now = datetime.now(timezone.utc).replace(microsecond=0)
-    manager = Engine.query.filter_by(sid=request.sid).one()
-    manager.last_seen = now
-    for ecosystem_uid in data:
-        ecosystem = Ecosystem.query.filter_by(uid=ecosystem_uid).one()
-        ecosystem.last_seen = now
-    db.session.commit()
+    async with db.scoped_session() as session:
+        engine = await api.gaia.get_engine(session, sid)
+        if not engine:
+            return
+        engine.last_seen = now
+        for ecosystem_uid in data:
+            ecosystem = await api.gaia.get_ecosystem(ecosystem_uid)
+            ecosystem.last_seen = now
+        await session.commit()
 
 
 @sio.on("register_engine", namespace="/gaia")
-def register_manager(data):
-    remote_addr = request.environ["REMOTE_ADDR"]
-    remote_port = request.environ["REMOTE_PORT"]
-    try:
-        # TODO: redo
-        if managers_blacklist[remote_addr] == current_app.config["GAIA_CLIENT_MAX_ATTEMPT"] + 1:
-            sio_logger.warning(f"Received {current_app.config['GAIA_CLIENT_MAX_ATTEMPT']} invalid registration requests "
-                               f"from {remote_addr}.")
-
-        if managers_blacklist[remote_addr] > current_app.config["GAIA_CLIENT_MAX_ATTEMPT"]:
-            over_attempts = managers_blacklist[remote_addr] - 2
-            if over_attempts > 4:
-                over_attempts = 4
-            fix_tempering = 1.5 ** over_attempts  # max 5 secs
-            if fix_tempering > 5:
-                fix_tempering = 5
-            random_tempering = 2 * random.random() - 1  # [-1: 1]
-            sio.sleep(fix_tempering + random_tempering)
-            disconnect()
-            return False
-    except KeyError:
-        # Not in blacklist
-        pass
-
-    engine_uid = decrypt_uid(data["ikys"])
-
+async def register_manager(sid, data):
+    async with sio.session(sid, namespace="/gaia") as session:
+        remote_addr = session["REMOTE_ADDR"]
+        engine_uid = decrypt_uid(data["ikys"])
+        if validate_uid_token(data["uid_token"], engine_uid):
+            session["engine_uid"] = engine_uid
     if not validate_uid_token(data["uid_token"], engine_uid):
         try:
-            managers_blacklist[remote_addr] += 1
+            engines_blacklist[remote_addr] += 1
         except KeyError:
-            managers_blacklist[remote_addr] = 1
-        sio_logger.info(f"Received invalid registration request from {remote_addr}")
-        disconnect()
+            engines_blacklist[remote_addr] = 0
+        sio_logger.info(
+            f"Received invalid registration request from {remote_addr}")
+        await sio.disconnect(sid, namespace="/gaia")
     else:
         try:
-            del managers_blacklist[remote_addr]
+            del engines_blacklist[remote_addr]
         except KeyError:
             pass
         now = datetime.now(timezone.utc).replace(microsecond=0)
-        # TODO: check if engine not already connected
-        manager = Engine(
-            uid=engine_uid,
-            sid=request.sid,
-            connected=True,
-            registration_date=now,
-            last_seen=now,
-            address=f"{remote_addr}:{remote_port}",
-        )
+        await get_engine_or_create_it(uid=engine_uid)
+        engine_info = {
+            "uid": engine_uid,
+            "sid": sid,
+            "connected": True,
+            "registration_date": now,
+            "last_seen": now,
+            "address": f"{remote_addr}",
+        }
+        async with db.scoped_session() as session:
+            await api.gaia.update_engine(session, engine_info)
+        sio.enter_room(sid, room="engine", namespace="/gaia")
 
-        db.session.merge(manager)
-        db.session.commit()
-        join_room("engineManagers")
-
-        sio.emit("register_ack", namespace="/gaia", room=request.sid)
+        await sio.emit("register_ack", namespace="/gaia", room=sid)
         sio_logger.info(f"Successful registration of engine {engine_uid}, "
-                        f"from {remote_addr}:{remote_port}")
-        request_config(request.sid)
-        request_sensors_data(request.sid)
-        request_light_data(request.sid)
-        request_health_data(request.sid)
+                        f"from {remote_addr}")
+        await request_config(sid)
+        await request_sensors_data(sid)
+        await request_light_data(sid)
+        await request_health_data(sid)
 
-
+"""
 # TODO: transform into a wrap?
 def get_engine(event) -> Engine:
     query = select(Engine).where(Engine.sid == request.sid)
@@ -327,8 +363,8 @@ def update_hardware(data):
             db.session.merge(hardware)
     db.session.commit()
 
-
-'''@sio.on("config", namespace="/gaia")
+'''
+@sio.on("config", namespace="/gaia")
 def update_cfg(config):
     manager = get_manager("config")
     for ecosystem_uid in config:

@@ -31,6 +31,86 @@ class ecosystemIds(namedtuple("ecosystemIds", ("uid", "name"))):
     __slots__ = ()
 
 
+async def _create_entry(
+        session: AsyncSession,
+        Model,
+        model_info: dict,
+) -> Engine:
+    # TODO: call GAIA
+    model = Model(**model_info)
+    session.add(model)
+    await session.commit()
+    return model
+
+
+async def _update_entry(
+        session: AsyncSession,
+        Model,
+        model_info: dict,
+        uid: t.Optional[str] = None,
+) -> None:
+    # TODO: call GAIA
+    uid = uid or model_info.pop("uid", None)
+    if not uid:
+        raise ValueError(
+            "Provide uid either as a parameter or as a key in the updated info"
+        )
+    stmt = (
+        update(Model)
+        .where(Model.uid == uid)
+        .values(**model_info)
+    )
+    await session.execute(stmt)
+
+
+async def _delete_entry(
+        session: AsyncSession,
+        Model,
+        uid: t.Optional[str] = None,
+) -> None:
+    # TODO: call GAIA
+    stmt = delete(Model).where(Model.uid == uid)
+    await session.execute(stmt)
+
+
+# ---------------------------------------------------------------------------
+#   Engine-related APIs
+# ---------------------------------------------------------------------------
+async def create_engine(
+        session: AsyncSession,
+        engine_info: dict,
+) -> Engine:
+    engine = await _create_entry(session, Engine, engine_info)
+    return engine
+
+
+async def get_engine(
+        session: AsyncSession,
+        engine_id: str,
+) -> Engine:
+    stmt = (
+        select(Engine)
+        .where((Engine.uid == engine_id) | (Engine.sid == engine_id))
+    )
+    result = await session.execute(stmt)
+    return result.scalars().one_or_none()
+
+
+async def update_engine(
+        session: AsyncSession,
+        engine_info: dict,
+        uid: t.Optional[str] = None,
+) -> None:
+    await _update_entry(session, Engine, engine_info, uid)
+
+
+async def delete_engine(
+        session: AsyncSession,
+        uid: str,
+) -> None:
+    await _delete_entry(session, Engine, uid)
+
+
 async def get_engines(
         session: AsyncSession,
         engines: t.Optional[str | tuple | list] = None,
@@ -67,45 +147,47 @@ async def get_engines(
     return result.scalars().all()
 
 
-async def get_engine(
+def get_engine_info(session: AsyncSession, engine: Engine) -> dict:
+    return engine.to_dict()
+
+
+# ---------------------------------------------------------------------------
+#   Ecosystem-related APIs
+# ---------------------------------------------------------------------------
+async def create_ecosystem(
         session: AsyncSession,
-        engine_id: str,
-) -> Engine:
+        ecosystem_info: dict,
+) -> Ecosystem:
+    ecosystem = await _create_entry(session, Ecosystem, ecosystem_info)
+    return ecosystem
+
+
+async def get_ecosystem(
+        session: AsyncSession,
+        ecosystem_id: str,
+) -> Ecosystem:
+    ecosystem_id = (ecosystem_id, )
     stmt = (
-        select(Engine)
-        .where((Engine.uid == engine_id) | (Engine.sid == engine_id))
+        select(Ecosystem)
+        .where(Ecosystem.uid.in_(ecosystem_id) | Ecosystem.name.in_(ecosystem_id))
     )
     result = await session.execute(stmt)
     return result.scalars().one_or_none()
 
 
-def get_engine_info(session: AsyncSession, engine: Engine) -> dict:
-    return engine.to_dict()
-
-
-async def get_ecosystem_ids(session: AsyncSession, ecosystem: str) -> ecosystemIds:
-    stmt = (
-        select(Ecosystem)
-        .where(
-            (Ecosystem.uid == ecosystem) |
-            (Ecosystem.name == ecosystem)
-        )
-    )
-    result = await session.execute(stmt)
-    ecosystem = result.first()
-    if ecosystem:
-        return ecosystemIds(ecosystem.uid, ecosystem.name)
-    raise NoEcosystemFound
-
-
-async def create_ecosystem(
+async def update_ecosystem(
         session: AsyncSession,
         ecosystem_info: dict,
-):
-    ecosystem = Ecosystem(**ecosystem_info)
-    session.add(ecosystem)
-    await session.commit()
-    return ecosystem
+        uid: t.Optional[str] = None,
+) -> None:
+    await _update_entry(session, Ecosystem, ecosystem_info, uid)
+
+
+async def delete_ecosystem(
+        session: AsyncSession,
+        uid: str
+) -> None:
+    await _delete_entry(session, Ecosystem, uid)
 
 
 async def get_ecosystems(
@@ -145,17 +227,19 @@ async def get_ecosystems(
     return result.scalars().all()
 
 
-async def get_ecosystem(
-        session: AsyncSession,
-        ecosystem_id: str,
-) -> Ecosystem:
-    ecosystem_id = (ecosystem_id, )
+async def get_ecosystem_ids(session: AsyncSession, ecosystem: str) -> ecosystemIds:
     stmt = (
         select(Ecosystem)
-        .where(Ecosystem.uid.in_(ecosystem_id) | Ecosystem.name.in_(ecosystem_id))
+        .where(
+            (Ecosystem.uid == ecosystem) |
+            (Ecosystem.name == ecosystem)
+        )
     )
     result = await session.execute(stmt)
-    return result.scalars().one_or_none()
+    ecosystem = result.first()
+    if ecosystem:
+        return ecosystemIds(ecosystem.uid, ecosystem.name)
+    raise NoEcosystemFound
 
 
 def get_ecosystem_info(session: AsyncSession, ecosystem: Ecosystem) -> dict:
@@ -285,12 +369,36 @@ async def get_ecosystem_sensors_data_skeleton(
 # ---------------------------------------------------------------------------
 #   Hardware-related APIs
 # ---------------------------------------------------------------------------
-def create_hardware(
+async def create_hardware(
         session: AsyncSession,
         hardware_dict: dict,
-):
-    hardware_dict.pop("uid")
-    # TODO: need to call gaia
+) -> Hardware:
+    hardware = await _create_entry(session, Hardware, hardware_dict)
+    return hardware
+
+
+async def get_hardware(
+        session: AsyncSession,
+        hardware_uid: str,
+) -> Hardware:
+    stmt = select(Hardware).where(Hardware.uid == hardware_uid)
+    result = await session.execute(stmt)
+    return result.scalars().one_or_none()
+
+
+async def update_hardware(
+        session: AsyncSession,
+        hardware_info: dict,
+        uid: t.Optional[str],
+) -> None:
+    await _update_entry(session, Hardware, hardware_info, uid)
+
+
+async def delete_hardware(
+        session: AsyncSession,
+        uid: str,
+) -> None:
+    await _delete_entry(session, Hardware, uid)
 
 
 def _get_hardware_query(
@@ -324,7 +432,7 @@ def _get_hardware_query(
     return query
 
 
-async def get_hardware(
+async def get_hardwares(  # I know it is not correct
         session: AsyncSession,
         hardware_uids: t.Optional[str | tuple | list] = None,
         ecosystem_uids: t.Optional[str | tuple | list] = None,
