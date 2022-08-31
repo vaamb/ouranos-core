@@ -15,7 +15,7 @@ import uvicorn
 # from dispatcher import configure_dispatcher
 from config import config_dict, Config, DevelopmentConfig
 # from src import services
-from src.app import create_app  # , scheduler, sio
+from src.app import create_app, scheduler
 from src.utils import configure_logging, humanize_list
 
 
@@ -79,22 +79,16 @@ def create_worker(config_profile: t.Optional[str] = None) -> FastAPI:
     setproctitle(worker_name.lower())
     logger = logging.getLogger(worker_name.lower())
     logger.info(f"Starting {worker_name} ...")
-
-    if main:
-        # configure_dispatcher(config_class)
-        # services.start(config_class)
-        # start scheduler
-        pass
-    else:
-        if not (
-                vars(config_class).get("MESSAGE_BROKER_URL") and
-                vars(config_class).get("CACHING_SERVER_URL")
-        ):
-            logger.warning(
-                "'MESSAGE_BROKER_URL' and 'CACHING_SERVER_URL' are not defined, "
-                "communication between processes won't be allowed, leading to "
-                "several issues"
-            )
+    if not (
+            vars(config_class).get("MESSAGE_BROKER_URL") and
+            vars(config_class).get("CACHING_SERVER_URL")
+    ):
+        logger.warning(
+            "'MESSAGE_BROKER_URL' and 'CACHING_SERVER_URL' are not defined, "
+            "communication between processes won't be allowed, leading to "
+            "several issues"
+        )
+    # scheduler.start()
     app = create_app(config_class)
     app.extra["main"] = True if main else False
     app.extra["worker_name"] = worker_name
@@ -108,17 +102,8 @@ if __name__ == "__main__":
     configure_logging(config)
     app_name = config.APP_NAME
     logger = logging.getLogger(app_name.lower())
-    #worker = create_worker(config_profile)
     try:
-    #    if worker.extra.get("main"):
-    #        logger.info(f"Starting {app_name} server")
-    #    else:
-    #        logger.info(f"Starting {worker.extra['worker_name']} worker")
-        uvicorn.run("main:create_worker", port=5000, factory=True)
+        uvicorn.run("main:create_worker", port=5000, factory=True, server_header=False)
     except KeyboardInterrupt:
-    #    if worker.extra.get("main"):
-    #        logger.info(f"Stopping {app_name} server")
-    #        # scheduler.remove_all_jobs()
+        # scheduler.remove_all_jobs()
         graceful_exit(logger, app_name)
-    #    else:
-    #        logger.info(f"Stopping {worker.extra['worker_name']} worker")
