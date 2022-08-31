@@ -1,16 +1,28 @@
 import functools
-from flask_login import current_user
-from flask_socketio import disconnect
+
+from src.app import sio
 
 
-def permission_required(permission):
+def permission_required(permission: int):
     def decorator(func):
         @functools.wraps(func)
-        def wrapped(*args, **kwargs):
-            if not current_user.can(permission):
+        def wrapped(sid, data):
+            if not 0:
                 pass
-                disconnect()
             else:
-                return func(*args, **kwargs)
+                return func(sid, data)
         return wrapped
     return decorator
+
+
+def registration_required(func):
+    """Decorator which makes sure the engine is registered and injects
+    engine_uid"""
+    async def wrapper(sid, data):
+        async with sio.session(sid, namespace="/gaia") as session:
+            engine_uid = session.get("engine_uid")
+        if not engine_uid:
+            await sio.disconnect(sid, namespace="/gaia")
+        else:
+            return await func(sid, data, engine_uid)
+    return wrapper
