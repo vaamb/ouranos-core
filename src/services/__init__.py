@@ -14,7 +14,6 @@ from .daily_recap import DailyRecap
 from .shared_resources import db, scheduler
 from .sun_times import SunTimes
 from .system_monitor import SystemMonitor
-from .telegram_chat_bot import TelegramChatBot
 from .weather import Weather
 from .webcam import Webcam
 
@@ -22,7 +21,7 @@ from .webcam import Webcam
 pattern = re.compile(r'(?<!^)(?=[A-Z])')
 
 _SERVICES_TUPLE = (
-    Archiver, Calendar, DailyRecap, SunTimes, SystemMonitor, TelegramChatBot,
+    Archiver, Calendar, DailyRecap, SunTimes, SystemMonitor,
     Weather, Webcam
 )
 
