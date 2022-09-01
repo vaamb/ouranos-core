@@ -77,25 +77,30 @@ def start_service(sid, data):
 # ---------------------------------------------------------------------------
 @dispatcher.on("weather_current")
 def _current_weather(**kwargs):
+    # TODO: create async dispatcher or wrap in async_to_sync
     sio.emit("weather_current", namespace="/", **kwargs)
 
 
 @dispatcher.on("weather_hourly")
 def _hourly_weather(**kwargs):
+    # TODO: create async dispatcher or wrap in async_to_sync
     sio.emit("weather_hourly", namespace="/", **kwargs)
 
 
 @dispatcher.on("weather_daily")
 def _daily_weather(**kwargs):
+    # TODO: create async dispatcher or wrap in async_to_sync
     sio.emit("weather_daily", namespace="/", **kwargs)
 
 
 @dispatcher.on("sun_times")
 def _sun_times(**kwargs):
+    # TODO: create async dispatcher or wrap in async_to_sync
     sio.emit("sun_times", namespace="/", **kwargs)
 
 
 @dispatcher.on("current_server_data")
 def _current_server_data(data):
+    # TODO: create async dispatcher or wrap in async_to_sync
     api.system.update_current_system_data(data)
     sio.emit(event="current_server_data", data=data, namespace="/")

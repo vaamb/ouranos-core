@@ -13,7 +13,8 @@ from src.api.utils import time_limits, timeWindow, create_time_window
 from src.consts import HARDWARE_AVAILABLE, HARDWARE_TYPE
 from src.cache import sensorsData
 from src.database.models.gaia import (
-    Ecosystem, Engine, GaiaWarning, Hardware, Measure, SensorHistory
+    Ecosystem, Engine, EnvironmentParameter, GaiaWarning, Hardware, Measure,
+    SensorHistory
 )
 
 
@@ -84,18 +85,6 @@ async def create_engine(
     return engine
 
 
-async def get_engine(
-        session: AsyncSession,
-        engine_id: str,
-) -> Engine:
-    stmt = (
-        select(Engine)
-        .where((Engine.uid == engine_id) | (Engine.sid == engine_id))
-    )
-    result = await session.execute(stmt)
-    return result.scalars().one_or_none()
-
-
 async def update_engine(
         session: AsyncSession,
         engine_info: dict,
@@ -111,10 +100,22 @@ async def delete_engine(
     await _delete_entry(session, Engine, uid)
 
 
+async def get_engine(
+        session: AsyncSession,
+        engine_id: str,
+) -> t.Optional[Engine]:
+    stmt = (
+        select(Engine)
+        .where((Engine.uid == engine_id) | (Engine.sid == engine_id))
+    )
+    result = await session.execute(stmt)
+    return result.scalars().one_or_none()
+
+
 async def get_engines(
         session: AsyncSession,
         engines: t.Optional[str | tuple | list] = None,
-) -> list[Engine]:
+) -> t.Optional[list[Engine]]:
     engines = engines or "all"
     if "all" in engines:
         stmt = (
@@ -162,19 +163,6 @@ async def create_ecosystem(
     return ecosystem
 
 
-async def get_ecosystem(
-        session: AsyncSession,
-        ecosystem_id: str,
-) -> Ecosystem:
-    ecosystem_id = (ecosystem_id, )
-    stmt = (
-        select(Ecosystem)
-        .where(Ecosystem.uid.in_(ecosystem_id) | Ecosystem.name.in_(ecosystem_id))
-    )
-    result = await session.execute(stmt)
-    return result.scalars().one_or_none()
-
-
 async def update_ecosystem(
         session: AsyncSession,
         ecosystem_info: dict,
@@ -188,6 +176,19 @@ async def delete_ecosystem(
         uid: str
 ) -> None:
     await _delete_entry(session, Ecosystem, uid)
+
+
+async def get_ecosystem(
+        session: AsyncSession,
+        ecosystem_id: str,
+) -> t.Optional[Ecosystem]:
+    ecosystem_id = (ecosystem_id, )
+    stmt = (
+        select(Ecosystem)
+        .where(Ecosystem.uid.in_(ecosystem_id) | Ecosystem.name.in_(ecosystem_id))
+    )
+    result = await session.execute(stmt)
+    return result.scalars().one_or_none()
 
 
 async def get_ecosystems(
@@ -292,7 +293,74 @@ def get_light_info(session: AsyncSession, ecosystem: Ecosystem) -> dict:
     return ecosystem.light.first().to_dict()
 
 
-def get_environmental_parameters(
+# ---------------------------------------------------------------------------
+#   Environmental parameters-related APIs
+# ---------------------------------------------------------------------------
+async def create_environmental_parameter(
+        session: AsyncSession,
+        parameters_info: dict,
+) -> EnvironmentParameter:
+    return await _create_entry(session, EnvironmentParameter, parameters_info)
+
+
+async def update_environmental_parameter(
+        session: AsyncSession,
+        parameter_info: dict,
+        uid: t.Optional[str] = None,
+        parameter: t.Optional[str] = None,
+
+) -> None:
+    parameter_info = parameter_info or {}
+    uid = uid or parameter_info.pop("uid", None)
+    parameter = parameter or parameter_info.pop("parameter", None)
+    if not (uid or parameter):
+        raise ValueError(
+            "Provide uid and parameter either as a argument or as a key in the "
+            "updated info"
+        )
+    stmt = (
+        update(EnvironmentParameter)
+        .where(
+            EnvironmentParameter.ecosystem_uid == uid,
+            EnvironmentParameter.parameter == parameter
+        )
+        .values(**parameter_info)
+    )
+    await session.execute(stmt)
+
+
+async def delete_environmental_parameter(
+        session: AsyncSession,
+        uid: str,
+        parameter: str,
+) -> None:
+    stmt = (
+        delete(EnvironmentParameter)
+        .where(
+            EnvironmentParameter.ecosystem_uid == uid,
+            EnvironmentParameter.parameter == parameter
+        )
+    )
+    await session.execute(stmt)
+
+
+async def get_environmental_parameter(
+        session: AsyncSession,
+        uid: str,
+        parameter: str,
+) -> t.Optional[EnvironmentParameter]:
+    stmt = (
+        select(EnvironmentParameter)
+        .where(
+            EnvironmentParameter.ecosystem_uid == uid,
+            EnvironmentParameter.parameter == parameter
+        )
+    )
+    result = await session.execute(stmt)
+    return result.scalars().one_or_none()
+
+
+async def get_environment_parameters(
         session: AsyncSession,
         ecosystem: Ecosystem,
 ) -> dict:
@@ -377,15 +445,6 @@ async def create_hardware(
     return hardware
 
 
-async def get_hardware(
-        session: AsyncSession,
-        hardware_uid: str,
-) -> Hardware:
-    stmt = select(Hardware).where(Hardware.uid == hardware_uid)
-    result = await session.execute(stmt)
-    return result.scalars().one_or_none()
-
-
 async def update_hardware(
         session: AsyncSession,
         hardware_info: dict,
@@ -399,6 +458,15 @@ async def delete_hardware(
         uid: str,
 ) -> None:
     await _delete_entry(session, Hardware, uid)
+
+
+async def get_hardware(
+        session: AsyncSession,
+        hardware_uid: str,
+) -> t.Optional[Hardware]:
+    stmt = select(Hardware).where(Hardware.uid == hardware_uid)
+    result = await session.execute(stmt)
+    return result.scalars().one_or_none()
 
 
 def _get_hardware_query(
@@ -439,40 +507,12 @@ async def get_hardwares(  # I know it is not correct
         levels: t.Optional[str | tuple | list] = None,
         types: t.Optional[str | tuple | list] = None,
         models: t.Optional[str | tuple | list] = None,
-) -> list[Hardware]:
+) -> t.Optional[list[Hardware]]:
     stmt = _get_hardware_query(
         hardware_uids, ecosystem_uids, levels, types, models
     )
     result = await session.execute(stmt)
     return result.scalars().all()
-
-
-async def update_hardware(
-        session: AsyncSession,
-        hardware_uid: str,
-        hardware_dict: dict[str]
-) -> None:
-    try:
-        hardware_dict.pop("uid", None)
-        query = (
-            update(Hardware)
-            .where(Hardware.uid == hardware_uid)
-            .values(**hardware_dict)
-        )
-        await session.execute(query)
-    except KeyError:
-        raise WrongDataFormat(
-            "hardware_dict should have the following keys: 'name', 'type', "
-            "'level', 'model', 'address'"
-        )
-
-
-async def delete_hardware(
-        session: AsyncSession,
-        hardware_uid: str,
-) -> None:
-    query = delete(Hardware).where(Hardware.uid == hardware_uid)
-    await session.execute(query)
 
 
 def get_hardware_info(
@@ -486,6 +526,9 @@ def get_hardware_models_available() -> list:
     return HARDWARE_AVAILABLE
 
 
+# ---------------------------------------------------------------------------
+#   Hardware-related APIs
+# ---------------------------------------------------------------------------
 async def get_sensors(
         session: AsyncSession,
         hardware_uids: t.Optional[str | tuple | list] = None,
@@ -493,7 +536,7 @@ async def get_sensors(
         levels: t.Optional[str | tuple | list] = None,
         models: t.Optional[str | tuple | list] = None,
         time_window: timeWindow = None,
-) -> list[Hardware]:
+) -> t.Optional[list[Hardware]]:
     stmt = _get_hardware_query(
         hardware_uids, ecosystem_uids, levels, "sensor", models
     )
@@ -669,6 +712,7 @@ async def get_ecosystems_hardware(
     return rv
 
 
+# TODO: split in get_measures and get_measure_info
 async def get_measures(session: AsyncSession) -> list:
     stmt = select(Measure)
     result = await session.execute(stmt)
@@ -708,3 +752,32 @@ async def get_recent_warnings(
     )
     result = await session.execute(stmt)
     return result.scalars().all() or []
+
+
+async def get_measure(session: AsyncSession, measure_name: str) -> Measure:
+    stmt = select(Measure).where(Measure.name == measure_name)
+    result = await session.execute(stmt)
+    return result.scalars().one()
+
+
+# ---------------------------------------------------------------------------
+#   Sensors-related APIs  # TODO: group all sensor cals here (current and historic)
+# ---------------------------------------------------------------------------
+def get_current_sensors_data():
+    return {**sensorsData}
+
+
+def update_current_sensors_data(data: dict):
+    sensorsData.update(data)
+
+
+async def create_historic_sensor_data(
+        session: AsyncSession,
+        sensor_data: dict,
+        commit: bool = False,  # TODO: do the same elsewhere
+) -> SensorHistory:
+    sensor_history = SensorHistory(**sensor_data)
+    session.add(sensor_history)
+    if commit:
+        await session.commit()
+    return sensor_history

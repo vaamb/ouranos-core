@@ -6,8 +6,11 @@ import random
 import typing as t
 
 import cachetools
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 from statistics import mean, stdev as std
 
+from .decorators import registration_required
 from src import api
 from src.app import db, dispatcher, sio
 from src.app.utils import app_config, decrypt_uid, validate_uid_token
@@ -50,7 +53,8 @@ def clear_client_blacklist(client_address: str = None) -> None:
             pass
 
 
-async def get_engine_or_create_it(
+async def update_engine_or_create_it(
+        session: AsyncSession,
         engine_info: t.Optional[dict] = None,
         uid: t.Optional[str] = None,
 ) -> Engine:
@@ -58,38 +62,87 @@ async def get_engine_or_create_it(
     uid = uid or engine_info.pop("uid", None)
     if not uid:
         raise ValueError(
-            "Provide uid either as a parameter or as a key in the updated info"
+            "Provide uid either as an argument or as a key in the updated info"
         )
-    async with db.scoped_session() as session:
-        engine = await api.gaia.get_engine(session, uid)
-        if engine:
-            await api.gaia.update_engine(session, engine_info, uid)
-        else:
-            if "uid" not in engine_info:
-                engine_info["uid"] = uid
-            engine = await api.gaia.create_engine(session, engine_info)
+    engine = await api.gaia.get_engine(session, uid)
+    if not engine:
+        engine_info["uid"] = uid
+        engine = await api.gaia.create_engine(session, engine_info)
+    elif engine_info:
+        await api.gaia.update_engine(session, engine_info, uid)
     return engine
 
 
-async def get_ecosystem_or_create_it(
+async def update_ecosystem_or_create_it(
+        session: AsyncSession,
         ecosystem_info: t.Optional[dict] = None,
         uid: t.Optional[str] = None,
-) -> Engine:
+) -> Ecosystem:
     ecosystem_info = ecosystem_info or {}
     uid = uid or ecosystem_info.pop("uid", None)
     if not uid:
         raise ValueError(
-            "Provide uid either as a parameter or as a key in the updated info"
+            "Provide uid either as an argument or as a key in the updated info"
         )
-    async with db.scoped_session() as session:
-        ecosystem = await api.gaia.get_ecosystem(session, uid)
-        if ecosystem:
-            await api.gaia.update_ecosystem(session, ecosystem_info, uid)
-        else:
-            if "uid" not in ecosystem_info:
-                ecosystem_info["uid"] = uid
-            ecosystem = api.gaia.create_ecosystem(session, ecosystem_info)
+    ecosystem = await api.gaia.get_ecosystem(session, uid)
+    if not ecosystem:
+        ecosystem_info["uid"] = uid
+        ecosystem = await api.gaia.create_ecosystem(session, ecosystem_info)
+    elif ecosystem_info:
+        await api.gaia.update_ecosystem(session, ecosystem_info, uid)
     return ecosystem
+
+
+async def update_hardware_or_create_it(
+        session: AsyncSession,
+        hardware_info: t.Optional[dict] = None,
+        uid: t.Optional[str] = None,
+) -> Hardware:
+    hardware_info = hardware_info or {}
+    uid = uid or hardware_info.pop("uid", None)
+    if not uid:
+        raise ValueError(
+            "Provide uid either as an argument or as a key in the updated info"
+        )
+    hardware = await api.gaia.get_hardware(session, uid)
+    if not hardware:
+        hardware_info["uid"] = uid
+        # TODO: solve
+        hardware_info.pop("measure", None)
+        hardware = await api.gaia.create_hardware(session, hardware_info)
+    elif hardware_info:
+        await api.gaia.update_ecosystem(session, hardware_info, uid)
+    return hardware
+
+
+async def update_environment_parameter_or_create_it(
+        session: AsyncSession,
+        uid: t.Optional[str] = None,
+        parameter: t.Optional[str] = None,
+        parameter_info: t.Optional[dict] = None,
+) -> EnvironmentParameter:
+    parameter_info = parameter_info or {}
+    uid = uid or parameter_info.pop("uid", None)
+    parameter = parameter or parameter_info.pop("parameter", None)
+    if not (uid or parameter):
+        raise ValueError(
+            "Provide uid and parameter either as a argument or as a key in the "
+            "updated info"
+        )
+    environment_parameter = await api.gaia.get_environmental_parameter(
+        session, uid=uid, parameter=parameter
+    )
+    if not environment_parameter:
+        parameter_info["ecosystem_uid"] = uid
+        parameter_info["parameter"] = parameter
+        environment_parameter = await api.gaia.create_environmental_parameter(
+            session, parameter_info
+        )
+    elif parameter_info:
+        await api.gaia.update_environmental_parameter(
+            session, parameter_info, uid
+        )
+    return environment_parameter
 
 
 # TODO: use a Namespace that uses parameter dispatcher and db_session
@@ -206,7 +259,6 @@ async def register_manager(sid, data):
         except KeyError:
             pass
         now = datetime.now(timezone.utc).replace(microsecond=0)
-        await get_engine_or_create_it(uid=engine_uid)
         engine_info = {
             "uid": engine_uid,
             "sid": sid,
@@ -216,7 +268,7 @@ async def register_manager(sid, data):
             "address": f"{remote_addr}",
         }
         async with db.scoped_session() as session:
-            await api.gaia.update_engine(session, engine_info)
+            await update_engine_or_create_it(session, engine_info)
         sio.enter_room(sid, room="engine", namespace="/gaia")
 
         await sio.emit("register_ack", namespace="/gaia", room=sid)
@@ -227,261 +279,161 @@ async def register_manager(sid, data):
         await request_light_data(sid)
         await request_health_data(sid)
 
-"""
-# TODO: transform into a wrap?
-def get_engine(event) -> Engine:
-    query = select(Engine).where(Engine.sid == request.sid)
-    engine = db.session.execute(query).scalars().first()
-    if not engine:
-        remote_addr = request.environ["REMOTE_ADDR"]
-        remote_port = request.environ["REMOTE_PORT"]
-        sio_logger.warning(f"Received '{event}' event on '/gaia' from unknown "
-                           f"client with address {remote_addr}:{remote_port}")
-        sio.emit("register", namespace="/gaia", room=request.sid)
-        # TODO: raise error?
-        # raise Exception
-    return engine
-
 
 @sio.on("engines_change", namespace="/gaia")
-def reload_all():
-    manager = get_engine("engines_change")
-    if manager:
-        request_config(request.sid)
-        request_sensors_data(request.sid)
-        request_light_data(request.sid)
-        request_health_data(request.sid)
+@registration_required
+def reload_all(sid, data):
+    request_config(sid)
+    request_sensors_data(sid)
+    request_light_data(sid)
+    request_health_data(sid)
 
 
 @sio.on("base_info", namespace="/gaia")
-def update_base_info(data):
-    manager = get_engine("base_info")
+@registration_required
+async def update_base_info(sid, data, engine_uid):
+    ecosystems = []
     for ecosystem_data in data:
-        ecosystem_data.update({"engine_uid": manager.uid})
-        uid = ecosystem_data.pop("uid")
-        ecosystem = get_ecosystem_or_create_it(uid)
-        for info in ecosystem_data:
-            setattr(ecosystem, info, ecosystem_data[info])
-        db.session.merge(ecosystem)
-    db.session.commit()
-    sio.emit(
+        ecosystem_data.update({"engine_uid": engine_uid})
+        uid: str = ecosystem_data["uid"]
+        async with db.scoped_session() as session:
+            await update_ecosystem_or_create_it(session, ecosystem_data)
+        ecosystems.append({"uid": uid, "status": ecosystem_data["status"]})
+    await sio.emit(
         "ecosystem_status",
-        [{"uid": ecosystem.uid, "status": ecosystem.status, "connected": True}
-         for ecosystem in manager.ecosystems],
+        [{
+            "uid": ecosystem["uid"],
+            "status": ecosystem["status"],
+            "connected": True
+        } for ecosystem in ecosystems],
         namespace="/"
     )
 
 
 @sio.on("management", namespace="/gaia")
-def update_management(data):
-    manager = get_engine("management")
-    for ecosystem_data in data:
-        uid = ecosystem_data.pop("uid")
-        ecosystem = get_ecosystem_or_create_it(uid)
-        for m, v in Management.items():
-            try:
-                if ecosystem_data[m]:
-                    ecosystem.add_management(v)
-            except KeyError:
-                # Not implemented in gaia yet
-                pass
-        db.session.merge(ecosystem)
-    db.session.commit()
+@registration_required
+async def update_management(sid, data, engine_uid):
+    async with db.scoped_session() as session:
+        for ecosystem_data in data:
+            uid: str = ecosystem_data["uid"]
+            ecosystem = await update_ecosystem_or_create_it(session, uid=uid)
+            for m, v in Management.items():
+                try:
+                    if ecosystem_data[m]:
+                        ecosystem.add_management(v)
+                except KeyError:
+                    # Not implemented in gaia yet
+                    pass
+            session.add(ecosystem)
+        await session.commit()
 
 
 @sio.on("environmental_parameters", namespace="/gaia")
-def update_environmental_parameters(data):
-    manager = get_engine("management")
-    for ecosystem_data in data:
-        uid = ecosystem_data.pop("uid")
-        ecosystem = get_ecosystem_or_create_it(uid)
-        tods = {}
-        env_params = {}
-        for tod in ["day", "night"]:
-            params = ecosystem_data.get(tod)
-            if params:
-                time_str = params.get("start")
-                if time_str:
-                    tods[tod] = datetime.strptime(time_str, "%Hh%M").time()
-                else:
-                    tods[tod] = None
-                climate_params = params.get("climate", {})
-                for param in climate_params:
-                    try:
-                        env_params[param].update({tod: climate_params[param]})
-                    except KeyError:
-                        env_params.update({param: {tod: climate_params[param]}})
-        for param in env_params:
-            env_params[param].update(
-                {"hysteresis": ecosystem_data.get("hysteresis", {}).get(param)}
-            )
-        ecosystem.light.method = ecosystem_data.get("light")
-        ecosystem.day_start = tods.get("day")
-        ecosystem.night_start = tods.get("night")
-        for (param, v) in env_params.items():
-            env_param = db.session.execute(
-                select(EnvironmentParameter)
-                    .where(
-                        EnvironmentParameter.ecosystem_uid == uid,
-                        EnvironmentParameter.parameter == param
-                    )
-            ).scalars().first()
-            if not env_param:
-                env_param = EnvironmentParameter(
-                    ecosystem_uid=uid, parameter=param
+@registration_required
+async def update_environmental_parameters(sid, data, engine_uid):
+    async with db.scoped_session() as session:
+        for ecosystem_data in data:
+            uid: str = ecosystem_data["uid"]
+            tods = {}
+            env_params = {}
+            for tod in ["day", "night"]:
+                params = ecosystem_data.get(tod)
+                if params:
+                    time_str = params.get("start")
+                    if time_str:
+                        tods[tod] = datetime.strptime(time_str, "%Hh%M").time()
+                    else:
+                        tods[tod] = None
+                    climate_params = params.get("climate", {})
+                    for param in climate_params:
+                        try:
+                            env_params[param].update({tod: climate_params[param]})
+                        except KeyError:
+                            env_params.update({param: {tod: climate_params[param]}})
+            for param in env_params:
+                env_params[param].update(
+                    {"hysteresis": ecosystem_data.get("hysteresis", {}).get(param)}
                 )
-            env_param.day = v.get("day")
-            env_param.night = v.get("night")
-            env_param.hysteresis = v.get("hysteresis")
-            db.session.merge(env_param)
-    db.session.commit()
+            ecosystem_info = {
+                "uid": uid,
+                "day_start": tods.get("day"),
+                "night_start": tods.get("night"),
+            }
+            ecosystem = await update_ecosystem_or_create_it(
+                session, ecosystem_info=ecosystem_info
+            )
+            ecosystem.light.method = ecosystem_data.get("light")
+            for (parameter, v) in env_params.items():
+                parameter_info = {
+                    "day": v.get("day"),
+                    "night": v.get("night"),
+                    "hysteresis": v.get("hysteresis")
+                }
+                await update_environment_parameter_or_create_it(
+                    session, uid, parameter, parameter_info
+                )
+        await session.commit()
 
 
 @sio.on("hardware", namespace="/gaia")
-def update_hardware(data):
-    manager = get_engine("management")
-    for ecosystem_data in data:
-        uid = ecosystem_data.pop("uid")
-        for hardware_uid, hardware_dict in ecosystem_data.items():
-            hardware = db.session.execute(
-                select(Hardware).where(Hardware.uid == hardware_uid)
-            ).scalars().first()
-            if not hardware:
-                hardware = Hardware(uid=hardware_uid)
-            hardware.ecosystem_uid = uid
-            measures = hardware_dict.pop("measure", [])
-            if isinstance(measures, str):
-                measures = [measures]
-            for measure in measures:
-                _measure = db.session.execute(
-                    select(Measure).where(Measure.name == measure)
-                ).scalars().first()
-                hardware.measure.append(_measure)
-            # TODO: if plants
-            for param, value in hardware_dict.items():
-                setattr(hardware, param, value)
-            db.session.merge(hardware)
-    db.session.commit()
-
-'''
-@sio.on("config", namespace="/gaia")
-def update_cfg(config):
-    manager = get_manager("config")
-    for ecosystem_uid in config:
-        try:
-            day_start = datetime.strptime(
-                config[ecosystem_uid]["environment"]["day"]["start"], "%Hh%M"
-            ).time()
-            night_start = datetime.strptime(
-                config[ecosystem_uid]["environment"]["night"]["start"],
-                "%Hh%M"
-            ).time()
-        except KeyError:
-            day_start = night_start = None
-        ecosystem = Ecosystem(
-            uid=ecosystem_uid,
-            name=config[ecosystem_uid]["name"],
-            status=config[ecosystem_uid]["status"],
-            engine_uid=manager.uid,
-            day_start=day_start,
-            night_start=night_start,
-        )
-
-        # TODO: add a special event for management? That takes into account manageable
-        for m in Management:
-            try:
-                if config[ecosystem_uid]["management"][m]:
-                    ecosystem.add_management(Management[m])
-            except KeyError:
-                # Not implemented yet
-                pass
-        db.session.merge(ecosystem)
-
-        for parameter in ("temperature", "humidity", "light"):
-            try:
-                environment_parameter = (
-                    db.session.query(EnvironmentParameter)
-                              .filter_by(ecosystem_uid=ecosystem_uid)
-                              .filter_by(parameter=parameter)
-                              .one_or_none()
+@registration_required
+async def update_hardware(sid, data, engine_uid):
+    async with db.scoped_session() as session:
+        for ecosystem_data in data:
+            uid = ecosystem_data.pop("uid")
+            for hardware_uid, hardware_dict in ecosystem_data.items():
+                hardware_dict["ecosystem_uid"] = uid
+                # TODO: solve
+                address = hardware_dict.pop("address")
+                type_ = hardware_dict.pop("type")
+                hardware = await update_hardware_or_create_it(
+                    session, hardware_info=hardware_dict, uid=hardware_uid
                 )
-                if not environment_parameter:
-                    environment_parameter = EnvironmentParameter(
-                        ecosystem_uid=ecosystem_uid,
-                        parameter=parameter,
-                    )
-                environment_parameter.day = (config[ecosystem_uid]
-                    ["environment"]["day"][parameter])
-                environment_parameter.night = (config[ecosystem_uid]
-                    ["environment"]["night"][parameter])
-                environment_parameter.hysteresis = (config[ecosystem_uid]
-                    ["environment"]["hysteresis"][parameter])
-                db.session.add(environment_parameter)
-            except KeyError:
-                pass
-
-        # TODO: first delete all hardware from this ecosystem present there
-        #  before, so if delete in config, deleted here too
-        for hardware_uid in config[ecosystem_uid].get("IO", {}):
-            hardware = Hardware(
-                uid=hardware_uid,
-                ecosystem_uid=ecosystem_uid,
-                name=config[ecosystem_uid]["IO"][hardware_uid]["name"],
-                address=config[ecosystem_uid]["IO"][hardware_uid]["address"],
-                type=config[ecosystem_uid]["IO"][hardware_uid]["type"],
-                level=config[ecosystem_uid]["IO"][hardware_uid]["level"],
-                model=config[ecosystem_uid]["IO"][hardware_uid]["model"],
-            )
-
-            measures = config[ecosystem_uid]["IO"][hardware_uid].get(
-                    "measure", [])
-            if isinstance(measures, str):
-                measures = [measures]
-            for measure in measures:
-                _measure = Measure(
-                    name=measure
-                )
-
-                hardware.measure.append(_measure)
-            db.session.merge(hardware)
-    sio.emit(
-        "ecosystem_status",
-        [{"uid": ecosystem.uid, "status": ecosystem.status, "connected": True}
-         for ecosystem in manager.ecosystems],
-        namespace="/"
-    )
-    db.session.commit()'''
+                hardware.address = address
+                hardware.type = type_
+                measures = hardware_dict.pop("measure", [])
+                if isinstance(measures, str):
+                    measures = [measures]
+                for measure in measures:
+                    _measure = await api.gaia.get_measure(session, measure)
+                    hardware.measure.append(_measure)
+                # TODO: if plants
+                for param, value in hardware_dict.items():
+                    setattr(hardware, param, value)
+                session.merge(hardware)
+        session.commit()
 
 
 # TODO: split this in two part: one receiving and logging data, and move the
 #  one sending data to a scheduled event
 @sio.on("sensors_data", namespace="/gaia")
-def update_sensors_data(data):
-    manager = get_engine("config")
-    if manager:
-        sio_logger.debug(f"Received 'sensors_data' from manager: {manager.uid}")
-        sensorsData.update(
-            {
-                ecosystem["ecosystem_uid"]: {
-                    "data": {
-                        sensor["sensor_uid"]: {
-                            measure["name"]: measure["value"]
-                            for measure in sensor["measures"]
-                        } for sensor in ecosystem["data"]
-                    },
-                    "datetime": ecosystem["datetime"]
-                } for ecosystem in data
-            }
-        )
-        sio.emit("current_sensors_data", data, namespace="/")
+@registration_required
+async def update_sensors_data(sid, data, engine_uid):
+    sio_logger.debug(f"Received 'sensors_data' from engine: {engine_uid}")
+    api.gaia.update_current_sensors_data(
+        {
+            ecosystem["ecosystem_uid"]: {
+                "data": {
+                    sensor["sensor_uid"]: {
+                        measure["name"]: measure["value"]
+                        for measure in sensor["measures"]
+                    } for sensor in ecosystem["data"]
+                },
+                "datetime": ecosystem["datetime"]
+            } for ecosystem in data
+        }
+    )
+    await sio.emit("current_sensors_data", data, namespace="/")
+    async with db.scoped_session() as session:
         for ecosystem in data:
             try:
                 dt = datetime.fromisoformat(ecosystem["datetime"])
             # When launching, gaiaEngine is sometimes still loading its sensors
+            #  and doesn't send complete data dict
             except KeyError:
                 continue
 
-            if dt.minute % current_app.config["SENSORS_LOGGING_PERIOD"] == 0:
+            if dt.minute % app_config["SENSORS_LOGGING_PERIOD"] == 0:
                 measure_values = {}
                 collector_logger.debug(f"Logging sensors data from ecosystem: {ecosystem['ecosystem_uid']}")
 
@@ -489,18 +441,20 @@ def update_sensors_data(data):
                     sensor_uid = sensor["sensor_uid"]
                     for measure in sensor["measures"]:
                         value = float(measure["value"])
-                        sensor_data = SensorHistory(
-                            ecosystem_uid=ecosystem["ecosystem_uid"],
-                            sensor_uid=sensor_uid,
-                            measure=measure["name"],
-                            datetime=dt,
-                            value=value,
-                        )
-
+                        sensor_data = {
+                            "ecosystem_uid": ecosystem["ecosystem_uid"],
+                            "sensor_uid": sensor_uid,
+                            "measure": measure["name"],
+                            "datetime": dt,
+                            "value": value,
+                        }
                         try:
-                            db.session.add(sensor_data)
-                            Hardware.query.filter_by(
-                                uid=sensor_uid).one().last_log = dt
+                            await api.gaia.create_historic_sensor_data(
+                                session, sensor_data
+                            )
+                            await api.gaia.update_hardware(
+                                session, {"last_log": dt}, sensor_uid
+                            )
                         except IntegrityError:
                             collector_logger.warning(
                                 f"Already have a {measure['name']} data point at {dt} "
@@ -520,17 +474,20 @@ def update_sensors_data(data):
                             values_summarized = round(
                                 summarize[method](measure_values[measure]), 2
                             )
-                            aggregated_data = SensorHistory(
-                                ecosystem_uid=ecosystem["ecosystem_uid"],
-                                sensor_uid=method,
-                                measure=measure,
-                                datetime=dt,
-                                value=values_summarized,
+                            aggregated_data = {
+                                "ecosystem_uid": ecosystem["ecosystem_uid"],
+                                "sensor_uid": method,
+                                "measure": measure,
+                                "datetime": dt,
+                                "value": values_summarized,
+                            }
+                            await api.gaia.create_historic_sensor_data(
+                                session, aggregated_data
                             )
-                            db.session.add(aggregated_data)
-        db.session.commit()
+        await session.commit()
 
 
+"""
 @sio.on("health_data", namespace="/gaia")
 def update_health_data(data):
     manager = get_engine("config")
@@ -575,6 +532,7 @@ def update_light_data(data):
             db.session.merge(light)
         db.session.commit()
         sio.emit("light_data", data, namespace="/")
+"""
 
 
 # ---------------------------------------------------------------------------
@@ -582,10 +540,11 @@ def update_light_data(data):
 # ---------------------------------------------------------------------------
 @dispatcher.on("turn_light")
 def _turn_light(*args, **kwargs):
+    # TODO: create async dispatcher or wrap in async_to_sync
     sio.emit("turn_light", namespace="/gaia", **kwargs)
 
 
 @dispatcher.on("turn_actuator")
 def _turn_actuator(*args, **kwargs):
+    # TODO: create async dispatcher or wrap in async_to_sync
     sio.emit("turn_actuator", namespace="/gaia", **kwargs)
-"""

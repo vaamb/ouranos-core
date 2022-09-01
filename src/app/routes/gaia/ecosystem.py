@@ -159,7 +159,7 @@ async def get_ecosystems_environment_parameters(
         session: AsyncSession = Depends(get_session)
 ):
     ecosystems = await api.gaia.get_ecosystems(session, ecosystems_id)
-    response = [api.gaia.get_environmental_parameters(
+    response = [api.gaia.get_environment_parameters(
         session, ecosystem
     ) for ecosystem in ecosystems]
     return response
@@ -172,7 +172,7 @@ async def get_ecosystems_environment_parameters(
 ):
     assert_single_uid(ecosystem_id)
     ecosystem = await ecosystem_or_abort(session, ecosystem_id)
-    response = api.gaia.get_environmental_parameters(
+    response = api.gaia.get_environment_parameters(
         session, ecosystem
     )
     return response
