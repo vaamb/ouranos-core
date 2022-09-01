@@ -3,7 +3,7 @@ import os
 import psutil
 from threading import Thread, Event
 
-from src.cache import systemData
+from src import api
 from src.consts import START_TIME
 from src.database.models.system import SystemHistory
 from src.services.template import ServiceTemplate
@@ -20,7 +20,6 @@ class SystemMonitor(ServiceTemplate):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._data = systemData
         self._thread = None
         self._stopEvent = Event()
 
@@ -45,8 +44,12 @@ class SystemMonitor(ServiceTemplate):
                 "start_time": START_TIME,
             }
             with self.mutex:
-                self._data.update(_cache)
-            self.manager.dispatcher.emit("application", "current_server_data", data={**self._data})
+                api.system.update_current_system_data(_cache)
+            self.manager.dispatcher.emit(
+                "application",
+                "current_server_data",
+                data=api.system.get_current_system_data()
+            )
             self._stopEvent.wait(SYSTEM_UPDATE_PERIOD)
             if self._stopEvent.is_set():
                 break
@@ -54,14 +57,15 @@ class SystemMonitor(ServiceTemplate):
     def _log_resources_data(self) -> None:
         self.logger.debug("Logging system resources")
         with db.scoped_session() as session:
+            data = api.system.get_current_system_data()
             system = SystemHistory(
-                datetime=self._data["datetime"],
-                CPU_used=self._data["CPU_used"],
-                CPU_temp=self._data.get("CPU_temp", None),
-                RAM_total=self._data["RAM_total"],
-                RAM_used=self._data["RAM_used"],
-                DISK_total=self._data["DISK_total"],
-                DISK_used=self._data["DISK_used"],
+                datetime=data["datetime"],
+                CPU_used=data["CPU_used"],
+                CPU_temp=data.get("CPU_temp", None),
+                RAM_total=data["RAM_total"],
+                RAM_used=data["RAM_used"],
+                DISK_total=data["DISK_total"],
+                DISK_used=data["DISK_used"],
                 # TODO: add RAM_process
             )
             session.add(system)
@@ -78,11 +82,7 @@ class SystemMonitor(ServiceTemplate):
                           misfire_grace_time=1 * 60, id="system_monitoring")
 
     def _stop(self) -> None:
-        self._data.clear()
+        api.system.clear_current_system_data()
         self._stopEvent.set()
         self._thread.join()
         self._thread = None
-
-    @property
-    def system_data(self) -> dict:
-        return self._data

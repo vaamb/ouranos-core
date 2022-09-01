@@ -1,5 +1,6 @@
 from collections import Counter
 from datetime import datetime, time, timedelta, timezone
+import typing as t
 
 from statistics import mean
 
@@ -160,8 +161,32 @@ def get_digested_hourly_weather_forecast(time_window: int = 24) -> dict:
     return summary
 
 
-def get_suntimes_data() -> dict:
+def get_suntimes_data() -> dict:  # TODO: clean this
     return {
         event: parse_sun_times(sunTimesData[event]) for event in sunTimesData
         if event != "day_length"
     }
+
+
+def get_weather(key: t.Optional[str] = None) -> dict:
+    return {**weatherData}.get(key, {}) if key else {**weatherData}
+
+
+def update_weather(data: dict):
+    weatherData.update(data)
+
+
+def clear_weather():
+    weatherData.clear()
+
+
+def get_sun_times() -> dict:
+    return {**sunTimesData}
+
+
+def update_sun_times(data: dict):
+    weatherData.update(data)
+
+
+def clear_sun_times():
+    weatherData.clear()

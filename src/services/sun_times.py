@@ -4,7 +4,7 @@ import os
 
 import requests
 
-from src.cache import sunTimesData
+from src import api
 from src.utils import base_dir, is_connected, parse_sun_times
 from src.services.template import ServiceTemplate
 from src.services.shared_resources import scheduler
@@ -16,7 +16,6 @@ class SunTimes(ServiceTemplate):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._file_path = None
-        self._sun_times_data = sunTimesData
         self.coordinates = self.config.HOME_COORDINATES
 
     def update_sun_times_data(self):
@@ -32,20 +31,20 @@ class SunTimes(ServiceTemplate):
                     verify=False,
                 ).json()
                 with self.mutex:
-                    self._sun_times_data.update(data["results"])
+                    api.weather.update_sun_times(data["results"])
             except requests.exceptions.ConnectionError:
                 with self.mutex:
-                    self._sun_times_data.clear()
+                    api.weather.clear_sun_times()
                     self.logger.error(
                         "ConnectionError, cannot update sun times")
             else:
                 with open(self._file_path, "w+") as file:
-                    json.dump({**self._sun_times_data}, file)
+                    json.dump(data["results"], file)
                 sun_times = {
                     "sunrise": parse_sun_times(
-                        self._sun_times_data["sunrise"]),
+                        data["results"]["sunrise"]),
                     "sunset": parse_sun_times(
-                        self._sun_times_data["sunset"]),
+                        data["results"]["sunset"]),
                 }
                 try:
                     self.manager.dispatcher.emit(
@@ -58,7 +57,7 @@ class SunTimes(ServiceTemplate):
                 self.logger.debug("Sun times data updated")
         else:
             with self.mutex:
-                self._sun_times_data.clear()
+                api.weather.clear_sun_times()
                 self.logger.error("ConnectionError, cannot update sun times")
 
     def _check_recency(self) -> bool:
@@ -73,7 +72,7 @@ class SunTimes(ServiceTemplate):
 
         with open(self._file_path, "r") as file:
             data = json.load(file)
-        self._sun_times_data = data
+            api.weather.update_sun_times(data)
         self.logger.debug(
             "Sun times data already up to date")
         return True
@@ -90,11 +89,7 @@ class SunTimes(ServiceTemplate):
 
     def _stop(self):
         scheduler.remove_job("suntimes")
-        self._sun_times_data.clear()
-
-    """Functions to pass data to higher modules"""
-    def get_data(self):
-        return self._sun_times_data
+        api.weather.clear_sun_times()
 
 
 info = {

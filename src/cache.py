@@ -109,6 +109,5 @@ def get_cache(
 
 sensorsData = LocalProxy(lambda: get_cache("sensorsData"))
 systemData = LocalProxy(lambda: get_cache("systemData"))
-# TODO: weather cache based on file (save 2 files: raw_data and data)
 weatherData = LocalProxy(lambda: get_cache("weatherData"))
 sunTimesData = LocalProxy(lambda: get_cache("sunTimesData"))

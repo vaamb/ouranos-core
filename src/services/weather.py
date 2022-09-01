@@ -6,7 +6,7 @@ import time
 
 import requests
 
-from src.cache import weatherData
+from src import api
 from src.consts import WEATHER_MEASURES
 from src.services.template import ServiceTemplate
 from src.services.shared_resources import scheduler
@@ -43,7 +43,6 @@ class Weather(ServiceTemplate):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._file_path = None
-        self._data = weatherData
         # TODO: use coordinates from geolocalisation
         #  Shutdown if no HOME_COORDINATES
         self._coordinates = self.config.HOME_COORDINATES
@@ -52,7 +51,7 @@ class Weather(ServiceTemplate):
 
     def _load_data(self, raw_data):
         with self.mutex:
-            self._data.update({
+            api.weather.update_weather({
                 "currently": _simplify_weather_data(raw_data["currently"]),
                 "hourly": _format_forecast(raw_data["hourly"],
                                            time_window=48),
@@ -64,17 +63,17 @@ class Weather(ServiceTemplate):
         now = datetime.now()
         self.manager.dispatcher.emit(
             "application", "weather_current",
-            data={"currently": self._data["currently"]},
+            data={"currently": api.weather.get_weather("currently")},
         )
         if now.minute % 15 == 0:
             self.manager.dispatcher.emit(
                 "application", "weather_hourly",
-                data={"hourly": self._data["hourly"]},
+                data={"hourly": api.weather.get_weather("hourly")},
             )
         if now.hour % 3 == 0 and now.minute == 0:
             self.manager.dispatcher.emit(
                 "application", "weather_daily",
-                data={"daily": self._data["daily"]},
+                data={"daily": api.weather.get_weather("daily")},
             )
 
     def update_weather_data(self) -> None:
@@ -93,7 +92,7 @@ class Weather(ServiceTemplate):
             except requests.exceptions.ConnectionError:
                 self.logger.error("ConnectionError: cannot update weather data")
                 with self.mutex:
-                    self._data.clear()
+                    api.weather.clear_weather()
             else:
                 raw_data = {
                     "currently": data["currently"],
@@ -108,10 +107,10 @@ class Weather(ServiceTemplate):
         else:
             self.logger.error("ConnectionError: could not update weather data")
             with self.mutex:
-                self._data.clear()
+                api.weather.clear_weather()
 
     def _check_recency(self) -> bool:
-        if not self._data:
+        if not api.weather.get_weather():
             try:
                 with open(self._file_path, "r") as file:
                     self._load_data(json.load(file))
@@ -119,7 +118,7 @@ class Weather(ServiceTemplate):
                 # No file or empty file
                 return False
 
-        if self._data["currently"]["time"] > \
+        if api.weather.get_weather("currently").get("time") > \
                 time.time() - (self.config.OURANOS_WEATHER_UPDATE_PERIOD * 60):
             self.logger.debug("Weather data already up to date")
             return True
@@ -142,22 +141,4 @@ class Weather(ServiceTemplate):
 
     def _stop(self) -> None:
         scheduler.remove_job("weather")
-        self._data.clear()
-
-    """API"""
-
-    @property
-    def data(self):
-        return self._data
-
-    @property
-    def current_data(self) -> dict:
-        return self._data["currently"]
-
-    @property
-    def hourly_data(self) -> dict:
-        return self._data["hourly"]
-
-    @property
-    def daily_data(self) -> dict:
-        return self._data["daily"]
+        api.weather.clear_weather()
