@@ -6,9 +6,9 @@ from fastapi import Depends, HTTPException, Request, Response, status
 from fastapi.security.http import HTTPBasic, HTTPBearer
 from fastapi.security.utils import get_authorization_scheme_param
 import jwt
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src import api
 from src.app.dependencies import get_session
 from src.database.models.app import anonymous_user, Permission, User
 from src.utils import Tokenizer
@@ -58,9 +58,7 @@ class Authenticator:
             username: str,
             password: str,
     ) -> User:
-        stmt = select(User).where(User.username == username)
-        result = await session.execute(stmt)
-        user = result.scalars().first()
+        user = await api.admin.get_user(session, username)
         if user is None or not user.check_password(password):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -124,9 +122,7 @@ login_manager = LoginManager()
 
 @login_manager.user_loader
 async def load_user(user_id: int, session: AsyncSession) -> User:
-    stmt = select(User).where(User.id == user_id)
-    result = await session.execute(stmt)
-    user = result.scalars().one_or_none()
+    user = await api.admin.get_user(session, user_id)
     return user
 
 

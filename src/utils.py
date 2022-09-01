@@ -21,7 +21,7 @@ base_dir = Path(__file__).absolute().parents[1]
 logs_dir = base_dir/"logs"
 
 
-def async_to_sync(func):
+def async_to_sync(func: t.Callable):
     """Decorator to allow calling an async function like a sync function"""
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -138,7 +138,7 @@ def is_connected(ip_to_connect: str = "1.1.1.1") -> bool:
     return False
 
 
-def time_to_datetime(_time: time):
+def time_to_datetime(_time: t.Optional[time]) -> t.Optional[datetime]:
     # return _time in case it is None
     if not isinstance(_time, time):
         return _time
@@ -147,11 +147,10 @@ def time_to_datetime(_time: time):
 
 def parse_sun_times(moment: str) -> datetime:
     _time = datetime.strptime(moment, "%I:%M:%S %p").time()
-    return datetime.combine(date.today(), _time,
-                            tzinfo=timezone.utc)
+    return datetime.combine(date.today(), _time, tzinfo=timezone.utc)
 
 
-def try_iso_format(time_obj):
+def try_iso_format(time_obj: time) -> t.Optional[str]:
     try:
         return time_to_datetime(time_obj).isoformat()
     except TypeError:  # time_obj is None or Null
@@ -178,7 +177,7 @@ def humanize_list(lst: list) -> str:
     return "".join(sentence)
 
 
-def configure_logging(config_class):
+def configure_logging(config_class) -> None:
     DEBUG = config_class.DEBUG
     LOG_TO_STDOUT = config_class.LOG_TO_STDOUT
     LOG_TO_FILE = config_class.LOG_TO_FILE
@@ -270,7 +269,7 @@ def configure_logging(config_class):
             "uvicorn": {
                 "handlers": handlers,
                 "level": f"{'DEBUG' if DEBUG else 'INFO'}",
-                "propagate": False,
+                # "propagate": False,
             },
         },
     }

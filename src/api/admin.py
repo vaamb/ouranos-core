@@ -42,7 +42,7 @@ async def create_user(
     return user
 
 
-async def get_user(session: AsyncSession, user: str) -> User:
+async def get_user(session: AsyncSession, user: int | str) -> User:
     stmt = (
         select(User)
         .where((User.id == user) | (User.username == user))
