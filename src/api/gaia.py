@@ -13,8 +13,8 @@ from src.api.utils import time_limits, timeWindow, create_time_window
 from src.consts import HARDWARE_AVAILABLE, HARDWARE_TYPE
 from src.cache import sensorsData
 from src.database.models.gaia import (
-    Ecosystem, Engine, EnvironmentParameter, GaiaWarning, Hardware, Measure,
-    SensorHistory
+    Ecosystem, Engine, EnvironmentParameter, GaiaWarning, Hardware, Health,
+    Light, Measure, SensorHistory
 )
 
 
@@ -781,3 +781,57 @@ async def create_historic_sensor_data(
     if commit:
         await session.commit()
     return sensor_history
+
+
+# ---------------------------------------------------------------------------
+#   Health-related APIs
+# ---------------------------------------------------------------------------
+async def create_health_record(
+        session: AsyncSession,
+        health_data: dict,
+) -> Health:
+    health = Health(**health_data)
+    session.add(health)
+    await session.commit()
+    return health
+
+
+# ---------------------------------------------------------------------------
+#   Health-related APIs
+# ---------------------------------------------------------------------------
+async def create_light(
+        session: AsyncSession,
+        light_data: dict,
+) -> Light:
+    light = Light(**light_data)
+    session.add(light)
+    await session.commit()
+    return light
+
+
+async def update_light(
+        session: AsyncSession,
+        light_info: dict,
+        ecosystem_uid: t.Optional[str] = None,
+) -> None:
+    # TODO: call GAIA
+    ecosystem_uid = ecosystem_uid or light_info.pop("ecosystem_uid", None)
+    if not ecosystem_uid:
+        raise ValueError(
+            "Provide uid either as a parameter or as a key in the updated info"
+        )
+    stmt = (
+        update(Light)
+        .where(Light.ecosystem_uid == ecosystem_uid)
+        .values(**light_info)
+    )
+    await session.execute(stmt)
+
+
+async def get_light(
+        session: AsyncSession,
+        ecosystem_uid: str,
+) -> t.Optional[Light]:
+    stmt = select(Light).where(Light.ecosystem_uid == ecosystem_uid)
+    result = await session.execute(stmt)
+    return result.one_or_none()

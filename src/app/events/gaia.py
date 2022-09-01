@@ -145,33 +145,53 @@ async def update_environment_parameter_or_create_it(
     return environment_parameter
 
 
+async def update_light_or_create_it(
+        session: AsyncSession,
+        light_info: t.Optional[dict] = None,
+        ecosystem_uid: t.Optional[str] = None,
+) -> Ecosystem:
+    light_info = light_info or {}
+    ecosystem_uid = ecosystem_uid or light_info.pop("ecosystem_uid", None)
+    if not ecosystem_uid:
+        raise ValueError(
+            "Provide uid either as an argument or as a key in the updated info"
+        )
+    light = await api.gaia.get_light(session, ecosystem_uid)
+    if not light:
+        light_info["uid"] = ecosystem_uid
+        light = await api.gaia.create_ecosystem(session, light_info)
+    elif light_info:
+        await api.gaia.update_ecosystem(session, light_info, ecosystem_uid)
+    return light
+
+
 # TODO: use a Namespace that uses parameter dispatcher and db_session
 # ---------------------------------------------------------------------------
-#   Data requests to engineManagers
+#   Data requests to Engines
 # ---------------------------------------------------------------------------
-async def request_sensors_data(room="engineManagers"):
+async def request_sensors_data(room="engines"):
     sio_logger.debug(f"Sending sensors data request to {room}")
     await sio.emit("send_sensors_data", namespace="/gaia", room=room)
 
 
-async def request_config(room="engineManagers"):
+async def request_config(room="engines"):
     sio_logger.debug(f"Sending config request to {room}")
     await sio.emit("send_config", namespace="/gaia", room=room)
 
 
-async def request_health_data(room="engineManagers"):
+async def request_health_data(room="engines"):
     sio_logger.debug(f"Sending health data request to {room}")
     await sio.emit("send_health_data", namespace="/gaia", room=room)
 
 
-async def request_light_data(room="engineManagers"):
+async def request_light_data(room="engines"):
     sio_logger.debug(f"Sending light data request to {room}")
     await sio.emit("send_light_data", namespace="/gaia", room=room)
 
 
 async def gaia_background_task():
     while True:
-        await sio.emit("ping", namespace="/gaia", room="engineManagers")
+        await sio.emit("ping", namespace="/gaia", room="engines")
         await sleep(15)
 
 
@@ -212,7 +232,7 @@ async def disconnect(sid):
         if not engine:
             return
         uid = engine.uid
-        sio.leave_room(sid, "engineManagers", namespace="/gaia")
+        sio.leave_room(sid, "engines", namespace="/gaia")
         engine.connected = False
         session.commit()
         await sio.emit(
@@ -221,7 +241,7 @@ async def disconnect(sid):
              for ecosystem in engine.ecosystems},
             namespace="/"
         )
-        sio_logger.info(f"Manager {uid} disconnected")
+        sio_logger.info(f"Engine {uid} disconnected")
 
 
 @sio.on("pong", namespace="/gaia")
@@ -239,7 +259,7 @@ async def pong(sid, data):
 
 
 @sio.on("register_engine", namespace="/gaia")
-async def register_manager(sid, data):
+async def register_engine(sid, data):
     async with sio.session(sid, namespace="/gaia") as session:
         remote_addr = session["REMOTE_ADDR"]
         engine_uid = decrypt_uid(data["ikys"])
@@ -269,7 +289,7 @@ async def register_manager(sid, data):
         }
         async with db.scoped_session() as session:
             await update_engine_or_create_it(session, engine_info)
-        sio.enter_room(sid, room="engine", namespace="/gaia")
+        sio.enter_room(sid, room="engines", namespace="/gaia")
 
         await sio.emit("register_ack", namespace="/gaia", room=sid)
         sio_logger.info(f"Successful registration of engine {engine_uid}, "
@@ -401,7 +421,7 @@ async def update_hardware(sid, data, engine_uid):
                 for param, value in hardware_dict.items():
                     setattr(hardware, param, value)
                 session.merge(hardware)
-        session.commit()
+        await session.commit()
 
 
 # TODO: split this in two part: one receiving and logging data, and move the
@@ -487,52 +507,46 @@ async def update_sensors_data(sid, data, engine_uid):
         await session.commit()
 
 
-"""
 @sio.on("health_data", namespace="/gaia")
-def update_health_data(data):
-    manager = get_engine("config")
-    if manager:
-        sio_logger.debug(f"Received 'update_health_data' from {manager.uid}")
-        dispatcher.emit("application", "health_data", data=data)
-        # healthData.update(data)
+@registration_required
+async def update_health_data(sid, data, engine_uid):
+    sio_logger.debug(f"Received 'update_health_data' from {engine_uid}")
+    dispatcher.emit("application", "health_data", data=data)
+    # healthData.update(data)
+    async with db.scoped_session() as session:
         for d in data:
-            health = Health(
-                ecosystem_uid=d["ecosystem_uid"],
-                datetime=datetime.fromisoformat(d["datetime"]),
-                green=d["green"],
-                necrosis=d["necrosis"],
-                health_index=d["health_index"]
-            )
-            db.session.add(health)
-        db.session.commit()
+            health_data = {
+                "ecosystem_uid": d["ecosystem_uid"],
+                "datetime": datetime.fromisoformat(d["datetime"]),
+                "green": d["green"],
+                "necrosis": d["necrosis"],
+                "health_index": d["health_index"]
+            }
+            await api.gaia.create_health_record(session, health_data)
 
 
 @sio.on("light_data", namespace="/gaia")
-def update_light_data(data):
-    # TODO: log status 
-    manager = get_engine("config")
-
-    if manager:
-        sio_logger.debug(f"Received 'light_data' from {manager.uid}")
+@registration_required
+async def update_light_data(sid, data, engine_uid):
+    sio_logger.debug(f"Received 'light_data' from {engine_uid}")
+    async with db.scoped_session() as session:
         for d in data:
             morning_start = try_time_from_iso(d.get("morning_start", None))
             morning_end = try_time_from_iso(d.get("morning_end", None))
             evening_start = try_time_from_iso(d.get("evening_start", None))
             evening_end = try_time_from_iso(d.get("evening_end", None))
-            light = Light(
-                ecosystem_uid=d["ecosystem_uid"],
-                status=d["status"],
-                mode=d["mode"],
-                method=d["method"],
-                morning_start=morning_start,
-                morning_end=morning_end,
-                evening_start=evening_start,
-                evening_end=evening_end
-            )
-            db.session.merge(light)
-        db.session.commit()
-        sio.emit("light_data", data, namespace="/")
-"""
+            light_info = {
+                "ecosystem_uid": d["ecosystem_uid"],
+                "status": d["status"],
+                "mode": d["mode"],
+                "method": d["method"],
+                "morning_start": morning_start,
+                "morning_end": morning_end,
+                "evening_start": evening_start,
+                "evening_end": evening_end
+            }
+            await update_light_or_create_it(session, light_info=light_info)
+    await sio.emit("light_data", data, namespace="/")
 
 
 # ---------------------------------------------------------------------------
