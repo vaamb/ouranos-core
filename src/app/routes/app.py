@@ -1,9 +1,8 @@
 from fastapi import APIRouter, Depends, Query
 
-from src import api
 from src.app.dependencies import get_session
-from src.app.pydantic.models.app import PydanticUserMixin
 from src.app.utils import app_config
+from src.core import api
 
 
 router = APIRouter(

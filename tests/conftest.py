@@ -6,12 +6,11 @@ import typing as t
 
 from fastapi.testclient import TestClient
 import pytest
-import pytest_asyncio
 from sqlalchemy import select
 
 from .utils import user, operator, admin
 from src.app import create_app, db as _db
-from src.database.models.app import Role, User
+from core.database import Role, User
 from config import TestingConfig
 
 
@@ -73,8 +72,6 @@ def app(config, db):
     # Patch dependencies
     async def patched_session():
         yield db._session_factory()
-
-    from src.app.dependencies import get_session
 
     get_session = patched_session
 

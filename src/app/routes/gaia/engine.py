@@ -5,12 +5,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import router
 from ..utils import assert_single_uid
-from src import api
 from src.app.dependencies import get_session
-from src.database.models.gaia import Engine
+from src.core import api
 
 
-async def engine_or_abort(session: AsyncSession, engine_id: str) -> Engine:
+if t.TYPE_CHECKING:
+    from src.core.database.models.gaia import Engine
+
+
+async def engine_or_abort(session: AsyncSession, engine_id: str) -> "Engine":
     engine = await api.gaia.get_engine(
         session=session, engine_id=engine_id
     )

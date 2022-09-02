@@ -2,10 +2,10 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .utils import empty_result
-from src import api
-from src.api.utils import timeWindow
 from src.app.dependencies import get_session, get_time_window
 from src.app.auth import is_admin
+from src.core import api
+from src.core.api.utils import timeWindow
 
 
 router = APIRouter(

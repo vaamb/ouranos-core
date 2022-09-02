@@ -8,9 +8,9 @@ from fastapi.security.utils import get_authorization_scheme_param
 import jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src import api
 from src.app.dependencies import get_session
-from src.database.models.app import anonymous_user, Permission, User
+from src.core import api
+from src.core.database.models.app import anonymous_user, Permission, User
 from src.utils import Tokenizer
 
 

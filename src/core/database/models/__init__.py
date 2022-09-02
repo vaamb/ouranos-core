@@ -11,3 +11,15 @@ from .gaia import (
     Hardware, Health, Light, Management, Measure, Plant, SensorHistory
 )
 from .system import SystemHistory
+
+
+__all__ = [
+    "CalendarEvent", "CommunicationChannel", "FlashMessage", "Permission",
+    "Role", "Service", "User",
+    "ArchiveActuatorHistory", "ArchiveAppWarning", "ArchiveHealthData",
+    "ArchiveSensorData",
+    "ActuatorHistory", "Ecosystem", "EnvironmentParameter", "Engine",
+    "GaiaWarning", "Hardware", "Health", "Light", "Management", "Measure",
+    "Plant", "SensorHistory",
+    "SystemHistory"
+]

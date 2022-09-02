@@ -5,7 +5,7 @@ import typing as t
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.database.models.app import FlashMessage, Service
+from src.core.database.models.app import FlashMessage, Service
 
 
 async def get_services(

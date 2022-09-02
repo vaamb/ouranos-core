@@ -2,17 +2,17 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from fastapi.security import HTTPBasicCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src import api
-from src.api.exceptions import DuplicatedEntry
+from src.core.api.exceptions import DuplicatedEntry
 from src.app.auth import (
     Authenticator, basic_auth, get_current_user, login_manager
 )
 
 from src.app.dependencies import get_session
-from src.app.pydantic.models.app import (
+from src.core import api
+from src.core.pydantic.models.app import (
     LoginResponse, PydanticLimitedUser, PydanticUserMixin
 )
-from src.app.pydantic.models.common import BaseMsg
+from src.core.pydantic.models.common import BaseMsg
 from src.utils import ExpiredTokenError, InvalidTokenError, Tokenizer
 
 

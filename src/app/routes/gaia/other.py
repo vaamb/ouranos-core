@@ -2,10 +2,10 @@ from fastapi import Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import router
-from src import api
 from src.app.auth import get_current_user
 from src.app.dependencies import get_session
-from src.app.pydantic.models.app import PydanticUserMixin
+from core.pydantic.models.app import PydanticUserMixin
+from src.core import api
 
 
 @router.get("/warnings")

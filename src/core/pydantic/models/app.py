@@ -3,7 +3,7 @@ import typing as t
 from pydantic import BaseModel, create_model
 from pydantic_sqlalchemy import sqlalchemy_to_pydantic
 
-from src.database.models.app import User
+from src.core.database.models.app import User
 
 
 class PydanticLimitedUser(BaseModel):

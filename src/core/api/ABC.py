@@ -4,7 +4,7 @@ import typing as t
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.database.models._base import CustomMeta  # noqa
+from core.database import CustomMeta  # noqa
 
 
 class Base:

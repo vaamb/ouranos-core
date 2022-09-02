@@ -1,9 +1,10 @@
 import logging
 
+from . import sio
 from .decorators import permission_required
-from src import api
-from src.app import db, dispatcher, sio
+from src.app import db, dispatcher
 from src.app.utils import app_config
+from src.core import api
 
 
 # TODO: change name
@@ -11,7 +12,7 @@ sio_logger = logging.getLogger(f"{app_config['APP_NAME'].lower()}.socketio")
 
 
 # ---------------------------------------------------------------------------
-#   SocketIO events
+#   SocketIO socketio
 # ---------------------------------------------------------------------------
 @sio.on("my_ping", namespace="/")
 async def ping_pong(sid, data):
@@ -72,7 +73,7 @@ def start_service(sid, data):
 
 
 # ---------------------------------------------------------------------------
-#   Dispatcher events
+#   Dispatcher socketio
 # ---------------------------------------------------------------------------
 @dispatcher.on("weather_current")
 def _current_weather(**kwargs):

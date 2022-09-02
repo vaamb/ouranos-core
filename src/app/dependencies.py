@@ -4,7 +4,7 @@ from fastapi import HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import db
-from src import api
+from src.core import api
 
 
 async def get_session() -> AsyncSession:

@@ -3,7 +3,7 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
 
-import api
+from src.core import api
 
 template_folder = Path(__file__).absolute().parents[0]
 

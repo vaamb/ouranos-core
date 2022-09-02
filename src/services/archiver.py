@@ -5,7 +5,7 @@ from dispatcher import STOP_SIGNAL
 from flask_sqlalchemy import Model
 from sqlalchemy import inspect
 
-from src.database.models import archives, gaia
+from src.core.database.models import gaia, archives
 from src.services.shared_resources import db, scheduler
 from src.services.template import ServiceTemplate
 

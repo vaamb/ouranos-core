@@ -5,7 +5,6 @@ from functools import wraps
 import logging
 import logging.config
 import os
-from pathlib import Path
 import socket
 import typing as t
 import uuid
@@ -15,9 +14,8 @@ import jwt
 from sqlalchemy.engine import Row
 
 from config import Config
+from src.core.g import base_dir
 
-
-base_dir = Path(__file__).absolute().parents[1]
 logs_dir = base_dir/"logs"
 
 
@@ -258,12 +256,12 @@ def configure_logging(config_class) -> None:
             "engineio": {
                 "handlers": handlers,
                 "level": f"{'DEBUG' if DEBUG else 'INFO'}",
-                "propagate": False,
+                #"propagate": False,
             },
             "socketio": {
                 "handlers": handlers,
                 "level": f"{'DEBUG' if DEBUG else 'INFO'}",
-                "propagate": False,
+                #"propagate": False,
 
             },
             "uvicorn": {

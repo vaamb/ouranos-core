@@ -3,8 +3,8 @@ try:
 except ImportError:
     telegram = None
 
-from src import api
-from src.database.models.app import User, Role, Permission
+from src.core import api
+from src.core.database.models import User, Role, Permission
 from src.services.shared_resources import db
 from src.services.template import ServiceTemplate
 
@@ -173,7 +173,7 @@ class TelegramChatBot(ServiceTemplate):
                    "for all the ecosystems by default. The number of days " \
                    "covered can be specified by adding '#days' as an argument.\n"
         message += "/recap : send a recap with sensors data of the last 24h, " \
-                   "weather forecast, warnings and calendar events.\n"
+                   "weather forecast, warnings and calendar socketio.\n"
         update.message.reply_text(message)
 
     def unknown_command(self, update, context):

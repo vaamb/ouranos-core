@@ -4,8 +4,8 @@ import typing as t
 
 from statistics import mean
 
-from src.cache import weatherData, sunTimesData
-from src.consts import WEATHER_MEASURES
+from src.core.cache import weatherData, sunTimesData
+from src.core.consts import WEATHER_MEASURES
 from src.utils import parse_sun_times
 
 

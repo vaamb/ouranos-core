@@ -5,8 +5,7 @@ from dispatcher import (
     configure_dispatcher, get_dispatcher, RegisterEventMixin
 )
 
-from src.database.models.app import Service
-from src.database.models.gaia import Engine
+from src.core.database.models import Engine, Service
 
 from .archiver import Archiver
 from .calendar import Calendar

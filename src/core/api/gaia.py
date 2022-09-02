@@ -8,11 +8,11 @@ import cachetools.func
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.exceptions import NoEcosystemFound, WrongDataFormat
-from src.api.utils import time_limits, timeWindow, create_time_window
-from src.consts import HARDWARE_AVAILABLE, HARDWARE_TYPE
-from src.cache import sensorsData
-from src.database.models.gaia import (
+from src.core.api.exceptions import NoEcosystemFound
+from src.core.api.utils import time_limits, timeWindow, create_time_window
+from src.core.cache import sensorsData
+from src.core.consts import HARDWARE_AVAILABLE, HARDWARE_TYPE
+from src.core.database.models.gaia import (
     Ecosystem, Engine, EnvironmentParameter, GaiaWarning, Hardware, Health,
     Light, Measure, SensorHistory
 )

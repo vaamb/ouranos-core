@@ -6,11 +6,12 @@ import time
 
 import requests
 
-from src import api
-from src.consts import WEATHER_MEASURES
+from src.core import api
+from src.core.consts import WEATHER_MEASURES
+from src.core.g import base_dir
 from src.services.template import ServiceTemplate
 from src.services.shared_resources import scheduler
-from src.utils import base_dir, is_connected
+from src.utils import is_connected
 
 
 def _simplify_weather_data(weather_data) -> dict:

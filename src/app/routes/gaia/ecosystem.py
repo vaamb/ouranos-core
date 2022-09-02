@@ -7,17 +7,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import router
 from ..utils import assert_single_uid
-from src import api
-from src.api.utils import timeWindow
 from src.app.auth import is_operator
 from src.app.dependencies import get_session, get_time_window
-from src.database.models.gaia import Ecosystem
+from src.core import api
+from src.core.api.utils import timeWindow
+
+
+if t.TYPE_CHECKING:
+    from src.core.types import Ecosystem
 
 
 async def ecosystem_or_abort(
         session: AsyncSession,
         ecosystem_id: str,
-) -> Ecosystem:
+) -> "Ecosystem":
     ecosystem = await api.gaia.get_ecosystem(
         session=session, ecosystem_id=ecosystem_id
     )

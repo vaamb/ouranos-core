@@ -5,7 +5,7 @@ import weakref
 
 from dispatcher import RegisterEventMixin
 
-from src.database.models.app import Service
+from src.core.database.models import Service
 from src.services.shared_resources import db
 
 

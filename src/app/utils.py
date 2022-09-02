@@ -3,7 +3,6 @@ from __future__ import annotations
 import base64
 import os
 import platform
-from typing import Union
 
 import cachetools
 from cryptography.fernet import Fernet, InvalidToken
@@ -25,7 +24,7 @@ def set_app_config(config: dict):
     app_config = config
 
 
-def arg_to_bool(arg: Union[bool, int, str]) -> bool:
+def arg_to_bool(arg: bool | int | str) -> bool:
     if isinstance(arg, bool):
         return arg
     if isinstance(arg, int):

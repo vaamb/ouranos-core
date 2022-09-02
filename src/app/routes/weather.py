@@ -1,13 +1,13 @@
 import typing as t
 
-from fastapi import APIRouter, HTTPException, Query, Response, status
+from fastapi import APIRouter, HTTPException, Query, status
 
-from src import api
-from src.app.pydantic.models.weather import (
+from core.pydantic.models.weather import (
     PydanticCurrentWeather, PydanticHourlyWeather, PydanticDailyWeather,
     PydanticSunTimes
 )
 from src.app.routes.utils import empty_result
+from src.core import api
 
 
 router = APIRouter(

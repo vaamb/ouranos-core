@@ -3,12 +3,12 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 import typing as t
 
-from email_validator import validate_email, EmailNotValidError
+from email_validator import validate_email
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .exceptions import DuplicatedEntry, NoResultFound
-from src.database.models.app import User, Role
+from src.core.database.models.app import User, Role
 from src.utils import Tokenizer
 
 

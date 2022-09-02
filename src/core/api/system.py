@@ -1,9 +1,9 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.cache import systemData
-from src.api.utils import timeWindow
-from src.database.models.system import SystemHistory
+from src.core.cache import systemData
+from src.core.api.utils import timeWindow
+from src.core.database.models.system import SystemHistory
 
 
 async def get_historic_system_data(
@@ -30,6 +30,16 @@ async def get_historic_system_data(
         "order": ["datetime", "CPU_used", "CPU_temp", "RAM_used",
                   "RAM_total", "DISK_used", "DISK_total"]
     }
+
+
+async def create_system_data_record(
+        session: AsyncSession,
+        data_record: dict,
+) -> SystemHistory:
+    record = SystemHistory(**data_record)
+    session.add(record)
+    await session.commit()
+    return record
 
 
 def get_current_system_data():

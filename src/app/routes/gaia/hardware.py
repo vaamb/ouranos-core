@@ -4,18 +4,21 @@ from fastapi import Body, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import router
-from ..utils import assert_single_uid, empty_result
-from src import api
-from src.api.utils import timeWindow
+from ..utils import assert_single_uid
 from src.app.auth import is_operator
 from src.app.dependencies import get_session, get_time_window
-from src.database.models.gaia import Hardware
+from src.core import api
+from src.core.api.utils import timeWindow
+
+
+if t.TYPE_CHECKING:
+    from src.core.database.models.gaia import Hardware
 
 
 async def hardware_or_abort(
         session: AsyncSession,
         hardware_uid: str
-) -> Hardware:
+) -> "Hardware":
     hardware = await api.gaia.get_hardware(
         session=session, hardware_uid=hardware_uid
     )

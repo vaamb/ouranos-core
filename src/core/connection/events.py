@@ -11,12 +11,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from statistics import mean, stdev as std
 
 from .decorators import registration_required
-from src import api
-from src.app import db, dispatcher, sio
+from .socketio import sio
+from src.app import dispatcher
 from src.app.utils import app_config, decrypt_uid, validate_uid_token
-from src.database.models.gaia import (
-    Ecosystem, Engine, EnvironmentParameter, Hardware, Health, Light,
-    Management, Measure, SensorHistory
+from src.core import api, db
+from src.core.database.models.gaia import (
+    Ecosystem, Engine, EnvironmentParameter, Hardware, Management
 )
 
 
@@ -196,7 +196,7 @@ async def gaia_background_task():
 
 
 # ---------------------------------------------------------------------------
-#   SocketIO events coming from Gaia instances
+#   SocketIO socketio coming from Gaia instances
 # ---------------------------------------------------------------------------
 @sio.on("connect", namespace="/gaia")
 async def connect_on_gaia(sid, environ):
@@ -550,7 +550,7 @@ async def update_light_data(sid, data, engine_uid):
 
 
 # ---------------------------------------------------------------------------
-#   Dispatcher events
+#   Dispatcher socketio
 # ---------------------------------------------------------------------------
 @dispatcher.on("turn_light")
 def _turn_light(*args, **kwargs):

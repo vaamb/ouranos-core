@@ -4,10 +4,10 @@ import os
 
 import requests
 
-from src import api
-from src.utils import base_dir, is_connected, parse_sun_times
+from src.core.g import base_dir
 from src.services.template import ServiceTemplate
 from src.services.shared_resources import scheduler
+from src.utils import is_connected, parse_sun_times
 
 
 class SunTimes(ServiceTemplate):
@@ -31,10 +31,10 @@ class SunTimes(ServiceTemplate):
                     verify=False,
                 ).json()
                 with self.mutex:
-                    api.weather.update_sun_times(data["results"])
+                    core.api.weather.update_sun_times(data["results"])
             except requests.exceptions.ConnectionError:
                 with self.mutex:
-                    api.weather.clear_sun_times()
+                    core.api.weather.clear_sun_times()
                     self.logger.error(
                         "ConnectionError, cannot update sun times")
             else:
@@ -57,7 +57,7 @@ class SunTimes(ServiceTemplate):
                 self.logger.debug("Sun times data updated")
         else:
             with self.mutex:
-                api.weather.clear_sun_times()
+                core.api.weather.clear_sun_times()
                 self.logger.error("ConnectionError, cannot update sun times")
 
     def _check_recency(self) -> bool:
@@ -72,7 +72,7 @@ class SunTimes(ServiceTemplate):
 
         with open(self._file_path, "r") as file:
             data = json.load(file)
-            api.weather.update_sun_times(data)
+            core.api.weather.update_sun_times(data)
         self.logger.debug(
             "Sun times data already up to date")
         return True
@@ -89,7 +89,7 @@ class SunTimes(ServiceTemplate):
 
     def _stop(self):
         scheduler.remove_job("suntimes")
-        api.weather.clear_sun_times()
+        core.api.weather.clear_sun_times()
 
 
 info = {

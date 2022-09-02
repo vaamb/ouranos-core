@@ -21,6 +21,7 @@ base_dir = Path(__file__).absolute().parents[0]
 class Config:
     APP_NAME = "Ouranos"
     VERSION = "0.5.3"
+    DIR = None
     DEBUG = False
     TESTING = False
     SECRET_KEY = os.environ.get("SECRET_KEY") or "BXhNmCEmNdoBNngyGXj6jJtooYAcKpt6"

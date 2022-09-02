@@ -3,9 +3,8 @@ import os
 import psutil
 from threading import Thread, Event
 
-from src import api
-from src.consts import START_TIME
-from src.database.models.system import SystemHistory
+from src.core import api
+from src.core.consts import START_TIME
 from src.services.template import ServiceTemplate
 from src.services.shared_resources import db, scheduler
 
@@ -54,22 +53,21 @@ class SystemMonitor(ServiceTemplate):
             if self._stopEvent.is_set():
                 break
 
-    def _log_resources_data(self) -> None:
+    async def _log_resources_data(self) -> None:
         self.logger.debug("Logging system resources")
         with db.scoped_session() as session:
             data = api.system.get_current_system_data()
-            system = SystemHistory(
-                datetime=data["datetime"],
-                CPU_used=data["CPU_used"],
-                CPU_temp=data.get("CPU_temp", None),
-                RAM_total=data["RAM_total"],
-                RAM_used=data["RAM_used"],
-                DISK_total=data["DISK_total"],
-                DISK_used=data["DISK_used"],
+            system_data = {
+                "datetime": data["datetime"],
+                "CPU_used": data["CPU_used"],
+                "CPU_temp": data.get("CPU_temp", None),
+                "RAM_total": data["RAM_total"],
+                "RAM_used": data["RAM_used"],
+                "DISK_total": data["DISK_total"],
+                "DISK_used": data["DISK_used"],
                 # TODO: add RAM_process
-            )
-            session.add(system)
-            session.commit()
+            }
+            await api.system.create_system_data_record(session, system_data)
 
     def _start(self) -> None:
         self._stopEvent.clear()

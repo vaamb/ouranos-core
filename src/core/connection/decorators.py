@@ -1,18 +1,4 @@
-import functools
-
-from src.app import sio
-
-
-def permission_required(permission: int):
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapped(sid, data):
-            if not 0:
-                pass
-            else:
-                return func(sid, data)
-        return wrapped
-    return decorator
+from .socketio import sio
 
 
 def registration_required(func):

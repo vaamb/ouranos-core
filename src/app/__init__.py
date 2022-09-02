@@ -7,12 +7,13 @@ from dispatcher import configure_dispatcher, get_dispatcher
 from fastapi import APIRouter, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from socketio import AsyncServer, ASGIApp, AsyncManager
+from socketio import AsyncManager
 
 from .docs import description, tags_metadata
 from .utils import set_app_config
-from src.database.wrapper import AsyncSQLAlchemyWrapper
-from src.utils import base_dir, config_dict_from_class, Tokenizer
+from src.core import db
+from src.core.g import base_dir, set_base_dir
+from src.utils import config_dict_from_class, Tokenizer
 
 try:
     import orjson
@@ -27,10 +28,8 @@ else:
     from fastapi.responses import ORJSONResponse as JSONResponse
 
 
-db = AsyncSQLAlchemyWrapper()
 dispatcher = get_dispatcher(namespace="application")
 scheduler = AsyncIOScheduler()
-sio = AsyncServer(async_mode='asgi')
 
 
 def create_app(config) -> FastAPI:
@@ -45,6 +44,9 @@ def create_app(config) -> FastAPI:
                     f"You need to set the environment variable '{secret}' when "
                     f"using gaiaWeb in a production environment."
                 )
+
+    if app_config.get("DIR"):
+        set_base_dir(app_config["DIR"])
 
     logger_name = app_config['APP_NAME'].lower()
     logger = logging.getLogger(f"{logger_name}.app")
@@ -93,15 +95,15 @@ def create_app(config) -> FastAPI:
         logger.info(f"{app_config['APP_NAME']} worker successfully started")
 
     # Init db
-    from src.database.models import app as app_models, archives, gaia, system  # noqa # need import for sqlalchemy metadata generation
+    from src.core.database.models import Role, User, CommunicationChannel
     db.init(config)
 
     async def create_base_data():
         async with db.scoped_session() as session:
             try:
-                await app_models.Role.insert_roles(session)
-                await app_models.User.insert_gaia(session)
-                await app_models.CommunicationChannel.insert_channels(session)
+                await Role.insert_roles(session)
+                await User.insert_gaia(session)
+                await CommunicationChannel.insert_channels(session)
             except Exception as e:
                 logger.error(e)
                 raise e
@@ -161,17 +163,16 @@ def create_app(config) -> FastAPI:
     def start_scheduler():
         scheduler.start()
 
-    # Configure Socket.IO and load the events
-    logger.debug("Loading Socket.IO events")
+    # Configure Socket.IO and load the socketio
+    logger.debug("Loading client Socket.IO")
+    from .socketio import sio as client_sio, asgi_app as client_app
     if 0 and app_config.get("USE_REDIS_DISPATCHER", False):
-        # sio.init_app(app, message_queue=app_config["REDIS_URL"])  # TODO
-        sio.manager = AsyncManager()
-        sio.manager.set_server(sio)
-    # Workaround so python-socketio doesn't add its own headers, which leads to CORS issues
-    sio.eio.cors_allowed_origins = []
-    sio_app = ASGIApp(socketio_server=sio)
-    app.mount(path="/", app=sio_app)
-    from . import events
+        client_sio.manager = AsyncManager()  # TODO
+        client_sio.manager.set_server(client_sio)
+    app.mount(path="/", app=client_app)
+    logger.debug("Loading gaia Socket.IO")
+    from src.core.connection.socketio import asgi_app as gaia_app
+    app.mount(path="/", app=gaia_app)
 
     frontend_static_dir = base_dir/"frontend/dist"
     frontend_index = frontend_static_dir/"index.html"

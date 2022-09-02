@@ -1,17 +1,10 @@
-import asyncio
-
-from datetime import timedelta
-
-from src import api
-
-
 username = "TestLogin"
 password = "Password1"
 
 
 def test_register_new_user(event_loop, client, db):
     invitation_token = event_loop.create_task(
-        api.admin.create_invitation_token(session=db.session)
+        core.api.admin.create_invitation_token(session=db.session)
     )
 
     rv = client.post(
