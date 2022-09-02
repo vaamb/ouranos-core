@@ -9,7 +9,7 @@ from ._base import ArchiveLink, base
 from .common import (
     BaseActuatorHistory, BaseHealth, BaseSensorHistory, BaseWarning
 )
-from src.utils import time_to_datetime
+from src.core.utils import time_to_datetime
 
 
 # ---------------------------------------------------------------------------
@@ -57,7 +57,7 @@ class Ecosystem(base):
     name = sa.Column(sa.String(length=32))
     status = sa.Column(sa.Boolean, default=False)
     last_seen = sa.Column(sa.DateTime)
-    management = sa.Column(sa.Integer)
+    management = sa.Column(sa.Integer, default = 0)
     day_start = sa.Column(sa.Time, default=time(8, 00))
     night_start = sa.Column(sa.Time, default=time(20, 00))
     engine_uid = sa.Column(sa.Integer, sa.ForeignKey("engines.uid"))
@@ -71,11 +71,6 @@ class Ecosystem(base):
     actuators_history = orm.relationship("ActuatorHistory", back_populates="ecosystem", lazy="dynamic")
     health = orm.relationship("Health", back_populates="ecosystem", lazy="dynamic")
     light = orm.relationship("Light", back_populates="ecosystem", lazy="dynamic")
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        if self.management is None:
-            self.management = 0
 
     def can_manage(self, mng):
         return self.management & mng == mng

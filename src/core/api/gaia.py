@@ -14,7 +14,7 @@ from src.core.cache import sensorsData
 from src.core.consts import HARDWARE_AVAILABLE, HARDWARE_TYPE
 from src.core.database.models.gaia import (
     Ecosystem, Engine, EnvironmentParameter, GaiaWarning, Hardware, Health,
-    Light, Measure, SensorHistory
+    Light, Measure, Plant, SensorHistory
 )
 
 
@@ -36,7 +36,7 @@ async def _create_entry(
         session: AsyncSession,
         model_class,
         model_info: dict,
-) -> Engine:
+):
     # TODO: call GAIA
     model = model_class(**model_info)
     session.add(model)
@@ -713,13 +713,31 @@ async def get_ecosystems_hardware(
 
 
 # TODO: split in get_measures and get_measure_info
-async def get_measures(session: AsyncSession) -> list:
+async def get_all_measures(session: AsyncSession) -> list:
     stmt = select(Measure)
     result = await session.execute(stmt)
     return [measure.to_dict() for measure in result.scalars().all()]
 
 
-def get_plants(
+async def get_measures(
+        session: AsyncSession,
+        measures_name: list[str]
+) -> list[Measure]:
+    stmt = select(Measure).where(Measure.name.in_(measures_name))
+    result = await session.execute(stmt)
+    return result.scalars().all()
+
+
+async def get_plants(
+        session: AsyncSession,
+        plants_name: list[str]
+) -> list[Plant]:
+    stmt = select(Plant).where(Plant.name.in_(plants_name))
+    result = await session.execute(stmt)
+    return result.scalars().all()
+
+
+def get_plants_for_ecosystem(
         session: AsyncSession,
         ecosystems_query_obj: list[Ecosystem],
 ) -> list[dict[str, [str | list[dict[str, str]]]]]:
@@ -754,10 +772,10 @@ async def get_recent_warnings(
     return result.scalars().all() or []
 
 
-async def get_measure(session: AsyncSession, measure_name: str) -> Measure:
+async def get_measure(session: AsyncSession, measure_name: str) -> Measure | None:
     stmt = select(Measure).where(Measure.name == measure_name)
     result = await session.execute(stmt)
-    return result.scalars().one()
+    return result.scalars().one_or_none()
 
 
 # ---------------------------------------------------------------------------

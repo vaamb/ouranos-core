@@ -1,10 +1,8 @@
 import functools
 
-from . import sio
-
 
 def permission_required(permission: int):
-    def decorator(func):
+    def decorator(self, func):
         @functools.wraps(func)
         def wrapped(sid, data):
             if not 0:

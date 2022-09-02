@@ -15,8 +15,8 @@ import uvicorn
 # from dispatcher import configure_dispatcher
 from config import config_dict, Config, DevelopmentConfig
 # from src import services
-from src.app import create_app, scheduler
-from src.utils import configure_logging, humanize_list
+from src.app import create_app
+from src.core.utils import configure_logging, humanize_list
 
 
 config_profiles_available = [profile for profile in config_dict]

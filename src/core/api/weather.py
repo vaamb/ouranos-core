@@ -6,7 +6,7 @@ from statistics import mean
 
 from src.core.cache import weatherData, sunTimesData
 from src.core.consts import WEATHER_MEASURES
-from src.utils import parse_sun_times
+from src.core.utils import parse_sun_times
 
 
 def _get_time_of_day(dt_time: time) -> str:

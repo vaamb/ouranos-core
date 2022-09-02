@@ -13,7 +13,7 @@ from src.core.pydantic.models.app import (
     LoginResponse, PydanticLimitedUser, PydanticUserMixin
 )
 from src.core.pydantic.models.common import BaseMsg
-from src.utils import ExpiredTokenError, InvalidTokenError, Tokenizer
+from src.core.utils import ExpiredTokenError, InvalidTokenError, Tokenizer
 
 
 router = APIRouter(

@@ -21,12 +21,17 @@ async def get_services(
     return [service.to_dict() for service in services]
 
 
-async def create_flash_message():
-    # TODO
-    pass
+async def create_flash_message(
+        session: AsyncSession,
+        message_payload: dict,
+) -> FlashMessage:
+    msg = FlashMessage(**message_payload)
+    session.add(msg)
+    await session.commit()
+    return msg
 
 
-async def get_flash_messages(
+async def get_flash_messages_contents(
         session: AsyncSession,
 ) -> list[str]:
     stmt = (

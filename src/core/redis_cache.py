@@ -3,7 +3,7 @@ from collections.abc import MutableMapping
 import time
 import typing as t
 
-from src.utils import json
+from src.core.utils import json
 
 
 class RedisCache(MutableMapping):

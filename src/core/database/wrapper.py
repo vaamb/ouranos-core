@@ -1,6 +1,6 @@
 # Recipe adapted from https://flask.palletsprojects.com/en/1.1.x/patterns/sqlalchemy/
 # and heavily inspired by Flask_SQLAlchemy.
-# The recipe has been wrapped inside a class so it is more convenient.
+# The recipe has been wrapped inside a class to be more convenient.
 # If working inside app context, DO NOT use this!
 
 
@@ -15,7 +15,7 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 
 from src.core.database.models._base import base
 from src.core.g import base_dir
-from src.utils import config_dict_from_class
+from src.core.utils import config_dict_from_class
 
 
 class SQLAlchemyWrapper:

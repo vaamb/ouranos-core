@@ -34,6 +34,6 @@ async def get_services(level: str = Query(default="all"), session=Depends(get_se
 
 # TODO: for future use
 @router.get("/flash_messages")
-async def get_flash_messages():
-    response = {}
+async def get_flash_messages(session=Depends(get_session)):
+    response = await api.app.get_flash_messages_contents(session=session)
     return response

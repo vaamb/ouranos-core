@@ -115,7 +115,7 @@ async def get_sensors(
 
 @router.get("/sensor/measures_available")
 async def get_measures_available(session: AsyncSession = Depends(get_session)):
-    return await api.gaia.get_measures(session)
+    return await api.gaia.get_all_measures(session)
 
 
 @router.get("/sensor/u/<uid>")

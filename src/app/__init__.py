@@ -7,13 +7,13 @@ from dispatcher import configure_dispatcher, get_dispatcher
 from fastapi import APIRouter, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from socketio import AsyncManager
+from socketio import ASGIApp, AsyncManager, AsyncServer
 
 from .docs import description, tags_metadata
 from .utils import set_app_config
 from src.core import db
 from src.core.g import base_dir, set_base_dir
-from src.utils import config_dict_from_class, Tokenizer
+from src.core.utils import config_dict_from_class, Tokenizer
 
 try:
     import orjson
@@ -30,6 +30,8 @@ else:
 
 dispatcher = get_dispatcher(namespace="application")
 scheduler = AsyncIOScheduler()
+sio = AsyncServer(async_mode='asgi', cors_allowed_origins=[])
+asgi_app = ASGIApp(sio)
 
 
 def create_app(config) -> FastAPI:
@@ -164,16 +166,21 @@ def create_app(config) -> FastAPI:
         scheduler.start()
 
     # Configure Socket.IO and load the socketio
-    logger.debug("Loading client Socket.IO")
-    from .socketio import sio as client_sio, asgi_app as client_app
+    logger.debug("Configuring Socket.IO server")
     if 0 and app_config.get("USE_REDIS_DISPATCHER", False):
-        client_sio.manager = AsyncManager()  # TODO
-        client_sio.manager.set_server(client_sio)
-    app.mount(path="/", app=client_app)
-    logger.debug("Loading gaia Socket.IO")
-    from src.core.connection.socketio import asgi_app as gaia_app
-    app.mount(path="/", app=gaia_app)
+        sio.manager = AsyncManager()  # TODO
+        sio.manager.set_server(sio)
+    app.mount(path="/", app=asgi_app)
 
+    logger.debug("Loading client events")
+    from src.app.socketio import Events as ClientEvents
+    sio.register_namespace(ClientEvents("/"))
+
+    logger.debug("Loading gaia events")
+    from src.core.connection.events import Events as GAIAEvents
+    sio.register_namespace(GAIAEvents("/gaia"))
+
+    # Load the frontend if present
     frontend_static_dir = base_dir/"frontend/dist"
     frontend_index = frontend_static_dir/"index.html"
     if frontend_index.exists():
@@ -184,11 +191,9 @@ def create_app(config) -> FastAPI:
     return app
 
 
-"""import logging
+"""
 def create_app(config_class=DevelopmentConfig):
     logger.debug("Adding wiki static folder")
     # from src.app.wiki.routing import bp as wiki_bp
     # app.register_blueprint(wiki_bp)
-
-    return app
 """

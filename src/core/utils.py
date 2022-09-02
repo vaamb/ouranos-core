@@ -2,6 +2,7 @@ import asyncio
 import dataclasses
 from datetime import date, datetime, time, timezone
 from functools import wraps
+import json as _json
 import logging
 import logging.config
 import os
@@ -9,7 +10,6 @@ import socket
 import typing as t
 import uuid
 
-import json as _json
 import jwt
 from sqlalchemy.engine import Row
 

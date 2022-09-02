@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .exceptions import DuplicatedEntry, NoResultFound
 from src.core.database.models.app import User, Role
-from src.utils import Tokenizer
+from src.core.utils import Tokenizer
 
 
 async def create_user(

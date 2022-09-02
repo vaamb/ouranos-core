@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.app.dependencies import get_session
 from src.core import api
 from src.core.database.models.app import anonymous_user, Permission, User
-from src.utils import Tokenizer
+from src.core.utils import Tokenizer
 
 
 LOGIN_COOKIE_NAME = "Authorization"
