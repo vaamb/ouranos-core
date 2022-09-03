@@ -3,7 +3,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.cache import systemData
+from src.core.cache import get_cache
 from src.core.api.utils import timeWindow
 from src.core.database.models.system import SystemHistory
 
@@ -45,14 +45,19 @@ async def create_data_record(
 
 
 def get_current_data() -> dict:
-    return {**systemData}
+    cache = get_cache("system_data")
+    return {**cache}
 
 
 def update_current_data(data: dict) -> None:
-    systemData.update(data)
+    cache = get_cache("system_data")
+    cache.update(data)
 
 
 def clear_current_data(key: str | None = None) -> None:
+    cache = get_cache("system_data")
     if key:
-        del systemData[key]
-    systemData.clear()
+        del cache[key]
+    else:
+        cache.clear()
+

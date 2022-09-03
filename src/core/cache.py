@@ -4,7 +4,6 @@ import logging
 from typing import Union, Type
 
 from cachetools import Cache, TTLCache
-from werkzeug.local import LocalProxy
 
 try:
     import redis
@@ -20,11 +19,11 @@ _CACHING_SERVER_REACHABLE: int = 2
 CACHE_WEATHER_DATA: bool = False
 CACHING_SERVER_URL: str = ""
 
-_CACHE_INFO: dict[str, int] = {
-    "sensorsData": Config.GAIA_ECOSYSTEM_TIMEOUT,
-    "systemData": 90,
-    "weatherData": 0,
-    "sunTimesData": 0,
+_CACHE_TTL_INFO: dict[str, int] = {
+    "sensors_data": Config.GAIA_ECOSYSTEM_TIMEOUT,
+    "system_data": 90,
+    "weather_data": 0,
+    "sun_times_data": 0,
 }
 
 _store: dict[str, MutableMapping] = {}
@@ -85,12 +84,12 @@ def _create_cache(
                 )
                 _CACHING_SERVER_REACHABLE = 0
         if _CACHING_SERVER_REACHABLE == 1:
-            if _CACHE_INFO[cache_name] > 0:
-                return RedisTTLCache(cache_name, _CACHE_INFO[cache_name], _redis)
+            if _CACHE_TTL_INFO[cache_name] > 0:
+                return RedisTTLCache(cache_name, _CACHE_TTL_INFO[cache_name], _redis)
             else:
                 return RedisCache(cache_name, _redis)
-    if _CACHE_INFO[cache_name] > 0:
-        return TTLCache(maxsize=32, ttl=_CACHE_INFO[cache_name])
+    if _CACHE_TTL_INFO[cache_name] > 0:
+        return TTLCache(maxsize=32, ttl=_CACHE_TTL_INFO[cache_name])
     return Cache(maxsize=32)
 
 
@@ -105,9 +104,3 @@ def get_cache(
         cache = _create_cache(cache_name, config)
         _store[cache_name] = cache
         return cache
-
-
-sensorsData = LocalProxy(lambda: get_cache("sensorsData"))
-systemData = LocalProxy(lambda: get_cache("systemData"))
-weatherData = LocalProxy(lambda: get_cache("weatherData"))
-sunTimesData = LocalProxy(lambda: get_cache("sunTimesData"))

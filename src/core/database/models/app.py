@@ -2,15 +2,19 @@ from datetime import datetime, timezone
 from hashlib import md5
 import time as ctime
 
+from argon2 import PasswordHasher
+from argon2.exceptions import VerificationError
 import sqlalchemy as sa
 from sqlalchemy import orm, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from werkzeug.security import check_password_hash, generate_password_hash
 
 from ._base import ArchiveLink, base
 from .common import BaseWarning
 from src.app.utils import app_config
 from src.core.utils import ExpiredTokenError, InvalidTokenError, Tokenizer
+
+
+argon2_hasher = PasswordHasher()
 
 
 # ---------------------------------------------------------------------------
@@ -197,12 +201,13 @@ class User(base, UserMixin):
             await session.commit()
 
     def set_password(self, password):
-        self.password_hash = generate_password_hash(
-            password, method="pbkdf2:sha256:200000"
-        )
+        self.password_hash = argon2_hasher.hash(password)
 
     def check_password(self, password):
-        return check_password_hash(self.password_hash, password)
+        try:
+            return argon2_hasher.verify(self.password_hash, password)
+        except VerificationError:
+            return False
 
     def can(self, perm):
         return self.role is not None and self.role.has_permission(perm)

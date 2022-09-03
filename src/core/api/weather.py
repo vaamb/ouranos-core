@@ -4,7 +4,7 @@ import typing as t
 
 from statistics import mean
 
-from src.core.cache import weatherData, sunTimesData
+from src.core.cache import get_cache
 from src.core.consts import WEATHER_MEASURES
 from src.core.utils import parse_sun_times
 
@@ -27,16 +27,19 @@ def mode(iterable) -> str:
 class weather:
     @staticmethod
     def get(key: t.Optional[str] = None):
-        return {**weatherData}.get(key, {}) if key else {**weatherData}
+        cache = get_cache("weather_data")
+        return {**cache}.get(key, {}) if key else {**cache}
 
     @staticmethod
     def get_currently() -> dict:
-        return weatherData.get("currently", {})
+        cache = get_cache("weather_data")
+        return cache.get("currently", {})
 
     @staticmethod
 # Weather forecast
     def _get_forecast(time_unit: str, time_window: int) -> dict:
-        data = weatherData.get(time_unit)
+        cache = get_cache("weather_data")
+        data = cache.get(time_unit)
         if data:
             if time_window > len(data["forecast"]):
                 time_window = len(data["forecast"]) - 1
@@ -68,11 +71,13 @@ class weather:
 
     @staticmethod
     def update(data: dict) -> None:
-        weatherData.update(data)
+        cache = get_cache("weather_data")
+        cache.update(data)
 
     @staticmethod
     def clear() -> None:
-        weatherData.clear()
+        cache = get_cache("weather_data")
+        cache.clear()
 
 
 def summarize_forecast(forecast: dict) -> dict:
@@ -179,15 +184,19 @@ def get_digested_hourly_weather_forecast(time_window: int = 24) -> dict:
 class sun_times:
     @staticmethod
     def get() -> dict[str, datetime]:  # TODO: clean this
-        return {
-            event: parse_sun_times(timestamp) for event, timestamp in sunTimesData.items()
-            if event != "day_length"
-        }
+        cache = get_cache("sun_times_data")
+        return {**cache}
 
     @staticmethod
     def update(data: dict) -> None:
-        weatherData.update(data)
+        cache = get_cache("sun_times_data")
+        formatted = {
+            event: parse_sun_times(timestamp) for event, timestamp in data.items()
+            if event != "day_length"
+        }
+        cache.update(formatted)
 
     @staticmethod
     def clear() -> None:
-        weatherData.clear()
+        cache = get_cache("sun_times_data")
+        cache.clear()

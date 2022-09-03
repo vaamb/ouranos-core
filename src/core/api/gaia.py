@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.api.exceptions import NoEcosystemFound
 from src.core.api.utils import time_limits, timeWindow, create_time_window
-from src.core.cache import sensorsData
+from src.core.cache import get_cache
 from src.core.consts import HARDWARE_AVAILABLE, HARDWARE_TYPE
 from src.core.database.models.gaia import (
     Ecosystem, Engine, EnvironmentParameter, GaiaWarning, Hardware, Health,
@@ -781,14 +781,18 @@ class sensor:
     ) -> list:
         try:
             ecosystem_uid = sensor_obj.ecosystem_uid
-            ecosystem = sensorsData[ecosystem_uid]
+            cache = get_cache("sensors_data")
+            ecosystem_ = cache[ecosystem_uid]
+        except KeyError:
+            return []
+        else:
             if measures is None or "all" in measures:
                 measures = [measure_.name for measure_ in sensor_obj.measure]
             elif isinstance(measures, str):
                 measures = measures.split(",")
             rv = []
             for measure_ in measures:
-                value = ecosystem["data"].get(sensor_obj.uid, {}).get(measure_, None)
+                value = ecosystem_["data"].get(sensor_obj.uid, {}).get(measure_, None)
                 if value:
                     rv.append({
                         "measure": measure_,
@@ -796,8 +800,6 @@ class sensor:
                         "value": value,
                     })
             return rv
-        except KeyError:
-            return []
 
     @staticmethod
     async def get_info(
@@ -815,9 +817,10 @@ class sensor:
             if current_data:
                 data = sensor._get_current_data(session, sensor_obj, measures)
                 if data:
+                    cache = get_cache("sensors_data")
                     rv["data"].update({
                         "current": {
-                            "timestamp": sensorsData[sensor_obj.ecosystem_uid]["datetime"],
+                            "timestamp": cache[sensor_obj.ecosystem_uid]["datetime"],
                             "data": data,
                         }
                     })
@@ -843,11 +846,21 @@ class sensor:
 
     @staticmethod
     def get_current_data():
-        return {**sensorsData}
+        cache = get_cache("sensors_data")
+        return {**cache}
+
+    @staticmethod
+    def clear_current_data(key: str | None = None) -> None:
+        cache = get_cache("sensors_data")
+        if key:
+            del cache[key]
+        else:
+            cache.clear()
 
     @staticmethod
     def update_current_data(data: dict):
-        sensorsData.update(data)
+        cache = get_cache("sensors_data")
+        cache.update(data)
 
     @staticmethod
     async def create_record(
