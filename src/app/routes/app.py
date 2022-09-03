@@ -28,12 +28,12 @@ async def get_logging_config():
 
 @router.get("/services")
 async def get_services(level: str = Query(default="all"), session=Depends(get_session)):
-    response = await api.app.get_services(session=session, level=level)
-    return response
+    services = await api.service.get_multiple(session=session, level=level)
+    return api.service.get_info(services)
 
 
 # TODO: for future use
 @router.get("/flash_messages")
 async def get_flash_messages(session=Depends(get_session)):
-    response = await api.app.get_flash_messages_contents(session=session)
-    return response
+    msgs = await api.flash_message.get_multiple(session=session)
+    return api.flash_message.get_content(msgs)

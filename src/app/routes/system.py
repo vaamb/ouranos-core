@@ -17,7 +17,7 @@ router = APIRouter(
 
 @router.get("/current_data", dependencies=[Depends(is_admin)])
 async def get_current_system_data() -> dict:
-    response = api.system.get_current_system_data()
+    response = api.system.get_current_data()
     return response
 
 
@@ -26,7 +26,7 @@ async def get_historic_system_data(
         time_window: timeWindow = Depends(get_time_window),
         session: AsyncSession = Depends(get_session),
 ) -> dict:
-    historic_system_data = await api.system.get_historic_system_data(
+    historic_system_data = await api.system.get_historic_data(
         session, time_window
     )
     if historic_system_data:

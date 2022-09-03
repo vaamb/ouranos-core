@@ -19,7 +19,7 @@ async def hardware_or_abort(
         session: AsyncSession,
         hardware_uid: str
 ) -> "Hardware":
-    hardware = await api.gaia.get_hardware(
+    hardware = await api.hardware.get(
         session=session, hardware_uid=hardware_uid
     )
     if hardware:
@@ -43,11 +43,11 @@ async def get_multiple_hardware(
         time_window: timeWindow = Depends(get_time_window),
         session: AsyncSession = Depends(get_session),
 ):
-    hardware = await api.gaia.get_hardwares(
+    hardware = await api.hardware.get_multiple(
         session, hardware_uid, ecosystems_uid, hardware_level,
         hardware_type, hardware_model
     )
-    response = [api.gaia.get_sensor_info(
+    response = [await api.sensor.get_info(
         session, h, measures, current_data, historic_data, time_window
     ) for h in hardware]
     return response
@@ -55,7 +55,7 @@ async def get_multiple_hardware(
 
 @router.get("/hardware/models_available")
 async def get_hardware_available():
-    response = api.gaia.get_hardware_models_available()
+    response = api.hardware.get_models_available()
     return response
 
 
@@ -76,7 +76,7 @@ async def get_hardware(
 ):
     assert_single_uid(uid)
     hardware = await hardware_or_abort(session, uid)
-    response = api.gaia.get_hardware_info(session, hardware)
+    response = api.hardware.get_info(session, hardware)
     return response
 
 
@@ -102,11 +102,11 @@ async def get_sensors(
         time_window: timeWindow = Depends(get_time_window),
         session: AsyncSession = Depends(get_session),
 ):
-    sensors = await api.gaia.get_hardwares(
+    sensors = await api.sensor.get_multiple(
         session, sensors_uid, ecosystems_uid, sensors_level, "sensor",
         sensors_model
     )
-    response = [api.gaia.get_sensor_info(
+    response = [await api.sensor.get_info(
         session, sensor, measures, current_data,
         historic_data, time_window
     ) for sensor in sensors]
@@ -115,7 +115,8 @@ async def get_sensors(
 
 @router.get("/sensor/measures_available")
 async def get_measures_available(session: AsyncSession = Depends(get_session)):
-    return await api.gaia.get_all_measures(session)
+    measures = await api.measure.get_multiple(session)
+    return [api.measure.get_info(session, measure) for measure in measures]
 
 
 @router.get("/sensor/u/<uid>")
@@ -128,7 +129,7 @@ async def get_sensor(
 ):
     assert_single_uid(uid)
     sensor = await hardware_or_abort(session, uid)
-    response = await api.gaia.get_sensor_info(
+    response = await api.sensor.get_info(
         session, sensor, "all", current_data, historic_data, time_window,
     )
     return response
@@ -148,7 +149,7 @@ async def get_measure_for_sensor(
     sensor = await hardware_or_abort(session, uid)
     response = {}
     if measure in [m.name for m in sensor.measure]:
-        response = api.gaia.get_sensor_info(
+        response = await api.sensor.get_info(
             session, sensor, measure, current_data, historic_data,
             time_window
         )

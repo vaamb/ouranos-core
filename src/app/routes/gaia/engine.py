@@ -14,7 +14,7 @@ if t.TYPE_CHECKING:
 
 
 async def engine_or_abort(session: AsyncSession, engine_id: str) -> "Engine":
-    engine = await api.gaia.get_engine(
+    engine = await api.engine.get(
         session=session, engine_id=engine_id
     )
     if engine:
@@ -30,8 +30,8 @@ async def get_engines(
         engines_id: t.Optional[list[str]] = Query(default=None),
         session: AsyncSession = Depends(get_session)
 ):
-    engines = await api.gaia.get_engines(session, engines_id)
-    response = [api.gaia.get_engine_info(
+    engines = await api.engine.get_multiple(session, engines_id)
+    response = [api.gaia.get_info(
         session, engine
     ) for engine in engines]
     return response
@@ -44,5 +44,5 @@ async def get_engine(
 ):
     assert_single_uid(uid)
     engine = await engine_or_abort(session, uid)
-    response = api.gaia.get_engine_info(session, engine)
+    response = api.gaia.get_info(session, engine)
     return response

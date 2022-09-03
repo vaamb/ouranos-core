@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -6,7 +8,7 @@ from src.core.api.utils import timeWindow
 from src.core.database.models.system import SystemHistory
 
 
-async def get_historic_system_data(
+async def get_historic_data(
         session: AsyncSession,
         time_window: timeWindow
 ) -> dict:
@@ -32,7 +34,7 @@ async def get_historic_system_data(
     }
 
 
-async def create_system_data_record(
+async def create_data_record(
         session: AsyncSession,
         data_record: dict,
 ) -> SystemHistory:
@@ -42,17 +44,15 @@ async def create_system_data_record(
     return record
 
 
-def get_current_system_data():
+def get_current_data() -> dict:
     return {**systemData}
 
 
-def update_current_system_data(data: dict):
+def update_current_data(data: dict) -> None:
     systemData.update(data)
 
 
-def delete_current_system_data_key(key: str):
-    del systemData[key]
-
-
-def clear_current_system_data():
+def clear_current_data(key: str | None = None) -> None:
+    if key:
+        del systemData[key]
     systemData.clear()

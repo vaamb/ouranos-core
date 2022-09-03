@@ -11,11 +11,6 @@ from sqlalchemy.exc import IntegrityError
 from statistics import mean, stdev as std
 
 from .decorators import registration_required
-from .utils import (
-    update_ecosystem_or_create_it, update_engine_or_create_it,
-    update_environment_parameter_or_create_it,
-    update_hardware_or_create_it, update_light_or_create_it
-)
 from src.app import dispatcher
 from src.app.utils import app_config, decrypt_uid, validate_uid_token
 from src.core import api, db
@@ -110,7 +105,7 @@ class Events(AsyncNamespace):
 
     async def on_disconnect(self, sid):
         async with db.scoped_session() as session:
-            engine = await api.gaia.get_engine(session, engine_id=sid)
+            engine = await api.engine.get(session, engine_id=sid)
             if not engine:
                 return
             uid = engine.uid
@@ -128,12 +123,12 @@ class Events(AsyncNamespace):
     async def on_pong(self, sid, data):
         now = datetime.now(timezone.utc).replace(microsecond=0)
         async with db.scoped_session() as session:
-            engine = await api.gaia.get_engine(session, sid)
+            engine = await api.engine.get(session, sid)
             if not engine:
                 return
             engine.last_seen = now
             for ecosystem_uid in data:
-                ecosystem = await api.gaia.get_ecosystem(ecosystem_uid)
+                ecosystem = await api.ecosystem.get(ecosystem_uid)
                 ecosystem.last_seen = now
             await session.commit()
 
@@ -166,7 +161,7 @@ class Events(AsyncNamespace):
                 "address": f"{remote_addr}",
             }
             async with db.scoped_session() as session:
-                await update_engine_or_create_it(session, engine_info)
+                await api.engine.update_or_create(session, engine_info)
             self.enter_room(sid, room="engines", namespace="/gaia")
 
             await self.emit("register_ack", namespace="/gaia", room=sid)
@@ -191,7 +186,7 @@ class Events(AsyncNamespace):
             ecosystem_data.update({"engine_uid": engine_uid})
             uid: str = ecosystem_data["uid"]
             async with db.scoped_session() as session:
-                await update_ecosystem_or_create_it(session, ecosystem_data)
+                await api.ecosystem.update_or_create(session, ecosystem_data)
             ecosystems.append({"uid": uid, "status": ecosystem_data["status"]})
         await self.emit(
             "ecosystem_status",
@@ -208,7 +203,7 @@ class Events(AsyncNamespace):
         async with db.scoped_session() as session:
             for ecosystem_data in data:
                 uid: str = ecosystem_data["uid"]
-                ecosystem = await update_ecosystem_or_create_it(session, uid=uid)
+                ecosystem = await api.ecosystem.update_or_create(session, uid=uid)
                 for m, v in Management.items():
                     try:
                         if ecosystem_data[m]:
@@ -224,6 +219,7 @@ class Events(AsyncNamespace):
         async with db.scoped_session() as session:
             for ecosystem_data in data:
                 uid: str = ecosystem_data["uid"]
+                ecosystem_data["engine_uid"] = engine_uid
                 tods = {}
                 env_params = {}
                 for tod in ["day", "night"]:
@@ -249,7 +245,7 @@ class Events(AsyncNamespace):
                     "day_start": tods.get("day"),
                     "night_start": tods.get("night"),
                 }
-                ecosystem = await update_ecosystem_or_create_it(
+                ecosystem = await api.ecosystem.update_or_create(
                     session, ecosystem_info=ecosystem_info
                 )
                 ecosystem.light.method = ecosystem_data.get("light")
@@ -259,7 +255,7 @@ class Events(AsyncNamespace):
                         "night": v.get("night"),
                         "hysteresis": v.get("hysteresis")
                     }
-                    await update_environment_parameter_or_create_it(
+                    await api.environmental_parameter.update_or_create(
                         session, uid, parameter, parameter_info
                     )
             await session.commit()
@@ -272,18 +268,20 @@ class Events(AsyncNamespace):
                 for hardware_uid, hardware_dict in ecosystem_data.items():
                     hardware_dict["ecosystem_uid"] = uid
                     measures = hardware_dict.pop("measure", [])
-                    if isinstance(measures, str):
-                        measures = [measures]
-                    _measures = await api.gaia.get_measures(session, measures)
-                    if _measures:
-                        hardware_dict["measure"] = _measures
+                    if measures:
+                        if isinstance(measures, str):
+                            measures = [measures]
+                        _measures = await api.measure.get_multiple(session, measures)
+                        if _measures:
+                            hardware_dict["measure"] = _measures
                     plants = hardware_dict.pop("plants", [])
-                    if isinstance(plants, str):
-                        plants = [plants]
-                    _plants = await api.gaia.get_plants(session, plants)
-                    if _plants:
-                        hardware["plants"] = _plants
-                    hardware = await update_hardware_or_create_it(
+                    if plants:
+                        if isinstance(plants, str):
+                            plants = [plants]
+                        _plants = await api.plant.get_multiple(session, plants)
+                        if _plants:
+                            hardware["plants"] = _plants
+                    hardware = await api.hardware.update_or_create(
                         session, hardware_info=hardware_dict, uid=hardware_uid
                     )
 
@@ -292,7 +290,7 @@ class Events(AsyncNamespace):
     @registration_required
     async def on_sensors_data(self, sid, data, engine_uid):
         sio_logger.debug(f"Received 'sensors_data' from engine: {engine_uid}")
-        api.gaia.update_current_sensors_data(
+        api.sensor.update_current_data(
             {
                 ecosystem["ecosystem_uid"]: {
                     "data": {
@@ -331,10 +329,10 @@ class Events(AsyncNamespace):
                                 "value": value,
                             }
                             try:
-                                await api.gaia.create_historic_sensor_data(
+                                await api.sensor.create_record(
                                     session, sensor_data
                                 )
-                                await api.gaia.update_hardware(
+                                await api.hardware.update(
                                     session, {"last_log": dt}, sensor_uid
                                 )
                             except IntegrityError:
@@ -363,7 +361,7 @@ class Events(AsyncNamespace):
                                     "datetime": dt,
                                     "value": values_summarized,
                                 }
-                                await api.gaia.create_historic_sensor_data(
+                                await api.sensor.create_record(
                                     session, aggregated_data
                                 )
             await session.commit()
@@ -382,7 +380,7 @@ class Events(AsyncNamespace):
                     "necrosis": d["necrosis"],
                     "health_index": d["health_index"]
                 }
-                await api.gaia.create_health_record(session, health_data)
+                await api.health.create_record(session, health_data)
 
     @registration_required
     async def on_light_data(self, sid, data, engine_uid):
@@ -403,7 +401,7 @@ class Events(AsyncNamespace):
                     "evening_start": evening_start,
                     "evening_end": evening_end
                 }
-                await update_light_or_create_it(session, light_info=light_info)
+                await api.light.update_or_create(session, light_info=light_info)
         await self.emit("light_data", data, namespace="/")
 
 

@@ -52,7 +52,7 @@ class Weather(ServiceTemplate):
 
     def _load_data(self, raw_data):
         with self.mutex:
-            api.weather.update_weather({
+            api.weather.update({
                 "currently": _simplify_weather_data(raw_data["currently"]),
                 "hourly": _format_forecast(raw_data["hourly"],
                                            time_window=48),
@@ -64,17 +64,17 @@ class Weather(ServiceTemplate):
         now = datetime.now()
         self.manager.dispatcher.emit(
             "application", "weather_current",
-            data={"currently": api.weather.get_weather("currently")},
+            data={"currently": api.weather.get("currently")},
         )
         if now.minute % 15 == 0:
             self.manager.dispatcher.emit(
                 "application", "weather_hourly",
-                data={"hourly": api.weather.get_weather("hourly")},
+                data={"hourly": api.weather.get("hourly")},
             )
         if now.hour % 3 == 0 and now.minute == 0:
             self.manager.dispatcher.emit(
                 "application", "weather_daily",
-                data={"daily": api.weather.get_weather("daily")},
+                data={"daily": api.weather.get("daily")},
             )
 
     def update_weather_data(self) -> None:
@@ -93,7 +93,7 @@ class Weather(ServiceTemplate):
             except requests.exceptions.ConnectionError:
                 self.logger.error("ConnectionError: cannot update weather data")
                 with self.mutex:
-                    api.weather.clear_weather()
+                    api.weather.clear()
             else:
                 raw_data = {
                     "currently": data["currently"],
@@ -108,10 +108,10 @@ class Weather(ServiceTemplate):
         else:
             self.logger.error("ConnectionError: could not update weather data")
             with self.mutex:
-                api.weather.clear_weather()
+                api.weather.clear()
 
     def _check_recency(self) -> bool:
-        if not api.weather.get_weather():
+        if not api.weather.get():
             try:
                 with open(self._file_path, "r") as file:
                     self._load_data(json.load(file))
@@ -119,7 +119,7 @@ class Weather(ServiceTemplate):
                 # No file or empty file
                 return False
 
-        if api.weather.get_weather("currently").get("time") > \
+        if api.weather.get("currently").get("time") > \
                 time.time() - (self.config.OURANOS_WEATHER_UPDATE_PERIOD * 60):
             self.logger.debug("Weather data already up to date")
             return True
@@ -142,4 +142,4 @@ class Weather(ServiceTemplate):
 
     def _stop(self) -> None:
         scheduler.remove_job("weather")
-        api.weather.clear_weather()
+        api.weather.clear()

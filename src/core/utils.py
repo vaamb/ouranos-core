@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import dataclasses
 from datetime import date, datetime, time, timezone
@@ -143,7 +145,9 @@ def time_to_datetime(_time: t.Optional[time]) -> t.Optional[datetime]:
     return datetime.combine(date.today(), _time, tzinfo=timezone.utc)
 
 
-def parse_sun_times(moment: str) -> datetime:
+def parse_sun_times(moment: str | datetime) -> datetime:
+    if isinstance(moment, datetime):
+        return moment
     _time = datetime.strptime(moment, "%I:%M:%S %p").time()
     return datetime.combine(date.today(), _time, tzinfo=timezone.utc)
 

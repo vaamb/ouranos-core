@@ -23,7 +23,7 @@ class Events(AsyncNamespace):
     async def on_turn_light(self, sid, data):
         ecosystem_uid = data["ecosystem"]
         with db.scoped_session() as session:
-            ecosystem = await api.gaia.get_ecosystem(session, ecosystem_uid)
+            ecosystem = await api.ecosystem.get(session, ecosystem_uid)
         if not ecosystem:
             return
         ecosystem_sid = ecosystem.engine.sid
@@ -42,7 +42,7 @@ class Events(AsyncNamespace):
     async def on_manage_ecosystem(self, sid, data):
         ecosystem_uid = data["ecosystem"]
         with db.scoped_session() as session:
-            ecosystem = await api.gaia.get_ecosystem(session, ecosystem_uid)
+            ecosystem = await api.ecosystem.get(session, ecosystem_uid)
         if not ecosystem:
             return
         ecosystem_sid = ecosystem.engine.sid

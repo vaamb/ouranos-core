@@ -74,626 +74,370 @@ async def _delete_entry(
     await session.execute(stmt)
 
 
+async def _update_or_create(
+        session: AsyncSession,
+        api_class,
+        info: dict | None = None,
+        uid: str | None = None,
+):
+    info = info or {}
+    uid = uid or info.pop("uid", None)
+    if not uid:
+        raise ValueError(
+            "Provide uid either as an argument or as a key in the updated info"
+        )
+    obj = await api_class.get(session, uid)
+    if not obj:
+        info["uid"] = uid
+        obj = await api_class.create(session, info)
+    elif info:
+        await api_class.update(session, info, uid)
+    return obj
+
+
 # ---------------------------------------------------------------------------
 #   Engine-related APIs
 # ---------------------------------------------------------------------------
-async def create_engine(
-        session: AsyncSession,
-        engine_info: dict,
-) -> Engine:
-    engine = await _create_entry(session, Engine, engine_info)
-    return engine
+class engine:
+    @staticmethod
+    async def create(
+            session: AsyncSession,
+            engine_info: dict,
+    ) -> Engine:
+        return await _create_entry(session, Engine, engine_info)
 
+    @staticmethod
+    async def update(
+            session: AsyncSession,
+            engine_info: dict,
+            uid: t.Optional[str] = None,
+    ) -> None:
+        await _update_entry(session, Engine, engine_info, uid)
 
-async def update_engine(
-        session: AsyncSession,
-        engine_info: dict,
-        uid: t.Optional[str] = None,
-) -> None:
-    await _update_entry(session, Engine, engine_info, uid)
+    @staticmethod
+    async def delete(
+            session: AsyncSession,
+            uid: str,
+    ) -> None:
+        await _delete_entry(session, Engine, uid)
 
-
-async def delete_engine(
-        session: AsyncSession,
-        uid: str,
-) -> None:
-    await _delete_entry(session, Engine, uid)
-
-
-async def get_engine(
-        session: AsyncSession,
-        engine_id: str,
-) -> t.Optional[Engine]:
-    stmt = (
-        select(Engine)
-        .where((Engine.uid == engine_id) | (Engine.sid == engine_id))
-    )
-    result = await session.execute(stmt)
-    return result.scalars().one_or_none()
-
-
-async def get_engines(
-        session: AsyncSession,
-        engines: t.Optional[str | tuple | list] = None,
-) -> t.Optional[list[Engine]]:
-    engines = engines or "all"
-    if "all" in engines:
+    @staticmethod
+    async def get(
+            session: AsyncSession,
+            engine_id: str,
+    ) -> t.Optional[Engine]:
         stmt = (
             select(Engine)
-            .order_by(Engine.last_seen.desc())
+            .where((Engine.uid == engine_id) | (Engine.sid == engine_id))
         )
-    elif "recent" in engines:
-        time_limit = time_limits()["recent"]
-        stmt = (
-            select(Engine)
-            .where(Engine.last_seen >= time_limit)
-            .order_by(Engine.last_seen.desc())
-        )
-    elif "connected" in engines:
-        stmt = (
-            select(Engine)
-            .where(Engine.connected)
-            .order_by(Engine.uid.asc())
-        )
-    else:
-        stmt = (
-            select(Engine)
-            .where(
-                Engine.uid.in_(engines) |
-                Engine.sid.in_(engines)
+        result = await session.execute(stmt)
+        return result.scalars().one_or_none()
+
+    @staticmethod
+    async def get_multiple(
+            session: AsyncSession,
+            engines: str | tuple | list | None = None,
+    ) -> list[Engine]:
+        engines = engines or "all"
+        if "all" in engines:
+            stmt = (
+                select(Engine)
+                .order_by(Engine.last_seen.desc())
             )
-            .order_by(Engine.uid.asc())
+        elif "recent" in engines:
+            time_limit = time_limits()["recent"]
+            stmt = (
+                select(Engine)
+                .where(Engine.last_seen >= time_limit)
+                .order_by(Engine.last_seen.desc())
+            )
+        elif "connected" in engines:
+            stmt = (
+                select(Engine)
+                .where(Engine.connected)
+                .order_by(Engine.uid.asc())
+            )
+        else:
+            stmt = (
+                select(Engine)
+                .where(
+                    Engine.uid.in_(engines) |
+                    Engine.sid.in_(engines)
+                )
+                .order_by(Engine.uid.asc())
+            )
+        result = await session.execute(stmt)
+        return result.scalars().all()
+
+    @staticmethod
+    async def update_or_create(
+            session: AsyncSession,
+            engine_info: t.Optional[dict] = None,
+            uid: t.Optional[str] = None,
+    ) -> Engine:
+        return await _update_or_create(
+            session, api_class=engine, info=engine_info, uid=uid
         )
-    result = await session.execute(stmt)
-    return result.scalars().all()
 
-
-def get_engine_info(session: AsyncSession, engine: Engine) -> dict:
-    return engine.to_dict()
+    @staticmethod
+    def get_info(session: AsyncSession, engine: Engine) -> dict:
+        return engine.to_dict()
 
 
 # ---------------------------------------------------------------------------
 #   Ecosystem-related APIs
 # ---------------------------------------------------------------------------
-async def create_ecosystem(
-        session: AsyncSession,
-        ecosystem_info: dict,
-) -> Ecosystem:
-    ecosystem = await _create_entry(session, Ecosystem, ecosystem_info)
-    return ecosystem
+class ecosystem:
+    @staticmethod
+    async def create(
+            session: AsyncSession,
+            ecosystem_info: dict,
+    ) -> Ecosystem:
+        return await _create_entry(session, Ecosystem, ecosystem_info)
 
+    @staticmethod
+    async def update(
+            session: AsyncSession,
+            ecosystem_info: dict,
+            uid: t.Optional[str] = None,
+    ) -> None:
+        await _update_entry(session, Ecosystem, ecosystem_info, uid)
 
-async def update_ecosystem(
-        session: AsyncSession,
-        ecosystem_info: dict,
-        uid: t.Optional[str] = None,
-) -> None:
-    await _update_entry(session, Ecosystem, ecosystem_info, uid)
+    @staticmethod
+    async def delete(
+            session: AsyncSession,
+            uid: str
+    ) -> None:
+        await _delete_entry(session, Ecosystem, uid)
 
-
-async def delete_ecosystem(
-        session: AsyncSession,
-        uid: str
-) -> None:
-    await _delete_entry(session, Ecosystem, uid)
-
-
-async def get_ecosystem(
-        session: AsyncSession,
-        ecosystem_id: str,
-) -> t.Optional[Ecosystem]:
-    ecosystem_id = (ecosystem_id, )
-    stmt = (
-        select(Ecosystem)
-        .where(Ecosystem.uid.in_(ecosystem_id) | Ecosystem.name.in_(ecosystem_id))
-    )
-    result = await session.execute(stmt)
-    return result.scalars().one_or_none()
-
-
-async def get_ecosystems(
-        session: AsyncSession,
-        ecosystems: t.Optional[str | tuple | list] = None,
-) -> list[Ecosystem]:
-    ecosystems = ecosystems or "all"
-    if isinstance(ecosystems, str):
-        ecosystems = ecosystems.split(",")
-    if "all" in ecosystems:
+    @staticmethod
+    async def get(
+            session: AsyncSession,
+            ecosystem_id: str,
+    ) -> t.Optional[Ecosystem]:
+        ecosystem_id = (ecosystem_id, )
         stmt = (
             select(Ecosystem)
-            .order_by(Ecosystem.name.asc(),
-                      Ecosystem.last_seen.desc())
+            .where(Ecosystem.uid.in_(ecosystem_id) | Ecosystem.name.in_(ecosystem_id))
         )
-    elif "recent" in ecosystems:
-        time_limit = time_limits()["recent"]
+        result = await session.execute(stmt)
+        return result.scalars().one_or_none()
+
+    @staticmethod
+    async def get_multiple(
+            session: AsyncSession,
+            ecosystems: str | tuple | list | None = None,
+    ) -> list[Ecosystem]:
+        ecosystems = ecosystems or "all"
+        if isinstance(ecosystems, str):
+            ecosystems = ecosystems.split(",")
+        if "all" in ecosystems:
+            stmt = (
+                select(Ecosystem)
+                .order_by(Ecosystem.name.asc(),
+                          Ecosystem.last_seen.desc())
+            )
+        elif "recent" in ecosystems:
+            time_limit = time_limits()["recent"]
+            stmt = (
+                select(Ecosystem)
+                .where(Ecosystem.last_seen >= time_limit)
+                .order_by(Ecosystem.status.desc(), Ecosystem.name.asc())
+            )
+        elif "connected" in ecosystems:
+            stmt = (
+                select(Ecosystem).join(Engine.ecosystems)
+                .where(Engine.connected)
+                .order_by(Ecosystem.name.asc())
+            )
+        else:
+            stmt = (
+                select(Ecosystem).join(Engine.ecosystems)
+                .where(Ecosystem.uid.in_(ecosystems) |
+                       Ecosystem.name.in_(ecosystems))
+                .order_by(Ecosystem.last_seen.desc(), Ecosystem.name.asc())
+            )
+        result = await session.execute(stmt)
+        return result.scalars().all()
+
+    @staticmethod
+    async def update_or_create(
+            session: AsyncSession,
+            ecosystem_info: t.Optional[dict] = None,
+            uid: t.Optional[str] = None,
+    ) -> Ecosystem:
+        return await _update_or_create(
+            session, api_class=ecosystem, info=ecosystem_info, uid=uid
+        )
+
+    @staticmethod
+    async def get_ids(session: AsyncSession, ecosystem: str) -> ecosystemIds:
         stmt = (
             select(Ecosystem)
-            .where(Ecosystem.last_seen >= time_limit)
-            .order_by(Ecosystem.status.desc(), Ecosystem.name.asc())
+            .where(
+                (Ecosystem.uid == ecosystem) |
+                (Ecosystem.name == ecosystem)
+            )
         )
-    elif "connected" in ecosystems:
-        stmt = (
-            select(Ecosystem).join(Engine.ecosystems)
-            .where(Engine.connected)
-            .order_by(Ecosystem.name.asc())
-        )
-    else:
-        stmt = (
-            select(Ecosystem).join(Engine.ecosystems)
-            .where(Ecosystem.uid.in_(ecosystems) |
-                   Ecosystem.name.in_(ecosystems))
-            .order_by(Ecosystem.last_seen.desc(), Ecosystem.name.asc())
-        )
-    result = await session.execute(stmt)
-    return result.scalars().all()
+        result = await session.execute(stmt)
+        ecosystem_ = result.first()
+        if ecosystem_:
+            return ecosystemIds(ecosystem_.uid, ecosystem_.name)
+        raise NoEcosystemFound
 
+    @staticmethod
+    def get_info(session: AsyncSession, ecosystem: Ecosystem) -> dict:
+        return ecosystem.to_dict()
 
-async def get_ecosystem_ids(session: AsyncSession, ecosystem: str) -> ecosystemIds:
-    stmt = (
-        select(Ecosystem)
-        .where(
-            (Ecosystem.uid == ecosystem) |
-            (Ecosystem.name == ecosystem)
-        )
-    )
-    result = await session.execute(stmt)
-    ecosystem = result.first()
-    if ecosystem:
-        return ecosystemIds(ecosystem.uid, ecosystem.name)
-    raise NoEcosystemFound
+    @staticmethod
+    def get_management(
+            session: AsyncSession,
+            ecosystem: Ecosystem,
+    ) -> dict:
+        limits = time_limits()
 
-
-def get_ecosystem_info(session: AsyncSession, ecosystem: Ecosystem) -> dict:
-    return ecosystem.to_dict()
-
-
-def get_ecosystem_management(
-        session: AsyncSession,
-        ecosystem: Ecosystem,
-) -> dict:
-    limits = time_limits()
-
-    @cached(cache_ecosystem_info)
-    def cached_func(ecosystem: Ecosystem):
-        management = ecosystem.management_dict()
-        return {
-            "uid": ecosystem.uid,
-            "name": ecosystem.name,
-            "sensors": management["sensors"],
-            "light": management["light"],
-            "climate": management["climate"],
-            "watering": management["watering"],
-            "health": management["health"],
-            "alarms": management["alarms"],
-            "webcam": management["webcam"],
-            "switches": any((management["climate"], management["light"])),
-            "environment_data": bool(
-                ecosystem.hardware
+        @cached(cache_ecosystem_info)
+        def cached_func(ecosystem: Ecosystem):
+            management = ecosystem.management_dict()
+            return {
+                "uid": ecosystem.uid,
+                "name": ecosystem.name,
+                "sensors": management["sensors"],
+                "light": management["light"],
+                "climate": management["climate"],
+                "watering": management["watering"],
+                "health": management["health"],
+                "alarms": management["alarms"],
+                "webcam": management["webcam"],
+                "switches": any((management["climate"], management["light"])),
+                "environment_data": bool(
+                    ecosystem.hardware
                     .where(
                         Hardware.type == "sensor",
                         Hardware.level == "environment"
                     )
                     .filter(Hardware.last_log >= limits["sensors"])
                     .first()
-            ),
-            "plants_data": bool(
-                ecosystem.hardware
+                ),
+                "plants_data": bool(
+                    ecosystem.hardware
                     .where(
                         Hardware.type == "sensor",
                         Hardware.level == "plants"
                     )
                     .filter(Hardware.last_log >= limits["sensors"])
                     .first()
-            ),
-        }
-    return cached_func(ecosystem)
+                ),
+            }
+        return cached_func(ecosystem)
 
+    @staticmethod
+    def get_light_info(session: AsyncSession, ecosystem: Ecosystem) -> dict:
+        return ecosystem.light.first().to_dict()
 
-def get_light_info(session: AsyncSession, ecosystem: Ecosystem) -> dict:
-    return ecosystem.light.first().to_dict()
-
-
-# ---------------------------------------------------------------------------
-#   Environmental parameters-related APIs
-# ---------------------------------------------------------------------------
-async def create_environmental_parameter(
-        session: AsyncSession,
-        parameters_info: dict,
-) -> EnvironmentParameter:
-    return await _create_entry(session, EnvironmentParameter, parameters_info)
-
-
-async def update_environmental_parameter(
-        session: AsyncSession,
-        parameter_info: dict,
-        uid: t.Optional[str] = None,
-        parameter: t.Optional[str] = None,
-
-) -> None:
-    parameter_info = parameter_info or {}
-    uid = uid or parameter_info.pop("uid", None)
-    parameter = parameter or parameter_info.pop("parameter", None)
-    if not (uid or parameter):
-        raise ValueError(
-            "Provide uid and parameter either as a argument or as a key in the "
-            "updated info"
-        )
-    stmt = (
-        update(EnvironmentParameter)
-        .where(
-            EnvironmentParameter.ecosystem_uid == uid,
-            EnvironmentParameter.parameter == parameter
-        )
-        .values(**parameter_info)
-    )
-    await session.execute(stmt)
-
-
-async def delete_environmental_parameter(
-        session: AsyncSession,
-        uid: str,
-        parameter: str,
-) -> None:
-    stmt = (
-        delete(EnvironmentParameter)
-        .where(
-            EnvironmentParameter.ecosystem_uid == uid,
-            EnvironmentParameter.parameter == parameter
-        )
-    )
-    await session.execute(stmt)
-
-
-async def get_environmental_parameter(
-        session: AsyncSession,
-        uid: str,
-        parameter: str,
-) -> t.Optional[EnvironmentParameter]:
-    stmt = (
-        select(EnvironmentParameter)
-        .where(
-            EnvironmentParameter.ecosystem_uid == uid,
-            EnvironmentParameter.parameter == parameter
-        )
-    )
-    result = await session.execute(stmt)
-    return result.scalars().one_or_none()
-
-
-async def get_environment_parameters(
-        session: AsyncSession,
-        ecosystem: Ecosystem,
-) -> dict:
-    return {
-        "uid": ecosystem.uid,
-        "name": ecosystem.name,
-        "day": ecosystem.day_start,
-        "night": ecosystem.night_start,
-        "parameters": [
-            parameter.to_dict()
-            for parameter in ecosystem.environment_parameters
-        ]
-    }
-
-
-async def get_ecosystem_sensors_data_skeleton(
-        session: AsyncSession,
-        ecosystem: Ecosystem,
-        time_window: timeWindow,
-        level: t.Optional[str | tuple | list] = None,
-) -> dict:
-    level = level or "all"
-    @cached(cache_sensors_data_skeleton)
-    async def inner_func(
-            ecosystem_id: str,
+    @staticmethod
+    async def get_ecosystem_sensors_data_skeleton(
+            session: AsyncSession,
+            ecosystem: Ecosystem,
             time_window: timeWindow,
-            level: t.Optional[str | tuple | list] = None,
-    ) -> list:
-        # TODO: use a function for level and
-        stmt = (
-            select(Hardware).join(SensorHistory.sensor)
-            .filter(Hardware.level.in_(level))
-            .filter(SensorHistory.ecosystem_uid == ecosystem_id)
-            .filter((SensorHistory.datetime > time_window[0]) &
-                    (SensorHistory.datetime <= time_window[1]))
-        )
-        result = await session.execute(stmt)
-        sensors = result.scalars().all()
-        temp = {}
-        for sensor in sensors:
-            for measure in sensor.measure:
-                try:
-                    temp[measure.name][sensor.uid] = sensor.name
-                except KeyError:
-                    temp[measure.name] = {sensor.uid: sensor.name}
-        order = [
-            "temperature", "humidity", "lux", "dew_point", "absolute_moisture",
-            "moisture"
-        ]
-        return [{
-            "measure": measure,
-            "sensors": [{
-                "uid": sensor,
-                "name": temp[measure][sensor]
-            } for sensor in temp[measure]]
-        } for measure in {
-            key: temp[key] for key in order if temp.get(key)
-        }]
+            level: str | tuple | list | None = None,
+    ) -> dict:
+        level = level or "all"
 
-    if "all" in level:
-        level = ("environment", "plants")
-    elif isinstance(level, str):
-        level = level.split(",")
-    return {
-        "uid": ecosystem.uid,
-        "name": ecosystem.name,
-        "level": level,
-        "sensors_skeleton": await inner_func(
-            session=session, ecosystem_id=ecosystem.uid,
-            time_window=time_window, level=level)
-    }
-
-
-# ---------------------------------------------------------------------------
-#   Hardware-related APIs
-# ---------------------------------------------------------------------------
-async def create_hardware(
-        session: AsyncSession,
-        hardware_dict: dict,
-) -> Hardware:
-    hardware = await _create_entry(session, Hardware, hardware_dict)
-    return hardware
-
-
-async def update_hardware(
-        session: AsyncSession,
-        hardware_info: dict,
-        uid: t.Optional[str],
-) -> None:
-    await _update_entry(session, Hardware, hardware_info, uid)
-
-
-async def delete_hardware(
-        session: AsyncSession,
-        uid: str,
-) -> None:
-    await _delete_entry(session, Hardware, uid)
-
-
-async def get_hardware(
-        session: AsyncSession,
-        hardware_uid: str,
-) -> t.Optional[Hardware]:
-    stmt = select(Hardware).where(Hardware.uid == hardware_uid)
-    result = await session.execute(stmt)
-    return result.scalars().one_or_none()
-
-
-def _get_hardware_query(
-        hardware_uids: t.Optional[str | tuple | list] = None,
-        ecosystem_uids: t.Optional[str | tuple | list] = None,
-        levels: t.Optional[str | tuple | list] = None,
-        types: t.Optional[str | tuple | list] = None,
-        models: t.Optional[str | tuple | list] = None,
-):
-    query = select(Hardware)
-    if hardware_uids is not None and "all" not in hardware_uids:
-        if isinstance(hardware_uids, str):
-            hardware_uids = hardware_uids.split(",")
-        query = query.where(Hardware.uid.in_(hardware_uids))
-    if ecosystem_uids is not None and "all" not in ecosystem_uids:
-        if isinstance(ecosystem_uids, str):
-            ecosystem_uids = ecosystem_uids.split(",")
-        query = query.where(Hardware.ecosystem_uid.in_(ecosystem_uids))
-    if levels is not None and "all" not in levels:
-        if isinstance(levels, str):
-            levels = levels.split(",")
-        query = query.where(Hardware.level.in_(levels))
-    if types is not None and "all" not in types:
-        if isinstance(types, str):
-            types = types.split(",")
-        query = query.where(Hardware.type.in_(types))
-    if models is not None and "all" not in models:
-        if isinstance(models, str):
-            models = models.split(",")
-        query = query.where(Hardware.model.in_(models))
-    return query
-
-
-async def get_hardwares(  # I know it is not correct
-        session: AsyncSession,
-        hardware_uids: t.Optional[str | tuple | list] = None,
-        ecosystem_uids: t.Optional[str | tuple | list] = None,
-        levels: t.Optional[str | tuple | list] = None,
-        types: t.Optional[str | tuple | list] = None,
-        models: t.Optional[str | tuple | list] = None,
-) -> t.Optional[list[Hardware]]:
-    stmt = _get_hardware_query(
-        hardware_uids, ecosystem_uids, levels, types, models
-    )
-    result = await session.execute(stmt)
-    return result.scalars().all()
-
-
-def get_hardware_info(
-        session: AsyncSession,
-        hardware: Hardware
-) -> dict:
-    return hardware.to_dict()
-
-
-def get_hardware_models_available() -> list:
-    return HARDWARE_AVAILABLE
-
-
-# ---------------------------------------------------------------------------
-#   Hardware-related APIs
-# ---------------------------------------------------------------------------
-async def get_sensors(
-        session: AsyncSession,
-        hardware_uids: t.Optional[str | tuple | list] = None,
-        ecosystem_uids: t.Optional[str | tuple | list] = None,
-        levels: t.Optional[str | tuple | list] = None,
-        models: t.Optional[str | tuple | list] = None,
-        time_window: timeWindow = None,
-) -> t.Optional[list[Hardware]]:
-    stmt = _get_hardware_query(
-        hardware_uids, ecosystem_uids, levels, "sensor", models
-    )
-    if time_window:
-        stmt = (
-            stmt.join(SensorHistory.sensor)
-            .where(
-                (SensorHistory.datetime > time_window.start) &
-                (SensorHistory.datetime <= time_window.end)
+        @cached(cache_sensors_data_skeleton)
+        async def inner_func(
+                ecosystem_id: str,
+                time_window: timeWindow,
+                level: str | tuple | list | None = None,
+        ) -> list:
+            # TODO: use a function for level and
+            stmt = (
+                select(Hardware).join(SensorHistory.sensor)
+                .filter(Hardware.level.in_(level))
+                .filter(SensorHistory.ecosystem_uid == ecosystem_id)
+                .filter((SensorHistory.datetime > time_window[0]) &
+                        (SensorHistory.datetime <= time_window[1]))
             )
-            .distinct()
-        )
-    result = await session.execute(stmt)
-    return result.scalars().all()
-
-
-# TODO: cache?
-async def _get_measure_unit(session: AsyncSession, measure_name: str) -> str:
-    stmt = (
-        select(Measure)
-        .filter(Measure.name == measure_name)
-    )
-    result = await session.execute(stmt)
-    return result.scalars().first().unit
-
-
-async def _get_historic_sensor_data_record(
-        session: AsyncSession,
-        sensor_obj: Hardware,
-        measure: str,
-        time_window: timeWindow
-) -> list:
-    @cached(cache_sensors_data_raw)
-    async def cached_func(
-            sensor_obj: Hardware,
-            measure: str,
-            time_window: timeWindow
-    ) -> list:
-        stmt = (
-            select(SensorHistory)
-            .filter(SensorHistory.measure == measure)
-            .filter(SensorHistory.sensor_uid == sensor_obj.uid)
-            .filter((SensorHistory.datetime > time_window[0]) &
-                    (SensorHistory.datetime <= time_window[1]))
-            .with_entities(SensorHistory.datetime, SensorHistory.value)
-        )
-        result = await session.execute(stmt)
-        return result.scalars().all()
-    return await cached_func(sensor_obj, measure, time_window)
-
-
-async def _get_historic_sensors_data(
-        session: AsyncSession,
-        sensor_obj: Hardware,
-        time_window: timeWindow,
-        measures: t.Optional[str | tuple | list] = None,
-) -> list:
-    if measures is None or "all" in measures:
-        measures = [measure.name for measure in sensor_obj.measure]
-    elif isinstance(measures, str):
-        measures = measures.split(",")
-    rv = []
-    for measure in measures:
-        records = await _get_historic_sensor_data_record(
-            session, sensor_obj, measure, time_window
-        )
-        if records:
-            rv.append({
+            result = await session.execute(stmt)
+            sensors = result.scalars().all()
+            temp = {}
+            for sensor in sensors:
+                for measure in sensor.measure:
+                    try:
+                        temp[measure.name][sensor.uid] = sensor.name
+                    except KeyError:
+                        temp[measure.name] = {sensor.uid: sensor.name}
+            order = [
+                "temperature", "humidity", "lux", "dew_point", "absolute_moisture",
+                "moisture"
+            ]
+            return [{
                 "measure": measure,
-                "unit": await _get_measure_unit(session, measure),
-                "records": records,
-            })
-    return rv
+                "sensors": [{
+                    "uid": sensor,
+                    "name": temp[measure][sensor]
+                } for sensor in temp[measure]]
+            } for measure in {
+                key: temp[key] for key in order if temp.get(key)
+            }]
 
+        if "all" in level:
+            level = ("environment", "plants")
+        elif isinstance(level, str):
+            level = level.split(",")
+        return {
+            "uid": ecosystem.uid,
+            "name": ecosystem.name,
+            "level": level,
+            "sensors_skeleton": await inner_func(
+                session=session, ecosystem_id=ecosystem.uid,
+                time_window=time_window, level=level)
+        }
 
-async def _get_current_sensors_data(
-        session: AsyncSession,
-        sensor_obj: Hardware,
-        measures: t.Optional[str | tuple | list] = None,
-) -> list:
-    try:
-        ecosystem_uid = sensor_obj.ecosystem_uid
-        ecosystem = sensorsData[ecosystem_uid]
-        if measures is None or "all" in measures:
-            measures = [measure.name for measure in sensor_obj.measure]
-        elif isinstance(measures, str):
-            measures = measures.split(",")
-        rv = []
-        for measure in measures:
-            value = ecosystem["data"].get(sensor_obj.uid, {}).get(measure, None)
-            if value:
-                rv.append({
-                    "measure": measure,
-                    "unit": await _get_measure_unit(session, measure),
-                    "value": value,
-                })
-        return rv
-    except KeyError:
-        return []
+    @staticmethod
+    async def get_environment_parameters_info(
+            session: AsyncSession,
+            ecosystem: Ecosystem,
+    ) -> dict:
+        return {
+            "uid": ecosystem.uid,
+            "name": ecosystem.name,
+            "day": ecosystem.day_start,
+            "night": ecosystem.night_start,
+            "parameters": [
+                parameter.to_dict()
+                for parameter in ecosystem.environment_parameters
+            ]
+        }
 
+    @staticmethod
+    def get_plants_info(
+            session: AsyncSession,
+            ecosystem: Ecosystem,
+    ) -> dict:
+        return {
+            "ecosystem_uid": ecosystem.uid,
+            "ecosystem_name": ecosystem.name,
+            "plants": [
+                plant.to_dict()
+                for plant in ecosystem.plants
+            ]
+        }
 
-async def get_sensor_info(
-        session: AsyncSession,
-        sensor: Hardware,
-        measures: t.Optional[str | tuple | list] = None,
-        current_data: bool = True,
-        historic_data: bool = True,
-        time_window: timeWindow = None,
-) -> dict:
-    rv = sensor.to_dict()
-    if current_data or historic_data:
-        rv.update({"data": {}})
-        if current_data:
-            data = _get_current_sensors_data(session, sensor, measures)
-            if data:
-                rv["data"].update({
-                    "current": {
-                        "timestamp": sensorsData[sensor.ecosystem_uid]["datetime"],
-                        "data": data,
-                    }
-                })
-            else:
-                rv["data"].update({"current": None})
-        if historic_data:
-            if not time_window:
-                time_window = create_time_window()
-            data = await _get_historic_sensors_data(
-                session, sensor, time_window, measures
-            )
-            if data:
-                rv["data"].update({
-                    "historic": {
-                        "from": time_window.start,
-                        "to": time_window.end,
-                        "data": data,
-                    }
-                })
-            else:
-                rv["data"].update({"historic": None})
-    return rv
+    @staticmethod
+    async def get_hardware_info(
+            session: AsyncSession,
+            ecosystem: Ecosystem,
+            level: t.Optional[str | tuple | list] = None,
+            hardware_type: t.Optional[str | tuple | list] = None
+    ) -> dict:
+        if level is None or "all" in level:
+            level = ("environment", "plants")
+        if hardware_type is None or "all" in hardware_type:
+            hardware_type = HARDWARE_TYPE
+        elif "actuators" in hardware_type:
+            hardware_type = HARDWARE_TYPE.remove("sensor")
 
-
-async def get_ecosystems_hardware(
-        session: AsyncSession,
-        ecosystems_query_obj: list[Ecosystem],
-        level: t.Optional[str | tuple | list] = None,
-        hardware_type: t.Optional[str | tuple | list] = None
-) -> list[dict]:
-    if level is None or "all" in level:
-        level = ("environment", "plants")
-    if hardware_type is None or "all" in hardware_type:
-        hardware_type = HARDWARE_TYPE
-    elif "actuators" in hardware_type:
-        hardware_type = HARDWARE_TYPE.remove("sensor")
-
-    rv = []
-    for ecosystem in ecosystems_query_obj:
         stmt = (
             select(Hardware).join(Ecosystem)
             .filter(Ecosystem.uid == ecosystem.uid)
@@ -703,52 +447,548 @@ async def get_ecosystems_hardware(
             .order_by(Hardware.level)
         )
         result = await session.execute(stmt)
-
-        rv.append({
-            "ecosystem_uid": ecosystem.uid,
-            "ecosystem_name": ecosystem.name,
-            "hardware": [hardware.to_dict() for hardware in result.scalars().all()]
-        })
-    return rv
+        return {
+                "ecosystem_uid": ecosystem.uid,
+                "ecosystem_name": ecosystem.name,
+                "hardware": [h.to_dict() for h in result.scalars().all()]
+            }
 
 
-# TODO: split in get_measures and get_measure_info
-async def get_all_measures(session: AsyncSession) -> list:
-    stmt = select(Measure)
-    result = await session.execute(stmt)
-    return [measure.to_dict() for measure in result.scalars().all()]
+# ---------------------------------------------------------------------------
+#   Environmental parameters-related APIs
+# ---------------------------------------------------------------------------
+class environmental_parameter:
+    # TODO: make gaia calls
+    @staticmethod
+    async def create(
+            session: AsyncSession,
+            parameters_info: dict,
+    ) -> EnvironmentParameter:
+        return await _create_entry(session, EnvironmentParameter, parameters_info)
+
+    @staticmethod
+    async def update(
+            session: AsyncSession,
+            parameter_info: dict,
+            uid: t.Optional[str] = None,
+            parameter: t.Optional[str] = None,
+
+    ) -> None:
+        parameter_info = parameter_info or {}
+        uid = uid or parameter_info.pop("uid", None)
+        parameter = parameter or parameter_info.pop("parameter", None)
+        if not (uid or parameter):
+            raise ValueError(
+                "Provide uid and parameter either as a argument or as a key in the "
+                "updated info"
+            )
+        stmt = (
+            update(EnvironmentParameter)
+            .where(
+                EnvironmentParameter.ecosystem_uid == uid,
+                EnvironmentParameter.parameter == parameter
+            )
+            .values(**parameter_info)
+        )
+        await session.execute(stmt)
+
+    @staticmethod
+    async def delete(
+            session: AsyncSession,
+            uid: str,
+            parameter: str,
+    ) -> None:
+        stmt = (
+            delete(EnvironmentParameter)
+            .where(
+                EnvironmentParameter.ecosystem_uid == uid,
+                EnvironmentParameter.parameter == parameter
+            )
+        )
+        await session.execute(stmt)
+
+    @staticmethod
+    async def get(
+            session: AsyncSession,
+            uid: str,
+            parameter: str,
+    ) -> t.Optional[EnvironmentParameter]:
+        stmt = (
+            select(EnvironmentParameter)
+            .where(
+                EnvironmentParameter.ecosystem_uid == uid,
+                EnvironmentParameter.parameter == parameter
+            )
+        )
+        result = await session.execute(stmt)
+        return result.scalars().one_or_none()
+
+    @staticmethod
+    async def update_or_create(
+            session: AsyncSession,
+            uid: t.Optional[str] = None,
+            parameter: t.Optional[str] = None,
+            parameter_info: t.Optional[dict] = None,
+    ) -> EnvironmentParameter:
+        parameter_info = parameter_info or {}
+        uid = uid or parameter_info.pop("uid", None)
+        parameter = parameter or parameter_info.pop("parameter", None)
+        if not (uid or parameter):
+            raise ValueError(
+                "Provide uid and parameter either as a argument or as a key in the "
+                "updated info"
+            )
+        environment_parameter = await environmental_parameter.get(
+            session, uid=uid, parameter=parameter
+        )
+        if not environment_parameter:
+            parameter_info["ecosystem_uid"] = uid
+            parameter_info["parameter"] = parameter
+            environment_parameter = await environmental_parameter.create(
+                session, parameter_info
+            )
+        elif parameter_info:
+            await environmental_parameter.update(
+                session, parameter_info, uid
+            )
+        return environment_parameter
 
 
-async def get_measures(
-        session: AsyncSession,
-        measures_name: list[str]
-) -> list[Measure]:
-    stmt = select(Measure).where(Measure.name.in_(measures_name))
-    result = await session.execute(stmt)
-    return result.scalars().all()
+# ---------------------------------------------------------------------------
+#   Hardware-related APIs
+# ---------------------------------------------------------------------------
+class hardware:
+    @staticmethod
+    async def create(
+            session: AsyncSession,
+            hardware_dict: dict,
+    ) -> Hardware:
+        return await _create_entry(session, Hardware, hardware_dict)
+
+    @staticmethod
+    async def update(
+            session: AsyncSession,
+            hardware_info: dict,
+            uid: t.Optional[str],
+    ) -> None:
+        await _update_entry(session, Hardware, hardware_info, uid)
+
+    @staticmethod
+    async def delete(
+            session: AsyncSession,
+            uid: str,
+    ) -> None:
+        await _delete_entry(session, Hardware, uid)
+
+    @staticmethod
+    async def get(
+            session: AsyncSession,
+            hardware_uid: str,
+    ) -> t.Optional[Hardware]:
+        stmt = select(Hardware).where(Hardware.uid == hardware_uid)
+        result = await session.execute(stmt)
+        return result.scalars().one_or_none()
+
+    @staticmethod
+    def _get_query(
+            hardware_uid: t.Optional[str | tuple | list] = None,
+            ecosystem_uid: t.Optional[str | tuple | list] = None,
+            levels: t.Optional[str | tuple | list] = None,
+            types: t.Optional[str | tuple | list] = None,
+            models: t.Optional[str | tuple | list] = None,
+    ):
+        query = select(Hardware)
+        if hardware_uid is not None and "all" not in hardware_uid:
+            if isinstance(hardware_uid, str):
+                hardware_uid = hardware_uid.split(",")
+            query = query.where(Hardware.uid.in_(hardware_uid))
+        if ecosystem_uid is not None and "all" not in ecosystem_uid:
+            if isinstance(ecosystem_uid, str):
+                ecosystem_uid = ecosystem_uid.split(",")
+            query = query.where(Hardware.ecosystem_uid.in_(ecosystem_uid))
+        if levels is not None and "all" not in levels:
+            if isinstance(levels, str):
+                levels = levels.split(",")
+            query = query.where(Hardware.level.in_(levels))
+        if types is not None and "all" not in types:
+            if isinstance(types, str):
+                types = types.split(",")
+            query = query.where(Hardware.type.in_(types))
+        if models is not None and "all" not in models:
+            if isinstance(models, str):
+                models = models.split(",")
+            query = query.where(Hardware.model.in_(models))
+        return query
+
+    @staticmethod
+    async def get_multiple(
+            session: AsyncSession,
+            hardware_uids: t.Optional[str | tuple | list] = None,
+            ecosystem_uids: t.Optional[str | tuple | list] = None,
+            levels: t.Optional[str | tuple | list] = None,
+            types: t.Optional[str | tuple | list] = None,
+            models: t.Optional[str | tuple | list] = None,
+    ) -> t.Optional[list[Hardware]]:
+        stmt = hardware._get_query(
+            hardware_uids, ecosystem_uids, levels, types, models
+        )
+        result = await session.execute(stmt)
+        return result.scalars().all()
+
+    @staticmethod
+    async def update_or_create(
+            session: AsyncSession,
+            hardware_info: t.Optional[dict] = None,
+            uid: t.Optional[str] = None,
+    ) -> Hardware:
+        hardware_info = hardware_info or {}
+        uid = uid or hardware_info.pop("uid", None)
+        if not uid:
+            raise ValueError(
+                "Provide uid either as an argument or as a key in the updated info"
+            )
+        hardware_ = await hardware.get(session, uid)
+        if not hardware_:
+            hardware_info["uid"] = uid
+            measures = hardware_info.pop("measure", [])
+            if measures:
+                if isinstance(measures, str):
+                    measures = [measures]
+                measures_ = measure.get_multiple(session, measures)
+                if measures_:
+                    hardware_info["measure"] = measures_
+            hardware_ = await hardware.create(session, hardware_info)
+        elif hardware_info:
+            await hardware.update(session, hardware_info, uid)
+        return hardware_
+
+    @staticmethod
+    def get_info(
+            session: AsyncSession,
+            hardware_obj: Hardware
+    ) -> dict:
+        return hardware_obj.to_dict()
+
+    @staticmethod
+    def get_models_available() -> list:
+        return HARDWARE_AVAILABLE
 
 
-async def get_plants(
-        session: AsyncSession,
-        plants_name: list[str]
-) -> list[Plant]:
-    stmt = select(Plant).where(Plant.name.in_(plants_name))
-    result = await session.execute(stmt)
-    return result.scalars().all()
+# ---------------------------------------------------------------------------
+#   Sensor-related APIs
+# ---------------------------------------------------------------------------
+class sensor:
+    """Sensors are a specific type of hardware so their creation, update and
+    deletion are handled by the class `hardware`"""
+    @staticmethod
+    async def get(
+            session: AsyncSession,
+            uid: str,
+            time_window: timeWindow | None = None,
+    ) -> Hardware | None:
+        stmt = hardware._get_query(hardware_uid=uid)
+        if time_window:
+            stmt = (
+                stmt.join(SensorHistory.sensor)
+                .where(
+                    (SensorHistory.datetime > time_window.start) &
+                    (SensorHistory.datetime <= time_window.end)
+                )
+                .distinct()
+            )
+        result = await session.execute(stmt)
+        return result.scalars().one_or_none()
+
+    @staticmethod
+    async def get_multiple(
+            session: AsyncSession,
+            hardware_uids: str | tuple | list | None = None,
+            ecosystem_uids: str | tuple | list | None = None,
+            levels: str | tuple | list | None = None,
+            models: str | tuple | list | None = None,
+            time_window: timeWindow = None,
+    ) -> list[Hardware]:
+        stmt = hardware._get_query(
+            hardware_uids, ecosystem_uids, levels, "sensor", models
+        )
+        if time_window:
+            stmt = (
+                stmt.join(SensorHistory.sensor)
+                .where(
+                    (SensorHistory.datetime > time_window.start) &
+                    (SensorHistory.datetime <= time_window.end)
+                )
+                .distinct()
+            )
+        result = await session.execute(stmt)
+        return result.scalars().all()
+
+    @staticmethod
+    async def _get_data_record(
+            session: AsyncSession,
+            sensor_obj: Hardware,
+            measure: str,
+            time_window: timeWindow
+    ) -> list:
+        @cached(cache_sensors_data_raw)
+        async def cached_func(
+                sensor_obj: Hardware,
+                measure: str,
+                time_window: timeWindow
+        ) -> list:
+            stmt = (
+                select(SensorHistory)
+                .filter(SensorHistory.measure == measure)
+                .filter(SensorHistory.sensor_uid == sensor_obj.uid)
+                .filter((SensorHistory.datetime > time_window[0]) &
+                        (SensorHistory.datetime <= time_window[1]))
+                .with_entities(SensorHistory.datetime, SensorHistory.value)
+            )
+            result = await session.execute(stmt)
+            return result.scalars().all()
+        return await cached_func(sensor_obj, measure, time_window)
+
+    @staticmethod
+    async def _get_historic_data(
+            session: AsyncSession,
+            sensor_obj: Hardware,
+            time_window: timeWindow,
+            measures: t.Optional[str | tuple | list] = None,
+    ) -> list:
+        if measures is None or "all" in measures:
+            measures = [measure_.name for measure_ in sensor_obj.measure]
+        elif isinstance(measures, str):
+            measures = measures.split(",")
+        rv = []
+        for measure_ in measures:
+            records = await sensor._get_data_record(
+                session, sensor_obj, measure_, time_window
+            )
+            if records:
+                rv.append({
+                    "measure": measure_,
+                    "unit": await measure.get_unit(session, measure_),
+                    "records": records,
+                })
+        return rv
+
+    @staticmethod
+    async def _get_current_data(
+            session: AsyncSession,
+            sensor_obj: Hardware,
+            measures: t.Optional[str | tuple | list] = None,
+    ) -> list:
+        try:
+            ecosystem_uid = sensor_obj.ecosystem_uid
+            ecosystem = sensorsData[ecosystem_uid]
+            if measures is None or "all" in measures:
+                measures = [measure_.name for measure_ in sensor_obj.measure]
+            elif isinstance(measures, str):
+                measures = measures.split(",")
+            rv = []
+            for measure_ in measures:
+                value = ecosystem["data"].get(sensor_obj.uid, {}).get(measure_, None)
+                if value:
+                    rv.append({
+                        "measure": measure_,
+                        "unit": await measure.get_unit(session, measure_),
+                        "value": value,
+                    })
+            return rv
+        except KeyError:
+            return []
+
+    @staticmethod
+    async def get_info(
+            session: AsyncSession,
+            sensor_obj: Hardware,
+            measures: t.Optional[str | tuple | list] = None,
+            current_data: bool = True,
+            historic_data: bool = True,
+            time_window: timeWindow = None,
+    ) -> dict:
+        assert sensor_obj.type == "sensor"
+        rv = sensor_obj.to_dict()
+        if current_data or historic_data:
+            rv.update({"data": {}})
+            if current_data:
+                data = sensor._get_current_data(session, sensor_obj, measures)
+                if data:
+                    rv["data"].update({
+                        "current": {
+                            "timestamp": sensorsData[sensor_obj.ecosystem_uid]["datetime"],
+                            "data": data,
+                        }
+                    })
+                else:
+                    rv["data"].update({"current": None})
+            if historic_data:
+                if not time_window:
+                    time_window = create_time_window()
+                data = await sensor._get_historic_data(
+                    session, sensor_obj, time_window, measures
+                )
+                if data:
+                    rv["data"].update({
+                        "historic": {
+                            "from": time_window.start,
+                            "to": time_window.end,
+                            "data": data,
+                        }
+                    })
+                else:
+                    rv["data"].update({"historic": None})
+        return rv
+
+    @staticmethod
+    def get_current_data():
+        return {**sensorsData}
+
+    @staticmethod
+    def update_current_data(data: dict):
+        sensorsData.update(data)
+
+    @staticmethod
+    async def create_record(
+            session: AsyncSession,
+            sensor_data: dict,
+            commit: bool = False,  # TODO: do the same elsewhere
+    ) -> SensorHistory:
+        sensor_history = SensorHistory(**sensor_data)
+        session.add(sensor_history)
+        if commit:
+            await session.commit()
+        return sensor_history
 
 
-def get_plants_for_ecosystem(
-        session: AsyncSession,
-        ecosystems_query_obj: list[Ecosystem],
-) -> list[dict[str, [str | list[dict[str, str]]]]]:
-    return [{
-        "ecosystem_uid": ecosystem.uid,
-        "ecosystem_name": ecosystem.name,
-        "plants": [
-            plant.to_dict()
-            for plant in ecosystem.plants
-        ]
-    } for ecosystem in ecosystems_query_obj]
+class measure:
+    @staticmethod
+    async def get_measure(
+            session: AsyncSession,
+            measure_name: str
+    ) -> Measure | None:
+        stmt = select(Measure).where(Measure.name == measure_name)
+        result = await session.execute(stmt)
+        return result.scalars().one_or_none()
+
+    @staticmethod
+    # TODO: cache?
+    async def get_unit(session: AsyncSession, measure_name: str) -> str:
+        stmt = (
+            select(Measure)
+            .filter(Measure.name == measure_name)
+        )
+        result = await session.execute(stmt)
+        measure_ = result.scalars().one_or_none()
+        if measure_:
+            return measure_.unit
+        return ""
+
+    @staticmethod
+    async def get_multiple(
+            session: AsyncSession,
+            measures_name: list[str] | None = None
+    ) -> list[Measure]:
+        stmt = select(Measure)
+        if measures_name:
+            stmt = stmt.where(Measure.name.in_(measures_name))
+        result = await session.execute(stmt)
+        return result.scalars().all()
+
+    @staticmethod
+    def get_info(session: AsyncSession, measure_obj: Measure) -> list[dict]:
+        return measure_obj.to_dict()
+
+
+# ---------------------------------------------------------------------------
+#   Light-related APIs
+# ---------------------------------------------------------------------------
+class light:
+    @staticmethod
+    async def create(
+            session: AsyncSession,
+            light_data: dict,
+    ) -> Light:
+        light = Light(**light_data)
+        session.add(light)
+        await session.commit()
+        return light
+
+    @staticmethod
+    async def update(
+            session: AsyncSession,
+            light_info: dict,
+            ecosystem_uid: t.Optional[str] = None,
+    ) -> None:
+        # TODO: call GAIA
+        ecosystem_uid = ecosystem_uid or light_info.pop("ecosystem_uid", None)
+        if not ecosystem_uid:
+            raise ValueError(
+                "Provide uid either as a parameter or as a key in the updated info"
+            )
+        stmt = (
+            update(Light)
+            .where(Light.ecosystem_uid == ecosystem_uid)
+            .values(**light_info)
+        )
+        await session.execute(stmt)
+
+    @staticmethod
+    async def get(
+            session: AsyncSession,
+            ecosystem_uid: str,
+    ) -> t.Optional[Light]:
+        stmt = select(Light).where(Light.ecosystem_uid == ecosystem_uid)
+        result = await session.execute(stmt)
+        return result.one_or_none()
+
+    @staticmethod
+    async def update_or_create(
+            session: AsyncSession,
+            light_info: t.Optional[dict] = None,
+            ecosystem_uid: t.Optional[str] = None,
+    ) -> Light:
+        light_info = light_info or {}
+        ecosystem_uid = ecosystem_uid or light_info.pop("ecosystem_uid", None)
+        if not ecosystem_uid:
+            raise ValueError(
+                "Provide uid either as an argument or as a key in the updated info"
+            )
+        light_ = await light.get(session, ecosystem_uid)
+        if not light_:
+            light_info["ecosystem_uid"] = ecosystem_uid
+            light_ = await light.create(session, light_info)
+        elif light_info:
+            await light.update(session, light_info, ecosystem_uid)
+        return light_
+
+
+# ---------------------------------------------------------------------------
+#   Health-related APIs
+# ---------------------------------------------------------------------------
+class health:
+    @staticmethod
+    async def create_record(
+            session: AsyncSession,
+            health_data: dict,
+    ) -> Health:
+        health = Health(**health_data)
+        session.add(health)
+        await session.commit()
+        return health
+
+
+class plant:
+    @staticmethod
+    async def get_multiple(
+            session: AsyncSession,
+            plants_name: list[str] | None = None
+    ) -> list[Plant]:
+        stmt = select(Plant)
+        if plants_name:
+            stmt = stmt.where(Plant.name.in_(plants_name))
+        result = await session.execute(stmt)
+        return result.scalars().all()
 
 
 @cachetools.func.ttl_cache(ttl=60)
@@ -761,7 +1001,7 @@ async def get_recent_warnings(
         select(GaiaWarning)
         .where(GaiaWarning.created >= time_limit)
         .where(GaiaWarning.is_solved is False)
-        .order_by(GaiaWarning.level.desc())
+        .order_by(GaiaWarning.emergency.desc())
         .order_by(GaiaWarning.id)
         .with_entities(
             GaiaWarning.created, GaiaWarning.emergency, GaiaWarning.title
@@ -769,87 +1009,4 @@ async def get_recent_warnings(
         .limit(limit)
     )
     result = await session.execute(stmt)
-    return result.scalars().all() or []
-
-
-async def get_measure(session: AsyncSession, measure_name: str) -> Measure | None:
-    stmt = select(Measure).where(Measure.name == measure_name)
-    result = await session.execute(stmt)
-    return result.scalars().one_or_none()
-
-
-# ---------------------------------------------------------------------------
-#   Sensors-related APIs  # TODO: group all sensor cals here (current and historic)
-# ---------------------------------------------------------------------------
-def get_current_sensors_data():
-    return {**sensorsData}
-
-
-def update_current_sensors_data(data: dict):
-    sensorsData.update(data)
-
-
-async def create_historic_sensor_data(
-        session: AsyncSession,
-        sensor_data: dict,
-        commit: bool = False,  # TODO: do the same elsewhere
-) -> SensorHistory:
-    sensor_history = SensorHistory(**sensor_data)
-    session.add(sensor_history)
-    if commit:
-        await session.commit()
-    return sensor_history
-
-
-# ---------------------------------------------------------------------------
-#   Health-related APIs
-# ---------------------------------------------------------------------------
-async def create_health_record(
-        session: AsyncSession,
-        health_data: dict,
-) -> Health:
-    health = Health(**health_data)
-    session.add(health)
-    await session.commit()
-    return health
-
-
-# ---------------------------------------------------------------------------
-#   Health-related APIs
-# ---------------------------------------------------------------------------
-async def create_light(
-        session: AsyncSession,
-        light_data: dict,
-) -> Light:
-    light = Light(**light_data)
-    session.add(light)
-    await session.commit()
-    return light
-
-
-async def update_light(
-        session: AsyncSession,
-        light_info: dict,
-        ecosystem_uid: t.Optional[str] = None,
-) -> None:
-    # TODO: call GAIA
-    ecosystem_uid = ecosystem_uid or light_info.pop("ecosystem_uid", None)
-    if not ecosystem_uid:
-        raise ValueError(
-            "Provide uid either as a parameter or as a key in the updated info"
-        )
-    stmt = (
-        update(Light)
-        .where(Light.ecosystem_uid == ecosystem_uid)
-        .values(**light_info)
-    )
-    await session.execute(stmt)
-
-
-async def get_light(
-        session: AsyncSession,
-        ecosystem_uid: str,
-) -> t.Optional[Light]:
-    stmt = select(Light).where(Light.ecosystem_uid == ecosystem_uid)
-    result = await session.execute(stmt)
-    return result.one_or_none()
+    return result.scalars().all()

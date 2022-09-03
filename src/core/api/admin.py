@@ -12,71 +12,73 @@ from src.core.database.models.app import User, Role
 from src.core.utils import Tokenizer
 
 
-async def create_user(
-        session: AsyncSession,
-        username: str,
-        password: str,
-        **kwargs
-) -> User:
-    error = []
-    stmt = select(User).where(User.username == username)
-    if "email" in kwargs:
-        stmt = stmt.where(User.email == kwargs["mail"])
-    if "telegram_id" in kwargs:
-        stmt = stmt.where(User.telegram_chat_id == kwargs["telegram_id"])
-    result = await session.execute(stmt)
-    previous_user: User = result.scalars().first()
-    if previous_user:
-        if previous_user.username == username:
-            error.append("username")
-        if previous_user.email == kwargs.get("email", False):
-            error.append("email")
-        if previous_user.telegram_chat_id == kwargs.get("telegram_id", False):
-            error.append("telegram_id")
-        raise DuplicatedEntry(error)
-    kwargs.update({"username": username})
-    user = await User.create(session, **kwargs)
-    user.set_password(password)
-    session.add(user)
-    await session.commit()
-    return user
-
-
-async def get_user(session: AsyncSession, user: int | str) -> User:
-    stmt = (
-        select(User)
-        .where((User.id == user) | (User.username == user))
-    )
-    result = await session.execute(stmt)
-    return result.scalars().one_or_none()
-
-
-async def update_user(
-        session: AsyncSession,
-        user_id: int | str,
-        new_info: dict
-) -> t.Optional[list]:
-    user = await get_user(session, user_id)
-    if not user:
-        raise NoResultFound
-    password = new_info.pop("password")
-    if password:
+class user:
+    @staticmethod
+    async def create(
+            session: AsyncSession,
+            username: str,
+            password: str,
+            **kwargs
+    ) -> User:
+        error = []
+        stmt = select(User).where(User.username == username)
+        if "email" in kwargs:
+            stmt = stmt.where(User.email == kwargs["mail"])
+        if "telegram_id" in kwargs:
+            stmt = stmt.where(User.telegram_chat_id == kwargs["telegram_id"])
+        result = await session.execute(stmt)
+        previous_user: User = result.scalars().first()
+        if previous_user:
+            if previous_user.username == username:
+                error.append("username")
+            if previous_user.email == kwargs.get("email", False):
+                error.append("email")
+            if previous_user.telegram_chat_id == kwargs.get("telegram_id", False):
+                error.append("telegram_id")
+            raise DuplicatedEntry(error)
+        kwargs.update({"username": username})
+        user = await User.create(session, **kwargs)
         user.set_password(password)
-    wrong_attrs = []
-    for info_name, info in new_info.items():
-        try:
-            setattr(user, info_name, info)
-        except AttributeError:
-            wrong_attrs.append(info_name)
-    session.add(user)
-    await session.commit()
-    if wrong_attrs:
-        return wrong_attrs
+        session.add(user)
+        await session.commit()
+        return user
 
+    @staticmethod
+    async def get(session: AsyncSession, user: int | str) -> User:
+        stmt = (
+            select(User)
+            .where((User.id == user) | (User.username == user))
+        )
+        result = await session.execute(stmt)
+        return result.scalars().one_or_none()
 
-async def delete_user(session: AsyncSession, user: int | str):
-    stmt = delete(User).where((User.id == user) | (User.username == user))
-    await session.execute(stmt)
+    @staticmethod
+    async def update(
+            session: AsyncSession,
+            user_id: int | str,
+            new_info: dict
+    ) -> t.Optional[list]:
+        user_ = await user.get(session, user_id)
+        if not user_:
+            raise NoResultFound
+        password = new_info.pop("password")
+        if password:
+            user_.set_password(password)
+        wrong_attrs = []
+        for info_name, info in new_info.items():
+            try:
+                setattr(user_, info_name, info)
+            except AttributeError:
+                wrong_attrs.append(info_name)
+        session.add(user_)
+        await session.commit()
+        if wrong_attrs:
+            return wrong_attrs
+
+    @staticmethod
+    async def delete(session: AsyncSession, user: int | str):
+        stmt = delete(User).where((User.id == user) | (User.username == user))
+        await session.execute(stmt)
 
 
 async def create_invitation_token(

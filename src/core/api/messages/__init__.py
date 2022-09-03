@@ -36,14 +36,14 @@ def weather(currently: bool = True, forecast: bool = True, **kwargs) -> str:
     weather = {}
 
     if currently:
-        weather["currently"] = api.weather.get_current_weather()
+        weather["currently"] = api.weather.get_currently()
 
     if forecast:
         weather["hourly"] = api.weather.summarize_forecast(
-            api.weather.get_hourly_weather_forecast(12)
+            api.weather.get_hourly(12)
         )["forecast"]
 
-        tomorrow = api.weather.get_daily_weather_forecast(1)["forecast"][0]
+        tomorrow = api.weather.get_daily(1)["forecast"][0]
         sunrise = datetime.fromtimestamp(tomorrow["sunriseTime"])
         tomorrow["sunriseTime"] = sunrise.strftime("%H:%M")
         sunset = datetime.fromtimestamp(tomorrow["sunsetTime"])
@@ -60,9 +60,9 @@ def weather(currently: bool = True, forecast: bool = True, **kwargs) -> str:
 
 
 def light_info(*ecosystems, session, **kwargs):
-    ecosystem_qo = api.ecosystems.get_ecosystems(
+    ecosystem_qo = api.ecosystem.get_multiple(
         session=session, ecosystems=ecosystems)
-    light_info = api.ecosystems.get_light_info(ecosystem_qo)
+    light_info = api.ecosystem.get_light_info(ecosystem_qo)
     message = render_template(
         "telegram/lights.html", light_info=light_info, **kwargs
     )
@@ -82,7 +82,7 @@ def current_sensors_info(*ecosystems, session):
 def recap_sensors_info(*ecosystems, session,
                        days_ago: int = 7):
     window_start = datetime.now()-timedelta(days=days_ago)
-    ecosystem_qo = api.ecosystems.get_ecosystems(
+    ecosystem_qo = api.ecosystem.get_multiple(
         session=session, ecosystems=ecosystems)
     time_window = api.utils.create_time_window(start=window_start)
     raw_sensors = api.ecosystems._get_ecosystem_historic_sensors_data(

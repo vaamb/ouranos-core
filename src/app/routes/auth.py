@@ -89,7 +89,7 @@ async def register_new_user(
         return {"msg": "You cannot register, you are already logged in"}
     check_invitation_token(invitation_token)
     try:
-        user = await api.admin.create_user(session, **registration_payload)
+        user = await api.user.create(session, **registration_payload)
     except DuplicatedEntry as e:
         args = e.args[0]
         raise HTTPException(

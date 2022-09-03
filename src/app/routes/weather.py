@@ -22,70 +22,58 @@ router = APIRouter(
 
 @router.get("/sun_times", response_model=PydanticSunTimes)
 async def get_sun_times() -> dict:
-    response = api.weather.get_suntimes_data()
+    response = api.sun_times.get()
     if response:
         return response
-    raise HTTPException(
-        status_code=status.HTTP_204_NO_CONTENT,
-        detail="Empty result",
-    )
+    return empty_result(response)
 
 
-@router.get(
-    path="/forecast",
-    response_model=dict[
-        str, t.Union[
-            PydanticCurrentWeather,
-            list[PydanticHourlyWeather],
-            list[PydanticDailyWeather]
-        ]
-    ]
-)
+@router.get(path="/forecast")
 async def get_forecast(exclude: t.Union[list[str], None] = Query(default=None)) -> dict:
     response = {}
     exclude = exclude or []
     if "currently" not in exclude:
-        currently = api.weather.get_current_weather()
+        currently = api.weather.get_currently()
         if currently:
             response.update({
                 "currently": currently
             })
     if "hourly" not in exclude:
-        hourly = api.weather.get_hourly_weather_forecast()
+        hourly = api.weather.get_hourly()
         if hourly:
             response.update({
                 "hourly": hourly
             })
     if "daily" not in exclude:
-        daily = api.weather.get_daily_weather_forecast()
+        daily = api.weather.get_daily()
         if daily:
             response.update({
                 "daily": daily
             })
     if response:
         return response
-    return empty_result({})
+    return empty_result(response)
 
 
 @router.get("/forecast/currently", response_model=PydanticCurrentWeather)
 async def get_current_forecast() -> dict:
-    response = api.weather.get_current_weather()
+    response = api.weather.get_currently()
     if response:
         return response
-    return empty_result({})
+    return empty_result(response)
 
 
 @router.get("/forecast/hourly", response_model=list[PydanticHourlyWeather])
 async def get_current_forecast() -> dict:
-    response = api.weather.get_hourly_weather_forecast()
+    response = api.weather.get_hourly()
     if response:
         return response
-    return empty_result({})
+    return empty_result(response)
 
 
 @router.get("/forecast/daily", response_model=list[PydanticDailyWeather])
 async def get_current_forecast() -> dict:
-    response = api.weather.get_daily_weather_forecast()
+    response = api.weather.get_daily()
     if response:
         return response
-    return empty_result({})
+    return empty_result(response)

@@ -24,40 +24,55 @@ def mode(iterable) -> str:
     return Counter(iterable).most_common()[0][0]
 
 
-# Current weather
-def get_current_weather() -> dict:
-    return weatherData.get("currently", {})
+class weather:
+    @staticmethod
+    def get(key: t.Optional[str] = None):
+        return {**weatherData}.get(key, {}) if key else {**weatherData}
 
+    @staticmethod
+    def get_currently() -> dict:
+        return weatherData.get("currently", {})
 
+    @staticmethod
 # Weather forecast
-def get_forecast(time_unit: str, time_window: int) -> dict:
-    data = weatherData.get(time_unit)
-    if data:
-        if time_window > len(data["forecast"]):
-            time_window = len(data["forecast"]) - 1
-        forecast = [data["forecast"][_] for _ in range(time_window)]
-        return {
-            "time_window": {
-                "start": forecast[0]["time"],
-                "end": forecast[time_window - 1]["time"]
-            },
-            "forecast": forecast,
-        }
-    return {}
-
-
-def get_hourly_weather_forecast(time_window: int = 24) -> dict:
-    return get_forecast("hourly", time_window)
-
-
-def get_daily_weather_forecast(time_window: int = 7,
-                               skip_today: bool = True) -> dict:
-    data = get_forecast("daily", time_window)
-    if not data:
+    def _get_forecast(time_unit: str, time_window: int) -> dict:
+        data = weatherData.get(time_unit)
+        if data:
+            if time_window > len(data["forecast"]):
+                time_window = len(data["forecast"]) - 1
+            forecast = [data["forecast"][_] for _ in range(time_window)]
+            return {
+                "time_window": {
+                    "start": forecast[0]["time"],
+                    "end": forecast[time_window - 1]["time"]
+                },
+                "forecast": forecast,
+            }
         return {}
-    if skip_today:
-        del data["forecast"][0]
-    return data
+
+    @staticmethod
+    def get_hourly(time_window: int = 24) -> dict:
+        return weather._get_forecast("hourly", time_window)
+
+    @staticmethod
+    def get_daily(
+            time_window: int = 7,
+            skip_today: bool = True
+    ) -> dict:
+        data = weather._get_forecast("daily", time_window)
+        if not data:
+            return {}
+        if skip_today:
+            del data["forecast"][0]
+        return data
+
+    @staticmethod
+    def update(data: dict) -> None:
+        weatherData.update(data)
+
+    @staticmethod
+    def clear() -> None:
+        weatherData.clear()
 
 
 def summarize_forecast(forecast: dict) -> dict:
@@ -155,38 +170,24 @@ def _summarize_digested_weather_forecast(digested_weather_forecast: dict) -> dic
 
 
 def get_digested_hourly_weather_forecast(time_window: int = 24) -> dict:
-    forecast = get_hourly_weather_forecast(time_window=time_window)
+    forecast = weather.get_hourly(time_window=time_window)
     digest = _digest_hourly_weather_forecast(forecast)
     summary = _summarize_digested_weather_forecast(digest)
     return summary
 
 
-def get_suntimes_data() -> dict:  # TODO: clean this
-    return {
-        event: parse_sun_times(sunTimesData[event]) for event in sunTimesData
-        if event != "day_length"
-    }
+class sun_times:
+    @staticmethod
+    def get() -> dict[str, datetime]:  # TODO: clean this
+        return {
+            event: parse_sun_times(timestamp) for event, timestamp in sunTimesData.items()
+            if event != "day_length"
+        }
 
+    @staticmethod
+    def update(data: dict) -> None:
+        weatherData.update(data)
 
-def get_weather(key: t.Optional[str] = None) -> dict:
-    return {**weatherData}.get(key, {}) if key else {**weatherData}
-
-
-def update_weather(data: dict):
-    weatherData.update(data)
-
-
-def clear_weather():
-    weatherData.clear()
-
-
-def get_sun_times() -> dict:
-    return {**sunTimesData}
-
-
-def update_sun_times(data: dict):
-    weatherData.update(data)
-
-
-def clear_sun_times():
-    weatherData.clear()
+    @staticmethod
+    def clear() -> None:
+        weatherData.clear()

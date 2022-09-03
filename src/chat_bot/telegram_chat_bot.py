@@ -122,12 +122,12 @@ class TelegramChatBot(ServiceTemplate):
                 else:
                     countdown = 0
                 with db.scoped_session() as session:
-                    ecosystem_qo = api.gaia.get_ecosystems(
+                    ecosystem_qo = api.ecosystem.get_multiple(
                         session=session, ecosystems=(ecosystem, ))
-                    lights = api.gaia.get_light_info(ecosystem_qo)
+                    lights = api.ecosystem.get_light_info(ecosystem_qo)
                     if lights:
                         try:
-                            ecosystem_id = api.gaia.get_ecosystem_ids(
+                            ecosystem_id = api.ecosystem.get_ids(
                                 session=session, ecosystem=ecosystem).uid
                         except ValueError:
                             update.message.reply_text(

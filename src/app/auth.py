@@ -58,7 +58,7 @@ class Authenticator:
             username: str,
             password: str,
     ) -> User:
-        user = await api.admin.get_user(session, username)
+        user = await api.user.get(session, username)
         if user is None or not user.check_password(password):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -122,7 +122,7 @@ login_manager = LoginManager()
 
 @login_manager.user_loader
 async def load_user(user_id: int, session: AsyncSession) -> User:
-    user = await api.admin.get_user(session, user_id)
+    user = await api.user.get(session, user_id)
     return user
 
 
