@@ -10,9 +10,8 @@ from fastapi.staticfiles import StaticFiles
 from socketio import ASGIApp, AsyncManager, AsyncServer
 
 from .docs import description, tags_metadata
-from .utils import set_app_config
 from src.core import db
-from src.core.g import base_dir, set_base_dir
+from src.core.g import base_dir, set_app_config, set_base_dir
 from src.core.utils import config_dict_from_class, Tokenizer
 
 try:
@@ -37,8 +36,7 @@ asgi_app = ASGIApp(sio)
 def create_app(config) -> FastAPI:
     config_dict = config_dict_from_class(config)
     set_app_config(config_dict)
-    from .utils import app_config
-
+    from src.core.g import app_config
     if not any((app_config.get("DEBUG"), app_config.get("TESTING"))):
         for secret in ("SECRET_KEY", "JWT_SECRET_KEY", "GAIA_SECRET_KEY"):
             if app_config.get(secret) == "BXhNmCEmNdoBNngyGXj6jJtooYAcKpt6":

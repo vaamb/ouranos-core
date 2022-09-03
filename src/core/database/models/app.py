@@ -10,8 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ._base import ArchiveLink, base
 from .common import BaseWarning
-from src.app.utils import app_config
 from src.core.utils import ExpiredTokenError, InvalidTokenError, Tokenizer
+from src.core.g import app_config
 
 
 argon2_hasher = PasswordHasher()

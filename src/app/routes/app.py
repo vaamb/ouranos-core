@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, Query
 
 from src.app.dependencies import get_session
-from src.app.utils import app_config
 from src.core import api
+from src.core.g import app_config
 
 
 router = APIRouter(

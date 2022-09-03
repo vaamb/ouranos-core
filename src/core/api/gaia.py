@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections import namedtuple
-import typing as t
 
 from cachetools import cached, TTLCache
 import cachetools.func

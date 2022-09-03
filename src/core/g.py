@@ -4,6 +4,7 @@ from pathlib import Path
 
 
 base_dir = Path(__file__).absolute().parents[1]
+app_config: dict[str, str | int] = {}
 
 
 def set_base_dir(path: str | Path):
@@ -15,3 +16,8 @@ def set_base_dir(path: str | Path):
     else:
         path.mkdir(parents=False)
         base_dir = path
+
+
+def set_app_config(config: dict):
+    global app_config
+    app_config = config

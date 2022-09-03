@@ -4,8 +4,8 @@ from socketio import AsyncNamespace
 
 from .decorators import permission_required
 from src.app import db, dispatcher
-from src.app.utils import app_config
 from src.core import api
+from src.core.g import app_config
 
 
 # TODO: change name

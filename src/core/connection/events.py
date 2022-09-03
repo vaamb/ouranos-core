@@ -12,9 +12,9 @@ from statistics import mean, stdev as std
 
 from .decorators import registration_required
 from src.app import dispatcher
-from src.app.utils import app_config, decrypt_uid, validate_uid_token
 from src.core import api, db
-from src.core.database.models.gaia import Management
+from src.core.g import app_config
+from src.core.utils import decrypt_uid, validate_uid_token
 
 
 sio_logger = logging.getLogger(f"{app_config['APP_NAME'].lower()}.socketio")
@@ -204,7 +204,7 @@ class Events(AsyncNamespace):
             for ecosystem_data in data:
                 uid: str = ecosystem_data["uid"]
                 ecosystem = await api.ecosystem.update_or_create(session, uid=uid)
-                for m, v in Management.items():
+                for m, v in api.Management.items():
                     try:
                         if ecosystem_data[m]:
                             ecosystem.add_management(v)
