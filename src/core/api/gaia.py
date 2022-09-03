@@ -11,7 +11,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.api.exceptions import NoEcosystemFound
 from src.core.api.utils import time_limits, timeWindow, create_time_window
 from src.core.cache import get_cache
-from src.core.consts import HARDWARE_AVAILABLE, HARDWARE_TYPE
+from src.core.consts import (
+    HARDWARE_AVAILABLE, HARDWARE_LEVELS, HARDWARE_TYPES
+)
+from src.core import typing as ot
 from src.core.database.models.gaia import (
     Ecosystem, Engine, EnvironmentParameter, GaiaWarning, Hardware, Health,
     Light, Measure, Plant, SensorHistory
@@ -48,7 +51,7 @@ async def _update_entry(
         session: AsyncSession,
         model_class,
         model_info: dict,
-        uid: t.Optional[str] = None,
+        uid: str | None = None,
 ) -> None:
     # TODO: call GAIA
     uid = uid or model_info.pop("uid", None)
@@ -67,7 +70,7 @@ async def _update_entry(
 async def _delete_entry(
         session: AsyncSession,
         model_class,
-        uid: t.Optional[str] = None,
+        uid: str | None = None,
 ) -> None:
     # TODO: call GAIA
     stmt = delete(model_class).where(model_class.uid == uid)
@@ -110,7 +113,7 @@ class engine:
     async def update(
             session: AsyncSession,
             engine_info: dict,
-            uid: t.Optional[str] = None,
+            uid: str | None = None,
     ) -> None:
         await _update_entry(session, Engine, engine_info, uid)
 
@@ -125,7 +128,7 @@ class engine:
     async def get(
             session: AsyncSession,
             engine_id: str,
-    ) -> t.Optional[Engine]:
+    ) -> Engine | None:
         stmt = (
             select(Engine)
             .where((Engine.uid == engine_id) | (Engine.sid == engine_id))
@@ -136,7 +139,7 @@ class engine:
     @staticmethod
     async def get_multiple(
             session: AsyncSession,
-            engines: str | tuple | list | None = None,
+            engines: str | list | None = None,
     ) -> list[Engine]:
         engines = engines or "all"
         if "all" in engines:
@@ -172,8 +175,8 @@ class engine:
     @staticmethod
     async def update_or_create(
             session: AsyncSession,
-            engine_info: t.Optional[dict] = None,
-            uid: t.Optional[str] = None,
+            engine_info: dict | None = None,
+            uid: str | None = None,
     ) -> Engine:
         return await _update_or_create(
             session, api_class=engine, info=engine_info, uid=uid
@@ -199,7 +202,7 @@ class ecosystem:
     async def update(
             session: AsyncSession,
             ecosystem_info: dict,
-            uid: t.Optional[str] = None,
+            uid: str | None = None,
     ) -> None:
         await _update_entry(session, Ecosystem, ecosystem_info, uid)
 
@@ -214,7 +217,7 @@ class ecosystem:
     async def get(
             session: AsyncSession,
             ecosystem_id: str,
-    ) -> t.Optional[Ecosystem]:
+    ) -> Ecosystem | None:
         ecosystem_id = (ecosystem_id, )
         stmt = (
             select(Ecosystem)
@@ -226,7 +229,7 @@ class ecosystem:
     @staticmethod
     async def get_multiple(
             session: AsyncSession,
-            ecosystems: str | tuple | list | None = None,
+            ecosystems: str | list | None = None,
     ) -> list[Ecosystem]:
         ecosystems = ecosystems or "all"
         if isinstance(ecosystems, str):
@@ -263,8 +266,8 @@ class ecosystem:
     @staticmethod
     async def update_or_create(
             session: AsyncSession,
-            ecosystem_info: t.Optional[dict] = None,
-            uid: t.Optional[str] = None,
+            ecosystem_info: dict | None = None,
+            uid: str | None = None,
     ) -> Ecosystem:
         return await _update_or_create(
             session, api_class=ecosystem, info=ecosystem_info, uid=uid
@@ -340,7 +343,7 @@ class ecosystem:
             session: AsyncSession,
             ecosystem: Ecosystem,
             time_window: timeWindow,
-            level: str | tuple | list | None = None,
+            level: ot.LEVELS | list[ot.LEVELS] | None = None,
     ) -> dict:
         level = level or "all"
 
@@ -348,9 +351,8 @@ class ecosystem:
         async def inner_func(
                 ecosystem_id: str,
                 time_window: timeWindow,
-                level: str | tuple | list | None = None,
+                level: ot.LEVELS | list[ot.LEVELS] | None = None,
         ) -> list:
-            # TODO: use a function for level and
             stmt = (
                 select(Hardware).join(SensorHistory.sensor)
                 .filter(Hardware.level.in_(level))
@@ -382,7 +384,7 @@ class ecosystem:
             }]
 
         if "all" in level:
-            level = ("environment", "plants")
+            level = HARDWARE_LEVELS
         elif isinstance(level, str):
             level = level.split(",")
         return {
@@ -429,15 +431,16 @@ class ecosystem:
     async def get_hardware_info(
             session: AsyncSession,
             ecosystem: Ecosystem,
-            level: t.Optional[str | tuple | list] = None,
-            hardware_type: t.Optional[str | tuple | list] = None
+            level: ot.LEVELS | list[ot.LEVELS] | None = None,
+            hardware_type: ot.TYPES | list[ot.TYPES] | None = None
     ) -> dict:
         if level is None or "all" in level:
-            level = ("environment", "plants")
+            level = HARDWARE_LEVELS
         if hardware_type is None or "all" in hardware_type:
-            hardware_type = HARDWARE_TYPE
+            hardware_type = HARDWARE_TYPES
         elif "actuators" in hardware_type:
-            hardware_type = HARDWARE_TYPE.remove("sensor")
+            types = list(HARDWARE_TYPES)
+            hardware_type = types.remove("sensor")
 
         stmt = (
             select(Hardware).join(Ecosystem)
@@ -471,8 +474,8 @@ class environmental_parameter:
     async def update(
             session: AsyncSession,
             parameter_info: dict,
-            uid: t.Optional[str] = None,
-            parameter: t.Optional[str] = None,
+            uid: str | None = None,
+            parameter: str | None = None,
 
     ) -> None:
         parameter_info = parameter_info or {}
@@ -513,7 +516,7 @@ class environmental_parameter:
             session: AsyncSession,
             uid: str,
             parameter: str,
-    ) -> t.Optional[EnvironmentParameter]:
+    ) -> EnvironmentParameter | None:
         stmt = (
             select(EnvironmentParameter)
             .where(
@@ -527,9 +530,9 @@ class environmental_parameter:
     @staticmethod
     async def update_or_create(
             session: AsyncSession,
-            uid: t.Optional[str] = None,
-            parameter: t.Optional[str] = None,
-            parameter_info: t.Optional[dict] = None,
+            uid: str | None = None,
+            parameter: str | None = None,
+            parameter_info: dict | None = None,
     ) -> EnvironmentParameter:
         parameter_info = parameter_info or {}
         uid = uid or parameter_info.pop("uid", None)
@@ -570,7 +573,7 @@ class hardware:
     async def update(
             session: AsyncSession,
             hardware_info: dict,
-            uid: t.Optional[str],
+            uid: str | None,
     ) -> None:
         await _update_entry(session, Hardware, hardware_info, uid)
 
@@ -585,18 +588,18 @@ class hardware:
     async def get(
             session: AsyncSession,
             hardware_uid: str,
-    ) -> t.Optional[Hardware]:
+    ) -> Hardware | None:
         stmt = select(Hardware).where(Hardware.uid == hardware_uid)
         result = await session.execute(stmt)
         return result.unique().scalars().one_or_none()
 
     @staticmethod
     def _get_query(
-            hardware_uid: t.Optional[str | tuple | list] = None,
-            ecosystem_uid: t.Optional[str | tuple | list] = None,
-            levels: t.Optional[str | tuple | list] = None,
-            types: t.Optional[str | tuple | list] = None,
-            models: t.Optional[str | tuple | list] = None,
+            hardware_uid: str | list | None = None,
+            ecosystem_uid: str | list | None = None,
+            levels: ot.LEVELS | list[ot.LEVELS] | None = None,
+            types: ot.TYPES | list[ot.TYPES] | None = None,
+            models: str | list | None = None,
     ):
         query = select(Hardware)
         if hardware_uid is not None and "all" not in hardware_uid:
@@ -624,12 +627,12 @@ class hardware:
     @staticmethod
     async def get_multiple(
             session: AsyncSession,
-            hardware_uids: t.Optional[str | tuple | list] = None,
-            ecosystem_uids: t.Optional[str | tuple | list] = None,
-            levels: t.Optional[str | tuple | list] = None,
-            types: t.Optional[str | tuple | list] = None,
-            models: t.Optional[str | tuple | list] = None,
-    ) -> t.Optional[list[Hardware]]:
+            hardware_uids: str | list | None= None,
+            ecosystem_uids: str | list | None = None,
+            levels: ot.LEVELS | list[ot.LEVELS] | None = None,
+            types: ot.TYPES | list[ot.TYPES] | None = None,
+            models: str | list | None = None,
+    ) -> list[Hardware]:
         stmt = hardware._get_query(
             hardware_uids, ecosystem_uids, levels, types, models
         )
@@ -639,8 +642,8 @@ class hardware:
     @staticmethod
     async def update_or_create(
             session: AsyncSession,
-            hardware_info: t.Optional[dict] = None,
-            uid: t.Optional[str] = None,
+            hardware_info: dict | None = None,
+            uid: str | None = None,
     ) -> Hardware:
         hardware_info = hardware_info or {}
         uid = uid or hardware_info.pop("uid", None)
@@ -703,10 +706,10 @@ class sensor:
     @staticmethod
     async def get_multiple(
             session: AsyncSession,
-            hardware_uids: str | tuple | list | None = None,
-            ecosystem_uids: str | tuple | list | None = None,
-            levels: str | tuple | list | None = None,
-            models: str | tuple | list | None = None,
+            hardware_uids: str | list | None = None,
+            ecosystem_uids: str | list | None = None,
+            levels: ot.LEVELS | list[ot.LEVELS] | None = None,
+            models: str | list | None = None,
             time_window: timeWindow = None,
     ) -> list[Hardware]:
         stmt = hardware._get_query(
@@ -754,7 +757,7 @@ class sensor:
             session: AsyncSession,
             sensor_obj: Hardware,
             time_window: timeWindow,
-            measures: t.Optional[str | tuple | list] = None,
+            measures: str | list | None = None,
     ) -> list:
         if measures is None or "all" in measures:
             measures = [measure_.name for measure_ in sensor_obj.measure]
@@ -777,7 +780,7 @@ class sensor:
     async def _get_current_data(
             session: AsyncSession,
             sensor_obj: Hardware,
-            measures: t.Optional[str | tuple | list] = None,
+            measures: str | list | None = None,
     ) -> list:
         try:
             ecosystem_uid = sensor_obj.ecosystem_uid
@@ -805,7 +808,7 @@ class sensor:
     async def get_info(
             session: AsyncSession,
             sensor_obj: Hardware,
-            measures: t.Optional[str | tuple | list] = None,
+            measures: str | list | None = None,
             current_data: bool = True,
             historic_data: bool = True,
             time_window: timeWindow = None,
@@ -932,7 +935,7 @@ class light:
     async def update(
             session: AsyncSession,
             light_info: dict,
-            ecosystem_uid: t.Optional[str] = None,
+            ecosystem_uid: str | None = None,
     ) -> None:
         # TODO: call GAIA
         ecosystem_uid = ecosystem_uid or light_info.pop("ecosystem_uid", None)
@@ -951,7 +954,7 @@ class light:
     async def get(
             session: AsyncSession,
             ecosystem_uid: str,
-    ) -> t.Optional[Light]:
+    ) -> Light | None:
         stmt = select(Light).where(Light.ecosystem_uid == ecosystem_uid)
         result = await session.execute(stmt)
         return result.one_or_none()
@@ -959,8 +962,8 @@ class light:
     @staticmethod
     async def update_or_create(
             session: AsyncSession,
-            light_info: t.Optional[dict] = None,
-            ecosystem_uid: t.Optional[str] = None,
+            light_info: dict | None = None,
+            ecosystem_uid: str | None = None,
     ) -> Light:
         light_info = light_info or {}
         ecosystem_uid = ecosystem_uid or light_info.pop("ecosystem_uid", None)

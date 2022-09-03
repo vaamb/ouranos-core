@@ -1,27 +1,34 @@
 from datetime import datetime, timezone
 
+
+class ImmutableDict(dict):
+    def __setitem__(self, key, value):
+        raise AttributeError
+
+
 START_TIME = datetime.now(timezone.utc).replace(microsecond=0)
 
-WEATHER_MEASURES = {
+WEATHER_MEASURES = ImmutableDict({
     "mean": ["temperature", "temperatureLow", "temperatureHigh", "humidity",
              "windSpeed", "cloudCover", "precipProbability", "dewPoint"],
     "mode": ["summary", "icon", "sunriseTime", "sunsetTime"],
     "other": ["time", "sunriseTime", "sunsetTime"],
     "range": ["temperature"],
-}
+})
 
-WEATHER_DATA_MULTIPLICATION_FACTORS = {
+WEATHER_DATA_MULTIPLICATION_FACTORS = ImmutableDict({
     "temperature": 1,
     "humidity": 100,
     "windSpeed": 1,
     "cloudCover": 100,
     "precipProbability": 100,
-}
+})
 
-HARDWARE_LEVELS = ["plants", "environment"]
+HARDWARE_LEVELS = ("environment", "plants")
 
-HARDWARE_TYPE = ["sensor", "light", "heater", "cooler", "humidifier",
-                 "dehumidifier"]
+HARDWARE_TYPES = (
+    "cooler", "dehumidifier", "heater", "humidifier", "light", "sensor"
+)
 
 ACTUATORS_AVAILABLE = ["gpioDimmable", "gpioSwitch"]
 

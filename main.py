@@ -16,7 +16,7 @@ import uvicorn
 from config import config_dict, Config, DevelopmentConfig
 # from src import services
 from src.app import create_app
-from src.core.utils import configure_logging, humanize_list
+from src.core.utils import configure_logging, humanize_list, config_dict_from_class
 
 
 config_profiles_available = [profile for profile in config_dict]
@@ -98,12 +98,19 @@ def create_worker(config_profile: t.Optional[str] = None) -> FastAPI:
 if __name__ == "__main__":
     args = parser.parse_args()
     config_profile = args.profile
-    config = get_config(config_profile)
-    configure_logging(config)
-    app_name = config.APP_NAME
+    config_cls = get_config(config_profile)
+    configure_logging(config_cls)
+    config = config_dict_from_class(config_cls)
+    app_name = config["APP_NAME"]
     logger = logging.getLogger(app_name.lower())
     try:
-        uvicorn.run("main:create_worker", port=5000, factory=True, server_header=False)
+        uvicorn.run(
+            "main:create_worker", factory=True,
+            port=5000,
+            workers=config.get("WORKERS", 1),
+            # loop="uvloop",
+            server_header=False, date_header=False
+        )
     except KeyboardInterrupt:
         # scheduler.remove_all_jobs()
         graceful_exit(logger, app_name)

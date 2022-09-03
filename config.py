@@ -26,6 +26,7 @@ class Config:
     TESTING = False
     SECRET_KEY = os.environ.get("SECRET_KEY") or "BXhNmCEmNdoBNngyGXj6jJtooYAcKpt6"
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY") or SECRET_KEY
+    WORKERS = 1
 
     # Logging config
     LOG_TO_STDOUT = True

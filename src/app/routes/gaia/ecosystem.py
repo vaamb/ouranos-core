@@ -14,7 +14,7 @@ from src.core.api.utils import timeWindow
 
 
 if t.TYPE_CHECKING:
-    from src.core.types import Ecosystem
+    from src.core.typing import Ecosystem
 
 
 async def ecosystem_or_abort(

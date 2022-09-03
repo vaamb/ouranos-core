@@ -1,3 +1,5 @@
+import typing as t
+
 from .database.models.app import (
     CalendarEvent, CommunicationChannel, FlashMessage, GaiaJob,
     Role, Service, User
@@ -13,6 +15,11 @@ from .database.models.gaia import (
 from .database.models.system import SystemHistory
 
 
+LEVELS = t.Literal["plants", "environment", "all"]
+TYPES = t.Literal["sensor", "light", "heater", "cooler", "humidifier",
+                  "dehumidifier", "all"]
+
+
 __all__ = [
     "CalendarEvent", "CommunicationChannel", "FlashMessage", "GaiaJob",
     "Role", "Service", "User",
@@ -22,4 +29,5 @@ __all__ = [
     "GaiaWarning", "Hardware", "Health", "Light", "Management", "Measure",
     "Plant", "SensorHistory",
     "SystemHistory",
+    "LEVELS", "TYPES",
 ]
