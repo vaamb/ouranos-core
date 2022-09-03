@@ -85,7 +85,7 @@ async def get_ecosystems_management(
         session: AsyncSession = Depends(get_session)
 ):
     ecosystems = await api.ecosystem.get_multiple(session, ecosystems)
-    response = [api.ecosystem.get_management(
+    response = [await api.ecosystem.get_management(
         session, ecosystem
     ) for ecosystem in ecosystems]
     return response
@@ -98,7 +98,7 @@ async def get_ecosystem_management(
 ):
     assert_single_uid(ecosystem_id)
     ecosystem = await ecosystem_or_abort(session, ecosystem_id)
-    response = api.ecosystem.get_management(
+    response = await api.ecosystem.get_management(
         session, ecosystem
     )
     return response
@@ -112,7 +112,7 @@ async def get_ecosystems_sensors_skeleton(
         session: AsyncSession = Depends(get_session)
 ):
     ecosystems = await api.ecosystem.get_multiple(session, ecosystems_id)
-    response = [api.ecosystem.get_sensors_data_skeleton(
+    response = [await api.ecosystem.get_sensors_data_skeleton(
         session, ecosystem, time_window, level
     ) for ecosystem in ecosystems]
     return response
@@ -127,7 +127,7 @@ async def get_ecosystem_sensors_skeleton(
 ):
     assert_single_uid(ecosystem_id)
     ecosystem = await ecosystem_or_abort(session, ecosystem_id)
-    response = api.ecosystem.get_sensors_data_skeleton(
+    response = await api.ecosystem.get_sensors_data_skeleton(
         session, ecosystem, time_window, level
     )
     return response

@@ -290,53 +290,53 @@ class ecosystem:
         return ecosystem.to_dict()
 
     @staticmethod
-    def get_management(
+    async def get_management(
             session: AsyncSession,
             ecosystem: Ecosystem,
     ) -> dict:
         limits = time_limits()
 
+        async def sensor_data(ecosystem_uid: str, level) -> bool:
+            stmt = (
+                select(Hardware)
+                .where(Hardware.ecosystem_uid == ecosystem_uid)
+                .where(
+                    Hardware.type == "sensor",
+                    Hardware.level == level
+                )
+                .filter(Hardware.last_log >= limits["sensors"])
+            )
+            result = await session.execute(stmt)
+            return bool(result.first())
+
         @cached(cache_ecosystem_info)
-        def cached_func(ecosystem: Ecosystem):
+        async def cached_func(ecosystem: Ecosystem):
             management = ecosystem.management_dict()
+
             return {
                 "uid": ecosystem.uid,
                 "name": ecosystem.name,
-                "sensors": management["sensors"],
-                "light": management["light"],
-                "climate": management["climate"],
-                "watering": management["watering"],
-                "health": management["health"],
-                "alarms": management["alarms"],
-                "webcam": management["webcam"],
-                "switches": any((management["climate"], management["light"])),
-                "environment_data": bool(
-                    ecosystem.hardware
-                    .where(
-                        Hardware.type == "sensor",
-                        Hardware.level == "environment"
-                    )
-                    .filter(Hardware.last_log >= limits["sensors"])
-                    .first()
-                ),
-                "plants_data": bool(
-                    ecosystem.hardware
-                    .where(
-                        Hardware.type == "sensor",
-                        Hardware.level == "plants"
-                    )
-                    .filter(Hardware.last_log >= limits["sensors"])
-                    .first()
-                ),
+                "sensors": management.get("sensors", False),
+                "light": management.get("light", False),
+                "climate": management.get("climate", False),
+                "watering": management.get("watering", False),
+                "health": management.get("health", False),
+                "alarms": management.get("alarms", False),
+                "webcam": management.get("webcam", False),
+                "switches": any((
+                    management.get("climate"), management.get("light")
+                )),
+                "environment_data": await sensor_data(ecosystem.uid, "environment"),
+                "plants_data": await sensor_data(ecosystem.uid, "plants"),
             }
-        return cached_func(ecosystem)
+        return await cached_func(ecosystem)
 
     @staticmethod
     def get_light_info(session: AsyncSession, ecosystem: Ecosystem) -> dict:
         return ecosystem.light.first().to_dict()
 
     @staticmethod
-    async def get_ecosystem_sensors_data_skeleton(
+    async def get_sensors_data_skeleton(
             session: AsyncSession,
             ecosystem: Ecosystem,
             time_window: timeWindow,
@@ -359,7 +359,7 @@ class ecosystem:
                         (SensorHistory.datetime <= time_window[1]))
             )
             result = await session.execute(stmt)
-            sensors = result.scalars().all()
+            sensors = result.unique().scalars().all()
             temp = {}
             for sensor in sensors:
                 for measure in sensor.measure:
@@ -390,8 +390,9 @@ class ecosystem:
             "name": ecosystem.name,
             "level": level,
             "sensors_skeleton": await inner_func(
-                session=session, ecosystem_id=ecosystem.uid,
-                time_window=time_window, level=level)
+                ecosystem_id=ecosystem.uid, time_window=time_window,
+                level=level
+            )
         }
 
     @staticmethod
@@ -587,7 +588,7 @@ class hardware:
     ) -> t.Optional[Hardware]:
         stmt = select(Hardware).where(Hardware.uid == hardware_uid)
         result = await session.execute(stmt)
-        return result.scalars().one_or_none()
+        return result.unique().scalars().one_or_none()
 
     @staticmethod
     def _get_query(

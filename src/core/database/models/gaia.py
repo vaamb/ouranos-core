@@ -98,7 +98,7 @@ class Ecosystem(base):
 
     def management_dict(self):
         return {
-            management: self.can_manage(management) for management in Management.keys()
+            management: self.can_manage(management) for management in Management.values()
         }
 
 
@@ -154,9 +154,11 @@ class Hardware(base):
     # relationship
     ecosystem = orm.relationship("Ecosystem", back_populates="hardware")
     measure = orm.relationship("Measure", back_populates="hardware",
-                               secondary=associationHardwareMeasure)
+                               secondary=associationHardwareMeasure,
+                               lazy="joined")
     plants = orm.relationship("Plant", back_populates="sensors")
-    sensors_history = orm.relationship("SensorHistory", back_populates="sensor", lazy="dynamic")
+    sensors_history = orm.relationship("SensorHistory", back_populates="sensor",
+                                       lazy="dynamic")
 
     def __repr__(self) -> str:
         return (
