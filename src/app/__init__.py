@@ -95,6 +95,7 @@ def create_app(config) -> FastAPI:
         logger.info(f"{app_config['APP_NAME']} worker successfully started")
 
     # Init db
+    from src.core.database.models.gaia import Measure
     from src.core.database.models import Role, User, CommunicationChannel
     db.init(config)
 
@@ -104,6 +105,7 @@ def create_app(config) -> FastAPI:
                 await Role.insert_roles(session)
                 await User.insert_gaia(session)
                 await CommunicationChannel.insert_channels(session)
+                await Measure.insert_measures(session)
             except Exception as e:
                 logger.error(e)
                 raise e

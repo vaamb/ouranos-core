@@ -42,7 +42,6 @@ async def _create_entry(
     # TODO: call GAIA
     model = model_class(**model_info)
     session.add(model)
-    await session.commit()
     return model
 
 
@@ -223,7 +222,7 @@ class ecosystem:
             .where(Ecosystem.uid.in_(ecosystem_id) | Ecosystem.name.in_(ecosystem_id))
         )
         result = await session.execute(stmt)
-        return result.scalars().one_or_none()
+        return result.unique().scalars().one_or_none()
 
     @staticmethod
     async def get_multiple(
@@ -260,7 +259,7 @@ class ecosystem:
                 .order_by(Ecosystem.last_seen.desc(), Ecosystem.name.asc())
             )
         result = await session.execute(stmt)
-        return result.scalars().all()
+        return result.unique().scalars().all()
 
     @staticmethod
     async def update_or_create(
@@ -314,7 +313,6 @@ class ecosystem:
         @cached(cache_ecosystem_info)
         async def cached_func(ecosystem: Ecosystem):
             management = ecosystem.management_dict()
-
             return {
                 "uid": ecosystem.uid,
                 "name": ecosystem.name,
@@ -350,35 +348,35 @@ class ecosystem:
         async def inner_func(
                 ecosystem_id: str,
                 time_window: timeWindow,
-                level: ot.LEVELS | list[ot.LEVELS] | None = None,
+                level: list[ot.LEVELS],
         ) -> list:
             stmt = (
                 select(Hardware).join(SensorHistory.sensor)
                 .filter(Hardware.level.in_(level))
-                .filter(SensorHistory.ecosystem_uid == ecosystem_id)
-                .filter((SensorHistory.datetime > time_window[0]) &
-                        (SensorHistory.datetime <= time_window[1]))
+                .filter(Hardware.ecosystem_uid == ecosystem_id)
+                .filter((SensorHistory.datetime > time_window.start) &
+                        (SensorHistory.datetime <= time_window.end))
             )
             result = await session.execute(stmt)
             sensors = result.unique().scalars().all()
             temp = {}
-            for sensor in sensors:
-                for measure in sensor.measure:
+            for sensor_ in sensors:
+                for measure_ in sensor_.measure:
                     try:
-                        temp[measure.name][sensor.uid] = sensor.name
+                        temp[measure_.name][sensor_.uid] = sensor_.name
                     except KeyError:
-                        temp[measure.name] = {sensor.uid: sensor.name}
+                        temp[measure_.name] = {sensor_.uid: sensor_.name}
             order = [
                 "temperature", "humidity", "lux", "dew_point", "absolute_moisture",
                 "moisture"
             ]
             return [{
-                "measure": measure,
+                "measure": measure_,
                 "sensors": [{
-                    "uid": sensor,
-                    "name": temp[measure][sensor]
-                } for sensor in temp[measure]]
-            } for measure in {
+                    "uid": sensor_,
+                    "name": temp[measure_][sensor_]
+                } for sensor_ in temp[measure_]]
+            } for measure_ in {
                 key: temp[key] for key in order if temp.get(key)
             }]
 
@@ -397,10 +395,11 @@ class ecosystem:
         }
 
     @staticmethod
-    async def get_environment_parameters_info(
+    def get_environment_parameters_info(
             session: AsyncSession,
             ecosystem: Ecosystem,
     ) -> dict:
+        #parameters = await environmental_parameter.get_multiple(session, e.uid)
         return {
             "uid": ecosystem.uid,
             "name": ecosystem.name,
@@ -527,6 +526,20 @@ class environmental_parameter:
         return result.scalars().one_or_none()
 
     @staticmethod
+    async def get_multiple(
+             session: AsyncSession,
+             uids: list | None = None,
+             parameters: list | None = None,
+    ) -> list[EnvironmentParameter]:
+        stmt = select(EnvironmentParameter)
+        if uids:
+            stmt = stmt.where(EnvironmentParameter.ecosystem_uid.in_(uids))
+        if parameters:
+            stmt = stmt.where(EnvironmentParameter.parameter.in_(parameters))
+        result = await session.execute(stmt)
+        return result.scalars().all()
+
+    @staticmethod
     async def update_or_create(
             session: AsyncSession,
             uid: str | None = None,
@@ -636,7 +649,7 @@ class hardware:
             hardware_uids, ecosystem_uids, levels, types, models
         )
         result = await session.execute(stmt)
-        return result.scalars().all()
+        return result.unique().scalars().all()
 
     @staticmethod
     async def update_or_create(
@@ -700,7 +713,7 @@ class sensor:
                 .distinct()
             )
         result = await session.execute(stmt)
-        return result.scalars().one_or_none()
+        return result.unique().scalars().one_or_none()
 
     @staticmethod
     async def get_multiple(
@@ -724,7 +737,7 @@ class sensor:
                 .distinct()
             )
         result = await session.execute(stmt)
-        return result.scalars().all()
+        return result.unique().scalars().all()
 
     @staticmethod
     async def _get_data_record(
@@ -740,15 +753,14 @@ class sensor:
                 time_window: timeWindow
         ) -> list:
             stmt = (
-                select(SensorHistory)
+                select(SensorHistory.datetime, SensorHistory.value)
                 .filter(SensorHistory.measure == measure)
                 .filter(SensorHistory.sensor_uid == sensor_obj.uid)
                 .filter((SensorHistory.datetime > time_window[0]) &
                         (SensorHistory.datetime <= time_window[1]))
-                .with_entities(SensorHistory.datetime, SensorHistory.value)
             )
             result = await session.execute(stmt)
-            return result.scalars().all()
+            return result.all()
         return await cached_func(sensor_obj, measure, time_window)
 
     @staticmethod
@@ -804,7 +816,7 @@ class sensor:
             return rv
 
     @staticmethod
-    async def get_info(
+    async def get_overview(
             session: AsyncSession,
             sensor_obj: Hardware,
             measures: str | list | None = None,
@@ -817,7 +829,7 @@ class sensor:
         if current_data or historic_data:
             rv.update({"data": {}})
             if current_data:
-                data = sensor._get_current_data(session, sensor_obj, measures)
+                data = await sensor._get_current_data(session, sensor_obj, measures)
                 if data:
                     cache = get_cache("sensors_data")
                     rv["data"].update({
@@ -868,12 +880,9 @@ class sensor:
     async def create_record(
             session: AsyncSession,
             sensor_data: dict,
-            commit: bool = False,  # TODO: do the same elsewhere
     ) -> SensorHistory:
         sensor_history = SensorHistory(**sensor_data)
         session.add(sensor_history)
-        if commit:
-            await session.commit()
         return sensor_history
 
 
@@ -927,7 +936,6 @@ class light:
     ) -> Light:
         light = Light(**light_data)
         session.add(light)
-        await session.commit()
         return light
 
     @staticmethod
@@ -990,7 +998,6 @@ class health:
     ) -> Health:
         health = Health(**health_data)
         session.add(health)
-        await session.commit()
         return health
 
 

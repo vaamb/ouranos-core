@@ -31,7 +31,7 @@ async def get_engines(
         session: AsyncSession = Depends(get_session)
 ):
     engines = await api.engine.get_multiple(session, engines_id)
-    response = [api.gaia.get_info(
+    response = [api.engine.get_info(
         session, engine
     ) for engine in engines]
     return response
@@ -44,5 +44,5 @@ async def get_engine(
 ):
     assert_single_uid(uid)
     engine = await engine_or_abort(session, uid)
-    response = api.gaia.get_info(session, engine)
+    response = api.engine.get_info(session, engine)
     return response

@@ -1,7 +1,8 @@
 from datetime import time
 
 import sqlalchemy as sa
-from sqlalchemy import orm
+from sqlalchemy import orm, select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.schema import Table
 
 
@@ -63,14 +64,14 @@ class Ecosystem(base):
     engine_uid = sa.Column(sa.Integer, sa.ForeignKey("engines.uid"))
 
     # relationship
-    engine = orm.relationship("Engine", back_populates="ecosystems")
-    environment_parameters = orm.relationship("EnvironmentParameter", back_populates="ecosystem")
-    plants = orm.relationship("Plant", back_populates="ecosystem", lazy="dynamic")
-    hardware = orm.relationship("Hardware", back_populates="ecosystem", lazy="dynamic")
-    sensors_history = orm.relationship("SensorHistory", back_populates="ecosystem", lazy="dynamic")
-    actuators_history = orm.relationship("ActuatorHistory", back_populates="ecosystem", lazy="dynamic")
-    health = orm.relationship("Health", back_populates="ecosystem", lazy="dynamic")
-    light = orm.relationship("Light", back_populates="ecosystem", lazy="dynamic")
+    engine: "Engine" = orm.relationship("Engine", back_populates="ecosystems", lazy="joined")
+    environment_parameters = orm.relationship("EnvironmentParameter", back_populates="ecosystem", lazy="joined")
+    plants = orm.relationship("Plant", back_populates="ecosystem")
+    hardware = orm.relationship("Hardware", back_populates="ecosystem")
+    sensors_history = orm.relationship("SensorHistory", back_populates="ecosystem")
+    actuators_history = orm.relationship("ActuatorHistory", back_populates="ecosystem")
+    health = orm.relationship("Health", back_populates="ecosystem")
+    light = orm.relationship("Light", back_populates="ecosystem", lazy="joined")
 
     def can_manage(self, mng):
         return self.management & mng == mng
@@ -92,13 +93,14 @@ class Ecosystem(base):
             "name": self.name,
             "status": self.status,
             "last_seen": self.last_seen,
-            # "connected": self.engine.connected,  # TODO: re enable
+            "connected": self.engine.connected,
             "engine_uid": self.engine_uid,
         }
 
     def management_dict(self):
         return {
-            management: self.can_manage(management) for management in Management.values()
+            management: self.can_manage(value) for
+            management, value in Management.items()
         }
 
 
@@ -187,18 +189,37 @@ sa.Index("idx_sensors_type", Hardware.type, Hardware.level)
 
 class Measure(base):
     __tablename__ = "measures"
-    name = sa.Column(sa.String(length=16), primary_key=True)
+    id = sa.Column(sa.Integer, primary_key=True)
+    name = sa.Column(sa.String(length=16))
     unit = sa.Column(sa.String(length=16))
 
     # relationship
     hardware = orm.relationship("Hardware", back_populates="measure",
                                 secondary=associationHardwareMeasure)
 
+    @staticmethod
+    async def insert_measures(session: AsyncSession):
+        measures = {
+            "temperature": "°C",
+            "humidity": "% humidity",
+            "dew point": "°C",
+            "absolute humidity": "°C",
+            "moisture": "°C"
+        }
+        for name, unit in measures.items():
+            stmt = select(Measure).where(Measure.name == name)
+            result = await session.execute(stmt)
+            measure = result.first()
+            if not measure:
+                m = Measure(name=name, unit=unit)
+                session.add(m)
+        await session.commit()
+
     def to_dict(self):
         return {
             "name": self.name,
             "unit": self.unit,
-            "sensors": [sensor.uid for sensor in self.hardware],
+            # "sensors": [sensor.uid for sensor in self.hardware],
         }
 
 

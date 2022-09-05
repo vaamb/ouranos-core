@@ -258,7 +258,7 @@ def configure_logging(config_class) -> None:
             },
             "apscheduler": {
                 "handlers": handlers,
-                "level": "WARNING",
+                "level": f"{'DEBUG' if DEBUG else 'WARNING'}",
                 "propagate": False,
             },
             "urllib3": {
@@ -268,18 +268,18 @@ def configure_logging(config_class) -> None:
             },
             "engineio": {
                 "handlers": handlers,
-                "level": f"{'DEBUG' if DEBUG else 'INFO'}",
+                "level": f"{'DEBUG' if DEBUG else 'WARNING'}",
                 #"propagate": False,
             },
             "socketio": {
                 "handlers": handlers,
-                "level": f"{'DEBUG' if DEBUG else 'INFO'}",
+                "level": f"{'DEBUG' if DEBUG else 'WARNING'}",
                 #"propagate": False,
 
             },
             "uvicorn": {
                 "handlers": handlers,
-                "level": f"{'DEBUG' if DEBUG else 'INFO'}",
+                "level": f"{'DEBUG' if DEBUG else 'WARNING'}",
                 # "propagate": False,
             },
         },

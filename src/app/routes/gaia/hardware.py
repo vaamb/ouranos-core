@@ -37,19 +37,13 @@ async def get_multiple_hardware(
         hardware_level: t.Optional[list[str]] = Query(default=None),
         hardware_type: t.Optional[list[str]] = Query(default=None),
         hardware_model: t.Optional[list[str]] = Query(default=None),
-        measures: t.Optional[list[str]] = Query(default=None),
-        current_data: bool = True,
-        historic_data: bool = True,
-        time_window: timeWindow = Depends(get_time_window),
         session: AsyncSession = Depends(get_session),
 ):
     hardware = await api.hardware.get_multiple(
         session, hardware_uid, ecosystems_uid, hardware_level,
         hardware_type, hardware_model
     )
-    response = [await api.sensor.get_info(
-        session, h, measures, current_data, historic_data, time_window
-    ) for h in hardware]
+    response = [api.hardware.get_info(session, h) for h in hardware]
     return response
 
 
@@ -103,13 +97,14 @@ async def get_sensors(
         session: AsyncSession = Depends(get_session),
 ):
     sensors = await api.sensor.get_multiple(
-        session, sensors_uid, ecosystems_uid, sensors_level, "sensor",
-        sensors_model
+        session, sensors_uid, ecosystems_uid, sensors_level, sensors_model,
+        time_window
     )
-    response = [await api.sensor.get_info(
+    response = [await api.sensor.get_overview(
         session, sensor, measures, current_data,
         historic_data, time_window
     ) for sensor in sensors]
+    print(response)
     return response
 
 
@@ -129,7 +124,7 @@ async def get_sensor(
 ):
     assert_single_uid(uid)
     sensor = await hardware_or_abort(session, uid)
-    response = await api.sensor.get_info(
+    response = await api.sensor.get_overview(
         session, sensor, "all", current_data, historic_data, time_window,
     )
     return response
@@ -149,7 +144,7 @@ async def get_measure_for_sensor(
     sensor = await hardware_or_abort(session, uid)
     response = {}
     if measure in [m.name for m in sensor.measure]:
-        response = await api.sensor.get_info(
+        response = await api.sensor.get_overview(
             session, sensor, measure, current_data, historic_data,
             time_window
         )

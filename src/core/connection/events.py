@@ -111,7 +111,6 @@ class Events(AsyncNamespace):
             uid = engine.uid
             self.leave_room(sid, "engines", namespace="/gaia")
             engine.connected = False
-            session.commit()
             await self.emit(
                 "ecosystem_status",
                 {ecosystem.uid: {"status": ecosystem.status, "connected": False}
@@ -128,9 +127,8 @@ class Events(AsyncNamespace):
                 return
             engine.last_seen = now
             for ecosystem_uid in data:
-                ecosystem = await api.ecosystem.get(ecosystem_uid)
+                ecosystem = await api.ecosystem.get(session, ecosystem_uid)
                 ecosystem.last_seen = now
-            await session.commit()
 
     async def on_register_engine(self, sid, data):
         async with self.session(sid) as session:
@@ -212,7 +210,6 @@ class Events(AsyncNamespace):
                         # Not implemented in gaia yet
                         pass
                 session.add(ecosystem)
-            await session.commit()
 
     @registration_required
     async def on_environmental_parameters(self, sid, data, engine_uid):
@@ -248,7 +245,10 @@ class Events(AsyncNamespace):
                 ecosystem = await api.ecosystem.update_or_create(
                     session, ecosystem_info=ecosystem_info
                 )
-                ecosystem.light.method = ecosystem_data.get("light")
+                await api.light.update_or_create(
+                    session, light_info={"method": ecosystem_data.get("light")},
+                    ecosystem_uid=ecosystem.uid
+                )
                 for (parameter, v) in env_params.items():
                     parameter_info = {
                         "day": v.get("day"),
@@ -258,7 +258,6 @@ class Events(AsyncNamespace):
                     await api.environmental_parameter.update_or_create(
                         session, uid, parameter, parameter_info
                     )
-            await session.commit()
 
     @registration_required
     async def on_hardware(self, sid, data, engine_uid):
@@ -268,22 +267,28 @@ class Events(AsyncNamespace):
                 for hardware_uid, hardware_dict in ecosystem_data.items():
                     hardware_dict["ecosystem_uid"] = uid
                     measures = hardware_dict.pop("measure", [])
+                    plants = hardware_dict.pop("plants", [])
+                    hardware = await api.hardware.update_or_create(
+                        session, hardware_info=hardware_dict, uid=hardware_uid
+                    )
                     if measures:
                         if isinstance(measures, str):
                             measures = [measures]
+                        measures = [m.replace("_", " ") for m in measures]
                         _measures = await api.measure.get_multiple(session, measures)
                         if _measures:
-                            hardware_dict["measure"] = _measures
-                    plants = hardware_dict.pop("plants", [])
+                            for m in _measures:
+                                if m not in hardware.measure:
+                                    hardware.measure.append(m)
                     if plants:
                         if isinstance(plants, str):
                             plants = [plants]
                         _plants = await api.plant.get_multiple(session, plants)
                         if _plants:
-                            hardware["plants"] = _plants
-                    hardware = await api.hardware.update_or_create(
-                        session, hardware_info=hardware_dict, uid=hardware_uid
-                    )
+                            for p in _plants:
+                                if p not in hardware.plants:
+                                    hardware.plants.append(m)
+
 
     # TODO: split this in two part: one receiving and logging data, and move the
     #  one sending data to a scheduled event
@@ -364,7 +369,6 @@ class Events(AsyncNamespace):
                                 await api.sensor.create_record(
                                     session, aggregated_data
                                 )
-            await session.commit()
 
     @registration_required
     async def on_health_data(self, sid, data, engine_uid):

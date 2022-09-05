@@ -161,7 +161,7 @@ class AsyncSQLAlchemyWrapper(SQLAlchemyWrapper):
         self._session_factory = sessionmaker(
             binds=self.get_binds_mapping(),
             expire_on_commit=False,
-            class_=AsyncSession
+            class_=AsyncSession,
         )
         self._session = async_scoped_session(self._session_factory, current_task)
 
@@ -170,8 +170,10 @@ class AsyncSQLAlchemyWrapper(SQLAlchemyWrapper):
 
     @asynccontextmanager
     async def scoped_session(self) -> AsyncSession:
+        session: AsyncSession = self._session()
         try:
-            yield self._session()
+            yield session
+            await session.commit()
         except Exception as e:
             await self.rollback()
             raise e
