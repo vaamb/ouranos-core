@@ -6,6 +6,7 @@ from .decorators import permission_required
 from src.app import db, dispatcher
 from src.core import api
 from src.core.g import app_config
+from src.core.socketio import sio_manager
 
 
 # TODO: change name
@@ -66,37 +67,36 @@ class Events(AsyncNamespace):
         else:
             dispatcher.emit("services", "stop_service", service)
 
-"""
+
 # ---------------------------------------------------------------------------
 #   Dispatcher socketio
 # ---------------------------------------------------------------------------
 @dispatcher.on("weather_current")
-def _current_weather(**kwargs):
+async def _current_weather(**kwargs):
     # TODO: create async dispatcher or wrap in async_to_sync
-    sio.emit("weather_current", namespace="/", **kwargs)
+    await sio_manager.emit("weather_current", namespace="/", **kwargs)
 
 
 @dispatcher.on("weather_hourly")
-def _hourly_weather(**kwargs):
+async def _hourly_weather(**kwargs):
     # TODO: create async dispatcher or wrap in async_to_sync
-    sio.emit("weather_hourly", namespace="/", **kwargs)
+    await sio_manager.emit("weather_hourly", namespace="/", **kwargs)
 
 
 @dispatcher.on("weather_daily")
-def _daily_weather(**kwargs):
+async def _daily_weather(**kwargs):
     # TODO: create async dispatcher or wrap in async_to_sync
-    sio.emit("weather_daily", namespace="/", **kwargs)
+    await sio_manager.emit("weather_daily", namespace="/", **kwargs)
 
 
 @dispatcher.on("sun_times")
-def _sun_times(**kwargs):
+async def _sun_times(**kwargs):
     # TODO: create async dispatcher or wrap in async_to_sync
-    sio.emit("sun_times", namespace="/", **kwargs)
+    await sio_manager.emit("sun_times", namespace="/", **kwargs)
 
 
 @dispatcher.on("current_server_data")
-def _current_server_data(data):
+async def _current_server_data(data):
     # TODO: create async dispatcher or wrap in async_to_sync
-    api.system.update_current_system_data(data)
-    sio.emit(event="current_server_data", data=data, namespace="/")
-"""
+    api.system.update_current_data(data)
+    await sio_manager.emit(event="current_server_data", data=data, namespace="/")

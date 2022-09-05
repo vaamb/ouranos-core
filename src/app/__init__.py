@@ -7,7 +7,7 @@ from dispatcher import configure_dispatcher, get_dispatcher
 from fastapi import APIRouter, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from socketio import ASGIApp, AsyncManager, AsyncServer
+from socketio import ASGIApp, AsyncServer
 
 from .docs import description, tags_metadata
 from src.core import db
@@ -167,9 +167,12 @@ def create_app(config) -> FastAPI:
 
     # Configure Socket.IO and load the socketio
     logger.debug("Configuring Socket.IO server")
+    from src.core.socketio import sio_manager
     if 0 and app_config.get("USE_REDIS_DISPATCHER", False):
-        sio.manager = AsyncManager()  # TODO
-        sio.manager.set_server(sio)
+        # TODO: sio_manager = new manager
+        pass
+    sio.manager = sio_manager
+    sio.manager.set_server(sio)
     app.mount(path="/", app=asgi_app)
 
     logger.debug("Loading client events")
@@ -177,7 +180,7 @@ def create_app(config) -> FastAPI:
     sio.register_namespace(ClientEvents("/"))
 
     logger.debug("Loading gaia events")
-    from src.core.connection.events import Events as GAIAEvents
+    from src.core.socketio.events import Events as GAIAEvents
     sio.register_namespace(GAIAEvents("/gaia"))
 
     # Load the frontend if present

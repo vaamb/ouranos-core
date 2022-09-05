@@ -10,6 +10,7 @@ from socketio import AsyncNamespace
 from sqlalchemy.exc import IntegrityError
 from statistics import mean, stdev as std
 
+from . import sio_manager
 from .decorators import registration_required
 from src.app import dispatcher
 from src.core import api, db
@@ -412,14 +413,13 @@ class Events(AsyncNamespace):
 # ---------------------------------------------------------------------------
 #   Dispatcher socketio
 # ---------------------------------------------------------------------------
-"""@dispatcher.on("turn_light")
-def _turn_light(*args, **kwargs):
+@dispatcher.on("turn_light")
+async def _turn_light(*args, **kwargs):
     # TODO: create async dispatcher or wrap in async_to_sync
-    sio.emit("turn_light", namespace="/gaia", **kwargs)
+    await sio_manager.emit("turn_light", namespace="/gaia", **kwargs)
 
 
 @dispatcher.on("turn_actuator")
-def _turn_actuator(*args, **kwargs):
+async def _turn_actuator(*args, **kwargs):
     # TODO: create async dispatcher or wrap in async_to_sync
-    sio.emit("turn_actuator", namespace="/gaia", **kwargs)
-"""
+    await sio_manager.emit("turn_actuator", namespace="/gaia", **kwargs)
