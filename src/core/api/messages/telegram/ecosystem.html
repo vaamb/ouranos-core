@@ -1,0 +1,8 @@
+{% for ecosystem in ecosystems -%}
+Ecosystem {{ ecosystem["name"] }} is {{ "connected" if ecosystem["connected"] else "disconnected" }}.
+{% if not ecosystem["connected"] %}
+It was last seen on {{ ecosystem["last_seen"] }}
+{% endif %}
+It is currently {{ "expected to be " if not ecosystem["connected"] -}}
+{{ "not " if not ecosystem["status"] -}} running.
+{% endfor %}

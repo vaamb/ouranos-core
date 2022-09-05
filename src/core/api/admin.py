@@ -53,6 +53,15 @@ class user:
         return result.scalars().one_or_none()
 
     @staticmethod
+    async def get_by_telegram_id(
+            session: AsyncSession,
+            telegram_id: int
+    ) -> User:
+        stmt = select(User).where(User.telegram_chat_id == telegram_id)
+        result = await session.execute(stmt)
+        return result.scalars().one_or_none()
+
+    @staticmethod
     async def update(
             session: AsyncSession,
             user_id: int | str,

@@ -72,6 +72,7 @@ class Config:
     MAIL_SUPPRESS_SEND = False
 
     # Dispatcher config
+    USE_REDIS_DISPATCHER = False
     MESSAGE_BROKER_URL = "memory://"
     # CACHING_SERVER_URL
 

@@ -1,9 +1,13 @@
+from __future__ import annotations
+
 from datetime import datetime, timedelta
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core import api
+
 
 template_folder = Path(__file__).absolute().parents[0]
 
@@ -11,16 +15,6 @@ loader = FileSystemLoader(template_folder)
 environment = Environment(loader=loader, lstrip_blocks=True, trim_blocks=True)
 
 
-units = {
-    "temperature": "°C",
-    "humidity": "%",
-    "dew_point": "°C",
-    "light": " lux",
-    "moisture": " RWC",
-}
-
-
-# TODO: redo all
 def replace_underscore(s: str, replacement: str = " ") -> str:
     return s.replace("_", replacement)
 
@@ -28,10 +22,26 @@ def replace_underscore(s: str, replacement: str = " ") -> str:
 environment.filters["replace_underscore"] = replace_underscore
 
 
-def render_template(rel_path, **context):
+def render_template(rel_path, **context) -> str:
     return environment.get_template(rel_path).render(context)
 
 
+async def ecosystem_summary(
+        session: AsyncSession,
+        ecosystems: str | list[str] | None = None
+) -> str:
+    ecosystem_objs = await api.ecosystem.get_multiple(session, ecosystems)
+    ecosystems = [
+        api.ecosystem.get_info(session, ecosystem)
+        for ecosystem in ecosystem_objs
+    ]
+    if ecosystems:
+        return render_template(
+            "telegram/ecosystem.html", ecosystems=ecosystems
+        )
+    return "No ecosystem found"
+
+"""
 def weather(currently: bool = True, forecast: bool = True, **kwargs) -> str:
     weather = {}
 
@@ -95,3 +105,4 @@ def recap_sensors_info(*ecosystems, session,
     return api.messages.render_template(
         "telegram/sensors.html", sensors=sum_sensors, units=units,
         timedelta=days_ago)
+"""
