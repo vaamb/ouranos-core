@@ -65,13 +65,13 @@ class Ecosystem(base):
 
     # relationship
     engine: "Engine" = orm.relationship("Engine", back_populates="ecosystems", lazy="joined")
+    light = orm.relationship("Light", back_populates="ecosystem", lazy="joined", uselist=False)
     environment_parameters = orm.relationship("EnvironmentParameter", back_populates="ecosystem", lazy="joined")
     plants = orm.relationship("Plant", back_populates="ecosystem")
     hardware = orm.relationship("Hardware", back_populates="ecosystem")
     sensors_history = orm.relationship("SensorHistory", back_populates="ecosystem")
     actuators_history = orm.relationship("ActuatorHistory", back_populates="ecosystem")
     health = orm.relationship("Health", back_populates="ecosystem")
-    light = orm.relationship("Light", back_populates="ecosystem", lazy="joined")
 
     def can_manage(self, mng):
         return self.management & mng == mng
@@ -264,8 +264,8 @@ class ActuatorHistory(BaseActuatorHistory):
 
 
 class Light(base):
-    __tablename__ = "light"
-    ecosystem_uid = sa.Column(sa.String(length=8), sa.ForeignKey("ecosystems.uid"), primary_key=True)
+    __tablename__ = "lights"
+    id = sa.Column(sa.Integer, primary_key=True)
     status = sa.Column(sa.Boolean)
     mode = sa.Column(sa.String(length=12))
     method = sa.Column(sa.String(length=12))
@@ -273,6 +273,7 @@ class Light(base):
     morning_end = sa.Column(sa.Time)
     evening_start = sa.Column(sa.Time)
     evening_end = sa.Column(sa.Time)
+    ecosystem_uid = sa.Column(sa.String(length=8), sa.ForeignKey("ecosystems.uid"))
 
     # relationships
     ecosystem = orm.relationship("Ecosystem", back_populates="light")

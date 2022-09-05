@@ -227,7 +227,7 @@ class ecosystem:
     @staticmethod
     async def get_multiple(
             session: AsyncSession,
-            ecosystems: str | list | None = None,
+            ecosystems: str | list[str] | None = None,
     ) -> list[Ecosystem]:
         ecosystems = ecosystems or "all"
         if isinstance(ecosystems, str):
@@ -333,7 +333,9 @@ class ecosystem:
 
     @staticmethod
     def get_light_info(session: AsyncSession, ecosystem: Ecosystem) -> dict:
-        return ecosystem.light.first().to_dict()
+        if ecosystem.light:
+            return ecosystem.light.to_dict()
+        return {}
 
     @staticmethod
     async def get_sensors_data_skeleton(

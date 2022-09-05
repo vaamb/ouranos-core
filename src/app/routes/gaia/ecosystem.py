@@ -139,9 +139,11 @@ async def get_ecosystems_light(
         session: AsyncSession = Depends(get_session)
 ):
     ecosystems = await api.ecosystem.get_multiple(session, ecosystems_id)
-    response = [api.ecosystem.get_light_info(
-        session, ecosystem
-    ) for ecosystem in ecosystems]
+    response = []
+    for ecosystem in ecosystems:
+        data = api.ecosystem.get_light_info(session, ecosystem)
+        if data:
+            response.append(data)
     return response
 
 

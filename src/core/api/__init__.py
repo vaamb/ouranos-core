@@ -1,4 +1,4 @@
-from . import admin, app, gaia, exceptions, system, utils, weather
+from . import admin, app, exceptions, gaia, messages, system, utils, weather
 
 from .app import flash_message, service
 from .admin import user
