@@ -42,6 +42,7 @@ async def ecosystem_status(
         update: Update,
         context: CallbackContext,
 ) -> None:
+    print(1)
     args = context.args
     async with db.scoped_session() as session:
         msg = await api.messages.ecosystem_summary(session, args)
@@ -156,47 +157,49 @@ def base_of_tree(self, update, context) -> None:
     firstname = self.get_firstname(chat_id=chat_id)
     # TODO: finish this with a tree of decision
 
-def on_help(self, update, context) -> None:
-    message = "Here is a list of the commands available:\n"
-    message += "/weather : provides the current weather by default and the " \
-               "weather forecast if 'forecast' is provided as an argument.\n"
-    message += "/light_info : provides the all the light info for all the" \
-               "ecosystems, or the specified one(s).\n"
-    message += "/sensors : provides the current sensors data for all the " \
-               "ecosystems by default, or the specified one(s).\n"
-    message += "/sensors_recap : provides the sensors data for the last day" \
-               "for all the ecosystems by default. The number of days " \
-               "covered can be specified by adding '#days' as an argument.\n"
-    message += "/recap : send a recap with sensors data of the last 24h, " \
-               "weather forecast, warnings and calendar socketio.\n"
-    update.message.reply_text(message)
 
-def unknown_command(self, update, context):
-    chat_id = update.effective_chat.id
-    firstname = self.get_firstname(chat_id=chat_id)
-    update.message.reply_text(
-        f"Sorry {firstname} I did not understand that command. Use /help "
-        f"to see the commands available"
+"""
+
+
+async def help_cmd(update: Update, context: CallbackContext) -> None:
+    telegram_id = update.effective_chat.id
+    async with db.scoped_session() as session:
+        user = await get_current_user(session, telegram_id)
+    msg = "Here is a list of the commands available:\n"
+    if user.is_anonymous:
+        msg += "/register : register using the token received on the website " \
+               "or by email.\n"
+        await update.message.reply_html(msg)
+        return
+    msg += "/ecosystem_status : provides the status of all the ecosystems by " \
+           "default or the specifies ones.\n"
+    msg += "/weather : provides the current weather by default and the weather " \
+           "forecast if 'forecast' is provided as an argument.\n"
+    msg += "/light_info : provides the all the light info for all the " \
+           "ecosystems, or the specified one(s).\n"
+    msg += "/sensors : provides the current sensors data for all the ecosystems " \
+           "by default, or the specified one(s).\n"
+    msg += "/sensors_recap : provides the summary of the sensors data for the " \
+           "last day for all the ecosystems by default. The number of days " \
+           "covered can be specified by adding '#days' as an argument.\n"
+    msg += "/recap : send a recap with sensors data of the last 24h, weather " \
+           "forecast, warnings and calendar socketio.\n"
+    await update.message.reply_text(msg)
+
+
+async def unknown_command(update: Update, context: CallbackContext):
+    telegram_id = update.effective_chat.id
+    async with db.scoped_session() as session:
+        user = await get_current_user(session, telegram_id)
+    if user.is_authenticated:
+        sorry = f"Sorry {user.firstname},"
+    else:
+        sorry = "Sorry,"
+    await update.message.reply_text(
+        f"{sorry} I did not understand that command. Use /help to see the "
+        f"commands available"
     )
 
-# Put in dummy class
-def _start(self):
-    self.updater = Updater(self.config.TELEGRAM_BOT_TOKEN, use_context=True)
-    self.dispatcher = self.updater.dispatcher
-    for key in dir(self):
-        if key.startswith("on_"):
-            callback = getattr(self, key)
-            self.dispatcher.add_handler(CommandHandler(key[3:], callback))
-    # Keep this handler last, it will catch all non recognized commands
-    self.dispatcher.add_handler(
-        MessageHandler(Filters.command, self.unknown_command))
-    self.updater.start_polling()
-
-def _stop(self):
-    self.updater.stop()
-    self.dispatcher = None
-    self.updater = None
-"""
 
 if __name__ == '__main__':
     db.init(Config)
@@ -208,5 +211,11 @@ if __name__ == '__main__':
 
     ecosystem_status_handler = CommandHandler('ecosystem_status', ecosystem_status)
     application.add_handler(ecosystem_status_handler)
+
+    help_handler = CommandHandler("help", help_cmd)
+    application.add_handler(help_handler)
+
+    unknown_command_handler = MessageHandler(filters.COMMAND, unknown_command)
+    application.add_handler(unknown_command_handler)
 
     application.run_polling()
