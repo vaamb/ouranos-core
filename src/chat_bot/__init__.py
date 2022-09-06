@@ -6,26 +6,22 @@ from telegram.ext import (
     CallbackContext
 )
 
+from src.chat_bot.auth import get_current_user
+from src.chat_bot.decorators import registration_required
 from config import Config
 from src.core import api, db
+from src.core.database.models import UserMixin
 
 
 token = Config.TELEGRAM_BOT_TOKEN
 
 
-async def get_firstname(session, telegram_id):
-    user = await api.user.get_by_telegram_id(session, telegram_id)
-    if user:
-        return user.firstname
-    return ""
-
-
 async def start(update: Update, context: CallbackContext) -> None:
     telegram_id = update.effective_chat.id
     async with db.scoped_session() as session:
-        firstname = await get_firstname(session, telegram_id=telegram_id)
-    if firstname:
-        greetings = f"Hi {firstname}"
+        user = await get_current_user(session, telegram_id)
+    if user.is_authenticated:
+        greetings = f"Hi {user.firstname}"
     else:
         greetings = "Hello"
     await update.message.reply_html(
@@ -34,7 +30,18 @@ async def start(update: Update, context: CallbackContext) -> None:
     )
 
 
-async def ecosystem_status(update: Update, context: CallbackContext) -> None:
+async def register(
+        update: Update,
+        context: CallbackContext,
+) -> None:
+    pass
+
+
+@registration_required
+async def ecosystem_status(
+        update: Update,
+        context: CallbackContext,
+) -> None:
     args = context.args
     async with db.scoped_session() as session:
         msg = await api.messages.ecosystem_summary(session, args)

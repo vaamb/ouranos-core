@@ -1,6 +1,6 @@
 from .app import (
-    CalendarEvent, CommunicationChannel, FlashMessage, Permission, Role,
-    Service, User
+    anonymous_user, CalendarEvent, CommunicationChannel, FlashMessage,
+    Permission, Role, Service, User, UserMixin
 )
 from .archives import (
     ArchiveActuatorHistory, ArchiveAppWarning, ArchiveHealthData,
@@ -14,8 +14,8 @@ from .system import SystemHistory
 
 
 __all__ = [
-    "CalendarEvent", "CommunicationChannel", "FlashMessage", "Permission",
-    "Role", "Service", "User",
+    "anonymous_user", "CalendarEvent", "CommunicationChannel",
+    "FlashMessage", "Permission", "Role", "Service", "User", "UserMixin",
     "ArchiveActuatorHistory", "ArchiveAppWarning", "ArchiveHealthData",
     "ArchiveSensorData",
     "ActuatorHistory", "Ecosystem", "EnvironmentParameter", "Engine",

@@ -92,6 +92,9 @@ class Role(base):
 # TODO: move elsewhere
 class UserMixin:
     is_fresh: bool = False
+    username = ""
+    firstname = ""
+
 
     @property
     def is_authenticated(self) -> bool:
@@ -107,7 +110,7 @@ class UserMixin:
         except AttributeError:
             raise NotImplementedError("No `id` attribute - override `get_id`")
 
-    def can(self, perm) -> bool:
+    def can(self, perm: int) -> bool:
         raise NotImplementedError
 
     def to_dict(self) -> dict:
