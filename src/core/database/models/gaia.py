@@ -276,11 +276,12 @@ class Light(base):
     ecosystem_uid = sa.Column(sa.String(length=8), sa.ForeignKey("ecosystems.uid"))
 
     # relationships
-    ecosystem = orm.relationship("Ecosystem", back_populates="light")
+    ecosystem: "Ecosystem" = orm.relationship("Ecosystem", back_populates="light")
 
     def to_dict(self):
         return {
             "ecosystem_uid": self.ecosystem_uid,
+            "ecosystem_name": self.ecosystem.name,
             "method": self.method,
             "mode": self.mode,
             "status": self.status,

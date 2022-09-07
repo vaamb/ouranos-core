@@ -10,8 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ._base import ArchiveLink, base
 from .common import BaseWarning
-from src.core.utils import ExpiredTokenError, InvalidTokenError, Tokenizer
 from src.core.g import app_config
+from src.core.utils import ExpiredTokenError, InvalidTokenError, Tokenizer
 
 
 argon2_hasher = PasswordHasher()
@@ -91,10 +91,10 @@ class Role(base):
 
 # TODO: move elsewhere
 class UserMixin:
+    id: int = 0
+    username: str = ""
+    firstname: str = ""
     is_fresh: bool = False
-    username = ""
-    firstname = ""
-
 
     @property
     def is_authenticated(self) -> bool:
@@ -226,13 +226,13 @@ class User(base, UserMixin):
             expires_in: int = 1800,
             **kwargs
     ) -> str:
-        _payload = {"user_id": self.id}
-        _payload.update(payload)
+        payload.update({"user_id": self.id})
         if expires_in:
-            _payload.update({"exp": ctime.time() + expires_in})
-        if kwargs:
-            _payload.update(**kwargs)
-        return Tokenizer.dumps(_payload, secret_key)
+            payload.update({"exp": ctime.time() + expires_in})
+        for key, value in kwargs.items():
+            if value:
+                payload.update(**kwargs)
+        return Tokenizer.dumps(payload, secret_key)
 
     @staticmethod
     def load_from_token(token: str, token_use: str):

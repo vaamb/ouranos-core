@@ -332,7 +332,7 @@ class ecosystem:
         return await cached_func(ecosystem)
 
     @staticmethod
-    def get_light_info(session: AsyncSession, ecosystem: Ecosystem) -> dict:
+    def get_light_info(ecosystem: Ecosystem) -> dict:
         if ecosystem.light:
             return ecosystem.light.to_dict()
         return {}
@@ -861,8 +861,10 @@ class sensor:
         return rv
 
     @staticmethod
-    def get_current_data():
+    def get_current_data(ecosystem_uid: str | None = None) -> dict:
         cache = get_cache("sensors_data")
+        if ecosystem_uid:
+            return cache.get(ecosystem_uid, {})
         return {**cache}
 
     @staticmethod
@@ -874,9 +876,13 @@ class sensor:
             cache.clear()
 
     @staticmethod
-    def update_current_data(data: dict):
+    def update_current_data(data: dict) -> None:
         cache = get_cache("sensors_data")
         cache.update(data)
+
+    @staticmethod
+    def summarize_current_data(data: dict) -> dict:
+        pass
 
     @staticmethod
     async def create_record(
@@ -886,7 +892,6 @@ class sensor:
         sensor_history = SensorHistory(**sensor_data)
         session.add(sensor_history)
         return sensor_history
-
 
 class measure:
     @staticmethod

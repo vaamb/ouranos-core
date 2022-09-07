@@ -11,7 +11,7 @@ from src.core import db
 from src.core.database.models import User
 
 
-def registration_required(func):
+def activation_required(func):
     async def wrapper(update: Update, context: CallbackContext):
         telegram_id = update.effective_chat.id
         async with db.scoped_session() as session:

@@ -141,7 +141,7 @@ async def get_ecosystems_light(
     ecosystems = await api.ecosystem.get_multiple(session, ecosystems_id)
     response = []
     for ecosystem in ecosystems:
-        data = api.ecosystem.get_light_info(session, ecosystem)
+        data = api.ecosystem.get_light_info(ecosystem)
         if data:
             response.append(data)
     return response
@@ -154,7 +154,7 @@ async def get_ecosystem_light(
 ):
     assert_single_uid(ecosystem_id)
     ecosystem = await ecosystem_or_abort(session, ecosystem_id)
-    response = api.ecosystem.get_light_info(session, ecosystem)
+    response = api.ecosystem.get_light_info(ecosystem)
     return response
 
 
