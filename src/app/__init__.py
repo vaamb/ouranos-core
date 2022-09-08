@@ -27,7 +27,6 @@ else:
     from fastapi.responses import ORJSONResponse as JSONResponse
 
 
-dispatcher = get_dispatcher(namespace="application")
 scheduler = AsyncIOScheduler()
 sio = AsyncServer(async_mode='asgi', cors_allowed_origins=[])
 asgi_app = ASGIApp(sio)
@@ -158,6 +157,7 @@ def create_app(config) -> FastAPI:
 
     # Load event dispatcher and start it
     configure_dispatcher(app_config, silent=True)
+    dispatcher = get_dispatcher(namespace="application")
     # dispatcher.start()
 
     # Start the background scheduler
@@ -168,9 +168,14 @@ def create_app(config) -> FastAPI:
     # Configure Socket.IO and load the socketio
     logger.debug("Configuring Socket.IO server")
     from src.core.socketio import sio_manager
-    if 0 and app_config.get("USE_REDIS_DISPATCHER", False):
-        # TODO: sio_manager = new manager
-        pass
+    if app_config.get("USE_REDIS_DISPATCHER", False) and \
+            app_config.get("MESSAGE_BROKER_URL", "").startswith("redis://"):
+        from socketio.asyncio_redis_manager import AsyncRedisManager
+        address = app_config["MESSAGE_BROKER_URL"].removeprefix("redis://")
+        if not address:
+            address = "localhost:6379/0"
+        url = f"redis://{address}"
+        sio_manager = AsyncRedisManager(url)
     sio.manager = sio_manager
     sio.manager.set_server(sio)
     app.mount(path="/", app=asgi_app)

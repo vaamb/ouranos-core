@@ -881,10 +881,6 @@ class sensor:
         cache.update(data)
 
     @staticmethod
-    def summarize_current_data(data: dict) -> dict:
-        pass
-
-    @staticmethod
     async def create_record(
             session: AsyncSession,
             sensor_data: dict,
@@ -892,6 +888,7 @@ class sensor:
         sensor_history = SensorHistory(**sensor_data)
         session.add(sensor_history)
         return sensor_history
+
 
 class measure:
     @staticmethod

@@ -6,16 +6,19 @@ import random
 import typing as t
 
 import cachetools
+from dispatcher import get_dispatcher
 from socketio import AsyncNamespace
 from sqlalchemy.exc import IntegrityError
 from statistics import mean, stdev as std
 
 from . import sio_manager
 from .decorators import registration_required
-from src.app import dispatcher
 from src.core import api, db
 from src.core.g import app_config
 from src.core.utils import decrypt_uid, validate_uid_token
+
+
+dispatcher = get_dispatcher(namespace="application")
 
 
 sio_logger = logging.getLogger(f"{app_config['APP_NAME'].lower()}.socketio")

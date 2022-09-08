@@ -1,13 +1,16 @@
 ﻿import logging
 
+from dispatcher import get_dispatcher
 from socketio import AsyncNamespace
 
 from .decorators import permission_required
-from src.app import db, dispatcher
+from src.app import db
 from src.core import api
 from src.core.g import app_config
 from src.core.socketio import sio_manager
 
+
+dispatcher = get_dispatcher(namespace="application")
 
 # TODO: change name
 sio_logger = logging.getLogger(f"{app_config['APP_NAME'].lower()}.socketio")

@@ -89,14 +89,14 @@ async def sensors(
     async with db.scoped_session() as session:
         ecosystems = await api.ecosystem.get_multiple(session, ecosystems_name)
         data = [
-            api.sensor.get_current_data(ecosystem.uid) for ecosystem in ecosystems
+            api.sensor.get_current_data(ecosystem.uid)
+            .update({"ecosystem_name": ecosystem.name})
+            for ecosystem in ecosystems
         ]
-        summarized_data = [
-            api.sensor.summarize_current_data(ecosystem) for ecosystem in data
-        ]
-    await update.message.reply_html()
+    await update.message.reply_html("data")
 
 
+@activation_required
 def light_info(
         update: Update,
         context: CallbackContext,
@@ -107,7 +107,7 @@ def light_info(
         data = [
             api.ecosystem.get_light_info(ecosystem) for ecosystem in ecosystems
         ]
-    await update.message.reply_text()
+    await update.message.reply_text("data")
 
 
 """
@@ -120,13 +120,6 @@ def on_weather(self, update, context) -> None:
     update.message.reply_text(
         api.messages.weather(forecast=forecast)
     )
-
-def on_sensors(self, update, context):
-    ecosystems = context.args
-    with db.scoped_session() as session:
-        message = api.messages.current_sensors_info(
-            *ecosystems, session=session)
-    update.message.reply_text(message)
 
 def on_sensors_recap(self, update, context):
     args = context.args
@@ -202,15 +195,10 @@ def on_turn_lights(self, update, context) -> None:
                                   "or off")
 
 
-def on_recap(self, update, context) -> None:
-    pass
-
 def base_of_tree(self, update, context) -> None:
     chat_id = update.effective_chat.id
     firstname = self.get_firstname(chat_id=chat_id)
     # TODO: finish this with a tree of decision
-
-
 """
 
 
