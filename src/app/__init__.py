@@ -10,8 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from socketio import ASGIApp, AsyncServer
 
 from .docs import description, tags_metadata
-from src.core import db
-from src.core.g import base_dir, set_app_config, set_base_dir
+from src.core.g import base_dir, db, set_app_config, set_base_dir
 from src.core.utils import config_dict_from_class, Tokenizer
 
 try:

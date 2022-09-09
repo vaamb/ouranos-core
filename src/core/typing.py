@@ -15,9 +15,13 @@ from .database.models.gaia import (
 from .database.models.system import SystemHistory
 
 
-LEVELS = t.Literal["plants", "environment", "all"]
-TYPES = t.Literal["sensor", "light", "heater", "cooler", "humidifier",
-                  "dehumidifier", "all"]
+ACTUATOR_MODE = t.Literal["on", "off", "automatic"]
+ACTUATOR_TYPES = t.Literal["light", "heater", "cooler", "humidifier",
+                           "dehumidifier"]
+HARDWARE_LEVELS = t.Literal["plants", "environment", "all"]
+HARDWARE_TYPES = t.Literal["sensor", "light", "heater", "cooler", "humidifier",
+                           "dehumidifier", "all"]
+
 
 
 __all__ = [
@@ -29,5 +33,5 @@ __all__ = [
     "GaiaWarning", "Hardware", "Health", "Light", "Management", "Measure",
     "Plant", "SensorHistory",
     "SystemHistory",
-    "LEVELS", "TYPES",
+    "HARDWARE_LEVELS", "HARDWARE_TYPES",
 ]

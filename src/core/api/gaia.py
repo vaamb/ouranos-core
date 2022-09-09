@@ -13,7 +13,7 @@ from src.core.cache import get_cache
 from src.core.consts import (
     HARDWARE_AVAILABLE, HARDWARE_LEVELS, HARDWARE_TYPES
 )
-from src.core import typing as ot
+from src.core import dispatcher, typing as ot
 from src.core.database.models.gaia import (
     Ecosystem, Engine, EnvironmentParameter, GaiaWarning, Hardware, Health,
     Light, Measure, Plant, SensorHistory
@@ -342,7 +342,7 @@ class ecosystem:
             session: AsyncSession,
             ecosystem: Ecosystem,
             time_window: timeWindow,
-            level: ot.LEVELS | list[ot.LEVELS] | None = None,
+            level: ot.HARDWARE_LEVELS | list[ot.HARDWARE_LEVELS] | None = None,
     ) -> dict:
         level = level or "all"
 
@@ -350,7 +350,7 @@ class ecosystem:
         async def inner_func(
                 ecosystem_id: str,
                 time_window: timeWindow,
-                level: list[ot.LEVELS],
+                level: list[ot.HARDWARE_LEVELS],
         ) -> list:
             stmt = (
                 select(Hardware).join(SensorHistory.sensor)
@@ -431,8 +431,8 @@ class ecosystem:
     async def get_hardware_info(
             session: AsyncSession,
             ecosystem: Ecosystem,
-            level: ot.LEVELS | list[ot.LEVELS] | None = None,
-            hardware_type: ot.TYPES | list[ot.TYPES] | None = None
+            level: ot.HARDWARE_LEVELS | list[ot.HARDWARE_LEVELS] | None = None,
+            hardware_type: ot.HARDWARE_TYPES | list[ot.HARDWARE_TYPES] | None = None
     ) -> dict:
         if level is None or "all" in level:
             level = HARDWARE_LEVELS
@@ -456,6 +456,27 @@ class ecosystem:
                 "ecosystem_name": ecosystem.name,
                 "hardware": [h.to_dict() for h in result.scalars().all()]
             }
+
+    @staticmethod
+    async def turn_actuator(
+            ecosystem_uid: str,
+            actuator: ot.ACTUATOR_TYPES,
+            mode: ot.ACTUATOR_MODE = "automatic",
+            countdown: float = 0.0,
+    ) -> None:
+        # TODO: select room using db?
+        dispatcher.emit(
+            "core", "turn_actuator", ecosystem_uid=ecosystem_uid,
+            actuator=actuator, mode=mode, countdown=countdown
+        )
+
+    @staticmethod
+    async def turn_light(
+            ecosystem_uid: str,
+            mode: ot.ACTUATOR_MODE = "automatic",
+            countdown: float = 0.0,
+    ) -> None:
+        await ecosystem.turn_actuator(ecosystem_uid, "light", mode, countdown)
 
 
 # ---------------------------------------------------------------------------
@@ -611,8 +632,8 @@ class hardware:
     def _get_query(
             hardware_uid: str | list | None = None,
             ecosystem_uid: str | list | None = None,
-            levels: ot.LEVELS | list[ot.LEVELS] | None = None,
-            types: ot.TYPES | list[ot.TYPES] | None = None,
+            levels: ot.HARDWARE_LEVELS | list[ot.HARDWARE_LEVELS] | None = None,
+            types: ot.HARDWARE_TYPES | list[ot.HARDWARE_TYPES] | None = None,
             models: str | list | None = None,
     ):
         query = select(Hardware)
@@ -643,8 +664,8 @@ class hardware:
             session: AsyncSession,
             hardware_uids: str | list | None= None,
             ecosystem_uids: str | list | None = None,
-            levels: ot.LEVELS | list[ot.LEVELS] | None = None,
-            types: ot.TYPES | list[ot.TYPES] | None = None,
+            levels: ot.HARDWARE_LEVELS | list[ot.HARDWARE_LEVELS] | None = None,
+            types: ot.HARDWARE_TYPES | list[ot.HARDWARE_TYPES] | None = None,
             models: str | list | None = None,
     ) -> list[Hardware]:
         stmt = hardware._get_query(
@@ -722,7 +743,7 @@ class sensor:
             session: AsyncSession,
             hardware_uids: str | list | None = None,
             ecosystem_uids: str | list | None = None,
-            levels: ot.LEVELS | list[ot.LEVELS] | None = None,
+            levels: ot.HARDWARE_LEVELS | list[ot.HARDWARE_LEVELS] | None = None,
             models: str | list | None = None,
             time_window: timeWindow = None,
     ) -> list[Hardware]:

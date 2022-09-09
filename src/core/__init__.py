@@ -1,3 +1,3 @@
-from .database.wrapper import AsyncSQLAlchemyWrapper
+from dispatcher import get_dispatcher
 
-db = AsyncSQLAlchemyWrapper()
+dispatcher = get_dispatcher(namespace="core")

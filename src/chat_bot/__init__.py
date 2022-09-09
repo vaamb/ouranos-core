@@ -7,8 +7,8 @@ from telegram.ext import (
 from src.chat_bot.auth import activate_user, get_current_user
 from src.chat_bot.decorators import activation_required
 from config import Config
-from src.core import api, db
-from src.core.g import app_config
+from src.core import api
+from src.core.g import db, app_config
 from src.core.utils import Tokenizer, ExpiredTokenError, InvalidToken
 
 

@@ -10,7 +10,7 @@ from sqlalchemy import select
 
 from .utils import user, operator, admin
 from src.app import create_app, db as _db
-from core.database import Role, User
+from src.core.database.models import Role, User
 from config import TestingConfig
 
 

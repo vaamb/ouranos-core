@@ -6,19 +6,15 @@ import random
 import typing as t
 
 import cachetools
-from dispatcher import get_dispatcher
 from socketio import AsyncNamespace
 from sqlalchemy.exc import IntegrityError
 from statistics import mean, stdev as std
 
 from . import sio_manager
 from .decorators import registration_required
-from src.core import api, db
-from src.core.g import app_config
+from src.core import api, dispatcher
+from src.core.g import app_config, db
 from src.core.utils import decrypt_uid, validate_uid_token
-
-
-dispatcher = get_dispatcher(namespace="application")
 
 
 sio_logger = logging.getLogger(f"{app_config['APP_NAME'].lower()}.socketio")
@@ -418,11 +414,9 @@ class Events(AsyncNamespace):
 # ---------------------------------------------------------------------------
 @dispatcher.on("turn_light")
 async def _turn_light(*args, **kwargs):
-    # TODO: create async dispatcher or wrap in async_to_sync
     await sio_manager.emit("turn_light", namespace="/gaia", **kwargs)
 
 
 @dispatcher.on("turn_actuator")
 async def _turn_actuator(*args, **kwargs):
-    # TODO: create async dispatcher or wrap in async_to_sync
     await sio_manager.emit("turn_actuator", namespace="/gaia", **kwargs)
