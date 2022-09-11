@@ -7,7 +7,7 @@ from dispatcher import configure_dispatcher, get_dispatcher
 from fastapi import APIRouter, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from socketio import ASGIApp, AsyncServer
+from socketio import ASGIApp, AsyncManager, AsyncServer
 
 from .docs import description, tags_metadata
 from src.core.g import base_dir, db, set_app_config, set_base_dir
@@ -28,6 +28,7 @@ else:
 
 scheduler = AsyncIOScheduler()
 sio = AsyncServer(async_mode='asgi', cors_allowed_origins=[])
+sio_manager: AsyncManager = AsyncManager()
 asgi_app = ASGIApp(sio)
 
 
@@ -166,15 +167,29 @@ def create_app(config) -> FastAPI:
 
     # Configure Socket.IO and load the socketio
     logger.debug("Configuring Socket.IO server")
-    from src.core.socketio import sio_manager
-    if app_config.get("USE_REDIS_DISPATCHER", False) and \
-            app_config.get("MESSAGE_BROKER_URL", "").startswith("redis://"):
-        from socketio.asyncio_redis_manager import AsyncRedisManager
-        address = app_config["MESSAGE_BROKER_URL"].removeprefix("redis://")
-        if not address:
-            address = "localhost:6379/0"
-        url = f"redis://{address}"
+    global sio_manager
+    message_broker_url = app_config.get("MESSAGE_BROKER_URL", "")
+    if message_broker_url.startswith("redis://"):
+        from socketio import AsyncRedisManager
+        uri = message_broker_url.removeprefix("redis://")
+        if not uri:
+            uri = "localhost:6379/0"
+        url = f"redis://{uri}"
         sio_manager = AsyncRedisManager(url)
+    elif message_broker_url.startswith("amqp://"):
+        from socketio import AsyncAioPikaManager
+        uri = message_broker_url.removeprefix("amqp://")
+        if not uri:
+            uri = "guest:guest@localhost:5672//"
+        url = f"redis://{uri}"
+        sio_manager = AsyncAioPikaManager(url)
+    else:
+        if app_config.get("WORKERS", 1) > 1:
+            logger.warning(
+                "'MESSAGE_BROKER_URL' is not set to a supported protocol"
+                "(either 'redis' or 'amqp', inter services communication won't"
+                "work, leading serious performance and function issues"
+            )
     sio.manager = sio_manager
     sio.manager.set_server(sio)
     app.mount(path="/", app=asgi_app)
@@ -184,8 +199,13 @@ def create_app(config) -> FastAPI:
     sio.register_namespace(ClientEvents("/"))
 
     logger.debug("Loading gaia events")
-    from src.core.socketio.events import Events as GAIAEvents
-    sio.register_namespace(GAIAEvents("/gaia"))
+    gaia_broker_url = app_config.get("GAIA_BROKER_URL", "socketio://")
+    if gaia_broker_url.startswith("socketio://"):
+        from src.core.communication.socketio import GaiaEventsNamespace
+        sio.register_namespace(GaiaEventsNamespace("/gaia"))
+    else:
+        from src.core.communication.dispatcher import GaiaEventsNamespace
+        dispatcher.register_event_handler(GaiaEventsNamespace())
 
     # Load the frontend if present
     frontend_static_dir = base_dir/"frontend/dist"

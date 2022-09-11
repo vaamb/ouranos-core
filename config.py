@@ -74,6 +74,7 @@ class Config:
     # Dispatcher config
     USE_REDIS_DISPATCHER = False
     MESSAGE_BROKER_URL = "memory://"
+    GAIA_BROKER_URL = "socketio://"
     # CACHING_SERVER_URL
 
     # Data logging

@@ -4,6 +4,7 @@ from collections import namedtuple
 
 from cachetools import cached, TTLCache
 import cachetools.func
+from dispatcher import AsyncDispatcher
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,7 +14,7 @@ from src.core.cache import get_cache
 from src.core.consts import (
     HARDWARE_AVAILABLE, HARDWARE_LEVELS, HARDWARE_TYPES
 )
-from src.core import dispatcher, typing as ot
+from src.core import typing as ot
 from src.core.database.models.gaia import (
     Ecosystem, Engine, EnvironmentParameter, GaiaWarning, Hardware, Health,
     Light, Measure, Plant, SensorHistory
@@ -459,24 +460,28 @@ class ecosystem:
 
     @staticmethod
     async def turn_actuator(
+            dispatcher: AsyncDispatcher,
             ecosystem_uid: str,
             actuator: ot.ACTUATOR_TYPES,
             mode: ot.ACTUATOR_MODE = "automatic",
             countdown: float = 0.0,
     ) -> None:
-        # TODO: select room using db?
-        dispatcher.emit(
-            "core", "turn_actuator", ecosystem_uid=ecosystem_uid,
+        # TODO: select room using db
+        await dispatcher.emit(
+            "gaia", "turn_actuator", ecosystem_uid=ecosystem_uid,
             actuator=actuator, mode=mode, countdown=countdown
         )
 
     @staticmethod
     async def turn_light(
+            dispatcher: AsyncDispatcher,
             ecosystem_uid: str,
             mode: ot.ACTUATOR_MODE = "automatic",
             countdown: float = 0.0,
     ) -> None:
-        await ecosystem.turn_actuator(ecosystem_uid, "light", mode, countdown)
+        await ecosystem.turn_actuator(
+            dispatcher, ecosystem_uid, "light", mode, countdown
+        )
 
 
 # ---------------------------------------------------------------------------

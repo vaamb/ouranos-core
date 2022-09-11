@@ -10,7 +10,6 @@ from socketio import AsyncNamespace
 from sqlalchemy.exc import IntegrityError
 from statistics import mean, stdev as std
 
-from . import sio_manager
 from .decorators import registration_required
 from src.core import api, dispatcher
 from src.core.g import app_config, db
@@ -50,7 +49,10 @@ def clear_client_blacklist(client_address: str = None) -> None:
             pass
 
 
-class Events(AsyncNamespace):
+class Events:
+    async def emit(self):
+        raise NotImplementedError
+
     async def gaia_background_task(self):
         while True:
             await self.emit("ping", namespace="/gaia", room="engines")
@@ -409,6 +411,7 @@ class Events(AsyncNamespace):
         await self.emit("light_data", data, namespace="/")
 
 
+'''
 # ---------------------------------------------------------------------------
 #   Dispatcher socketio
 # ---------------------------------------------------------------------------
@@ -420,3 +423,4 @@ async def _turn_light(*args, **kwargs):
 @dispatcher.on("turn_actuator")
 async def _turn_actuator(*args, **kwargs):
     await sio_manager.emit("turn_actuator", namespace="/gaia", **kwargs)
+'''

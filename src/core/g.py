@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
+
+base_dir = Path(__file__).absolute().parents[1]
+app_config: dict[str, str | int] = {}
+
+
 from .database.wrapper import AsyncSQLAlchemyWrapper
 
 
 db = AsyncSQLAlchemyWrapper()
-base_dir = Path(__file__).absolute().parents[1]
-app_config: dict[str, str | int] = {}
 
 
 def set_base_dir(path: str | Path):

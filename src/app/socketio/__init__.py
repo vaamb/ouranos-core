@@ -4,10 +4,9 @@ from dispatcher import get_dispatcher
 from socketio import AsyncNamespace
 
 from .decorators import permission_required
-from src.app import db
+from src.app import db, sio_manager
 from src.core import api
 from src.core.g import app_config
-from src.core.socketio import sio_manager
 
 
 dispatcher = get_dispatcher(namespace="application")
