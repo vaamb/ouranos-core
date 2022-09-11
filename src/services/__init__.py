@@ -45,7 +45,7 @@ class _servicesManager(RegisterEventMixin):
             f"{self.config.APP_NAME.lower()}.services"
         )
         self.logger.debug(f"Initializing {self.config.APP_NAME} services ...")
-        self.dispatcher = get_dispatcher("services")
+        self.dispatcher = get_dispatcher("services", async_based=True)
         self.register_dispatcher_events(self.dispatcher)
         self.services = {}
         self._services_running = []

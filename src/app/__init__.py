@@ -26,6 +26,7 @@ else:
     from fastapi.responses import ORJSONResponse as JSONResponse
 
 
+dispatcher = get_dispatcher(namespace="application")
 scheduler = AsyncIOScheduler()
 sio = AsyncServer(async_mode='asgi', cors_allowed_origins=[])
 sio_manager: AsyncManager = AsyncManager()
@@ -157,7 +158,6 @@ def create_app(config) -> FastAPI:
 
     # Load event dispatcher and start it
     configure_dispatcher(app_config, silent=True)
-    dispatcher = get_dispatcher(namespace="application")
     # dispatcher.start()
 
     # Start the background scheduler

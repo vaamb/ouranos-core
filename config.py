@@ -109,7 +109,7 @@ class ProductionConfig(Config):
     SQLALCHEMY_DATABASE_URI = "mysql://user@localhost/foo"
 
 
-config_dict = {
+configs = {
     "development": DevelopmentConfig,
     "testing": TestingConfig,
     "production": ProductionConfig,

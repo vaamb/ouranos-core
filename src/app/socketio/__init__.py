@@ -1,15 +1,12 @@
 ﻿import logging
 
-from dispatcher import get_dispatcher
 from socketio import AsyncNamespace
 
 from .decorators import permission_required
-from src.app import db, sio_manager
+from src.app import db, dispatcher, sio_manager
 from src.core import api
 from src.core.g import app_config
 
-
-dispatcher = get_dispatcher(namespace="application")
 
 # TODO: change name
 sio_logger = logging.getLogger(f"{app_config['APP_NAME'].lower()}.socketio")
@@ -34,6 +31,7 @@ class Events(AsyncNamespace):
         countdown = data.get("countdown", False)
         sio_logger.debug(
             f"Dispatching 'turn_light' signal to ecosystem {ecosystem_uid}")
+        # TODO: use api
         await self.emit(
             event="turn_light",
             data={"ecosystem": ecosystem_uid, "mode": mode, "countdown": countdown},
@@ -51,6 +49,7 @@ class Events(AsyncNamespace):
         ecosystem_sid = ecosystem.engine.sid
         management = data["management"]
         status = data["status"]
+        # TODO: use api
         await self.emit(
             event="change_management",
             data={

@@ -10,5 +10,3 @@ from .gaia import (
 from .weather import sun_times, weather
 from src.core.database.models.app import Permission
 from src.core.database.models.gaia import Management
-
-api_dispatcher = get_dispatcher("api")

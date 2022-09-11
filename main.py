@@ -13,26 +13,26 @@ from setproctitle import setproctitle
 import uvicorn
 
 # from dispatcher import configure_dispatcher
-from config import config_dict, Config, DevelopmentConfig
+from config import configs, Config, DevelopmentConfig
 # from src import services
 from src.app import create_app
 from src.core.utils import configure_logging, humanize_list, config_dict_from_class
 
 
-config_profiles_available = [profile for profile in config_dict]
+config_profiles_available = [profile for profile in configs]
 
 default_profile = os.environ.get("OURANOS_PROFILE") or "development"
 
 
 def get_config(profile: t.Optional[str]):
     if profile is None or profile.lower() in ("def", "default"):
-        return config_dict[default_profile]
+        return configs[default_profile]
     elif profile.lower() in ("dev", "development"):
-        return config_dict["development"]
+        return configs["development"]
     elif profile.lower() in ("test", "testing"):
-        return config_dict["testing"]
+        return configs["testing"]
     elif profile.lower() in ("prod", "production"):
-        return config_dict["production"]
+        return configs["production"]
     else:
         raise ValueError(
             f"{profile} is not a valid profile. Valid profiles are "

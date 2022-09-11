@@ -167,7 +167,7 @@ def try_iso_format(time_obj: time) -> t.Optional[str]:
         return None
 
 
-def config_dict_from_class(obj) -> dict:
+def config_dict_from_class(obj: type) -> dict:
     config = {}
     for key in dir(obj):
         if key.isupper():
