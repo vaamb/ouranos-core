@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
 
 base_dir = Path(__file__).absolute().parents[1]
 app_config: dict[str, str | int] = {}
@@ -11,6 +13,7 @@ from .database.wrapper import AsyncSQLAlchemyWrapper
 
 
 db = AsyncSQLAlchemyWrapper()
+scheduler = AsyncIOScheduler()
 
 
 def set_base_dir(path: str | Path):

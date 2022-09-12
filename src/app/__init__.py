@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import logging
 import time as ctime
@@ -11,7 +13,7 @@ from socketio import ASGIApp, AsyncManager, AsyncServer
 
 from .docs import description, tags_metadata
 from src.core.g import base_dir, db, set_app_config, set_base_dir
-from src.core.utils import config_dict_from_class, Tokenizer
+from src.core.utils import config_dict_from_class, get_config, Tokenizer
 
 try:
     import orjson
@@ -26,15 +28,19 @@ else:
     from fastapi.responses import ORJSONResponse as JSONResponse
 
 
-dispatcher = get_dispatcher(namespace="application")
+dispatcher = get_dispatcher(namespace="application", async_based=True)
 scheduler = AsyncIOScheduler()
 sio = AsyncServer(async_mode='asgi', cors_allowed_origins=[])
 sio_manager: AsyncManager = AsyncManager()
 asgi_app = ASGIApp(sio)
 
 
-def create_app(config) -> FastAPI:
-    config_dict = config_dict_from_class(config)
+def create_app(config_profile: str | None = None) -> FastAPI:
+    try:
+        config_class = get_config(config_profile)
+    except ValueError:
+        config_class = get_config("default")
+    config_dict = config_dict_from_class(config_class)
     set_app_config(config_dict)
     from src.core.g import app_config
     if not any((app_config.get("DEBUG"), app_config.get("TESTING"))):
@@ -97,9 +103,10 @@ def create_app(config) -> FastAPI:
     # Init db
     from src.core.database.models.gaia import Measure
     from src.core.database.models import Role, User, CommunicationChannel
-    db.init(config)
+    db.init(config_dict)
 
     async def create_base_data():
+        await db.create_all()
         async with db.scoped_session() as session:
             try:
                 await Role.insert_roles(session)
@@ -111,7 +118,6 @@ def create_app(config) -> FastAPI:
                 raise e
 
     loop = asyncio.get_event_loop()
-    loop.create_task(db.create_all())
     loop.create_task(create_base_data())
     app.extra["db"] = db
 

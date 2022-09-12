@@ -22,11 +22,30 @@ import geopy
 import jwt
 from sqlalchemy.engine import Row
 
-from config import Config
+from config import Config, configs
 from src.core.g import base_dir
 
 
+default_profile = os.environ.get("OURANOS_PROFILE") or "development"
+config_profiles_available = [profile for profile in configs]
+
 coordinates = cachetools.LFUCache(maxsize=16)
+
+
+def get_config(profile: str | None = None):
+    if profile is None or profile.lower() in ("def", "default"):
+        return configs[default_profile]
+    elif profile.lower() in ("dev", "development"):
+        return configs["development"]
+    elif profile.lower() in ("test", "testing"):
+        return configs["testing"]
+    elif profile.lower() in ("prod", "production"):
+        return configs["production"]
+    else:
+        raise ValueError(
+            f"{profile} is not a valid profile. Valid profiles are "
+            f"{humanize_list(config_profiles_available)}."
+        )
 
 
 def async_to_sync(func: t.Callable):
