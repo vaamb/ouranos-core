@@ -5,7 +5,7 @@ import logging
 import time as ctime
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from dispatcher import configure_dispatcher, get_dispatcher
+from dispatcher import configure_dispatcher, get_dispatcher, AsyncDispatcher
 from fastapi import APIRouter, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -28,7 +28,7 @@ else:
     from fastapi.responses import ORJSONResponse as JSONResponse
 
 
-dispatcher = get_dispatcher(namespace="application", async_based=True)
+dispatcher: AsyncDispatcher = get_dispatcher(namespace="application", async_based=True)
 scheduler = AsyncIOScheduler()
 sio = AsyncServer(async_mode='asgi', cors_allowed_origins=[])
 sio_manager: AsyncManager = AsyncManager()
@@ -99,27 +99,6 @@ def create_app(config_profile: str | None = None) -> FastAPI:
     @app.on_event("startup")
     def startup():
         logger.info(f"{app_config['APP_NAME']} worker successfully started")
-
-    # Init db
-    from src.core.database.models.gaia import Measure
-    from src.core.database.models import Role, User, CommunicationChannel
-    db.init(config_dict)
-
-    async def create_base_data():
-        await db.create_all()
-        async with db.scoped_session() as session:
-            try:
-                await Role.insert_roles(session)
-                await User.insert_gaia(session)
-                await CommunicationChannel.insert_channels(session)
-                await Measure.insert_measures(session)
-            except Exception as e:
-                logger.error(e)
-                raise e
-
-    loop = asyncio.get_event_loop()
-    loop.create_task(create_base_data())
-    app.extra["db"] = db
 
     # Add a router with "/api" path prefixed to it
     prefix = APIRouter(prefix="/api")
