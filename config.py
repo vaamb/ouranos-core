@@ -15,7 +15,7 @@ except ImportError:  # noqa
         MAIL_PASSWORD = None
 
 
-base_dir = Path(__file__).absolute().parents[0]
+base_dir = Path(__file__).absolute().parents[0]  # TODO: use the one from g?
 
 
 class Config:

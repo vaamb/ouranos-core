@@ -10,7 +10,7 @@ import uvicorn
 # from src import services
 from src.core.g import db, scheduler, set_config, set_base_dir
 from src.core.utils import (
-    configure_logging, config_dict_from_class, default_profile, get_config_class,
+    configure_logging, default_profile, get_config,
     Tokenizer
 )
 
@@ -81,8 +81,7 @@ def main(
         start_api: bool,
         api_workers: int,
 ):
-    config_cls = get_config_class(config_profile)
-    config = config_dict_from_class(config_cls)
+    config = get_config(config_profile)
     if start_api != DEFAULT_FASTAPI:
         config["SERVER"] = start_api
     if api_workers != DEFAULT_WORKERS:

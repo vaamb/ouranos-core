@@ -22,8 +22,8 @@ import geopy
 import jwt
 from sqlalchemy.engine import Row
 
-from config import Config, configs
-from src.core.g import base_dir
+from config import configs, DevelopmentConfig, ProductionConfig, TestingConfig
+from src.core.g import base_dir, config as global_config
 
 
 default_profile = os.environ.get("CONFIG_PROFILE") or "development"
@@ -32,7 +32,9 @@ config_profiles_available = [profile for profile in configs]
 coordinates = cachetools.LFUCache(maxsize=16)
 
 
-def get_config_class(profile: str | None = None):
+def _get_config_class(
+        profile: str | None = None
+) -> t.Type[DevelopmentConfig | ProductionConfig | TestingConfig]:
     if profile is None or profile.lower() in ("def", "default"):
         return configs[default_profile]
     elif profile.lower() in ("dev", "development"):
@@ -46,6 +48,19 @@ def get_config_class(profile: str | None = None):
             f"{profile} is not a valid profile. Valid profiles are "
             f"{humanize_list(config_profiles_available)}."
         )
+
+
+def config_dict_from_class(obj: t.Type) -> dict:
+    config = {}
+    for key in dir(obj):
+        if key.isupper():
+            config[key] = getattr(obj, key)
+    return config
+
+
+def get_config(profile: str | None = None) -> dict:
+    config_cls = _get_config_class(profile)
+    return config_dict_from_class(config_cls)
 
 
 def async_to_sync(func: t.Callable):
@@ -134,16 +149,24 @@ class InvalidTokenError(Exception):
 
 class Tokenizer:
     algorithm = "HS256"
-    secret_key = Config.SECRET_KEY
+    secret_key: str | None = global_config.get("GAIA_SECRET_KEY", None)
 
     @staticmethod
-    def dumps(payload: dict, secret_key: t.Optional[str] = None) -> str:
+    def dumps(payload: dict, secret_key: str | None = None) -> str:
         secret_key = secret_key or Tokenizer.secret_key
+        if not secret_key:
+            raise RuntimeError(
+                "Either provide a `secret_key` of setup `Tokenizer.secret_key`"
+            )
         return jwt.encode(payload, secret_key, algorithm=Tokenizer.algorithm)
 
     @staticmethod
-    def loads(token: str, secret_key: t.Optional[str] = None) -> dict:
+    def loads(token: str, secret_key: str | None = None) -> dict:
         secret_key = secret_key or Tokenizer.secret_key
+        if not secret_key:
+            raise RuntimeError(
+                "Either provide a `secret_key` of setup `Tokenizer.secret_key`"
+            )
         try:
             payload = jwt.decode(token, secret_key,
                                  algorithms=[Tokenizer.algorithm])
@@ -165,7 +188,7 @@ def is_connected(ip_to_connect: str = "1.1.1.1") -> bool:
     return False
 
 
-def time_to_datetime(_time: t.Optional[time]) -> t.Optional[datetime]:
+def time_to_datetime(_time: time | None) -> datetime | None:
     # return _time in case it is None
     if not isinstance(_time, time):
         return _time
@@ -179,19 +202,11 @@ def parse_sun_times(moment: str | datetime) -> datetime:
     return datetime.combine(date.today(), _time, tzinfo=timezone.utc)
 
 
-def try_iso_format(time_obj: time) -> t.Optional[str]:
+def try_iso_format(time_obj: time) -> str | None:
     try:
         return time_to_datetime(time_obj).isoformat()
     except TypeError:  # time_obj is None or Null
         return None
-
-
-def config_dict_from_class(obj: type) -> dict:
-    config = {}
-    for key in dir(obj):
-        if key.isupper():
-            config[key] = getattr(obj, key)
-    return config
 
 
 def humanize_list(lst: list) -> str:
@@ -306,10 +321,15 @@ def configure_logging(config: dict) -> None:
     logging.config.dictConfig(LOGGING_CONFIG)
 
 
-def decrypt_uid(encrypted_uid: str) -> str:
+def decrypt_uid(encrypted_uid: str, secret_key: str = None) -> str:
+    secret_key = secret_key or global_config.get("GAIA_SECRET_KEY", None)
+    if not secret_key:
+        raise RuntimeError(
+            "Either provide a `secret_key` of setup `g.config['GAIA_SECRET_KEY']`"
+        )
     h = hashes.Hash(hashes.SHA256())
     # TODO: use a better structure
-    h.update(Config.GAIA_SECRET_KEY.encode("utf-8"))
+    h.update(secret_key.encode("utf-8"))
     key = base64.urlsafe_b64encode(h.finalize())
     f = Fernet(key=key)
     try:
