@@ -26,13 +26,13 @@ from config import Config, configs
 from src.core.g import base_dir
 
 
-default_profile = os.environ.get("OURANOS_PROFILE") or "development"
+default_profile = os.environ.get("CONFIG_PROFILE") or "development"
 config_profiles_available = [profile for profile in configs]
 
 coordinates = cachetools.LFUCache(maxsize=16)
 
 
-def get_config(profile: str | None = None):
+def get_config_class(profile: str | None = None):
     if profile is None or profile.lower() in ("def", "default"):
         return configs[default_profile]
     elif profile.lower() in ("dev", "development"):
@@ -206,26 +206,26 @@ def humanize_list(lst: list) -> str:
     return "".join(sentence)
 
 
-def configure_logging(config_class) -> None:
-    DEBUG = config_class.DEBUG
-    LOG_TO_STDOUT = config_class.LOG_TO_STDOUT
-    LOG_TO_FILE = config_class.LOG_TO_FILE
-    LOG_ERROR = config_class.LOG_ERROR
+def configure_logging(config: dict) -> None:
+    debug = config.get("DEBUG")
+    log_to_stdout = config.get("LOG_TO_STDOUT")
+    log_to_file = config.get("LOG_TO_FILE")
+    log_error = config.get("LOG_ERROR")
 
     handlers = []
 
-    if LOG_TO_STDOUT:
+    if log_to_stdout:
         handlers.append("streamHandler")
 
-    if any((LOG_TO_FILE, LOG_ERROR)):
+    if any((log_to_file, log_error)):
         logs_dir = base_dir / "logs"
         if not logs_dir.exists():
             logs_dir.mkdir()
 
-    if LOG_TO_FILE & 0:
+    if log_to_file & 0:
         handlers.append("fileHandler")
 
-    if LOG_ERROR & 0:
+    if log_error & 0:
         handlers.append("errorFileHandler")
 
     LOGGING_CONFIG = {
@@ -244,12 +244,12 @@ def configure_logging(config_class) -> None:
         },
         "handlers": {
             "streamHandler": {
-                "level": f"{'DEBUG' if DEBUG else 'INFO'}",
+                "level": f"{'DEBUG' if debug else 'INFO'}",
                 "formatter": "streamFormat",
                 "class": "logging.StreamHandler",
             },
             "fileHandler": {
-                "level": f"{'DEBUG' if DEBUG else 'INFO'}",
+                "level": f"{'DEBUG' if debug else 'INFO'}",
                 "formatter": "fileFormat",
                 "class": "logging.handlers.RotatingFileHandler",
                 "filename": "logs/base.log",
@@ -268,7 +268,7 @@ def configure_logging(config_class) -> None:
         "loggers": {
             "": {
                 "handlers": handlers,
-                "level": f"{'DEBUG' if DEBUG else 'INFO'}"
+                "level": f"{'DEBUG' if debug else 'INFO'}"
             },
             "aiosqlite": {
                 "handlers": handlers,
@@ -277,7 +277,7 @@ def configure_logging(config_class) -> None:
             },
             "apscheduler": {
                 "handlers": handlers,
-                "level": f"{'DEBUG' if DEBUG else 'WARNING'}",
+                "level": f"{'DEBUG' if debug else 'WARNING'}",
                 "propagate": False,
             },
             "urllib3": {
@@ -287,18 +287,18 @@ def configure_logging(config_class) -> None:
             },
             "engineio": {
                 "handlers": handlers,
-                "level": f"{'DEBUG' if DEBUG else 'WARNING'}",
+                "level": f"{'DEBUG' if debug else 'WARNING'}",
                 #"propagate": False,
             },
             "socketio": {
                 "handlers": handlers,
-                "level": f"{'DEBUG' if DEBUG else 'WARNING'}",
+                "level": f"{'DEBUG' if debug else 'WARNING'}",
                 #"propagate": False,
 
             },
             "uvicorn": {
                 "handlers": handlers,
-                "level": f"{'DEBUG' if DEBUG else 'WARNING'}",
+                "level": f"{'DEBUG' if debug else 'WARNING'}",
                 # "propagate": False,
             },
         },

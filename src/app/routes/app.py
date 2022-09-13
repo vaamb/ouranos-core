@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Query
 
 from src.app.dependencies import get_session
 from src.core import api
-from src.core.g import app_config
+from src.core.g import config
 
 
 router = APIRouter(
@@ -14,15 +14,15 @@ router = APIRouter(
 
 @router.get("/version")
 async def get_version():
-    return app_config.get("VERSION")
+    return config.get("VERSION")
 
 
 @router.get("/logging_period")
 async def get_logging_config():
     return {
-        "weather": app_config.get("OURANOS_WEATHER_UPDATE_PERIOD", None),
-        "system": app_config.get("SYSTEM_LOGGING_PERIOD", None),
-        "sensors": app_config.get("SENSORS_LOGGING_PERIOD", None),
+        "weather": config.get("OURANOS_WEATHER_UPDATE_PERIOD", None),
+        "system": config.get("SYSTEM_LOGGING_PERIOD", None),
+        "sensors": config.get("SENSORS_LOGGING_PERIOD", None),
     }
 
 

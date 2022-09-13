@@ -6,9 +6,8 @@ from telegram.ext import (
 
 from src.chat_bot.auth import activate_user, get_current_user
 from src.chat_bot.decorators import activation_required
-from config import Config
 from src.core import api
-from src.core.g import db, app_config
+from src.core.g import db, config
 from src.core.utils import Tokenizer, ExpiredTokenError, InvalidToken
 
 
@@ -244,13 +243,13 @@ async def unknown_command(update: Update, context: CallbackContext):
 
 class ChatBot:
     def __init__(self):
-        if not app_config.get("TELEGRAM_BOT_TOKEN"):
+        if not config.get("TELEGRAM_BOT_TOKEN"):
             raise RuntimeError(
                 "The config key 'TELEGRAM_BOT_TOKEN' needs to be set in order "
                 "to use the chatbot"
             )
         application = ApplicationBuilder()
-        application.token(app_config["TELEGRAM_BOT_TOKEN"])
+        application.token(config["TELEGRAM_BOT_TOKEN"])
         self.application = application.build()
 
     def load_handlers(self):
@@ -271,7 +270,7 @@ class ChatBot:
 
 
 if __name__ == '__main__':
-    db.init(Config)
+    db.init(config)
     chat_bot = ChatBot()
     chat_bot.load_handlers()
     chat_bot.start()

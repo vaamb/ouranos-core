@@ -3,13 +3,13 @@
 from socketio import AsyncNamespace
 
 from .decorators import permission_required
-from src.app import db, dispatcher, sio_manager
+from src.app import dispatcher, sio_manager
 from src.core import api
-from src.core.g import app_config
+from src.core.g import config, db
 
 
 # TODO: change name
-sio_logger = logging.getLogger(f"{app_config['APP_NAME'].lower()}.socketio")
+sio_logger = logging.getLogger(f"{config['APP_NAME'].lower()}.socketio")
 
 
 class Events(AsyncNamespace):

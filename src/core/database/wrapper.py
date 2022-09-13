@@ -4,6 +4,8 @@
 # If working inside app context, DO NOT use this!
 
 
+from __future__ import annotations
+
 from asyncio import current_task
 from contextlib import asynccontextmanager, contextmanager
 
@@ -14,7 +16,6 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.orm import scoped_session, sessionmaker
 
 from src.core.database.models._base import base
-from src.core.g import base_dir
 from src.core.utils import config_dict_from_class
 
 
@@ -32,7 +33,11 @@ class SQLAlchemyWrapper:
     """
     _Model = base
 
-    def __init__(self, config=None, model=_Model, create=False):
+    def __init__(
+            self,
+            config: type | str | dict | None = None,
+            model=_Model,
+    ):
         self.Model = model
         self._initialized = False
         self._session_factory = sessionmaker()
@@ -42,14 +47,6 @@ class SQLAlchemyWrapper:
 
         if config:
             self.init(config)
-
-        if create:
-            if not config:
-                raise RuntimeError(
-                    "Cannot create tables if no config is provided"
-                )
-            else:
-                self.create_all()
 
     @property
     def session(self):
@@ -61,12 +58,12 @@ class SQLAlchemyWrapper:
         else:
             return self._session()
 
-    def init(self, config_object) -> None:
+    def init(self, config_object: type | str | dict) -> None:
         self._init_config(config_object)
         self._create_session_factory()
         self._initialized = True
 
-    def _init_config(self, config_object):
+    def _init_config(self, config_object: type | str | dict):
         if isinstance(config_object, type):
             self._config = config_dict_from_class(config_object)
         elif isinstance(config_object, str):
@@ -76,9 +73,9 @@ class SQLAlchemyWrapper:
         else:
             raise TypeError("config_object can either be a str, a dict or a class")
         if "SQLALCHEMY_DATABASE_URI" not in self._config:
-            db_file = base_dir / "database.db"
-            uri = f"sqlite:///{db_file}"
-            self._config["SQLALCHEMY_DATABASE_URI"] = uri
+            raise ValueError(
+                config_object
+            )
 
     def _create_session_factory(self):
         self._session_factory = sessionmaker(binds=self.get_binds_mapping())

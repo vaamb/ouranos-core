@@ -4,15 +4,14 @@ import logging
 import time as ctime
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from dispatcher import configure_dispatcher, get_dispatcher, AsyncDispatcher
 from fastapi import APIRouter, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from socketio import ASGIApp, AsyncManager, AsyncServer
+from socketio import ASGIApp, AsyncServer
 
 from .docs import description, tags_metadata
-from src.core.g import base_dir, db, set_app_config, set_base_dir
-from src.core.utils import config_dict_from_class, get_config, Tokenizer
+from src.core.g import config as app_config, base_dir
+
 
 try:
     import orjson
@@ -27,42 +26,101 @@ else:
     from fastapi.responses import ORJSONResponse as JSONResponse
 
 
-dispatcher: AsyncDispatcher = get_dispatcher(namespace="application", async_based=True)
+def create_dispatcher(config: dict | None = None):
+    config = config or app_config
+    if not config:
+        raise RuntimeError(
+            "Either provide a config dict or set config globally with "
+            "g.set_app_config"
+        )
+    message_broker_url = config.get("MESSAGE_BROKER_URL", "memory://")
+    if message_broker_url.startswith("memory://"):
+        from dispatcher import AsyncBaseDispatcher
+        return AsyncBaseDispatcher("application")
+    elif message_broker_url.startswith("redis://"):
+        from dispatcher import AsyncRedisDispatcher
+        uri = message_broker_url.removeprefix("redis://")
+        if not uri:
+            uri = "localhost:6379/0"
+        url = f"redis://{uri}"
+        return AsyncRedisDispatcher("application", url)
+    elif message_broker_url.startswith("amqp://"):
+        from dispatcher import AsyncAMQPDispatcher
+        uri = message_broker_url.removeprefix("amqp://")
+        if not uri:
+            uri = "guest:guest@localhost:5672//"
+        url = f"redis://{uri}"
+        return AsyncAMQPDispatcher("application", url)
+    else:
+        raise RuntimeError(
+            "'MESSAGE_BROKER_URL' is not set to a supported protocol, choose"
+            "from 'memory', 'redis' or 'amqp'"
+        )
+
+
+def create_sio_manager(config: dict | None = None):
+    config = config or app_config
+    if not config:
+        raise RuntimeError(
+            "Either provide a config dict or set config globally with "
+            "g.set_app_config"
+        )
+    sio_broker_url = config.get("MESSAGE_BROKER_URL", "memory://")
+    if sio_broker_url.startswith("memory://"):
+        from socketio import AsyncManager
+        return AsyncManager()
+    elif sio_broker_url.startswith("redis://"):
+        from socketio import AsyncRedisManager
+        uri = sio_broker_url.removeprefix("redis://")
+        if not uri:
+            uri = "localhost:6379/0"
+        url = f"redis://{uri}"
+        return AsyncRedisManager(url)
+    elif sio_broker_url.startswith("amqp://"):
+        from socketio import AsyncAioPikaManager
+        uri = sio_broker_url.removeprefix("amqp://")
+        if not uri:
+            uri = "guest:guest@localhost:5672//"
+        url = f"redis://{uri}"
+        return AsyncAioPikaManager(url)
+    else:
+        raise RuntimeError(
+            "'MESSAGE_BROKER_URL' is not set to a supported protocol, choose"
+            "from 'memory', 'redis' or 'amqp'"
+        )
+
+
+dispatcher = create_dispatcher()
 scheduler = AsyncIOScheduler()
-sio = AsyncServer(async_mode='asgi', cors_allowed_origins=[])
-sio_manager: AsyncManager = AsyncManager()
+sio_manager = create_sio_manager()
+sio = AsyncServer(
+    async_mode='asgi', cors_allowed_origins=[], client_manager=sio_manager
+)
 asgi_app = ASGIApp(sio)
 
 
-def create_app(config_profile: str | None = None) -> FastAPI:
-    try:
-        config_class = get_config(config_profile)
-    except ValueError:
-        config_class = get_config("default")
-
-    config_dict = config_dict_from_class(config_class)
-    set_app_config(config_dict)
-    from src.core.g import app_config
-    if not any((app_config.get("DEBUG"), app_config.get("TESTING"))):
+def create_app(config: dict | None = None) -> FastAPI:
+    config = config or app_config
+    if not config:
+        raise RuntimeError(
+            "Either provide a config dict or set config globally with "
+            "g.set_app_config"
+        )
+    if not any((config.get("DEBUG"), config.get("TESTING"))):
         for secret in ("SECRET_KEY", "JWT_SECRET_KEY", "GAIA_SECRET_KEY"):
-            if app_config.get(secret) == "BXhNmCEmNdoBNngyGXj6jJtooYAcKpt6":
+            if config.get(secret) == "BXhNmCEmNdoBNngyGXj6jJtooYAcKpt6":
                 raise Exception(
                     f"You need to set the environment variable '{secret}' when "
                     f"using gaiaWeb in a production environment."
                 )
 
-    if app_config.get("DIR"):
-        set_base_dir(app_config["DIR"])
-
-    logger_name = app_config['APP_NAME'].lower()
+    logger_name = config['APP_NAME'].lower()
     logger = logging.getLogger(f"{logger_name}.app")
-    logger.info(f"Creating {app_config['APP_NAME']} app ...")
-
-    Tokenizer.secret_key = app_config["SECRET_KEY"]
+    logger.info(f"Creating {config['APP_NAME']} app ...")
 
     app = FastAPI(
-        title=app_config.get("APP_NAME"),
-        version=app_config.get("VERSION"),
+        title=config.get("APP_NAME"),
+        version=config.get("VERSION"),
         description=description,
         openapi_tags=tags_metadata,
         docs_url="/api/docs",
@@ -72,7 +130,7 @@ def create_app(config_profile: str | None = None) -> FastAPI:
 
     app.extra["logger"] = logger
 
-    if app_config.get("TESTING"):
+    if config.get("TESTING"):
         allowed_origins = ("http://127.0.0.1:8080", "http://localhost:8080")
     else:
         allowed_origins = ()
@@ -87,7 +145,7 @@ def create_app(config_profile: str | None = None) -> FastAPI:
     )
 
     # Add processing (brewing) time in headers when testing and debugging
-    if app_config.get("DEBUG") or app_config.get("TESTING"):
+    if config.get("DEBUG") or config.get("TESTING"):
         @app.middleware("http")
         async def add_brewing_time_header(request: Request, call_next):
             start_time = ctime.monotonic()
@@ -98,7 +156,9 @@ def create_app(config_profile: str | None = None) -> FastAPI:
 
     @app.on_event("startup")
     def startup():
-        logger.info(f"{app_config['APP_NAME']} worker successfully started")
+        logger.info(f"{config['APP_NAME']} worker successfully started")
+        dispatcher.start()
+        scheduler.start()
 
     # Add a router with "/api" path prefixed to it
     prefix = APIRouter(prefix="/api")
@@ -141,43 +201,8 @@ def create_app(config_profile: str | None = None) -> FastAPI:
         )
     logger.debug("Brewing coffee???")
 
-    # Load event dispatcher and start it
-    configure_dispatcher(app_config, silent=True)
-    # dispatcher.start()
-
-    # Start the background scheduler
-    @app.on_event("startup")
-    def start_scheduler():
-        scheduler.start()
-
     # Configure Socket.IO and load the socketio
     logger.debug("Configuring Socket.IO server")
-    global sio_manager
-    message_broker_url = app_config.get("MESSAGE_BROKER_URL", "memory://")
-    if message_broker_url.startswith("memory://"):
-        pass
-        # already using base AsyncManager
-    elif message_broker_url.startswith("redis://"):
-        from socketio import AsyncRedisManager
-        uri = message_broker_url.removeprefix("redis://")
-        if not uri:
-            uri = "localhost:6379/0"
-        url = f"redis://{uri}"
-        sio_manager = AsyncRedisManager(url)
-    elif message_broker_url.startswith("amqp://"):
-        from socketio import AsyncAioPikaManager
-        uri = message_broker_url.removeprefix("amqp://")
-        if not uri:
-            uri = "guest:guest@localhost:5672//"
-        url = f"redis://{uri}"
-        sio_manager = AsyncAioPikaManager(url)
-    else:
-        raise RuntimeError(
-            "'MESSAGE_BROKER_URL' is not set to a supported protocol, choose"
-            "from 'memory', 'redis' or 'amqp'"
-        )
-    sio.manager = sio_manager
-    sio.manager.set_server(sio)
     app.mount(path="/", app=asgi_app)
 
     logger.debug("Loading client events")
@@ -185,7 +210,7 @@ def create_app(config_profile: str | None = None) -> FastAPI:
     sio.register_namespace(ClientEvents("/"))
 
     logger.debug("Loading gaia events")
-    gaia_broker_url = app_config.get("GAIA_BROKER_URL", "socketio://")
+    gaia_broker_url = config.get("GAIA_BROKER_URL", "socketio://")
     if gaia_broker_url.startswith("socketio://"):
         from src.core.communication.socketio import GaiaEventsNamespace
         sio.register_namespace(GaiaEventsNamespace("/gaia"))
@@ -200,7 +225,7 @@ def create_app(config_profile: str | None = None) -> FastAPI:
         logger.debug("Ouranos frontend detected, mounting it")
         app.mount("/", StaticFiles(directory=frontend_static_dir, html=True))
 
-    logger.info(f"{app_config['APP_NAME']} app successfully created")
+    logger.info(f"{config['APP_NAME']} app successfully created")
     return app
 
 

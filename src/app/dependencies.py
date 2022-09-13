@@ -3,8 +3,8 @@ import typing as t
 from fastapi import HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from . import db
 from src.core import api
+from src.core.g import db
 
 
 async def get_session() -> AsyncSession:

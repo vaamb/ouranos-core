@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ._base import ArchiveLink, base
 from .common import BaseWarning
-from src.core.g import app_config
+from src.core.g import config
 from src.core.utils import ExpiredTokenError, InvalidTokenError, Tokenizer
 
 
@@ -182,7 +182,7 @@ class User(base, UserMixin):
     async def create(cls, session: AsyncSession, **kwargs):
         user = User(**kwargs)
         if user.role is None:
-            if user.email in app_config.get("OURANOS_ADMIN", ()):
+            if user.email in config.get("OURANOS_ADMIN", ()):
                 stmt = select(Role).where(Role.name == "Administrator")
             else:
                 stmt = select(Role).where(Role.default is True)
@@ -237,7 +237,7 @@ class User(base, UserMixin):
     @staticmethod
     def load_from_token(token: str, token_use: str):
         try:
-            payload = Tokenizer.loads(token, app_config["SECRET_KEY"])
+            payload = Tokenizer.loads(token, config["SECRET_KEY"])
         except (ExpiredTokenError, InvalidTokenError):
             return None
         if payload.get("use") != token_use:

@@ -12,13 +12,13 @@ from statistics import mean, stdev as std
 
 from .decorators import registration_required
 from src.core import api, dispatcher
-from src.core.g import app_config, db
+from src.core.g import config, db
 from src.core.utils import decrypt_uid, validate_uid_token
 
 
-sio_logger = logging.getLogger(f"{app_config['APP_NAME'].lower()}.socketio")
+sio_logger = logging.getLogger(f"{config['APP_NAME'].lower()}.socketio")
 # TODO: better use
-collector_logger = logging.getLogger(f"{app_config['APP_NAME'].lower()}.collector")
+collector_logger = logging.getLogger(f"{config['APP_NAME'].lower()}.collector")
 
 
 _BACKGROUND_TASK_STARTED = False
@@ -89,7 +89,7 @@ class Events:
         async with self.session(sid, namespace="/gaia") as session:
             remote_addr = session["REMOTE_ADDR"] = environ["REMOTE_ADDR"]
             attempts = engines_blacklist.get(remote_addr, 0)
-            max_attempts: int = app_config.get("GAIA_CLIENT_MAX_ATTEMPT", 2)
+            max_attempts: int = config.get("GAIA_CLIENT_MAX_ATTEMPT", 2)
             if attempts == max_attempts:
                 sio_logger.warning(
                     f"Received {max_attempts} invalid registration requests "
@@ -320,7 +320,7 @@ class Events:
                 except KeyError:
                     continue
 
-                if dt.minute % app_config["SENSORS_LOGGING_PERIOD"] == 0:
+                if dt.minute % config["SENSORS_LOGGING_PERIOD"] == 0:
                     measure_values = {}
                     collector_logger.debug(f"Logging sensors data from ecosystem: {ecosystem['ecosystem_uid']}")
 

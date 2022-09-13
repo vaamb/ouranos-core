@@ -8,10 +8,10 @@ import sys
 import uvicorn
 
 # from src import services
-from config import configs
-from src.core.g import db, scheduler
+from src.core.g import db, scheduler, set_config, set_base_dir
 from src.core.utils import (
-    configure_logging, config_dict_from_class, default_profile, get_config
+    configure_logging, config_dict_from_class, default_profile, get_config_class,
+    Tokenizer
 )
 
 
@@ -57,27 +57,28 @@ signal.signal(signal.SIGTERM, graceful_exit)
 if __name__ == "__main__":
     args = parser.parse_args()
     config_profile = args.profile
-    # Hack for later app creation with proper config
-    config_cls = get_config(config_profile)
-    configs["default"] = config_cls
-    configure_logging(config_cls)
-    config_dict = config_dict_from_class(config_cls)
-    app_name = config_dict["APP_NAME"]
+    config_cls = get_config_class(config_profile)
+    config = config_dict_from_class(config_cls)
+    configure_logging(config)
+    # Make the chosen config available globally
+    set_config(config)
+    if config.get("DIR"):
+        set_base_dir(config["DIR"])
+    app_name = config["APP_NAME"]
     logger = logging.getLogger(app_name.lower())
+    Tokenizer.secret_key = config["SECRET_KEY"]
     loop = asyncio.get_event_loop()
-    from src.app import dispatcher as app_dispatcher  # Import after loop policy
     try:
         logger.info("Creating database")
-        db.init(config_dict)
+        db.init(config)
         loop.run_until_complete(create_base_data())
-
-        if config_dict.get("WORKERS", 1) > 0:
-            logger.info("Starting server")
+        if config.get("SERVER", True):
+            logger.info("Creating server")
             server_cfg = uvicorn.Config(
                 "app:create_app", factory=True,
                 port=5000,
-                workers=config_dict.get("WORKERS", 1),
-                loop=loop if not config_dict.get("WORKERS", 1) > 1 else "auto",
+                workers=config.get("WORKERS", 1),
+                loop=loop if not config.get("WORKERS", 1) > 1 else "auto",
                 server_header=False, date_header=False,
             )
             server = uvicorn.Server(server_cfg)
@@ -93,16 +94,16 @@ if __name__ == "__main__":
                 sock = server_cfg.bind_socket()
                 multi = Multiprocess(server_cfg, target=server.run, sockets=[sock])
                 multi.startup()
-                logger.info("Creating database")
             else:
                 loop.create_task(server.serve())
-            logger.info("Server started")
+        else:
+            from src.aggregator import create_aggregator
+            aggregator = create_aggregator(config)
+            aggregator.start(loop)
         scheduler._eventloop = loop
         scheduler.start()
-        app_dispatcher.start()
         loop.run_forever()
     except KeyboardInterrupt:
-        app_dispatcher.stop()
         scheduler.remove_all_jobs()
         loop.stop()
         graceful_exit(logger, app_name)

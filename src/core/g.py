@@ -4,9 +4,11 @@ from pathlib import Path
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
+from .consts import ImmutableDict
+
 
 base_dir = Path(__file__).absolute().parents[1]
-app_config: dict[str, str | int] = {}
+config: ImmutableDict[str, bool | int | str] = ImmutableDict()
 
 
 from .database.wrapper import AsyncSQLAlchemyWrapper
@@ -16,7 +18,7 @@ db = AsyncSQLAlchemyWrapper()
 scheduler = AsyncIOScheduler()
 
 
-def set_base_dir(path: str | Path):
+def set_base_dir(path: str | Path) -> None:
     global base_dir
     if not isinstance(path, Path):
         path = Path(path)
@@ -27,6 +29,6 @@ def set_base_dir(path: str | Path):
         base_dir = path
 
 
-def set_app_config(config: dict):
-    global app_config
-    app_config = config
+def set_config(new_config: dict) -> None:
+    global config
+    config = ImmutableDict(new_config)
