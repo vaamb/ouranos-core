@@ -97,11 +97,11 @@ class DevelopmentConfig(Config):
 
 class TestingConfig(Config):
     TESTING = True
-    SQLALCHEMY_DATABASE_URI = "sqlite:///"
+    SQLALCHEMY_DATABASE_URI = "sqlite+aiosqlite:///"
     SQLALCHEMY_BINDS = {
-        "app": "sqlite:///",
-        "archive": "sqlite:///",
-        "system": "sqlite:///",
+        "app": "sqlite+aiosqlite:///",
+        "archive": "sqlite+aiosqlite:///",
+        "system": "sqlite+aiosqlite:///",
     }
 
 

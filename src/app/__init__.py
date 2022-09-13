@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 import time as ctime
 
@@ -40,6 +39,7 @@ def create_app(config_profile: str | None = None) -> FastAPI:
         config_class = get_config(config_profile)
     except ValueError:
         config_class = get_config("default")
+
     config_dict = config_dict_from_class(config_class)
     set_app_config(config_dict)
     from src.core.g import app_config
@@ -153,8 +153,11 @@ def create_app(config_profile: str | None = None) -> FastAPI:
     # Configure Socket.IO and load the socketio
     logger.debug("Configuring Socket.IO server")
     global sio_manager
-    message_broker_url = app_config.get("MESSAGE_BROKER_URL", "")
-    if message_broker_url.startswith("redis://"):
+    message_broker_url = app_config.get("MESSAGE_BROKER_URL", "memory://")
+    if message_broker_url.startswith("memory://"):
+        pass
+        # already using base AsyncManager
+    elif message_broker_url.startswith("redis://"):
         from socketio import AsyncRedisManager
         uri = message_broker_url.removeprefix("redis://")
         if not uri:
@@ -169,12 +172,10 @@ def create_app(config_profile: str | None = None) -> FastAPI:
         url = f"redis://{uri}"
         sio_manager = AsyncAioPikaManager(url)
     else:
-        if app_config.get("WORKERS", 1) > 1:
-            logger.warning(
-                "'MESSAGE_BROKER_URL' is not set to a supported protocol"
-                "(either 'redis' or 'amqp', inter services communication won't"
-                "work, leading serious performance and function issues"
-            )
+        raise RuntimeError(
+            "'MESSAGE_BROKER_URL' is not set to a supported protocol, choose"
+            "from 'memory', 'redis' or 'amqp'"
+        )
     sio.manager = sio_manager
     sio.manager.set_server(sio)
     app.mount(path="/", app=asgi_app)
