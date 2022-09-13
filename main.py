@@ -1,10 +1,10 @@
 #!/usr/bin/python3
-import argparse
 import asyncio
 import logging
 import signal
 import sys
 
+import click
 import uvicorn
 
 # from src import services
@@ -23,12 +23,11 @@ else:
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
 
-parser = argparse.ArgumentParser()
+DEFAULT_FASTAPI = True
+DEFAULT_WORKERS = 1
 
-parser.add_argument("-p", "--profile", default=default_profile)
 
-
-async def create_base_data():
+async def create_base_data(logger):
     from src.core.database.models import (
         CommunicationChannel, Measure, Role, User
     )
@@ -54,24 +53,55 @@ signal.signal(signal.SIGTERM, graceful_exit)
 # rem: signal.SIGINT is translated into KeyboardInterrupt by python
 
 
-if __name__ == "__main__":
-    args = parser.parse_args()
-    config_profile = args.profile
+@click.command(context_settings={"auto_envvar_prefix": "OURANOS"})
+@click.option(
+    "--config-profile",
+    type=str,
+    default=default_profile,
+    help="Configuration profile to use as defined in config.py.",
+    show_default=True,
+)
+@click.option(
+    "--start-api",
+    type=bool,
+    is_flag=True,
+    default=DEFAULT_FASTAPI,
+    help="Start FastAPI server.",
+    show_default=True,
+)
+@click.option(
+    "--api-workers",
+    type=int,
+    default=DEFAULT_WORKERS,
+    help="Number of FastAPI workers to start using uvicorn",
+    show_default=True,
+)
+def main(
+        config_profile: str,
+        start_api: bool,
+        api_workers: int,
+):
     config_cls = get_config_class(config_profile)
     config = config_dict_from_class(config_cls)
+    if start_api != DEFAULT_FASTAPI:
+        config["SERVER"] = start_api
+    if api_workers != DEFAULT_WORKERS:
+        config["WORKERS"] = api_workers
+    set_config(config)
+    from src.core.g import config
     configure_logging(config)
     # Make the chosen config available globally
-    set_config(config)
     if config.get("DIR"):
         set_base_dir(config["DIR"])
     app_name = config["APP_NAME"]
     logger = logging.getLogger(app_name.lower())
     Tokenizer.secret_key = config["SECRET_KEY"]
     loop = asyncio.get_event_loop()
+
     try:
         logger.info("Creating database")
         db.init(config)
-        loop.run_until_complete(create_base_data())
+        loop.run_until_complete(create_base_data(logger))
         if config.get("SERVER", True):
             logger.info("Creating server")
             server_cfg = uvicorn.Config(
@@ -86,13 +116,15 @@ if __name__ == "__main__":
                 # TODO: make it work
                 from uvicorn.supervisors import ChangeReload
                 sock = server_cfg.bind_socket()
-                reload = ChangeReload(server_cfg, target=server.run, sockets=[sock])
+                reload = ChangeReload(server_cfg, target=server.run,
+                                      sockets=[sock])
                 reload.run()
             elif server_cfg.workers > 1:
                 # works on linux, not on Windows
                 from uvicorn.supervisors import Multiprocess
                 sock = server_cfg.bind_socket()
-                multi = Multiprocess(server_cfg, target=server.run, sockets=[sock])
+                multi = Multiprocess(server_cfg, target=server.run,
+                                     sockets=[sock])
                 multi.startup()
             else:
                 loop.create_task(server.serve())
@@ -107,3 +139,7 @@ if __name__ == "__main__":
         scheduler.remove_all_jobs()
         loop.stop()
         graceful_exit(logger, app_name)
+
+
+if __name__ == "__main__":
+    main()
