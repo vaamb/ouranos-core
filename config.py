@@ -1,5 +1,11 @@
+from __future__ import annotations
+
 from pathlib import Path
 import os
+import typing as t
+
+from src.core.utils import humanize_list
+
 
 try:
     from private_config import privateConfig
@@ -14,6 +20,8 @@ except ImportError:  # noqa
         MAIL_USERNAME = None
         MAIL_PASSWORD = None
 
+
+default_profile = os.environ.get("CONFIG_PROFILE") or "development"
 
 base_dir = Path(__file__).absolute().parents[0]  # TODO: use the one from g?
 
@@ -115,3 +123,36 @@ configs = {
     "production": ProductionConfig,
     "default": DevelopmentConfig,
 }
+
+config_profiles_available = [profile for profile in configs]
+
+
+def _get_config_class(
+        profile: str | None = None
+) -> t.Type[DevelopmentConfig | ProductionConfig | TestingConfig]:
+    if profile is None or profile.lower() in ("def", "default"):
+        return configs[default_profile]
+    elif profile.lower() in ("dev", "development"):
+        return configs["development"]
+    elif profile.lower() in ("test", "testing"):
+        return configs["testing"]
+    elif profile.lower() in ("prod", "production"):
+        return configs["production"]
+    else:
+        raise ValueError(
+            f"{profile} is not a valid profile. Valid profiles are "
+            f"{humanize_list(config_profiles_available)}."
+        )
+
+
+def config_dict_from_class(obj: t.Type) -> dict[str, str | int | bool]:
+    config = {}
+    for key in dir(obj):
+        if key.isupper():
+            config[key] = getattr(obj, key)
+    return config
+
+
+def get_specified_config(profile: str | None = None) -> dict[str, str | int | bool]:
+    config_cls = _get_config_class(profile)
+    return config_dict_from_class(config_cls)

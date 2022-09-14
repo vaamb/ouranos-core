@@ -22,48 +22,25 @@ import geopy
 import jwt
 from sqlalchemy.engine import Row
 
-from config import configs, DevelopmentConfig, ProductionConfig, TestingConfig
 from src.core.g import base_dir, config as global_config
 
-
-default_profile = os.environ.get("CONFIG_PROFILE") or "development"
-config_profiles_available = [profile for profile in configs]
 
 coordinates = cachetools.LFUCache(maxsize=16)
 
 
-def _get_config_class(
-        profile: str | None = None
-) -> t.Type[DevelopmentConfig | ProductionConfig | TestingConfig]:
-    if profile is None or profile.lower() in ("def", "default"):
-        return configs[default_profile]
-    elif profile.lower() in ("dev", "development"):
-        return configs["development"]
-    elif profile.lower() in ("test", "testing"):
-        return configs["testing"]
-    elif profile.lower() in ("prod", "production"):
-        return configs["production"]
-    else:
-        raise ValueError(
-            f"{profile} is not a valid profile. Valid profiles are "
-            f"{humanize_list(config_profiles_available)}."
-        )
+def humanize_list(lst: list) -> str:
+    list_length = len(lst)
+    sentence = []
+    for i in range(list_length):
+        sentence.append(lst[i])
+        if i < list_length - 2:
+            sentence.append(", ")
+        elif i == list_length - 2:
+            sentence.append(" and ")
+    return "".join(sentence)
 
 
-def config_dict_from_class(obj: t.Type) -> dict:
-    config = {}
-    for key in dir(obj):
-        if key.isupper():
-            config[key] = getattr(obj, key)
-    return config
-
-
-def get_config(profile: str | None = None) -> dict:
-    config_cls = _get_config_class(profile)
-    return config_dict_from_class(config_cls)
-
-
-def async_to_sync(func: t.Callable):
+def async_to_sync(func: t.Callable) -> t.Callable:
     """Decorator to allow calling an async function like a sync function"""
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -80,7 +57,7 @@ class JSONEncoder(_json.JSONEncoder):
     In order to support more data types, override the :meth:`default`
     method.
     """
-    def default(self, o):
+    def default(self, o: t.Type) -> dict | str:
         if isinstance(o, datetime):
             return o.replace(tzinfo=timezone.utc).isoformat(timespec="seconds")
         if isinstance(o, date):
@@ -103,11 +80,11 @@ class JSONEncoder(_json.JSONEncoder):
 
 
 class JSONDecoder(_json.JSONDecoder):
-    def decode(self, string, *args, **kwargs):
+    def decode(self, string: str, *args, **kwargs):
         result = super(JSONDecoder, self).decode(string, *args, **kwargs)
         return self._convert_number(result)
 
-    def _convert_number(self, o):
+    def _convert_number(self, o: t.Type) -> float | int | dict | list | str | t.Type:
         if isinstance(o, str):
             try:
                 return int(o)
@@ -127,13 +104,13 @@ class JSONDecoder(_json.JSONDecoder):
 
 class json:
     @staticmethod
-    def dumps(*args, **kwargs):
+    def dumps(*args, **kwargs) -> str:
         if 'cls' not in kwargs:
             kwargs['cls'] = JSONEncoder
         return _json.dumps(*args, **kwargs)
 
     @staticmethod
-    def loads(*args, **kwargs):
+    def loads(*args, **kwargs) -> t.Any:
         if 'cls' not in kwargs:
             kwargs['cls'] = JSONDecoder
         return _json.loads(*args, **kwargs)
@@ -209,18 +186,6 @@ def try_iso_format(time_obj: time) -> str | None:
         return None
 
 
-def humanize_list(lst: list) -> str:
-    list_length = len(lst)
-    sentence = []
-    for i in range(list_length):
-        sentence.append(lst[i])
-        if i < list_length - 2:
-            sentence.append(", ")
-        elif i == list_length - 2:
-            sentence.append(" and ")
-    return "".join(sentence)
-
-
 def configure_logging(config: dict) -> None:
     debug = config.get("DEBUG")
     log_to_stdout = config.get("LOG_TO_STDOUT")
@@ -243,7 +208,7 @@ def configure_logging(config: dict) -> None:
     if log_error & 0:
         handlers.append("errorFileHandler")
 
-    LOGGING_CONFIG = {
+    logging_config = {
         "version": 1,
         "disable_existing_loggers": True,
 
@@ -318,7 +283,7 @@ def configure_logging(config: dict) -> None:
             },
         },
     }
-    logging.config.dictConfig(LOGGING_CONFIG)
+    logging.config.dictConfig(logging_config)
 
 
 def decrypt_uid(encrypted_uid: str, secret_key: str = None) -> str:
@@ -328,7 +293,6 @@ def decrypt_uid(encrypted_uid: str, secret_key: str = None) -> str:
             "Either provide a `secret_key` of setup `g.config['GAIA_SECRET_KEY']`"
         )
     h = hashes.Hash(hashes.SHA256())
-    # TODO: use a better structure
     h.update(secret_key.encode("utf-8"))
     key = base64.urlsafe_b64encode(h.finalize())
     f = Fernet(key=key)

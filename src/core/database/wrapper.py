@@ -15,8 +15,7 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.orm import scoped_session, sessionmaker
 
-from src.core.database.models._base import base
-from src.core.utils import config_dict_from_class
+from core.database._base import base
 
 
 class SQLAlchemyWrapper:
@@ -65,6 +64,7 @@ class SQLAlchemyWrapper:
 
     def _init_config(self, config_object: type | str | dict):
         if isinstance(config_object, type):
+            from config import config_dict_from_class
             self._config = config_dict_from_class(config_object)
         elif isinstance(config_object, str):
             self._config = {"SQLALCHEMY_DATABASE_URI": config_object}

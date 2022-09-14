@@ -37,6 +37,13 @@ class Aggregator:
             self._engine: AsyncAMQPDispatcher | AsyncRedisDispatcher
             self._engine.start(loop)
 
+    def stop(self):
+        if isinstance(self._engine, ASGIApp):
+            pass  # already handled by uvicorn
+        else:
+            self._engine: AsyncAMQPDispatcher | AsyncRedisDispatcher
+            self._engine.stop()
+
 
 def create_aggregator(config: dict | None = None) -> Aggregator:
     config = config or global_config

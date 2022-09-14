@@ -1,9 +1,9 @@
 import sqlalchemy as sa
 
-from ._base import ArchiveLink
 from .common import (
     BaseActuatorHistory, BaseWarning, BaseHealth, BaseSensorHistory
 )
+from src.core.database._base import ArchiveLink
 
 
 # ---------------------------------------------------------------------------

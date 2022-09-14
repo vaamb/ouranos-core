@@ -2,10 +2,12 @@ import sqlalchemy as sa
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.schema import UniqueConstraint
 
-from ._base import base
+from src.core.g import db
 
 
-# TODO: add indexes
+base = db.Model
+
+
 # ---------------------------------------------------------------------------
 #   Base models common.py to main app and archive
 # ---------------------------------------------------------------------------

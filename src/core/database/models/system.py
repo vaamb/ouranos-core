@@ -1,6 +1,9 @@
 import sqlalchemy as sa
 
-from ._base import base
+from src.core.g import db
+
+
+base = db.Model
 
 
 # ---------------------------------------------------------------------------

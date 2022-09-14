@@ -8,13 +8,14 @@ import sqlalchemy as sa
 from sqlalchemy import orm, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ._base import ArchiveLink, base
 from .common import BaseWarning
-from src.core.g import config
+from src.core.g import config, db
+from src.core.database._base import ArchiveLink
 from src.core.utils import ExpiredTokenError, InvalidTokenError, Tokenizer
 
 
 argon2_hasher = PasswordHasher()
+base = db.Model
 
 
 # ---------------------------------------------------------------------------

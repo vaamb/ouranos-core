@@ -6,11 +6,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.schema import Table
 
 
-from ._base import ArchiveLink, base
 from .common import (
     BaseActuatorHistory, BaseHealth, BaseSensorHistory, BaseWarning
 )
+from src.core.database._base import ArchiveLink
+from src.core.g import db
 from src.core.utils import time_to_datetime
+
+
+base = db.Model
 
 
 # ---------------------------------------------------------------------------
