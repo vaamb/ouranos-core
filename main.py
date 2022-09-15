@@ -104,12 +104,6 @@ async def run(
     )
     auto_loop_setup(use_subprocess)
     loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-    try:
-        for sig in SIGNALS:
-            loop.add_signal_handler(sig, handle_signal)
-    except NotImplementedError:
-        for sig in SIGNALS:
-            signal.signal(sig, handle_signal)
     logger.info("Creating database")
     from src.core.database.init import create_base_data
     db.init(config)
@@ -155,13 +149,19 @@ async def run(
         def stop_app():
             aggregator.stop()
     scheduler.start()
+    # Override uvicorn signal handlers to also close the scheduler
+    await asyncio.sleep(0.1)
+    try:
+        for sig in SIGNALS:
+            loop.add_signal_handler(sig, handle_signal, sig, None)
+    except NotImplementedError:
+        for sig in SIGNALS:
+            signal.signal(sig, handle_signal)
     await runner()
     stop_app()
     scheduler.remove_all_jobs()
+    await asyncio.sleep(1.0)
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        stop()
+    main()
