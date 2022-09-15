@@ -16,14 +16,6 @@ from src.core.g import db, scheduler, set_config_globally, set_base_dir
 from src.core.utils import configure_logging, Tokenizer
 
 
-try:
-    import uvloop
-except ImportError:
-    pass
-else:
-    asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-
-
 should_exit = False
 
 
@@ -46,9 +38,6 @@ SIGNALS = (
     signal.SIGINT,
     signal.SIGTERM,
 )
-
-for SIG in SIGNALS:
-    signal.signal(SIG, handle_signal)
 
 
 DEFAULT_FASTAPI = True
@@ -106,14 +95,21 @@ async def run(
     # Make the chosen config available globally
     if config.get("DIR"):
         set_base_dir(config["DIR"])
-    app_name = config["APP_NAME"]
-    logger = logging.getLogger(app_name.lower())
+    app_name: str = config["APP_NAME"]
+    logger: logging.Logger = logging.getLogger(app_name.lower())
     Tokenizer.secret_key = config["SECRET_KEY"]
-    use_subprocess = (
+    use_subprocess: bool = (
         config.get("SERVER_RELOAD", False) or
         config.get("SERVER", True) and config.get("WORKERS", 1) > 1
     )
     auto_loop_setup(use_subprocess)
+    loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+    try:
+        for sig in SIGNALS:
+            loop.add_signal_handler(sig, handle_signal)
+    except NotImplementedError:
+        for sig in SIGNALS:
+            signal.signal(sig, handle_signal)
     logger.info("Creating database")
     from src.core.database.init import create_base_data
     db.init(config)

@@ -8,12 +8,12 @@ from .consts import ImmutableDict
 from .database.wrapper import AsyncSQLAlchemyWrapper
 
 
-base_dir = Path(__file__).absolute().parents[1]
+base_dir: Path = Path(__file__).absolute().parents[1]
 config: ImmutableDict[str, bool | int | str] = ImmutableDict()
 
 
-db = AsyncSQLAlchemyWrapper()
-scheduler = AsyncIOScheduler()
+db: AsyncSQLAlchemyWrapper = AsyncSQLAlchemyWrapper()
+scheduler: AsyncIOScheduler = AsyncIOScheduler()
 
 
 def set_base_dir(path: str | Path) -> None:
