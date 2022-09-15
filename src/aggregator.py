@@ -32,10 +32,10 @@ class Aggregator:
                 server_header=False, date_header=False,
             )
             server = uvicorn.Server(config)
-            loop.create_task(server.serve())
+            asyncio.ensure_future(server.serve())
         else:
             self._engine: AsyncAMQPDispatcher | AsyncRedisDispatcher
-            self._engine.start(loop)
+            self._engine.start()
 
     def stop(self):
         if isinstance(self._engine, ASGIApp):

@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from . import router
 from src.app.auth import get_current_user
 from src.app.dependencies import get_session
-from core.pydantic.models.app import PydanticUserMixin
+from src.core.pydantic.models.app import PydanticUserMixin
 from src.core import api
 
 

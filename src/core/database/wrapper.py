@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.orm import scoped_session, sessionmaker
 
-from core.database._base import base
+from src.core.database._base import base
 
 
 class SQLAlchemyWrapper:

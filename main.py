@@ -8,6 +8,7 @@ from types import FrameType
 
 import click
 import uvicorn
+from uvicorn.loops.auto import auto_loop_setup
 
 from config import default_profile, get_specified_config
 # from src import services
@@ -23,12 +24,22 @@ else:
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
 
-loop = asyncio.get_event_loop()
-stop_event = asyncio.Event()
+should_exit = False
+
+
+def stop():
+    global should_exit
+    should_exit = True
 
 
 def handle_signal(sig: int, frame: FrameType | None):
-    loop.stop()
+    stop()
+
+
+async def runner():
+    global should_exit
+    while not should_exit:
+        await asyncio.sleep(0.2)
 
 
 SIGNALS = (
@@ -71,6 +82,20 @@ def main(
         config_profile: str,
         start_api: bool,
         api_workers: int,
+):
+    asyncio.run(
+        run(
+            config_profile,
+            start_api,
+            api_workers
+        )
+    )
+
+
+async def run(
+        config_profile: str,
+        start_api: bool,
+        api_workers: int,
 ) -> None:
     config = get_specified_config(config_profile)
     config["SERVER"] = start_api or config.get("SERVER", DEFAULT_FASTAPI)
@@ -84,14 +109,19 @@ def main(
     app_name = config["APP_NAME"]
     logger = logging.getLogger(app_name.lower())
     Tokenizer.secret_key = config["SECRET_KEY"]
+    use_subprocess = (
+        config.get("SERVER_RELOAD", False) or
+        config.get("SERVER", True) and config.get("WORKERS", 1) > 1
+    )
+    auto_loop_setup(use_subprocess)
     logger.info("Creating database")
     from src.core.database.init import create_base_data
     db.init(config)
-    loop.run_until_complete(create_base_data(logger))
+    await create_base_data(logger)
     if config.get("SERVER", True):
         logger.info("Creating server")
         server_cfg = uvicorn.Config(
-            "app:create_app", factory=True,
+            "src.app:create_app", factory=True,
             port=5000,
             workers=config.get("WORKERS", 1),
             loop="auto",
@@ -117,27 +147,25 @@ def main(
             def stop_app():
                 multi.shutdown()
         else:
-            loop.create_task(server.serve())
+            asyncio.ensure_future(server.serve())
 
             def stop_app():
                 server.should_exit = True
     else:
         from src.aggregator import create_aggregator
         aggregator = create_aggregator(config)
-        aggregator.start(loop)
+        aggregator.start()
 
         def stop_app():
             aggregator.stop()
-    scheduler._eventloop = loop
     scheduler.start()
-    loop.run_forever()
+    await runner()
     stop_app()
     scheduler.remove_all_jobs()
-    scheduler.stop()
 
 
 if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        signal.raise_signal(signal.SIGINT)
+        stop()
