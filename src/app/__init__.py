@@ -49,7 +49,7 @@ def create_dispatcher(config: dict | None = None):
         uri = message_broker_url.removeprefix("amqp://")
         if not uri:
             uri = "guest:guest@localhost:5672//"
-        url = f"redis://{uri}"
+        url = f"amqp://{uri}"
         return AsyncAMQPDispatcher("application", url)
     else:
         raise RuntimeError(
@@ -208,15 +208,6 @@ def create_app(config: dict | None = None) -> FastAPI:
     logger.debug("Loading client events")
     from src.app.socketio import Events as ClientEvents
     sio.register_namespace(ClientEvents("/"))
-
-    logger.debug("Loading gaia events")
-    gaia_broker_url = config.get("GAIA_BROKER_URL", "socketio://")
-    if gaia_broker_url.startswith("socketio://"):
-        from src.core.communication.socketio import GaiaEventsNamespace
-        sio.register_namespace(GaiaEventsNamespace("/gaia"))
-    else:
-        from src.core.communication.dispatcher import GaiaEventsNamespace
-        dispatcher.register_event_handler(GaiaEventsNamespace())
 
     # Load the frontend if present
     frontend_static_dir = base_dir/"frontend/dist"

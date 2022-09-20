@@ -108,6 +108,9 @@ async def run(
     from src.core.database.init import create_base_data
     db.init(config)
     await create_base_data(logger)
+
+    def stop_app():
+        pass
     if config.get("SERVER", True):
         logger.info("Creating server")
         server_cfg = uvicorn.Config(
@@ -141,13 +144,11 @@ async def run(
 
             def stop_app():
                 server.should_exit = True
-    else:
-        from src.aggregator import create_aggregator
-        aggregator = create_aggregator(config)
-        aggregator.start()
 
-        def stop_app():
-            aggregator.stop()
+    from src.aggregator import create_aggregator
+    aggregator = create_aggregator(config)
+    aggregator.start()
+
     scheduler.start()
     # Override uvicorn signal handlers to also close the scheduler
     await asyncio.sleep(0.1)
@@ -159,6 +160,7 @@ async def run(
             signal.signal(sig, handle_signal)
     await runner()
     stop_app()
+    aggregator.stop()
     scheduler.remove_all_jobs()
     await asyncio.sleep(1.0)
 
