@@ -10,6 +10,7 @@ import click
 import uvicorn
 from uvicorn.loops.auto import auto_loop_setup
 
+import default
 from config import default_profile, get_specified_config
 # from src import services
 from src.core.g import db, scheduler, set_config_globally, set_base_dir
@@ -38,10 +39,6 @@ SIGNALS = (
     signal.SIGINT,
     signal.SIGTERM,
 )
-
-
-DEFAULT_FASTAPI = True
-DEFAULT_WORKERS = 1
 
 
 @click.command(context_settings={"auto_envvar_prefix": "OURANOS"})
@@ -87,8 +84,8 @@ async def run(
         api_workers: int,
 ) -> None:
     config = get_specified_config(config_profile)
-    config["SERVER"] = start_api or config.get("SERVER", DEFAULT_FASTAPI)
-    config["WORKERS"] = api_workers or config.get("WORKERS", DEFAULT_WORKERS)
+    config["SERVER"] = start_api or config.get("SERVER", default.FASTAPI)
+    config["WORKERS"] = api_workers or config.get("WORKERS", default.WORKERS)
     set_config_globally(config)
     from src.core.g import config
     configure_logging(config)
@@ -100,7 +97,8 @@ async def run(
     Tokenizer.secret_key = config["SECRET_KEY"]
     use_subprocess: bool = (
         config.get("SERVER_RELOAD", False) or
-        config.get("SERVER", True) and config.get("WORKERS", 1) > 1
+        (config.get("SERVER", default.FASTAPI) and
+         config.get("WORKERS", default.WORKERS) > 1)
     )
     auto_loop_setup(use_subprocess)
     loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
@@ -111,12 +109,12 @@ async def run(
 
     def stop_app():
         pass
-    if config.get("SERVER", True):
+    if config.get("SERVER", default.FASTAPI):
         logger.info("Creating server")
         server_cfg = uvicorn.Config(
             "src.app:create_app", factory=True,
             port=5000,
-            workers=config.get("WORKERS", 1),
+            workers=config.get("WORKERS", default.WORKERS),
             loop="auto",
             server_header=False, date_header=False,
         )

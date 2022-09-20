@@ -6,6 +6,7 @@ from dispatcher import AsyncAMQPDispatcher, AsyncRedisDispatcher
 from socketio import ASGIApp, AsyncServer
 import uvicorn
 
+import default
 from src.core.communication.events import Events
 from src.core.g import config as global_config
 
@@ -36,9 +37,10 @@ class Aggregator:
         return self._namespace
 
     def start(self) -> None:
-        gaia_broker_url = self.config.get("GAIA_BROKER_URL", "socketio://")
+        gaia_broker_url = self.config.get("GAIA_BROKER_URL",
+                                          default.GAIA_BROKER_URL)
         if gaia_broker_url.startswith("socketio://"):
-            if self.config.get("SERVER", True):
+            if self.config.get("SERVER", default.FASTAPI):
                 from src.app import sio
                 sio.register_namespace(self._namespace)
                 self._engine = sio

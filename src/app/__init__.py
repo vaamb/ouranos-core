@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from socketio import ASGIApp, AsyncServer
 
 from .docs import description, tags_metadata
+import default
 from src.core.g import config as app_config, base_dir
 
 
@@ -33,7 +34,8 @@ def create_dispatcher(config: dict | None = None):
             "Either provide a config dict or set config globally with "
             "g.set_app_config"
         )
-    message_broker_url = config.get("MESSAGE_BROKER_URL", "memory://")
+    message_broker_url = config.get("MESSAGE_BROKER_URL",
+                                    default.MESSAGE_BROKER_URL)
     if message_broker_url.startswith("memory://"):
         from dispatcher import AsyncBaseDispatcher
         return AsyncBaseDispatcher("application")
@@ -65,7 +67,8 @@ def create_sio_manager(config: dict | None = None):
             "Either provide a config dict or set config globally with "
             "g.set_app_config"
         )
-    sio_broker_url = config.get("MESSAGE_BROKER_URL", "memory://")
+    sio_broker_url = config.get("MESSAGE_BROKER_URL",
+                                default.MESSAGE_BROKER_URL)
     if sio_broker_url.startswith("memory://"):
         from socketio import AsyncManager
         return AsyncManager()
