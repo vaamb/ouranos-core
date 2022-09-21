@@ -4,4 +4,5 @@ from .events import Events
 
 
 class GaiaEventsNamespace(AsyncEventHandler, Events):
-    pass
+    def __init__(self, namespace: str = None):
+        super().__init__(namespace=namespace)
