@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 from asyncio import sleep
 from datetime import datetime, time, timezone
@@ -6,7 +8,6 @@ import random
 import typing as t
 
 import cachetools
-from socketio import AsyncNamespace
 from sqlalchemy.exc import IntegrityError
 from statistics import mean, stdev as std
 
@@ -50,32 +51,32 @@ def clear_client_blacklist(client_address: str = None) -> None:
 
 
 class Events:
-    async def emit(self):
+    async def emit(
+            self,
+            event: str,
+            data=None,
+            to=None,
+            room=None,
+            namespace=None
+    ) -> None:
+        raise NotImplementedError
+
+    async def session(self, sid: str, namespace: str | None = None):
+        raise NotImplementedError
+
+    def enter_room(self, sid: str, room: str, namespace: str | None = None) -> None:
+        raise NotImplementedError
+
+    def leave_room(self, sid: str, room: str, namespace: str | None = None) -> None:
+        raise NotImplementedError
+
+    async def disconnect(self, sid: str, namespace: str | None = None) -> None:
         raise NotImplementedError
 
     async def gaia_background_task(self):
         while True:
             await self.emit("ping", namespace="/gaia", room="engines")
             await sleep(15)
-
-    # ---------------------------------------------------------------------------
-    #   Data requests to Engines
-    # ---------------------------------------------------------------------------
-    async def request_sensors_data(self, room="engines"):
-        sio_logger.debug(f"Sending sensors data request to {room}")
-        await self.emit("send_sensors_data", namespace="/gaia", room=room)
-
-    async def request_config(self, room="engines"):
-        sio_logger.debug(f"Sending config request to {room}")
-        await self.emit("send_config", namespace="/gaia", room=room)
-
-    async def request_health_data(self, room="engines"):
-        sio_logger.debug(f"Sending health data request to {room}")
-        await self.emit("send_health_data", namespace="/gaia", room=room)
-
-    async def request_light_data(self, room="engines"):
-        sio_logger.debug(f"Sending light data request to {room}")
-        await self.emit("send_light_data", namespace="/gaia", room=room)
 
     # ---------------------------------------------------------------------------
     #   SocketIO socketio coming from Gaia instances
@@ -105,7 +106,7 @@ class Events:
                 engines_blacklist[remote_addr] += 1
                 return False
 
-    async def on_disconnect(self, sid):
+    async def on_disconnect(self, sid, *args):
         async with db.scoped_session() as session:
             engine = await api.engine.get(session, engine_id=sid)
             if not engine:
@@ -167,17 +168,6 @@ class Events:
             await self.emit("register_ack", namespace="/gaia", room=sid)
             sio_logger.info(f"Successful registration of engine {engine_uid}, "
                             f"from {remote_addr}")
-            await self.engines_change(sid)
-
-    async def engines_change(self, sid):
-        await self.request_config(sid)
-        await self.request_sensors_data(sid)
-        await self.request_light_data(sid)
-        await self.request_health_data(sid)
-
-    @registration_required
-    async def on_engines_change(self, sid, data, engine_uid):
-        await self.engines_change(sid)
 
     @registration_required
     async def on_base_info(self, sid, data, engine_uid):
