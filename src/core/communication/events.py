@@ -139,15 +139,17 @@ class Events:
             engine_uid = decrypt_uid(data["ikys"])
             if validate_uid_token(data["uid_token"], engine_uid):
                 session["engine_uid"] = engine_uid
-        if not validate_uid_token(data["uid_token"], engine_uid):
-            try:
-                engines_blacklist[remote_addr] += 1
-            except KeyError:
-                engines_blacklist[remote_addr] = 0
-            sio_logger.info(
-                f"Received invalid registration request from {remote_addr}")
-            await self.disconnect(sid)
-        else:
+                validated = True
+            else:
+                try:
+                    engines_blacklist[remote_addr] += 1
+                except KeyError:
+                    engines_blacklist[remote_addr] = 0
+                sio_logger.info(
+                    f"Received invalid registration request from {remote_addr}")
+                validated = False
+                await self.disconnect(sid)
+        if validated:
             try:
                 del engines_blacklist[remote_addr]
             except KeyError:

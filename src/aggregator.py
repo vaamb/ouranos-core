@@ -93,10 +93,10 @@ def create_aggregator(config: dict | None = None) -> Aggregator:
         return Aggregator(GaiaEventsNamespace("/gaia"))
     elif gaia_broker_url.startswith("amqp://"):
         from src.core.communication.dispatcher import GaiaEventsNamespace
-        return Aggregator(GaiaEventsNamespace())
+        return Aggregator(GaiaEventsNamespace("gaia"))
     elif gaia_broker_url.startswith("redis://"):
         from src.core.communication.dispatcher import GaiaEventsNamespace
-        return Aggregator(GaiaEventsNamespace())
+        return Aggregator(GaiaEventsNamespace("gaia"))
     else:
         raise RuntimeError(
             "'GAIA_BROKER_URL' is not set to a supported protocol, choose from"
