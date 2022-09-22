@@ -69,9 +69,6 @@ class Aggregator:
             self._engine = dispatcher
             self._engine.start()
 
-            self._engine: AsyncAMQPDispatcher | AsyncRedisDispatcher
-            self._engine.start()
-
     def stop(self):
         if isinstance(self._engine, AsyncServer):
             pass  # already handled by uvicorn

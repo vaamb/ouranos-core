@@ -84,8 +84,7 @@ class Events:
     async def on_connect(self, sid, environ):
         global _BACKGROUND_TASK_STARTED
         if not _BACKGROUND_TASK_STARTED:
-            loop = asyncio.get_event_loop()
-            loop.create_task(self.gaia_background_task())
+            asyncio.ensure_future(self.gaia_background_task())
             _BACKGROUND_TASK_STARTED = True
         async with self.session(sid, namespace="/gaia") as session:
             remote_addr = session["REMOTE_ADDR"] = environ["REMOTE_ADDR"]
