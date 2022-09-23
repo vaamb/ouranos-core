@@ -81,8 +81,8 @@ class Config:
 
     # Dispatcher config
     USE_REDIS_DISPATCHER = False
-    MESSAGE_BROKER_URL = "memory://"
-    GAIA_BROKER_URL = "socketio://"
+    MESSAGE_BROKER_URL = "amqp://"
+    GAIA_BROKER_URL = "amqp://"
     # CACHING_SERVER_URL
 
     # Data logging

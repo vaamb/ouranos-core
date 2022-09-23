@@ -74,9 +74,9 @@ class Events:
         raise NotImplementedError
 
     async def gaia_background_task(self):
-        while True:
+        """while True:
             await self.emit("ping", namespace="/gaia", room="engines")
-            await sleep(15)
+            await sleep(15)"""
 
     # ---------------------------------------------------------------------------
     #   SocketIO socketio coming from Gaia instances
@@ -121,12 +121,11 @@ class Events:
             )
             sio_logger.info(f"Engine {uid} disconnected")
 
-    async def on_pong(self, sid, data):
+    @registration_required
+    async def on_ping(self, sid, data, engine_uid):
         now = datetime.now(timezone.utc).replace(microsecond=0)
         async with db.scoped_session() as session:
-            engine = await api.engine.get(session, sid)
-            if not engine:
-                return
+            engine = await api.engine.get(session, engine_uid)
             engine.last_seen = now
             for ecosystem_uid in data:
                 ecosystem = await api.ecosystem.get(session, ecosystem_uid)
