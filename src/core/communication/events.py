@@ -121,15 +121,16 @@ class Events:
             )
             sio_logger.info(f"Engine {uid} disconnected")
 
-    @registration_required
-    async def on_ping(self, sid, data, engine_uid):
+    # @registration_required
+    async def on_ping(self, sid, data):
         now = datetime.now(timezone.utc).replace(microsecond=0)
         async with db.scoped_session() as session:
-            engine = await api.engine.get(session, engine_uid)
-            engine.last_seen = now
-            for ecosystem_uid in data:
-                ecosystem = await api.ecosystem.get(session, ecosystem_uid)
-                ecosystem.last_seen = now
+            engine = await api.engine.get(session, sid)
+            if engine:
+                engine.last_seen = now
+                for ecosystem_uid in data:
+                    ecosystem = await api.ecosystem.get(session, ecosystem_uid)
+                    ecosystem.last_seen = now
 
     async def on_register_engine(self, sid, data):
         async with self.session(sid) as session:
