@@ -190,7 +190,7 @@ class Events:
         )
 
     @registration_required
-    async def on_update_management(self, sid, data, engine_uid):
+    async def on_management(self, sid, data, engine_uid):
         async with db.scoped_session() as session:
             for ecosystem_data in data:
                 uid: str = ecosystem_data["uid"]
