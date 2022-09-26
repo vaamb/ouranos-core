@@ -12,7 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from statistics import mean, stdev as std
 
 from .decorators import registration_required
-from src.core import api, dispatcher
+from src.core import api  #, dispatcher
 from src.core.g import config, db
 from src.core.utils import decrypt_uid, validate_uid_token
 
@@ -366,7 +366,7 @@ class Events:
     @registration_required
     async def on_health_data(self, sid, data, engine_uid):
         sio_logger.debug(f"Received 'update_health_data' from {engine_uid}")
-        dispatcher.emit("application", "health_data", data=data)
+        # dispatcher.emit("application", "health_data", data=data)
         # healthData.update(data)
         async with db.scoped_session() as session:
             for d in data:

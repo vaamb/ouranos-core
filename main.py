@@ -12,9 +12,7 @@ from uvicorn.loops.auto import auto_loop_setup
 
 import default
 from config import default_profile, get_specified_config
-# from src import services
 from src.core.g import db, scheduler, set_config_globally, set_base_dir
-from src.core.utils import configure_logging, Tokenizer
 
 
 should_exit = False
@@ -83,29 +81,38 @@ async def run(
         start_api: bool,
         api_workers: int,
 ) -> None:
+    # Get the required config and make it available globally
     config = get_specified_config(config_profile)
-    config["SERVER"] = start_api or config.get("SERVER", default.FASTAPI)
-    config["WORKERS"] = api_workers or config.get("WORKERS", default.WORKERS)
     set_config_globally(config)
     from src.core.g import config
-    configure_logging(config)
-    # Make the chosen config available globally
+    # Change base dir if required
     if config.get("DIR"):
         set_base_dir(config["DIR"])
-    app_name: str = config["APP_NAME"]
-    logger: logging.Logger = logging.getLogger(app_name.lower())
+
+    # Configure logging
+    from src.core.utils import configure_logging, Tokenizer
+    configure_logging(config)
+    logger: logging.Logger = logging.getLogger(config["APP_NAME"].lower())
+
+    # Configure the Tokenizer
     Tokenizer.secret_key = config["SECRET_KEY"]
-    use_subprocess: bool = (
-        config.get("SERVER_RELOAD", False) or
-        (config.get("SERVER", default.FASTAPI) and
-         config.get("WORKERS", default.WORKERS) > 1)
-    )
-    auto_loop_setup(use_subprocess)
-    loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+
+    # Init database
     logger.info("Creating database")
     from src.core.database.init import create_base_data
     db.init(config)
     await create_base_data(logger)
+
+    # Init aggregator
+    from src.aggregator import create_aggregator
+    aggregator = create_aggregator(config)
+
+    # Init services
+    # from src import services
+
+    # Init FastAPI server
+    def start_app():
+        pass
 
     def stop_app():
         pass
@@ -124,7 +131,9 @@ async def run(
             from uvicorn.supervisors import ChangeReload
             sock = server_cfg.bind_socket()
             reload = ChangeReload(server_cfg, target=server.run, sockets=[sock])
-            reload.run()
+
+            def start_app():
+                reload.run()
 
             def stop_app():
                 pass
@@ -133,21 +142,33 @@ async def run(
             from uvicorn.supervisors import Multiprocess
             sock = server_cfg.bind_socket()
             multi = Multiprocess(server_cfg, target=server.run, sockets=[sock])
-            multi.startup()
+
+            def start_app():
+                multi.startup()
 
             def stop_app():
                 multi.shutdown()
         else:
-            asyncio.ensure_future(server.serve())
+            def start_app():
+                asyncio.ensure_future(server.serve())
 
             def stop_app():
                 server.should_exit = True
 
-    from src.aggregator import create_aggregator
-    aggregator = create_aggregator(config)
-    aggregator.start()
+    # Setup event loop
+    use_subprocess: bool = (
+        config.get("SERVER_RELOAD", False) or
+        (config.get("SERVER", default.FASTAPI) and
+         config.get("WORKERS", default.WORKERS) > 1)
+    )
+    auto_loop_setup(use_subprocess)
+    loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
 
+    # Start the app
     scheduler.start()
+    aggregator.start()
+    # services.start()
+    start_app()
     # Override uvicorn signal handlers to also close the scheduler
     await asyncio.sleep(0.1)
     try:
@@ -157,9 +178,10 @@ async def run(
         for sig in SIGNALS:
             signal.signal(sig, handle_signal)
     await runner()
-    stop_app()
-    aggregator.stop()
     scheduler.remove_all_jobs()
+    aggregator.stop()
+    # services.stop()
+    stop_app()
     await asyncio.sleep(1.0)
 
 

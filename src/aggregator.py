@@ -1,20 +1,24 @@
 from __future__ import annotations
 
 import asyncio
+import typing as t
 
 from dispatcher import AsyncAMQPDispatcher, AsyncRedisDispatcher
 from socketio import ASGIApp, AsyncServer
 import uvicorn
 
 import default
-from src.core.communication.events import Events
 from src.core.g import config as global_config
+
+if t.TYPE_CHECKING:
+    from src.core.communication.dispatcher import GaiaEventsNamespace as dNamespace
+    from src.core.communication.socketio import GaiaEventsNamespace as sNamespace
 
 
 class Aggregator:
     def __init__(
             self,
-            namespace: Events,
+            namespace: "dNamespace" | "sNamespace",
             config: dict | None = None
     ):
         self.config = config or global_config
@@ -33,7 +37,7 @@ class Aggregator:
         return self._engine
 
     @property
-    def namespace(self) -> Events:
+    def namespace(self) -> "dNamespace" | "sNamespace":
         return self._namespace
 
     def start(self) -> None:
@@ -58,7 +62,9 @@ class Aggregator:
                 asyncio.ensure_future(server.serve())
         elif gaia_broker_url.startswith("amqp://"):
             from dispatcher import AsyncAMQPDispatcher
-            dispatcher = AsyncAMQPDispatcher("aggregator")
+            dispatcher = AsyncAMQPDispatcher(
+                "aggregator", queue_options={"durable": True}
+            )
             dispatcher.register_event_handler(self._namespace)
             self._engine = dispatcher
             self._engine.start()

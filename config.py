@@ -4,8 +4,6 @@ from pathlib import Path
 import os
 import typing as t
 
-from src.core.utils import humanize_list
-
 
 try:
     from private_config import privateConfig
@@ -141,7 +139,7 @@ def _get_config_class(
     else:
         raise ValueError(
             f"{profile} is not a valid profile. Valid profiles are "
-            f"{humanize_list(config_profiles_available)}."
+            f"{config_profiles_available}."
         )
 
 

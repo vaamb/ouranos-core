@@ -12,6 +12,7 @@ from socketio import ASGIApp, AsyncServer
 from .docs import description, tags_metadata
 import default
 from src.core.g import config as app_config, base_dir
+from src.core.utils import create_dispatcher
 
 
 try:
@@ -25,39 +26,6 @@ except ImportError:
         from fastapi.responses import UJSONResponse as JSONResponse
 else:
     from fastapi.responses import ORJSONResponse as JSONResponse
-
-
-def create_dispatcher(config: dict | None = None):
-    config = config or app_config
-    if not config:
-        raise RuntimeError(
-            "Either provide a config dict or set config globally with "
-            "g.set_app_config"
-        )
-    message_broker_url = config.get("MESSAGE_BROKER_URL",
-                                    default.MESSAGE_BROKER_URL)
-    if message_broker_url.startswith("memory://"):
-        from dispatcher import AsyncBaseDispatcher
-        return AsyncBaseDispatcher("application")
-    elif message_broker_url.startswith("redis://"):
-        from dispatcher import AsyncRedisDispatcher
-        uri = message_broker_url.removeprefix("redis://")
-        if not uri:
-            uri = "localhost:6379/0"
-        url = f"redis://{uri}"
-        return AsyncRedisDispatcher("application", url)
-    elif message_broker_url.startswith("amqp://"):
-        from dispatcher import AsyncAMQPDispatcher
-        uri = message_broker_url.removeprefix("amqp://")
-        if not uri:
-            uri = "guest:guest@localhost:5672//"
-        url = f"amqp://{uri}"
-        return AsyncAMQPDispatcher("application", url)
-    else:
-        raise RuntimeError(
-            "'MESSAGE_BROKER_URL' is not set to a supported protocol, choose"
-            "from 'memory', 'redis' or 'amqp'"
-        )
 
 
 def create_sio_manager(config: dict | None = None):
@@ -93,7 +61,7 @@ def create_sio_manager(config: dict | None = None):
         )
 
 
-dispatcher = create_dispatcher()
+dispatcher = create_dispatcher("application")
 scheduler = AsyncIOScheduler()
 sio_manager = create_sio_manager()
 sio = AsyncServer(

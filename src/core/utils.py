@@ -22,6 +22,7 @@ import geopy
 import jwt
 from sqlalchemy.engine import Row
 
+import default
 from src.core.g import base_dir, config as global_config
 
 
@@ -152,6 +153,39 @@ class Tokenizer:
             raise ExpiredTokenError
         except jwt.PyJWTError:
             raise InvalidTokenError
+
+
+def create_dispatcher(name: str, config: dict | None = None, **kwargs):
+    config = config or global_config
+    if not config:
+        raise RuntimeError(
+            "Either provide a config dict or set config globally with "
+            "g.set_app_config"
+        )
+    message_broker_url = config.get("MESSAGE_BROKER_URL",
+                                    default.MESSAGE_BROKER_URL)
+    if message_broker_url.startswith("memory://"):
+        from dispatcher import AsyncBaseDispatcher
+        return AsyncBaseDispatcher(name, **kwargs)
+    elif message_broker_url.startswith("redis://"):
+        from dispatcher import AsyncRedisDispatcher
+        uri = message_broker_url.removeprefix("redis://")
+        if not uri:
+            uri = "localhost:6379/0"
+        url = f"redis://{uri}"
+        return AsyncRedisDispatcher(name, url, **kwargs)
+    elif message_broker_url.startswith("amqp://"):
+        from dispatcher import AsyncAMQPDispatcher
+        uri = message_broker_url.removeprefix("amqp://")
+        if not uri:
+            uri = "guest:guest@localhost:5672//"
+        url = f"amqp://{uri}"
+        return AsyncAMQPDispatcher(name, url, **kwargs)
+    else:
+        raise RuntimeError(
+            "'MESSAGE_BROKER_URL' is not set to a supported protocol, choose"
+            "from 'memory', 'redis' or 'amqp'"
+        )
 
 
 def is_connected(ip_to_connect: str = "1.1.1.1") -> bool:
