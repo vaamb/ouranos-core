@@ -51,6 +51,8 @@ def clear_client_blacklist(client_address: str = None) -> None:
 
 
 class Events:
+    type = "raw"
+
     async def emit(
             self,
             event: str,
@@ -86,24 +88,29 @@ class Events:
         if not _BACKGROUND_TASK_STARTED:
             asyncio.ensure_future(self.gaia_background_task())
             _BACKGROUND_TASK_STARTED = True
-        async with self.session(sid, namespace="/gaia") as session:
-            remote_addr = session["REMOTE_ADDR"] = environ["REMOTE_ADDR"]
-            attempts = engines_blacklist.get(remote_addr, 0)
-            max_attempts: int = config.get("GAIA_CLIENT_MAX_ATTEMPT", 2)
-            if attempts == max_attempts:
-                sio_logger.warning(
-                    f"Received {max_attempts} invalid registration requests "
-                    f"from {remote_addr}."
-                )
-            if attempts >= max_attempts:
-                over_attempts = attempts - max_attempts
-                if over_attempts > 4:
-                    over_attempts = 4
-                fix_tempering = 1.5 ** over_attempts  # max 5 secs
-                random_tempering = 2 * random.random() - 1  # [-1: 1]
-                await sleep(fix_tempering + random_tempering)
-                engines_blacklist[remote_addr] += 1
-                return False
+        if self.type == "socketio":
+            async with self.session(sid, namespace="/gaia") as session:
+                remote_addr = session["REMOTE_ADDR"] = environ["REMOTE_ADDR"]
+                attempts = engines_blacklist.get(remote_addr, 0)
+                max_attempts: int = config.get("GAIA_CLIENT_MAX_ATTEMPT", 2)
+                if attempts == max_attempts:
+                    sio_logger.warning(
+                        f"Received {max_attempts} invalid registration requests "
+                        f"from {remote_addr}."
+                    )
+                if attempts >= max_attempts:
+                    over_attempts = attempts - max_attempts
+                    if over_attempts > 4:
+                        over_attempts = 4
+                    fix_tempering = 1.5 ** over_attempts  # max 5 secs
+                    random_tempering = 2 * random.random() - 1  # [-1: 1]
+                    await sleep(fix_tempering + random_tempering)
+                    engines_blacklist[remote_addr] += 1
+                    return False
+        elif self.type == "dispatcher":
+            await self.emit("register")
+        else:
+            raise TypeError("Event type is invalid")
 
     async def on_disconnect(self, sid, *args):
         async with db.scoped_session() as session:
@@ -133,42 +140,51 @@ class Events:
                     ecosystem.last_seen = now
 
     async def on_register_engine(self, sid, data):
-        async with self.session(sid) as session:
-            remote_addr = session["REMOTE_ADDR"]
-            engine_uid = decrypt_uid(data["ikys"])
-            if validate_uid_token(data["uid_token"], engine_uid):
-                session["engine_uid"] = engine_uid
-                validated = True
-            else:
-                try:
-                    engines_blacklist[remote_addr] += 1
-                except KeyError:
-                    engines_blacklist[remote_addr] = 0
-                sio_logger.info(
-                    f"Received invalid registration request from {remote_addr}")
-                validated = False
-                await self.disconnect(sid)
+        if self.type == "socketio":
+            async with self.session(sid) as session:
+                remote_addr = session["REMOTE_ADDR"]
+                engine_uid = decrypt_uid(data["ikys"])
+                if validate_uid_token(data["uid_token"], engine_uid):
+                    session["engine_uid"] = engine_uid
+                    validated = True
+                    try:
+                        del engines_blacklist[remote_addr]
+                    except KeyError:
+                        pass
+                else:
+                    try:
+                        engines_blacklist[remote_addr] += 1
+                    except KeyError:
+                        engines_blacklist[remote_addr] = 0
+                    sio_logger.info(
+                        f"Received invalid registration request from {remote_addr}")
+                    validated = False
+                    await self.disconnect(sid)
+        elif self.type == "dispatcher":
+            async with self.session(sid) as session:
+                engine_uid = data.get("engine_uid")
+                if engine_uid:
+                    session["engine_uid"] = engine_uid
+                    validated = True
+                else:
+                    await self.disconnect(sid)
+        else:
+            raise TypeError("Event type is invalid")
         if validated:
-            try:
-                del engines_blacklist[remote_addr]
-            except KeyError:
-                pass
             now = datetime.now(timezone.utc).replace(microsecond=0)
             engine_info = {
                 "uid": engine_uid,
                 "sid": sid,
-                "connected": True,
+                # "connected": True,
                 "registration_date": now,
                 "last_seen": now,
-                "address": f"{remote_addr}",
+                # "address": f"{remote_addr}",
             }
             async with db.scoped_session() as session:
                 await api.engine.update_or_create(session, engine_info)
             self.enter_room(sid, room="engines", namespace="/gaia")
-
             await self.emit("register_ack", namespace="/gaia", room=sid)
-            sio_logger.info(f"Successful registration of engine {engine_uid}, "
-                            f"from {remote_addr}")
+            sio_logger.info(f"Successful registration of engine {engine_uid}")
 
     @registration_required
     async def on_base_info(self, sid, data, engine_uid):
@@ -282,9 +298,6 @@ class Events:
                                 if p not in hardware.plants:
                                     hardware.plants.append(m)
 
-
-    # TODO: split this in two part: one receiving and logging data, and move the
-    #  one sending data to a scheduled event
     @registration_required
     async def on_sensors_data(self, sid, data, engine_uid):
         sio_logger.debug(f"Received 'sensors_data' from engine: {engine_uid}")
@@ -301,7 +314,7 @@ class Events:
                 } for ecosystem in data
             }
         )
-        await self.emit("current_sensors_data", data, namespace="/")
+        # await self.emit("current_sensors_data", data, namespace="/")  # TODO
         async with db.scoped_session() as session:
             for ecosystem in data:
                 try:

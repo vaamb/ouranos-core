@@ -81,8 +81,12 @@ async def run(
         start_api: bool,
         api_workers: int,
 ) -> None:
-    # Get the required config and make it available globally
+    # Get the required config
     config = get_specified_config(config_profile)
+    # Overwrite config parameters if given in command line
+    config["SERVER"] = start_api or config.get("SERVER", default.FASTAPI)
+    config["WORKERS"] = api_workers or config.get("WORKERS", default.WORKERS)
+    # Make the config available globally
     set_config_globally(config)
     from src.core.g import config
     # Change base dir if required
