@@ -39,7 +39,7 @@ class Events(AsyncNamespace):
             namespace="/gaia",
         )
 
-# @permission_required(Permission.OPERATE)
+    # @permission_required(Permission.OPERATE)
     async def on_manage_ecosystem(self, sid, data):
         ecosystem_uid = data["ecosystem"]
         with db.scoped_session() as session:
@@ -96,8 +96,25 @@ async def _sun_times(**kwargs):
     await sio_manager.emit("sun_times", namespace="/", **kwargs)
 
 
+# TODO: move this in aggregator?
 @dispatcher.on("current_server_data")
 async def _current_server_data(data):
     # TODO: create async dispatcher or wrap in async_to_sync
     api.system.update_current_data(data)
-    await sio_manager.emit(event="current_server_data", data=data, namespace="/")
+    await sio_manager.emit("current_server_data", data=data, namespace="/")
+
+
+# Redispatch events coming from dispatcher to clients
+@dispatcher.on("ecosystem_status")
+async def _ecosystem_status(data):
+    await sio_manager.emit("ecosystem_status", data=data, namespace="/")
+
+
+@dispatcher.on("current_sensors_data")
+async def _current_sensors_data(data):
+    await sio_manager.emit("current_sensors_data", data=data, namespace="/")
+
+
+@dispatcher.on("light_data")
+async def _current_sensors_data(data):
+    await sio_manager.emit("light_data", data=data, namespace="/")

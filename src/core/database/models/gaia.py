@@ -1,4 +1,4 @@
-from datetime import time
+from datetime import datetime, time
 
 import sqlalchemy as sa
 from sqlalchemy import orm, select
@@ -38,13 +38,15 @@ class Engine(base):
     registration_date = sa.Column(sa.DateTime)
     address = sa.Column(sa.String(length=24))
     last_seen = sa.Column(sa.DateTime)
-    connected = sa.Column(sa.Boolean)
 
     # relationship
     ecosystems = orm.relationship("Ecosystem", back_populates="engine")  # , lazy="joined")
 
+    def connected(self) -> bool:
+        return self.last_seen - datetime.now() >= 30
+
     # TODO: finish and add in others
-    def to_dict(self):
+    def to_dict(self) -> dict:
         return {
             "uid": self.uid,
             "sid": self.sid,
@@ -77,14 +79,14 @@ class Ecosystem(base):
     actuators_history = orm.relationship("ActuatorHistory", back_populates="ecosystem")
     health = orm.relationship("Health", back_populates="ecosystem")
 
-    def can_manage(self, mng):
+    def can_manage(self, mng: int) -> bool:
         return self.management & mng == mng
 
-    def add_management(self, mng):
+    def add_management(self, mng: int) -> None:
         if not self.can_manage(mng):
             self.management += mng
 
-    def remove_management(self, mng):
+    def remove_management(self, mng: int) -> None:
         if self.can_manage(mng):
             self.management -= mng
 

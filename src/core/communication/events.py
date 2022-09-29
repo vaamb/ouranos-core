@@ -11,25 +11,18 @@ import cachetools
 from sqlalchemy.exc import IntegrityError
 from statistics import mean, stdev as std
 
-from .decorators import registration_required
-from src.core import api  #, dispatcher
+from .decorators import dispatch_to_clients, registration_required
+from src.core import api
 from src.core.g import config, db
 from src.core.utils import decrypt_uid, validate_uid_token
 
 
-sio_logger = logging.getLogger(f"{config['APP_NAME'].lower()}.socketio")
 # TODO: better use
+sio_logger = logging.getLogger(f"{config['APP_NAME'].lower()}.socketio")
 collector_logger = logging.getLogger(f"{config['APP_NAME'].lower()}.collector")
 
 
-_BACKGROUND_TASK_STARTED = False
-# TODO: create a thread local asyncio name for loop
-
 summarize = {"mean": mean, "std": std}
-
-
-# TODO: share for gaia and clients
-engines_blacklist = cachetools.TTLCache(maxsize=62, ttl=60 * 60 * 24)
 
 
 def try_time_from_iso(iso_str: str) -> t.Optional[time]:
@@ -39,19 +32,18 @@ def try_time_from_iso(iso_str: str) -> t.Optional[time]:
         return None
 
 
-def clear_client_blacklist(client_address: str = None) -> None:
-    global engines_blacklist
-    if not client_address:
-        engines_blacklist = cachetools.TTLCache(maxsize=62, ttl=60 * 60 * 24)
-    else:
-        try:
-            del engines_blacklist[client_address]
-        except KeyError:
-            pass
-
-
 class Events:
-    type = "raw"
+    def __init__(self) -> None:
+        self.type: str = "raw"
+        self._background_task_started: bool = False
+        self.engines_blacklist = cachetools.TTLCache(maxsize=62, ttl=60 * 60 * 24)
+
+    @property
+    def to_clients(self) -> str:
+        if self.type == "socketio":
+            return "/"
+        else:
+            return "application"
 
     async def emit(
             self,
@@ -59,11 +51,12 @@ class Events:
             data=None,
             to=None,
             room=None,
-            namespace=None
+            namespace=None,
+            **kwargs
     ) -> None:
         raise NotImplementedError
 
-    async def session(self, sid: str, namespace: str | None = None):
+    async def session(self, sid: str, namespace: str | None = None) -> None:
         raise NotImplementedError
 
     def enter_room(self, sid: str, room: str, namespace: str | None = None) -> None:
@@ -81,17 +74,16 @@ class Events:
             await sleep(15)"""
 
     # ---------------------------------------------------------------------------
-    #   SocketIO socketio coming from Gaia instances
+    #   Events coming from Gaia instances
     # ---------------------------------------------------------------------------
     async def on_connect(self, sid, environ):
-        global _BACKGROUND_TASK_STARTED
-        if not _BACKGROUND_TASK_STARTED:
+        if not self._background_task_started:
             asyncio.ensure_future(self.gaia_background_task())
-            _BACKGROUND_TASK_STARTED = True
+            self._background_task_started = True
         if self.type == "socketio":
             async with self.session(sid, namespace="/gaia") as session:
                 remote_addr = session["REMOTE_ADDR"] = environ["REMOTE_ADDR"]
-                attempts = engines_blacklist.get(remote_addr, 0)
+                attempts = self.engines_blacklist.get(remote_addr, 0)
                 max_attempts: int = config.get("GAIA_CLIENT_MAX_ATTEMPT", 2)
                 if attempts == max_attempts:
                     sio_logger.warning(
@@ -105,10 +97,13 @@ class Events:
                     fix_tempering = 1.5 ** over_attempts  # max 5 secs
                     random_tempering = 2 * random.random() - 1  # [-1: 1]
                     await sleep(fix_tempering + random_tempering)
-                    engines_blacklist[remote_addr] += 1
+                    try:
+                        self.engines_blacklist[remote_addr] += 1
+                    except KeyError:
+                        pass
                     return False
         elif self.type == "dispatcher":
-            await self.emit("register")
+            await self.emit("register", ttl=30)
         else:
             raise TypeError("Event type is invalid")
 
@@ -124,7 +119,7 @@ class Events:
                 "ecosystem_status",
                 {ecosystem.uid: {"status": ecosystem.status, "connected": False}
                  for ecosystem in engine.ecosystems},
-                namespace="/"
+                namespace=self.to_clients
             )
             sio_logger.info(f"Engine {uid} disconnected")
 
@@ -148,14 +143,14 @@ class Events:
                     session["engine_uid"] = engine_uid
                     validated = True
                     try:
-                        del engines_blacklist[remote_addr]
+                        del self.engines_blacklist[remote_addr]
                     except KeyError:
                         pass
                 else:
                     try:
-                        engines_blacklist[remote_addr] += 1
+                        self.engines_blacklist[remote_addr] += 1
                     except KeyError:
-                        engines_blacklist[remote_addr] = 0
+                        self.engines_blacklist[remote_addr] = 0
                     sio_logger.info(
                         f"Received invalid registration request from {remote_addr}")
                     validated = False
@@ -175,7 +170,6 @@ class Events:
             engine_info = {
                 "uid": engine_uid,
                 "sid": sid,
-                # "connected": True,
                 "registration_date": now,
                 "last_seen": now,
                 # "address": f"{remote_addr}",
@@ -195,14 +189,14 @@ class Events:
             async with db.scoped_session() as session:
                 await api.ecosystem.update_or_create(session, ecosystem_data)
             ecosystems.append({"uid": uid, "status": ecosystem_data["status"]})
+
         await self.emit(
             "ecosystem_status",
-            [{
+            data=[{
                 "uid": ecosystem["uid"],
                 "status": ecosystem["status"],
-                "connected": True
             } for ecosystem in ecosystems],
-            namespace="/"
+            namespace=self.to_clients
         )
 
     @registration_required
@@ -219,6 +213,7 @@ class Events:
                         # Not implemented in gaia yet
                         pass
                 session.add(ecosystem)
+                await sleep(0)
 
     @registration_required
     async def on_environmental_parameters(self, sid, data, engine_uid):
@@ -297,8 +292,14 @@ class Events:
                             for p in _plants:
                                 if p not in hardware.plants:
                                     hardware.plants.append(m)
+                    session.add(hardware)
+                    await sleep(0)
 
+    # --------------------------------------------------------------------------
+    #   Data received from Gaia, required to be redispatched and logged
+    # --------------------------------------------------------------------------
     @registration_required
+    @dispatch_to_clients
     async def on_sensors_data(self, sid, data, engine_uid):
         sio_logger.debug(f"Received 'sensors_data' from engine: {engine_uid}")
         api.sensor.update_current_data(
@@ -314,7 +315,6 @@ class Events:
                 } for ecosystem in data
             }
         )
-        # await self.emit("current_sensors_data", data, namespace="/")  # TODO
         async with db.scoped_session() as session:
             for ecosystem in data:
                 try:
@@ -326,7 +326,10 @@ class Events:
 
                 if dt.minute % config["SENSORS_LOGGING_PERIOD"] == 0:
                     measure_values = {}
-                    collector_logger.debug(f"Logging sensors data from ecosystem: {ecosystem['ecosystem_uid']}")
+                    collector_logger.debug(
+                        f"Logging sensors data from ecosystem: "
+                        f"{ecosystem['ecosystem_uid']}"
+                    )
 
                     for sensor in ecosystem["data"]:
                         sensor_uid = sensor["sensor_uid"]
@@ -348,14 +351,15 @@ class Events:
                                 )
                             except IntegrityError:
                                 collector_logger.warning(
-                                    f"Already have a {measure['name']} data point at {dt} "
-                                    f"for {sensor_uid}"
+                                    f"Already have a {measure['name']} data "
+                                    f"point at {dt} for {sensor_uid}"
                                 )
 
                             try:
                                 measure_values[measure["name"]].append(value)
                             except KeyError:
                                 measure_values[measure["name"]] = [value]
+                        await sleep(0)
 
                     for method in summarize:
                         for measure in measure_values:
@@ -377,6 +381,7 @@ class Events:
                                 )
 
     @registration_required
+    @dispatch_to_clients
     async def on_health_data(self, sid, data, engine_uid):
         sio_logger.debug(f"Received 'update_health_data' from {engine_uid}")
         # dispatcher.emit("application", "health_data", data=data)
@@ -393,6 +398,7 @@ class Events:
                 await api.health.create_record(session, health_data)
 
     @registration_required
+    @dispatch_to_clients
     async def on_light_data(self, sid, data, engine_uid):
         sio_logger.debug(f"Received 'light_data' from {engine_uid}")
         async with db.scoped_session() as session:
@@ -412,7 +418,6 @@ class Events:
                     "evening_end": evening_end
                 }
                 await api.light.update_or_create(session, light_info=light_info)
-        await self.emit("light_data", data, namespace="/")
 
 
 '''

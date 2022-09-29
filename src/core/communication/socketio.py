@@ -4,7 +4,6 @@ from .events import Events
 
 
 class GaiaEventsNamespace(AsyncNamespace, Events):
-    type = "socketio"
-
-    def __init__(self, namespace: str = None):
+    def __init__(self, namespace: str = None) -> None:
         super().__init__(namespace=namespace)
+        self.type = "socketio"
