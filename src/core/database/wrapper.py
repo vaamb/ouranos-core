@@ -192,7 +192,10 @@ class AsyncSQLAlchemyWrapper(SQLAlchemyWrapper):
         for bind in binds:
             engine = self._get_engine_for_bind(bind)
             tables = self._get_tables_for_bind(bind)
-            self.Model.metadata.drop_all(bind=engine, tables=tables)
+            async with engine.begin() as conn:
+                await conn.run_sync(
+                    self.Model.metadata.drop_all, tables=tables
+                )
 
     async def close(self):
         return await self._session.remove()
