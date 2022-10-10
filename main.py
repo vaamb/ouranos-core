@@ -1,6 +1,10 @@
 #!/usr/bin/python3
 from __future__ import annotations
 
+from setproctitle import setproctitle
+
+setproctitle("ouranos")
+
 import asyncio
 import logging
 import signal
