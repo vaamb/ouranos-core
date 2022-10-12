@@ -33,7 +33,8 @@ def try_time_from_iso(iso_str: str) -> t.Optional[time]:
 
 
 class Events:
-    def __init__(self) -> None:
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
         self.type: str = "raw"
         self._background_task_started: bool = False
         self.engines_blacklist = cachetools.TTLCache(maxsize=62, ttl=60 * 60 * 24)
