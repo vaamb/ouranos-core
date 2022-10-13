@@ -236,10 +236,10 @@ def configure_logging(config: dict) -> None:
         if not logs_dir.exists():
             logs_dir.mkdir()
 
-    if log_to_file & 0:
+    if log_to_file:
         handlers.append("fileHandler")
 
-    if log_error & 0:
+    if log_error:
         handlers.append("errorFileHandler")
 
     logging_config = {
