@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import inspect
 import typing as t
 from typing import Callable
 
@@ -21,11 +20,7 @@ def registration_required(func: Callable):
         if not engine_uid:
             await self.disconnect(sid, namespace="/gaia")
         else:
-            params = inspect.signature(func).parameters
-            if "engine_uid" in params:
-                return await func(self, sid, data, engine_uid)
-            else:
-                return await func(self, sid, data)
+            return await func(self, sid, data, engine_uid)
     return wrapper
 
 
