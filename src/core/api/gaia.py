@@ -5,7 +5,7 @@ from collections import namedtuple
 from cachetools import cached, TTLCache
 import cachetools.func
 from dispatcher import AsyncDispatcher
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.api.exceptions import NoEcosystemFound
@@ -907,13 +907,12 @@ class sensor:
         cache.update(data)
 
     @staticmethod
-    async def create_record(
+    async def create_records(
             session: AsyncSession,
-            sensor_data: dict,
-    ) -> SensorHistory:
-        sensor_history = SensorHistory(**sensor_data)
-        session.add(sensor_history)
-        return sensor_history
+            values: list[dict],
+    ) -> None:
+        stmt = insert(SensorHistory).values(values)
+        await session.execute(stmt)
 
 
 class measure:
@@ -1022,13 +1021,12 @@ class light:
 # ---------------------------------------------------------------------------
 class health:
     @staticmethod
-    async def create_record(
+    async def create_records(
             session: AsyncSession,
-            health_data: dict,
-    ) -> Health:
-        health = Health(**health_data)
-        session.add(health)
-        return health
+            values: list[dict],
+    ) -> None:
+        stmt = insert(Health).values(values)
+        await session.execute(stmt)
 
 
 class plant:

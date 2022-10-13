@@ -183,20 +183,16 @@ class Events:
 
     @registration_required
     async def on_base_info(self, sid, data, engine_uid):
-        ecosystems = []
+        ecosystems: list[dict[str, str]] = []
         for ecosystem_data in data:
             ecosystem_data.update({"engine_uid": engine_uid})
             uid: str = ecosystem_data["uid"]
             async with db.scoped_session() as session:
                 await api.ecosystem.update_or_create(session, ecosystem_data)
             ecosystems.append({"uid": uid, "status": ecosystem_data["status"]})
-
         await self.emit(
             "ecosystem_status",
-            data=[{
-                "uid": ecosystem["uid"],
-                "status": ecosystem["status"],
-            } for ecosystem in ecosystems],
+            data=ecosystems,
             namespace=self.to_clients
         )
 
@@ -317,6 +313,7 @@ class Events:
             }
         )
         async with db.scoped_session() as session:
+            values: list[dict] = []
             for ecosystem in data:
                 try:
                     dt = datetime.fromisoformat(ecosystem["datetime"])
@@ -343,43 +340,11 @@ class Events:
                                 "datetime": dt,
                                 "value": value,
                             }
-                            try:
-                                await api.sensor.create_record(
-                                    session, sensor_data
-                                )
-                                await api.hardware.update(
-                                    session, {"last_log": dt}, sensor_uid
-                                )
-                            except IntegrityError:
-                                collector_logger.warning(
-                                    f"Already have a {measure['name']} data "
-                                    f"point at {dt} for {sensor_uid}"
-                                )
-
-                            try:
-                                measure_values[measure["name"]].append(value)
-                            except KeyError:
-                                measure_values[measure["name"]] = [value]
+                            values.append(sensor_data)
                         await sleep(0)
-
-                    for method in summarize:
-                        for measure in measure_values:
-                            # Set a minimum threshold before summarizing values
-                            # TODO: add the option to summarize or not
-                            if len(measure_values[measure]) >= 3:
-                                values_summarized = round(
-                                    summarize[method](measure_values[measure]), 2
-                                )
-                                aggregated_data = {
-                                    "ecosystem_uid": ecosystem["ecosystem_uid"],
-                                    "sensor_uid": method,
-                                    "measure": measure,
-                                    "datetime": dt,
-                                    "value": values_summarized,
-                                }
-                                await api.sensor.create_record(
-                                    session, aggregated_data
-                                )
+            if values:
+                print(values)
+                await api.sensor.create_records(session, values)
 
     @registration_required
     @dispatch_to_clients
@@ -388,15 +353,17 @@ class Events:
         # dispatcher.emit("application", "health_data", data=data)
         # healthData.update(data)
         async with db.scoped_session() as session:
-            for d in data:
+            values: list[dict] = []
+            for ecosystem in data:
                 health_data = {
-                    "ecosystem_uid": d["ecosystem_uid"],
-                    "datetime": datetime.fromisoformat(d["datetime"]),
-                    "green": d["green"],
-                    "necrosis": d["necrosis"],
-                    "health_index": d["health_index"]
+                    "ecosystem_uid": ecosystem["ecosystem_uid"],
+                    "datetime": datetime.fromisoformat(ecosystem["datetime"]),
+                    "green": ecosystem["green"],
+                    "necrosis": ecosystem["necrosis"],
+                    "health_index": ecosystem["health_index"]
                 }
-                await api.health.create_record(session, health_data)
+                values.append(health_data)
+            await api.health.create_records(session, values)
 
     @registration_required
     @dispatch_to_clients
