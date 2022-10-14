@@ -5,20 +5,6 @@ import os
 import typing as t
 
 
-try:
-    from private_config import privateConfig
-except ImportError:  # noqa
-    class privateConfig:
-        ADMIN = None
-        REGISTRATION_KEY = "BXhNmCEmNdoBNngyGXj6jJtooYAcKpt6"
-        HOME_CITY = "Somewhere over the rainbow"
-        HOME_COORDINATES = (0.0, 0.0)
-        DARKSKY_API_KEY = None
-        TELEGRAM_BOT_TOKEN = None
-        MAIL_USERNAME = None
-        MAIL_PASSWORD = None
-
-
 default_profile = os.environ.get("OURANOS_CONFIG_PROFILE") or "development"
 
 _base_dir = Path(__file__).absolute().parents[0]
@@ -84,23 +70,23 @@ class Config:
     SQLALCHEMY_ECHO = False
 
     # Mail config
-    MAIL_SERVER = os.environ.get("MAIL_SERVER") or "smtp.gmail.com"
-    MAIL_PORT = int(os.environ.get("MAIL_PORT") or 465)
+    MAIL_SERVER = os.environ.get("OURANOS_MAIL_SERVER") or "smtp.gmail.com"
+    MAIL_PORT = int(os.environ.get("OURANOS_MAIL_PORT") or 465)
     MAIL_USE_TLS = False
     MAIL_USE_SSL = True
-    MAIL_USERNAME = os.environ.get("MAIL_USERNAME") or privateConfig.MAIL_USERNAME
-    MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD") or privateConfig.MAIL_PASSWORD
+    MAIL_USERNAME = os.environ.get("OURANOS_MAIL_ADDRESS")
+    MAIL_PASSWORD = os.environ.get("OURANOS_MAIL_PASSWORD")
     MAIL_SUPPRESS_SEND = False
 
     # Private parameters
-    HOME_CITY = os.environ.get("HOME_CITY") or privateConfig.HOME_CITY
-    HOME_COORDINATES = os.environ.get("HOME_COORDINATES") or privateConfig.HOME_COORDINATES
-    DARKSKY_API_KEY = os.environ.get("DARKSKY_API_KEY") or privateConfig.DARKSKY_API_KEY
-    TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN") or privateConfig.TELEGRAM_BOT_TOKEN
+    HOME_CITY = os.environ.get("HOME_CITY")
+    HOME_COORDINATES = os.environ.get("HOME_COORDINATES")
+    DARKSKY_API_KEY = os.environ.get("DARKSKY_API_KEY")
+    TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 
 
 class DevelopmentConfig(Config):
-    DEBUG = False
+    DEBUG = True
     TESTING = True
     MAIL_DEBUG = True
 
@@ -116,7 +102,17 @@ class TestingConfig(Config):
 
 
 class ProductionConfig(Config):
-    SQLALCHEMY_DATABASE_URI = "mysql://user@localhost/foo"
+    DEBUG = False
+    TESTING = False
+
+    LOG_TO_STDOUT = False
+
+    SQLALCHEMY_DATABASE_URI = os.environ.get("OURANOS_DATABASE_URI")
+    SQLALCHEMY_BINDS = {
+        "app": os.environ.get("OURANOS_APP_DATABASE_URI"),
+        "system": os.environ.get("OURANOS_SYSTEM_DATABASE_URI"),
+        "archive": os.environ.get("OURANOS_ARCHIVE_DATABASE_URI"),
+    }
 
 
 configs = {
