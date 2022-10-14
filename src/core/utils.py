@@ -8,9 +8,7 @@ from functools import wraps
 import json as _json
 import logging
 import logging.config
-import os
 from pathlib import Path
-import platform
 import socket
 import typing as t
 import uuid
@@ -231,25 +229,23 @@ def configure_logging(config: dict) -> None:
     if log_to_stdout:
         handlers.append("streamHandler")
 
-    logs_dir_path = config.get("LOGGING_DIR")
+    logs_dir_path = config.get("LOG_DIR")
     if logs_dir_path:
         try:
             logs_dir = Path(logs_dir_path)
         except ValueError:
             print("Invalid logging path, logging in base dir")
-            logs_dir = base_dir / "logs"
+            logs_dir = base_dir / ".logs"
     else:
-        logs_dir = base_dir / "logs"
+        logs_dir = base_dir / ".logs"
 
     if any((log_to_file, log_error)):
         if not logs_dir.exists():
             logs_dir.mkdir()
-
-    if log_to_file:
-        handlers.append("fileHandler")
-
-    if log_error:
-        handlers.append("errorFileHandler")
+        if log_to_file:
+            handlers.append("fileHandler")
+        if log_error:
+            handlers.append("errorFileHandler")
 
     logging_config = {
         "version": 1,

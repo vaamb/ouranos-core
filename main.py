@@ -88,8 +88,8 @@ async def run(
     # Get the required config
     config = get_specified_config(config_profile)
     # Overwrite config parameters if given in command line
-    config["SERVER"] = start_api or config.get("SERVER", default.FASTAPI)
-    config["WORKERS"] = api_workers or config.get("WORKERS", default.WORKERS)
+    config["START_API"] = start_api or config.get("START_API", default.START_API)
+    config["API_WORKERS"] = api_workers or config.get("API_WORKERS", default.API_WORKERS)
     # Make the config available globally
     set_config_globally(config)
     from src.core.g import config
@@ -124,12 +124,12 @@ async def run(
 
     def stop_app():
         pass
-    if config.get("SERVER", default.FASTAPI):
+    if config.get("START_API", default.START_API):
         logger.info("Creating server")
         server_cfg = uvicorn.Config(
             "src.app:create_app", factory=True,
             port=5000,
-            workers=config.get("WORKERS", default.WORKERS),
+            workers=config.get("API_WORKERS", default.API_WORKERS),
             loop="auto",
             server_header=False, date_header=False,
         )
@@ -166,8 +166,8 @@ async def run(
     # Setup event loop
     use_subprocess: bool = (
         config.get("SERVER_RELOAD", False) or
-        (config.get("SERVER", default.FASTAPI) and
-         config.get("WORKERS", default.WORKERS) > 1)
+        (config.get("START_API", default.START_API) and
+         config.get("API_WORKERS", default.API_WORKERS) > 1)
     )
     auto_loop_setup(use_subprocess)
     loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()

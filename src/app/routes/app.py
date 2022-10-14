@@ -20,7 +20,7 @@ async def get_version():
 @router.get("/logging_period")
 async def get_logging_config():
     return {
-        "weather": config.get("OURANOS_WEATHER_UPDATE_PERIOD", None),
+        "weather": config.get("WEATHER_UPDATE_PERIOD", None),
         "system": config.get("SYSTEM_LOGGING_PERIOD", None),
         "sensors": config.get("SENSORS_LOGGING_PERIOD", None),
     }

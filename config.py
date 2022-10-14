@@ -19,7 +19,7 @@ except ImportError:  # noqa
         MAIL_PASSWORD = None
 
 
-default_profile = os.environ.get("CONFIG_PROFILE") or "development"
+default_profile = os.environ.get("OURANOS_CONFIG_PROFILE") or "development"
 
 _base_dir = Path(__file__).absolute().parents[0]
 
@@ -27,13 +27,16 @@ _base_dir = Path(__file__).absolute().parents[0]
 class Config:
     APP_NAME = "Ouranos"
     VERSION = "0.5.3"
-    DIR = os.environ.get("OURANOS_DIR") or _base_dir
+
     DEBUG = False
     TESTING = False
+
+    DIR = os.environ.get("OURANOS_DIR") or _base_dir
+    LOG_DIR = os.environ.get("OURANOS_LOG_DIR")
+    CACHE_DIR = os.environ.get("OURANOS_CACHE_DIR")
+
     SECRET_KEY = os.environ.get("OURANOS_SECRET_KEY") or "BXhNmCEmNdoBNngyGXj6jJtooYAcKpt6"
     CONNECTION_KEY = os.environ.get("OURANOS_CONNECTION_KEY") or SECRET_KEY
-
-    WORKERS = 1
 
     # Logging config
     LOG_TO_STDOUT = True
@@ -46,13 +49,21 @@ class Config:
     SIO_MANAGER_URL = os.environ.get("OURANOS_SIO_MANAGER_URL") or "memory://"
     # CACHE_URL = os.environ.get("OURANOS_CACHE_URL") or "memory://"
 
+    # Services
+    START_API = os.environ.get("OURANOS_START_API", True)
+    API_WORKERS = os.environ.get("OURANOS_API_WORKERS", 1)
+    START_AGGREGATOR = os.environ.get("OURANOS_START_AGGREGATOR", True)
+
     # Ouranos and Gaia config
-    TEST_CONNECTION_IP = "1.1.1.1"
-    OURANOS_ADMIN = os.environ.get("OURANOS_ADMIN") or privateConfig.ADMIN
-    OURANOS_RECAP_SENDING_HOUR = 4
-    OURANOS_MAX_ECOSYSTEMS = 32
-    OURANOS_WEATHER_UPDATE_PERIOD = 5  # in min
-    GAIA_ECOSYSTEM_TIMEOUT = 150
+    ADMINS = os.environ.get("OURANOS_ADMINS")
+    RECAP_SENDING_HOUR = 4
+    MAX_ECOSYSTEMS = 32
+    WEATHER_UPDATE_PERIOD = 5  # in min
+    ECOSYSTEM_TIMEOUT = 150  # in sec
+
+    # Data logging
+    SYSTEM_LOGGING_PERIOD = 10
+    SENSORS_LOGGING_PERIOD = 10
 
     # SQLAlchemy config
     SQLALCHEMY_DATABASE_URI = (
@@ -80,11 +91,6 @@ class Config:
     MAIL_USERNAME = os.environ.get("MAIL_USERNAME") or privateConfig.MAIL_USERNAME
     MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD") or privateConfig.MAIL_PASSWORD
     MAIL_SUPPRESS_SEND = False
-
-    # Data logging
-    SYSTEM_LOGGING_PERIOD = 10
-    SENSORS_LOGGING_PERIOD = 10
-    # TODO: add cache and logs path
 
     # Private parameters
     HOME_CITY = os.environ.get("HOME_CITY") or privateConfig.HOME_CITY

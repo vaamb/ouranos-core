@@ -28,7 +28,7 @@ class Aggregator:
                 "Either provide a config dict or set config globally with "
                 "g.set_app_config"
             )
-        self._namespace: str = namespace
+        self._namespace: "dNamespace" | "sNamespace" = namespace
         self._engine = None
         self._url: str = gaia_communication_url or self.config.get(
             "GAIA_COMMUNICATION_URL", default.GAIA_COMMUNICATION_URL
@@ -53,7 +53,7 @@ class Aggregator:
 
     def start(self) -> None:
         if self._url.startswith("socketio://"):
-            if self.config.get("SERVER", default.FASTAPI):
+            if self.config.get("START_API", default.START_API):
                 from src.app import sio
                 sio.register_namespace(self._namespace)
                 self._engine = sio

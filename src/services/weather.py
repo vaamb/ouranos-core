@@ -120,7 +120,7 @@ class Weather(ServiceTemplate):
                 return False
 
         if api.weather.get("currently").get("time") > \
-                time.time() - (self.config.OURANOS_WEATHER_UPDATE_PERIOD * 60):
+                time.time() - (self.config.WEATHER_UPDATE_PERIOD * 60):
             self.logger.debug("Weather data already up to date")
             return True
 
@@ -137,7 +137,7 @@ class Weather(ServiceTemplate):
             thread.start()
             #thread.join()
         scheduler.add_job(self.update_weather_data, "cron",
-                          minute=f"*/{self.config.OURANOS_WEATHER_UPDATE_PERIOD}",
+                          minute=f"*/{self.config.WEATHER_UPDATE_PERIOD}",
                           misfire_grace_time=5 * 60, id="weather")
 
     def _stop(self) -> None:

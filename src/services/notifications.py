@@ -104,7 +104,7 @@ notification_means = [telegram]
 
 
 @scheduler.scheduled_job(id="daily_recap", trigger="cron",
-                         hour=Config.OURANOS_RECAP_SENDING_HOUR,
+                         hour=Config.RECAP_SENDING_HOUR,
                          misfire_grace_time=30 * 60)
 def send_daily_recap():
     start = datetime.combine(date.today() - timedelta(days=1), time())

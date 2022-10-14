@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime, timezone
 from hashlib import md5
 import time as ctime
@@ -183,7 +185,10 @@ class User(base, UserMixin):
     async def create(cls, session: AsyncSession, **kwargs):
         user = User(**kwargs)
         if user.role is None:
-            if user.email in config.get("OURANOS_ADMIN", ()):
+            admins: str | list = config.get("ADMINS", [])
+            if isinstance(admins, str):
+                admins = admins.split(",")
+            if user.email in admins:
                 stmt = select(Role).where(Role.name == "Administrator")
             else:
                 stmt = select(Role).where(Role.default is True)
