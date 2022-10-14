@@ -12,6 +12,7 @@ from pathlib import Path
 import socket
 import typing as t
 import uuid
+import warnings
 
 import cachetools
 from cryptography.fernet import Fernet, InvalidToken
@@ -392,3 +393,13 @@ def get_coordinates(city: str) -> dict:
         }
 
     return coordinates[city]
+
+
+def stripped_warning(msg):
+    def custom_format_warning(_msg, *args, **kwargs):
+        return str(_msg) + '\n'
+
+    format_warning = warnings.formatwarning
+    warnings.formatwarning = custom_format_warning
+    warnings.warn(msg)
+    warnings.formatwarning = format_warning

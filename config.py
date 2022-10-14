@@ -35,7 +35,7 @@ class Config:
     LOG_DIR = os.environ.get("OURANOS_LOG_DIR")
     CACHE_DIR = os.environ.get("OURANOS_CACHE_DIR")
 
-    SECRET_KEY = os.environ.get("OURANOS_SECRET_KEY") or "BXhNmCEmNdoBNngyGXj6jJtooYAcKpt6"
+    SECRET_KEY = os.environ.get("OURANOS_SECRET_KEY") or "secret_key"
     CONNECTION_KEY = os.environ.get("OURANOS_CONNECTION_KEY") or SECRET_KEY
 
     # Logging config

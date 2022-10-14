@@ -12,7 +12,7 @@ from socketio import ASGIApp, AsyncServer
 from .docs import description, tags_metadata
 import default
 from src.core.g import config as app_config, base_dir
-from src.core.utils import create_dispatcher
+from src.core.utils import create_dispatcher, stripped_warning
 
 
 try:
@@ -76,12 +76,17 @@ def create_app(config: dict | None = None) -> FastAPI:
             "Either provide a config dict or set config globally with "
             "g.set_app_config"
         )
-    if not any((config.get("DEBUG"), config.get("TESTING"))):
+
+    if any((config.get("DEBUG"), config.get("TESTING"))):
+        stripped_warning(
+            "You are currently running Ouranos in debug and/or testing mode"
+        )
+    else:
         for secret in ("SECRET_KEY", "CONNECTION_KEY"):
-            if config.get(secret) == "BXhNmCEmNdoBNngyGXj6jJtooYAcKpt6":
+            if config.get(secret) == "secret_key":
                 raise Exception(
                     f"You need to set the environment variable '{secret}' when "
-                    f"using gaiaWeb in a production environment."
+                    f"using Ouranos in a production environment."
                 )
 
     logger_name = config['APP_NAME'].lower()
