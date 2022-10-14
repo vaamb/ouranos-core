@@ -30,8 +30,9 @@ class Config:
     DIR = None
     DEBUG = False
     TESTING = False
-    SECRET_KEY = os.environ.get("SECRET_KEY") or "BXhNmCEmNdoBNngyGXj6jJtooYAcKpt6"
-    JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY") or SECRET_KEY
+    SECRET_KEY = os.environ.get("OURANOS_SECRET_KEY") or "BXhNmCEmNdoBNngyGXj6jJtooYAcKpt6"
+    CONNECTION_KEY = os.environ.get("OURANOS_CONNECTION_KEY") or SECRET_KEY
+
     WORKERS = 1
 
     # Logging config
@@ -48,7 +49,6 @@ class Config:
     OURANOS_MAX_ECOSYSTEMS = 32
     OURANOS_WEATHER_UPDATE_PERIOD = 5  # in min
     GAIA_ECOSYSTEM_TIMEOUT = 150
-    GAIA_SECRET_KEY = os.environ.get("GAIA_SECRET_KEY") or SECRET_KEY
 
     # SQLAlchemy config
     SQLALCHEMY_DATABASE_URI = (

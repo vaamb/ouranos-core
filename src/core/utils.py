@@ -128,14 +128,14 @@ class InvalidTokenError(Exception):
 
 class Tokenizer:
     algorithm = "HS256"
-    secret_key: str | None = global_config.get("GAIA_SECRET_KEY", None)
+    secret_key: str | None = global_config.get("SECRET_KEY", None)
 
     @staticmethod
     def dumps(payload: dict, secret_key: str | None = None) -> str:
         secret_key = secret_key or Tokenizer.secret_key
         if not secret_key:
             raise RuntimeError(
-                "Either provide a `secret_key` of setup `Tokenizer.secret_key`"
+                "Either provide a `secret_key` or setup `Tokenizer.secret_key`"
             )
         return jwt.encode(payload, secret_key, algorithm=Tokenizer.algorithm)
 
@@ -144,7 +144,7 @@ class Tokenizer:
         secret_key = secret_key or Tokenizer.secret_key
         if not secret_key:
             raise RuntimeError(
-                "Either provide a `secret_key` of setup `Tokenizer.secret_key`"
+                "Either provide a `secret_key` or setup `Tokenizer.secret_key`"
             )
         try:
             payload = jwt.decode(token, secret_key,
@@ -331,10 +331,11 @@ def configure_logging(config: dict) -> None:
 
 
 def decrypt_uid(encrypted_uid: str, secret_key: str = None) -> str:
-    secret_key = secret_key or global_config.get("GAIA_SECRET_KEY", None)
+    secret_key = secret_key or global_config.get("OURANOS_CONNECTION_KEY", None)
     if not secret_key:
         raise RuntimeError(
-            "Either provide a `secret_key` of setup `g.config['GAIA_SECRET_KEY']`"
+            "Either provide a `secret_key` or setup `CONNECTION_KEY` in config "
+            "file or `OURANOS_CONNECTION_KEY` in the environment"
         )
     h = hashes.Hash(hashes.SHA256())
     h.update(secret_key.encode("utf-8"))
@@ -374,12 +375,7 @@ def generate_secret_key_from_password(password: str, set_env: bool = False) -> s
     )
     bkey = kdf.derive(password)
     skey = base64.b64encode(bkey).decode("utf-8").strip("=")
-    if set_env:
-        if platform.system() in ("Linux", "Windows"):
-            os.environ["GAIA_SECRET_KEY"] = skey
-        else:
-            # Setting environ in BSD and MacOsX can lead to mem leak (cf. doc)
-            os.putenv("GAIA_SECRET_KEY", skey)
+    print(skey)
     return skey
 
 

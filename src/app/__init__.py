@@ -78,7 +78,7 @@ def create_app(config: dict | None = None) -> FastAPI:
             "g.set_app_config"
         )
     if not any((config.get("DEBUG"), config.get("TESTING"))):
-        for secret in ("SECRET_KEY", "JWT_SECRET_KEY", "GAIA_SECRET_KEY"):
+        for secret in ("SECRET_KEY", "CONNECTION_KEY"):
             if config.get(secret) == "BXhNmCEmNdoBNngyGXj6jJtooYAcKpt6":
                 raise Exception(
                     f"You need to set the environment variable '{secret}' when "
