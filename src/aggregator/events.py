@@ -98,7 +98,7 @@ class Events:
                         pass
                     return False
         elif self.type == "dispatcher":
-            await self.emit("register", ttl=30)
+            await self.emit("register", ttl=15)
         else:
             raise TypeError("Event type is invalid")
 
@@ -183,7 +183,10 @@ class Events:
             async with db.scoped_session() as session:
                 await api.engine.update_or_create(session, engine_info)
             self.enter_room(sid, room="engines", namespace="/gaia")
-            await self.emit("register_ack", namespace="/gaia", room=sid)
+            if self.type == "socketio":
+                await self.emit("register_ack", namespace="/gaia", room=sid)
+            elif self.type == "dispatcher":
+                await self.emit("register_ack", namespace="/gaia", room=sid, ttl=15)
             self.broker_logger.info(f"Successful registration of engine {engine_uid}")
 
     @registration_required
