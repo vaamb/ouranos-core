@@ -19,7 +19,8 @@ class Aggregator:
     def __init__(
             self,
             namespace: "dNamespace" | "sNamespace",
-            config: dict | None = None
+            config: dict | None = None,
+            gaia_communication_url: str | None = None
     ):
         self.config = config or global_config
         if not self.config:
@@ -27,8 +28,18 @@ class Aggregator:
                 "Either provide a config dict or set config globally with "
                 "g.set_app_config"
             )
-        self._namespace = namespace
+        self._namespace: str = namespace
         self._engine = None
+        self._url: str = gaia_communication_url or self.config.get(
+            "GAIA_COMMUNICATION_URL", default.GAIA_COMMUNICATION_URL
+        )
+        protocol = self._url[:self._url.index("://")]
+        if protocol not in {"amqp", "redis", "socketio"}:
+            raise ValueError(
+                f"The protocol {protocol} is not supported to communicate with "
+                f"Gaia, please choose from `amqp`, `redis` or `socketio` and "
+                f"set `GAIA_COMMUNICATION_URL` to the chosen value"
+            )
 
     @property
     def engine(self) -> ASGIApp | AsyncAMQPDispatcher | AsyncRedisDispatcher:
@@ -41,9 +52,7 @@ class Aggregator:
         return self._namespace
 
     def start(self) -> None:
-        gaia_broker_url = self.config.get("GAIA_BROKER_URL",
-                                          default.GAIA_BROKER_URL)
-        if gaia_broker_url.startswith("socketio://"):
+        if self._url.startswith("socketio://"):
             if self.config.get("SERVER", default.FASTAPI):
                 from src.app import sio
                 sio.register_namespace(self._namespace)
@@ -60,7 +69,7 @@ class Aggregator:
                 )
                 server = uvicorn.Server(config)
                 asyncio.ensure_future(server.serve())
-        elif gaia_broker_url.startswith("amqp://"):
+        elif self._url.startswith("amqp://"):
             from dispatcher import AsyncAMQPDispatcher
             dispatcher = AsyncAMQPDispatcher(
                 "aggregator", queue_options={"durable": True}
@@ -68,12 +77,14 @@ class Aggregator:
             dispatcher.register_event_handler(self._namespace)
             self._engine = dispatcher
             self._engine.start()
-        elif gaia_broker_url.startswith("redis://"):
+        elif self._url.startswith("redis://"):
             from dispatcher import AsyncRedisDispatcher
             dispatcher = AsyncRedisDispatcher("aggregator")
             dispatcher.register_event_handler(self._namespace)
             self._engine = dispatcher
             self._engine.start()
+        else:
+            raise RuntimeError
 
     def stop(self):
         if isinstance(self._engine, AsyncServer):
@@ -90,18 +101,18 @@ def create_aggregator(config: dict | None = None) -> Aggregator:
             "Either provide a config dict or set config globally with "
             "g.set_app_config"
         )
-    gaia_broker_url = config.get("GAIA_BROKER_URL", "socketio://")
-    if gaia_broker_url.startswith("socketio://"):
+    gaia_communication_url = config.get("GAIA_COMMUNICATION_URL", "socketio://")
+    if gaia_communication_url.startswith("socketio://"):
         from src.core.communication.socketio import GaiaEventsNamespace
         return Aggregator(GaiaEventsNamespace("/gaia"))
-    elif gaia_broker_url.startswith("amqp://"):
+    elif gaia_communication_url.startswith("amqp://"):
         from src.core.communication.dispatcher import GaiaEventsNamespace
         return Aggregator(GaiaEventsNamespace("gaia"))
-    elif gaia_broker_url.startswith("redis://"):
+    elif gaia_communication_url.startswith("redis://"):
         from src.core.communication.dispatcher import GaiaEventsNamespace
         return Aggregator(GaiaEventsNamespace("gaia"))
     else:
         raise RuntimeError(
-            "'GAIA_BROKER_URL' is not set to a supported protocol, choose from"
+            "'GAIA_COMMUNICATION_URL' is not set to a supported protocol, choose from"
             "'socketio', 'redis' or 'amqp'"
         )

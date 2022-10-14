@@ -40,11 +40,15 @@ class Config:
     LOG_TO_FILE = True
     LOG_ERROR = True
 
+    # Brokers config
+    GAIA_COMMUNICATION_URL = os.environ.get("GAIA_COMMUNICATION_URL") or "amqp://"  # "socketio://"
+    DISPATCHER_URL = os.environ.get("OURANOS_DISPATCHER_URL") or "amqp://"
+    SIO_MANAGER_URL = os.environ.get("OURANOS_SIO_MANAGER_URL") or "memory://"
+    # CACHE_URL = os.environ.get("OURANOS_CACHE_URL") or "memory://"
+
     # Ouranos and Gaia config
     TEST_CONNECTION_IP = "1.1.1.1"
     OURANOS_ADMIN = os.environ.get("OURANOS_ADMIN") or privateConfig.ADMIN
-    OURANOS_REGISTRATION_KEY = os.environ.get("OURANOS_REGISTRATION_KEY") or \
-        privateConfig.REGISTRATION_KEY
     OURANOS_RECAP_SENDING_HOUR = 4
     OURANOS_MAX_ECOSYSTEMS = 32
     OURANOS_WEATHER_UPDATE_PERIOD = 5  # in min
@@ -76,12 +80,6 @@ class Config:
     MAIL_USERNAME = os.environ.get("MAIL_USERNAME") or privateConfig.MAIL_USERNAME
     MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD") or privateConfig.MAIL_PASSWORD
     MAIL_SUPPRESS_SEND = False
-
-    # Dispatcher config
-    USE_REDIS_DISPATCHER = False
-    MESSAGE_BROKER_URL = "amqp://"  # "memory://"
-    GAIA_BROKER_URL = "amqp://"  # "socketio://"
-    # CACHING_SERVER_URL
 
     # Data logging
     SYSTEM_LOGGING_PERIOD = 10

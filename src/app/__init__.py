@@ -35,28 +35,27 @@ def create_sio_manager(config: dict | None = None):
             "Either provide a config dict or set config globally with "
             "g.set_app_config"
         )
-    sio_broker_url = config.get("MESSAGE_BROKER_URL",
-                                default.MESSAGE_BROKER_URL)
-    if sio_broker_url.startswith("memory://"):
+    sio_manager_url = config.get("SIO_MANAGER_URL", default.SIO_MANAGER_URL)
+    if sio_manager_url.startswith("memory://"):
         from socketio import AsyncManager
         return AsyncManager()
-    elif sio_broker_url.startswith("redis://"):
+    elif sio_manager_url.startswith("redis://"):
         from socketio import AsyncRedisManager
-        uri = sio_broker_url.removeprefix("redis://")
+        uri = sio_manager_url.removeprefix("redis://")
         if not uri:
             uri = "localhost:6379/0"
         url = f"redis://{uri}"
         return AsyncRedisManager(url)
-    elif sio_broker_url.startswith("amqp://"):
+    elif sio_manager_url.startswith("amqp://"):
         from socketio import AsyncAioPikaManager
-        uri = sio_broker_url.removeprefix("amqp://")
+        uri = sio_manager_url.removeprefix("amqp://")
         if not uri:
             uri = "guest:guest@localhost:5672//"
         url = f"redis://{uri}"
         return AsyncAioPikaManager(url)
     else:
         raise RuntimeError(
-            "'MESSAGE_BROKER_URL' is not set to a supported protocol, choose"
+            "'SIO_MANAGER_URL' is not set to a supported protocol, choose"
             "from 'memory', 'redis' or 'amqp'"
         )
 
