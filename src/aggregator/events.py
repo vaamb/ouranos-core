@@ -8,7 +8,6 @@ import random
 import typing as t
 
 import cachetools
-from statistics import mean, stdev as std
 
 from .decorators import dispatch_to_clients, registration_required
 from src.core import api

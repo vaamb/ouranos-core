@@ -3,16 +3,18 @@ from __future__ import annotations
 import asyncio
 import typing as t
 
-from dispatcher import AsyncAMQPDispatcher, AsyncRedisDispatcher
-from socketio import ASGIApp, AsyncServer
 import uvicorn
 
 import default
 from src.core.g import config as global_config
 
+
 if t.TYPE_CHECKING:
-    from src.core.communication.dispatcher import GaiaEventsNamespace as dNamespace
-    from src.core.communication.socketio import GaiaEventsNamespace as sNamespace
+    from dispatcher import AsyncAMQPDispatcher, AsyncRedisDispatcher
+    from socketio import ASGIApp, AsyncServer
+
+    from .dispatcher import GaiaEventsNamespace as dNamespace
+    from .socketio import GaiaEventsNamespace as sNamespace
 
 
 class Aggregator:
@@ -42,7 +44,7 @@ class Aggregator:
             )
 
     @property
-    def engine(self) -> ASGIApp | AsyncAMQPDispatcher | AsyncRedisDispatcher:
+    def engine(self) -> "ASGIApp" | "AsyncAMQPDispatcher" | "AsyncRedisDispatcher":
         if self._engine is None:
             raise RuntimeError
         return self._engine
@@ -58,6 +60,7 @@ class Aggregator:
                 sio.register_namespace(self._namespace)
                 self._engine = sio
             else:
+                from socketio import ASGIApp, AsyncServer
                 sio = AsyncServer(async_mode='asgi', cors_allowed_origins=[])
                 sio.register_namespace(self._namespace)
                 self._engine = sio
@@ -87,10 +90,11 @@ class Aggregator:
             raise RuntimeError
 
     def stop(self):
+        from socketio import AsyncServer
         if isinstance(self._engine, AsyncServer):
             pass  # already handled by uvicorn
         else:
-            self._engine: AsyncAMQPDispatcher | AsyncRedisDispatcher
+            self._engine: "AsyncAMQPDispatcher" | "AsyncRedisDispatcher"
             self._engine.stop()
 
 
@@ -101,18 +105,16 @@ def create_aggregator(config: dict | None = None) -> Aggregator:
             "Either provide a config dict or set config globally with "
             "g.set_app_config"
         )
-    gaia_communication_url = config.get("GAIA_COMMUNICATION_URL", "socketio://")
+    gaia_communication_url = config.get("GAIA_COMMUNICATION_URL")
     if gaia_communication_url.startswith("socketio://"):
-        from src.core.communication.socketio import GaiaEventsNamespace
-        return Aggregator(GaiaEventsNamespace("/gaia"))
+        from .socketio import GaiaEventsNamespace
     elif gaia_communication_url.startswith("amqp://"):
-        from src.core.communication.dispatcher import GaiaEventsNamespace
-        return Aggregator(GaiaEventsNamespace("gaia"))
+        from .dispatcher import GaiaEventsNamespace
     elif gaia_communication_url.startswith("redis://"):
-        from src.core.communication.dispatcher import GaiaEventsNamespace
-        return Aggregator(GaiaEventsNamespace("gaia"))
+        from .dispatcher import GaiaEventsNamespace
     else:
         raise RuntimeError(
             "'GAIA_COMMUNICATION_URL' is not set to a supported protocol, choose from"
             "'socketio', 'redis' or 'amqp'"
         )
+    return Aggregator(GaiaEventsNamespace("/gaia"))
