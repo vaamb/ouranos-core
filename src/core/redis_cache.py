@@ -19,7 +19,7 @@ class RedisCache(MutableMapping):
     def __repr__(self):
         items = self._client.hgetall(self._name)
         decoded_items = {
-            k.decode(): json.loads(v.decode()) for k, v in items.items()
+            k.decode(): json.loads(v) for k, v in items.items()
         }
         return (
             f"{self.__class__.__name__}({decoded_items}, name={self._name})"
@@ -32,7 +32,7 @@ class RedisCache(MutableMapping):
         value = self._client.hget(self._name, key)
         if value is None:
             raise KeyError(key)
-        return json.loads(value.decode())
+        return json.loads(value)
 
     def __delitem__(self, key) -> None:
         rv = self._client.hdel(self._name, key)
@@ -73,7 +73,7 @@ class RedisTTLCache(RedisCache):
         self.expire()
         items = self._client.hgetall(self._name)
         decoded_items = {
-            k.decode(): json.loads(v.decode())["data"] for k, v in items.items()
+            k.decode(): json.loads(v)["data"] for k, v in items.items()
         }
         return (
             f"{self.__class__.__name__}({decoded_items}, name={self._name}, "
@@ -105,6 +105,6 @@ class RedisTTLCache(RedisCache):
         mtime = time.monotonic()
         items = self._client.hgetall(self._name).items()
         to_delete = [key for (key, value) in items if
-                     mtime > json.loads(value.decode())["exp"]]
+                     mtime > json.loads(value)["exp"]]
         if to_delete:
             self._client.hdel(self._name, *to_delete)

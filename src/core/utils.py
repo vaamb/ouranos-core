@@ -5,12 +5,12 @@ import base64
 import dataclasses
 from datetime import date, datetime, time, timezone
 from functools import wraps
-import json as _json
 import logging
 import logging.config
 from pathlib import Path
 import socket
 import typing as t
+from typing import Any
 import uuid
 import warnings
 
@@ -24,6 +24,61 @@ from sqlalchemy.engine import Row
 
 import default
 from src.core.g import base_dir, config as global_config
+
+try:
+    import orjson
+except ImportError:
+    warnings.warn("Ouranos could be faster if orjson was installed")
+
+    import json as _json
+
+    def _serializer(self, o: Any) -> dict | str:
+        if isinstance(o, datetime):
+            return o.astimezone(tz=timezone.utc).isoformat(timespec="seconds")
+        if isinstance(o, date):
+            return o.isoformat()
+        if isinstance(o, time):
+            return (
+                datetime.combine(date.today(), o).astimezone(tz=timezone.utc)
+                .isoformat(timespec="seconds")
+            )
+        if isinstance(o, uuid.UUID):
+            return str(o)
+        if isinstance(o, Row):
+            return o._mapping  # return a tuple
+        #             return {**o._mapping}  # return a dict
+        if dataclasses.is_dataclass(o):
+            return dataclasses.asdict(o)
+        if hasattr(o, "__html__"):
+            return str(o.__html__())
+        return _json.JSONEncoder.default(self, o)
+
+    class json:
+        @staticmethod
+        def dumps(obj) -> bytes:
+            return _json.dumps(obj, default=_serializer).encode("utf8")
+
+        @staticmethod
+        def loads(obj) -> t.Any:
+            return _json.loads(obj)
+
+else:
+    def _serializer(self, o: Any) -> dict | str:
+        if isinstance(o, Row):
+            return o._data  # return a tuple
+        #             return {**o._mapping}  # return a dict
+        if hasattr(o, "__html__"):
+            return str(o.__html__())
+        return _json.JSONEncoder.default(self, o)
+
+    class json:
+        @staticmethod
+        def dumps(obj) -> bytes:
+            return orjson.dumps(obj, default=_serializer)
+
+        @staticmethod
+        def loads(obj) -> t.Any:
+            return orjson.loads(obj)
 
 
 coordinates = cachetools.LFUCache(maxsize=16)
@@ -48,73 +103,6 @@ def async_to_sync(func: t.Callable) -> t.Callable:
         ret = asyncio.run(func(*args, **kwargs))
         return ret
     return wrapper
-
-
-class JSONEncoder(_json.JSONEncoder):
-    """ Rewriting of the default Flask JSON encoder to return iso date datetime
-    and time as it is shorter and requires less transformations, resulting in
-    slightly faster parsing whe formatting .
-
-    In order to support more data types, override the :meth:`default`
-    method.
-    """
-    def default(self, o: t.Type) -> dict | str:
-        if isinstance(o, datetime):
-            return o.replace(tzinfo=timezone.utc).isoformat(timespec="seconds")
-        if isinstance(o, date):
-            return o.isoformat()
-        if isinstance(o, time):
-            return (
-                datetime.combine(date.today(), o).replace(tzinfo=timezone.utc)
-                        .isoformat(timespec="seconds")
-            )
-        if isinstance(o, uuid.UUID):
-            return str(o)
-        if isinstance(o, Row):
-            return o._data  # return a tuple
-#             return {**o._mapping}  # return a dict
-        if dataclasses.is_dataclass(o):
-            return dataclasses.asdict(o)
-        if hasattr(o, "__html__"):
-            return str(o.__html__())
-        return _json.JSONEncoder.default(self, o)
-
-
-class JSONDecoder(_json.JSONDecoder):
-    def decode(self, string: str, *args, **kwargs):
-        result = super(JSONDecoder, self).decode(string, *args, **kwargs)
-        return self._convert_number(result)
-
-    def _convert_number(self, o: t.Type) -> float | int | dict | list | str | t.Type:
-        if isinstance(o, str):
-            try:
-                return int(o)
-            except ValueError:
-                try:
-                    return float(o)
-                except ValueError:
-                    return o
-        elif isinstance(o, dict):
-            # If needed, can convert key too
-            return {k: self._convert_number(v) for k, v in o.items()}
-        elif isinstance(o, list):
-            return [self._convert_number(v) for v in o]
-        else:
-            return o
-
-
-class json:
-    @staticmethod
-    def dumps(*args, **kwargs) -> str:
-        if 'cls' not in kwargs:
-            kwargs['cls'] = JSONEncoder
-        return _json.dumps(*args, **kwargs)
-
-    @staticmethod
-    def loads(*args, **kwargs) -> t.Any:
-        if 'cls' not in kwargs:
-            kwargs['cls'] = JSONDecoder
-        return _json.loads(*args, **kwargs)
 
 
 class ExpiredTokenError(Exception):
