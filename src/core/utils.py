@@ -9,6 +9,7 @@ import json as _json
 import logging
 import logging.config
 import os
+from pathlib import Path
 import platform
 import socket
 import typing as t
@@ -231,8 +232,17 @@ def configure_logging(config: dict) -> None:
     if log_to_stdout:
         handlers.append("streamHandler")
 
-    if any((log_to_file, log_error)):
+    logs_dir_path = config.get("LOGGING_DIR")
+    if logs_dir_path:
+        try:
+            logs_dir = Path(logs_dir_path)
+        except ValueError:
+            print("Invalid logging path, logging in base dir")
+            logs_dir = base_dir / "logs"
+    else:
         logs_dir = base_dir / "logs"
+
+    if any((log_to_file, log_error)):
         if not logs_dir.exists():
             logs_dir.mkdir()
 
@@ -266,7 +276,7 @@ def configure_logging(config: dict) -> None:
                 "level": f"{'DEBUG' if debug else 'INFO'}",
                 "formatter": "fileFormat",
                 "class": "logging.handlers.RotatingFileHandler",
-                "filename": "logs/base.log",
+                "filename": f"{logs_dir/'base.log'}",
                 "mode": "a",
                 "maxBytes": 1024 * 512,
                 "backupCount": 5,
@@ -275,7 +285,7 @@ def configure_logging(config: dict) -> None:
                 "level": "ERROR",
                 "formatter": "fileFormat",
                 "class": "logging.FileHandler",
-                "filename": "logs/errors.log",
+                "filename": f"{logs_dir/'errors.log'}",
                 "mode": "a",
             }
         },
