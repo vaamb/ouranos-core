@@ -21,13 +21,13 @@ except ImportError:  # noqa
 
 default_profile = os.environ.get("CONFIG_PROFILE") or "development"
 
-base_dir = Path(__file__).absolute().parents[0]  # TODO: use the one from g?
+_base_dir = Path(__file__).absolute().parents[0]
 
 
 class Config:
     APP_NAME = "Ouranos"
     VERSION = "0.5.3"
-    DIR = None
+    DIR = os.environ.get("OURANOS_DIR") or _base_dir
     DEBUG = False
     TESTING = False
     SECRET_KEY = os.environ.get("OURANOS_SECRET_KEY") or "BXhNmCEmNdoBNngyGXj6jJtooYAcKpt6"
@@ -52,16 +52,16 @@ class Config:
 
     # SQLAlchemy config
     SQLALCHEMY_DATABASE_URI = (
-            os.environ.get("ECOSYSTEM_DATABASE_URI") or
-            "sqlite+aiosqlite:///" + os.path.join(base_dir, "db_ecosystems.db")
+            os.environ.get("OURANOS_DATABASE_URI") or
+            "sqlite+aiosqlite:///" + os.path.join(DIR, "db_ecosystems.db")
     )
     SQLALCHEMY_BINDS = {
-        "app": (os.environ.get("APP_DATABASE_URI") or
-                "sqlite+aiosqlite:///" + os.path.join(base_dir, "db_app.db")),
-        "system": (os.environ.get("SYSTEM_DATABASE_URI") or
-                   "sqlite+aiosqlite:///" + os.path.join(base_dir, "db_system.db")),
-        "archive": (os.environ.get("ARCHIVE_DATABASE_URI") or
-                    "sqlite+aiosqlite:///" + os.path.join(base_dir, "db_archive.db"))
+        "app": (os.environ.get("OURANOS_APP_DATABASE_URI") or
+                "sqlite+aiosqlite:///" + os.path.join(DIR, "db_app.db")),
+        "system": (os.environ.get("OURANOS_SYSTEM_DATABASE_URI") or
+                   "sqlite+aiosqlite:///" + os.path.join(DIR, "db_system.db")),
+        "archive": (os.environ.get("OURANOS_ARCHIVE_DATABASE_URI") or
+                    "sqlite+aiosqlite:///" + os.path.join(DIR, "db_archive.db"))
     }
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_RECORD_QUERIES = True
