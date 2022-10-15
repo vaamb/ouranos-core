@@ -1,10 +1,12 @@
+from logging import Logger
+
 from src.core.database.models import (
         CommunicationChannel, Measure, Role, User
     )
 from src.core.g import db
 
 
-async def create_base_data(logger):
+async def create_base_data(logger: Logger):
 
     await db.create_all()
     async with db.scoped_session() as session:
