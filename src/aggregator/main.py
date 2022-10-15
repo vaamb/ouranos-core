@@ -47,33 +47,45 @@ def main(
     )
 
 
-async def run(config_profile: str, standalone: bool) -> None:
-    config = get_specified_config(config_profile)
-    set_config_globally(config)
+async def run(
+        config_profile: str | None = None,
+        standalone: bool = False
+) -> "Aggregator":
+    if standalone:
+        config = get_specified_config(config_profile)
+        config["START_API"] = False
+        set_config_globally(config)
+    from src.core.g import config
     logger: logging.Logger = logging.getLogger(config["APP_NAME"].lower())
     if standalone:
         from src.core.utils import configure_logging
         configure_logging(config)
-
+        if config.get("API_PORT") == config.get("AGGREGATOR_PORT"):
+            logger.warning(
+                "The Aggregator and the API are using the same port, this will "
+                "lead to errors"
+            )
         logger.info("Checking database")
         db.init(config)
         from src.core.database.init import create_base_data
         await create_base_data(logger)
 
-    loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-
-    from src.core.runner import Runner
-    runner = Runner()
-
+    logger.debug("Creating the Aggregator")
     aggregator = create_aggregator(config)
-
-    # Start
+    logger.info("Starting the Aggregator")
     aggregator.start()
-    await asyncio.sleep(0.1)
-    runner.add_signal_handler(loop)
-    await runner.start()
 
-    aggregator.stop()
+    if standalone:
+        loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+        from src.core.runner import Runner
+        runner = Runner()
+
+        await asyncio.sleep(0.1)
+        runner.add_signal_handler(loop)
+        await runner.start()
+        aggregator.stop()
+
+    return aggregator
 
 
 class Aggregator:
@@ -82,7 +94,7 @@ class Aggregator:
             namespace: "dNamespace" | "sNamespace",
             config: dict | None = None,
             gaia_communication_url: str | None = None
-    ):
+    ) -> None:
         from src.core.g import config as global_config
         self.config = config or global_config
         if not self.config:
@@ -92,10 +104,10 @@ class Aggregator:
             )
         self._namespace: "dNamespace" | "sNamespace" = namespace
         self._engine = None
-        self._url: str = gaia_communication_url or self.config.get(
+        self._uri: str = gaia_communication_url or self.config.get(
             "GAIA_COMMUNICATION_URL", default.GAIA_COMMUNICATION_URL
         )
-        protocol = self._url[:self._url.index("://")]
+        protocol = self._uri[:self._uri.index("://")]
         if protocol not in {"amqp", "redis", "socketio"}:
             raise ValueError(
                 f"The protocol {protocol} is not supported to communicate with "
@@ -114,8 +126,13 @@ class Aggregator:
         return self._namespace
 
     def start(self) -> None:
-        if self._url.startswith("socketio://"):
-            if self.config.get("START_API", default.START_API):
+        if self._uri.startswith("socketio://"):
+            host = self.config["API_HOST"]
+            port = self.config["AGGREGATOR_PORT"]
+            if (
+                    self.config.get("START_API", default.START_API) and
+                    self.config.get("API_PORT") == port
+            ):
                 from src.app import sio
                 sio.register_namespace(self._namespace)
                 self._engine = sio
@@ -127,12 +144,12 @@ class Aggregator:
                 asgi_app = ASGIApp(sio)
                 config = uvicorn.Config(
                     asgi_app,
-                    port=5000,
+                    host=host, port=port,
                     server_header=False, date_header=False,
                 )
                 server = uvicorn.Server(config)
                 asyncio.ensure_future(server.serve())
-        elif self._url.startswith("amqp://"):
+        elif self._uri.startswith("amqp://"):
             from dispatcher import AsyncAMQPDispatcher
             dispatcher = AsyncAMQPDispatcher(
                 "aggregator", queue_options={"durable": True}
@@ -140,7 +157,7 @@ class Aggregator:
             dispatcher.register_event_handler(self._namespace)
             self._engine = dispatcher
             self._engine.start()
-        elif self._url.startswith("redis://"):
+        elif self._uri.startswith("redis://"):
             from dispatcher import AsyncRedisDispatcher
             dispatcher = AsyncRedisDispatcher("aggregator")
             dispatcher.register_event_handler(self._namespace)
@@ -149,7 +166,7 @@ class Aggregator:
         else:
             raise RuntimeError
 
-    def stop(self):
+    def stop(self) -> None:
         try:
             from socketio import AsyncServer
             if isinstance(self.engine, AsyncServer):
