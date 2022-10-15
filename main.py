@@ -7,8 +7,6 @@ setproctitle("ouranos")
 
 import asyncio
 import logging
-import signal
-from types import FrameType
 
 import click
 import uvicorn
@@ -16,31 +14,8 @@ from uvicorn.loops.auto import auto_loop_setup
 
 import default
 from config import default_profile, get_specified_config
-from src.core.g import db, scheduler, set_config_globally, set_base_dir
-
-
-should_exit = False
-
-
-def stop():
-    global should_exit
-    should_exit = True
-
-
-def handle_signal(sig: int, frame: FrameType | None):
-    stop()
-
-
-async def runner():
-    global should_exit
-    while not should_exit:
-        await asyncio.sleep(0.2)
-
-
-SIGNALS = (
-    signal.SIGINT,
-    signal.SIGTERM,
-)
+from src.core.g import db, scheduler, set_config_globally
+from src.core.runner import Runner
 
 
 @click.command(context_settings={"auto_envvar_prefix": "OURANOS"})
@@ -93,9 +68,6 @@ async def run(
     # Make the config available globally
     set_config_globally(config)
     from src.core.g import config
-    # Change base dir if required
-    if config.get("DIR"):
-        set_base_dir(config["DIR"])
 
     # Configure logging
     from src.core.utils import configure_logging, Tokenizer
@@ -128,7 +100,7 @@ async def run(
         logger.info("Creating server")
         server_cfg = uvicorn.Config(
             "src.app:create_app", factory=True,
-            port=5000,
+            host="0.0.0.0", port=5000,
             workers=config.get("API_WORKERS", default.API_WORKERS),
             loop="auto",
             server_header=False, date_header=False,
@@ -173,19 +145,15 @@ async def run(
     loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
 
     # Start the app
+    runner = Runner()
     scheduler.start()
     aggregator.start()
     # services.start()
     start_app()
     # Override uvicorn signal handlers to also close the scheduler
     await asyncio.sleep(0.1)
-    try:
-        for sig in SIGNALS:
-            loop.add_signal_handler(sig, handle_signal, sig, None)
-    except NotImplementedError:
-        for sig in SIGNALS:
-            signal.signal(sig, handle_signal)
-    await runner()
+    runner.add_signal_handler(loop)
+    await runner.start()
     scheduler.remove_all_jobs()
     aggregator.stop()
     # services.stop()

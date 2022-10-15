@@ -30,3 +30,5 @@ def set_base_dir(path: str | Path) -> None:
 def set_config_globally(new_config: dict) -> None:
     global config
     config = ImmutableDict(new_config)
+    if config.get("DIR"):
+        set_base_dir(config["DIR"])
