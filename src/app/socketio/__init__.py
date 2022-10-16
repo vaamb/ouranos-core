@@ -3,7 +3,7 @@
 from socketio import AsyncNamespace
 
 from .decorators import permission_required
-from src.app import dispatcher, sio_manager
+from src.app.factory import dispatcher, sio_manager
 from src.core import api
 from src.core.g import config, db
 

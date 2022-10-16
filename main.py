@@ -69,96 +69,52 @@ async def run(
     set_config_globally(config)
     from src.core.g import config
 
-    # Configure logging
+    # Configure logger and tokenizer
     from src.core.utils import configure_logging, Tokenizer
     configure_logging(config)
     logger: logging.Logger = logging.getLogger(config["APP_NAME"].lower())
-
-    # Configure the Tokenizer
     Tokenizer.secret_key = config["SECRET_KEY"]
 
     # Init database
-    logger.info("Creating database")
+    logger.info("Initializing the database")
     from src.core.database.init import create_base_data
     db.init(config)
     await create_base_data(logger)
 
+    # Init app
+    from src.app import App
+    logger.debug("Creating the App")
+    app = App(config)
+
     # Init aggregator
     from src.aggregator import Aggregator
+    logger.debug("Creating the Aggregator")
     aggregator = Aggregator(config)
 
     # Init services
     # from src import services
 
-    # Init FastAPI server
-    def start_app():
-        pass
-
-    def stop_app():
-        pass
-    if config.get("START_API", default.START_API):
-        logger.info("Creating server")
-        server_cfg = uvicorn.Config(
-            "src.app.factory:create_app", factory=True,
-            host="0.0.0.0", port=5000,
-            workers=config.get("API_WORKERS", default.API_WORKERS),
-            loop="auto",
-            server_header=False, date_header=False,
-        )
-        server = uvicorn.Server(server_cfg)
-        if server_cfg.should_reload:
-            # TODO: make it work
-            from uvicorn.supervisors import ChangeReload
-            sock = server_cfg.bind_socket()
-            reload = ChangeReload(server_cfg, target=server.run, sockets=[sock])
-
-            def start_app():
-                reload.run()
-
-            def stop_app():
-                pass
-        elif server_cfg.workers > 1:
-            # works on linux, not on Windows
-            from uvicorn.supervisors import Multiprocess
-            sock = server_cfg.bind_socket()
-            multi = Multiprocess(server_cfg, target=server.run, sockets=[sock])
-
-            def start_app():
-                multi.startup()
-
-            def stop_app():
-                multi.shutdown()
-        else:
-            def start_app():
-                asyncio.ensure_future(server.serve())
-
-            def stop_app():
-                server.should_exit = True
-
-    # Setup event loop
-    use_subprocess: bool = (
-        config.get("SERVER_RELOAD", False) or
-        (config.get("START_API", default.START_API) and
-         config.get("API_WORKERS", default.API_WORKERS) > 1)
-    )
-    auto_loop_setup(use_subprocess)
+    # Start the Monolith
     loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-
-    # Start the app
-    runner = Runner()
-    scheduler.start()
+    logger.debug("Starting the App")
+    app.start()
+    logger.debug("Starting the Aggregator")
     aggregator.start()
-    # services.start()
-    start_app()
-    # Override uvicorn signal handlers to also close the scheduler
+    logger.debug("Starting the Scheduler")
+    scheduler.start()
+
+    # Run as long as requested
+    from src.core.runner import Runner
+    runner = Runner()
     await asyncio.sleep(0.1)
     runner.add_signal_handler(loop)
     await runner.start()
+    logger.debug("Stopping the Scheduler")
     scheduler.remove_all_jobs()
+    logger.debug("Stopping the Aggregator")
     aggregator.stop()
-    # services.stop()
-    stop_app()
-    await asyncio.sleep(1.0)
+    logger.debug("Stopping the App")
+    app.stop()
 
 
 if __name__ == "__main__":
