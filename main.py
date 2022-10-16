@@ -84,8 +84,8 @@ async def run(
     await create_base_data(logger)
 
     # Init aggregator
-    from src.aggregator import create_aggregator
-    aggregator = create_aggregator(config)
+    from src.aggregator import Aggregator
+    aggregator = Aggregator(config)
 
     # Init services
     # from src import services
@@ -99,7 +99,7 @@ async def run(
     if config.get("START_API", default.START_API):
         logger.info("Creating server")
         server_cfg = uvicorn.Config(
-            "src.app:create_app", factory=True,
+            "src.app.factory:create_app", factory=True,
             host="0.0.0.0", port=5000,
             workers=config.get("API_WORKERS", default.API_WORKERS),
             loop="auto",

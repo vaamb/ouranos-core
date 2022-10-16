@@ -71,7 +71,7 @@ async def run(
         await create_base_data(logger)
 
     logger.debug("Creating the Aggregator")
-    aggregator = create_aggregator(config)
+    aggregator = Aggregator(config)
     logger.info("Starting the Aggregator")
     aggregator.start()
 
@@ -91,9 +91,7 @@ async def run(
 class Aggregator:
     def __init__(
             self,
-            namespace: "dNamespace" | "sNamespace",
             config: dict | None = None,
-            gaia_communication_url: str | None = None
     ) -> None:
         from src.core.g import config as global_config
         self.config = config or global_config
@@ -102,18 +100,22 @@ class Aggregator:
                 "Either provide a config dict or set config globally with "
                 "g.set_app_config"
             )
-        self._namespace: "dNamespace" | "sNamespace" = namespace
-        self._engine = None
-        self._uri: str = gaia_communication_url or self.config.get(
-            "GAIA_COMMUNICATION_URL", default.GAIA_COMMUNICATION_URL
-        )
-        protocol = self._uri[:self._uri.index("://")]
+        self._uri: str = self.config.get("GAIA_COMMUNICATION_URL")
+        try:
+            protocol: str = self._uri[:self._uri.index("://")]
+        except ValueError:
+            protocol = ""
         if protocol not in {"amqp", "redis", "socketio"}:
-            raise ValueError(
-                f"The protocol {protocol} is not supported to communicate with "
-                f"Gaia, please choose from `amqp`, `redis` or `socketio` and "
-                f"set `GAIA_COMMUNICATION_URL` to the chosen value"
+            raise RuntimeError(
+                "'GAIA_COMMUNICATION_URL' is not set to a supported protocol, "
+                "choose from 'amqp', 'redis' or 'socketio'"
             )
+        if protocol == "socketio":
+            from .socketio import GaiaEventsNamespace
+        else:
+            from .dispatcher import GaiaEventsNamespace
+        self._namespace = GaiaEventsNamespace("/gaia")
+        self._engine = None
 
     @property
     def engine(self) -> "AsyncServer" | "AsyncAMQPDispatcher" | "AsyncRedisDispatcher":
@@ -175,25 +177,3 @@ class Aggregator:
                 self.engine.stop()
         except RuntimeError:
             pass  # Aggregator was not started
-
-
-def create_aggregator(config: dict | None = None) -> Aggregator:
-    from src.core.g import config as global_config
-    config = config or global_config
-    if not config:
-        raise RuntimeError(
-            "Either provide a config dict or set config globally with "
-            "g.set_app_config"
-        )
-    url: str = config.get("GAIA_COMMUNICATION_URL")
-    protocol: str = url[:url.index("://")]
-    if protocol not in ("amqp", "redis", "socketio"):
-        raise RuntimeError(
-            "'GAIA_COMMUNICATION_URL' is not set to a supported protocol, "
-            "choose from 'amqp', 'redis' or 'socketio'"
-        )
-    if protocol == "socketio":
-        from .socketio import GaiaEventsNamespace
-    else:
-        from .dispatcher import GaiaEventsNamespace
-    return Aggregator(namespace=GaiaEventsNamespace("/gaia"), config=config)

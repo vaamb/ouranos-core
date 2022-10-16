@@ -1,1 +1,1 @@
-from .main import Aggregator, create_aggregator, main, run
+from .main import Aggregator, main, run
