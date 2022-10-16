@@ -27,14 +27,6 @@ if t.TYPE_CHECKING:
     help="Configuration profile to use as defined in config.py.",
     show_default=True,
 )
-@click.option(
-    "--standalone",
-    type=bool,
-    is_flag=True,
-    default=True,
-    help="Start FastAPI server.",
-    show_default=True,
-)
 def main(
         config_profile: str,
         standalone: bool,
@@ -42,50 +34,46 @@ def main(
     asyncio.run(
         run(
             config_profile,
-            standalone
         )
     )
 
 
 async def run(
         config_profile: str | None = None,
-        standalone: bool = False
-) -> "Aggregator":
-    if standalone:
-        config = get_specified_config(config_profile)
-        config["START_API"] = False
-        set_config_globally(config)
+) -> None:
+    # Check config
+    config = get_specified_config(config_profile)
+    config["START_API"] = False
+    set_config_globally(config)
+    # Configure logger
     from src.core.g import config
+    from src.core.utils import configure_logging
+    configure_logging(config)
     logger: logging.Logger = logging.getLogger(config["APP_NAME"].lower())
-    if standalone:
-        from src.core.utils import configure_logging
-        configure_logging(config)
-        if config.get("API_PORT") == config.get("AGGREGATOR_PORT"):
-            logger.warning(
-                "The Aggregator and the API are using the same port, this will "
-                "lead to errors"
-            )
-        logger.info("Checking database")
-        db.init(config)
-        from src.core.database.init import create_base_data
-        await create_base_data(logger)
-
+    # Check there is no conflict on port used
+    if config.get("API_PORT") == config.get("AGGREGATOR_PORT"):
+        logger.warning(
+            "The Aggregator and the API are using the same port, this will "
+            "lead to errors"
+        )
+    # Init database
+    logger.info("Initializing database")
+    db.init(config)
+    from src.core.database.init import create_base_data
+    await create_base_data(logger)
+    # Start the aggregator
+    loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
     logger.debug("Creating the Aggregator")
     aggregator = Aggregator(config)
     logger.info("Starting the Aggregator")
     aggregator.start()
-
-    if standalone:
-        loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-        from src.core.runner import Runner
-        runner = Runner()
-
-        await asyncio.sleep(0.1)
-        runner.add_signal_handler(loop)
-        await runner.start()
-        aggregator.stop()
-
-    return aggregator
+    # Run as long as requested
+    from src.core.runner import Runner
+    runner = Runner()
+    await asyncio.sleep(0.1)
+    runner.add_signal_handler(loop)
+    await runner.start()
+    aggregator.stop()
 
 
 class Aggregator:
