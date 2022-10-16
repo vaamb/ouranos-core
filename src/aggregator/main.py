@@ -29,7 +29,6 @@ if t.TYPE_CHECKING:
 )
 def main(
         config_profile: str,
-        standalone: bool,
 ) -> None:
     asyncio.run(
         run(
