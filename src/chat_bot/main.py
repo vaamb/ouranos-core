@@ -50,9 +50,10 @@ async def run(
     await create_base_data(logger)
     # Start the Chat bot
     loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-    logger.debug("Creating the Aggregator")
+    logger.debug("Creating the Chat bot")
     chat_bot = ChatBot(config)
-    logger.info("Starting the Aggregator")
+    chat_bot.load_handlers()
+    logger.info("Starting the Chat bot")
     chat_bot.start()
     # Run as long as requested
     from src.core.runner import Runner
