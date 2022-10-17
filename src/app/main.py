@@ -13,6 +13,7 @@ from config import default_profile, get_specified_config
 from src.core.g import db, set_config_globally
 
 
+@click.command()
 @click.option(
     "--config-profile",
     type=str,
@@ -22,7 +23,6 @@ from src.core.g import db, set_config_globally
 )
 def main(
         config_profile: str,
-        standalone: bool,
 ) -> None:
     asyncio.run(
         run(
@@ -48,6 +48,7 @@ async def run(
     Tokenizer.secret_key = config["SECRET_KEY"]
     # Init database
     logger.info("Initializing the database")
+    from src.core.database import models  # noqa
     db.init(config)
     from src.core.database.init import create_base_data
     await create_base_data(logger)
@@ -135,3 +136,7 @@ class App:
 
     def stop(self):
         self._app.stop()
+
+
+if __name__ == "__main__":
+    main()

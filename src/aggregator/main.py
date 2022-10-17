@@ -20,6 +20,7 @@ if t.TYPE_CHECKING:
     from .socketio import GaiaEventsNamespace as sNamespace
 
 
+@click.command()
 @click.option(
     "--config-profile",
     type=str,
@@ -60,6 +61,7 @@ async def run(
         )
     # Init database
     logger.info("Initializing database")
+    from src.core.database import models  # noqa
     db.init(config)
     from src.core.database.init import create_base_data
     await create_base_data(logger)
@@ -168,3 +170,7 @@ class Aggregator:
                 self.engine.stop()
         except RuntimeError:
             pass  # Aggregator was not started
+
+
+if __name__ == "__main__":
+    main()

@@ -12,6 +12,7 @@ from config import default_profile, get_specified_config
 from src.core.g import db, set_config_globally
 
 
+@click.command()
 @click.option(
     "--config-profile",
     type=str,
@@ -45,6 +46,7 @@ async def run(
     logger: logging.Logger = logging.getLogger(config["APP_NAME"].lower())
     # Init database
     logger.info("Initializing database")
+    from src.core.database import models  # noqa
     db.init(config)
     from src.core.database.init import create_base_data
     await create_base_data(logger)
@@ -105,3 +107,7 @@ class ChatBot:
 
     def stop(self):
         self.application.stop()
+
+
+if __name__ == "__main__":
+    main()
