@@ -12,23 +12,25 @@ SIGNALS = (
 
 
 class Runner:
+    __slots__ = ("_should_exit", )
+
     def __init__(self) -> None:
-        self.should_exit = False
+        self._should_exit = False
 
-    def stop(self) -> None:
-        self.should_exit = True
-
-    def handle_signal(self, sig: int, frame: FrameType | None) -> None:
-        self.stop()
+    def _handle_stop_signal(self, sig: int, frame: FrameType | None) -> None:
+        self._should_exit = True
 
     def add_signal_handler(self, loop: asyncio.AbstractEventLoop) -> None:
         try:
             for sig in SIGNALS:
-                loop.add_signal_handler(sig, self.handle_signal, sig, None)
+                loop.add_signal_handler(sig, self._handle_stop_signal, sig, None)
         except NotImplementedError:
             for sig in SIGNALS:
-                signal.signal(sig, self.handle_signal)
+                signal.signal(sig, self._handle_stop_signal)
 
-    async def start(self) -> None:
-        while not self.should_exit:
+    async def wait_forever(self) -> None:
+        while not self._should_exit:
             await asyncio.sleep(0.2)
+
+    async def exit(self) -> None:
+        await asyncio.sleep(0.2)

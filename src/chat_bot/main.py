@@ -59,8 +59,9 @@ async def run(
     runner = Runner()
     await asyncio.sleep(0.1)
     runner.add_signal_handler(loop)
-    await runner.start()
+    await runner.wait_forever()
     chat_bot.stop()
+    await runner.exit()
 
 
 class ChatBot:
