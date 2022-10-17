@@ -34,6 +34,9 @@ async def run(
 ) -> None:
     # Check config
     config = get_specified_config(config_profile)
+    app_name = config["APP_NAME"].lower()
+    from setproctitle import setproctitle
+    setproctitle(f"{app_name}-chat_bot")
     set_config_globally(config)
     # Configure logger
     from src.core.g import config

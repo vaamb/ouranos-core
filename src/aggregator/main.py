@@ -42,6 +42,9 @@ async def run(
 ) -> None:
     # Check config
     config = get_specified_config(config_profile)
+    app_name = config["APP_NAME"].lower()
+    from setproctitle import setproctitle
+    setproctitle(f"{app_name}-aggregator")
     config["START_API"] = False
     set_config_globally(config)
     # Configure logger

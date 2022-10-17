@@ -36,12 +36,15 @@ async def run(
 ) -> None:
     # Get and set config globally
     config = get_specified_config(config_profile)
+    app_name = config["APP_NAME"].lower()
+    from setproctitle import setproctitle
+    setproctitle(f"{app_name}-app")
     set_config_globally(config)
     from src.core.g import config
     # Configure logger and tokenizer
     from src.core.utils import configure_logging, Tokenizer
     configure_logging(config)
-    logger: logging.Logger = logging.getLogger(config["APP_NAME"].lower())
+    logger: logging.Logger = logging.getLogger(app_name)
     Tokenizer.secret_key = config["SECRET_KEY"]
     # Init database
     logger.info("Initializing the database")
@@ -68,6 +71,7 @@ class App:
             self,
             config: dict | None = None,
     ) -> None:
+
         from src.core.g import config as global_config
         self.config = config or global_config
         if not self.config:

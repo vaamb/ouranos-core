@@ -1,21 +1,14 @@
 #!/usr/bin/python3
 from __future__ import annotations
 
-from setproctitle import setproctitle
-
-setproctitle("ouranos")
-
 import asyncio
 import logging
 
 import click
-import uvicorn
-from uvicorn.loops.auto import auto_loop_setup
 
 import default
 from config import default_profile, get_specified_config
 from src.core.g import db, scheduler, set_config_globally
-from src.core.runner import Runner
 
 
 @click.command(context_settings={"auto_envvar_prefix": "OURANOS"})
@@ -60,6 +53,8 @@ async def run(
         start_api: bool,
         api_workers: int,
 ) -> None:
+    from setproctitle import setproctitle
+    setproctitle("ouranos")
     # Get the required config
     config = get_specified_config(config_profile)
     # Overwrite config parameters if given in command line
