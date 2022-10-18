@@ -222,7 +222,9 @@ class User(base, UserMixin):
         return self.role is not None and self.role.has_permission(perm)
 
     def avatar(self, size):
-        digest = md5(self.email.lower().encode("utf-8")).hexdigest()
+        digest = md5(
+            self.email.lower().encode("utf-8"), usedforsecurity=False
+        ).hexdigest()
         return f"https://www.gravatar.com/avatar/{digest}?d=identicon&s={size}"
 
     def create_token(

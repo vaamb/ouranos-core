@@ -12,7 +12,9 @@ from src.core import api
 template_folder = Path(__file__).absolute().parents[0]
 
 loader = FileSystemLoader(template_folder)
-environment = Environment(loader=loader, lstrip_blocks=True, trim_blocks=True)
+environment = Environment(
+    loader=loader, lstrip_blocks=True, trim_blocks=True, autoescape=True
+)
 
 
 def replace_underscore(s: str, replacement: str = " ") -> str:

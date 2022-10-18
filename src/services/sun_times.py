@@ -28,7 +28,6 @@ class SunTimes(ServiceTemplate):
                     f"https://api.sunrise-sunset.org/json",
                     params={"lat": latitude, "lng": longitude},
                     timeout=1.0,
-                    verify=False,
                 ).json()
                 with self.mutex:
                     api.sun_times.update(data["results"])
