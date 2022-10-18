@@ -1,6 +1,6 @@
 from socketio import AsyncNamespace
 
-from .events import Events
+from src.aggregator.events import Events
 
 
 class GaiaEventsNamespace(AsyncNamespace, Events):

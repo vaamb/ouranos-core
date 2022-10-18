@@ -73,7 +73,6 @@ class App:
             self,
             config: dict | None = None,
     ) -> None:
-
         from src.core.g import config as global_config
         self.config = config or global_config
         if not self.config:

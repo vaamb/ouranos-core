@@ -1,6 +1,6 @@
 from dispatcher import AsyncEventHandler
 
-from .events import Events
+from src.aggregator.events import Events
 
 
 class GaiaEventsNamespace(AsyncEventHandler, Events):
