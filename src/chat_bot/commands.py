@@ -95,7 +95,7 @@ async def sensors(
 
 
 @activation_required
-def light_info(
+async def light_info(
         update: Update,
         context: CallbackContext,
 ) -> None:
