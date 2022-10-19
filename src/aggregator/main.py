@@ -109,6 +109,8 @@ class Aggregator:
             from src.aggregator.transport.dispatcher import GaiaEventsNamespace
         self._namespace = GaiaEventsNamespace("/gaia")
         self._engine = None
+        # TODO: add a dispatcher, can be same as engine if same url, to dispatch
+        #  events locally
 
     @property
     def engine(self) -> "AsyncServer" | "AsyncAMQPDispatcher" | "AsyncRedisDispatcher":

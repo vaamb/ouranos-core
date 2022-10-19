@@ -8,6 +8,7 @@ import random
 import typing as t
 
 import cachetools
+from dispatcher import AsyncDispatcher
 
 from .decorators import dispatch_to_clients, registration_required
 from src.core import api
@@ -32,13 +33,7 @@ class Events:
         app_name = config['APP_NAME'].lower()
         self.collector_logger = logging.getLogger(f"{app_name}.collector")
         self.broker_logger = logging.getLogger(f"{app_name}.broker")
-
-    @property
-    def to_clients(self) -> str:
-        if self.type == "socketio":
-            return "/"
-        else:
-            return "application"
+        self.dispatcher: AsyncDispatcher = kwargs["dispatcher"]
 
     async def emit(
             self,
@@ -108,11 +103,11 @@ class Events:
             uid = engine.uid
             self.leave_room(sid, "engines", namespace="/gaia")
             engine.connected = False
-            await self.emit(
+            await self.dispatcher.emit(
                 "ecosystem_status",
                 {ecosystem.uid: {"status": ecosystem.status, "connected": False}
                  for ecosystem in engine.ecosystems},
-                namespace=self.to_clients
+                namespace="application"
             )
             self.broker_logger.info(f"Engine {uid} disconnected")
 
@@ -201,10 +196,10 @@ class Events:
                 )
                 await api.ecosystem.update_or_create(session, ecosystem)
             ecosystems.append({"uid": uid, "status": ecosystem["status"]})
-        await self.emit(
+        await self.dispatcher.emit(
             "ecosystem_status",
             data=ecosystems,
-            namespace=self.to_clients
+            namespace="application"
         )
 
     @registration_required
@@ -449,14 +444,3 @@ class Events:
 
     async def on_turn_actuator(self, sid, data):
         await self._turn_actuator(sid, data)
-
-
-
-'''
-
-
-
-@dispatcher.on("turn_actuator")
-async def _turn_actuator(*args, **kwargs):
-    await sio_manager.emit("turn_actuator", namespace="/gaia", **kwargs)
-'''

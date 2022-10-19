@@ -29,6 +29,6 @@ def dispatch_to_clients(func: Callable):
     async def wrapper(self: "Events", sid: str, data: data_type, *args):
         func_name: str = func.__name__
         event: str = func_name.lstrip("on_")
-        await self.emit(event, data=data, namespace=self.to_clients)
+        await self.dispatcher.emit(event, data=data, namespace="application")
         return await func(self, sid, data, *args)
     return wrapper
