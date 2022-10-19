@@ -435,9 +435,13 @@ class Events:
     # ---------------------------------------------------------------------------
     async def _turn_actuator(self, sid, data):
         if self.type == "socketio":
-            await self.emit("turn_actuator", namespace="/gaia", room=sid)
+            await self.emit(
+                "turn_actuator", data=data, namespace="/gaia", room=sid
+            )
         elif self.type == "dispatcher":
-            await self.emit("turn_actuator", namespace="/gaia", room=sid, ttl=30)
+            await self.emit(
+                "turn_actuator", data=data, namespace="/gaia", room=sid, ttl=30
+            )
 
     async def on_turn_light(self, sid, data):
         data["actuator"] = "light"
@@ -445,3 +449,14 @@ class Events:
 
     async def on_turn_actuator(self, sid, data):
         await self._turn_actuator(sid, data)
+
+
+
+'''
+
+
+
+@dispatcher.on("turn_actuator")
+async def _turn_actuator(*args, **kwargs):
+    await sio_manager.emit("turn_actuator", namespace="/gaia", **kwargs)
+'''
