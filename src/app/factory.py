@@ -182,7 +182,9 @@ def create_app(config: dict | None = None) -> FastAPI:
 
     logger.debug("Loading client events")
     from src.app.events import Events
-    sio.register_namespace(Events("/"))
+    namespace = Events("/")
+    namespace.dispatcher = dispatcher
+    sio.register_namespace(namespace)
 
     # Load the frontend if present
     frontend_static_dir = base_dir/"frontend/dist"

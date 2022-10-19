@@ -1,5 +1,8 @@
-﻿import logging
+﻿from __future__ import annotations
 
+import logging
+
+from dispatcher import AsyncDispatcher
 from socketio import AsyncNamespace
 
 from .decorators import permission_required
@@ -16,8 +19,22 @@ class Events(AsyncNamespace):
     # ---------------------------------------------------------------------------
     #   SocketIO socketio
     # ---------------------------------------------------------------------------
-    async def on_my_ping(self, sid, data):
-        await self.emit("my_pong", namespace="/", room=sid)
+    def __init__(self, namespace=None):
+        super().__init__(namespace=namespace)
+        self._dispatcher: AsyncDispatcher | None = None
+
+    @property
+    def dispatcher(self) -> AsyncDispatcher:
+        if not self._dispatcher:
+            raise RuntimeError("You need to set dispatcher")
+        return self._dispatcher
+
+    @dispatcher.setter
+    def dispatcher(self, dispatcher: AsyncDispatcher):
+        self._dispatcher = dispatcher
+
+    async def on_ping(self, sid, data):
+        await self.emit("pong", namespace="/", room=sid)
 
     # @permission_required(Permission.OPERATE)
     async def on_turn_light(self, sid, data):
@@ -32,11 +49,11 @@ class Events(AsyncNamespace):
         sio_logger.debug(
             f"Dispatching 'turn_light' signal to ecosystem {ecosystem_uid}")
         # TODO: use api
-        await self.emit(
+        await self.dispatcher.emit(
             event="turn_light",
             data={"ecosystem": ecosystem_uid, "mode": mode, "countdown": countdown},
             room=ecosystem_sid,
-            namespace="/gaia",
+            namespace="aggregator",
         )
 
     # @permission_required(Permission.OPERATE)
@@ -50,12 +67,12 @@ class Events(AsyncNamespace):
         management = data["management"]
         status = data["status"]
         # TODO: use api
-        await self.emit(
+        await self.dispatcher.emit(
             event="change_management",
             data={
                 "ecosystem": ecosystem_uid, "management": management, "status": status
             },
-            namespace="/gaia",
+            namespace="aggregator",
             room=ecosystem_sid
         )
 
@@ -74,32 +91,27 @@ class Events(AsyncNamespace):
 # ---------------------------------------------------------------------------
 @dispatcher.on("weather_current")
 async def _current_weather(**kwargs):
-    # TODO: create async dispatcher or wrap in async_to_sync
     await sio_manager.emit("weather_current", namespace="/", **kwargs)
 
 
 @dispatcher.on("weather_hourly")
 async def _hourly_weather(**kwargs):
-    # TODO: create async dispatcher or wrap in async_to_sync
     await sio_manager.emit("weather_hourly", namespace="/", **kwargs)
 
 
 @dispatcher.on("weather_daily")
 async def _daily_weather(**kwargs):
-    # TODO: create async dispatcher or wrap in async_to_sync
     await sio_manager.emit("weather_daily", namespace="/", **kwargs)
 
 
 @dispatcher.on("sun_times")
 async def _sun_times(**kwargs):
-    # TODO: create async dispatcher or wrap in async_to_sync
     await sio_manager.emit("sun_times", namespace="/", **kwargs)
 
 
 # TODO: move this in aggregator?
 @dispatcher.on("current_server_data")
 async def _current_server_data(data):
-    # TODO: create async dispatcher or wrap in async_to_sync
     api.system.update_current_data(data)
     await sio_manager.emit("current_server_data", data=data, namespace="/")
 
