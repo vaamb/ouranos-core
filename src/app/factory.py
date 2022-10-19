@@ -12,7 +12,7 @@ from socketio import ASGIApp, AsyncServer
 from .docs import description, tags_metadata
 import default
 from src.core.g import config as app_config, base_dir
-from src.core.utils import create_dispatcher, stripped_warning
+from src.core.utils import DispatcherFactory, stripped_warning
 
 
 try:
@@ -60,7 +60,7 @@ def create_sio_manager(config: dict | None = None):
         )
 
 
-dispatcher = create_dispatcher("application")
+dispatcher = DispatcherFactory.get("application")
 scheduler = AsyncIOScheduler()
 sio_manager = create_sio_manager()
 sio = AsyncServer(

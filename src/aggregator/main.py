@@ -10,14 +10,15 @@ import uvicorn
 from config import default_profile, get_specified_config
 import default
 from src.core.g import db, set_config_globally
+from src.core.utils import DispatcherFactory
 
 
 if t.TYPE_CHECKING:
     from dispatcher import AsyncAMQPDispatcher, AsyncRedisDispatcher
     from socketio import ASGIApp, AsyncServer
 
-    from aggregator.transport.dispatcher import GaiaEventsNamespace as dNamespace
-    from aggregator.transport.socketio import GaiaEventsNamespace as sNamespace
+    from aggregator.dispatcher_communication import GaiaEventsNamespace as dNamespace
+    from aggregator.socketio_communication import GaiaEventsNamespace as sNamespace
 
 
 @click.command()
@@ -104,9 +105,9 @@ class Aggregator:
                 "choose from 'amqp', 'redis' or 'socketio'"
             )
         if protocol == "socketio":
-            from src.aggregator.transport.socketio import GaiaEventsNamespace
+            from aggregator.socketio_communication import GaiaEventsNamespace
         else:
-            from src.aggregator.transport.dispatcher import GaiaEventsNamespace
+            from aggregator.dispatcher_communication import GaiaEventsNamespace
         self._namespace = GaiaEventsNamespace("/gaia")
         self._engine = None
         # TODO: add a dispatcher, can be same as engine if same url, to dispatch
@@ -124,6 +125,10 @@ class Aggregator:
 
     def start(self) -> None:
         if self._uri.startswith("socketio://"):
+            # Create the dispatcher
+            dispatcher = DispatcherFactory.get("aggregator")
+            self._namespace.dispatcher = dispatcher
+            # Create the communication mean with Gaia
             host = self.config["API_HOST"]
             port = self.config["AGGREGATOR_PORT"]
             if (
@@ -148,17 +153,27 @@ class Aggregator:
                 asyncio.ensure_future(server.serve())
         elif self._uri.startswith("amqp://"):
             from dispatcher import AsyncAMQPDispatcher
-            dispatcher = AsyncAMQPDispatcher(
+            communication_mean = AsyncAMQPDispatcher(
                 "aggregator", queue_options={"durable": True}
             )
-            dispatcher.register_event_handler(self._namespace)
-            self._engine = dispatcher
+            if self.config.get("DISPATCHER_URL") == self._uri:
+                dispatcher = communication_mean
+            else:
+                dispatcher = DispatcherFactory.get("aggregator")
+            self._namespace.dispatcher = dispatcher
+            communication_mean.register_event_handler(self._namespace)
+            self._engine = communication_mean
             self._engine.start()
         elif self._uri.startswith("redis://"):
             from dispatcher import AsyncRedisDispatcher
-            dispatcher = AsyncRedisDispatcher("aggregator")
-            dispatcher.register_event_handler(self._namespace)
-            self._engine = dispatcher
+            communication_mean = AsyncRedisDispatcher("aggregator")
+            if self.config.get("DISPATCHER_URL") == self._uri:
+                dispatcher = communication_mean
+            else:
+                dispatcher = DispatcherFactory.get("aggregator")
+            self._namespace.dispatcher = dispatcher
+            communication_mean.register_event_handler(self._namespace)
+            self._engine = communication_mean
             self._engine.start()
         else:
             raise RuntimeError

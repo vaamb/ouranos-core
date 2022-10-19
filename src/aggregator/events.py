@@ -6,6 +6,7 @@ from datetime import datetime, time, timezone
 import logging
 import random
 import typing as t
+import weakref
 
 import cachetools
 from dispatcher import AsyncDispatcher
@@ -33,7 +34,7 @@ class Events:
         app_name = config['APP_NAME'].lower()
         self.collector_logger = logging.getLogger(f"{app_name}.collector")
         self.broker_logger = logging.getLogger(f"{app_name}.broker")
-        self.dispatcher: AsyncDispatcher = kwargs["dispatcher"]
+        self._dispatcher: AsyncDispatcher | None = None
 
     async def emit(
             self,
@@ -57,6 +58,16 @@ class Events:
 
     async def disconnect(self, sid: str, namespace: str | None = None) -> None:
         raise NotImplementedError
+
+    @property
+    def dispatcher(self) -> AsyncDispatcher:
+        if not self._dispatcher:
+            raise RuntimeError("You need to set dispatcher")
+        return self._dispatcher
+
+    @dispatcher.setter
+    def dispatcher(self, dispatcher: AsyncDispatcher):
+        self._dispatcher = weakref.proxy(dispatcher)
 
     async def gaia_background_task(self):
         pass
