@@ -64,17 +64,15 @@ class Events:
         raise NotImplementedError
 
     async def gaia_background_task(self):
-        """while True:
-            await self.emit("ping", namespace="/gaia", room="engines")
-            await sleep(15)"""
+        pass
 
     # ---------------------------------------------------------------------------
-    #   Events coming from Gaia instances
+    #   Events Gaia <-> Aggregator
     # ---------------------------------------------------------------------------
     async def on_connect(self, sid, environ):
-        if not self._background_task_started:
+        """if not self._background_task_started:
             asyncio.ensure_future(self.gaia_background_task())
-            self._background_task_started = True
+            self._background_task_started = True"""
         if self.type == "socketio":
             async with self.session(sid, namespace="/gaia") as session:
                 remote_addr = session["REMOTE_ADDR"] = environ["REMOTE_ADDR"]
@@ -327,7 +325,7 @@ class Events:
                     await sleep(0)
 
     # --------------------------------------------------------------------------
-    #   Data received from Gaia, required to be redispatched and logged
+    #   Events Gaia -> Aggregator -> App
     # --------------------------------------------------------------------------
     @registration_required
     @dispatch_to_clients
@@ -432,17 +430,18 @@ class Events:
                 }
                 await api.light.update_or_create(session, light_info=light_info)
 
+    # ---------------------------------------------------------------------------
+    #   Events App -> Aggregator -> Gaia
+    # ---------------------------------------------------------------------------
+    async def _turn_actuator(self, sid, data):
+        if self.type == "socketio":
+            await self.emit("turn_actuator", namespace="/gaia", room=sid)
+        elif self.type == "dispatcher":
+            await self.emit("turn_actuator", namespace="/gaia", room=sid, ttl=30)
 
-'''
-# ---------------------------------------------------------------------------
-#   Dispatcher socketio
-# ---------------------------------------------------------------------------
-@dispatcher.on("turn_light")
-async def _turn_light(*args, **kwargs):
-    await sio_manager.emit("turn_light", namespace="/gaia", **kwargs)
+    async def on_turn_light(self, sid, data):
+        data["actuator"] = "light"
+        await self._turn_actuator(sid, data)
 
-
-@dispatcher.on("turn_actuator")
-async def _turn_actuator(*args, **kwargs):
-    await sio_manager.emit("turn_actuator", namespace="/gaia", **kwargs)
-'''
+    async def on_turn_actuator(self, sid, data):
+        await self._turn_actuator(sid, data)
