@@ -68,6 +68,8 @@ class Events:
     @dispatcher.setter
     def dispatcher(self, dispatcher: AsyncDispatcher):
         self._dispatcher = weakref.proxy(dispatcher)
+        self._dispatcher.on("turn_light", self.turn_light)
+        self._dispatcher.on("turn_actuator", self.turn_actuator)
 
     async def gaia_background_task(self):
         pass
@@ -449,9 +451,9 @@ class Events:
                 "turn_actuator", data=data, namespace="/gaia", room=sid, ttl=30
             )
 
-    async def on_turn_light(self, sid, data):
+    async def turn_light(self, sid, data):
         data["actuator"] = "light"
         await self._turn_actuator(sid, data)
 
-    async def on_turn_actuator(self, sid, data):
+    async def turn_actuator(self, sid, data):
         await self._turn_actuator(sid, data)
