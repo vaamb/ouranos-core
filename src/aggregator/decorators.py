@@ -24,11 +24,13 @@ def registration_required(func: Callable):
     return wrapper
 
 
-def dispatch_to_clients(func: Callable):
+def dispatch_to_application(func: Callable):
     """Decorator which dispatch the data to the clients namespace"""
     async def wrapper(self: "Events", sid: str, data: data_type, *args):
         func_name: str = func.__name__
         event: str = func_name.lstrip("on_")
-        await self.dispatcher.emit(event, data=data, namespace="application")
+        await self.dispatcher.emit(
+            event, data=data, namespace="application", ttl=15
+        )
         return await func(self, sid, data, *args)
     return wrapper

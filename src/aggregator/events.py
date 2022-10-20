@@ -11,7 +11,7 @@ import weakref
 import cachetools
 from dispatcher import AsyncDispatcher
 
-from .decorators import dispatch_to_clients, registration_required
+from .decorators import dispatch_to_application, registration_required
 from src.core import api
 from src.core.g import config, db
 from src.core.utils import decrypt_uid, validate_uid_token
@@ -108,7 +108,7 @@ class Events:
         else:
             raise TypeError("Event type is invalid")
 
-    async def on_disconnect(self, sid, *args):
+    async def on_disconnect(self, sid, *args) -> None:
         async with db.scoped_session() as session:
             engine = await api.engine.get(session, engine_id=sid)
             if not engine:
@@ -125,7 +125,7 @@ class Events:
             self.broker_logger.info(f"Engine {uid} disconnected")
 
     @registration_required
-    async def on_ping(self, sid, data, engine_uid):
+    async def on_ping(self, sid, data, engine_uid) -> None:
         self.broker_logger.debug(f"Received 'ping' from engine: {engine_uid}")
         now = datetime.now(timezone.utc).replace(microsecond=0)
         async with db.scoped_session() as session:
@@ -140,7 +140,7 @@ class Events:
                     ecosystem = await api.ecosystem.get(session, ecosystem_uid)
                     ecosystem.last_seen = now
 
-    async def on_register_engine(self, sid, data):
+    async def on_register_engine(self, sid, data) -> None:
         if self.type == "socketio":
             async with self.session(sid) as session:
                 remote_addr = session["REMOTE_ADDR"]
@@ -196,7 +196,7 @@ class Events:
             self.broker_logger.info(f"Successful registration of engine {engine_uid}")
 
     @registration_required
-    async def on_base_info(self, sid, data, engine_uid):
+    async def on_base_info(self, sid, data, engine_uid) -> None:
         self.broker_logger.debug(f"Received 'base_info' from engine: {engine_uid}")
         ecosystems: list[dict[str, str]] = []
         for ecosystem in data:
@@ -216,7 +216,7 @@ class Events:
         )
 
     @registration_required
-    async def on_management(self, sid, data, engine_uid):
+    async def on_management(self, sid, data, engine_uid) -> None:
         self.broker_logger.debug(f"Received 'management' from engine: {engine_uid}")
         async with db.scoped_session() as session:
             for ecosystem in data:
@@ -228,6 +228,7 @@ class Events:
                 ecosystem = await api.ecosystem.update_or_create(session, uid=uid)
                 for m, v in api.Management.items():
                     try:
+                        # TODO: look at this
                         if ecosystem[m]:
                             ecosystem.add_management(v)
                     except KeyError:
@@ -237,7 +238,7 @@ class Events:
                 await sleep(0)
 
     @registration_required
-    async def on_environmental_parameters(self, sid, data, engine_uid):
+    async def on_environmental_parameters(self, sid, data, engine_uid) -> None:
         self.broker_logger.debug(
             f"Received 'environmental_parameters' from engine: {engine_uid}"
         )
@@ -292,7 +293,7 @@ class Events:
                     )
 
     @registration_required
-    async def on_hardware(self, sid, data, engine_uid):
+    async def on_hardware(self, sid, data, engine_uid) -> None:
         self.broker_logger.debug(
             f"Received 'hardware' from engine: {engine_uid}"
         )
@@ -336,8 +337,8 @@ class Events:
     #   Events Gaia -> Aggregator -> App
     # --------------------------------------------------------------------------
     @registration_required
-    @dispatch_to_clients
-    async def on_sensors_data(self, sid, data, engine_uid):
+    @dispatch_to_application
+    async def on_sensors_data(self, sid, data, engine_uid) -> None:
         self.broker_logger.debug(
             f"Received 'sensors_data' from engine: {engine_uid}"
         )
@@ -384,8 +385,8 @@ class Events:
                 await api.sensor.create_records(session, values)
 
     @registration_required
-    @dispatch_to_clients
-    async def on_health_data(self, sid, data, engine_uid):
+    @dispatch_to_application
+    async def on_health_data(self, sid, data, engine_uid) -> None:
         self.broker_logger.debug(
             f"Received 'update_health_data' from {engine_uid}"
         )
@@ -409,8 +410,8 @@ class Events:
             await api.health.create_records(session, values)
 
     @registration_required
-    @dispatch_to_clients
-    async def on_light_data(self, sid, data, engine_uid):
+    @dispatch_to_application
+    async def on_light_data(self, sid, data, engine_uid) -> None:
         self.broker_logger.debug(f"Received 'light_data' from {engine_uid}")
         async with db.scoped_session() as session:
             for ecosystem in data:
@@ -441,7 +442,7 @@ class Events:
     # ---------------------------------------------------------------------------
     #   Events App -> Aggregator -> Gaia
     # ---------------------------------------------------------------------------
-    async def _turn_actuator(self, sid, data):
+    async def _turn_actuator(self, sid, data) -> None:
         if self.type == "socketio":
             await self.emit(
                 "turn_actuator", data=data, namespace="/gaia", room=sid
@@ -451,9 +452,16 @@ class Events:
                 "turn_actuator", data=data, namespace="/gaia", room=sid, ttl=30
             )
 
-    async def turn_light(self, sid, data):
+    async def turn_light(self, sid, data) -> None:
         data["actuator"] = "light"
         await self._turn_actuator(sid, data)
 
-    async def turn_actuator(self, sid, data):
+    async def turn_actuator(self, sid, data) -> None:
         await self._turn_actuator(sid, data)
+
+    # ---------------------------------------------------------------------------
+    #   Events Functionalities -> Aggregator -> App
+    # ---------------------------------------------------------------------------
+    @dispatch_to_application
+    async def on_current_server_data(self, sid, data) -> None:
+        api.system.update_current_data(data)

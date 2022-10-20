@@ -102,14 +102,12 @@ class DispatcherEvents(AsyncEventHandler):
     async def on_sun_times(self, sid, data):
         await sio_manager.emit("sun_times", data=data, namespace="/")
 
-    async def on_current_server_data(self, sid, data):
-        # TODO: move this in aggregator?
-        api.system.update_current_data(data)
-        await sio_manager.emit("current_server_data", data=data, namespace="/")
-
     # ---------------------------------------------------------------------------
     #   Events Aggregator -> App -> Clients
     # ---------------------------------------------------------------------------
+    async def on_current_server_data(self, sid, data):
+        await sio_manager.emit("current_server_data", data=data, namespace="/")
+
     async def on_ecosystem_status(self, sid, data):
         await sio_manager.emit("ecosystem_status", data=data, namespace="/")
 
