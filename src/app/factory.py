@@ -181,10 +181,12 @@ def create_app(config: dict | None = None) -> FastAPI:
     app.mount(path="/", app=asgi_app)
 
     logger.debug("Loading client events")
-    from src.app.events import Events
-    namespace = Events("/")
+    from src.app.events import ClientEvents, DispatcherEvents
+    namespace = ClientEvents("/")
     namespace.dispatcher = dispatcher
     sio.register_namespace(namespace)
+    event_handler = DispatcherEvents("application")
+    dispatcher.register_event_handler(event_handler)
 
     # Load the frontend if present
     frontend_static_dir = base_dir/"frontend/dist"

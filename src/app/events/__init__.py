@@ -2,11 +2,11 @@
 
 import logging
 
-from dispatcher import AsyncDispatcher
+from dispatcher import AsyncDispatcher, AsyncEventHandler
 from socketio import AsyncNamespace
 
 from .decorators import permission_required
-from src.app.factory import dispatcher, sio_manager
+from src.app.factory import sio_manager
 from src.core import api
 from src.core.g import config, db
 
@@ -15,7 +15,7 @@ from src.core.g import config, db
 sio_logger = logging.getLogger(f"{config['APP_NAME'].lower()}.socketio")
 
 
-class Events(AsyncNamespace):
+class ClientEvents(AsyncNamespace):
     # ---------------------------------------------------------------------------
     #   SocketIO socketio
     # ---------------------------------------------------------------------------
@@ -81,52 +81,40 @@ class Events(AsyncNamespace):
         service = data["service"]
         status = data["status"]
         if status:
-            dispatcher.emit("services", "start_service", service)
+            self.dispatcher.emit("functionalities", "start_service", service)
         else:
-            dispatcher.emit("services", "stop_service", service)
+            self.dispatcher.emit("functionalities", "stop_service", service)
 
 
-# ---------------------------------------------------------------------------
-#   Dispatcher socketio
-# ---------------------------------------------------------------------------
-@dispatcher.on("weather_current")
-async def _current_weather(**kwargs):
-    await sio_manager.emit("weather_current", namespace="/", **kwargs)
+class DispatcherEvents(AsyncEventHandler):
+    # ---------------------------------------------------------------------------
+    #   Events Functionalities -> App -> Clients
+    # ---------------------------------------------------------------------------
+    async def on_weather_current(self, sid, data):
+        await sio_manager.emit("weather_current", data=data, namespace="/")
 
+    async def on_weather_hourly(self, sid, data):
+        await sio_manager.emit("weather_hourly", data=data, namespace="/")
 
-@dispatcher.on("weather_hourly")
-async def _hourly_weather(**kwargs):
-    await sio_manager.emit("weather_hourly", namespace="/", **kwargs)
+    async def on_weather_daily(self, sid, data):
+        await sio_manager.emit("weather_daily", data=data, namespace="/")
 
+    async def on_sun_times(self, sid, data):
+        await sio_manager.emit("sun_times", data=data, namespace="/")
 
-@dispatcher.on("weather_daily")
-async def _daily_weather(**kwargs):
-    await sio_manager.emit("weather_daily", namespace="/", **kwargs)
+    async def on_current_server_data(self, sid, data):
+        # TODO: move this in aggregator?
+        api.system.update_current_data(data)
+        await sio_manager.emit("current_server_data", data=data, namespace="/")
 
+    # ---------------------------------------------------------------------------
+    #   Events Aggregator -> App -> Clients
+    # ---------------------------------------------------------------------------
+    async def on_ecosystem_status(self, sid, data):
+        await sio_manager.emit("ecosystem_status", data=data, namespace="/")
 
-@dispatcher.on("sun_times")
-async def _sun_times(**kwargs):
-    await sio_manager.emit("sun_times", namespace="/", **kwargs)
+    async def on_current_sensors_data(self, sid, data):
+        await sio_manager.emit("current_sensors_data", data=data, namespace="/")
 
-
-# TODO: move this in aggregator?
-@dispatcher.on("current_server_data")
-async def _current_server_data(data):
-    api.system.update_current_data(data)
-    await sio_manager.emit("current_server_data", data=data, namespace="/")
-
-
-# Redispatch events coming from dispatcher to clients
-@dispatcher.on("ecosystem_status")
-async def _ecosystem_status(data):
-    await sio_manager.emit("ecosystem_status", data=data, namespace="/")
-
-
-@dispatcher.on("current_sensors_data")
-async def _current_sensors_data(data):
-    await sio_manager.emit("current_sensors_data", data=data, namespace="/")
-
-
-@dispatcher.on("light_data")
-async def _current_sensors_data(data):
-    await sio_manager.emit("light_data", data=data, namespace="/")
+    async def on_light_data(self, sid, data):
+        await sio_manager.emit("light_data", data=data, namespace="/")

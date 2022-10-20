@@ -146,11 +146,7 @@ def _get_config_class(
 
 
 def config_dict_from_class(obj: t.Type) -> dict[str, str | int | bool | dict]:
-    config = {}
-    for key, value in obj.__dict__.items():
-        if key.isupper():
-            config[key] = value
-    return config
+    return {key: getattr(obj, key) for key in dir(obj) if key.isupper()}
 
 
 def get_specified_config(
