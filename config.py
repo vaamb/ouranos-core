@@ -122,7 +122,6 @@ configs = {
     "development": DevelopmentConfig,
     "testing": TestingConfig,
     "production": ProductionConfig,
-    "default": DevelopmentConfig,
 }
 
 config_profiles_available = [profile for profile in configs]
@@ -146,14 +145,16 @@ def _get_config_class(
         )
 
 
-def config_dict_from_class(obj: t.Type) -> dict[str, str | int | bool]:
+def config_dict_from_class(obj: t.Type) -> dict[str, str | int | bool | dict]:
     config = {}
-    for key in dir(obj):
+    for key, value in obj.__dict__.items():
         if key.isupper():
-            config[key] = getattr(obj, key)
+            config[key] = value
     return config
 
 
-def get_specified_config(profile: str | None = None) -> dict[str, str | int | bool]:
+def get_specified_config(
+        profile: str | None = None
+) -> dict[str, str | int | bool | dict]:
     config_cls = _get_config_class(profile)
     return config_dict_from_class(config_cls)
