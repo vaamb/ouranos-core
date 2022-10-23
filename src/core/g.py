@@ -9,7 +9,7 @@ from .database.wrapper import AsyncSQLAlchemyWrapper
 
 
 base_dir: Path = Path(__file__).absolute().parents[2]
-config: ImmutableDict[str, bool | int | str] = ImmutableDict()
+config: ImmutableDict[str, str | int | bool | dict[str, str]] = ImmutableDict()
 
 
 db: AsyncSQLAlchemyWrapper = AsyncSQLAlchemyWrapper()

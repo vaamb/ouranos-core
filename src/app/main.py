@@ -36,7 +36,7 @@ async def run(
 ) -> None:
     # Get and set config globally
     config = get_specified_config(config_profile)
-    app_name = config["APP_NAME"].lower()
+    app_name: str = config["APP_NAME"].lower()
     from setproctitle import setproctitle
     setproctitle(f"{app_name}-app")
     set_config_globally(config)

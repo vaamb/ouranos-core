@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import os
-import typing as t
+from typing import Type
 
 
 default_profile = os.environ.get("OURANOS_CONFIG_PROFILE") or "development"
@@ -112,13 +112,13 @@ class ProductionConfig(Config):
 
     SQLALCHEMY_DATABASE_URI = os.environ.get("OURANOS_DATABASE_URI")
     SQLALCHEMY_BINDS = {
-        "app": os.environ.get("OURANOS_APP_DATABASE_URI"),
-        "system": os.environ.get("OURANOS_SYSTEM_DATABASE_URI"),
-        "archive": os.environ.get("OURANOS_ARCHIVE_DATABASE_URI"),
+        "app": os.environ["OURANOS_APP_DATABASE_URI"],
+        "system": os.environ["OURANOS_SYSTEM_DATABASE_URI"],
+        "archive": os.environ["OURANOS_ARCHIVE_DATABASE_URI"],
     }
 
 
-configs = {
+configs: dict[str, Type[DevelopmentConfig | ProductionConfig | TestingConfig]] = {
     "development": DevelopmentConfig,
     "testing": TestingConfig,
     "production": ProductionConfig,
@@ -129,7 +129,7 @@ config_profiles_available = [profile for profile in configs]
 
 def _get_config_class(
         profile: str | None = None
-) -> t.Type[DevelopmentConfig | ProductionConfig | TestingConfig]:
+) -> Type[DevelopmentConfig | ProductionConfig | TestingConfig]:
     if profile is None or profile.lower() in ("def", "default"):
         return configs[default_profile]
     elif profile.lower() in ("dev", "development"):
@@ -145,12 +145,14 @@ def _get_config_class(
         )
 
 
-def config_dict_from_class(obj: t.Type) -> dict[str, str | int | bool | dict]:
+def config_dict_from_class(
+        obj: Type
+) -> dict[str, str | int | bool | dict[str, str]]:
     return {key: getattr(obj, key) for key in dir(obj) if key.isupper()}
 
 
 def get_specified_config(
         profile: str | None = None
-) -> dict[str, str | int | bool | dict]:
+) -> dict[str, str | int | bool | dict[str, str]]:
     config_cls = _get_config_class(profile)
     return config_dict_from_class(config_cls)

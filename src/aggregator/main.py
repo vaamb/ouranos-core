@@ -116,7 +116,7 @@ class Aggregator:
     @property
     def engine(self) -> "AsyncServer" | "AsyncAMQPDispatcher" | "AsyncRedisDispatcher":
         if self._engine is None:
-            raise RuntimeError
+            raise RuntimeError("engine is defined at startup")
         return self._engine
 
     @property
@@ -135,7 +135,7 @@ class Aggregator:
                     self.config.get("START_API", default.START_API) and
                     self.config.get("API_PORT") == port
             ):
-                from src.app import sio
+                from src.app.factory import sio
                 sio.register_namespace(self._namespace)
                 self._engine = sio
             else:
@@ -180,11 +180,9 @@ class Aggregator:
 
     def stop(self) -> None:
         try:
-            from socketio import AsyncServer
-            if isinstance(self.engine, AsyncServer):
-                pass  # already handled by uvicorn
-            else:
-                self.engine.stop()
+            self.engine.stop()
+        except AttributeError:  # Not dispatcher_based
+            pass  # Handled by uvicorn or by App
         except RuntimeError:
             pass  # Aggregator was not started
 

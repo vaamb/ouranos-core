@@ -8,8 +8,9 @@ from __future__ import annotations
 
 from asyncio import current_task
 from contextlib import asynccontextmanager, contextmanager
+from dataclasses import dataclass
+from typing import Coroutine, Generator, AsyncGenerator
 import warnings
-from typing import Coroutine, Generator
 
 from sqlalchemy.ext.declarative import DeclarativeMeta
 from sqlalchemy.engine import create_engine, Engine
@@ -19,6 +20,12 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.orm import scoped_session, Session, sessionmaker
 
 from src.core.database._base import base
+
+
+@dataclass
+class Config:
+    uri: str
+    binds: dict[str, str]
 
 
 class SQLAlchemyWrapper:
@@ -44,20 +51,28 @@ class SQLAlchemyWrapper:
         self._session_factory: sessionmaker | None = None
         self._session: scoped_session | None = None
         self._engines: dict[str | None, Engine] = {}
-        self._config: dict[str, int | str | bool] | None = None
+        self._config: Config | None = None
 
         if config:
             self.init(config)
 
     @property
     def session(self) -> Session:
-        if not self._session:
+        if self._session is None:
             raise RuntimeError(
                 "No config option was provided. Use db.init(config) to finish "
                 "db initialization"
             )
-        else:
-            return self._session()
+        return self._session()
+
+    @property
+    def config(self) -> Config:
+        if self._config is None:
+            raise RuntimeError(
+                "No config option was provided. Use db.init(config) to finish "
+                "db initialization"
+            )
+        return self._config
 
     def init(self, config_object: type | str | dict) -> None:
         self._init_config(config_object)
@@ -66,17 +81,21 @@ class SQLAlchemyWrapper:
     def _init_config(self, config_object: type | str | dict) -> None:
         if isinstance(config_object, type):
             from config import config_dict_from_class
-            self._config = config_dict_from_class(config_object)
+            config = config_dict_from_class(config_object)
         elif isinstance(config_object, str):
-            self._config = {"SQLALCHEMY_DATABASE_URI": config_object}
+            config = {"SQLALCHEMY_DATABASE_URI": config_object}
         elif isinstance(config_object, dict):
-            self._config = config_object
+            config = config_object
         else:
             raise TypeError("config_object can either be a str, a dict or a class")
-        if "SQLALCHEMY_DATABASE_URI" not in self._config:
+        if "SQLALCHEMY_DATABASE_URI" not in config:
             raise RuntimeError(
                 "Config object needs the parameter 'SQLALCHEMY_DATABASE_URI'"
             )
+        self._config = Config(
+            uri=config["SQLALCHEMY_DATABASE_URI"],
+            binds=config.get("SQLALCHEMY_BINDS", {})
+        )
 
     def _create_session_factory(self) -> None:
         self._session_factory = sessionmaker(binds=self.get_binds_mapping())
@@ -85,8 +104,8 @@ class SQLAlchemyWrapper:
     def _create_engine(self, uri, **kwargs) -> Engine:
         return create_engine(uri, **kwargs)
 
-    def _get_binds_list(self) -> list:
-        return [None] + list(self._config.get("SQLALCHEMY_BINDS", {}).keys())
+    def _get_binds_list(self) -> list[str | None]:
+        return [None, *list(self.config.binds.keys())]
 
     def _get_tables_for_bind(self, bind: str = None) -> list:
         return [
@@ -96,18 +115,17 @@ class SQLAlchemyWrapper:
 
     def _get_uri_for_bind(self, bind: str = None) -> str:
         if bind is None:
-            return self._config["SQLALCHEMY_DATABASE_URI"]
-        binds: dict = self._config.get("SQLALCHEMY_BINDS", {})
+            return self.config.uri
+        binds: dict = self.config.binds
         if bind not in binds:
             warnings.warn(
                 f"Bind {bind} is not defined by 'SQLALCHEMY_BINDS' in the "
                 f"config, using 'SQLALCHEMY_DATABASE_URI' instead"
             )
-            return self._config["SQLALCHEMY_DATABASE_URI"]
+            return self.config.uri
         return binds[bind]
 
     def _get_engine_for_bind(self, bind: str = None) -> Engine:
-        assert self._config, "SQLAlchemyWrapper has not been initialized"
         engine = self._engines.get(bind, None)
         if engine is None:
             engine = self._create_engine(
@@ -154,9 +172,19 @@ class SQLAlchemyWrapper:
             self.Model.metadata.drop_all(bind=engine, tables=tables)
 
     def close(self) -> None:
+        if self._session is None:
+            raise RuntimeError(
+                "No config option was provided. Use db.init(config) to finish "
+                "db initialization"
+            )
         self._session.remove()
 
     def rollback(self) -> None:
+        if self._session is None:
+            raise RuntimeError(
+                "No config option was provided. Use db.init(config) to finish "
+                "db initialization"
+            )
         self._session.rollback()
 
 
@@ -183,7 +211,7 @@ class AsyncSQLAlchemyWrapper(SQLAlchemyWrapper):
             return self._session()
 
     @asynccontextmanager
-    async def scoped_session(self) -> Generator[AsyncSession, None, None]:
+    async def scoped_session(self) -> AsyncGenerator[AsyncSession, None, None]:
         session = self.session
         try:
             yield session
@@ -215,7 +243,17 @@ class AsyncSQLAlchemyWrapper(SQLAlchemyWrapper):
                 )
 
     async def close(self) -> None:
+        if self._session is None:
+            raise RuntimeError(
+                "No config option was provided. Use db.init(config) to finish "
+                "db initialization"
+            )
         await self._session.remove()
 
     async def rollback(self) -> None:
+        if self._session is None:
+            raise RuntimeError(
+                "No config option was provided. Use db.init(config) to finish "
+                "db initialization"
+            )
         await self._session.rollback()

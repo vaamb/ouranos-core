@@ -18,6 +18,9 @@ import cachetools
 from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from dispatcher import (
+    AsyncBaseDispatcher, AsyncRedisDispatcher, AsyncAMQPDispatcher
+)
 import geopy
 import jwt
 from sqlalchemy.engine import Row
@@ -144,7 +147,7 @@ class Tokenizer:
 
 
 class DispatcherFactory:
-    __dispatchers = {}
+    __dispatchers: dict[str, "AsyncBaseDispatcher" | "AsyncRedisDispatcher" | "AsyncAMQPDispatcher"] = {}
 
     @classmethod
     def get(cls, name: str, config: dict | None = None, **kwargs):
@@ -159,17 +162,14 @@ class DispatcherFactory:
                 )
             broker_url = config.get("DISPATCHER_URL", default.DISPATCHER_URL)
             if broker_url.startswith("memory://"):
-                from dispatcher import AsyncBaseDispatcher
                 return AsyncBaseDispatcher(name, **kwargs)
             elif broker_url.startswith("redis://"):
-                from dispatcher import AsyncRedisDispatcher
                 uri = broker_url.removeprefix("redis://")
                 if not uri:
                     uri = "localhost:6379/0"
                 url = f"redis://{uri}"
                 return AsyncRedisDispatcher(name, url, **kwargs)
             elif broker_url.startswith("amqp://"):
-                from dispatcher import AsyncAMQPDispatcher
                 uri = broker_url.removeprefix("amqp://")
                 if not uri:
                     uri = "guest:guest@localhost:5672//"
@@ -207,11 +207,10 @@ def parse_sun_times(moment: str | datetime) -> datetime:
     return datetime.combine(date.today(), _time, tzinfo=timezone.utc)
 
 
-def try_iso_format(time_obj: time) -> str | None:
-    try:
+def try_iso_format(time_obj: time | None) -> str | None:
+    if time_obj is not None:
         return time_to_datetime(time_obj).isoformat()
-    except TypeError:  # time_obj is None or Null
-        return None
+    return None
 
 
 def configure_logging(config: dict) -> None:
@@ -355,18 +354,19 @@ def validate_uid_token(token: str, manager_uid: str) -> bool:
     return token_key == hkey
 
 
-def generate_secret_key_from_password(password: str, set_env: bool = False) -> str:
+def generate_secret_key_from_password(password: str | bytes) -> str:
     if isinstance(password, str):
-        password = password.encode("utf-8")
+        pwd = password.encode("utf-8")
+    else:
+        pwd = password
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256(),
         length=32,
         salt=b"",
         iterations=2**21,
     )
-    bkey = kdf.derive(password)
+    bkey = kdf.derive(pwd)
     skey = base64.b64encode(bkey).decode("utf-8").strip("=")
-    print(skey)
     return skey
 
 
