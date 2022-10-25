@@ -17,8 +17,8 @@ if t.TYPE_CHECKING:
     from dispatcher import AsyncAMQPDispatcher, AsyncRedisDispatcher
     from socketio import ASGIApp, AsyncServer
 
-    from aggregator.dispatcher_communication import GaiaEventsNamespace as dNamespace
-    from aggregator.socketio_communication import GaiaEventsNamespace as sNamespace
+    from src.aggregator.dispatcher_communication import GaiaEventsNamespace as dNamespace
+    from src.aggregator.socketio_communication import GaiaEventsNamespace as sNamespace
 
 
 @click.command()
@@ -105,9 +105,9 @@ class Aggregator:
                 "choose from 'amqp', 'redis' or 'socketio'"
             )
         if protocol == "socketio":
-            from aggregator.socketio_communication import GaiaEventsNamespace
+            from src.aggregator.socketio_communication import GaiaEventsNamespace
         else:
-            from aggregator.dispatcher_communication import GaiaEventsNamespace
+            from src.aggregator.dispatcher_communication import GaiaEventsNamespace
         self._namespace = GaiaEventsNamespace("/gaia")
         self._engine = None
         # TODO: add a dispatcher, can be same as engine if same url, to dispatch
