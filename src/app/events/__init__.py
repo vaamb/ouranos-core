@@ -16,9 +16,6 @@ sio_logger = logging.getLogger(f"{config['APP_NAME'].lower()}.socketio")
 
 
 class ClientEvents(AsyncNamespace):
-    # ---------------------------------------------------------------------------
-    #   SocketIO socketio
-    # ---------------------------------------------------------------------------
     def __init__(self, namespace=None):
         super().__init__(namespace=namespace)
         self._dispatcher: AsyncDispatcher | None = None
@@ -36,6 +33,9 @@ class ClientEvents(AsyncNamespace):
     async def on_ping(self, sid, data):
         await self.emit("pong", namespace="/", room=sid)
 
+    # ---------------------------------------------------------------------------
+    #   Events Clients -> App -> Aggregator
+    # ---------------------------------------------------------------------------
     # @permission_required(Permission.OPERATE)
     async def on_turn_light(self, sid, data):
         ecosystem_uid = data["ecosystem"]
