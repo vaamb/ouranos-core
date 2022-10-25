@@ -112,9 +112,9 @@ class ProductionConfig(Config):
 
     SQLALCHEMY_DATABASE_URI = os.environ.get("OURANOS_DATABASE_URI")
     SQLALCHEMY_BINDS = {
-        "app": os.environ["OURANOS_APP_DATABASE_URI"],
-        "system": os.environ["OURANOS_SYSTEM_DATABASE_URI"],
-        "archive": os.environ["OURANOS_ARCHIVE_DATABASE_URI"],
+        "app": os.environ.get("OURANOS_APP_DATABASE_URI"),
+        "system": os.environ.get("OURANOS_SYSTEM_DATABASE_URI"),
+        "archive": os.environ.get("OURANOS_ARCHIVE_DATABASE_URI"),
     }
 
 
