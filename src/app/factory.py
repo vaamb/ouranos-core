@@ -7,7 +7,8 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import APIRouter, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from socketio import ASGIApp, AsyncServer
+from socketio.asgi import ASGIApp
+from socketio.asyncio_server import AsyncServer
 
 from .docs import description, tags_metadata
 import default
