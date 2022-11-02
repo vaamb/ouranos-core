@@ -33,4 +33,5 @@ class Runner:
             await asyncio.sleep(0.2)
 
     async def exit(self) -> None:
-        await asyncio.sleep(0.2)
+        self._should_exit = True
+        await asyncio.sleep(0.4)
