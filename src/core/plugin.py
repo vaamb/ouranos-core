@@ -1,12 +1,21 @@
 import importlib
-import pkgutil
+from importlib_metadata import entry_points
 
-from click import Group
+from click import Command, Group
+
+
+class Plugin:
+    def __init__(self, name: str, main: Command):
+        self.name = name
+        self.main = main
+
+    def register_command(self, cli_group: Group):
+        cli_group.add_command(self.main, self.name)
 
 
 class PluginManager:
     __instance = None
-    plugins_prefix = "ouranos_"
+    entry_point = "ouranos.plugins"
 
     def __new__(cls):
         if cls.__instance is None:
@@ -14,16 +23,15 @@ class PluginManager:
             cls.__instance = self
         return cls.__instance
 
-    @classmethod
-    def register_plugins(cls, cli: Group):
-        for entry_point in pkgutil.iter_modules():
+    def register_plugins(self, cli_group: Group):
+        for entry_point in entry_points(group=self.entry_point):
             pkg_name = entry_point.name
-            if pkg_name.startswith(cls.plugins_prefix):
-                name = pkg_name.lstrip(cls.plugins_prefix)
-                pkg = importlib.import_module(pkg_name)
-                try:
-                    cli.add_command(pkg.main, name)
-                except Exception as e:
-                    raise AttributeError(
-                        f"Package `{pkg_name}` has no method `name` implemented"
-                    )
+            pkg = importlib.import_module(pkg_name)
+            try:
+                plugin: Plugin = pkg.plugin
+            except AttributeError as e:
+                raise AttributeError(
+                    f"Plugin `{pkg_name}` has no `plugin` defined"
+                )
+            else:
+                plugin.register_command(cli_group)
