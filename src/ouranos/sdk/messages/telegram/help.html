@@ -1,0 +1,17 @@
+<p>Here is a list of the commands available:</p>
+{% if user.is_anonymous %}
+<p>/register : register using the token received on the website or by email.</p>
+{% else %}
+msg += "/weather : provides the current weather by default and the " \
+           "weather forecast if 'forecast' is provided as an argument.\n"
+msg += "/light_info : provides the all the light info for all the" \
+           "ecosystems, or the specified one(s).\n"
+msg += "/sensors : provides the current sensors data for all the " \
+           "ecosystems by default, or the specified one(s).\n"
+msg += "/sensors_recap : provides the sensors data for the last day" \
+           "for all the ecosystems by default. The number of days " \
+           "covered can be specified by adding '#days' as an argument.\n"
+msg += "/recap : send a recap with sensors data of the last 24h, " \
+           "weather forecast, warnings and calendar socketio.\n"
+
+{% endif %}

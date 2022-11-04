@@ -7,8 +7,8 @@ from telegram import Update
 from telegram.ext import CallbackContext
 
 from .auth import get_current_user
-from src.core.database.models import User
-from src.core.g import db
+from ouranos.core.database.models import User
+from ouranos.core.g import db
 
 
 def activation_required(func):

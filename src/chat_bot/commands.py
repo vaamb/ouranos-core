@@ -5,9 +5,9 @@ from telegram.ext import CallbackContext
 
 from src.chat_bot.auth import activate_user, get_current_user
 from src.chat_bot.decorators import activation_required
-from src.core import api
-from src.core.g import db
-from src.core.utils import Tokenizer, ExpiredTokenError, InvalidToken
+from ouranos import sdk
+from ouranos.core.g import db
+from ouranos.core.utils import Tokenizer, ExpiredTokenError, InvalidToken
 
 
 TELEGRAM_CHAT_ACTIVATION_SUB = "activate_telegram_chat"
@@ -45,7 +45,7 @@ async def activate(
         if sub != TELEGRAM_CHAT_ACTIVATION_SUB:
             raise InvalidToken
         async with db.scoped_session() as session:
-            user = await api.user.get(session, user_id)
+            user = await sdk.user.get(session, user_id)
             if not user:
                 await update.message.reply_html(
                     "Could not find any user linked to this token"
@@ -74,7 +74,7 @@ async def ecosystem_status(
 ) -> None:
     ecosystems = context.args
     async with db.scoped_session() as session:
-        msg = await api.messages.ecosystem_summary(session, ecosystems)
+        msg = await sdk.messages.ecosystem_summary(session, ecosystems)
     await update.message.reply_html(msg)
 
 
@@ -85,9 +85,9 @@ async def sensors(
 ) -> None:
     ecosystems_name = context.args
     async with db.scoped_session() as session:
-        ecosystems = await api.ecosystem.get_multiple(session, ecosystems_name)
+        ecosystems = await sdk.ecosystem.get_multiple(session, ecosystems_name)
         data = [
-            api.sensor.get_current_data(ecosystem.uid)
+            sdk.sensor.get_current_data(ecosystem.uid)
             .update({"ecosystem_name": ecosystem.name})
             for ecosystem in ecosystems
         ]
@@ -101,9 +101,9 @@ async def light_info(
 ) -> None:
     ecosystems_name = context.args
     async with db.scoped_session() as session:
-        ecosystems = await api.ecosystem.get_multiple(session, ecosystems_name)
+        ecosystems = await sdk.ecosystem.get_multiple(session, ecosystems_name)
         data = [
-            api.ecosystem.get_light_info(ecosystem) for ecosystem in ecosystems
+            sdk.ecosystem.get_light_info(ecosystem) for ecosystem in ecosystems
         ]
     await update.message.reply_text("data")
 

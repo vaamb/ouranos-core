@@ -9,7 +9,7 @@ from telegram.ext import (
 )
 
 from config import default_profile, get_specified_config
-from src.core.g import db, set_config_globally
+from ouranos.core.g import db, set_config_globally
 
 
 @click.command()
@@ -40,15 +40,14 @@ async def run(
     setproctitle(f"{app_name}-chat_bot")
     set_config_globally(config)
     # Configure logger
-    from src.core.g import config
-    from src.core.utils import configure_logging
+    from ouranos.core.g import config
+    from ouranos.core.utils import configure_logging
     configure_logging(config)
     logger: logging.Logger = logging.getLogger(app_name)
     # Init database
     logger.info("Initializing database")
-    from src.core.database import models  # noqa
     db.init(config)
-    from src.core.database.init import create_base_data
+    from ouranos.core.database.init import create_base_data
     await create_base_data(logger)
     # Start the Chat bot
     loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
@@ -57,7 +56,7 @@ async def run(
     logger.info("Starting the Chat bot")
     chat_bot.start()
     # Run as long as requested
-    from src.core.runner import Runner
+    from ouranos.core.runner import Runner
     runner = Runner()
     await asyncio.sleep(0.1)
     runner.add_signal_handler(loop)
@@ -71,7 +70,7 @@ class ChatBot:
             self,
             config: dict | None = None,
     ):
-        from src.core.g import config as global_config
+        from ouranos.core.g import config as global_config
         self.config = config or global_config
         if not self.config:
             raise RuntimeError(
@@ -123,7 +122,3 @@ class ChatBot:
 
         loop = asyncio.get_event_loop()
         loop.create_task(_stop())
-
-
-if __name__ == "__main__":
-    main()
