@@ -8,16 +8,15 @@ import click
 import uvicorn
 from uvicorn.loops.auto import auto_loop_setup
 
-import default
-from config import default_profile, get_specified_config
-from ouranos.core.g import db, set_config_globally
+from ouranos import setup_config
+from ouranos.core.g import db
 
 
 @click.command()
 @click.option(
     "--config-profile",
     type=str,
-    default=default_profile,
+    default=None,
     help="Configuration profile to use as defined in config.py.",
     show_default=True,
 )
@@ -34,17 +33,13 @@ def main(
 async def run(
         config_profile: str | None = None,
 ) -> None:
-    # Get and set config globally
-    config = get_specified_config(config_profile)
-    app_name: str = config["APP_NAME"].lower()
     from setproctitle import setproctitle
-    setproctitle(f"{app_name}-app")
-    set_config_globally(config)
-    from ouranos.core.g import config
-    # Configure logger and tokenizer
-    from ouranos.core.utils import configure_logging, Tokenizer
-    configure_logging(config)
-    logger: logging.Logger = logging.getLogger(app_name)
+    setproctitle("ouranos-api")
+    # Setup config
+    config = setup_config(config_profile)
+    logger: logging.Logger = logging.getLogger("ouranos.api")
+    # Configure tokenizer
+    from ouranos.core.utils import Tokenizer
     Tokenizer.secret_key = config["SECRET_KEY"]
     # Init database
     logger.info("Initializing the database")
@@ -58,7 +53,7 @@ async def run(
     logger.info("Starting the Api")
     api.start()
     # Run as long as requested
-    from ouranos.core.runner import Runner
+    from ouranos.sdk.runner import Runner
     runner = Runner()
     await asyncio.sleep(0.1)
     runner.add_signal_handler(loop)
@@ -80,9 +75,9 @@ class Api:
                 "g.set_app_config"
             )
         use_subprocess: bool = (
-                self.config.get("SERVER_RELOAD", False) or
-                (self.config.get("START_API", default.START_API) and
-                 self.config.get("API_WORKERS", default.API_WORKERS) > 1)
+                self.config["SERVER_RELOAD"] or
+                (self.config["START_API"] and
+                 self.config["API_WORKERS"] > 1)
         )
         auto_loop_setup(use_subprocess)
         host: str = self.config["API_HOST"]
@@ -90,7 +85,7 @@ class Api:
         self.server_cfg = uvicorn.Config(
             "ouranos.api.factory:create_app", factory=True,
             host=host, port=port,
-            workers=self.config.get("API_WORKERS", default.API_WORKERS),
+            workers=self.config["API_WORKERS"],
             loop="auto",
             server_header=False, date_header=False,
         )

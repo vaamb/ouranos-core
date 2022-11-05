@@ -8,15 +8,15 @@ from telegram.ext import (
     filters, MessageHandler, ApplicationBuilder, CommandHandler
 )
 
-from config import default_profile, get_specified_config
-from ouranos.core.g import db, set_config_globally
+from ouranos import setup_config
+from ouranos.core.g import db
 
 
 @click.command()
 @click.option(
     "--config-profile",
     type=str,
-    default=default_profile,
+    default=None,
     help="Configuration profile to use as defined in config.py.",
     show_default=True,
 )
@@ -33,17 +33,11 @@ def main(
 async def run(
     config_profile: str | None = None,
 ) -> None:
-    # Check config
-    config = get_specified_config(config_profile)
-    app_name = config["APP_NAME"].lower()
     from setproctitle import setproctitle
-    setproctitle(f"{app_name}-chat_bot")
-    set_config_globally(config)
-    # Configure logger
-    from ouranos.core.g import config
-    from ouranos.core.utils import configure_logging
-    configure_logging(config)
-    logger: logging.Logger = logging.getLogger(app_name)
+    setproctitle("ouranos-chat_bot")
+    # Setup config
+    config = setup_config(config_profile)
+    logger: logging.Logger = logging.getLogger("ouranos.chat_bot")
     # Init database
     logger.info("Initializing database")
     db.init(config)
@@ -56,7 +50,7 @@ async def run(
     logger.info("Starting the Chat bot")
     chat_bot.start()
     # Run as long as requested
-    from ouranos.core.runner import Runner
+    from ouranos.sdk.runner import Runner
     runner = Runner()
     await asyncio.sleep(0.1)
     runner.add_signal_handler(loop)

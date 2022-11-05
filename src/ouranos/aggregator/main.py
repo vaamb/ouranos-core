@@ -7,9 +7,8 @@ import typing as t
 import click
 import uvicorn
 
-from config import default_profile, get_specified_config
-import default
-from ouranos.core.g import db, set_config_globally
+from ouranos import setup_config
+from ouranos.core.g import db
 from ouranos.core.utils import DispatcherFactory
 
 
@@ -25,7 +24,7 @@ if t.TYPE_CHECKING:
 @click.option(
     "--config-profile",
     type=str,
-    default=default_profile,
+    default=None,
     help="Configuration profile to use as defined in config.py.",
     show_default=True,
 )
@@ -42,18 +41,11 @@ def main(
 async def run(
         config_profile: str | None = None,
 ) -> None:
-    # Check config
-    config = get_specified_config(config_profile)
-    app_name = config["APP_NAME"].lower()
     from setproctitle import setproctitle
-    setproctitle(f"{app_name}-aggregator")
-    config["START_API"] = False
-    set_config_globally(config)
-    # Configure logger
-    from ouranos.core.g import config
-    from ouranos.core.utils import configure_logging
-    configure_logging(config)
-    logger: logging.Logger = logging.getLogger(config["APP_NAME"].lower())
+    setproctitle("ouranos-aggregator")
+    # Setup config
+    config = setup_config(config_profile, START_API=False)
+    logger: logging.Logger = logging.getLogger("ouranos.aggregator")
     # Check there is no conflict on port used
     if config.get("API_PORT") == config.get("AGGREGATOR_PORT"):
         logger.warning(
@@ -72,7 +64,7 @@ async def run(
     logger.info("Starting the Aggregator")
     aggregator.start()
     # Run as long as requested
-    from ouranos.core.runner import Runner
+    from ouranos.sdk.runner import Runner
     runner = Runner()
     await asyncio.sleep(0.1)
     runner.add_signal_handler(loop)
@@ -131,8 +123,8 @@ class Aggregator:
             host = self.config["API_HOST"]
             port = self.config["AGGREGATOR_PORT"]
             if (
-                    self.config.get("START_API", default.START_API) and
-                    self.config.get("API_PORT") == port
+                    self.config["START_API"] and
+                    self.config["API_PORT"] == port
             ):
                 from ouranos.api.factory import sio
                 sio.register_namespace(self._namespace)

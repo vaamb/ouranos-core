@@ -9,8 +9,8 @@ import pytest
 from sqlalchemy import select
 
 from .utils import user, operator, admin
-from src.app import create_app, db as _db
-from src.core.database.models import Role, User
+from ouranos.api import create_app, db as _db
+from ouranos.core.database.models import Role, User
 from config import TestingConfig
 
 

@@ -80,7 +80,7 @@ class SQLAlchemyWrapper:
 
     def _init_config(self, config_object: type | str | dict) -> None:
         if isinstance(config_object, type):
-            from config import config_dict_from_class
+            from ouranos.core.config import config_dict_from_class
             config = config_dict_from_class(config_object)
         elif isinstance(config_object, str):
             config = {"SQLALCHEMY_DATABASE_URI": config_object}

@@ -5,9 +5,6 @@ import base64
 import dataclasses
 from datetime import date, datetime, time, timezone
 from functools import wraps
-import logging
-import logging.config
-from pathlib import Path
 import socket
 import typing as t
 from typing import Any
@@ -25,7 +22,6 @@ import geopy
 import jwt
 from sqlalchemy.engine import Row
 
-import default
 from ouranos.core.g import base_dir, config as global_config
 
 try:
@@ -127,6 +123,14 @@ class Tokenizer:
             raise RuntimeError(
                 "Either provide a `secret_key` or setup `Tokenizer.secret_key`"
             )
+        elif (
+            not any((global_config["DEVELOPMENT"], global_config["TESTING"]))
+            and secret_key == "secret_key"
+        ):
+            raise RuntimeError(
+                "You need to set the environment variable 'SECRET_KEY' when "
+                "using Ouranos in a production environment."
+            )
         return jwt.encode(payload, secret_key, algorithm=Tokenizer.algorithm)
 
     @staticmethod
@@ -135,6 +139,14 @@ class Tokenizer:
         if not secret_key:
             raise RuntimeError(
                 "Either provide a `secret_key` or setup `Tokenizer.secret_key`"
+            )
+        elif (
+            not any((global_config["DEVELOPMENT"], global_config["TESTING"]))
+            and secret_key == "secret_key"
+        ):
+            raise RuntimeError(
+                "You need to set the environment variable 'SECRET_KEY' when "
+                "using Ouranos in a production environment."
             )
         try:
             payload = jwt.decode(token, secret_key,
@@ -160,7 +172,7 @@ class DispatcherFactory:
                     "Either provide a config dict or set config globally with "
                     "g.set_app_config"
                 )
-            broker_url = config.get("DISPATCHER_URL", default.DISPATCHER_URL)
+            broker_url = config["DISPATCHER_URL"]
             if broker_url.startswith("memory://"):
                 return AsyncBaseDispatcher(name, **kwargs)
             elif broker_url.startswith("redis://"):
@@ -211,113 +223,6 @@ def try_iso_format(time_obj: time | None) -> str | None:
     if time_obj is not None:
         return time_to_datetime(time_obj).isoformat()
     return None
-
-
-def configure_logging(config: dict) -> None:
-    debug = config.get("DEBUG")
-    log_to_stdout = config.get("LOG_TO_STDOUT")
-    log_to_file = config.get("LOG_TO_FILE")
-    log_error = config.get("LOG_ERROR")
-
-    handlers = []
-
-    if log_to_stdout:
-        handlers.append("streamHandler")
-
-    logs_dir_path = config.get("LOG_DIR")
-    if logs_dir_path:
-        try:
-            logs_dir = Path(logs_dir_path)
-        except ValueError:
-            print("Invalid logging path, logging in base dir")
-            logs_dir = base_dir / ".logs"
-    else:
-        logs_dir = base_dir / ".logs"
-
-    if any((log_to_file, log_error)):
-        if not logs_dir.exists():
-            logs_dir.mkdir()
-        if log_to_file:
-            handlers.append("fileHandler")
-        if log_error:
-            handlers.append("errorFileHandler")
-
-    logging_config = {
-        "version": 1,
-        "disable_existing_loggers": True,
-
-        "formatters": {
-            "streamFormat": {
-                "format": "%(asctime)s %(levelname)-4.4s [%(filename)-20.20s:%(lineno)3d] %(name)-35.35s: %(message)s",
-                "datefmt": "%Y-%m-%d %H:%M:%S"
-            },
-            "fileFormat": {
-                "format": "%(asctime)s -- %(levelname)s  -- %(name)s -- %(message)s",
-                "datefmt": "%Y-%m-%d %H:%M:%S"
-            },
-        },
-        "handlers": {
-            "streamHandler": {
-                "level": f"{'DEBUG' if debug else 'INFO'}",
-                "formatter": "streamFormat",
-                "class": "logging.StreamHandler",
-            },
-            "fileHandler": {
-                "level": f"{'DEBUG' if debug else 'INFO'}",
-                "formatter": "fileFormat",
-                "class": "logging.handlers.RotatingFileHandler",
-                "filename": f"{logs_dir/'base.log'}",
-                "mode": "a",
-                "maxBytes": 1024 * 512,
-                "backupCount": 5,
-            },
-            "errorFileHandler": {
-                "level": "ERROR",
-                "formatter": "fileFormat",
-                "class": "logging.FileHandler",
-                "filename": f"{logs_dir/'errors.log'}",
-                "mode": "a",
-            }
-        },
-        "loggers": {
-            "": {
-                "handlers": handlers,
-                "level": f"{'DEBUG' if debug else 'INFO'}"
-            },
-            "aiosqlite": {
-                "handlers": handlers,
-                "level": "WARNING",
-                "propagate": False,
-            },
-            "apscheduler": {
-                "handlers": handlers,
-                "level": f"{'DEBUG' if debug else 'WARNING'}",
-                "propagate": False,
-            },
-            "urllib3": {
-                "handlers": handlers,
-                "level": "WARNING",
-                "propagate": False,
-            },
-            "engineio": {
-                "handlers": handlers,
-                "level": f"{'DEBUG' if debug else 'WARNING'}",
-                #"propagate": False,
-            },
-            "socketio": {
-                "handlers": handlers,
-                "level": f"{'DEBUG' if debug else 'WARNING'}",
-                #"propagate": False,
-
-            },
-            "uvicorn": {
-                "handlers": handlers,
-                "level": f"{'DEBUG' if debug else 'WARNING'}",
-                # "propagate": False,
-            },
-        },
-    }
-    logging.config.dictConfig(logging_config)
 
 
 def decrypt_uid(encrypted_uid: str, secret_key: str = None) -> str:
@@ -398,3 +303,17 @@ def stripped_warning(msg):
     warnings.formatwarning = custom_format_warning
     warnings.warn(msg)
     warnings.formatwarning = format_warning
+
+
+def check_secret_key(config: dict) -> None:
+    if any((config["DEVELOPMENT"], config["TESTING"])):
+        stripped_warning(
+            "You are currently running Ouranos in development and/or testing mode"
+        )
+    else:
+        for secret in ("SECRET_KEY", "CONNECTION_KEY"):
+            if config.get(secret) == "secret_key":
+                raise RuntimeError(
+                    f"You need to set the environment variable '{secret}' when "
+                    f"using Ouranos in a production environment."
+                )

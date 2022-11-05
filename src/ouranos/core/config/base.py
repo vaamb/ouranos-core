@@ -1,0 +1,78 @@
+import os
+
+
+class BaseConfig:
+    DEBUG = False
+    DEVELOPMENT = False
+    TESTING = False
+
+    DIR = os.environ.get("OURANOS_DIR") or os.getcwd()
+    LOG_DIR = os.environ.get("OURANOS_LOG_DIR") or os.path.join(DIR, ".logs")
+    CACHE_DIR = os.environ.get("OURANOS_CACHE_DIR") or os.path.join(DIR, ".cache")
+
+    SECRET_KEY = os.environ.get("OURANOS_SECRET_KEY") or "secret_key"
+    CONNECTION_KEY = os.environ.get("OURANOS_CONNECTION_KEY") or SECRET_KEY
+
+    # Logging config
+    LOG_TO_STDOUT = True
+    LOG_TO_FILE = True
+    LOG_ERROR = True
+
+    # Brokers config
+    GAIA_COMMUNICATION_URL = os.environ.get("GAIA_COMMUNICATION_URL") or "amqp://"  # "socketio://"
+    DISPATCHER_URL = os.environ.get("OURANOS_DISPATCHER_URL") or "amqp://"
+    SIO_MANAGER_URL = os.environ.get("OURANOS_SIO_MANAGER_URL") or "memory://"
+    # CACHE_URL = os.environ.get("OURANOS_CACHE_URL") or "memory://"
+
+    # Services
+    START_API = os.environ.get("OURANOS_START_API", True)
+    API_HOST = os.environ.get("OURANOS_API_HOST", "127.0.0.1")
+    API_PORT = os.environ.get("OURANOS_API_PORT", 5000)
+    API_WORKERS = os.environ.get("OURANOS_API_WORKERS", 1)
+    SERVER_RELOAD = False
+    START_AGGREGATOR = os.environ.get("OURANOS_START_AGGREGATOR", True)
+    AGGREGATOR_PORT = os.environ.get("OURANOS_AGGREGATOR_PORT", API_PORT)
+
+    # Ouranos and Gaia config
+    ADMINS = os.environ.get("OURANOS_ADMINS")
+    RECAP_SENDING_HOUR = 4
+    MAX_ECOSYSTEMS = 32
+    WEATHER_UPDATE_PERIOD = 5  # in min
+    ECOSYSTEM_TIMEOUT = 150  # in sec
+
+    # Data logging
+    SYSTEM_LOGGING_PERIOD = 10
+    SENSORS_LOGGING_PERIOD = 10
+
+    # SQLAlchemy config
+    SQLALCHEMY_DATABASE_URI = (
+            os.environ.get("OURANOS_DATABASE_URI") or
+            "sqlite+aiosqlite:///" + os.path.join(DIR, "db_ecosystems.db")
+    )
+    SQLALCHEMY_BINDS = {
+        "app": (os.environ.get("OURANOS_APP_DATABASE_URI") or
+                "sqlite+aiosqlite:///" + os.path.join(DIR, "db_app.db")),
+        "system": (os.environ.get("OURANOS_SYSTEM_DATABASE_URI") or
+                   "sqlite+aiosqlite:///" + os.path.join(DIR, "db_system.db")),
+        "archive": (os.environ.get("OURANOS_ARCHIVE_DATABASE_URI") or
+                    "sqlite+aiosqlite:///" + os.path.join(DIR, "db_archive.db"))
+    }
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_RECORD_QUERIES = True
+    SLOW_DB_QUERY_TIME = 0.5
+    SQLALCHEMY_ECHO = False
+
+    # Mail config
+    MAIL_SERVER = os.environ.get("OURANOS_MAIL_SERVER") or "smtp.gmail.com"
+    MAIL_PORT = int(os.environ.get("OURANOS_MAIL_PORT") or 465)
+    MAIL_USE_TLS = False
+    MAIL_USE_SSL = True
+    MAIL_USERNAME = os.environ.get("OURANOS_MAIL_ADDRESS")
+    MAIL_PASSWORD = os.environ.get("OURANOS_MAIL_PASSWORD")
+    MAIL_SUPPRESS_SEND = False
+
+    # Private parameters
+    HOME_CITY = os.environ.get("HOME_CITY")
+    HOME_COORDINATES = os.environ.get("HOME_COORDINATES")
+    DARKSKY_API_KEY = os.environ.get("DARKSKY_API_KEY")
+    TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")

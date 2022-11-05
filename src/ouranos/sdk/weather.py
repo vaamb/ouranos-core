@@ -5,7 +5,7 @@ import typing as t
 from statistics import mean
 
 from ouranos.core.cache import get_cache
-from ouranos.core.consts import WEATHER_MEASURES
+from ouranos.core.config.consts import WEATHER_MEASURES
 from ouranos.core.utils import parse_sun_times
 
 

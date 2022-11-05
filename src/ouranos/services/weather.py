@@ -7,7 +7,7 @@ import time
 import requests
 
 from ouranos import sdk
-from ouranos.core.consts import WEATHER_MEASURES
+from ouranos.core.config.consts import WEATHER_MEASURES
 from ouranos.core.g import base_dir
 from ouranos.core.utils import is_connected
 from ouranos.services.template import ServiceTemplate

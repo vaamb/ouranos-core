@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ouranos.sdk.exceptions import NoEcosystemFound
 from ouranos.sdk.utils import time_limits, timeWindow, create_time_window
 from ouranos.core.cache import get_cache
-from ouranos.core.consts import (
+from ouranos.core.config.consts import (
     HARDWARE_AVAILABLE, HARDWARE_LEVELS, HARDWARE_TYPES
 )
 from ouranos.core import typing as ot

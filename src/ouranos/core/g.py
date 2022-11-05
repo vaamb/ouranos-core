@@ -2,33 +2,42 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from apscheduler.schedulers import (
+    SchedulerAlreadyRunningError, SchedulerNotRunningError
+)
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-from .consts import ImmutableDict
+from ouranos.core.config import get_base_dir, get_config
+from ouranos.core.config.consts import ImmutableDict
 from .database.wrapper import AsyncSQLAlchemyWrapper
 
 
-base_dir: Path = Path(__file__).absolute().parents[2]
-config: ImmutableDict[str, str | int | bool | dict[str, str]] = ImmutableDict()
+base_dir: Path
+config: ImmutableDict[str, str | int | bool | dict[str, str]]
+
+
+class _SchedulerWrapper(AsyncIOScheduler):
+    def start(self, paused=False):
+        try:
+            super().start(paused)
+        except SchedulerAlreadyRunningError:
+            pass
+
+    def shutdown(self, wait=True):
+        try:
+            super().shutdown(wait)
+        except SchedulerNotRunningError:
+            pass
 
 
 db: AsyncSQLAlchemyWrapper = AsyncSQLAlchemyWrapper()
-scheduler: AsyncIOScheduler = AsyncIOScheduler()
+scheduler: AsyncIOScheduler = _SchedulerWrapper()
 
 
-def set_base_dir(path: str | Path) -> None:
-    global base_dir
-    if not isinstance(path, Path):
-        path = Path(path)
-    if path.exists():
-        base_dir = path
+def __getattr__(name):
+    if name == "base_dir":
+        return get_base_dir()
+    elif name == "config":
+        return get_config()
     else:
-        path.mkdir(parents=False)
-        base_dir = path
-
-
-def set_config_globally(new_config: dict) -> None:
-    global config
-    config = ImmutableDict(new_config)
-    if config.get("DIR"):
-        set_base_dir(config["DIR"])
+        return globals().get(name)  # TODO: fix issue with __path__

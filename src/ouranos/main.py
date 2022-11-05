@@ -6,77 +6,46 @@ import logging
 
 import click
 
-import default
-from config import default_profile, get_specified_config
-from ouranos.core.g import db, scheduler, set_config_globally
+from ouranos import setup_config
+from ouranos.core.g import db, scheduler
 
 
 @click.command(context_settings={"auto_envvar_prefix": "OURANOS"})
 @click.option(
     "--config-profile",
     type=str,
-    default=default_profile,
+    default=None,
     help="Configuration profile to use as defined in config.py.",
     show_default=True,
 )
-@click.option(
-    "--start-api",
-    type=bool,
-    is_flag=True,
-    default=None,
-    help="Start FastAPI server.",
-    show_default=True,
-)
-@click.option(
-    "--api-workers",
-    type=int,
-    default=None,
-    help="Number of FastAPI workers to start using uvicorn",
-    show_default=True,
-)
 def main(
-        config_profile: str,
-        start_api: bool,
-        api_workers: int,
+        config_profile: str
 ):
     asyncio.run(
         run(
             config_profile,
-            start_api,
-            api_workers
         )
     )
 
 
 async def run(
-        config_profile: str,
-        start_api: bool,
-        api_workers: int,
+        config_profile: str | None = None,
 ) -> None:
     from setproctitle import setproctitle
     setproctitle("ouranos")
-    # Get the required config
-    config = get_specified_config(config_profile)
-    # Overwrite config parameters if given in command line
-    config["START_API"] = start_api or config.get("START_API", default.START_API)
-    config["API_WORKERS"] = api_workers or config.get("API_WORKERS", default.API_WORKERS)
-    # Make the config available globally
-    set_config_globally(config)
-    from ouranos.core.g import config
-
+    # Setup config
+    config = setup_config(config_profile)
+    logger: logging.Logger = logging.getLogger("ouranos")
     # Configure logger and tokenizer
-    from ouranos.core.utils import configure_logging, Tokenizer
-    configure_logging(config)
-    logger: logging.Logger = logging.getLogger(config["APP_NAME"].lower())
+    from ouranos.core.utils import Tokenizer
     Tokenizer.secret_key = config["SECRET_KEY"]
-
     # Init database
     logger.info("Initializing the database")
     from ouranos.core.database.init import create_base_data
     db.init(config)
     await create_base_data(logger)
 
-    # Init app
+    # Init api
     from ouranos.api import Api
     logger.debug("Creating the Api")
     api = Api(config)
@@ -88,7 +57,6 @@ async def run(
 
     # Init services
     # from ouranos import services
-
     # Start the Monolith
     loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
     logger.debug("Starting the Api")
@@ -97,13 +65,14 @@ async def run(
     aggregator.start()
     logger.debug("Starting the Scheduler")
     scheduler.start()
+
     """
     from ouranos.core.plugin import PluginManager
     plugin_manager = PluginManager()
     plugin_manager.register_plugins()
     """
     # Run as long as requested
-    from ouranos.core.runner import Runner
+    from ouranos.sdk.runner import Runner
     runner = Runner()
     await asyncio.sleep(0.1)
     runner.add_signal_handler(loop)

@@ -11,10 +11,10 @@ from socketio.asgi import ASGIApp
 from socketio.asyncio_server import AsyncServer
 
 from .docs import description, tags_metadata
-import default
 from ouranos.core.g import config as app_config, base_dir
-from ouranos.core.utils import DispatcherFactory, stripped_warning
-
+from ouranos.core.utils import (
+    check_secret_key, DispatcherFactory, stripped_warning
+)
 
 try:
     import orjson
@@ -36,7 +36,7 @@ def create_sio_manager(config: dict | None = None):
             "Either provide a config dict or set config globally with "
             "g.set_app_config"
         )
-    sio_manager_url = config.get("SIO_MANAGER_URL", default.SIO_MANAGER_URL)
+    sio_manager_url = config["SIO_MANAGER_URL"]
     if sio_manager_url.startswith("memory://"):
         from socketio import AsyncManager
         return AsyncManager()
@@ -77,19 +77,7 @@ def create_app(config: dict | None = None) -> FastAPI:
             "Either provide a config dict or set config globally with "
             "g.set_app_config"
         )
-
-    if any((config.get("DEBUG"), config.get("TESTING"))):
-        stripped_warning(
-            "You are currently running Ouranos in debug and/or testing mode"
-        )
-    else:
-        for secret in ("SECRET_KEY", "CONNECTION_KEY"):
-            if config.get(secret) == "secret_key":
-                raise Exception(
-                    f"You need to set the environment variable '{secret}' when "
-                    f"using Ouranos in a production environment."
-                )
-
+    check_secret_key(config)
     logger_name = config['APP_NAME'].lower()
     logger = logging.getLogger(f"{logger_name}.app")
     logger.info(f"Creating {config['APP_NAME']} app ...")
