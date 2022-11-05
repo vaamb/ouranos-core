@@ -1,8 +1,12 @@
+from __future__ import annotations
+
 import importlib
 from importlib_metadata import entry_points
 import typing as t
+from typing import Iterator
 
 from click import Group
+from fastapi import APIRouter, FastAPI
 
 
 if t.TYPE_CHECKING:
@@ -19,15 +23,22 @@ class PluginManager:
             cls.__instance = self
         return cls.__instance
 
-    def register_plugins(self, cli_group: Group):
+    def iter_plugins(self) -> Iterator["Plugin"]:
         for entry_point in entry_points(group=self.entry_point):
             pkg_name = entry_point.name
             pkg = importlib.import_module(pkg_name)
             try:
                 plugin: "Plugin" = pkg.plugin
-            except AttributeError as e:
+                yield plugin
+            except AttributeError:
                 raise AttributeError(
                     f"Plugin `{pkg_name}` has no `plugin` defined"
                 )
-            else:
-                plugin.register_command(cli_group)
+
+    def register_commands(self, cli_group: Group) -> None:
+        for plugin in self.iter_plugins():
+            plugin.register_commands(cli_group)
+
+    def register_endpoints(self, router: APIRouter | FastAPI) -> None:
+        for plugin in self.iter_plugins():
+            plugin.register_endpoints(router)
