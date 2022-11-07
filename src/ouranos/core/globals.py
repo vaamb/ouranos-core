@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pathlib import Path
+from inspect import isfunction
 
 from apscheduler.schedulers import (
     SchedulerAlreadyRunningError, SchedulerNotRunningError
@@ -8,12 +8,15 @@ from apscheduler.schedulers import (
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from ouranos.core.config import get_base_dir, get_config
-from ouranos.core.config.consts import ImmutableDict
 from .database.wrapper import AsyncSQLAlchemyWrapper
 
 
-base_dir: Path
-config: ImmutableDict[str, str | int | bool | dict[str, str]]
+class _DynamicVar:
+    def __getattribute__(self, item: str):
+        attr = object.__getattribute__(self, item)
+        if isfunction(attr):
+            return attr()
+        return attr
 
 
 class _SchedulerWrapper(AsyncIOScheduler):
@@ -30,14 +33,9 @@ class _SchedulerWrapper(AsyncIOScheduler):
             pass
 
 
+current_app = _DynamicVar()
+current_app.base_dir = get_base_dir
+current_app.config = get_config
+
 db: AsyncSQLAlchemyWrapper = AsyncSQLAlchemyWrapper()
 scheduler: AsyncIOScheduler = _SchedulerWrapper()
-
-
-def __getattr__(name):
-    if name == "base_dir":
-        return get_base_dir()
-    elif name == "config":
-        return get_config()
-    else:
-        return globals().get(name)  # TODO: fix issue with __path__

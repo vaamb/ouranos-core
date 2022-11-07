@@ -22,7 +22,7 @@ _config: config_type | None = None
 _base_dir: Path | None = None
 
 
-def get_config() -> config_type:
+def get_config() -> ImmutableDict[str, str | int | bool | dict[str, str]]:
     global _config
     if _config is not None:
         return _config

@@ -6,7 +6,7 @@ import logging
 from cachetools import Cache, TTLCache
 
 from .redis_cache import RedisCache, RedisTTLCache
-from .g import config as global_config
+from ouranos import current_app
 
 try:
     import redis
@@ -20,7 +20,7 @@ CACHE_WEATHER_DATA: bool = False
 CACHING_SERVER_URL: str = ""
 
 _CACHE_TTL_INFO: dict[str, int] = {
-    "sensors_data": global_config.get("ECOSYSTEM_TIMEOUT", 150),
+    "sensors_data": current_app.config["ECOSYSTEM_TIMEOUT"],
     "system_data": 90,
     "weather_data": 0,
     "sun_times_data": 0,
@@ -70,7 +70,7 @@ def get_cache(
         cache_name: str,
         config: dict | None = None,
 ) -> MutableMapping:
-    config = config or global_config
+    config = config or current_app.config
     if not config:
         raise RuntimeError(
             "Either provide a config dict or set config globally with "

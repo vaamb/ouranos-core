@@ -11,8 +11,7 @@ import cachetools
 from dispatcher import AsyncDispatcher
 
 from .decorators import dispatch_to_application, registration_required
-from ouranos import sdk
-from ouranos.core.g import config, db
+from ouranos import current_app, db, sdk
 from ouranos.core.utils import decrypt_uid, validate_uid_token
 
 
@@ -30,7 +29,7 @@ class Events:
         super().__init__(*args, **kwargs)
         self._background_task_started: bool = False
         self.engines_blacklist = cachetools.TTLCache(maxsize=62, ttl=60 * 60 * 24)
-        app_name = config['APP_NAME'].lower()
+        app_name = current_app.config['APP_NAME'].lower()
         self.collector_logger = logging.getLogger(f"{app_name}.collector")
         self.broker_logger = logging.getLogger(f"{app_name}.broker")
         self._dispatcher: AsyncDispatcher | None = None
@@ -84,7 +83,7 @@ class Events:
             async with self.session(sid, namespace="/gaia") as session:
                 remote_addr = session["REMOTE_ADDR"] = environ["REMOTE_ADDR"]
                 attempts = self.engines_blacklist.get(remote_addr, 0)
-                max_attempts: int = config.get("GAIA_CLIENT_MAX_ATTEMPT", 2)
+                max_attempts: int = current_app.config.get("GAIA_CLIENT_MAX_ATTEMPT", 2)
                 if attempts == max_attempts:
                     self.broker_logger.warning(
                         f"Received {max_attempts} invalid registration requests "
@@ -361,7 +360,7 @@ class Events:
                 if not dt_str:
                     continue
                 dt = datetime.fromisoformat(dt_str)
-                if dt.minute % config["SENSORS_LOGGING_PERIOD"] == 0:
+                if dt.minute % current_app.config["SENSORS_LOGGING_PERIOD"] == 0:
                     self.collector_logger.debug(
                         f"Logging sensors data from ecosystem: "
                         f"{ecosystem['ecosystem_uid']}"

@@ -8,8 +8,7 @@ from telegram.ext import (
     filters, MessageHandler, ApplicationBuilder, CommandHandler
 )
 
-from ouranos import setup_config
-from ouranos.core.g import db
+from ouranos import db, setup_config
 
 
 @click.command()
@@ -64,8 +63,8 @@ class ChatBot:
             self,
             config: dict | None = None,
     ):
-        from ouranos.core.g import config as global_config
-        self.config = config or global_config
+        from ouranos import current_app
+        self.config = config or current_app.config
         if not self.config:
             raise RuntimeError(
                 "Either provide a config dict or set config globally with "

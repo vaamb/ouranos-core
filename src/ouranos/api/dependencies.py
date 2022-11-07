@@ -3,8 +3,7 @@ import typing as t
 from fastapi import HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ouranos import sdk
-from ouranos.core.g import db
+from ouranos import db, sdk
 
 
 async def get_session() -> AsyncSession:

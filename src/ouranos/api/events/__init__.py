@@ -7,12 +7,11 @@ from socketio import AsyncNamespace
 
 from .decorators import permission_required
 from ouranos.api.factory import sio_manager
-from ouranos import sdk
-from ouranos.core.g import config, db
+from ouranos import current_app, db, sdk
 
 
 # TODO: change name
-sio_logger = logging.getLogger(f"{config['APP_NAME'].lower()}.socketio")
+sio_logger = logging.getLogger(f"{current_app.config['APP_NAME'].lower()}.socketio")
 
 
 class ClientEvents(AsyncNamespace):

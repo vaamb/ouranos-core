@@ -3,7 +3,7 @@ from logging import Logger
 from ouranos.core.database.models import (
         CommunicationChannel, Measure, Role, User
     )
-from ouranos.core.g import db
+from ouranos import db
 
 
 async def create_base_data(logger: Logger):

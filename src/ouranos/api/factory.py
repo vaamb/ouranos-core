@@ -11,7 +11,7 @@ from socketio.asgi import ASGIApp
 from socketio.asyncio_server import AsyncServer
 
 from .docs import description, tags_metadata
-from ouranos.core.g import config as app_config, base_dir
+from ouranos import current_app
 from ouranos.core.utils import (
     check_secret_key, DispatcherFactory, stripped_warning
 )
@@ -30,7 +30,7 @@ else:
 
 
 def create_sio_manager(config: dict | None = None):
-    config = config or app_config
+    config = config or current_app.config
     if not config:
         raise RuntimeError(
             "Either provide a config dict or set config globally with "
@@ -71,7 +71,7 @@ asgi_app = ASGIApp(sio)
 
 
 def create_app(config: dict | None = None) -> FastAPI:
-    config = config or app_config
+    config = config or current_app.config
     if not config:
         raise RuntimeError(
             "Either provide a config dict or set config globally with "
@@ -178,7 +178,7 @@ def create_app(config: dict | None = None) -> FastAPI:
     dispatcher.register_event_handler(event_handler)
 
     # Load the frontend if present
-    frontend_static_dir = base_dir/"frontend/dist"
+    frontend_static_dir = current_app.base_dir/"frontend/dist"
     frontend_index = frontend_static_dir/"index.html"
     if frontend_index.exists():
         logger.debug("Ouranos frontend detected, mounting it")

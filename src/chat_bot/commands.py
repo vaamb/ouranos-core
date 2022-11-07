@@ -5,8 +5,7 @@ from telegram.ext import CallbackContext
 
 from src.chat_bot.auth import activate_user, get_current_user
 from src.chat_bot.decorators import activation_required
-from ouranos import sdk
-from ouranos.core.g import db
+from ouranos import db, sdk
 from ouranos.core.utils import Tokenizer, ExpiredTokenError, InvalidToken
 
 

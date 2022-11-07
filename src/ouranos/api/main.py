@@ -8,8 +8,7 @@ import click
 import uvicorn
 from uvicorn.loops.auto import auto_loop_setup
 
-from ouranos import setup_config
-from ouranos.core.g import db
+from ouranos import db, setup_config
 
 
 @click.command()
@@ -67,8 +66,8 @@ class Api:
             self,
             config: dict | None = None,
     ) -> None:
-        from ouranos.core.g import config as global_config
-        self.config = config or global_config
+        from ouranos import current_app
+        self.config = config or current_app.config
         if not self.config:
             raise RuntimeError(
                 "Either provide a config dict or set config globally with "

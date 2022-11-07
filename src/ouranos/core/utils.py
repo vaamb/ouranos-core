@@ -22,7 +22,7 @@ import geopy
 import jwt
 from sqlalchemy.engine import Row
 
-from ouranos.core.g import base_dir, config as global_config
+from ouranos import current_app
 
 try:
     import orjson
@@ -114,7 +114,7 @@ class InvalidTokenError(Exception):
 
 class Tokenizer:
     algorithm = "HS256"
-    secret_key: str | None = global_config.get("SECRET_KEY", None)
+    secret_key: str | None = current_app.config["SECRET_KEY"]
 
     @staticmethod
     def dumps(payload: dict, secret_key: str | None = None) -> str:
@@ -124,7 +124,7 @@ class Tokenizer:
                 "Either provide a `secret_key` or setup `Tokenizer.secret_key`"
             )
         elif (
-            not any((global_config["DEVELOPMENT"], global_config["TESTING"]))
+            not any((current_app.config["DEVELOPMENT"], current_app.config["TESTING"]))
             and secret_key == "secret_key"
         ):
             raise RuntimeError(
@@ -141,7 +141,7 @@ class Tokenizer:
                 "Either provide a `secret_key` or setup `Tokenizer.secret_key`"
             )
         elif (
-            not any((global_config["DEVELOPMENT"], global_config["TESTING"]))
+            not any((current_app.config["DEVELOPMENT"], current_app.config["TESTING"]))
             and secret_key == "secret_key"
         ):
             raise RuntimeError(
@@ -166,7 +166,7 @@ class DispatcherFactory:
         try:
             return cls.__dispatchers[name]
         except KeyError:
-            config = config or global_config
+            config = config or current_app.config
             if not config:
                 raise RuntimeError(
                     "Either provide a config dict or set config globally with "
@@ -226,7 +226,7 @@ def try_iso_format(time_obj: time | None) -> str | None:
 
 
 def decrypt_uid(encrypted_uid: str, secret_key: str = None) -> str:
-    secret_key = secret_key or global_config.get("OURANOS_CONNECTION_KEY", None)
+    secret_key = secret_key or current_app.config["OURANOS_CONNECTION_KEY"]
     if not secret_key:
         raise RuntimeError(
             "Either provide a `secret_key` or setup `CONNECTION_KEY` in config "

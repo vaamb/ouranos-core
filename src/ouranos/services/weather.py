@@ -6,9 +6,8 @@ import time
 
 import requests
 
-from ouranos import sdk
+from ouranos import globals, sdk
 from ouranos.core.config.consts import WEATHER_MEASURES
-from ouranos.core.g import base_dir
 from ouranos.core.utils import is_connected
 from ouranos.services.template import ServiceTemplate
 from ouranos.services.shared_resources import scheduler
@@ -127,7 +126,7 @@ class Weather(ServiceTemplate):
         return False
 
     def _start(self) -> None:
-        cache_dir = base_dir / "cache"
+        cache_dir = g.base_dir / "cache"
         if not cache_dir.exists():
             os.mkdir(cache_dir)
         self._file_path = cache_dir / "weather.json"

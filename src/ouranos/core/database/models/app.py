@@ -11,7 +11,7 @@ from sqlalchemy import orm, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .common import BaseWarning
-from ouranos.core.g import config, db
+from ouranos import current_app, db
 from ouranos.core.database._base import ArchiveLink
 from ouranos.core.utils import ExpiredTokenError, InvalidTokenError, Tokenizer
 
@@ -185,7 +185,7 @@ class User(base, UserMixin):
     async def create(cls, session: AsyncSession, **kwargs):
         user = User(**kwargs)
         if user.role is None:
-            admins: str | list = config.get("ADMINS", [])
+            admins: str | list = current_app.config.get("ADMINS", [])
             if isinstance(admins, str):
                 admins = admins.split(",")
             if user.email in admins:
@@ -245,7 +245,7 @@ class User(base, UserMixin):
     @staticmethod
     def load_from_token(token: str, token_use: str):
         try:
-            payload = Tokenizer.loads(token, config["SECRET_KEY"])
+            payload = Tokenizer.loads(token, g.config["SECRET_KEY"])
         except (ExpiredTokenError, InvalidTokenError):
             return None
         if payload.get("use") != token_use:

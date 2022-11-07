@@ -1,6 +1,6 @@
 import sqlalchemy as sa
 
-from ouranos.core.g import db
+from ouranos import db
 
 
 base = db.Model

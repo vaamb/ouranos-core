@@ -1,8 +1,7 @@
 from fastapi import APIRouter, Depends, Query
 
 from ouranos.api.dependencies import get_session
-from ouranos import sdk
-from ouranos.core.g import config
+from ouranos import current_app, sdk
 
 
 router = APIRouter(
@@ -14,15 +13,15 @@ router = APIRouter(
 
 @router.get("/version")
 async def get_version():
-    return config.get("VERSION")
+    return current_app.config["VERSION"]
 
 
 @router.get("/logging_period")
 async def get_logging_config():
     return {
-        "weather": config.get("WEATHER_UPDATE_PERIOD", None),
-        "system": config.get("SYSTEM_LOGGING_PERIOD", None),
-        "sensors": config.get("SENSORS_LOGGING_PERIOD", None),
+        "weather": current_app.config.get("WEATHER_UPDATE_PERIOD", None),
+        "system": current_app.config.get("SYSTEM_LOGGING_PERIOD", None),
+        "sensors": current_app.config.get("SENSORS_LOGGING_PERIOD", None),
     }
 
 

@@ -6,8 +6,7 @@ import logging
 
 import click
 
-from ouranos import setup_config
-from ouranos.core.g import db, scheduler
+from ouranos import db, scheduler, setup_config
 
 
 @click.command(context_settings={"auto_envvar_prefix": "OURANOS"})

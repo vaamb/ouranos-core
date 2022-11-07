@@ -9,8 +9,8 @@ from sqlalchemy.schema import Table
 from .common import (
     BaseActuatorHistory, BaseHealth, BaseSensorHistory, BaseWarning
 )
+from ouranos import db
 from ouranos.core.database._base import ArchiveLink
-from ouranos.core.g import db
 from ouranos.core.utils import time_to_datetime
 
 

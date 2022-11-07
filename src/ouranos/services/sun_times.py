@@ -3,8 +3,7 @@ import json
 import os
 
 import requests
-from ouranos import sdk
-from ouranos.core.g import base_dir
+from ouranos import globals, sdk
 from ouranos.core.utils import is_connected, parse_sun_times
 from ouranos.services.template import ServiceTemplate
 from ouranos.services.shared_resources import scheduler
@@ -77,7 +76,7 @@ class SunTimes(ServiceTemplate):
         return True
 
     def _start(self):
-        cache_dir = base_dir / "cache"
+        cache_dir = g.base_dir / "cache"
         if not cache_dir.exists():
             os.mkdir(cache_dir)
         self._file_path = cache_dir / "sun_times.json"
