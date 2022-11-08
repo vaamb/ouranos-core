@@ -125,7 +125,7 @@ class Aggregator:
                     self.config["START_API"] and
                     self.config["API_PORT"] == port
             ):
-                from ouranos.api.factory import sio
+                from ouranos.web_server.factory import sio
                 sio.register_namespace(self._namespace)
                 self._engine = sio
             else:

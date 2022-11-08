@@ -3,8 +3,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import router
 from ouranos import sdk
-from ouranos.api.auth import get_current_user
-from ouranos.api.dependencies import get_session
+from ouranos.web_server.auth import get_current_user
+from ouranos.web_server.dependencies import get_session
 from ouranos.core.pydantic.models.app import PydanticUserMixin
 
 

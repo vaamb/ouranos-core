@@ -3,10 +3,10 @@ from fastapi.security import HTTPBasicCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos import sdk
-from ouranos.api.auth import (
+from ouranos.web_server.auth import (
     Authenticator, basic_auth, get_current_user, login_manager
 )
-from ouranos.api.dependencies import get_session
+from ouranos.web_server.dependencies import get_session
 from ouranos.core.pydantic.models.app import (
     LoginResponse, PydanticLimitedUser, PydanticUserMixin
 )

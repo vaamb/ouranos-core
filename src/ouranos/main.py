@@ -44,10 +44,10 @@ async def run(
     db.init(config)
     await create_base_data(logger)
 
-    # Init api
-    from ouranos.api import Api
+    # Init web_server
+    from ouranos.web_server import WebServer
     logger.debug("Creating the Api")
-    api = Api(config)
+    web_server = WebServer(config)
 
     # Init aggregator
     from ouranos.aggregator import Aggregator
@@ -59,7 +59,7 @@ async def run(
     # Start the Monolith
     loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
     logger.debug("Starting the Api")
-    api.start()
+    web_server.start()
     logger.debug("Starting the Aggregator")
     aggregator.start()
     logger.debug("Starting the Scheduler")
@@ -81,7 +81,7 @@ async def run(
     logger.debug("Stopping the Aggregator")
     aggregator.stop()
     logger.debug("Stopping the Api")
-    api.stop()
+    web_server.stop()
     await runner.exit()
 
 

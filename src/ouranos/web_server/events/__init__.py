@@ -6,7 +6,7 @@ from dispatcher import AsyncDispatcher, AsyncEventHandler
 from socketio import AsyncNamespace
 
 from .decorators import permission_required
-from ouranos.api.factory import sio_manager
+from ouranos.web_server.factory import sio_manager
 from ouranos import current_app, db, sdk
 
 
@@ -47,7 +47,7 @@ class ClientEvents(AsyncNamespace):
         countdown = data.get("countdown", False)
         sio_logger.debug(
             f"Dispatching 'turn_light' signal to ecosystem {ecosystem_uid}")
-        # TODO: use api
+        # TODO: use web_server
         await self.dispatcher.emit(
             event="turn_light",
             data={"ecosystem": ecosystem_uid, "mode": mode, "countdown": countdown},
@@ -65,7 +65,7 @@ class ClientEvents(AsyncNamespace):
         ecosystem_sid = ecosystem.engine.sid
         management = data["management"]
         status = data["status"]
-        # TODO: use api
+        # TODO: use web_server
         await self.dispatcher.emit(
             event="change_management",
             data={

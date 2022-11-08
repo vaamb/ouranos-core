@@ -2,7 +2,7 @@ import typing as t
 
 from fastapi import APIRouter, Query
 
-from ouranos.api.routes.utils import empty_result
+from ouranos.web_server.routes.utils import empty_result
 from ouranos import sdk
 from ouranos.core.pydantic.models.weather import (
     PydanticCurrentWeather, PydanticHourlyWeather, PydanticDailyWeather,

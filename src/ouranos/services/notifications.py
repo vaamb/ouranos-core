@@ -5,7 +5,7 @@ from time import sleep
 import requests
 from sqlalchemy.orm.exc import NoResultFound
 
-from ouranos.api import app_name, scheduler
+from ouranos.web_server import app_name, scheduler
 from ouranos.services.shared_resources import db
 from ouranos.core.database.models import User
 from config import Config

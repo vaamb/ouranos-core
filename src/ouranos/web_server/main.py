@@ -33,10 +33,10 @@ async def run(
         config_profile: str | None = None,
 ) -> None:
     from setproctitle import setproctitle
-    setproctitle("ouranos-api")
+    setproctitle("ouranos-web_server")
     # Setup config
     config = setup_config(config_profile)
-    logger: logging.Logger = logging.getLogger("ouranos.api")
+    logger: logging.Logger = logging.getLogger("ouranos.web_server")
     # Configure tokenizer
     from ouranos.core.utils import Tokenizer
     Tokenizer.secret_key = config["SECRET_KEY"]
@@ -48,20 +48,20 @@ async def run(
     # Start the app
     loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
     logger.debug("Creating the Api")
-    api = Api(config)
+    web_server = WebServer(config)
     logger.info("Starting the Api")
-    api.start()
+    web_server.start()
     # Run as long as requested
     from ouranos.sdk.runner import Runner
     runner = Runner()
     await asyncio.sleep(0.1)
     runner.add_signal_handler(loop)
     await runner.wait_forever()
-    api.stop()
+    web_server.stop()
     await runner.exit()
 
 
-class Api:
+class WebServer:
     def __init__(
             self,
             config: dict | None = None,
@@ -82,7 +82,7 @@ class Api:
         host: str = self.config["API_HOST"]
         port: int = self.config["API_PORT"]
         self.server_cfg = uvicorn.Config(
-            "ouranos.api.factory:create_app", factory=True,
+            "ouranos.web_server.factory:create_app", factory=True,
             host=host, port=port,
             workers=self.config["API_WORKERS"],
             loop="auto",

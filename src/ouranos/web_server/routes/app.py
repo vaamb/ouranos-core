@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 
-from ouranos.api.dependencies import get_session
+from ouranos.web_server.dependencies import get_session
 from ouranos import current_app, sdk
 
 

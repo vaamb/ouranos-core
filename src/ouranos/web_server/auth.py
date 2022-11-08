@@ -8,7 +8,7 @@ from fastapi.security.utils import get_authorization_scheme_param
 import jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ouranos.api.dependencies import get_session
+from ouranos.web_server.dependencies import get_session
 from ouranos import sdk
 from ouranos.core.database.models.app import anonymous_user, Permission, User
 from ouranos.core.utils import Tokenizer

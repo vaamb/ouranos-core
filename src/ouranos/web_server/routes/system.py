@@ -3,8 +3,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .utils import empty_result
 from ouranos import sdk
-from ouranos.api.dependencies import get_session, get_time_window
-from ouranos.api.auth import is_admin
+from ouranos.web_server.dependencies import get_session, get_time_window
+from ouranos.web_server.auth import is_admin
 from ouranos.sdk.utils import timeWindow
 
 

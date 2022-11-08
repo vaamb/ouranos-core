@@ -8,7 +8,7 @@ def test_register_new_user(event_loop, client, db):
     )
 
     rv = client.post(
-        url="api/auth/register",
+        url="web_server/auth/register",
         params={"invitation_token": invitation_token},
         data={
             "firstname": "John",
@@ -30,7 +30,7 @@ def test_register_new_user(event_loop, client, db):
                      follow_redirects=True)
     assert b"token is invalid" in rv.data
 
-    expired_invitation_token = api.admin.create_invitation_token(
+    expired_invitation_token = web_server.admin.create_invitation_token(
         session=app.extra["db"].session,
         first_name="New_user",
         role_name="default",

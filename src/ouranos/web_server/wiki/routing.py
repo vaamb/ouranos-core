@@ -4,8 +4,8 @@ from flask import abort, Blueprint, current_app, render_template, \
     send_from_directory
 from flask_login import current_user
 
-from ouranos.api import app_path
-from ouranos.api.wiki import ArticleNotAvailable, WIKI_STATIC_URL
+from ouranos.web_server import app_path
+from ouranos.web_server.wiki import ArticleNotAvailable, WIKI_STATIC_URL
 
 
 TEMPLATE_PATH = "main/wiki.html"

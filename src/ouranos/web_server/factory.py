@@ -87,8 +87,8 @@ def create_app(config: dict | None = None) -> FastAPI:
         version=config.get("VERSION"),
         description=description,
         openapi_tags=tags_metadata,
-        docs_url="/api/docs",
-        redoc_url="/api/redoc",
+        docs_url="/web_server/docs",
+        redoc_url="/web_server/redoc",
         default_response_class=JSONResponse,
     )
 
@@ -124,8 +124,8 @@ def create_app(config: dict | None = None) -> FastAPI:
         dispatcher.start()
         scheduler.start()
 
-    # Add a router with "/api" path prefixed to it
-    prefix = APIRouter(prefix="/api")
+    # Add a router with "/web_server" path prefixed to it
+    prefix = APIRouter(prefix="/web_server")
 
     # Load routes onto prefixed router
     logger.debug("Loading app-related routes")
@@ -170,7 +170,7 @@ def create_app(config: dict | None = None) -> FastAPI:
     app.mount(path="/", app=asgi_app)
 
     logger.debug("Loading client events")
-    from ouranos.api.events import ClientEvents, DispatcherEvents
+    from ouranos.web_server.events import ClientEvents, DispatcherEvents
     namespace = ClientEvents("/")
     namespace.dispatcher = dispatcher
     sio.register_namespace(namespace)

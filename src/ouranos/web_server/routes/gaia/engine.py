@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import router
 from ..utils import assert_single_uid
-from ouranos.api.dependencies import get_session
+from ouranos.web_server.dependencies import get_session
 from ouranos import sdk
 
 if t.TYPE_CHECKING:
