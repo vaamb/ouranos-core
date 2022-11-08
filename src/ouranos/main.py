@@ -18,7 +18,7 @@ from ouranos import db, scheduler, setup_config
     show_default=True,
 )
 def main(
-        config_profile: str
+        config_profile: str | None,
 ):
     asyncio.run(
         run(

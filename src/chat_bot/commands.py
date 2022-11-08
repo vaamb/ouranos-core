@@ -115,7 +115,7 @@ def on_weather(self, update, context) -> None:
     else:
         forecast = False
     update.message.reply_text(
-        api.messages.weather(forecast=forecast)
+        web_server.messages.weather(forecast=forecast)
     )
 
 def on_sensors_recap(self, update, context):
@@ -133,7 +133,7 @@ def on_sensors_recap(self, update, context):
         args.remove(to_remove)
     ecosystems = args
     with db.scoped_session() as session:
-        message = api.messages.recap_sensors_info(
+        message = web_server.messages.recap_sensors_info(
             *ecosystems, session=session, days_ago=days)
     update.message.reply_text(message)
 
@@ -161,12 +161,12 @@ def on_turn_lights(self, update, context) -> None:
             else:
                 countdown = 0
             with db.scoped_session() as session:
-                ecosystem_qo = api.ecosystem.get_multiple(
+                ecosystem_qo = web_server.ecosystem.get_multiple(
                     session=session, ecosystems=(ecosystem, ))
-                lights = api.ecosystem.get_light_info(ecosystem_qo)
+                lights = web_server.ecosystem.get_light_info(ecosystem_qo)
                 if lights:
                     try:
-                        ecosystem_id = api.ecosystem.get_ids(
+                        ecosystem_id = web_server.ecosystem.get_ids(
                             session=session, ecosystem=ecosystem).uid
                     except ValueError:
                         update.message.reply_text(

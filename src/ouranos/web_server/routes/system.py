@@ -5,7 +5,7 @@ from .utils import empty_result
 from ouranos import sdk
 from ouranos.web_server.dependencies import get_session, get_time_window
 from ouranos.web_server.auth import is_admin
-from ouranos.sdk.utils import timeWindow
+from ouranos.sdk.api.utils import timeWindow
 
 
 router = APIRouter(

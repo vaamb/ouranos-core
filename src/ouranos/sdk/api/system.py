@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos.core.cache import get_cache
-from ouranos.sdk.utils import timeWindow
+from ouranos.sdk.api.utils import timeWindow
 from ouranos.core.database.models.system import SystemHistory
 
 

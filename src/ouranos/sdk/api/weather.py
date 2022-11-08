@@ -1,8 +1,7 @@
 from collections import Counter
 from datetime import datetime, time, timedelta, timezone
-import typing as t
-
 from statistics import mean
+import typing as t
 
 from ouranos.core.cache import get_cache
 from ouranos.core.config.consts import WEATHER_MEASURES

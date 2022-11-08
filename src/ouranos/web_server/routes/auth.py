@@ -12,7 +12,7 @@ from ouranos.core.pydantic.models.app import (
 )
 from ouranos.core.pydantic.models.common import BaseMsg
 from ouranos.core.utils import ExpiredTokenError, InvalidTokenError, Tokenizer
-from ouranos.sdk.exceptions import DuplicatedEntry
+from ouranos.sdk.api.exceptions import DuplicatedEntry
 
 
 router = APIRouter(

@@ -43,11 +43,11 @@ class SystemMonitor(ServiceTemplate):
                 "start_time": START_TIME,
             }
             with self.mutex:
-                sdk.system.update_current_data(_cache)
+                ouranos.sdk.api.system.update_current_data(_cache)
             self.manager.dispatcher.emit(
                 "application",
                 "current_server_data",
-                data=sdk.system.get_current_data()
+                data=ouranos.sdk.api.system.get_current_data()
             )
             self._stopEvent.wait(SYSTEM_UPDATE_PERIOD)
             if self._stopEvent.is_set():
@@ -56,7 +56,7 @@ class SystemMonitor(ServiceTemplate):
     async def _log_resources_data(self) -> None:
         self.logger.debug("Logging system resources")
         with db.scoped_session() as session:
-            data = sdk.system.get_current_data()
+            data = ouranos.sdk.api.system.get_current_data()
             system_data = {
                 "datetime": data["datetime"],
                 "CPU_used": data["CPU_used"],
@@ -67,7 +67,7 @@ class SystemMonitor(ServiceTemplate):
                 "DISK_used": data["DISK_used"],
                 # TODO: add RAM_process
             }
-            await sdk.system.create_data_record(session, system_data)
+            await ouranos.sdk.api.system.create_data_record(session, system_data)
 
     def _start(self) -> None:
         self._stopEvent.clear()
@@ -80,7 +80,7 @@ class SystemMonitor(ServiceTemplate):
                           misfire_grace_time=1 * 60, id="system_monitoring")
 
     def _stop(self) -> None:
-        sdk.system.clear_current_data()
+        ouranos.sdk.api.system.clear_current_data()
         self._stopEvent.set()
         self._thread.join()
         self._thread = None

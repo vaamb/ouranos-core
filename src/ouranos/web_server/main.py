@@ -20,7 +20,7 @@ from ouranos import db, setup_config
     show_default=True,
 )
 def main(
-        config_profile: str,
+        config_profile: str | None,
 ) -> None:
     asyncio.run(
         run(
