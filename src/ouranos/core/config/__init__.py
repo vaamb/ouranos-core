@@ -9,7 +9,7 @@ from typing import Type
 from .base import BaseConfig, DIR
 from .consts import ImmutableDict
 
-config_profile: BaseConfig | str | None
+profile_type: BaseConfig | str | None
 config_type: ImmutableDict[str, str | int | bool | dict[str, str]]
 
 
@@ -201,7 +201,7 @@ def configure_logging(config: config_type) -> None:
 
 
 def setup(
-        profile: config_profile = None,
+        profile: profile_type = None,
         **params,
 ) -> config_type:
     """

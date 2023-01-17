@@ -9,6 +9,7 @@ import uvicorn
 
 from ouranos import db, setup_config
 from ouranos.core.utils import DispatcherFactory
+from ouranos.sdk.functionality import Functionality
 
 
 if t.TYPE_CHECKING:
@@ -17,6 +18,7 @@ if t.TYPE_CHECKING:
 
     from ouranos.aggregator.dispatcher_communication import GaiaEventsNamespace as dNamespace
     from ouranos.aggregator.socketio_communication import GaiaEventsNamespace as sNamespace
+    from ouranos.core.config import profile_type
 
 
 @click.command()
@@ -40,27 +42,9 @@ def main(
 async def run(
         config_profile: str | None = None,
 ) -> None:
-    from setproctitle import setproctitle
-    setproctitle("ouranos-aggregator")
-    # Setup config
-    config = setup_config(config_profile, START_API=False)
-    logger: logging.Logger = logging.getLogger("ouranos.aggregator")
-    # Check there is no conflict on port used
-    if config.get("API_PORT") == config.get("AGGREGATOR_PORT"):
-        logger.warning(
-            "The Aggregator and the API are using the same port, this will "
-            "lead to errors"
-        )
-    # Init database
-    logger.info("Initializing database")
-    db.init(config)
-    from ouranos.core.database.init import create_base_data
-    await create_base_data(logger)
     # Start the aggregator
     loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-    logger.debug("Creating the Aggregator")
-    aggregator = Aggregator(config)
-    logger.info("Starting the Aggregator")
+    aggregator = Aggregator(config_profile)
     aggregator.start()
     # Run as long as requested
     from ouranos.sdk.runner import Runner
@@ -72,17 +56,17 @@ async def run(
     await runner.exit()
 
 
-class Aggregator:
+class Aggregator(Functionality):
     def __init__(
             self,
-            config: dict | None = None,
+            config_profile: "profile_type" = None,
+            config_override: dict | None = None,
     ) -> None:
-        from ouranos import current_app
-        self.config = config or current_app.config
-        if not self.config:
-            raise RuntimeError(
-                "Either provide a config dict or set config globally with "
-                "g.set_app_config"
+        super().__init__(config_profile, config_override)
+        if self.config.get("API_PORT") == self.config.get("AGGREGATOR_PORT"):
+            self.logger.warning(
+                "The Aggregator and the API are using the same port, this will "
+                "lead to errors"
             )
         self._uri: str = self.config.get("GAIA_COMMUNICATION_URL")
         try:
@@ -113,7 +97,7 @@ class Aggregator:
     def namespace(self) -> "dNamespace" | "sNamespace":
         return self._namespace
 
-    def start(self) -> None:
+    def _start(self) -> None:
         if self._uri.startswith("socketio://"):
             # Create the dispatcher
             dispatcher = DispatcherFactory.get("aggregator")
@@ -168,7 +152,7 @@ class Aggregator:
         else:
             raise RuntimeError
 
-    def stop(self) -> None:
+    def _stop(self) -> None:
         try:
             self.engine.stop()
         except AttributeError:  # Not dispatcher_based

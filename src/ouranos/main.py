@@ -49,7 +49,7 @@ async def run(
     # Init aggregator
     from ouranos.aggregator import Aggregator
     logger.debug("Creating the Aggregator")
-    aggregator = Aggregator(config)
+    aggregator = Aggregator(config_profile)
 
     # Init services
     # from ouranos import services
