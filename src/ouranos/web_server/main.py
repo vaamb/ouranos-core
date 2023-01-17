@@ -37,9 +37,6 @@ async def run(
     # Setup config
     config = setup_config(config_profile)
     logger: logging.Logger = logging.getLogger("ouranos.web_server")
-    # Configure tokenizer
-    from ouranos.core.utils import Tokenizer
-    Tokenizer.secret_key = config["SECRET_KEY"]
     # Init database
     logger.info("Initializing the database")
     db.init(config)

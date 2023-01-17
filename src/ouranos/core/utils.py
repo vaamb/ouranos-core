@@ -114,11 +114,10 @@ class InvalidTokenError(Exception):
 
 class Tokenizer:
     algorithm = "HS256"
-    secret_key: str | None = current_app.config["SECRET_KEY"]
 
     @staticmethod
     def dumps(payload: dict, secret_key: str | None = None) -> str:
-        secret_key = secret_key or Tokenizer.secret_key
+        secret_key = secret_key or current_app.config["SECRET_KEY"]
         if not secret_key:
             raise RuntimeError(
                 "Either provide a `secret_key` or setup `Tokenizer.secret_key`"
@@ -135,7 +134,7 @@ class Tokenizer:
 
     @staticmethod
     def loads(token: str, secret_key: str | None = None) -> dict:
-        secret_key = secret_key or Tokenizer.secret_key
+        secret_key = secret_key or current_app.config["SECRET_KEY"]
         if not secret_key:
             raise RuntimeError(
                 "Either provide a `secret_key` or setup `Tokenizer.secret_key`"
