@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-import importlib
 try:
-    from importlib_metadata import entry_points
-except ImportError:
     from importlib.metadata import entry_points
+except ImportError:
+    from importlib_metadata import entry_points
 import typing as t
 from typing import Iterator
 

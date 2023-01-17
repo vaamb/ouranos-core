@@ -7,14 +7,9 @@ from fastapi import APIRouter, FastAPI
 class Plugin:
     def __init__(
             self,
-            name: str,
-            *,
-            commands: dict[str, Command] = {},
-            endpoints: list[APIRouter] = [],
     ) -> None:
-        self.name = name
-        self.commands = commands
-        self.endpoints = endpoints
+        self.commands: dict[str, Command] = {}
+        self.endpoints: list[APIRouter] = []
 
     def add_command(self, command: dict[str, Command]) -> None:
         self.commands.update(command)

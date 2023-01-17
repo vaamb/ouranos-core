@@ -9,6 +9,7 @@ from typing import Type
 from .base import BaseConfig, DIR
 from .consts import ImmutableDict
 
+config_profile: BaseConfig | str | None
 config_type: ImmutableDict[str, str | int | bool | dict[str, str]]
 
 
@@ -200,7 +201,7 @@ def configure_logging(config: config_type) -> None:
 
 
 def setup(
-        profile: str | None = None,
+        profile: config_profile = None,
         **params,
 ) -> config_type:
     """
@@ -208,7 +209,15 @@ def setup(
     :param params: Parameters to override config
     :return: the config as a dict
     """
-    config_cls = _get_config_class(profile)
+    if isclass(profile):
+        if issubclass(profile, BaseConfig):
+            config_cls: Type = profile
+        else:
+            raise ValueError(
+                "Class-based profile need to be a subclass of `BaseConfig`"
+                )
+    else:
+        config_cls = _get_config_class(profile)
     config = _config_dict_from_class(config_cls)
     config.update(params)
     config.update(app_info)
