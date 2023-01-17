@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import importlib
-from importlib_metadata import entry_points
+try:
+    from importlib_metadata import entry_points
+except ImportError:
+    from importlib.metadata import entry_points
 import typing as t
 from typing import Iterator
 
@@ -25,14 +28,12 @@ class PluginManager:
 
     def iter_plugins(self) -> Iterator["Plugin"]:
         for entry_point in entry_points(group=self.entry_point):
-            pkg_name = entry_point.name
-            pkg = importlib.import_module(pkg_name)
             try:
-                plugin: "Plugin" = pkg.plugin
+                plugin: "Plugin" = entry_point.load()
                 yield plugin
-            except AttributeError:
-                raise AttributeError(
-                    f"Plugin `{pkg_name}` has no `plugin` defined"
+            except ImportError:
+                raise ImportError(
+                    f"Plugin `{entry_point.name}` has no `plugin` defined"
                 )
 
     def register_commands(self, cli_group: Group) -> None:
