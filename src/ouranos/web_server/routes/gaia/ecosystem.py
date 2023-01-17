@@ -10,7 +10,7 @@ from ..utils import assert_single_uid
 from ouranos.web_server.auth import is_operator
 from ouranos.web_server.dependencies import get_session, get_time_window
 from ouranos import sdk
-from ouranos.sdk.utils import timeWindow
+from ouranos.sdk.api.utils import timeWindow
 
 
 if t.TYPE_CHECKING:

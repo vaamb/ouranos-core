@@ -46,7 +46,7 @@ async def run(
 
     # Init web_server
     from ouranos.web_server import WebServer
-    logger.debug("Creating the Api")
+    logger.debug("Creating the Web server")
     web_server = WebServer(config)
 
     # Init aggregator
@@ -58,7 +58,7 @@ async def run(
     # from ouranos import services
     # Start the Monolith
     loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-    logger.debug("Starting the Api")
+    logger.debug("Starting the Web server")
     web_server.start()
     logger.debug("Starting the Aggregator")
     aggregator.start()

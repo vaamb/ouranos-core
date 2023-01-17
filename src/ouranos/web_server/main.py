@@ -47,9 +47,9 @@ async def run(
     await create_base_data(logger)
     # Start the app
     loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-    logger.debug("Creating the Api")
+    logger.debug("Creating the Web server")
     web_server = WebServer(config)
-    logger.info("Starting the Api")
+    logger.info("Starting the Web server")
     web_server.start()
     # Run as long as requested
     from ouranos.sdk.runner import Runner
