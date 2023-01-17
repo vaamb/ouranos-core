@@ -1,6 +1,7 @@
 #!/bin/bash
 
 echo "Installing Ouranos"
+ORIGIN=$PWD
 
 # Create ouranos
 mkdir ouranos; cd ouranos
@@ -14,6 +15,7 @@ mkdir bin; cd bin
 git clone --branch stable https://gitlab.com/gaia/ouranos.git ouranos_core; cd ouranos_core
 pip install -r requirements.txt
 pip install -e .
+deactivate
 
 # Make Ouranos cli and utility scripts easily available
 cp update.sh $OURANOS_DIR/update.sh
@@ -26,4 +28,5 @@ ouranos() {
 
 export -f ouranos
 
+cd $ORIGIN
 echo "Ouranos installed. To run it, either use \`ouranos\` or \`python -m ouranos\` within your venv"
