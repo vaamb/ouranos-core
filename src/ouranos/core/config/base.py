@@ -1,12 +1,14 @@
 import os
 
 
+DIR = os.environ.get("OURANOS_DIR") or os.getcwd()
+
+
 class BaseConfig:
     DEBUG = False
     DEVELOPMENT = False
     TESTING = False
 
-    DIR = os.environ.get("OURANOS_DIR") or os.getcwd()
     LOG_DIR = os.environ.get("OURANOS_LOG_DIR") or os.path.join(DIR, ".logs")
     CACHE_DIR = os.environ.get("OURANOS_CACHE_DIR") or os.path.join(DIR, ".cache")
 
@@ -20,7 +22,7 @@ class BaseConfig:
 
     # Brokers config
     GAIA_COMMUNICATION_URL = os.environ.get("GAIA_COMMUNICATION_URL") or "amqp://"  # "socketio://"
-    DISPATCHER_URL = os.environ.get("OURANOS_DISPATCHER_URL") or "amqp://"
+    DISPATCHER_URL = os.environ.get("OURANOS_DISPATCHER_URL") or "memory://"
     SIO_MANAGER_URL = os.environ.get("OURANOS_SIO_MANAGER_URL") or "memory://"
     # CACHE_URL = os.environ.get("OURANOS_CACHE_URL") or "memory://"
 

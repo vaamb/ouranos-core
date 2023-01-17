@@ -6,7 +6,7 @@ from pathlib import Path
 import sys
 from typing import Type
 
-from .base import BaseConfig
+from .base import BaseConfig, DIR
 from .consts import ImmutableDict
 
 config_type: ImmutableDict[str, str | int | bool | dict[str, str]]
@@ -22,7 +22,7 @@ _config: config_type | None = None
 _base_dir: Path | None = None
 
 
-def get_config() -> ImmutableDict[str, str | int | bool | dict[str, str]]:
+def get_config() -> config_type:
     global _config
     if _config is not None:
         return _config
@@ -45,7 +45,7 @@ def get_base_dir() -> Path:
 def _set_base_dir() -> None:
     global _base_dir
     try:
-        _base_dir = Path(BaseConfig.DIR)
+        _base_dir = Path(DIR)
         if not _base_dir.exists():
             raise ValueError
     except ValueError:
@@ -110,7 +110,7 @@ def configure_logging(config: config_type) -> None:
         logs_dir = Path(logs_dir_path)
     except ValueError:
         print("Invalid logging dir, logging in base dir")
-        base_dir = Path(BaseConfig.DIR)
+        base_dir = Path(DIR)
         logs_dir = base_dir / ".logs"
 
     if any((log_to_file, log_error)):

@@ -11,6 +11,9 @@ class DevelopmentConfig(Config):
 
 class TestingConfig(Config):
     TESTING = True
+
+    DISPATCHER_URL = os.environ.get("OURANOS_DISPATCHER_URL") or "amqp://"
+
     SQLALCHEMY_DATABASE_URI = "sqlite+aiosqlite:///"
     SQLALCHEMY_BINDS = {
         "app": "sqlite+aiosqlite:///",
@@ -24,6 +27,8 @@ class ProductionConfig(Config):
     TESTING = False
 
     LOG_TO_STDOUT = False
+
+    DISPATCHER_URL = os.environ.get("OURANOS_DISPATCHER_URL") or "amqp://"
 
     SQLALCHEMY_DATABASE_URI = os.environ.get("OURANOS_DATABASE_URI")
     SQLALCHEMY_BINDS = {
