@@ -4,15 +4,12 @@ try:
     from importlib.metadata import entry_points
 except ImportError:
     from importlib_metadata import entry_points
-import typing as t
 from typing import Iterator
 
 from click import Group
 from fastapi import APIRouter, FastAPI
 
-
-if t.TYPE_CHECKING:
-    from ouranos.sdk.plugin import Plugin
+from ouranos.sdk.plugin import AddOn, Plugin
 
 
 class PluginManager:
@@ -25,20 +22,40 @@ class PluginManager:
             cls.__instance = self
         return cls.__instance
 
-    def iter_plugins(self) -> Iterator["Plugin"]:
+    def __init__(self):
+        self.excluded: set = set()
+
+    def iter_entry_points(
+            self,
+            omit_excluded: bool = True
+    ) -> Iterator:
         for entry_point in entry_points(group=self.entry_point):
-            try:
-                plugin: "Plugin" = entry_point.load()
-                yield plugin
-            except ImportError:
-                raise ImportError(
-                    f"Plugin `{entry_point.name}` has no `plugin` defined"
-                )
+            if not omit_excluded:
+                yield entry_point
+            else:
+                if entry_point.name not in self.excluded:
+                    yield entry_point
 
-    def register_commands(self, cli_group: Group) -> None:
-        for plugin in self.iter_plugins():
-            plugin.register_commands(cli_group)
+    def register_new_functionalities(
+            self,
+            cli_group: Group,
+            router: APIRouter | FastAPI,
+            omit_excluded: bool = True
+    ) -> None:
+        for entry_point in self.iter_entry_points(omit_excluded):
+            pkg = entry_point.load()
+            if isinstance(pkg, Plugin):
+                self.register_plugin(pkg, cli_group)
+            elif isinstance(pkg, AddOn):
+                self.register_addon(pkg, router)
+            else:
+                # TODO: use warning
+                print(f"{pkg.__class__.__name__} iis not a plugin or an addon")
 
-    def register_endpoints(self, router: APIRouter | FastAPI) -> None:
-        for plugin in self.iter_plugins():
-            plugin.register_endpoints(router)
+    def register_plugin(self, plugin: Plugin, cli_group: Group) -> None:
+        #TODO
+        pass
+
+    def register_addon(self, addon: AddOn, router: APIRouter | FastAPI) -> None:
+        #TODO
+        pass
