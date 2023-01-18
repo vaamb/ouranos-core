@@ -8,6 +8,7 @@ import click
 
 from ouranos import scheduler
 from ouranos.aggregator import Aggregator
+from ouranos.core.cli import RootCommand
 from ouranos.core.plugins import PluginManager
 from ouranos.sdk import Functionality, Runner
 from ouranos.web_server import WebServer
@@ -17,7 +18,11 @@ if t.TYPE_CHECKING:
     from ouranos.core.config import profile_type
 
 
-@click.command(context_settings={"auto_envvar_prefix": "OURANOS"})
+@click.command(
+    cls=RootCommand,
+    invoke_without_command=True,
+    context_settings={"auto_envvar_prefix": "OURANOS"}
+)
 @click.option(
     "--config-profile",
     type=str,
@@ -57,7 +62,7 @@ class Ouranos(Functionality):
             config_profile: "profile_type" = None,
             config_override: dict | None = None,
     ) -> None:
-        super().__init__(config_profile, config_override)
+        super().__init__(config_profile, config_override, root=True)
         # Init web server
         self.web_server = WebServer(self.config)
         # Init aggregator

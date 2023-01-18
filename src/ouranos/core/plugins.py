@@ -6,7 +6,6 @@ except ImportError:
     from importlib_metadata import entry_points
 from typing import Iterator
 
-from click import Group
 from fastapi import APIRouter, FastAPI
 
 from ouranos.sdk.plugin import AddOn, Plugin
@@ -23,6 +22,7 @@ class PluginManager:
         return cls.__instance
 
     def __init__(self):
+        self.plugins: dict[str, Plugin] = {}
         self.excluded: set = set()
 
     def iter_entry_points(
@@ -38,23 +38,22 @@ class PluginManager:
 
     def register_new_functionalities(
             self,
-            cli_group: Group,
             router: APIRouter | FastAPI,
             omit_excluded: bool = True
     ) -> None:
         for entry_point in self.iter_entry_points(omit_excluded):
             pkg = entry_point.load()
             if isinstance(pkg, Plugin):
-                self.register_plugin(pkg, cli_group)
+                self.register_plugin(pkg)
             elif isinstance(pkg, AddOn):
                 self.register_addon(pkg, router)
             else:
                 # TODO: use warning
                 print(f"{pkg.__class__.__name__} iis not a plugin or an addon")
 
-    def register_plugin(self, plugin: Plugin, cli_group: Group) -> None:
+    def register_plugin(self, plugin: Plugin) -> None:
         #TODO
-        pass
+        self.plugins[plugin.name] = plugin
 
     def register_addon(self, addon: AddOn, router: APIRouter | FastAPI) -> None:
         #TODO
