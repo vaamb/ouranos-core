@@ -6,11 +6,15 @@ import typing as t
 from ouranos.core.utils import json
 
 
+if t.TYPE_CHECKING:
+    from redis import Redis
+
+
 class RedisCache(MutableMapping):
     """A cache using a redis server as backend
 
     """
-    def __init__(self, name: str, redis_client, *args, **kwargs):
+    def __init__(self, name: str, redis_client: "Redis", *args, **kwargs):
         self._name = name
         self._key_store = deque()
         self._client = redis_client

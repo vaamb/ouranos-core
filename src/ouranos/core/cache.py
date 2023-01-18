@@ -8,11 +8,6 @@ from cachetools import Cache, TTLCache
 from .redis_cache import RedisCache, RedisTTLCache
 from ouranos import current_app
 
-try:
-    import redis
-except ImportError:
-    redis = None
-
 
 _CACHE_CREATED: bool = False
 _CACHING_SERVER_REACHABLE: int = 2
@@ -40,28 +35,33 @@ def _create_cache(
     _CACHE_CREATED = True
     url = config.get("CACHING_SERVER_URL", "")
     if url.startswith("redis"):
-        if redis is None:
+        try:
+            import redis
+        except ImportError:
             raise RuntimeError(
                 "redis package with hiredis is required. Run "
                 "`pip install redis[hiredis]` in your virtual "
                 "env."
             )
-        _redis = redis.Redis.from_url(url)
-        if _CACHING_SERVER_REACHABLE == 2:
-            try:
-                _redis.ping()
-                _CACHING_SERVER_REACHABLE = 1
-            except redis.RedisError:
-                logger.warning(
-                    "Cannot connect to Redis server, using base dispatcher "
-                    "instead."
-                )
-                _CACHING_SERVER_REACHABLE = 0
-        if _CACHING_SERVER_REACHABLE == 1:
-            if _CACHE_TTL_INFO[cache_name] > 0:
-                return RedisTTLCache(cache_name, _CACHE_TTL_INFO[cache_name], _redis)
-            else:
-                return RedisCache(cache_name, _redis)
+        else:
+            _redis = redis.Redis.from_url(url)
+            if _CACHING_SERVER_REACHABLE == 2:
+                try:
+                    _redis.ping()
+                    _CACHING_SERVER_REACHABLE = 1
+                except redis.RedisError:
+                    logger.warning(
+                        "Cannot connect to Redis server, using base dispatcher "
+                        "instead."
+                    )
+                    _CACHING_SERVER_REACHABLE = 0
+            if _CACHING_SERVER_REACHABLE == 1:
+                if _CACHE_TTL_INFO[cache_name] > 0:
+                    return RedisTTLCache(
+                        cache_name, _CACHE_TTL_INFO[cache_name], _redis
+                    )
+                else:
+                    return RedisCache(cache_name, _redis)
     elif _CACHE_TTL_INFO[cache_name] > 0:
         return TTLCache(maxsize=32, ttl=_CACHE_TTL_INFO[cache_name])
     return Cache(maxsize=32)
