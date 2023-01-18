@@ -61,12 +61,16 @@ class Aggregator(Functionality):
             config_override: dict | None = None,
     ) -> None:
         super().__init__(config_profile, config_override)
-        if self.config.get("API_PORT") == self.config.get("AGGREGATOR_PORT"):
+        self._uri: str = self.config.get("GAIA_COMMUNICATION_URL")
+        if (
+            self._uri.startswith("socketio://") and
+            self.config.get("API_PORT") == self.config.get("AGGREGATOR_PORT")
+        ):
             self.logger.warning(
                 "The Aggregator and the API are using the same port, this will "
                 "lead to errors"
             )
-        self._uri: str = self.config.get("GAIA_COMMUNICATION_URL")
+
         try:
             protocol: str = self._uri[:self._uri.index("://")]
         except ValueError:

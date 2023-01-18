@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-import logging
+from logging import Logger, getLogger
 import re
 import typing as t
 
@@ -24,18 +24,23 @@ class Functionality:
     def __init__(
             self,
             config_profile: "profile_type" = None,
-            config_override: dict | None = None, 
+            config_override: dict | None = None,
+            *,
+            root: bool = False,
     ) -> None:
-        name = pattern.sub('_', self.__class__.__name__).lower()
+        self.name = pattern.sub('_', self.__class__.__name__).lower()
         if not _SetUp.done:
             # Change process name
             from setproctitle import setproctitle
-            setproctitle(f"ouranos-{name}")
+            if root:
+                setproctitle(f"ouranos")
+            else:
+                setproctitle(f"ouranos-{self.name}")
             # Setup config
             config = setup_config(config_profile)
             # Configure logging
             configure_logging(config)
-            logger: logging.Logger = logging.getLogger("ouranos")
+            logger: Logger = getLogger("ouranos")
             # Init database
             logger.info("Initializing the database")
             db.init(current_app.config)
@@ -45,8 +50,10 @@ class Functionality:
         self.config: config_type = current_app.config
         if config_override:
             self.config.update(config_override)
-        self.logger: logging.Logger = logging.getLogger(f"ouranos.{name}")
-        self.logger.debug("Initializing ...")
+        if root:
+            self.logger: Logger = getLogger(f"ouranos")
+        else:
+            self.logger: Logger = getLogger(f"ouranos.{self.name}")
         self._status = False
 
     def _start(self):
@@ -57,7 +64,6 @@ class Functionality:
 
     def start(self):
         if not self._status:
-            self.logger.debug("Starting ...")
             self._start()
             self._status = True
         else:
@@ -67,7 +73,6 @@ class Functionality:
 
     def stop(self):
         if self._status:
-            self.logger.debug("Stopping ...")
             self._stop()
             self._status = False
         else:
