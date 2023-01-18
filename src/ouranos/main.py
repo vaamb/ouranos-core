@@ -2,11 +2,19 @@
 from __future__ import annotations
 
 import asyncio
-import logging
+import typing as t
 
 import click
 
-from ouranos import db, scheduler, setup_config
+from ouranos import scheduler
+from ouranos.aggregator import Aggregator
+from ouranos.core.plugins import PluginManager
+from ouranos.sdk import Functionality, Runner
+from ouranos.web_server import WebServer
+
+
+if t.TYPE_CHECKING:
+    from ouranos.core.config import profile_type
 
 
 @click.command(context_settings={"auto_envvar_prefix": "OURANOS"})
@@ -30,56 +38,66 @@ def main(
 async def run(
         config_profile: str | None = None,
 ) -> None:
-    from setproctitle import setproctitle
-    setproctitle("ouranos")
-    # Setup config
-    config = setup_config(config_profile)
-    logger: logging.Logger = logging.getLogger("ouranos")
-    # Init database
-    logger.info("Initializing the database")
-    from ouranos.core.database.init import create_base_data
-    db.init(config)
-    await create_base_data(logger)
-
-    # Init web_server
-    from ouranos.web_server import WebServer
-    logger.debug("Creating the Web server")
-    web_server = WebServer(config)
-
-    # Init aggregator
-    from ouranos.aggregator import Aggregator
-    logger.debug("Creating the Aggregator")
-    aggregator = Aggregator(config_profile)
-
-    # Init services
-    # from ouranos import services
-    # Start the Monolith
+    # Start the aggregator
     loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-    logger.debug("Starting the Web server")
-    web_server.start()
-    logger.debug("Starting the Aggregator")
-    aggregator.start()
-    logger.debug("Starting the Scheduler")
-    scheduler.start()
-
-    """
-    from ouranos.core.plugin import PluginManager
-    plugin_manager = PluginManager()
-    plugin_manager.register_plugins()
-    """
+    ouranos = Ouranos(config_profile)
+    ouranos.start()
     # Run as long as requested
-    from ouranos.sdk.runner import Runner
     runner = Runner()
     await asyncio.sleep(0.1)
     runner.add_signal_handler(loop)
     await runner.wait_forever()
-    logger.debug("Stopping the Scheduler")
-    scheduler.remove_all_jobs()
-    logger.debug("Stopping the Aggregator")
-    aggregator.stop()
-    logger.debug("Stopping the Api")
-    web_server.stop()
+    ouranos.stop()
     await runner.exit()
+
+
+class Ouranos(Functionality):
+    def __init__(
+            self,
+            config_profile: "profile_type" = None,
+            config_override: dict | None = None,
+    ) -> None:
+        super().__init__(config_profile, config_override)
+        # Init web server
+        self.web_server = WebServer(self.config)
+        # Init aggregator
+        self.aggregator = Aggregator(self.config)
+        # Init services
+        """
+        from ouranos.services import Services
+        self.services = Services(self.config)
+        """
+        # Init plugins
+        """
+        self.plugin_manager = PluginManager()
+        self.plugin_manager.register_plugins()
+        """
+
+    def _start(self):
+        # Start aggregator
+        self.aggregator.start()
+        # Start web server
+        self.web_server.start()
+        # Start services
+        """
+        self.services.start()
+        """
+        # Start plugins
+        """
+        self.plugin_manager.start_plugins()
+        """
+        # Start scheduler
+        self.logger.debug("Starting the Scheduler")
+        scheduler.start()
+
+    def _stop(self):
+        # Stop scheduler
+        self.logger.debug("Stopping the Scheduler")
+        scheduler.remove_all_jobs()
+        # Stop web server
+        self.web_server.stop()
+        # Stop aggregator
+        self.aggregator.stop()
 
 
 if __name__ == "__main__":

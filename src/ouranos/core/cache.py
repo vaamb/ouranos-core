@@ -20,7 +20,8 @@ CACHE_WEATHER_DATA: bool = False
 CACHING_SERVER_URL: str = ""
 
 _CACHE_TTL_INFO: dict[str, int] = {
-    "sensors_data": current_app.config["ECOSYSTEM_TIMEOUT"],
+    # TODO: fix this
+    "sensors_data": 90,  # current_app.config["ECOSYSTEM_TIMEOUT"],
     "system_data": 90,
     "weather_data": 0,
     "sun_times_data": 0,
