@@ -10,7 +10,7 @@ from ouranos.core.database.init import create_base_data
 
 
 if t.TYPE_CHECKING:
-    from ouranos.core.config import profile_type
+    from ouranos.core.config import config_type, profile_type
 
 
 pattern = re.compile(r'(?<!^)(?=[A-Z])')
@@ -42,7 +42,7 @@ class Functionality:
             asyncio.ensure_future(create_base_data(logger))
             _SetUp.done = True
 
-        self.config = current_app.config
+        self.config: config_type = current_app.config
         if config_override:
             self.config.update(config_override)
         self.logger: logging.Logger = logging.getLogger(f"ouranos.{name}")

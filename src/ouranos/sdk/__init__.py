@@ -6,3 +6,6 @@ from .api.gaia import (
     measure, plant, sensor
 )
 from .api.weather import sun_times, weather
+from .functionality import Functionality
+from .plugin import Plugin
+from .runner import Runner

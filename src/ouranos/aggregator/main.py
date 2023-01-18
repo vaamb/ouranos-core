@@ -1,15 +1,13 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import typing as t
 
 import click
 import uvicorn
 
-from ouranos import db, setup_config
 from ouranos.core.utils import DispatcherFactory
-from ouranos.sdk.functionality import Functionality
+from ouranos.sdk import Functionality
 
 
 if t.TYPE_CHECKING:

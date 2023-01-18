@@ -3,12 +3,18 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import typing as t
 
 import click
 import uvicorn
 from uvicorn.loops.auto import auto_loop_setup
 
 from ouranos import db, setup_config
+from ouranos.sdk import Functionality
+
+
+if t.TYPE_CHECKING:
+    from ouranos.core.config import profile_type
 
 
 @click.command()
@@ -58,18 +64,14 @@ async def run(
     await runner.exit()
 
 
-class WebServer:
+class WebServer(Functionality):
     def __init__(
             self,
-            config: dict | None = None,
+            config_profile: "profile_type" = None,
+            config_override: dict | None = None,
     ) -> None:
-        from ouranos import current_app
-        self.config = config or current_app.config
-        if not self.config:
-            raise RuntimeError(
-                "Either provide a config dict or set config globally with "
-                "g.set_app_config"
-            )
+        super().__init__(config_profile, config_override)
+
         use_subprocess: bool = (
                 self.config["SERVER_RELOAD"] or
                 (self.config["START_API"] and
@@ -120,8 +122,8 @@ class WebServer:
             self._app.start = start
             self._app.stop = stop
 
-    def start(self):
+    def _start(self):
         self._app.start()
 
-    def stop(self):
+    def _stop(self):
         self._app.stop()
