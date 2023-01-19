@@ -55,6 +55,27 @@ def _set_base_dir() -> None:
         )
 
 
+def _get_dir(name: str, fallback_path: str) -> Path:
+    config = get_config()
+    path = config.get(name)
+    try:
+        dir_ = Path(path)
+    except ValueError:
+        #TODO: use warnings and log
+        base_dir = Path(DIR)
+        dir_ = base_dir / fallback_path
+    if not dir_.exists():
+        dir_.mkdir(parents=True)
+
+
+def get_cache_dir() -> Path:
+    return _get_dir("CACHE_DIR", ".cache")
+
+
+def get_log_dir() -> Path:
+    return _get_dir("LOG_DIR", ".logs")
+
+
 def _get_config_class(profile: str | None = None) -> Type:
     _set_base_dir()
     sys.path.extend([str(_base_dir)])
@@ -106,21 +127,13 @@ def configure_logging(config: config_type) -> None:
     if log_to_stdout:
         handlers.append("streamHandler")
 
-    logs_dir_path = config.get("LOG_DIR")
-    try:
-        logs_dir = Path(logs_dir_path)
-    except ValueError:
-        print("Invalid logging dir, logging in base dir")
-        base_dir = Path(DIR)
-        logs_dir = base_dir / ".logs"
-
-    if any((log_to_file, log_error)):
-        if not logs_dir.exists():
-            logs_dir.mkdir(parents=True)
+    log_dir = Path()
+    if log_to_file or log_error:
         if log_to_file:
-            handlers.append("fileHandler")
+            handlers.append("FileHandler")
         if log_error:
             handlers.append("errorFileHandler")
+        log_dir = get_log_dir()
 
     logging_config = {
         "version": 1,
@@ -146,7 +159,7 @@ def configure_logging(config: config_type) -> None:
                 "level": f"{'DEBUG' if debug else 'INFO'}",
                 "formatter": "fileFormat",
                 "class": "logging.handlers.RotatingFileHandler",
-                "filename": f"{logs_dir/'base.log'}",
+                "filename": f"{log_dir / 'base.log'}",
                 "mode": "a",
                 "maxBytes": 1024 * 512,
                 "backupCount": 5,
@@ -155,7 +168,7 @@ def configure_logging(config: config_type) -> None:
                 "level": "ERROR",
                 "formatter": "fileFormat",
                 "class": "logging.FileHandler",
-                "filename": f"{logs_dir/'errors.log'}",
+                "filename": f"{log_dir / 'errors.log'}",
                 "mode": "a",
             }
         },
