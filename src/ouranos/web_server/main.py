@@ -2,14 +2,12 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import typing as t
 
 import click
 import uvicorn
 from uvicorn.loops.auto import auto_loop_setup
 
-from ouranos import db, setup_config
 from ouranos.sdk import Functionality
 
 
@@ -45,21 +43,8 @@ def main(
 async def run(
         config_profile: str | None = None,
 ) -> None:
-    from setproctitle import setproctitle
-    setproctitle("ouranos-web_server")
-    # Setup config
-    config = setup_config(config_profile)
-    logger: logging.Logger = logging.getLogger("ouranos.web_server")
-    # Init database
-    logger.info("Initializing the database")
-    db.init(config)
-    from ouranos.core.database.init import create_base_data
-    await create_base_data(logger)
-    # Start the app
     loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-    logger.debug("Creating the Web server")
-    web_server = WebServer(config)
-    logger.info("Starting the Web server")
+    web_server = WebServer(config_profile)
     web_server.start()
     # Run as long as requested
     from ouranos.sdk.runner import Runner
