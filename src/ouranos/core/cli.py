@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from click import Command, Context, echo, MultiCommand
+from click import Command, Context, MultiCommand
 
 from ouranos.aggregator.main import main as aggregator
 from ouranos.core.plugins import PluginManager

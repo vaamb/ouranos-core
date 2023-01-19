@@ -30,7 +30,9 @@ if t.TYPE_CHECKING:
     help="Configuration profile to use as defined in config.py.",
     show_default=True,
 )
+@click.pass_context
 def main(
+        ctx: click.Context,
         config_profile: str | None,
 ):
     """Launch Ouranos
@@ -38,11 +40,12 @@ def main(
     Launch all the functionalities linked to Ouranos as a single monolithic
     process
     """
-    asyncio.run(
-        run(
-            config_profile,
+    if ctx.invoked_subcommand is None:
+        asyncio.run(
+            run(
+                config_profile,
+            )
         )
-    )
 
 
 async def run(
