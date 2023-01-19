@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 try:
-    from importlib.metadata import entry_points
-except ImportError:
     from importlib_metadata import entry_points
+except ImportError:
+    from importlib.metadata import entry_points
 from typing import Iterator
 
 from fastapi import APIRouter, FastAPI
