@@ -8,7 +8,7 @@ from typing import Iterator
 
 from fastapi import APIRouter, FastAPI
 
-from ouranos.sdk.plugin import AddOn, Plugin
+from ouranos.sdk import AddOn, Functionality, Plugin
 
 
 class PluginManager:
@@ -22,8 +22,9 @@ class PluginManager:
         return cls.__instance
 
     def __init__(self):
-        self.plugins: dict[str, Plugin] = {}
         self.excluded: set = set()
+        self.plugins: dict[str, Plugin] = {}
+        self.functionalities: dict[str, Functionality] = {}
 
     def iter_entry_points(
             self,
@@ -57,6 +58,31 @@ class PluginManager:
             pkg = entry_point.load()
             if isinstance(pkg, Plugin):
                 self.plugins[pkg.name] = pkg
+
+    def init_plugins(self):
+        plugins = [*self.plugins]
+        plugins.sort()
+        for plugin_name in plugins:
+            self.init_plugin(plugin_name)
+
+    def init_plugin(self, plugin_name):
+        plugin = self.plugins[plugin_name]
+        functionality_cls = plugin.functionality_cls
+        self.functionalities[plugin_name] = functionality_cls()
+
+    def start_plugins(self):
+        for plugin_name in self.functionalities:
+            self.start_plugin(plugin_name)
+
+    def start_plugin(self, plugin_name):
+        self.functionalities[plugin_name].start()
+
+    def stop_plugins(self):
+        for plugin_name in self.functionalities:
+            self.sstop_plugin(plugin_name)
+
+    def stop_plugin(self, plugin_name):
+        self.functionalities[plugin_name].stop()
 
     def register_addons(
             self,

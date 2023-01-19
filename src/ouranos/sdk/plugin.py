@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import typing as t
+from typing import Type
 
 from click import Command
 from fastapi import APIRouter, FastAPI
@@ -8,14 +8,14 @@ from fastapi import APIRouter, FastAPI
 from ouranos.sdk import Functionality
 
 
-if t.TYPE_CHECKING:
-    from ouranos.core.config import profile_type
-
-
 class Plugin:
-    def __init__(self, functionality: Functionality) -> None:
-        self._functionality: Functionality = functionality
+    def __init__(self, functionality: Type[Functionality]) -> None:
+        self._functionality: Type[Functionality] = functionality
         self.name = self._functionality.__class__.__name__
+
+    @property
+    def functionality_cls(self) -> Type[Functionality]:
+        return self._functionality
 
     @property
     def command(self) -> Command:

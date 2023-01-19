@@ -10,7 +10,7 @@ from ouranos import scheduler
 from ouranos.aggregator import Aggregator
 from ouranos.core.cli import RootCommand
 from ouranos.core.plugins import PluginManager
-from ouranos.sdk import Functionality, Runner
+from ouranos.sdk import Functionality, Plugin, Runner
 from ouranos.web_server import WebServer
 
 
@@ -71,6 +71,7 @@ class Ouranos(Functionality):
             config_override: dict | None = None,
     ) -> None:
         super().__init__(config_profile, config_override, root=True)
+        self._plugins: dict[str, Plugin] = {}
         # Init web server
         self.web_server = WebServer(self.config)
         # Init aggregator
@@ -81,10 +82,9 @@ class Ouranos(Functionality):
         self.services = Services(self.config)
         """
         # Init plugins
-        """
         self.plugin_manager = PluginManager()
         self.plugin_manager.register_plugins()
-        """
+        self.plugin_manager.init_plugins()
 
     def _start(self):
         # Start aggregator
@@ -96,9 +96,7 @@ class Ouranos(Functionality):
         self.services.start()
         """
         # Start plugins
-        """
         self.plugin_manager.start_plugins()
-        """
         # Start scheduler
         self.logger.debug("Starting the Scheduler")
         scheduler.start()
