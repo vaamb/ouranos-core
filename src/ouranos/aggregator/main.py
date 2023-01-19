@@ -14,8 +14,9 @@ if t.TYPE_CHECKING:
     from dispatcher import AsyncAMQPDispatcher, AsyncRedisDispatcher
     from socketio import ASGIApp, AsyncServer
 
-    from ouranos.aggregator.dispatcher_communication import GaiaEventsNamespace as dNamespace
-    from ouranos.aggregator.socketio_communication import GaiaEventsNamespace as sNamespace
+    from ouranos.aggregator.events import (
+        DispatcherBasedGaiaEvents, SioBasedGaiaEvents
+    )
     from ouranos.core.config import profile_type
 
 
@@ -86,12 +87,8 @@ class Aggregator(Functionality):
                 "'GAIA_COMMUNICATION_URL' is not set to a supported protocol, "
                 "choose from 'amqp', 'redis' or 'socketio'"
             )
-        if protocol == "socketio":
-            from ouranos.aggregator.socketio_communication import GaiaEventsNamespace
-        else:
-            from ouranos.aggregator.dispatcher_communication import GaiaEventsNamespace
-        self._namespace = GaiaEventsNamespace("/gaia")
         self._engine = None
+        self._event_handler = None
         # TODO: add a dispatcher, can be same as engine if same url, to dispatch
         #  events locally
 
@@ -101,16 +98,31 @@ class Aggregator(Functionality):
             raise RuntimeError("engine is defined at startup")
         return self._engine
 
+    @engine.setter
+    def engine(self, engine: "AsyncServer" | "AsyncAMQPDispatcher" | "AsyncRedisDispatcher"):
+        self._engine = engine
+
     @property
-    def namespace(self) -> "dNamespace" | "sNamespace":
-        return self._namespace
+    def event_handler(self) -> "DispatcherBasedGaiaEvents" | "SioBasedGaiaEvents":
+        if self._event_handler is None:
+            raise RuntimeError("No event handler defined")
+        return self._event_handler
+
+    @event_handler.setter
+    def event_handler(self, event_handler: "DispatcherBasedGaiaEvents" | "SioBasedGaiaEvents"):
+        self._event_handler = event_handler
 
     def _start(self) -> None:
         if self._uri.startswith("socketio://"):
-            # Create the dispatcher
-            dispatcher = DispatcherFactory.get("aggregator")
-            self._namespace.dispatcher = dispatcher
-            # Create the communication mean with Gaia
+            # Get the event handler
+            from ouranos.aggregator.events import SioBasedGaiaEvents
+            self.event_handler = SioBasedGaiaEvents()
+            # Create the dispatcher used for internal communication and use it
+            #  in the event handler
+            ouranos_dispatcher = DispatcherFactory.get("aggregator")
+            self.event_handler.ouranos_dispatcher = ouranos_dispatcher
+            # Create the sio server used to communicate with Gaia
+            #  It might be the same as the one used for webserver
             host = self.config["API_HOST"]
             port = self.config["AGGREGATOR_PORT"]
             if (
@@ -118,14 +130,13 @@ class Aggregator(Functionality):
                     self.config["API_PORT"] == port
             ):
                 from ouranos.web_server.factory import sio
-                sio.register_namespace(self._namespace)
-                self._engine = sio
+                self.engine = sio
+                self.engine.register_namespace(self.event_handler)
             else:
                 from socketio import ASGIApp, AsyncServer
-                sio = AsyncServer(async_mode='asgi', cors_allowed_origins=[])
-                sio.register_namespace(self._namespace)
-                self._engine = sio
-                asgi_app = ASGIApp(sio)
+                self.engine = AsyncServer(async_mode='asgi', cors_allowed_origins=[])
+                self.engine.register_namespace(self.event_handler)
+                asgi_app = ASGIApp(self.engine)
                 config = uvicorn.Config(
                     asgi_app,
                     host=host, port=port,
@@ -133,30 +144,28 @@ class Aggregator(Functionality):
                 )
                 server = uvicorn.Server(config)
                 asyncio.ensure_future(server.serve())
-        elif self._uri.startswith("amqp://"):
-            from dispatcher import AsyncAMQPDispatcher
-            communication_mean = AsyncAMQPDispatcher(
+        elif self._uri.startswith("amqp://") or self._uri.startswith("redis://"):
+            # Get the event handler
+            from ouranos.aggregator.events import DispatcherBasedGaiaEvents
+            self.event_handler = DispatcherBasedGaiaEvents()
+            # Create the dispatcher used to communicate with gaia
+            if self._uri.startswith("amqp://"):
+                from dispatcher import AsyncAMQPDispatcher as Dispatcher
+            else:
+                from dispatcher import AsyncRedisDispatcher as Dispatcher
+            self.engine = Dispatcher(
                 "aggregator", queue_options={"durable": True}
             )
+            # Create the dispatcher used for internal communication
+            #  It might be the same as the one used to communicate with Gaia
             if self.config.get("DISPATCHER_URL") == self._uri:
-                dispatcher = communication_mean
+                ouranos_dispatcher = self.engine
             else:
-                dispatcher = DispatcherFactory.get("aggregator")
-            self._namespace.dispatcher = dispatcher
-            communication_mean.register_event_handler(self._namespace)
-            self._engine = communication_mean
-            self._engine.start()
-        elif self._uri.startswith("redis://"):
-            from dispatcher import AsyncRedisDispatcher
-            communication_mean = AsyncRedisDispatcher("aggregator")
-            if self.config.get("DISPATCHER_URL") == self._uri:
-                dispatcher = communication_mean
-            else:
-                dispatcher = DispatcherFactory.get("aggregator")
-            self._namespace.dispatcher = dispatcher
-            communication_mean.register_event_handler(self._namespace)
-            self._engine = communication_mean
-            self._engine.start()
+                ouranos_dispatcher = DispatcherFactory.get("aggregator")
+            # Use the internal dispatcher in the event dispatcher
+            self.event_handler.ouranos_dispatcher = ouranos_dispatcher
+            self.engine.register_event_handler(self.event_handler)
+            self.engine.start()
         else:
             raise RuntimeError
 

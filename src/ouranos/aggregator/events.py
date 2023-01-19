@@ -8,10 +8,13 @@ import typing as t
 import weakref
 
 import cachetools
-from dispatcher import AsyncDispatcher
+from dispatcher import AsyncDispatcher, AsyncEventHandler
+from socketio import AsyncNamespace
 
-from .decorators import dispatch_to_application, registration_required
 from ouranos import current_app, db, sdk
+from ouranos.aggregator.decorators import (
+    dispatch_to_application, registration_required
+)
 from ouranos.core.utils import decrypt_uid, validate_uid_token
 
 
@@ -32,7 +35,7 @@ class Events:
         app_name = current_app.config['APP_NAME'].lower()
         self.collector_logger = logging.getLogger(f"{app_name}.collector")
         self.broker_logger = logging.getLogger(f"{app_name}.broker")
-        self._dispatcher: AsyncDispatcher | None = None
+        self._ouranos_dispatcher: AsyncDispatcher | None = None
 
     async def emit(
             self,
@@ -58,16 +61,17 @@ class Events:
         raise NotImplementedError
 
     @property
-    def dispatcher(self) -> AsyncDispatcher:
-        if not self._dispatcher:
+    def ouranos_dispatcher(self) -> AsyncDispatcher:
+        if not self._ouranos_dispatcher:
             raise RuntimeError("You need to set dispatcher")
-        return self._dispatcher
+        return self._ouranos_dispatcher
 
-    @dispatcher.setter
-    def dispatcher(self, dispatcher: AsyncDispatcher):
-        self._dispatcher = weakref.proxy(dispatcher)
-        self._dispatcher.on("turn_light", self.turn_light)
-        self._dispatcher.on("turn_actuator", self.turn_actuator)
+    @ouranos_dispatcher.setter
+    def ouranos_dispatcher(self, dispatcher: AsyncDispatcher):
+        self._ouranos_dispatcher = weakref.proxy(dispatcher)
+        # TODO: fix
+        #self._ouranos_dispatcher.on("turn_light", self.turn_light)
+        #self._ouranos_dispatcher.on("turn_actuator", self.turn_actuator)
 
     async def gaia_background_task(self):
         pass
@@ -114,7 +118,7 @@ class Events:
             uid = engine.uid
             self.leave_room(sid, "engines", namespace="/gaia")
             engine.connected = False
-            await self.dispatcher.emit(
+            await self.ouranos_dispatcher.emit(
                 "ecosystem_status",
                 {ecosystem.uid: {"status": ecosystem.status, "connected": False}
                  for ecosystem in engine.ecosystems},
@@ -207,7 +211,7 @@ class Events:
                 )
                 await sdk.ecosystem.update_or_create(session, ecosystem)
             ecosystems.append({"uid": uid, "status": ecosystem["status"]})
-        await self.dispatcher.emit(
+        await self.ouranos_dispatcher.emit(
             "ecosystem_status",
             data=ecosystems,
             namespace="application"
@@ -388,7 +392,7 @@ class Events:
         self.broker_logger.debug(
             f"Received 'update_health_data' from {engine_uid}"
         )
-        # dispatcher.emit("application", "health_data", data=data)
+        # self.ouranos_dispatcher.emit("application", "health_data", data=data)
         # healthData.update(data)
         async with db.scoped_session() as session:
             values: list[dict] = []
@@ -463,3 +467,17 @@ class Events:
     @dispatch_to_application
     async def on_current_server_data(self, sid, data) -> None:
         sdk.system.update_current_data(data)
+
+
+class DispatcherBasedGaiaEvents(AsyncEventHandler, Events):
+    type = "dispatcher"
+
+    def __init__(self) -> None:
+        super().__init__(namespace="/gaia")
+
+
+class SioBasedGaiaEvents(AsyncNamespace, Events):
+    type = "socketio"
+
+    def __init__(self) -> None:
+        super().__init__(namespace="/gaia")
