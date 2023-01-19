@@ -30,6 +30,12 @@ if t.TYPE_CHECKING:
 def main(
         config_profile: str | None,
 ) -> None:
+    """Launch Ouranos'Aggregator
+
+    The Aggregator is the main data entry point from Gaia's instances. It
+    receives all the environmental data and logs in into a database that can be
+    searched by other functionalities
+    """
     asyncio.run(
         run(
             config_profile,

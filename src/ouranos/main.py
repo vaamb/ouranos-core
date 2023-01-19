@@ -33,6 +33,11 @@ if t.TYPE_CHECKING:
 def main(
         config_profile: str | None,
 ):
+    """Launch Ouranos
+
+    Launch all the functionalities linked to Ouranos as a single monolithic
+    process
+    """
     asyncio.run(
         run(
             config_profile,

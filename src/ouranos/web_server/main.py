@@ -28,6 +28,13 @@ if t.TYPE_CHECKING:
 def main(
         config_profile: str | None,
 ) -> None:
+    """Launch Ouranos'Web server
+
+    The Web server is the main communication point between Ouranos and the user.
+    It provides a web api that allows the user to get data from the database. It
+    can also send data to the Aggregator that will dispatch them to the
+    requested Gaia's instance
+    """
     asyncio.run(
         run(
             config_profile,
