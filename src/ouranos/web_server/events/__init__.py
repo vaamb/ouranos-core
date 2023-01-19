@@ -17,17 +17,17 @@ sio_logger = logging.getLogger(f"{current_app.config['APP_NAME'].lower()}.socket
 class ClientEvents(AsyncNamespace):
     def __init__(self, namespace=None):
         super().__init__(namespace=namespace)
-        self._dispatcher: AsyncDispatcher | None = None
+        self._ouranos_dispatcher: AsyncDispatcher | None = None
 
     @property
-    def dispatcher(self) -> AsyncDispatcher:
-        if not self._dispatcher:
-            raise RuntimeError("You need to set dispatcher")
-        return self._dispatcher
+    def ouranos_dispatcher(self) -> AsyncDispatcher:
+        if not self._ouranos_dispatcher:
+            raise RuntimeError("You need to set the Ouranos event dispatcher")
+        return self._ouranos_dispatcher
 
-    @dispatcher.setter
-    def dispatcher(self, dispatcher: AsyncDispatcher):
-        self._dispatcher = dispatcher
+    @ouranos_dispatcher.setter
+    def ouranos_dispatcher(self, dispatcher: AsyncDispatcher):
+        self._ouranos_dispatcher = dispatcher
 
     async def on_ping(self, sid, data):
         await self.emit("pong", namespace="/", room=sid)

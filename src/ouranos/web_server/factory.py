@@ -171,9 +171,11 @@ def create_app(config: dict | None = None) -> FastAPI:
 
     logger.debug("Loading client events")
     from ouranos.web_server.events import ClientEvents, DispatcherEvents
+    # Events coming from client through sio, to dispatch to Ouranos
     namespace = ClientEvents("/")
-    namespace.dispatcher = dispatcher
+    namespace.ouranos_dispatcher = dispatcher
     sio.register_namespace(namespace)
+    # Events coming from Ouranos dispatcher, to send to client through sio
     event_handler = DispatcherEvents("application")
     dispatcher.register_event_handler(event_handler)
 
