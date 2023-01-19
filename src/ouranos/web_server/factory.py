@@ -79,8 +79,8 @@ def create_app(config: dict | None = None) -> FastAPI:
         )
     check_secret_key(config)
     logger_name = config['APP_NAME'].lower()
-    logger = logging.getLogger(f"{logger_name}.app")
-    logger.info(f"Creating {config['APP_NAME']} app ...")
+    logger = logging.getLogger(f"{logger_name}.web_server")
+    logger.info(f"Creating {config['APP_NAME']} web server ...")
 
     app = FastAPI(
         title=config.get("APP_NAME"),
@@ -125,7 +125,7 @@ def create_app(config: dict | None = None) -> FastAPI:
         scheduler.start()
 
     # Add a router with "/web_server" path prefixed to it
-    prefix = APIRouter(prefix="/web_server")
+    prefix = APIRouter(prefix="/api")
 
     # Load routes onto prefixed router
     logger.debug("Loading app-related routes")
@@ -184,7 +184,7 @@ def create_app(config: dict | None = None) -> FastAPI:
         logger.debug("Ouranos frontend detected, mounting it")
         app.mount("/", StaticFiles(directory=frontend_static_dir, html=True))
 
-    logger.info(f"{config['APP_NAME']} app successfully created")
+    logger.info(f"{config['APP_NAME']} web server successfully created")
     return app
 
 
