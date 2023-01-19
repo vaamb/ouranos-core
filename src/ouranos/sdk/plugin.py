@@ -1,40 +1,42 @@
 from __future__ import annotations
 
+from collections import namedtuple
 from typing import Type
 
 from click import Command
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter
 
 from ouranos.sdk import Functionality
 
 
+Route = namedtuple("Route", ("path", "endpoint"))
+
+
 class Plugin:
-    def __init__(self, functionality: Type[Functionality]) -> None:
+    def __init__(
+            self,
+            functionality: Type[Functionality],
+            command: Command
+    ) -> None:
         self._functionality: Type[Functionality] = functionality
+        self.command: Command = command
         self.name = self._functionality.__class__.__name__
 
     @property
     def functionality_cls(self) -> Type[Functionality]:
         return self._functionality
 
-    @property
-    def command(self) -> Command:
-        pass
-
 
 class AddOn:
     def __init__(
             self,
+            routes: list[Route] | None = None
     ) -> None:
-        self._endpoints: list[APIRouter] = []
+        self._routes: list[Route] = routes or []
 
-    def add_endpoint(self, endpoint) -> None:
-        self._endpoints.append(endpoint)
-
-    def register_endpoints(self, router: APIRouter | FastAPI) -> None:
-        for endpoint in self._endpoints:
-            router.include_router(endpoint)
+    def add_route(self, route: Route) -> None:
+        self._routes.append(route)
 
     @property
-    def endpoints(self) -> list[APIRouter]:
-        return self._endpoints
+    def routes(self) -> list[Route]:
+        return self._routes

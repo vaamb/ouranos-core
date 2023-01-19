@@ -83,7 +83,7 @@ class Ouranos(Functionality):
         """
         # Init plugins
         self.plugin_manager = PluginManager()
-        self.plugin_manager.register_plugins()
+        self.plugin_manager.register_new_functionalities()
         self.plugin_manager.init_plugins()
 
     def _start(self):

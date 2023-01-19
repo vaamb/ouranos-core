@@ -7,5 +7,5 @@ from .api.gaia import (
 )
 from .api.weather import sun_times, weather
 from .functionality import Functionality
-from .plugin import AddOn, Plugin
+from .plugin import AddOn, Plugin, Route
 from .runner import Runner

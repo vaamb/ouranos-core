@@ -8,6 +8,7 @@ from typing import Iterator
 
 from fastapi import APIRouter, FastAPI
 
+from ouranos.core.utils import stripped_warning
 from ouranos.sdk import AddOn, Functionality, Plugin
 
 
@@ -51,7 +52,9 @@ class PluginManager:
                 pass
             else:
                 # TODO: use warning
-                print(f"{pkg.__class__.__name__} iis not a plugin or an addon")
+                stripped_warning(
+                    f"{pkg.__class__.__name__} is not a plugin or an addon"
+                )
 
     def register_plugins(self, omit_excluded: bool = True) -> None:
         for entry_point in self.iter_entry_points(omit_excluded):
@@ -79,7 +82,7 @@ class PluginManager:
 
     def stop_plugins(self):
         for plugin_name in self.functionalities:
-            self.sstop_plugin(plugin_name)
+            self.stop_plugin(plugin_name)
 
     def stop_plugin(self, plugin_name):
         self.functionalities[plugin_name].stop()
@@ -96,6 +99,6 @@ class PluginManager:
 
     @staticmethod
     def register_addon(addon: AddOn, router: APIRouter | FastAPI) -> None:
-        for route in addon.endpoints:
+        for route in addon.routes:
             # TODO: change path and protect the ones already used
-            router.add_route("/", route)
+            router.add_route(route.path, route.endpoint)
