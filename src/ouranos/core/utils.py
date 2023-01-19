@@ -22,8 +22,6 @@ import geopy
 import jwt
 from sqlalchemy.engine import Row
 
-from ouranos import current_app
-
 try:
     import orjson
 except ImportError:
@@ -117,6 +115,7 @@ class Tokenizer:
 
     @staticmethod
     def dumps(payload: dict, secret_key: str | None = None) -> str:
+        from ouranos import current_app
         secret_key = secret_key or current_app.config["SECRET_KEY"]
         if not secret_key:
             raise RuntimeError(
@@ -134,6 +133,7 @@ class Tokenizer:
 
     @staticmethod
     def loads(token: str, secret_key: str | None = None) -> dict:
+        from ouranos import current_app
         secret_key = secret_key or current_app.config["SECRET_KEY"]
         if not secret_key:
             raise RuntimeError(
@@ -165,12 +165,8 @@ class DispatcherFactory:
         try:
             return cls.__dispatchers[name]
         except KeyError:
+            from ouranos import current_app
             config = config or current_app.config
-            if not config:
-                raise RuntimeError(
-                    "Either provide a config dict or set config globally with "
-                    "g.set_app_config"
-                )
             broker_url = config["DISPATCHER_URL"]
             if broker_url.startswith("memory://"):
                 return AsyncBaseDispatcher(name, **kwargs)
@@ -225,6 +221,7 @@ def try_iso_format(time_obj: time | None) -> str | None:
 
 
 def decrypt_uid(encrypted_uid: str, secret_key: str = None) -> str:
+    from ouranos import current_app
     secret_key = secret_key or current_app.config["OURANOS_CONNECTION_KEY"]
     if not secret_key:
         raise RuntimeError(

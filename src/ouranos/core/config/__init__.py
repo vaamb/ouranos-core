@@ -8,6 +8,7 @@ from typing import Type
 
 from .base import BaseConfig, DIR
 from .consts import ImmutableDict
+from ouranos.core.utils import stripped_warning
 
 profile_type: BaseConfig | str | None
 config_type: ImmutableDict[str, str | int | bool | dict[str, str]]
@@ -19,53 +20,40 @@ app_info = {
 }
 
 
-_config: config_type | None = None
-_base_dir: Path | None = None
-
-
 def get_config() -> config_type:
     global _config
-    if _config is not None:
-        return _config
-    raise RuntimeError(
-        "You need to setup your configuration using "
-        "`ouranos.setup_config(profile)` before accessing config variable"
-    )
+    if not _config["SET_UP"]:
+        stripped_warning(
+            "The variable `config` is accessed before setting up config using "
+            "`ouranos.setup_config(profile)`. This could lead to unwanted side "
+            "effects"
+        )
+    return _config
 
 
 def get_base_dir() -> Path:
     global _base_dir
-    if _base_dir is not None:
-        return _base_dir
-    raise RuntimeError(
-        "You need to setup your configuration using "
-        "`ouranos.setup_config(profile)` before accessing base_dir variable"
-    )
-
-
-def _set_base_dir() -> None:
-    global _base_dir
-    try:
+    if _base_dir is None:
         _base_dir = Path(DIR)
         if not _base_dir.exists():
-            raise ValueError
-    except ValueError:
-        raise RuntimeError(
-            "Environment variable `OURANOS_DIR` is not set to a valid path"
-        )
+            raise ValueError(
+                "Environment variable `OURANOS_DIR` is not set to a valid path"
+            )
+    return _base_dir
 
 
 def _get_dir(name: str, fallback_path: str) -> Path:
-    config = get_config()
+    config: config_type = get_config()
     path = config.get(name)
     try:
         dir_ = Path(path)
     except ValueError:
-        #TODO: use warnings and log
-        base_dir = Path(DIR)
+        # TODO: use warnings and log that we are not using the given path
+        base_dir = get_base_dir()
         dir_ = base_dir / fallback_path
     if not dir_.exists():
         dir_.mkdir(parents=True)
+    return dir_
 
 
 def get_cache_dir() -> Path:
@@ -77,8 +65,8 @@ def get_log_dir() -> Path:
 
 
 def _get_config_class(profile: str | None = None) -> Type:
-    _set_base_dir()
-    sys.path.extend([str(_base_dir)])
+    base_dir = get_base_dir()
+    sys.path.extend([str(base_dir)])
     try:
         import config
     except ImportError:
@@ -111,9 +99,15 @@ def _get_config_class(profile: str | None = None) -> Type:
 
 
 def _config_dict_from_class(
-        obj: Type
+        obj: Type,
+        set_up: bool = True,
+        **params,
 ) -> config_type:
-    return {key: getattr(obj, key) for key in dir(obj) if key.isupper()}
+    config_dict = {key: getattr(obj, key) for key in dir(obj) if key.isupper()}
+    config_dict.update({"SET_UP": set_up})
+    config_dict.update(params)
+    config_dict.update(app_info)
+    return ImmutableDict(config_dict)
 
 
 def configure_logging(config: config_type) -> None:
@@ -127,10 +121,10 @@ def configure_logging(config: config_type) -> None:
     if log_to_stdout:
         handlers.append("streamHandler")
 
-    log_dir = Path()
+    log_dir = get_base_dir()
     if log_to_file or log_error:
         if log_to_file:
-            handlers.append("FileHandler")
+            handlers.append("fileHandler")
         if log_error:
             handlers.append("errorFileHandler")
         log_dir = get_log_dir()
@@ -231,10 +225,13 @@ def setup(
                 )
     else:
         config_cls = _get_config_class(profile)
-    config = _config_dict_from_class(config_cls)
-    config.update(params)
-    config.update(app_info)
-    configure_logging(config)
+    config = _config_dict_from_class(config_cls, **params)
     global _config
-    _config = ImmutableDict(config)
+    _config = config
+    configure_logging(config)
+
     return _config
+
+
+_config: config_type = _config_dict_from_class(BaseConfig, False)
+_base_dir: Path | None = None
