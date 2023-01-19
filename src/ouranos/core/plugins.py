@@ -44,17 +44,32 @@ class PluginManager:
         for entry_point in self.iter_entry_points(omit_excluded):
             pkg = entry_point.load()
             if isinstance(pkg, Plugin):
-                self.register_plugin(pkg)
+                self.plugins[pkg.name] = pkg
             elif isinstance(pkg, AddOn):
                 self.register_addon(pkg, router)
+                pass
             else:
                 # TODO: use warning
                 print(f"{pkg.__class__.__name__} iis not a plugin or an addon")
 
-    def register_plugin(self, plugin: Plugin) -> None:
-        #TODO
-        self.plugins[plugin.name] = plugin
+    def register_plugins(self, omit_excluded: bool = True) -> None:
+        for entry_point in self.iter_entry_points(omit_excluded):
+            pkg = entry_point.load()
+            if isinstance(pkg, Plugin):
+                self.plugins[pkg.name] = pkg
 
-    def register_addon(self, addon: AddOn, router: APIRouter | FastAPI) -> None:
-        #TODO
-        pass
+    def register_addons(
+            self,
+            router: APIRouter | FastAPI,
+            omit_excluded: bool = True
+    ) -> None:
+        for entry_point in self.iter_entry_points(omit_excluded):
+            pkg = entry_point.load()
+            if isinstance(pkg, AddOn):
+                self.register_addon(pkg, router)
+
+    @staticmethod
+    def register_addon(addon: AddOn, router: APIRouter | FastAPI) -> None:
+        for route in addon.endpoints:
+            # TODO: change path and protect the ones already used
+            router.add_route("/", route)

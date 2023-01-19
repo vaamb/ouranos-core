@@ -15,6 +15,7 @@ if t.TYPE_CHECKING:
 class Plugin:
     def __init__(self, functionality: Functionality) -> None:
         self._functionality: Functionality = functionality
+        self.name = self._functionality.__class__.__name__
 
     @property
     def command(self) -> Command:
@@ -25,11 +26,15 @@ class AddOn:
     def __init__(
             self,
     ) -> None:
-        self.endpoints: list[APIRouter] = []
+        self._endpoints: list[APIRouter] = []
 
     def add_endpoint(self, endpoint) -> None:
-        self.endpoints.append(endpoint)
+        self._endpoints.append(endpoint)
 
     def register_endpoints(self, router: APIRouter | FastAPI) -> None:
-        for endpoint in self.endpoints:
+        for endpoint in self._endpoints:
             router.include_router(endpoint)
+
+    @property
+    def endpoints(self) -> list[APIRouter]:
+        return self._endpoints
