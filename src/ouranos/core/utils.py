@@ -196,7 +196,7 @@ def is_connected(ip_to_connect: str = "1.1.1.1") -> bool:
         s.close()
         return True
     except Exception as ex:
-        print(ex)
+        stripped_warning(ex)
     return False
 
 

@@ -28,7 +28,9 @@ class Runner:
             for sig in SIGNALS:
                 signal.signal(sig, self._handle_stop_signal)
 
-    async def wait_forever(self) -> None:
+    async def run_until_stop(self, loop) -> None:
+        await asyncio.sleep(0.1)
+        self.add_signal_handler(loop)
         while not self._should_exit:
             await asyncio.sleep(0.2)
 

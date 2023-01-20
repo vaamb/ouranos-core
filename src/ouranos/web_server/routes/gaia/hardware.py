@@ -56,7 +56,6 @@ async def get_hardware_available():
 @router.post("/hardware/u", dependencies=[Depends(is_operator)])
 async def create_hardware(hardware_dict: dict = Depends(Body)):
     try:
-        print(hardware_dict)
         uid = "truc"
         return {"msg": f"New hardware with uid '{uid}' created"}
     except KeyError:
@@ -104,7 +103,6 @@ async def get_sensors(
         session, sensor, measures, current_data,
         historic_data, time_window
     ) for sensor in sensors]
-    print(response)
     return response
 
 

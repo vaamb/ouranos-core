@@ -1,7 +1,6 @@
 #!/usr/bin/python3
 from __future__ import annotations
 
-import asyncio
 import typing as t
 
 import click
@@ -10,7 +9,7 @@ from ouranos import scheduler
 from ouranos.aggregator import Aggregator
 from ouranos.core.cli import RootCommand
 from ouranos.core.plugins import PluginManager
-from ouranos.sdk import Functionality, Plugin, Runner
+from ouranos.sdk import Functionality, Plugin, run_functionality_forever
 from ouranos.web_server import WebServer
 
 
@@ -41,27 +40,7 @@ def main(
     process
     """
     if ctx.invoked_subcommand is None:
-        asyncio.run(
-            run(
-                config_profile,
-            )
-        )
-
-
-async def run(
-        config_profile: str | None = None,
-) -> None:
-    # Start the aggregator
-    loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-    ouranos = Ouranos(config_profile)
-    ouranos.start()
-    # Run as long as requested
-    runner = Runner()
-    await asyncio.sleep(0.1)
-    runner.add_signal_handler(loop)
-    await runner.wait_forever()
-    ouranos.stop()
-    await runner.exit()
+        run_functionality_forever(Ouranos, config_profile)
 
 
 class Ouranos(Functionality):

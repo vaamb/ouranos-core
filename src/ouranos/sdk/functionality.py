@@ -25,8 +25,9 @@ class Functionality:
             self,
             config_profile: "profile_type" = None,
             config_override: dict | None = None,
-            *,
+            *args,
             root: bool = False,
+            **kwargs
     ) -> None:
         self.name = pattern.sub('_', self.__class__.__name__).lower()
         if not _SetUp.done:
@@ -79,3 +80,31 @@ class Functionality:
             raise RuntimeError(
                 f"{self.__class__.__name__} is not running"
             )
+
+
+def run_functionality_forever(
+        functionality_cls: t.Type[Functionality],
+        config_profile: str | None = None,
+        *args,
+        **kwargs
+):
+    async def run(
+            functionality_cls: t.Type[Functionality],
+            config_profile: str | None = None,
+            *args,
+            **kwargs
+    ):
+        # Start the functionality
+        loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+        functionality = functionality_cls(config_profile, *args, **kwargs)
+        functionality.start()
+        # Run until it receives the stop signal
+        from ouranos.sdk.runner import Runner
+        runner = Runner()
+        await runner.run_until_stop(loop)
+        functionality.stop()
+        await runner.exit()
+
+    asyncio.run(
+        run(functionality_cls, config_profile, *args, **kwargs)
+    )

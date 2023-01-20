@@ -1,1 +1,1 @@
-from .main import Aggregator, main, run
+from ouranos.aggregator.main import Aggregator, main

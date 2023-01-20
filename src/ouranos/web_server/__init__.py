@@ -1,1 +1,1 @@
-from .main import WebServer, main, run
+from ouranos.web_server.main import WebServer, main

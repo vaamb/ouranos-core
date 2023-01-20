@@ -7,7 +7,7 @@ import click
 import uvicorn
 
 from ouranos.core.utils import DispatcherFactory
-from ouranos.sdk import Functionality
+from ouranos.sdk import Functionality, run_functionality_forever
 
 
 if t.TYPE_CHECKING:
@@ -37,28 +37,7 @@ def main(
     receives all the environmental data and logs in into a database that can be
     searched by other functionalities
     """
-    asyncio.run(
-        run(
-            config_profile,
-        )
-    )
-
-
-async def run(
-        config_profile: str | None = None,
-) -> None:
-    # Start the aggregator
-    loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-    aggregator = Aggregator(config_profile)
-    aggregator.start()
-    # Run as long as requested
-    from ouranos.sdk.runner import Runner
-    runner = Runner()
-    await asyncio.sleep(0.1)
-    runner.add_signal_handler(loop)
-    await runner.wait_forever()
-    aggregator.stop()
-    await runner.exit()
+    run_functionality_forever(Aggregator, config_profile)
 
 
 class Aggregator(Functionality):

@@ -8,7 +8,7 @@ import click
 import uvicorn
 from uvicorn.loops.auto import auto_loop_setup
 
-from ouranos.sdk import Functionality
+from ouranos.sdk import Functionality, run_functionality_forever
 
 
 if t.TYPE_CHECKING:
@@ -33,27 +33,7 @@ def main(
     can also send data to the Aggregator that will dispatch them to the
     requested Gaia's instance
     """
-    asyncio.run(
-        run(
-            config_profile,
-        )
-    )
-
-
-async def run(
-        config_profile: str | None = None,
-) -> None:
-    loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-    web_server = WebServer(config_profile)
-    web_server.start()
-    # Run as long as requested
-    from ouranos.sdk.runner import Runner
-    runner = Runner()
-    await asyncio.sleep(0.1)
-    runner.add_signal_handler(loop)
-    await runner.wait_forever()
-    web_server.stop()
-    await runner.exit()
+    run_functionality_forever(WebServer, config_profile)
 
 
 class WebServer(Functionality):
