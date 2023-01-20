@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import MutableMapping
+from enum import Enum
 import logging
 
 from cachetools import Cache, TTLCache
@@ -9,10 +10,16 @@ from .redis_cache import RedisCache, RedisTTLCache
 from ouranos import current_app
 
 
-_CACHE_CREATED: bool = False
-_CACHING_SERVER_REACHABLE: int = 2
-CACHE_WEATHER_DATA: bool = False
-CACHING_SERVER_URL: str = ""
+class SERVER_STATUS(Enum):
+    NOT_CONNECTED = 0
+    CONNECTED = 1
+    UNKNOWN = 2
+
+
+_state: dict = {
+    "server_status": SERVER_STATUS.UNKNOWN
+}
+
 
 _CACHE_TTL_INFO: dict[str, int] = {
     # TODO: fix this
@@ -31,8 +38,6 @@ def _create_cache(
         cache_name: str,
         config: dict,
 ) -> MutableMapping:
-    global _CACHE_CREATED, _CACHING_SERVER_REACHABLE
-    _CACHE_CREATED = True
     url = config.get("CACHING_SERVER_URL", "")
     if url.startswith("redis"):
         try:
@@ -45,17 +50,17 @@ def _create_cache(
             )
         else:
             _redis = redis.Redis.from_url(url)
-            if _CACHING_SERVER_REACHABLE == 2:
+            if _state["server_status"] == SERVER_STATUS.UNKNOWN:
                 try:
                     _redis.ping()
-                    _CACHING_SERVER_REACHABLE = 1
+                    _state["server_status"] = SERVER_STATUS.CONNECTED
                 except redis.RedisError:
                     logger.warning(
                         "Cannot connect to Redis server, using base dispatcher "
                         "instead."
                     )
-                    _CACHING_SERVER_REACHABLE = 0
-            if _CACHING_SERVER_REACHABLE == 1:
+                    _state["server_status"] = SERVER_STATUS.NOT_CONNECTED
+            if _state["server_status"] == SERVER_STATUS.CONNECTED:
                 if _CACHE_TTL_INFO[cache_name] > 0:
                     return RedisTTLCache(
                         cache_name, _CACHE_TTL_INFO[cache_name], _redis
