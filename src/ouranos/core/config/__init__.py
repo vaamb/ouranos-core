@@ -64,7 +64,7 @@ def get_log_dir() -> Path:
     return _get_dir("LOG_DIR", ".logs")
 
 
-def _get_config_class(profile: str | None = None) -> Type:
+def _get_config_class(profile: str | None = None) -> Type[BaseConfig]:
     base_dir = get_base_dir()
     sys.path.extend([str(base_dir)])
     try:
@@ -99,7 +99,8 @@ def _get_config_class(profile: str | None = None) -> Type:
 
 
 def _config_dict_from_class(
-        obj: Type,
+        obj: Type[BaseConfig],
+        *,
         set_up: bool = True,
         **params,
 ) -> config_type:
@@ -233,5 +234,5 @@ def setup(
     return _config
 
 
-_config: config_type = _config_dict_from_class(BaseConfig, False)
+_config: config_type = _config_dict_from_class(BaseConfig, set_up=False)
 _base_dir: Path | None = None
