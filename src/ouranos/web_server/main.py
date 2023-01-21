@@ -43,7 +43,7 @@ class WebServer(Functionality):
             config_override: dict | None = None,
     ) -> None:
         super().__init__(config_profile, config_override)
-
+        self.logger.info("Creating Ouranos web server")
         use_subprocess: bool = (
                 self.config["SERVER_RELOAD"] or
                 (self.config["START_API"] and
@@ -95,6 +95,7 @@ class WebServer(Functionality):
             self._app.stop = stop
 
     def _start(self):
+        self.logger.info("Starting the web server")
         self._app.start()
 
     def _stop(self):

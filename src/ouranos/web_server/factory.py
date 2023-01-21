@@ -78,9 +78,8 @@ def create_app(config: dict | None = None) -> FastAPI:
             "g.set_app_config"
         )
     check_secret_key(config)
-    logger_name = config['APP_NAME'].lower()
-    logger = logging.getLogger(f"{logger_name}.web_server")
-    logger.info(f"Creating {config['APP_NAME']} web server ...")
+    logger = logging.getLogger("ouranos.web_server")
+    logger.debug("Initializing FastAPI application")
 
     app = FastAPI(
         title=config.get("APP_NAME"),
@@ -94,7 +93,7 @@ def create_app(config: dict | None = None) -> FastAPI:
 
     app.extra["logger"] = logger
 
-    if config.get("TESTING"):
+    if config.get("DEVELOPMENT") or config.get("TESTING"):
         allowed_origins = ("http://127.0.0.1:8080", "http://localhost:8080")
     else:
         allowed_origins = ()
@@ -108,8 +107,8 @@ def create_app(config: dict | None = None) -> FastAPI:
         allow_headers=["*"],
     )
 
-    # Add processing (brewing) time in headers when testing and debugging
-    if config.get("DEBUG") or config.get("TESTING"):
+    # Add processing (brewing) time in headers when developing and testing
+    if config.get("DEVELOPMENT") or config.get("TESTING"):
         @app.middleware("http")
         async def add_brewing_time_header(request: Request, call_next):
             start_time = ctime.monotonic()

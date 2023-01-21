@@ -47,6 +47,7 @@ class Aggregator(Functionality):
             config_override: dict | None = None,
     ) -> None:
         super().__init__(config_profile, config_override)
+        self.logger.info("Creating Ouranos aggregator")
         self._uri: str = self.config.get("GAIA_COMMUNICATION_URL")
         if (
             self._uri.startswith("socketio://") and
@@ -64,12 +65,10 @@ class Aggregator(Functionality):
         if protocol not in {"amqp", "redis", "socketio"}:
             raise RuntimeError(
                 "'GAIA_COMMUNICATION_URL' is not set to a supported protocol, "
-                "choose from 'amqp', 'redis' or 'socketio'"
+                "choose from 'amqp://', 'redis://' or 'socketio://'"
             )
         self._engine = None
         self._event_handler = None
-        # TODO: add a dispatcher, can be same as engine if same url, to dispatch
-        #  events locally
 
     @property
     def engine(self) -> "AsyncServer" | "AsyncAMQPDispatcher" | "AsyncRedisDispatcher":
@@ -92,7 +91,11 @@ class Aggregator(Functionality):
         self._event_handler = event_handler
 
     def _start(self) -> None:
+        self.logger.info("Starting the aggregator")
         if self._uri.startswith("socketio://"):
+            self.logger.debug(
+                "Using Socket.IO as the message broker with Gaia"
+            )
             # Get the event handler
             from ouranos.aggregator.events import SioBasedGaiaEvents
             self.event_handler = SioBasedGaiaEvents()
@@ -129,8 +132,14 @@ class Aggregator(Functionality):
             self.event_handler = DispatcherBasedGaiaEvents()
             # Create the dispatcher used to communicate with gaia
             if self._uri.startswith("amqp://"):
+                self.logger.debug(
+                    "Using RabbitMQ as the message broker with Gaia"
+                )
                 from dispatcher import AsyncAMQPDispatcher as Dispatcher
             else:
+                self.logger.debug(
+                    "Using Redis as the message broker with Gaia"
+                )
                 from dispatcher import AsyncRedisDispatcher as Dispatcher
             self.engine = Dispatcher(
                 "aggregator", queue_options={"durable": True}

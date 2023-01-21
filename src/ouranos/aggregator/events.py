@@ -15,6 +15,7 @@ from ouranos import current_app, db, sdk
 from ouranos.aggregator.decorators import (
     dispatch_to_application, registration_required
 )
+from ouranos.core.database.models import Management
 from ouranos.core.utils import decrypt_uid, validate_uid_token
 
 
@@ -26,15 +27,14 @@ def try_time_from_iso(iso_str: str) -> t.Optional[time]:
 
 
 class Events:
-    type: str = "raw"
+    broker_type: str = "raw"
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self._background_task_started: bool = False
         self.engines_blacklist = cachetools.TTLCache(maxsize=62, ttl=60 * 60 * 24)
         app_name = current_app.config['APP_NAME'].lower()
-        self.collector_logger = logging.getLogger(f"{app_name}.collector")
-        self.broker_logger = logging.getLogger(f"{app_name}.broker")
+        self.logger = logging.getLogger(f"{app_name}.aggregator")
         self._ouranos_dispatcher: AsyncDispatcher | None = None
 
     async def emit(
@@ -80,16 +80,17 @@ class Events:
     #   Events Gaia <-> Aggregator
     # ---------------------------------------------------------------------------
     async def on_connect(self, sid, environ):
-        """if not self._background_task_started:
-            asyncio.ensure_future(self.gaia_background_task())
-            self._background_task_started = True"""
-        if self.type == "socketio":
+        # if not self._background_task_started:
+        #     asyncio.ensure_future(self.gaia_background_task())
+        #     self._background_task_started = True
+        if self.broker_type == "socketio":
             async with self.session(sid, namespace="/gaia") as session:
                 remote_addr = session["REMOTE_ADDR"] = environ["REMOTE_ADDR"]
+                self.logger.debug(f"Received a connection from {remote_addr}")
                 attempts = self.engines_blacklist.get(remote_addr, 0)
                 max_attempts: int = current_app.config.get("GAIA_CLIENT_MAX_ATTEMPT", 2)
                 if attempts == max_attempts:
-                    self.broker_logger.warning(
+                    self.logger.warning(
                         f"Received {max_attempts} invalid registration requests "
                         f"from {remote_addr}."
                     )
@@ -105,10 +106,11 @@ class Events:
                     except KeyError:
                         pass
                     return False
-        elif self.type == "dispatcher":
+        elif self.broker_type == "dispatcher":
+            self.logger.debug(f"Connected to the message broker")
             await self.emit("register", ttl=15)
         else:
-            raise TypeError("Event type is invalid")
+            raise TypeError("Event broker_type is invalid")
 
     async def on_disconnect(self, sid, *args) -> None:
         async with db.scoped_session() as session:
@@ -124,32 +126,33 @@ class Events:
                  for ecosystem in engine.ecosystems},
                 namespace="application"
             )
-            self.broker_logger.info(f"Engine {uid} disconnected")
+            self.logger.info(f"Engine {uid} disconnected")
 
     @registration_required
     async def on_ping(self, sid, data, engine_uid) -> None:
-        self.broker_logger.debug(f"Received 'ping' from engine: {engine_uid}")
+        self.logger.debug(f"Received 'ping' from engine: {engine_uid}")
         now = datetime.now(timezone.utc).replace(microsecond=0)
         async with db.scoped_session() as session:
             engine = await sdk.engine.get(session, sid)
             if engine:
                 engine.last_seen = now
                 for ecosystem_uid in data:
-                    self.collector_logger.debug(
-                        f"Updating last seen info for ecosystem: "
-                        f"{ecosystem['ecosystem_uid']}"
-                    )
                     ecosystem = await sdk.ecosystem.get(session, ecosystem_uid)
-                    ecosystem.last_seen = now
+                    if ecosystem is not None:
+                        self.logger.debug(
+                            f"Updating last seen info for ecosystem: "
+                            f"{ecosystem.name}"
+                        )
+                        ecosystem.last_seen = now
 
     async def on_register_engine(self, sid, data) -> None:
-        if self.type == "socketio":
+        if self.broker_type == "socketio":
             async with self.session(sid) as session:
                 remote_addr = session["REMOTE_ADDR"]
                 engine_uid = decrypt_uid(data["ikys"])
                 if validate_uid_token(data["uid_token"], engine_uid):
                     session["engine_uid"] = engine_uid
-                    self.broker_logger.debug(
+                    self.logger.debug(
                         f"Received 'register_engine' from engine: {engine_uid}"
                     )
                     validated = True
@@ -162,14 +165,14 @@ class Events:
                         self.engines_blacklist[remote_addr] += 1
                     except KeyError:
                         self.engines_blacklist[remote_addr] = 0
-                    self.broker_logger.info(
+                    self.logger.info(
                         f"Received invalid registration request from {remote_addr}")
                     validated = False
                     await self.disconnect(sid)
-        elif self.type == "dispatcher":
+        elif self.broker_type == "dispatcher":
             async with self.session(sid) as session:
                 engine_uid = data.get("engine_uid")
-                self.broker_logger.debug(
+                self.logger.debug(
                     f"Received 'register_engine' from engine: {engine_uid}"
                 )
                 if engine_uid:
@@ -178,7 +181,7 @@ class Events:
                 else:
                     await self.disconnect(sid)
         else:
-            raise TypeError("Event type is invalid")
+            raise TypeError("Event broker_type is invalid")
         if validated:
             now = datetime.now(timezone.utc).replace(microsecond=0)
             engine_info = {
@@ -191,21 +194,21 @@ class Events:
             async with db.scoped_session() as session:
                 await sdk.engine.update_or_create(session, engine_info)
             self.enter_room(sid, room="engines", namespace="/gaia")
-            if self.type == "socketio":
+            if self.broker_type == "socketio":
                 await self.emit("register_ack", namespace="/gaia", room=sid)
-            elif self.type == "dispatcher":
+            elif self.broker_type == "dispatcher":
                 await self.emit("register_ack", namespace="/gaia", room=sid, ttl=15)
-            self.broker_logger.info(f"Successful registration of engine {engine_uid}")
+            self.logger.info(f"Successful registration of engine {engine_uid}")
 
     @registration_required
     async def on_base_info(self, sid, data, engine_uid) -> None:
-        self.broker_logger.debug(f"Received 'base_info' from engine: {engine_uid}")
+        self.logger.debug(f"Received 'base_info' from engine: {engine_uid}")
         ecosystems: list[dict[str, str]] = []
         for ecosystem in data:
             ecosystem.update({"engine_uid": engine_uid})
             uid: str = ecosystem["uid"]
             async with db.scoped_session() as session:
-                self.collector_logger.debug(
+                self.logger.debug(
                     f"Logging base info from ecosystem: "
                     f"{ecosystem['ecosystem_uid']}"
                 )
@@ -219,20 +222,20 @@ class Events:
 
     @registration_required
     async def on_management(self, sid, data, engine_uid) -> None:
-        self.broker_logger.debug(f"Received 'management' from engine: {engine_uid}")
+        self.logger.debug(f"Received 'management' from engine: {engine_uid}")
         async with db.scoped_session() as session:
             for ecosystem in data:
-                self.collector_logger.debug(
+                self.logger.debug(
                     f"Logging management info from ecosystem: "
                     f"{ecosystem['ecosystem_uid']}"
                 )
                 uid: str = ecosystem["uid"]
-                ecosystem = await sdk.ecosystem.update_or_create(session, uid=uid)
-                for m, v in sdk.Management.items():
+                ecosystem_ = await sdk.ecosystem.update_or_create(session, uid=uid)
+                for m, v in Management.items():
                     try:
                         # TODO: look at this
                         if ecosystem[m]:
-                            ecosystem.add_management(v)
+                            ecosystem_.add_management(v)
                     except KeyError:
                         # Not implemented in gaia yet
                         pass
@@ -241,12 +244,12 @@ class Events:
 
     @registration_required
     async def on_environmental_parameters(self, sid, data, engine_uid) -> None:
-        self.broker_logger.debug(
+        self.logger.debug(
             f"Received 'environmental_parameters' from engine: {engine_uid}"
         )
         async with db.scoped_session() as session:
             for ecosystem in data:
-                self.collector_logger.debug(
+                self.logger.debug(
                     f"Logging environmental parameters from ecosystem: "
                     f"{ecosystem['ecosystem_uid']}"
                 )
@@ -277,12 +280,12 @@ class Events:
                     "day_start": tods.get("day"),
                     "night_start": tods.get("night"),
                 }
-                ecosystem = await sdk.ecosystem.update_or_create(
+                await sdk.ecosystem.update_or_create(
                     session, ecosystem_info=ecosystem_info
                 )
                 await sdk.light.update_or_create(
                     session, light_info={"method": ecosystem.get("light")},
-                    ecosystem_uid=ecosystem.uid
+                    ecosystem_uid=uid
                 )
                 for (parameter, v) in env_params.items():
                     parameter_info = {
@@ -296,12 +299,12 @@ class Events:
 
     @registration_required
     async def on_hardware(self, sid, data, engine_uid) -> None:
-        self.broker_logger.debug(
+        self.logger.debug(
             f"Received 'hardware' from engine: {engine_uid}"
         )
         async with db.scoped_session() as session:
             for ecosystem in data:
-                self.collector_logger.debug(
+                self.logger.debug(
                     f"Logging hardware info from ecosystem: "
                     f"{ecosystem['ecosystem_uid']}"
                 )
@@ -341,7 +344,7 @@ class Events:
     @registration_required
     @dispatch_to_application
     async def on_sensors_data(self, sid, data, engine_uid) -> None:
-        self.broker_logger.debug(
+        self.logger.debug(
             f"Received 'sensors_data' from engine: {engine_uid}"
         )
         sdk.sensor.update_current_data(
@@ -365,7 +368,7 @@ class Events:
                     continue
                 dt = datetime.fromisoformat(dt_str)
                 if dt.minute % current_app.config["SENSORS_LOGGING_PERIOD"] == 0:
-                    self.collector_logger.debug(
+                    self.logger.debug(
                         f"Logging sensors data from ecosystem: "
                         f"{ecosystem['ecosystem_uid']}"
                     )
@@ -389,7 +392,7 @@ class Events:
     @registration_required
     @dispatch_to_application
     async def on_health_data(self, sid, data, engine_uid) -> None:
-        self.broker_logger.debug(
+        self.logger.debug(
             f"Received 'update_health_data' from {engine_uid}"
         )
         # self.ouranos_dispatcher.emit("application", "health_data", data=data)
@@ -397,7 +400,7 @@ class Events:
         async with db.scoped_session() as session:
             values: list[dict] = []
             for ecosystem in data:
-                self.collector_logger.debug(
+                self.logger.debug(
                     f"Logging health data from ecosystem: "
                     f"{ecosystem['ecosystem_uid']}"
                 )
@@ -414,10 +417,10 @@ class Events:
     @registration_required
     @dispatch_to_application
     async def on_light_data(self, sid, data, engine_uid) -> None:
-        self.broker_logger.debug(f"Received 'light_data' from {engine_uid}")
+        self.logger.debug(f"Received 'light_data' from {engine_uid}")
         async with db.scoped_session() as session:
             for ecosystem in data:
-                self.collector_logger.debug(
+                self.logger.debug(
                     f"Logging light data from ecosystem: "
                     f"{ecosystem['ecosystem_uid']}"
                 )
@@ -445,14 +448,16 @@ class Events:
     #   Events Api -> Aggregator -> Gaia
     # ---------------------------------------------------------------------------
     async def _turn_actuator(self, sid, data) -> None:
-        if self.type == "socketio":
+        if self.broker_type == "socketio":
             await self.emit(
                 "turn_actuator", data=data, namespace="/gaia", room=sid
             )
-        elif self.type == "dispatcher":
+        elif self.broker_type == "dispatcher":
             await self.emit(
                 "turn_actuator", data=data, namespace="/gaia", room=sid, ttl=30
             )
+        else:
+            raise TypeError("Event broker_type is invalid")
 
     async def turn_light(self, sid, data) -> None:
         data["actuator"] = "light"
@@ -470,14 +475,14 @@ class Events:
 
 
 class DispatcherBasedGaiaEvents(AsyncEventHandler, Events):
-    type = "dispatcher"
+    broker_type = "dispatcher"
 
     def __init__(self) -> None:
         super().__init__(namespace="/gaia")
 
 
 class SioBasedGaiaEvents(AsyncNamespace, Events):
-    type = "socketio"
+    broker_type = "socketio"
 
     def __init__(self) -> None:
         super().__init__(namespace="/gaia")

@@ -136,7 +136,7 @@ def configure_logging(config: config_type) -> None:
 
         "formatters": {
             "streamFormat": {
-                "format": "%(asctime)s %(levelname)-4.4s [%(filename)-20.20s:%(lineno)3d] %(name)-35.35s: %(message)s",
+                "format": "%(asctime)s %(levelname)-4.4s [%(filename)-15.15s:%(lineno)4d] %(name)-25.25s: %(message)s",
                 "datefmt": "%Y-%m-%d %H:%M:%S"
             },
             "fileFormat": {
