@@ -33,7 +33,7 @@ class ClientEvents(AsyncNamespace):
         await self.emit("pong", namespace="/", room=sid)
 
     # ---------------------------------------------------------------------------
-    #   Events Clients -> Api -> Aggregator
+    #   Events Clients ->  Web server -> Aggregator
     # ---------------------------------------------------------------------------
     # @permission_required(Permission.OPERATE)
     async def on_turn_light(self, sid, data):
@@ -48,7 +48,7 @@ class ClientEvents(AsyncNamespace):
         sio_logger.debug(
             f"Dispatching 'turn_light' signal to ecosystem {ecosystem_uid}")
         # TODO: use web_server
-        await self.dispatcher.emit(
+        await self.ouranos_dispatcher.emit(
             event="turn_light",
             data={"ecosystem": ecosystem_uid, "mode": mode, "countdown": countdown},
             room=ecosystem_sid,
@@ -66,7 +66,7 @@ class ClientEvents(AsyncNamespace):
         management = data["management"]
         status = data["status"]
         # TODO: use web_server
-        await self.dispatcher.emit(
+        await self.ouranos_dispatcher.emit(
             event="change_management",
             data={
                 "ecosystem": ecosystem_uid, "management": management, "status": status
@@ -80,14 +80,14 @@ class ClientEvents(AsyncNamespace):
         service = data["service"]
         status = data["status"]
         if status:
-            self.dispatcher.emit("functionalities", "start_service", service)
+            self.ouranos_dispatcher.emit("functionalities", "start_service", service)
         else:
-            self.dispatcher.emit("functionalities", "stop_service", service)
+            self.ouranos_dispatcher.emit("functionalities", "stop_service", service)
 
 
 class DispatcherEvents(AsyncEventHandler):
     # ---------------------------------------------------------------------------
-    #   Events Functionalities -> Api -> Clients
+    #   Events Functionalities -> Web server -> Clients
     # ---------------------------------------------------------------------------
     async def on_weather_current(self, sid, data):
         await sio_manager.emit("weather_current", data=data, namespace="/")
@@ -102,7 +102,7 @@ class DispatcherEvents(AsyncEventHandler):
         await sio_manager.emit("sun_times", data=data, namespace="/")
 
     # ---------------------------------------------------------------------------
-    #   Events Aggregator -> Api -> Clients
+    #   Events Aggregator ->  Web server -> Clients
     # ---------------------------------------------------------------------------
     async def on_current_server_data(self, sid, data):
         await sio_manager.emit("current_server_data", data=data, namespace="/")
