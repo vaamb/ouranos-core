@@ -5,7 +5,7 @@ from logging import Logger, getLogger
 import re
 import typing as t
 
-from ouranos import current_app, configure_logging, db, setup_config
+from ouranos import current_app, configure_logging, db, scheduler, setup_config
 from ouranos.core.database.init import create_base_data
 
 
@@ -65,6 +65,10 @@ class Functionality:
 
     def start(self):
         if not self._status:
+            # Start the scheduler
+            self.logger.debug("Starting the Scheduler")
+            scheduler.start()
+            # Start the functionality
             self._start()
             self._status = True
         else:
@@ -74,6 +78,11 @@ class Functionality:
 
     def stop(self):
         if self._status:
+            # Stop the scheduler
+            self.logger.debug("Stopping the Scheduler")
+            # Stop the functionality
+            scheduler.remove_all_jobs()
+            scheduler.shutdown()
             self._stop()
             self._status = False
         else:

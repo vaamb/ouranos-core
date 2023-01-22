@@ -5,7 +5,6 @@ import typing as t
 
 import click
 
-from ouranos import scheduler
 from ouranos.aggregator import Aggregator
 from ouranos.core.cli import RootCommand
 from ouranos.core.plugins import PluginManager
@@ -78,14 +77,10 @@ class Ouranos(Functionality):
         """
         # Start plugins
         self.plugin_manager.start_plugins()
-        # Start scheduler
-        self.logger.debug("Starting the Scheduler")
-        scheduler.start()
 
     def _stop(self):
-        # Stop scheduler
-        self.logger.debug("Stopping the Scheduler")
-        scheduler.remove_all_jobs()
+        # Stop plugins
+        self.plugin_manager.stop_plugins()
         # Stop web server
         self.web_server.stop()
         # Stop aggregator
