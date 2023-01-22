@@ -4,15 +4,15 @@ echo "Installing Ouranos"
 ORIGIN=$PWD
 
 # Create ouranos
-mkdir ouranos; cd ouranos
+mkdir "ouranos"; cd "ouranos"
 export OURANOS_DIR=$PWD
 
 python3 -m venv venv
 source venv/bin/activate
 
 # Get Ouranos and install the package
-mkdir bin; cd bin
-git clone --branch stable https://gitlab.com/gaia/ouranos.git ouranos_core; cd ouranos_core
+mkdir "bin"; cd "bin"
+git clone --branch stable https://gitlab.com/gaia/ouranos.git "ouranos_core"; cd "ouranos_core"
 pip install -r requirements.txt
 pip install -e .
 deactivate
@@ -28,5 +28,7 @@ ouranos() {
 
 export -f ouranos
 
-cd $ORIGIN
+cd "$ORIGIN"
 echo "Ouranos installed. To run it, either use \`ouranos\` or \`python -m ouranos\` within your venv"
+
+exit
