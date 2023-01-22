@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from enum import IntFlag
 from hashlib import md5
 import time as ctime
 
@@ -10,11 +11,10 @@ import sqlalchemy as sa
 from sqlalchemy import orm, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .common import BaseWarning
 from ouranos import current_app, db
 from ouranos.core.database import ArchiveLink
+from ouranos.core.database.models.common import BaseWarning
 from ouranos.core.utils import ExpiredTokenError, InvalidTokenError, Tokenizer
-
 
 argon2_hasher = PasswordHasher()
 base = db.Model
@@ -23,7 +23,7 @@ base = db.Model
 # ---------------------------------------------------------------------------
 #   Users-related models, located in db_users
 # ---------------------------------------------------------------------------
-class Permission:
+class Permission(IntFlag):
     VIEW = 1
     EDIT = 2
     OPERATE = 4
@@ -48,42 +48,37 @@ class Role(base):
 
     @staticmethod
     async def insert_roles(session: AsyncSession):
-        roles = {
-            "User": [Permission.VIEW, Permission.EDIT],
-            "Operator": [Permission.VIEW, Permission.EDIT,
-                         Permission.OPERATE],
-            "Administrator": [Permission.VIEW, Permission.EDIT,
-                              Permission.OPERATE, Permission.ADMIN],
+        roles_defined = {
+            "User": Permission.VIEW | Permission.EDIT,
+            "Operator": Permission.VIEW | Permission.EDIT | Permission.OPERATE,
+            "Administrator": Permission.VIEW | Permission.EDIT |
+                             Permission.OPERATE | Permission.ADMIN,
         }
         default_role = "User"
         stmt = select(Role)
         result = await session.execute(stmt)
-        roles_in_db = result.scalars().all()
-        for r in roles:
-            role = None
-            for role_in_db in roles_in_db:
-                if role_in_db.name == r:
-                    role = role_in_db
-                    break
+        roles_in_db: list[Role] = result.scalars().all()
+        roles = {role.name: role for role in roles_in_db}
+        for name, permission in roles_defined.items():
+            role = roles.get(name)
             if role is None:
-                role = Role(name=r)
+                role = Role(name=name)
             role.reset_permissions()
-            for perm in roles[r]:
-                role.add_permission(perm)
+            role.add_permission(permission)
             role.default = (role.name == default_role)
             session.add(role)
         await session.commit()
 
-    def has_permission(self, perm):
-        return self.permissions & perm == perm
+    def has_permission(self, perm: Permission):
+        return self.permissions & perm.value == perm.value
 
-    def add_permission(self, perm):
+    def add_permission(self, perm: Permission):
         if not self.has_permission(perm):
-            self.permissions += perm
+            self.permissions += perm.value
 
-    def remove_permission(self, perm):
+    def remove_permission(self, perm: Permission):
         if self.has_permission(perm):
-            self.permissions -= perm
+            self.permissions -= perm.value
 
     def reset_permissions(self):
         self.permissions = 0
@@ -161,7 +156,8 @@ class User(base, UserMixin):
 
     # User registration fields
     token = sa.Column(sa.String(32))
-    registration_datetime = sa.Column(sa.DateTime, default=datetime.now(timezone.utc))
+    registration_datetime = sa.Column(sa.DateTime,
+                                      default=datetime.now(timezone.utc))
 
     # User information fields
     firstname = sa.Column(sa.String(64))
@@ -218,7 +214,7 @@ class User(base, UserMixin):
         except VerificationError:
             return False
 
-    def can(self, perm):
+    def can(self, perm: Permission):
         return self.role is not None and self.role.has_permission(perm)
 
     def avatar(self, size):

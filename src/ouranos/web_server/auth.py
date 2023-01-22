@@ -157,7 +157,7 @@ async def get_current_user(user: User = Depends(_get_current_user)) -> User:
     return user
 
 
-async def user_can(user: User, permission: int):
+async def user_can(user: User, permission: Permission):
     if not user.can(permission):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
