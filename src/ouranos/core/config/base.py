@@ -36,7 +36,7 @@ class BaseConfig:
     AGGREGATOR_PORT = os.environ.get("OURANOS_AGGREGATOR_PORT", API_PORT)
 
     # Ouranos and Gaia config
-    ADMINS = os.environ.get("OURANOS_ADMINS")
+    ADMINS = os.environ.get("OURANOS_ADMINS", [])
     RECAP_SENDING_HOUR = 4
     MAX_ECOSYSTEMS = 32
     WEATHER_UPDATE_PERIOD = 5  # in min

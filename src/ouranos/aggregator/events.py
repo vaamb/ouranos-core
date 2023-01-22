@@ -33,8 +33,7 @@ class Events:
         super().__init__(*args, **kwargs)
         self._background_task_started: bool = False
         self.engines_blacklist = cachetools.TTLCache(maxsize=62, ttl=60 * 60 * 24)
-        app_name = current_app.config['APP_NAME'].lower()
-        self.logger = logging.getLogger(f"{app_name}.aggregator")
+        self.logger = logging.getLogger("ouranos.aggregator")
         self._ouranos_dispatcher: AsyncDispatcher | None = None
 
     async def emit(
