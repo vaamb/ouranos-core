@@ -230,11 +230,11 @@ class Events:
                 )
                 uid: str = ecosystem["uid"]
                 ecosystem_ = await sdk.ecosystem.update_or_create(session, uid=uid)
-                for m, v in Management.items():
+                for management in Management:
                     try:
                         # TODO: look at this
-                        if ecosystem[m]:
-                            ecosystem_.add_management(v)
+                        if ecosystem[management.name]:
+                            ecosystem_.add_management(management)
                     except KeyError:
                         # Not implemented in gaia yet
                         pass

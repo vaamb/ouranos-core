@@ -1,4 +1,5 @@
 from datetime import datetime, time
+from enum import IntFlag
 
 import sqlalchemy as sa
 from sqlalchemy import orm, select
@@ -20,15 +21,14 @@ base = db.Model
 # ---------------------------------------------------------------------------
 #   Ecosystems-related models, located in db_main and db_archive
 # ---------------------------------------------------------------------------
-Management = {
-    "sensors": 1,
-    "light": 2,
-    "climate": 4,
-    "watering": 8,
-    "health": 16,
-    "alarms": 32,
-    "webcam": 64,
-}
+class Management(IntFlag):
+    sensors = 1
+    light = 2
+    climate = 4
+    watering = 8
+    health = 16
+    alarms = 32
+    webcam = 64
 
 
 class Engine(base):
@@ -79,16 +79,16 @@ class Ecosystem(base):
     actuators_history = orm.relationship("ActuatorHistory", back_populates="ecosystem")
     health = orm.relationship("Health", back_populates="ecosystem")
 
-    def can_manage(self, mng: int) -> bool:
-        return self.management & mng == mng
+    def can_manage(self, mng: Management) -> bool:
+        return self.management & mng.value == mng.value
 
-    def add_management(self, mng: int) -> None:
+    def add_management(self, mng: Management) -> None:
         if not self.can_manage(mng):
-            self.management += mng
+            self.management += mng.value
 
-    def remove_management(self, mng: int) -> None:
+    def remove_management(self, mng: Management) -> None:
         if self.can_manage(mng):
-            self.management -= mng
+            self.management -= mng.value
 
     def reset_managements(self):
         self.management = 0
@@ -105,8 +105,8 @@ class Ecosystem(base):
 
     def management_dict(self):
         return {
-            management: self.can_manage(value) for
-            management, value in Management.items()
+            management.name: self.can_manage(management) for
+            management in Management
         }
 
 
