@@ -245,7 +245,7 @@ class User(base, UserMixin):
     @staticmethod
     def load_from_token(token: str, token_use: str):
         try:
-            payload = Tokenizer.loads(token, current_app.config["SECRET_KEY"])
+            payload = Tokenizer.loads(token)
         except (ExpiredTokenError, InvalidTokenError):
             return None
         if payload.get("use") != token_use:
