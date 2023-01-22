@@ -62,7 +62,6 @@ def create_sio_manager(config: dict | None = None):
 
 
 dispatcher = DispatcherFactory.get("application")
-scheduler = AsyncIOScheduler()
 sio_manager = create_sio_manager()
 sio = AsyncServer(
     async_mode='asgi', cors_allowed_origins=[], client_manager=sio_manager
@@ -119,9 +118,8 @@ def create_app(config: dict | None = None) -> FastAPI:
 
     @app.on_event("startup")
     def startup():
-        logger.info(f"{config['APP_NAME']} worker successfully started")
+        logger.info("Ouranos web server worker successfully started")
         dispatcher.start()
-        scheduler.start()
 
     # Add a router with "/web_server" path prefixed to it
     prefix = APIRouter(prefix="/api")
