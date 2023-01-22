@@ -43,8 +43,15 @@ class BaseConfig:
     ECOSYSTEM_TIMEOUT = 150  # in sec
 
     # Data logging
+    SENSOR_LOGGING_PERIOD = 10
     SYSTEM_LOGGING_PERIOD = 10
-    SENSORS_LOGGING_PERIOD = 10
+
+    # Data archiving
+    ACTUATOR_ARCHIVING_PERIOD = None  # 180
+    HEALTH_ARCHIVING_PERIOD = None  # 360
+    SENSOR_ARCHIVING_PERIOD = None  # 180
+    SYSTEM_ARCHIVING_PERIOD = None  # 90
+    WARNING_ARCHIVING_PERIOD = None  # 90
 
     # SQLAlchemy config
     SQLALCHEMY_DATABASE_URI = (

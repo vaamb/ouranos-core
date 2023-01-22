@@ -7,7 +7,6 @@ from dispatcher import (
 
 from ouranos.core.database.models import Engine, Service
 
-from .archiver import Archiver
 from .calendar import Calendar
 from .daily_recap import DailyRecap
 from .shared_resources import db, scheduler

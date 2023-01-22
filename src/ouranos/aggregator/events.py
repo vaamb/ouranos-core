@@ -367,7 +367,7 @@ class Events:
                 if not dt_str:
                     continue
                 dt = datetime.fromisoformat(dt_str)
-                if dt.minute % current_app.config["SENSORS_LOGGING_PERIOD"] == 0:
+                if dt.minute % current_app.config["SENSOR_LOGGING_PERIOD"] == 0:
                     self.logger.debug(
                         f"Logging sensors data from ecosystem: "
                         f"{ecosystem['ecosystem_uid']}"

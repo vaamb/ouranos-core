@@ -19,9 +19,9 @@ async def get_version():
 @router.get("/logging_period")
 async def get_logging_config():
     return {
-        "weather": current_app.config.get("WEATHER_UPDATE_PERIOD", None),
-        "system": current_app.config.get("SYSTEM_LOGGING_PERIOD", None),
-        "sensors": current_app.config.get("SENSORS_LOGGING_PERIOD", None),
+        "weather": current_app.config.get["WEATHER_UPDATE_PERIOD"],
+        "system": current_app.config["SYSTEM_LOGGING_PERIOD"],
+        "sensors": current_app.config["SENSOR_LOGGING_PERIOD"],
     }
 
 

@@ -6,6 +6,7 @@ import typing as t
 import click
 import uvicorn
 
+from ouranos.aggregator.archiver import Archiver
 from ouranos.core.utils import DispatcherFactory
 from ouranos.sdk import Functionality, run_functionality_forever
 
@@ -69,6 +70,7 @@ class Aggregator(Functionality):
             )
         self._engine = None
         self._event_handler = None
+        self.archiver = Archiver()
 
     @property
     def engine(self) -> "AsyncServer" | "AsyncAMQPDispatcher" | "AsyncRedisDispatcher":
@@ -156,9 +158,11 @@ class Aggregator(Functionality):
             self.engine.start()
         else:
             raise RuntimeError
+        self.archiver.start()
 
     def _stop(self) -> None:
         try:
+            self.archiver.stop()
             self.engine.stop()
         except AttributeError:  # Not dispatcher_based
             pass  # Handled by uvicorn or by Api

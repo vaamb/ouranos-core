@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .common import BaseWarning
 from ouranos import current_app, db
-from ouranos.core.database._base import ArchiveLink
+from ouranos.core.database import ArchiveLink
 from ouranos.core.utils import ExpiredTokenError, InvalidTokenError, Tokenizer
 
 

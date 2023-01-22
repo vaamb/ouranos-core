@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 
 from sqlalchemy.ext.declarative import declarative_base, DeclarativeMeta
@@ -7,12 +9,14 @@ from sqlalchemy.ext.declarative import declarative_base, DeclarativeMeta
 class ArchiveLink:
     name: str
     status: str
+    limit: int | None
 
-    def __init__(self, name, status):
+    def __init__(self, name, status, limit=None):
         if status not in ("archive", "recent"):
             raise ValueError("status has to be 'archive' or 'recent'")
         object.__setattr__(self, "name", name)
         object.__setattr__(self, "status", status)
+        object.__setattr__(self, "limit", limit)
 
 
 class BindMetaMixin(type):

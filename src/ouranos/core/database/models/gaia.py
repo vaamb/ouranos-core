@@ -10,7 +10,7 @@ from .common import (
     BaseActuatorHistory, BaseHealth, BaseSensorHistory, BaseWarning
 )
 from ouranos import db
-from ouranos.core.database._base import ArchiveLink
+from ouranos.core.database import ArchiveLink
 from ouranos.core.utils import time_to_datetime
 
 
