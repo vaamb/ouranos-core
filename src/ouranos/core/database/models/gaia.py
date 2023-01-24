@@ -6,12 +6,11 @@ from sqlalchemy import orm, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.schema import Table
 
-
-from .common import (
-    BaseActuatorHistory, BaseHealth, BaseSensorHistory, BaseWarning
-)
 from ouranos import db
 from ouranos.core.database import ArchiveLink
+from ouranos.core.database.models.common import (
+    BaseActuatorHistory, BaseHealth, BaseSensorHistory, BaseWarning
+)
 from ouranos.core.utils import time_to_datetime
 
 

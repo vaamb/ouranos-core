@@ -5,7 +5,6 @@ import base64
 import dataclasses
 from datetime import date, datetime, time, timezone
 from functools import wraps
-import socket
 import typing as t
 from typing import Any
 import uuid

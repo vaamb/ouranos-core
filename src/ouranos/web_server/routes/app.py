@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, Query
 
+from ouranos import current_app
+from ouranos.sdk import api
 from ouranos.web_server.dependencies import get_session
-from ouranos import current_app, sdk
 
 
 router = APIRouter(
@@ -27,12 +28,12 @@ async def get_logging_config():
 
 @router.get("/services")
 async def get_services(level: str = Query(default="all"), session=Depends(get_session)):
-    services = await sdk.service.get_multiple(session=session, level=level)
-    return sdk.service.get_info(services)
+    services = await api.service.get_multiple(session=session, level=level)
+    return api.service.get_info(services)
 
 
 # TODO: for future use
 @router.get("/flash_messages")
 async def get_flash_messages(session=Depends(get_session)):
-    msgs = await sdk.flash_message.get_multiple(session=session)
-    return sdk.flash_message.get_content(msgs)
+    msgs = await api.flash_message.get_multiple(session=session)
+    return api.flash_message.get_content(msgs)

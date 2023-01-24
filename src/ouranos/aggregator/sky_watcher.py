@@ -9,10 +9,10 @@ import time
 import aiofiles
 from aiohttp import ClientError, ClientSession
 
-from ouranos import current_app, scheduler, sdk
+from ouranos import current_app, scheduler
 from ouranos.core.config.consts import WEATHER_MEASURES
 from ouranos.core.utils import DispatcherFactory, stripped_warning
-from ouranos.sdk import json
+from ouranos.sdk import api, json
 
 
 _weather_recency_limit = 6
@@ -96,7 +96,7 @@ class SkyWatcher:
     """Weather"""
     async def _check_weather_recency(self) -> bool:
         """Return True is weather data is recent (less than 5 min)"""
-        if sdk.weather.get("currently") is None:
+        if api.weather.get("currently") is None:
             try:
                 path = current_app.cache_dir/_weather_file
                 async with aiofiles.open(path, "r") as file:
@@ -106,8 +106,8 @@ class SkyWatcher:
                 # No file or empty file
                 return False
             else:
-                sdk.weather.update(data)
-        time_ = sdk.weather.get("currently", {}).get("time")
+                api.weather.update(data)
+        time_ = api.weather.get("currently", {}).get("time")
         if time_ is None:
             return False
         update_period: int = current_app.config.get("WEATHER_UPDATE_PERIOD")
@@ -118,12 +118,12 @@ class SkyWatcher:
 
     def clear_old_weather_data(self):
         path = current_app.cache_dir/_weather_file
-        time_ = sdk.weather.get("currently", {}).get("time")
+        time_ = api.weather.get("currently", {}).get("time")
         # If weather "current" time older than _weather_recency_limit hours: clear
         if time_ < time.time() - _weather_recency_limit * 60 * 60:
             os.remove(path)
             with self._mutex:
-                sdk.weather.clear()
+                api.weather.clear()
 
     async def update_weather_data(self) -> None:
         self.logger.debug("Trying to update weather data")
@@ -163,7 +163,7 @@ class SkyWatcher:
                     await file.write(stringified_data)
             except Exception as e:
                 self.logger.warning("Could not dump updated weather data")
-            sdk.weather.update(data)
+            api.weather.update(data)
             await self.dispatch_weather_data()
             self.logger.debug("Weather data updated")
 
@@ -171,17 +171,17 @@ class SkyWatcher:
         now = datetime.now()
         await self.dispatcher.emit(
             "application", "weather_current",
-            data={"currently": sdk.weather.get("currently")},
+            data={"currently": api.weather.get("currently")},
         )
         if now.minute % 15 == 0:
             await self.dispatcher.emit(
                 "application", "weather_hourly",
-                data={"hourly": sdk.weather.get("hourly")},
+                data={"hourly": api.weather.get("hourly")},
             )
         if now.hour % 1 == 0 and now.minute == 0:
             await self.dispatcher.emit(
                 "application", "weather_daily",
-                data={"daily": sdk.weather.get("daily")},
+                data={"daily": api.weather.get("daily")},
             )
 
     """Sun times"""
@@ -199,7 +199,7 @@ class SkyWatcher:
         async with aiofiles.open(path, "r") as file:
             data_raw = await file.read()
         data = json.loads(data_raw)
-        sdk.sky.sun_times.update(data)
+        api.sun_times.update(data)
         self.logger.debug("Sun times data already up to date")
         return True
 
@@ -207,7 +207,7 @@ class SkyWatcher:
         self.logger.debug("Updating sun times")
         if not await is_connected():
             with self._mutex:
-                sdk.sky.sun_times.clear()
+                api.sun_times.clear()
                 self.logger.error(
                     "Ouranos is not connected to the internet, could not "
                     "update sun times data"
@@ -224,7 +224,7 @@ class SkyWatcher:
                     raw_data = await resp.json()
         except ClientError:
             self.logger.error("ConnectionError: cannot update sun times data")
-            sdk.sky.sun_times.clear()
+            api.sun_times.clear()
         else:
             path = current_app.cache_dir / _sun_times_file
             raw_data = raw_data["results"]
@@ -233,7 +233,7 @@ class SkyWatcher:
                 await file.write(stringified_data)
             formatted_data = format_sun_times_data(raw_data)
             with self._mutex:
-                sdk.sky.sun_times.update(formatted_data)
+                api.sun_times.update(formatted_data)
             try:
                 await self.dispatcher.emit(
                     "application", "sun_times", data=formatted_data
@@ -269,7 +269,7 @@ class SkyWatcher:
     def stop(self) -> None:
         scheduler.remove_job("weather")
         scheduler.remove_job("suntimes")
-        sdk.weather.clear()
+        api.weather.clear()
 
 
 info = {

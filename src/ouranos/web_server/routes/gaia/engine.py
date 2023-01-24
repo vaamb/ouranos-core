@@ -3,17 +3,18 @@ import typing as t
 from fastapi import Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from . import router
-from ..utils import assert_single_uid
+from ouranos.sdk import api
 from ouranos.web_server.dependencies import get_session
-from ouranos import sdk
+from ouranos.web_server.routes.gaia import router
+from ouranos.web_server.routes.utils import assert_single_uid
+
 
 if t.TYPE_CHECKING:
     from ouranos.core.database.models.gaia import Engine
 
 
 async def engine_or_abort(session: AsyncSession, engine_id: str) -> "Engine":
-    engine = await sdk.engine.get(
+    engine = await api.engine.get(
         session=session, engine_id=engine_id
     )
     if engine:
@@ -29,8 +30,8 @@ async def get_engines(
         engines_id: t.Optional[list[str]] = Query(default=None),
         session: AsyncSession = Depends(get_session)
 ):
-    engines = await sdk.engine.get_multiple(session, engines_id)
-    response = [sdk.engine.get_info(
+    engines = await api.engine.get_multiple(session, engines_id)
+    response = [api.engine.get_info(
         session, engine
     ) for engine in engines]
     return response
@@ -43,5 +44,5 @@ async def get_engine(
 ):
     assert_single_uid(uid)
     engine = await engine_or_abort(session, uid)
-    response = sdk.engine.get_info(session, engine)
+    response = api.engine.get_info(session, engine)
     return response

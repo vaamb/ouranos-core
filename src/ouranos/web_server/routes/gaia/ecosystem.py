@@ -5,23 +5,23 @@ import typing as t
 from fastapi import Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from . import router
-from ..utils import assert_single_uid
+from ouranos.sdk import api
+from ouranos.sdk.api.utils import timeWindow
 from ouranos.web_server.auth import is_operator
 from ouranos.web_server.dependencies import get_session, get_time_window
-from ouranos import sdk
-from ouranos.sdk.api.utils import timeWindow
+from ouranos.web_server.routes.gaia import router
+from ouranos.web_server.routes.utils import assert_single_uid
 
 
 if t.TYPE_CHECKING:
-    from ouranos.core import Ecosystem
+    from ouranos.core.database.models import Ecosystem
 
 
 async def ecosystem_or_abort(
         session: AsyncSession,
         ecosystem_id: str,
 ) -> "Ecosystem":
-    ecosystem = await sdk.ecosystem.get(
+    ecosystem = await api.ecosystem.get(
         session=session, ecosystem_id=ecosystem_id
     )
     if ecosystem:
@@ -37,10 +37,10 @@ async def get_ecosystems(
         ecosystems: t.Optional[list[str]] = Query(default=None),
         session: AsyncSession = Depends(get_session),
 ) -> list[dict[str: str]]:
-    ecosystems_qo = await sdk.ecosystem.get_multiple(
+    ecosystems_qo = await api.ecosystem.get_multiple(
         session=session, ecosystems=ecosystems
     )
-    response = [sdk.ecosystem.get_info(
+    response = [api.ecosystem.get_info(
         session, ecosystem
     ) for ecosystem in ecosystems_qo]
     return response
@@ -58,7 +58,7 @@ async def get_ecosystem(
 ):
     assert_single_uid(ecosystem_id)
     ecosystem = await ecosystem_or_abort(session, ecosystem_id)
-    response = sdk.ecosystem.get_info(session, ecosystem)
+    response = api.ecosystem.get_info(session, ecosystem)
     return response
 
 
@@ -84,8 +84,8 @@ async def get_ecosystems_management(
         ecosystems: t.Optional[list[str]] = Query(default=None),
         session: AsyncSession = Depends(get_session)
 ):
-    ecosystems = await sdk.ecosystem.get_multiple(session, ecosystems)
-    response = [await sdk.ecosystem.get_management(
+    ecosystems = await api.ecosystem.get_multiple(session, ecosystems)
+    response = [await api.ecosystem.get_management(
         session, ecosystem
     ) for ecosystem in ecosystems]
     return response
@@ -98,7 +98,7 @@ async def get_ecosystem_management(
 ):
     assert_single_uid(ecosystem_id)
     ecosystem = await ecosystem_or_abort(session, ecosystem_id)
-    response = await sdk.ecosystem.get_management(
+    response = await api.ecosystem.get_management(
         session, ecosystem
     )
     return response
@@ -111,8 +111,8 @@ async def get_ecosystems_sensors_skeleton(
         time_window: timeWindow = Depends(get_time_window),
         session: AsyncSession = Depends(get_session)
 ):
-    ecosystems = await sdk.ecosystem.get_multiple(session, ecosystems_id)
-    response = [await sdk.ecosystem.get_sensors_data_skeleton(
+    ecosystems = await api.ecosystem.get_multiple(session, ecosystems_id)
+    response = [await api.ecosystem.get_sensors_data_skeleton(
         session, ecosystem, time_window, level
     ) for ecosystem in ecosystems]
     return response
@@ -127,7 +127,7 @@ async def get_ecosystem_sensors_skeleton(
 ):
     assert_single_uid(ecosystem_id)
     ecosystem = await ecosystem_or_abort(session, ecosystem_id)
-    response = await sdk.ecosystem.get_sensors_data_skeleton(
+    response = await api.ecosystem.get_sensors_data_skeleton(
         session, ecosystem, time_window, level
     )
     return response
@@ -138,10 +138,10 @@ async def get_ecosystems_light(
         ecosystems_id: t.Optional[list[str]] = Query(default=None),
         session: AsyncSession = Depends(get_session)
 ):
-    ecosystems = await sdk.ecosystem.get_multiple(session, ecosystems_id)
+    ecosystems = await api.ecosystem.get_multiple(session, ecosystems_id)
     response = []
     for ecosystem in ecosystems:
-        data = sdk.ecosystem.get_light_info(ecosystem)
+        data = api.ecosystem.get_light_info(ecosystem)
         if data:
             response.append(data)
     return response
@@ -154,7 +154,7 @@ async def get_ecosystem_light(
 ):
     assert_single_uid(ecosystem_id)
     ecosystem = await ecosystem_or_abort(session, ecosystem_id)
-    response = sdk.ecosystem.get_light_info(ecosystem)
+    response = api.ecosystem.get_light_info(ecosystem)
     return response
 
 
@@ -163,8 +163,8 @@ async def get_ecosystems_environment_parameters(
         ecosystems_id: t.Optional[list[str]] = Query(default=None),
         session: AsyncSession = Depends(get_session)
 ):
-    ecosystems = await sdk.ecosystem.get_multiple(session, ecosystems_id)
-    response = [sdk.ecosystem.get_environment_parameters_info(
+    ecosystems = await api.ecosystem.get_multiple(session, ecosystems_id)
+    response = [api.ecosystem.get_environment_parameters_info(
         session, ecosystem
     ) for ecosystem in ecosystems]
     return response
@@ -177,7 +177,7 @@ async def get_ecosystems_environment_parameters(
 ):
     assert_single_uid(ecosystem_id)
     ecosystem = await ecosystem_or_abort(session, ecosystem_id)
-    response = sdk.ecosystem.get_environment_parameters_info(
+    response = api.ecosystem.get_environment_parameters_info(
         session, ecosystem
     )
     return response

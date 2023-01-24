@@ -5,7 +5,7 @@ from typing import Callable
 
 
 if t.TYPE_CHECKING:
-    from .events import Events
+    from ouranos.aggregator.events import Events
 
 
 data_type: dict | list | str | tuple

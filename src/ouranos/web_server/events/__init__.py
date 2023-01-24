@@ -5,9 +5,10 @@ import logging
 from dispatcher import AsyncDispatcher, AsyncEventHandler
 from socketio import AsyncNamespace
 
-from .decorators import permission_required
+from ouranos import current_app, db
+from ouranos.web_server.events.decorators import permission_required
 from ouranos.web_server.factory import sio_manager
-from ouranos import current_app, db, sdk
+from ouranos.sdk import api
 
 
 # TODO: change name
@@ -39,7 +40,7 @@ class ClientEvents(AsyncNamespace):
     async def on_turn_light(self, sid, data):
         ecosystem_uid = data["ecosystem"]
         with db.scoped_session() as session:
-            ecosystem = await sdk.ecosystem.get(session, ecosystem_uid)
+            ecosystem = await api.ecosystem.get(session, ecosystem_uid)
         if not ecosystem:
             return
         ecosystem_sid = ecosystem.engine.sid
@@ -59,7 +60,7 @@ class ClientEvents(AsyncNamespace):
     async def on_manage_ecosystem(self, sid, data):
         ecosystem_uid = data["ecosystem"]
         with db.scoped_session() as session:
-            ecosystem = await sdk.ecosystem.get(session, ecosystem_uid)
+            ecosystem = await api.ecosystem.get(session, ecosystem_uid)
         if not ecosystem:
             return
         ecosystem_sid = ecosystem.engine.sid

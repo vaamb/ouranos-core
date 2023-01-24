@@ -12,7 +12,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from ouranos.core.config import (
     get_base_dir, get_cache_dir, get_config, get_log_dir
 )
-from .database.wrapper import AsyncSQLAlchemyWrapper
+from ouranos.core.database.wrapper import AsyncSQLAlchemyWrapper
 
 
 if t.TYPE_CHECKING:

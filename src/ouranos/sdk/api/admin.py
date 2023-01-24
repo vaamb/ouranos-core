@@ -7,9 +7,9 @@ from email_validator import validate_email
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ouranos.sdk.api.exceptions import DuplicatedEntry, NoResultFound
 from ouranos.core.database.models.app import User, Role
 from ouranos.core.utils import Tokenizer
+from ouranos.sdk.api.exceptions import DuplicatedEntry, NoResultFound
 
 
 class user:

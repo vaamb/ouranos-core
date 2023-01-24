@@ -6,8 +6,8 @@ import logging
 
 from cachetools import Cache, TTLCache
 
-from .redis_cache import RedisCache, RedisTTLCache
 from ouranos import current_app
+from ouranos.core.redis_cache import RedisCache, RedisTTLCache
 
 
 class SERVER_STATUS(IntEnum):

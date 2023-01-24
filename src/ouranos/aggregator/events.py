@@ -11,12 +11,13 @@ import cachetools
 from dispatcher import AsyncDispatcher, AsyncEventHandler
 from socketio import AsyncNamespace
 
-from ouranos import current_app, db, sdk
+from ouranos import current_app, db
 from ouranos.aggregator.decorators import (
     dispatch_to_application, registration_required
 )
 from ouranos.core.database.models import Management
 from ouranos.core.utils import decrypt_uid, validate_uid_token
+from ouranos.sdk import api
 
 
 def try_time_from_iso(iso_str: str) -> t.Optional[time]:
@@ -113,8 +114,8 @@ class Events:
 
     async def on_disconnect(self, sid, *args) -> None:
         async with db.scoped_session() as session:
-            engine = await sdk.engine.get(session, engine_id=sid)
-            if not engine:
+            engine = await api.engine.get(session, engine_id=sid)
+            if engine is None:
                 return
             uid = engine.uid
             self.leave_room(sid, "engines", namespace="/gaia")
@@ -132,11 +133,11 @@ class Events:
         self.logger.debug(f"Received 'ping' from engine: {engine_uid}")
         now = datetime.now(timezone.utc).replace(microsecond=0)
         async with db.scoped_session() as session:
-            engine = await sdk.engine.get(session, sid)
+            engine = await api.engine.get(session, sid)
             if engine:
                 engine.last_seen = now
                 for ecosystem_uid in data:
-                    ecosystem = await sdk.ecosystem.get(session, ecosystem_uid)
+                    ecosystem = await api.ecosystem.get(session, ecosystem_uid)
                     if ecosystem is not None:
                         self.logger.debug(
                             f"Updating last seen info for ecosystem: "
@@ -191,7 +192,7 @@ class Events:
                 # "address": f"{remote_addr}",
             }
             async with db.scoped_session() as session:
-                await sdk.engine.update_or_create(session, engine_info)
+                await api.engine.update_or_create(session, engine_info)
             self.enter_room(sid, room="engines", namespace="/gaia")
             if self.broker_type == "socketio":
                 await self.emit("register_ack", namespace="/gaia", room=sid)
@@ -211,7 +212,7 @@ class Events:
                     f"Logging base info from ecosystem: "
                     f"{ecosystem['ecosystem_uid']}"
                 )
-                await sdk.ecosystem.update_or_create(session, ecosystem)
+                await api.ecosystem.update_or_create(session, ecosystem)
             ecosystems.append({"uid": uid, "status": ecosystem["status"]})
         await self.ouranos_dispatcher.emit(
             "ecosystem_status",
@@ -229,7 +230,7 @@ class Events:
                     f"{ecosystem['ecosystem_uid']}"
                 )
                 uid: str = ecosystem["uid"]
-                ecosystem_ = await sdk.ecosystem.update_or_create(session, uid=uid)
+                ecosystem_ = await api.ecosystem.update_or_create(session, uid=uid)
                 for management in Management:
                     try:
                         # TODO: look at this
@@ -279,10 +280,10 @@ class Events:
                     "day_start": tods.get("day"),
                     "night_start": tods.get("night"),
                 }
-                await sdk.ecosystem.update_or_create(
+                await api.ecosystem.update_or_create(
                     session, ecosystem_info=ecosystem_info
                 )
-                await sdk.light.update_or_create(
+                await api.light.update_or_create(
                     session, light_info={"method": ecosystem.get("light")},
                     ecosystem_uid=uid
                 )
@@ -292,7 +293,7 @@ class Events:
                         "night": v.get("night"),
                         "hysteresis": v.get("hysteresis")
                     }
-                    await sdk.environmental_parameter.update_or_create(
+                    await api.environmental_parameter.update_or_create(
                         session, uid, parameter, parameter_info
                     )
 
@@ -346,7 +347,7 @@ class Events:
         self.logger.debug(
             f"Received 'sensors_data' from engine: {engine_uid}"
         )
-        sdk.sensor.update_current_data(
+        api.sensor.update_current_data(
             {
                 ecosystem["ecosystem_uid"]: {
                     "data": {
@@ -386,7 +387,7 @@ class Events:
                         await sleep(0)
                     # TODO: if needed get and log avg values from the data
             if values:
-                await sdk.sensor.create_records(session, values)
+                await api.sensor.create_records(session, values)
 
     @registration_required
     @dispatch_to_application
@@ -411,7 +412,7 @@ class Events:
                     "health_index": ecosystem["health_index"]
                 }
                 values.append(health_data)
-            await sdk.health.create_records(session, values)
+            await api.health.create_records(session, values)
 
     @registration_required
     @dispatch_to_application
@@ -441,7 +442,7 @@ class Events:
                     "evening_start": evening_start,
                     "evening_end": evening_end
                 }
-                await sdk.light.update_or_create(session, light_info=light_info)
+                await api.light.update_or_create(session, light_info=light_info)
 
     # ---------------------------------------------------------------------------
     #   Events Api -> Aggregator -> Gaia
@@ -470,7 +471,7 @@ class Events:
     # ---------------------------------------------------------------------------
     @dispatch_to_application
     async def on_current_server_data(self, sid, data) -> None:
-        sdk.system.update_current_data(data)
+        api.system.update_current_data(data)
 
 
 class DispatcherBasedGaiaEvents(AsyncEventHandler, Events):

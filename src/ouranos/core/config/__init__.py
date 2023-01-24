@@ -6,8 +6,8 @@ from pathlib import Path
 import sys
 from typing import Type
 
-from .base import BaseConfig, DIR
-from .consts import ImmutableDict
+from ouranos.core.config.base import BaseConfig, DIR
+from ouranos.core.config.consts import ImmutableDict
 from ouranos.core.utils import stripped_warning
 
 profile_type: BaseConfig | str | None

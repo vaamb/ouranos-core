@@ -2,17 +2,17 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from fastapi.security import HTTPBasicCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ouranos import sdk
-from ouranos.web_server.auth import (
-    Authenticator, basic_auth, get_current_user, login_manager
-)
-from ouranos.web_server.dependencies import get_session
 from ouranos.core.pydantic.models.app import (
     LoginResponse, PydanticLimitedUser, PydanticUserMixin
 )
 from ouranos.core.pydantic.models.common import BaseMsg
 from ouranos.core.utils import ExpiredTokenError, InvalidTokenError, Tokenizer
+from ouranos.sdk import api
 from ouranos.sdk.api.exceptions import DuplicatedEntry
+from ouranos.web_server.auth import (
+    Authenticator, basic_auth, get_current_user, login_manager
+)
+from ouranos.web_server.dependencies import get_session
 
 
 router = APIRouter(
@@ -88,7 +88,7 @@ async def register_new_user(
         return {"msg": "You cannot register, you are already logged in"}
     check_invitation_token(invitation_token)
     try:
-        user = await sdk.user.create(session, **registration_payload)
+        user = await api.user.create(session, **registration_payload)
     except DuplicatedEntry as e:
         args = e.args[0]
         raise HTTPException(

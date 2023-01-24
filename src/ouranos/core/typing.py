@@ -1,18 +1,18 @@
 import typing as t
 
-from .database.models.app import (
+from ouranos.core.database.models.app import (
     CalendarEvent, CommunicationChannel, FlashMessage, GaiaJob,
     Role, Service, User
 )
-from .database.models.archives import (
+from ouranos.core.database.models.archives import (
     ArchiveActuatorHistory, ArchiveAppWarning, ArchiveHealthData,
     ArchiveSensorData
 )
-from .database.models.gaia import (
+from ouranos.core.database.models.gaia import (
     ActuatorHistory, Ecosystem, Engine, EnvironmentParameter, GaiaWarning,
     Hardware, Health, Light, Management, Measure, Plant, SensorHistory
 )
-from .database.models.system import SystemHistory
+from ouranos.core.database.models.system import SystemHistory
 
 
 ACTUATOR_MODE = t.Literal["on", "off", "automatic"]

@@ -3,12 +3,12 @@ import typing as t
 from fastapi import Body, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from . import router
-from ..utils import assert_single_uid
+from ouranos.sdk import api
+from ouranos.sdk.api.utils import timeWindow
 from ouranos.web_server.auth import is_operator
 from ouranos.web_server.dependencies import get_session, get_time_window
-from ouranos import sdk
-from ouranos.sdk.api.utils import timeWindow
+from ouranos.web_server.routes.gaia import router
+from ouranos.web_server.routes.utils import assert_single_uid
 
 
 if t.TYPE_CHECKING:
@@ -19,7 +19,7 @@ async def hardware_or_abort(
         session: AsyncSession,
         hardware_uid: str
 ) -> "Hardware":
-    hardware = await sdk.hardware.get(
+    hardware = await api.hardware.get(
         session=session, hardware_uid=hardware_uid
     )
     if hardware:
@@ -39,17 +39,17 @@ async def get_multiple_hardware(
         hardware_model: t.Optional[list[str]] = Query(default=None),
         session: AsyncSession = Depends(get_session),
 ):
-    hardware = await sdk.hardware.get_multiple(
+    hardware = await api.hardware.get_multiple(
         session, hardware_uid, ecosystems_uid, hardware_level,
         hardware_type, hardware_model
     )
-    response = [sdk.hardware.get_info(session, h) for h in hardware]
+    response = [api.hardware.get_info(session, h) for h in hardware]
     return response
 
 
 @router.get("/hardware/models_available")
 async def get_hardware_available():
-    response = sdk.hardware.get_models_available()
+    response = api.hardware.get_models_available()
     return response
 
 
@@ -69,7 +69,7 @@ async def get_hardware(
 ):
     assert_single_uid(uid)
     hardware = await hardware_or_abort(session, uid)
-    response = sdk.hardware.get_info(session, hardware)
+    response = api.hardware.get_info(session, hardware)
     return response
 
 
@@ -95,11 +95,11 @@ async def get_sensors(
         time_window: timeWindow = Depends(get_time_window),
         session: AsyncSession = Depends(get_session),
 ):
-    sensors = await sdk.sensor.get_multiple(
+    sensors = await api.sensor.get_multiple(
         session, sensors_uid, ecosystems_uid, sensors_level, sensors_model,
         time_window
     )
-    response = [await sdk.sensor.get_overview(
+    response = [await api.sensor.get_overview(
         session, sensor, measures, current_data,
         historic_data, time_window
     ) for sensor in sensors]
@@ -108,8 +108,8 @@ async def get_sensors(
 
 @router.get("/sensor/measures_available")
 async def get_measures_available(session: AsyncSession = Depends(get_session)):
-    measures = await sdk.measure.get_multiple(session)
-    return [sdk.measure.get_info(session, measure) for measure in measures]
+    measures = await api.measure.get_multiple(session)
+    return [api.measure.get_info(session, measure) for measure in measures]
 
 
 @router.get("/sensor/u/<uid>")
@@ -122,7 +122,7 @@ async def get_sensor(
 ):
     assert_single_uid(uid)
     sensor = await hardware_or_abort(session, uid)
-    response = await sdk.sensor.get_overview(
+    response = await api.sensor.get_overview(
         session, sensor, "all", current_data, historic_data, time_window,
     )
     return response
@@ -142,7 +142,7 @@ async def get_measure_for_sensor(
     sensor = await hardware_or_abort(session, uid)
     response = {}
     if measure in [m.name for m in sensor.measure]:
-        response = await sdk.sensor.get_overview(
+        response = await api.sensor.get_overview(
             session, sensor, measure, current_data, historic_data,
             time_window
         )

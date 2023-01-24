@@ -3,18 +3,15 @@ from __future__ import annotations
 import logging
 import time as ctime
 
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import APIRouter, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from socketio.asgi import ASGIApp
 from socketio.asyncio_server import AsyncServer
 
-from .docs import description, tags_metadata
 from ouranos import current_app
-from ouranos.core.utils import (
-    check_secret_key, DispatcherFactory, stripped_warning
-)
+from ouranos.core.utils import check_secret_key, DispatcherFactory
+from ouranos.web_server.docs import description, tags_metadata
 
 try:
     import orjson
@@ -126,27 +123,27 @@ def create_app(config: dict | None = None) -> FastAPI:
 
     # Load routes onto prefixed router
     logger.debug("Loading app-related routes")
-    from .routes.app import router as app_router
+    from ouranos.web_server.routes.app import router as app_router
     app_router.default_response_class = JSONResponse
     prefix.include_router(app_router)
 
     logger.debug("Loading auth-related routes")
-    from .routes.auth import router as auth_router
+    from ouranos.web_server.routes.auth import router as auth_router
     app_router.default_response_class = JSONResponse
     prefix.include_router(auth_router)
 
     logger.debug("Loading gaia-related routes")
-    from .routes.gaia import router as gaia_router
+    from ouranos.web_server.routes.gaia import router as gaia_router
     gaia_router.default_response_class = JSONResponse
     prefix.include_router(gaia_router)
 
     logger.debug("Loading system-related routes")
-    from .routes.system import router as system_router
+    from ouranos.web_server.routes.system import router as system_router
     system_router.default_response_class = JSONResponse
     prefix.include_router(system_router)
 
     logger.debug("Loading weather-related routes")
-    from .routes.weather import router as weather_router
+    from ouranos.web_server.routes.weather import router as weather_router
     weather_router.default_response_class = JSONResponse
     prefix.include_router(weather_router)
 

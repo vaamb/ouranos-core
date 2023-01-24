@@ -6,8 +6,8 @@ import typing as t
 import click
 
 from ouranos.aggregator import Aggregator
-from ouranos.core.cli import RootCommand
 from ouranos.core.plugins import PluginManager
+from ouranos.cli import RootCommand
 from ouranos.sdk import Functionality, Plugin, run_functionality_forever
 from ouranos.web_server import WebServer
 

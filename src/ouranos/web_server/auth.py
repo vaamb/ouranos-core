@@ -8,10 +8,10 @@ from fastapi.security.utils import get_authorization_scheme_param
 import jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ouranos.web_server.dependencies import get_session
-from ouranos import sdk
 from ouranos.core.database.models.app import anonymous_user, Permission, User
 from ouranos.core.utils import Tokenizer
+from ouranos.sdk import api
+from ouranos.web_server.dependencies import get_session
 
 
 LOGIN_COOKIE_NAME = "Authorization"
@@ -58,7 +58,7 @@ class Authenticator:
             username: str,
             password: str,
     ) -> User:
-        user = await sdk.user.get(session, username)
+        user = await api.user.get(session, username)
         if user is None or not user.check_password(password):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -122,7 +122,7 @@ login_manager = LoginManager()
 
 @login_manager.user_loader
 async def load_user(user_id: int, session: AsyncSession) -> User:
-    user = await sdk.user.get(session, user_id)
+    user = await api.user.get(session, user_id)
     return user
 
 

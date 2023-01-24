@@ -6,4 +6,4 @@ router = APIRouter(
     tags=["gaia"],
 )
 
-from . import ecosystem, engine, hardware, other
+from ouranos.web_server.routes.gaia import ecosystem, engine, hardware, other
