@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 try:
-    from importlib_metadata import entry_points
-except ImportError:
     from importlib.metadata import entry_points
+except ImportError:
+    from importlib_metadata import entry_points
+import inspect
 from typing import Iterator
 
 from fastapi import APIRouter, FastAPI
@@ -31,7 +32,14 @@ class PluginManager:
             self,
             omit_excluded: bool = True
     ) -> Iterator:
-        for entry_point in entry_points(group=self.entry_point):
+        args = inspect.signature(entry_points).parameters
+        if "group" in args:
+            entry_points_ = entry_points(group=self.entry_point)
+        # Python < 3.10
+        else:
+            grouped_entry_points = entry_points()
+            entry_points_ = grouped_entry_points.get(self.entry_point, [])
+        for entry_point in entry_points_:
             if not omit_excluded:
                 yield entry_point
             else:
