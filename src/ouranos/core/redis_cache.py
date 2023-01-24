@@ -3,7 +3,7 @@ from collections.abc import MutableMapping
 import time
 import typing as t
 
-from ouranos.core.utils import json
+from ouranos.sdk import json
 
 
 if t.TYPE_CHECKING:
