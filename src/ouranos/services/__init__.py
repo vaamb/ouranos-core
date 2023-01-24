@@ -10,9 +10,7 @@ from ouranos.core.database.models import Engine, Service
 from .calendar import Calendar
 from .daily_recap import DailyRecap
 from .shared_resources import db, scheduler
-from .sun_times import SunTimes
 from .system_monitor import SystemMonitor
-from .weather import Weather
 from .webcam import Webcam
 
 

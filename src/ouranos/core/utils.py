@@ -78,6 +78,8 @@ else:
             return orjson.loads(obj)
 
 
+dispatcher_type: "AsyncBaseDispatcher" | "AsyncRedisDispatcher" | "AsyncAMQPDispatcher"
+
 coordinates = cachetools.LFUCache(maxsize=16)
 
 
@@ -158,10 +160,15 @@ class Tokenizer:
 
 
 class DispatcherFactory:
-    __dispatchers: dict[str, "AsyncBaseDispatcher" | "AsyncRedisDispatcher" | "AsyncAMQPDispatcher"] = {}
+    __dispatchers: dict[str, dispatcher_type] = {}
 
     @classmethod
-    def get(cls, name: str, config: dict | None = None, **kwargs):
+    def get(
+            cls,
+            name: str,
+            config: dict | None = None,
+            **kwargs
+    ) -> dispatcher_type:
         try:
             return cls.__dispatchers[name]
         except KeyError:
@@ -189,28 +196,10 @@ class DispatcherFactory:
                 )
 
 
-def is_connected(ip_to_connect: str = "1.1.1.1") -> bool:
-    try:
-        host = socket.gethostbyname(ip_to_connect)
-        s = socket.create_connection((host, 80), 2)
-        s.close()
-        return True
-    except Exception as ex:
-        stripped_warning(ex)
-    return False
-
-
 def time_to_datetime(_time: time | None) -> datetime | None:
     # return _time in case it is None
     if not isinstance(_time, time):
         return _time
-    return datetime.combine(date.today(), _time, tzinfo=timezone.utc)
-
-
-def parse_sun_times(moment: str | datetime) -> datetime:
-    if isinstance(moment, datetime):
-        return moment
-    _time = datetime.strptime(moment, "%I:%M:%S %p").time()
     return datetime.combine(date.today(), _time, tzinfo=timezone.utc)
 
 

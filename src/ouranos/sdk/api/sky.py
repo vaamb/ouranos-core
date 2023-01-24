@@ -5,7 +5,6 @@ import typing as t
 
 from ouranos.core.cache import get_cache
 from ouranos.core.config.consts import WEATHER_MEASURES
-from ouranos.core.utils import parse_sun_times
 
 
 def _get_time_of_day(dt_time: time) -> str:
@@ -25,9 +24,9 @@ def mode(iterable) -> str:
 
 class weather:
     @staticmethod
-    def get(key: t.Optional[str] = None):
+    def get(key: t.Optional[str] = None, default=None) -> dict:
         cache = get_cache("weather_data")
-        return {**cache}.get(key, {}) if key else {**cache}
+        return {**cache}.get(key, default) if key else {**cache}
 
     @staticmethod
     def get_currently() -> dict:
@@ -189,11 +188,7 @@ class sun_times:
     @staticmethod
     def update(data: dict) -> None:
         cache = get_cache("sun_times_data")
-        formatted = {
-            event: parse_sun_times(timestamp) for event, timestamp in data.items()
-            if event != "day_length"
-        }
-        cache.update(formatted)
+        cache.update(data)
 
     @staticmethod
     def clear() -> None:

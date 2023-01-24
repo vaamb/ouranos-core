@@ -1,4 +1,6 @@
 APScheduler~=3.9.1
+aiofiles~=22.1.0
+aiohttp~=3.8.3
 aiosqlite~=0.17.0
 argon2-cffi~=21.3.0
 cachetools~=5.2.0
@@ -19,12 +21,6 @@ SQLAlchemy~=1.4.40
 uvicorn[standard]~=0.18.3
 -e git+https://gitlab.com/eupla/dispatcher#egg=dispatcher
 
-[telegram]
-python-telegram-bot~=20.0a4
-
-[testing]
 pytest~=7.1.2
-requests~=2.28.1
 
-[better_perf]
 orjson~=3.8.0

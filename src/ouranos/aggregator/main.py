@@ -7,6 +7,7 @@ import click
 import uvicorn
 
 from ouranos.aggregator.archiver import Archiver
+from ouranos.aggregator.sky_watcher import SkyWatcher
 from ouranos.core.utils import DispatcherFactory
 from ouranos.sdk import Functionality, run_functionality_forever
 
@@ -71,6 +72,7 @@ class Aggregator(Functionality):
         self._engine = None
         self._event_handler = None
         self.archiver = Archiver()
+        self.sky_watcher = SkyWatcher()
 
     @property
     def engine(self) -> "AsyncServer" | "AsyncAMQPDispatcher" | "AsyncRedisDispatcher":
@@ -159,9 +161,11 @@ class Aggregator(Functionality):
         else:
             raise RuntimeError
         self.archiver.start()
+        self.sky_watcher.start()
 
     def _stop(self) -> None:
         try:
+            self.sky_watcher.stop()
             self.archiver.stop()
             self.engine.stop()
         except AttributeError:  # Not dispatcher_based
