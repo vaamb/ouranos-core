@@ -13,6 +13,7 @@ source venv/bin/activate
 # Get Ouranos and install the package
 mkdir "bin"; cd "bin"
 git clone --branch stable https://gitlab.com/gaia/ouranos.git "ouranos_core"; cd "ouranos_core"
+pip install --upgrade pip setuptools
 pip install -r requirements.txt
 pip install -e .
 deactivate
