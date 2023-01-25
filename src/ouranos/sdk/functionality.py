@@ -65,9 +65,6 @@ class Functionality:
 
     def start(self):
         if not self._status:
-            # Start the scheduler
-            self.logger.debug("Starting the Scheduler")
-            scheduler.start()
             # Start the functionality
             self._start()
             self._status = True
@@ -78,11 +75,7 @@ class Functionality:
 
     def stop(self):
         if self._status:
-            # Stop the scheduler
-            self.logger.debug("Stopping the Scheduler")
             # Stop the functionality
-            scheduler.remove_all_jobs()
-            scheduler.shutdown()
             self._stop()
             self._status = False
         else:
@@ -97,7 +90,7 @@ def run_functionality_forever(
         *args,
         **kwargs
 ):
-    async def run(
+    async def inner_func(
             functionality_cls: t.Type[Functionality],
             config_profile: str | None = None,
             *args,
@@ -106,14 +99,18 @@ def run_functionality_forever(
         # Start the functionality
         loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         functionality = functionality_cls(config_profile, *args, **kwargs)
+        # TODO: add logger
+        scheduler.start()
         functionality.start()
         # Run until it receives the stop signal
         from ouranos.sdk.runner import Runner
         runner = Runner()
         await runner.run_until_stop(loop)
         functionality.stop()
+        scheduler.remove_all_jobs()
+        scheduler.shutdown()
         await runner.exit()
 
     asyncio.run(
-        run(functionality_cls, config_profile, *args, **kwargs)
+        inner_func(functionality_cls, config_profile, *args, **kwargs)
     )
