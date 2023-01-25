@@ -8,6 +8,7 @@ import inspect
 from typing import Iterator
 
 from fastapi import APIRouter, FastAPI
+from fastapi.responses import JSONResponse
 
 from ouranos.core.utils import stripped_warning
 from ouranos.sdk import AddOn, Functionality, Plugin
@@ -98,15 +99,21 @@ class PluginManager:
     def register_addons(
             self,
             router: APIRouter | FastAPI,
+            json_response: JSONResponse = JSONResponse,
             omit_excluded: bool = True
     ) -> None:
         for entry_point in self.iter_entry_points(omit_excluded):
             pkg = entry_point.load()
             if isinstance(pkg, AddOn):
-                self.register_addon(pkg, router)
+                self.register_addon(pkg, router, json_response)
 
     @staticmethod
-    def register_addon(addon: AddOn, router: APIRouter | FastAPI) -> None:
+    def register_addon(
+            addon: AddOn,
+            router: APIRouter | FastAPI,
+            json_response: JSONResponse = JSONResponse
+    ) -> None:
         for route in addon.routes:
             # TODO: change path and protect the ones already used
+            router.default_response_class = json_response
             router.add_route(route.path, route.endpoint)

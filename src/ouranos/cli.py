@@ -16,7 +16,6 @@ class RootCommand(MultiCommand):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._plugin_commands: dict[str, Command] = {}
-        # TODO: register plugins
 
     @property
     def plugin_commands(self) -> dict[str, Command]:

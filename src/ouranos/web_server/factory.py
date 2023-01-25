@@ -10,6 +10,7 @@ from socketio.asgi import ASGIApp
 from socketio.asyncio_server import AsyncServer
 
 from ouranos import current_app
+from ouranos.core.plugins import PluginManager
 from ouranos.core.utils import check_secret_key, DispatcherFactory
 from ouranos.web_server.docs import description, tags_metadata
 
@@ -146,6 +147,9 @@ def create_app(config: dict | None = None) -> FastAPI:
     from ouranos.web_server.routes.weather import router as weather_router
     weather_router.default_response_class = JSONResponse
     prefix.include_router(weather_router)
+
+    pm = PluginManager()
+    pm.register_addons(prefix, JSONResponse)
 
     # Load prefixed routes
     app.include_router(prefix)
