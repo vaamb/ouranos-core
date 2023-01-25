@@ -99,7 +99,7 @@ def run_functionality_forever(
         # Start the functionality
         loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         functionality = functionality_cls(config_profile, *args, **kwargs)
-        # TODO: add logger
+        functionality.logger.info("Starting the scheduler")
         scheduler.start()
         functionality.start()
         # Run until it receives the stop signal
@@ -107,6 +107,7 @@ def run_functionality_forever(
         runner = Runner()
         await runner.run_until_stop(loop)
         functionality.stop()
+        functionality.logger.info("Stopping the scheduler")
         scheduler.remove_all_jobs()
         scheduler.shutdown()
         await runner.exit()

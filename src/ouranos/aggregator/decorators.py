@@ -29,7 +29,7 @@ def dispatch_to_application(func: Callable):
     async def wrapper(self: "Events", sid: str, data: data_type, *args):
         func_name: str = func.__name__
         event: str = func_name.lstrip("on_")
-        await self.dispatcher.emit(
+        await self._ouranos_dispatcher.emit(
             event, data=data, namespace="application", ttl=15
         )
         return await func(self, sid, data, *args)
