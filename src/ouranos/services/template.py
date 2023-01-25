@@ -6,7 +6,6 @@ import weakref
 from dispatcher import RegisterEventMixin
 
 from ouranos.core.database.models import Service
-from ouranos.services.shared_resources import db
 
 
 pattern = re.compile(r'(?<!^)(?=[A-Z])')

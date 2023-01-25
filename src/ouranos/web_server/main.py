@@ -9,6 +9,7 @@ import uvicorn
 from uvicorn.loops.auto import auto_loop_setup
 
 from ouranos.sdk import Functionality, run_functionality_forever
+from ouranos.web_server.system_monitor import SystemMonitor
 
 
 if t.TYPE_CHECKING:
@@ -44,6 +45,7 @@ class WebServer(Functionality):
     ) -> None:
         super().__init__(config_profile, config_override)
         self.logger.info("Creating Ouranos web server")
+        self.system_monitor = SystemMonitor()
         use_subprocess: bool = (
                 self.config["SERVER_RELOAD"] or
                 (self.config["START_API"] and
@@ -97,6 +99,8 @@ class WebServer(Functionality):
     def _start(self):
         self.logger.info("Starting the web server")
         self._app.start()
+        self.system_monitor.start()
 
     def _stop(self):
+        self.system_monitor.stop()
         self._app.stop()

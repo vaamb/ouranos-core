@@ -7,19 +7,10 @@ from dispatcher import (
 
 from ouranos.core.database.models import Engine, Service
 
-from .calendar import Calendar
-from .daily_recap import DailyRecap
-from .shared_resources import db, scheduler
-from .system_monitor import SystemMonitor
-from .webcam import Webcam
-
 
 pattern = re.compile(r'(?<!^)(?=[A-Z])')
 
-_SERVICES_TUPLE = (
-    Archiver, Calendar, DailyRecap, SunTimes, SystemMonitor,
-    Weather, Webcam
-)
+_SERVICES_TUPLE = (SystemMonitor, )
 
 SERVICES = {
     pattern.sub('_', service.__name__).lower(): service

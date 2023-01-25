@@ -18,5 +18,6 @@ class SystemHistory(base):
     CPU_temp = sa.Column(sa.Float(precision=1))
     RAM_total = sa.Column(sa.Float(precision=2))
     RAM_used = sa.Column(sa.Float(precision=2))
+    RAM_process = sa.Column(sa.Float(precision=2))
     DISK_total = sa.Column(sa.Float(precision=2))
     DISK_used = sa.Column(sa.Float(precision=2))

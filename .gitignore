@@ -10,3 +10,4 @@ migrations/
 *.db
 *private*
 *.egg-info
+*.json

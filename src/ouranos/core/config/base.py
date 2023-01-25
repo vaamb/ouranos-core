@@ -45,6 +45,7 @@ class BaseConfig:
     # Data logging
     SENSOR_LOGGING_PERIOD = 10
     SYSTEM_LOGGING_PERIOD = 10
+    SYSTEM_UPDATE_PERIOD = 5
 
     # Data archiving
     ACTUATOR_ARCHIVING_PERIOD = None  # 180
