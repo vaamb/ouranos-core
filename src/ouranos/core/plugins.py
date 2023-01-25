@@ -5,6 +5,7 @@ try:
 except ImportError:
     from importlib_metadata import entry_points
 import inspect
+from logging import getLogger, Logger
 from typing import Iterator
 
 from fastapi import APIRouter, FastAPI
@@ -25,6 +26,7 @@ class PluginManager:
         return cls.__instance
 
     def __init__(self):
+        self.logger: Logger = getLogger("ouranos.plugin_manager")
         self.excluded: set = set()
         self.plugins: dict[str, Plugin] = {}
         self.functionalities: dict[str, Functionality] = {}
@@ -60,10 +62,9 @@ class PluginManager:
                 self.register_addon(pkg, router)
                 pass
             else:
-                # TODO: use warning
-                stripped_warning(
-                    f"{pkg.__class__.__name__} is not a plugin or an addon"
-                )
+                message = f"{pkg.__class__.__name__} is not a valid plugin or addon"
+                self.logger.error(message)
+                stripped_warning(message)
 
     def register_plugins(self, omit_excluded: bool = True) -> None:
         for entry_point in self.iter_entry_points(omit_excluded):
@@ -113,7 +114,7 @@ class PluginManager:
             router: APIRouter | FastAPI,
             json_response: JSONResponse = JSONResponse
     ) -> None:
+        addon_routes = APIRouter(prefix=f"/{AddOn.name}")
         for route in addon.routes:
-            # TODO: change path and protect the ones already used
             router.default_response_class = json_response
             router.add_route(route.path, route.endpoint)

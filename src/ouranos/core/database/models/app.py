@@ -87,7 +87,6 @@ class Role(base):
         return f"<Role {self.name}>"
 
 
-# TODO: move elsewhere
 class UserMixin:
     id: int = 0
     username: str = ""

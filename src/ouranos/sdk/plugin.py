@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 from collections import namedtuple
+import re
 from typing import Type
 
 from click import Command
-from fastapi import APIRouter
 
 from ouranos.sdk import Functionality
 
 
+pattern = re.compile(r'(?<!^)(?=[A-Z])')
 Route = namedtuple("Route", ("path", "endpoint"))
 
 
@@ -32,6 +33,7 @@ class AddOn:
             self,
             routes: list[Route] | None = None
     ) -> None:
+        self.name = pattern.sub('_', self.__class__.__name__).lower()
         self._routes: list[Route] = routes or []
 
     def add_route(self, route: Route) -> None:

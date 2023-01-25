@@ -181,7 +181,7 @@ def get_digested_hourly_weather_forecast(time_window: int = 24) -> dict:
 
 class sun_times:
     @staticmethod
-    def get() -> dict[str, datetime]:  # TODO: clean this
+    def get() -> dict[str, datetime]:
         cache = get_cache("sun_times_data")
         return {**cache}
 

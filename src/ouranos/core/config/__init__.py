@@ -48,7 +48,10 @@ def _get_dir(name: str, fallback_path: str) -> Path:
     try:
         dir_ = Path(path)
     except ValueError:
-        # TODO: use warnings and log that we are not using the given path
+        stripped_warning(
+            f"The dir specified by {name} is not valid, using fallback path "
+            f"{fallback_path}"
+        )
         base_dir = get_base_dir()
         dir_ = base_dir / fallback_path
     if not dir_.exists():

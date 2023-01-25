@@ -21,7 +21,6 @@ from ouranos.sdk.api.exceptions import NoEcosystemFound
 from ouranos.sdk.api.utils import time_limits, timeWindow, create_time_window
 
 
-# TODO: move this into config
 max_ecosystems = 32
 
 cache_ecosystem_info = TTLCache(maxsize=max_ecosystems, ttl=60)
@@ -488,7 +487,7 @@ class ecosystem:
 #   Environmental parameters-related APIs
 # ---------------------------------------------------------------------------
 class environmental_parameter:
-    # TODO: make gaia calls
+    # TODO: call GAIA
     @staticmethod
     async def create(
             session: AsyncSession,
@@ -914,7 +913,6 @@ class measure:
         return result.scalars().one_or_none()
 
     @staticmethod
-    # TODO: cache?
     async def get_unit(session: AsyncSession, measure_name: str) -> str:
         stmt = (
             select(Measure)

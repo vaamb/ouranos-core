@@ -148,8 +148,12 @@ def create_app(config: dict | None = None) -> FastAPI:
     weather_router.default_response_class = JSONResponse
     prefix.include_router(weather_router)
 
+    # Load add-on routes onto api router with "/addons"
+    logger.debug("Loading add-on routes")
+    addon_routes = APIRouter(prefix="/addons")
     pm = PluginManager()
-    pm.register_addons(prefix, JSONResponse)
+    pm.register_addons(addon_routes, JSONResponse)
+    prefix.include_router(addon_routes)
 
     # Load prefixed routes
     app.include_router(prefix)

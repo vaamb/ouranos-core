@@ -61,8 +61,7 @@ def create_time_window(
     )
 
 
-@cachetools.func.ttl_cache(maxsize=1, ttl=300)
-# TODO: redesign
+@cachetools.func.ttl_cache(maxsize=1, ttl=3)
 def time_limits() -> dict:
     now_utc = datetime.now(timezone.utc)
     return {
