@@ -642,26 +642,14 @@ class hardware:
             models: str | list | None = None,
     ):
         query = select(Hardware)
-        if hardware_uid is not None and "all" not in hardware_uid:
-            if isinstance(hardware_uid, str):
-                hardware_uid = hardware_uid.split(",")
-            query = query.where(Hardware.uid.in_(hardware_uid))
-        if ecosystem_uid is not None and "all" not in ecosystem_uid:
-            if isinstance(ecosystem_uid, str):
-                ecosystem_uid = ecosystem_uid.split(",")
-            query = query.where(Hardware.ecosystem_uid.in_(ecosystem_uid))
-        if levels is not None and "all" not in levels:
-            if isinstance(levels, str):
-                levels = levels.split(",")
-            query = query.where(Hardware.level.in_(levels))
-        if types is not None and "all" not in types:
-            if isinstance(types, str):
-                types = types.split(",")
-            query = query.where(Hardware.type.in_(types))
-        if models is not None and "all" not in models:
-            if isinstance(models, str):
-                models = models.split(",")
-            query = query.where(Hardware.model.in_(models))
+        l = locals()
+        args = "hardware_uid", "ecosystem_uid", "levels", "types", "models"
+        for arg in args:
+            value = l.get(arg)
+            if isinstance(value, str):
+                value = value.split(",")
+            hardware_attr = getattr(Hardware, arg)
+            query = query.where(hardware_attr.in_(value))
         return query
 
     @staticmethod
