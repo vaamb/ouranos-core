@@ -230,12 +230,11 @@ class Events:
                     f"{ecosystem['ecosystem_uid']}"
                 )
                 uid: str = ecosystem["uid"]
-                ecosystem_ = await api.ecosystem.update_or_create(session, uid=uid)
+                ecosystem_obj = await api.ecosystem.update_or_create(session, uid=uid)
                 for management in Management:
                     try:
-                        # TODO: look at this
                         if ecosystem[management.name]:
-                            ecosystem_.add_management(management)
+                            ecosystem_obj.add_management(management)
                     except KeyError:
                         # Not implemented in gaia yet
                         pass
