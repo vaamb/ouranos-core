@@ -1,4 +1,4 @@
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from enum import IntFlag
 
 import sqlalchemy as sa
@@ -39,12 +39,12 @@ class Engine(base):
     last_seen = sa.Column(sa.DateTime)
 
     # relationship
-    ecosystems = orm.relationship("Ecosystem", back_populates="engine")  # , lazy="joined")
+    ecosystems: list["Ecosystem"] = orm.relationship("Ecosystem", back_populates="engine", lazy="selectin")
 
+    @property
     def connected(self) -> bool:
-        return self.last_seen - datetime.now() >= 30
+        return self.last_seen - datetime.now() >= timedelta(seconds=30.0)
 
-    # TODO: finish and add in others
     def to_dict(self) -> dict:
         return {
             "uid": self.uid,
@@ -53,7 +53,7 @@ class Engine(base):
             "address": self.address,
             "last_seen": self.last_seen,
             "connected": self.connected,
-            # "ecosystems": [ecosystem.uid for ecosystem in self.ecosystems]  # TODO
+            "ecosystems": [ecosystem.uid for ecosystem in self.ecosystems]
         }
 
 
@@ -63,7 +63,7 @@ class Ecosystem(base):
     name = sa.Column(sa.String(length=32))
     status = sa.Column(sa.Boolean, default=False)
     last_seen = sa.Column(sa.DateTime)
-    management = sa.Column(sa.Integer, default = 0)
+    management = sa.Column(sa.Integer, default=0)
     day_start = sa.Column(sa.Time, default=time(8, 00))
     night_start = sa.Column(sa.Time, default=time(20, 00))
     engine_uid = sa.Column(sa.Integer, sa.ForeignKey("engines.uid"))
@@ -144,8 +144,18 @@ associationHardwareMeasure = Table(
 )
 
 
+associationSensorPlant = Table(
+    "association_sensors_plants", base.metadata,
+    sa.Column('sensor_uid',
+              sa.String(length=32),
+              sa.ForeignKey('hardware.uid')),
+    sa.Column('plant_uid',
+              sa.Integer,
+              sa.ForeignKey('plants.uid')),
+)
+
+
 class Hardware(base):
-    # TODO: add an "active" field which would be based on config?
     __tablename__ = "hardware"
     uid = sa.Column(sa.String(length=32), primary_key=True)
     ecosystem_uid = sa.Column(sa.String(length=8),
@@ -155,6 +165,7 @@ class Hardware(base):
     address = sa.Column(sa.String(length=16))
     type = sa.Column(sa.String(length=16))
     model = sa.Column(sa.String(length=32))
+    active = sa.Column(sa.Boolean, default=True)
     last_log = sa.Column(sa.DateTime)
     plant_uid = sa.Column(sa.String(8), sa.ForeignKey("plants.uid"))
 
@@ -162,10 +173,11 @@ class Hardware(base):
     ecosystem = orm.relationship("Ecosystem", back_populates="hardware")
     measure = orm.relationship("Measure", back_populates="hardware",
                                secondary=associationHardwareMeasure,
-                               lazy="joined")
-    plants = orm.relationship("Plant", back_populates="sensors")
+                               lazy="selectin")
+    plants = orm.relationship("Plant", back_populates="sensors",
+                              secondary=associationSensorPlant)
     sensors_history = orm.relationship("SensorHistory", back_populates="sensor",
-                                       lazy="dynamic")
+                                       lazy="raise")
 
     def __repr__(self) -> str:
         return (
@@ -236,13 +248,15 @@ class Plant(base):
     species = sa.Column(sa.String(32), index=True, nullable=False)
     sowing_date = sa.Column(sa.DateTime)
 
-    #relationship
-    ecosystem = orm.relationship("Ecosystem", back_populates="plants")
-    sensors = orm.relationship("Hardware", back_populates="plants")
+    # relationship
+    ecosystem = orm.relationship("Ecosystem", back_populates="plants", lazy="selectin")
+    sensors = orm.relationship("Hardware", back_populates="plants",
+                               secondary=associationSensorPlant,
+                               lazy="selectin")
 
     def to_dict(self):
         return {
-            "id": self.id,
+            "uid": self.uid,
             "name": self.name,
             "ecosystem_uid": self.ecosystem_uid,
             "species": self.species,

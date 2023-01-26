@@ -654,7 +654,7 @@ class hardware:
     @staticmethod
     async def get_multiple(
             session: AsyncSession,
-            hardware_uids: str | list | None= None,
+            hardware_uids: str | list | None = None,
             ecosystem_uids: str | list | None = None,
             levels: ot.HARDWARE_LEVELS | list[ot.HARDWARE_LEVELS] | None = None,
             types: ot.HARDWARE_TYPES | list[ot.HARDWARE_TYPES] | None = None,

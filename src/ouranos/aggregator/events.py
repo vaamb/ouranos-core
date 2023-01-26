@@ -9,13 +9,14 @@ import weakref
 
 import cachetools
 from dispatcher import AsyncDispatcher, AsyncEventHandler
+from sqlalchemy import select
 from socketio import AsyncNamespace
 
 from ouranos import current_app, db
 from ouranos.aggregator.decorators import (
     dispatch_to_application, registration_required
 )
-from ouranos.core.database.models import Management
+from ouranos.core.database.models import Hardware, Management
 from ouranos.core.utils import decrypt_uid, validate_uid_token
 from ouranos.sdk import api
 
@@ -69,9 +70,8 @@ class Events:
     @ouranos_dispatcher.setter
     def ouranos_dispatcher(self, dispatcher: AsyncDispatcher):
         self._ouranos_dispatcher = weakref.proxy(dispatcher)
-        # TODO: fix
-        #self._ouranos_dispatcher.on("turn_light", self.turn_light)
-        #self._ouranos_dispatcher.on("turn_actuator", self.turn_actuator)
+        self._ouranos_dispatcher.on("turn_light", self.turn_light)
+        self._ouranos_dispatcher.on("turn_actuator", self.turn_actuator)
 
     async def gaia_background_task(self):
         pass
@@ -303,6 +303,7 @@ class Events:
             f"Received 'hardware' from engine: {engine_uid}"
         )
         async with db.scoped_session() as session:
+            active_hardware = []
             for ecosystem in data:
                 self.logger.debug(
                     f"Logging hardware info from ecosystem: "
@@ -310,33 +311,35 @@ class Events:
                 )
                 uid = ecosystem.pop("uid")
                 for hardware_uid, hardware_dict in ecosystem.items():
+                    active_hardware.append(hardware_uid)
                     hardware_dict["ecosystem_uid"] = uid
                     measures = hardware_dict.pop("measure", [])
                     plants = hardware_dict.pop("plants", [])
-                    hardware = await sdk.hardware.update_or_create(
+                    hardware = await api.hardware.update_or_create(
                         session, hardware_info=hardware_dict, uid=hardware_uid
                     )
                     if measures:
                         if isinstance(measures, str):
                             measures = [measures]
                         measures = [m.replace("_", " ") for m in measures]
-                        _measures = await sdk.measure.get_multiple(session, measures)
-                        if _measures:
-                            for m in _measures:
-                                break  # TODO: fix this
-                                if m not in hardware.measure:
-                                    hardware.measure.append(m)
+                        measure_objs = await api.measure.get_multiple(session, measures)
+                        for measure_obj in measure_objs:
+                            if measure_obj not in hardware.measure:
+                                hardware.measure.append(measure_obj)
                     if plants:
                         if isinstance(plants, str):
                             plants = [plants]
-                        _plants = await sdk.plant.get_multiple(session, plants)
-                        if _plants:
-                            for p in _plants:
-                                break  # TODO: fix this
-                                if p not in hardware.plants:
-                                    hardware.plants.append(m)
+                        plant_objs = await api.plant.get_multiple(session, plants)
+                        for plant_obj in plant_objs:
+                            if plant_obj not in hardware.plants:
+                                hardware.plants.append(plant_obj)
                     session.add(hardware)
                     await sleep(0)
+            stmt = select(Hardware).where(Hardware.uid.not_in(active_hardware))
+            result = await session.execute(stmt)
+            inactive = result.scalars().all()
+            for hardware in inactive:
+                hardware.active = False
 
     # --------------------------------------------------------------------------
     #   Events Gaia -> Aggregator -> Api
