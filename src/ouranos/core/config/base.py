@@ -85,4 +85,3 @@ class BaseConfig:
     HOME_CITY = os.environ.get("HOME_CITY")
     HOME_COORDINATES = os.environ.get("HOME_COORDINATES")
     DARKSKY_API_KEY = os.environ.get("DARKSKY_API_KEY")
-    TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")

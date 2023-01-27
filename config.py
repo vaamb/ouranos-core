@@ -3,13 +3,17 @@ import os
 from ouranos import Config
 
 
-class DevelopmentConfig(Config):
+class PlugInConfig(Config):
+    TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+
+
+class DevelopmentConfig(PlugInConfig):
     DEBUG = True
     DEVELOPMENT = True
     MAIL_DEBUG = True
 
 
-class TestingConfig(Config):
+class TestingConfig(PlugInConfig):
     TESTING = True
 
     DISPATCHER_URL = os.environ.get("OURANOS_DISPATCHER_URL") or "amqp://"
@@ -22,7 +26,7 @@ class TestingConfig(Config):
     }
 
 
-class ProductionConfig(Config):
+class ProductionConfig(PlugInConfig):
     DEBUG = False
     TESTING = False
 
