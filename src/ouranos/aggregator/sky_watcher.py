@@ -116,13 +116,13 @@ class SkyWatcher:
             return True
         return False
 
-    def clear_old_weather_data(self):
+    async def clear_old_weather_data(self):
         path = current_app.cache_dir/_weather_file
         time_ = api.weather.get("currently", {}).get("time")
         # If weather "current" time older than _weather_recency_limit hours: clear
         if time_ < time.time() - _weather_recency_limit * 60 * 60:
             os.remove(path)
-            with self._mutex:
+            async with self._mutex:
                 api.weather.clear()
 
     async def update_weather_data(self) -> None:
@@ -132,7 +132,7 @@ class SkyWatcher:
                 "Ouranos is not connected to the internet, could not update "
                 "weather data"
             )
-            self.clear_old_weather_data()
+            await self.clear_old_weather_data()
             return
         try:
             url = (
@@ -148,7 +148,7 @@ class SkyWatcher:
                     raw_data = await resp.json()
         except ClientError:
             self.logger.error("ConnectionError: cannot update weather data")
-            self.clear_old_weather_data()
+            await self.clear_old_weather_data()
         else:
             raw_data = {
                 "currently": raw_data["currently"],
@@ -186,7 +186,7 @@ class SkyWatcher:
 
     """Sun times"""
     async def _check_sun_times_recency(self) -> bool:
-        path = current_app.cache_dir / _sun_times_file
+        path = current_app.cache_dir/_sun_times_file
         try:
             update_epoch = path.stat().st_ctime
         except FileNotFoundError:
@@ -206,7 +206,7 @@ class SkyWatcher:
     async def update_sun_times_data(self):
         self.logger.debug("Updating sun times")
         if not await is_connected():
-            with self._mutex:
+            async with self._mutex:
                 api.sun_times.clear()
                 self.logger.error(
                     "Ouranos is not connected to the internet, could not "
@@ -226,13 +226,13 @@ class SkyWatcher:
             self.logger.error("ConnectionError: cannot update sun times data")
             api.sun_times.clear()
         else:
-            path = current_app.cache_dir / _sun_times_file
+            path = current_app.cache_dir/_sun_times_file
             raw_data = raw_data["results"]
             stringified_data = json.dumps(raw_data).decode("utf8")
             async with aiofiles.open(path, "w") as file:
                 await file.write(stringified_data)
             formatted_data = format_sun_times_data(raw_data)
-            with self._mutex:
+            async with self._mutex:
                 api.sun_times.update(formatted_data)
             try:
                 await self.dispatcher.emit(

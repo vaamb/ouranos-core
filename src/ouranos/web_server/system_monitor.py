@@ -51,7 +51,7 @@ class SystemMonitor:
                 "CPU_temp": get_temp(),
                 "start_time": START_TIME,
             }
-            with self._mutex:
+            async with self._mutex:
                 api.system.update_current_data(_cache)
             self.dispatcher.emit(
                 "application",
@@ -62,7 +62,7 @@ class SystemMonitor:
 
     async def log_resources_data(self) -> None:
         self.logger.debug("Logging system resources")
-        with db.scoped_session() as session:
+        async with db.scoped_session() as session:
             data = api.system.get_current_data()
             await api.system.create_data_record(session, data)
 
@@ -81,7 +81,10 @@ class SystemMonitor:
                 )
 
     def stop(self) -> None:
+        async def safe_clear():
+            async with self._mutex:
+                api.system.clear_current_data()
+
         self._stop_event.set()
         scheduler.remove_job(job_id="system_monitoring")
-        with self._mutex:
-            api.system.clear_current_data()
+        asyncio.ensure_future(safe_clear())
