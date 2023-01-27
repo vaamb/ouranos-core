@@ -1,15 +1,14 @@
 from __future__ import annotations
 
+import asyncio
 from collections import namedtuple
-import re
 from typing import Type
 
-from click import Command
+from click import Command, Option
 
-from ouranos.sdk import Functionality
+from ouranos.sdk import Functionality, run_functionality_forever
 
 
-pattern = re.compile(r'(?<!^)(?=[A-Z])')
 Route = namedtuple("Route", ("path", "endpoint"))
 
 
@@ -17,24 +16,42 @@ class Plugin:
     def __init__(
             self,
             functionality: Type[Functionality],
-            command: Command
+            name: str | None = None,
+            command: Command | None = None,
+            routes: list[Route] | None = None,
     ) -> None:
         self._functionality: Type[Functionality] = functionality
-        self.command: Command = command
-        self.name = self._functionality.__class__.__name__
+        self.name: str = name or functionality.__name__.lower()
+        self._command: Command | None = command
+        self._routes: list[Route] = routes or []
 
     @property
     def functionality_cls(self) -> Type[Functionality]:
         return self._functionality
 
+    def has_command(self) -> bool:
+        return self._command is not None
 
-class AddOn:
-    def __init__(
-            self,
-            routes: list[Route] | None = None
-    ) -> None:
-        self.name = pattern.sub('_', self.__class__.__name__).lower()
-        self._routes: list[Route] = routes or []
+    @property
+    def command(self) -> Command:
+        if self._command is None:
+            func = asyncio.run(
+                run_functionality_forever(self.functionality_cls)
+            )
+            command = Command("main", callback=func)
+            option = Option(
+                "--config-profile",
+                type=str,
+                default=None,
+                help="Configuration profile to use as defined in config.py.",
+                show_default=True
+            )
+            command.params.append(option)
+            self._command = command
+        return self._command
+
+    def has_route(self) -> bool:
+        return len(self._routes) > 0
 
     def add_route(self, route: Route) -> None:
         self._routes.append(route)

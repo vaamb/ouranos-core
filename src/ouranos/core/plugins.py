@@ -11,8 +11,7 @@ from typing import Iterator
 from fastapi import APIRouter, FastAPI
 from fastapi.responses import JSONResponse
 
-from ouranos.core.utils import stripped_warning
-from ouranos.sdk import AddOn, Functionality, Plugin
+from ouranos.sdk import Functionality, Plugin
 
 
 class PluginManager:
@@ -34,7 +33,7 @@ class PluginManager:
     def iter_entry_points(
             self,
             omit_excluded: bool = True
-    ) -> Iterator:
+    ) -> Iterator[Plugin]:
         args = inspect.signature(entry_points).parameters
         if "group" in args:
             entry_points_ = entry_points(group=self.entry_point)
@@ -43,33 +42,16 @@ class PluginManager:
             grouped_entry_points = entry_points()
             entry_points_ = grouped_entry_points.get(self.entry_point, [])
         for entry_point in entry_points_:
-            if not omit_excluded:
-                yield entry_point
-            else:
-                if entry_point.name not in self.excluded:
-                    yield entry_point
-
-    def register_new_functionalities(
-            self,
-            router: APIRouter | FastAPI,
-            omit_excluded: bool = True
-    ) -> None:
-        for entry_point in self.iter_entry_points(omit_excluded):
             pkg = entry_point.load()
-            if isinstance(pkg, Plugin):
-                self.plugins[pkg.name] = pkg
-            elif isinstance(pkg, AddOn):
-                self.register_addon(pkg, router)
-                pass
+            if not omit_excluded and isinstance(pkg, Plugin):
+                yield pkg
             else:
-                message = f"{pkg.__class__.__name__} is not a valid plugin or addon"
-                self.logger.error(message)
-                stripped_warning(message)
+                if isinstance(pkg, Plugin) and pkg.name not in self.excluded:
+                    yield pkg
 
     def register_plugins(self, omit_excluded: bool = True) -> None:
-        for entry_point in self.iter_entry_points(omit_excluded):
-            pkg = entry_point.load()
-            if isinstance(pkg, Plugin):
+        if not self.plugins:
+            for pkg in self.iter_entry_points(omit_excluded):
                 self.plugins[pkg.name] = pkg
 
     def init_plugins(self):
@@ -97,24 +79,28 @@ class PluginManager:
     def stop_plugin(self, plugin_name):
         self.functionalities[plugin_name].stop()
 
-    def register_addons(
+    def register_plugins_routes(
             self,
             router: APIRouter | FastAPI,
             json_response: JSONResponse = JSONResponse,
-            omit_excluded: bool = True
     ) -> None:
-        for entry_point in self.iter_entry_points(omit_excluded):
-            pkg = entry_point.load()
-            if isinstance(pkg, AddOn):
-                self.register_addon(pkg, router, json_response)
+        if not self.plugins:
+            raise RuntimeError(
+                "You need to register plugins before registering their routes"
+            )
+        for pkg in self.plugins.values():
+            if pkg.has_route():
+                self.register_routes(pkg, router, json_response)
 
-    @staticmethod
-    def register_addon(
-            addon: AddOn,
+    def register_routes(
+            self,
+            plugin: Plugin,
             router: APIRouter | FastAPI,
             json_response: JSONResponse = JSONResponse
     ) -> None:
-        addon_routes = APIRouter(prefix=f"/{AddOn.name}")
-        for route in addon.routes:
-            router.default_response_class = json_response
-            router.add_route(route.path, route.endpoint)
+        self.logger.debug(f"Registering {plugin.name} routes")
+        plugin_routes = APIRouter(prefix=f"/{plugin.name}")
+        plugin_routes.default_response_class = json_response
+        for route in plugin.routes:
+            plugin_routes.add_route(route.path, route.endpoint)
+        router.include_router(plugin_routes)
