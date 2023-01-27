@@ -42,6 +42,12 @@ class Functionality:
             # Configure logging
             configure_logging(config)
             logger: Logger = getLogger("ouranos")
+            if not root and "memory://" in config["DISPATCHER_URL"]:
+                logger.warning(
+                    "Using Ouranos as microservices and the memory-based "
+                    "dispatcher, this will lead to errors as some data won't "
+                    "be transferred between the different microservices"
+                )
             # Init database
             logger.info("Initializing the database")
             db.init(current_app.config)
