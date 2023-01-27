@@ -53,8 +53,7 @@ class SystemMonitor:
             }
             async with self._mutex:
                 api.system.update_current_data(_cache)
-            self.dispatcher.emit(
-                "application",
+            await self.dispatcher.emit(
                 "current_server_data",
                 data=_cache
             )
@@ -64,14 +63,19 @@ class SystemMonitor:
         self.logger.debug("Logging system resources")
         async with db.scoped_session() as session:
             data = api.system.get_current_data()
-            await api.system.create_data_record(session, data)
+            try:
+                del data["start_time"]
+            except KeyError:
+                pass
+            if data:
+                await api.system.create_data_record(session, data)
 
     def start(self) -> None:
         update_period = current_app.config.get("SYSTEM_UPDATE_PERIOD")
         logging_period = current_app.config.get("SYSTEM_LOGGING_PERIOD")
         if update_period is not None:
             self._stop_event.clear()
-            asyncio.ensure_future(self.log_resources_data())
+            asyncio.ensure_future(self.get_resources_data())
             if logging_period is not None:
                 scheduler.add_job(
                     self.log_resources_data,
