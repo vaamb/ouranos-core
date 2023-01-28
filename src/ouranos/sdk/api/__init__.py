@@ -1,3 +1,4 @@
+from ouranos.sdk.api import sky
 from ouranos.sdk.api import (
     admin, app, exceptions, gaia, messages, system, utils, sky
 )

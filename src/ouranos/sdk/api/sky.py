@@ -79,8 +79,7 @@ class weather:
 
 
 def summarize_forecast(forecast: dict) -> dict:
-    digest = {}
-    result = {}
+    digest: dict[str, list] = {}
     data = forecast["forecast"]
     for elem in data:
         for info in WEATHER_MEASURES["mode"] + WEATHER_MEASURES["mean"]:
@@ -88,11 +87,13 @@ def summarize_forecast(forecast: dict) -> dict:
                 d = elem[info]
             except KeyError:
                 continue
-            if digest.get(info):
-                digest[info].append(d)
             else:
-                digest[info] = [d]
+                try:
+                    digest[info].append(d)
+                except KeyError:
+                    digest[info] = [d]
 
+    result = {}
     for info in digest:
         if info in WEATHER_MEASURES["mode"]:
             result[info] = mode(digest[info])
