@@ -32,6 +32,7 @@ class Management(IntFlag):
 
 class Engine(base):
     __tablename__ = "engines"
+    __allow_unmapped__ = True
     uid = sa.Column(sa.String(length=16), primary_key=True)
     sid = sa.Column(sa.String(length=32))
     registration_date = sa.Column(sa.DateTime)
@@ -59,6 +60,7 @@ class Engine(base):
 
 class Ecosystem(base):
     __tablename__ = "ecosystems"
+    __allow_unmapped__ = True
     uid = sa.Column(sa.String(length=8), primary_key=True)
     name = sa.Column(sa.String(length=32))
     status = sa.Column(sa.Boolean, default=False)
@@ -284,6 +286,7 @@ class ActuatorHistory(BaseActuatorHistory):
 
 class Light(base):
     __tablename__ = "lights"
+    __allow_unmapped__ = True
     id = sa.Column(sa.Integer, primary_key=True)
     status = sa.Column(sa.Boolean)
     mode = sa.Column(sa.String(length=12))

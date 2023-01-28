@@ -130,7 +130,7 @@ class SQLAlchemyWrapper:
         if engine is None:
             engine = self._create_engine(
                 self._get_uri_for_bind(bind),
-                convert_unicode=True,
+                # convert_unicode=True,
                 connect_args={"check_same_thread": False},
             )
             self._engines[bind] = engine

@@ -1,7 +1,7 @@
 import typing as t
 
 from pydantic import BaseModel, create_model
-from pydantic_sqlalchemy import sqlalchemy_to_pydantic
+#from pydantic_sqlalchemy import sqlalchemy_to_pydantic
 
 from ouranos.core.database.models.app import User
 
@@ -28,5 +28,5 @@ class PydanticUserMixin(BaseModel):
         pass
 
 
-PydanticUser = sqlalchemy_to_pydantic(User)
+#PydanticUser = sqlalchemy_to_pydantic(User)
 
