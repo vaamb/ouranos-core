@@ -85,9 +85,7 @@ class PluginManager:
             json_response: JSONResponse = JSONResponse,
     ) -> None:
         if not self.plugins:
-            raise RuntimeError(
-                "You need to register plugins before registering their routes"
-            )
+            self.register_plugins()
         for pkg in self.plugins.values():
             if pkg.has_route():
                 self.register_routes(pkg, router, json_response)
