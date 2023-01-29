@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.orm import scoped_session, Session, sessionmaker
 
-from ouranos.core.database._base import base
+from ouranos.core.database.base import base
 
 
 @dataclass
