@@ -119,7 +119,6 @@ class Events:
                 return
             uid = engine.uid
             self.leave_room(sid, "engines", namespace="/gaia")
-            engine.connected = False
             await self.ouranos_dispatcher.emit(
                 "ecosystem_status",
                 {ecosystem.uid: {"status": ecosystem.status, "connected": False}
@@ -210,7 +209,7 @@ class Events:
             async with db.scoped_session() as session:
                 self.logger.debug(
                     f"Logging base info from ecosystem: "
-                    f"{ecosystem['ecosystem_uid']}"
+                    f"{ecosystem['uid']}"
                 )
                 await api.ecosystem.update_or_create(session, ecosystem)
             ecosystems.append({"uid": uid, "status": ecosystem["status"]})
@@ -227,7 +226,7 @@ class Events:
             for ecosystem in data:
                 self.logger.debug(
                     f"Logging management info from ecosystem: "
-                    f"{ecosystem['ecosystem_uid']}"
+                    f"{ecosystem['uid']}"
                 )
                 uid: str = ecosystem["uid"]
                 ecosystem_obj = await api.ecosystem.update_or_create(session, uid=uid)
@@ -250,7 +249,7 @@ class Events:
             for ecosystem in data:
                 self.logger.debug(
                     f"Logging environmental parameters from ecosystem: "
-                    f"{ecosystem['ecosystem_uid']}"
+                    f"{ecosystem['uid']}"
                 )
                 uid: str = ecosystem["uid"]
                 ecosystem["engine_uid"] = engine_uid
@@ -306,7 +305,7 @@ class Events:
             for ecosystem in data:
                 self.logger.debug(
                     f"Logging hardware info from ecosystem: "
-                    f"{ecosystem['ecosystem_uid']}"
+                    f"{ecosystem['uid']}"
                 )
                 uid = ecosystem.pop("uid")
                 for hardware_uid, hardware_dict in ecosystem.items():
