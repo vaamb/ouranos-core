@@ -49,9 +49,6 @@ class Functionality:
                     "be transferred between the different microservices"
                 )
             # Init database
-            logger.info("Initializing the database")
-            db.init(current_app.config)
-            asyncio.ensure_future(create_base_data(logger))
             _SetUp.done = True
 
         self.config: config_type = current_app.config
@@ -62,6 +59,13 @@ class Functionality:
         else:
             self.logger: Logger = getLogger(f"ouranos.{self.name}")
         self._status = False
+
+    @staticmethod
+    async def init_the_db():
+        logger: Logger = getLogger("ouranos")
+        logger.info("Initializing the database")
+        db.init(current_app.config)
+        await create_base_data(logger)
 
     def _start(self):
         raise NotImplementedError
@@ -105,6 +109,7 @@ def run_functionality_forever(
         # Start the functionality
         loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         functionality = functionality_cls(config_profile, *args, **kwargs)
+        await functionality_cls.init_the_db()
         functionality.logger.info("Starting the scheduler")
         scheduler.start()
         functionality.start()
