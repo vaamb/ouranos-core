@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from logging import getLogger, Logger
 from typing import Type
 
-from sqlalchemy import insert, inspect, select
+from sqlalchemy import delete, insert, inspect, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.declarative import DeclarativeMeta
 
@@ -64,27 +64,34 @@ class Archiver:
             archive_model: ArchivableData,
     ) -> None:
         self.logger.debug(f"Archiving {data_name} data")
-        limit = archive_model.__archive_link__.limit
-        now_utc = datetime.now(timezone.utc)
-        time_limit = now_utc - timedelta(days=limit)
-        columns = inspect(recent_model).columns.keys()
+        limit = (
+                archive_model.__archive_link__.limit or
+                recent_model.__archive_link__.limit
+        )
+        if limit is not None:
+            now_utc = datetime.now(timezone.utc)
+            time_limit = now_utc - timedelta(days=limit)
+            columns = inspect(recent_model).columns.keys()
 
-        def as_list_of_dict(list_of_models: list[ArchivableData]) -> list[dict]:
-            return [
-                {column: getattr(model, column) for column in columns}
-                for model in list_of_models
-            ]
+            def as_list_of_dict(list_of_models: list[ArchivableData]) -> list[dict]:
+                return [
+                    {column: getattr(model, column) for column in columns}
+                    for model in list_of_models
+                ]
 
-        with db.scoped_session() as session:
-            session: AsyncSession
-            stmt = select(recent_model).where(recent_model.datetime < time_limit)
-            result = await session.execute(stmt)
-            old_data_obj = result.scalars().all()
-            old_data = as_list_of_dict(old_data_obj)
-            stmt = insert(archive_model).values(old_data)
-            await session.execute(stmt)
-            old_data_obj.delete()
-            await session.commit()
+            with db.scoped_session() as session:
+                session: AsyncSession
+                stmt = select(recent_model).where(recent_model.datetime < time_limit)
+                result = await session.execute(stmt)
+                old_data_obj = result.scalars().all()
+                old_data = as_list_of_dict(old_data_obj)
+                stmt = insert(archive_model).values(old_data)
+                await session.execute(stmt)
+                stmt = delete(recent_model).where(recent_model.datetime < time_limit)
+                await session.execute(stmt)
+                await session.commit()
+        else:
+            self.logger.warning(f"No limit_key set for {data_name} ArchiveLink")
 
     def archive_old_data(self) -> None:
         self.logger.info("Archiving old data")
