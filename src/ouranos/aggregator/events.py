@@ -131,6 +131,7 @@ class Events:
     async def on_ping(self, sid, data, engine_uid) -> None:
         self.logger.debug(f"Received 'ping' from engine: {engine_uid}")
         now = datetime.now(timezone.utc).replace(microsecond=0)
+        ecosystems_seen: list[str] = []
         async with db.scoped_session() as session:
             engine = await api.engine.get(session, sid)
             if engine:
@@ -138,13 +139,15 @@ class Events:
                 for ecosystem_uid in data:
                     ecosystem = await api.ecosystem.get(session, ecosystem_uid)
                     if ecosystem is not None:
-                        self.logger.debug(
-                            f"Updating last seen info for ecosystem: "
-                            f"{ecosystem.name}"
-                        )
+                        ecosystems_seen.append(ecosystem.uid)
                         ecosystem.last_seen = now
+        self.logger.debug(
+            f"Updated last seen info for ecosystem(s) "
+            f"{', '.join(ecosystems_seen)}"
+        )
 
     async def on_register_engine(self, sid, data) -> None:
+        validated = False
         if self.broker_type == "socketio":
             async with self.session(sid) as session:
                 remote_addr = session["REMOTE_ADDR"]
@@ -169,16 +172,16 @@ class Events:
                     validated = False
                     await self.disconnect(sid)
         elif self.broker_type == "dispatcher":
-            async with self.session(sid) as session:
-                engine_uid = data.get("engine_uid")
-                self.logger.debug(
-                    f"Received 'register_engine' from engine: {engine_uid}"
-                )
-                if engine_uid:
+            engine_uid = data.get("engine_uid")
+            self.logger.debug(
+                f"Received 'register_engine' from engine: {engine_uid}"
+            )
+            if engine_uid:
+                async with self.session(sid) as session:
                     session["engine_uid"] = engine_uid
-                    validated = True
-                else:
-                    await self.disconnect(sid)
+                validated = True
+            else:
+                await self.disconnect(sid)
         else:
             raise TypeError("Event broker_type is invalid")
         if validated:
@@ -203,16 +206,17 @@ class Events:
     async def on_base_info(self, sid, data, engine_uid) -> None:
         self.logger.debug(f"Received 'base_info' from engine: {engine_uid}")
         ecosystems: list[dict[str, str]] = []
-        for ecosystem in data:
-            ecosystem.update({"engine_uid": engine_uid})
-            uid: str = ecosystem["uid"]
-            async with db.scoped_session() as session:
-                self.logger.debug(
-                    f"Logging base info from ecosystem: "
-                    f"{ecosystem['uid']}"
-                )
+        ecosystems_to_log: list[str] = []
+        async with db.scoped_session() as session:
+            for ecosystem in data:
+                ecosystem.update({"engine_uid": engine_uid})
+                uid: str = ecosystem["uid"]
+                ecosystems_to_log.append(uid)
                 await api.ecosystem.update_or_create(session, ecosystem)
             ecosystems.append({"uid": uid, "status": ecosystem["status"]})
+        self.logger.debug(
+            f"Logged base info from ecosystem(s): {', '.join(ecosystems_to_log)}"
+        )
         await self.ouranos_dispatcher.emit(
             "ecosystem_status",
             data=ecosystems,
@@ -222,13 +226,11 @@ class Events:
     @registration_required
     async def on_management(self, sid, data, engine_uid) -> None:
         self.logger.debug(f"Received 'management' from engine: {engine_uid}")
+        ecosystems_to_log: list[str] = []
         async with db.scoped_session() as session:
             for ecosystem in data:
-                self.logger.debug(
-                    f"Logging management info from ecosystem: "
-                    f"{ecosystem['uid']}"
-                )
                 uid: str = ecosystem["uid"]
+                ecosystems_to_log.append(uid)
                 ecosystem_obj = await api.ecosystem.update_or_create(session, uid=uid)
                 for management in Management:
                     try:
@@ -237,21 +239,23 @@ class Events:
                     except KeyError:
                         # Not implemented in gaia yet
                         pass
-                session.add(ecosystem)
+                session.add(ecosystem_obj)
                 await sleep(0)
+        self.logger.debug(
+            f"Logged management info from ecosystem(s): "
+            f"{', '.join(ecosystems_to_log)}"
+        )
 
     @registration_required
     async def on_environmental_parameters(self, sid, data, engine_uid) -> None:
         self.logger.debug(
             f"Received 'environmental_parameters' from engine: {engine_uid}"
         )
+        ecosystems_to_log: list[str] = []
         async with db.scoped_session() as session:
             for ecosystem in data:
-                self.logger.debug(
-                    f"Logging environmental parameters from ecosystem: "
-                    f"{ecosystem['uid']}"
-                )
                 uid: str = ecosystem["uid"]
+                ecosystems_to_log.append(uid)
                 ecosystem["engine_uid"] = engine_uid
                 tods = {}
                 env_params = {}
@@ -294,20 +298,22 @@ class Events:
                     await api.environmental_parameter.update_or_create(
                         session, uid, parameter, parameter_info
                     )
+        self.logger.debug(
+            f"Logged environmental parameters from ecosystem(s): "
+            f"{', '.join(ecosystems_to_log)}"
+        )
 
     @registration_required
     async def on_hardware(self, sid, data, engine_uid) -> None:
         self.logger.debug(
             f"Received 'hardware' from engine: {engine_uid}"
         )
+        ecosystems_to_log: list[str] = []
         async with db.scoped_session() as session:
             active_hardware = []
             for ecosystem in data:
-                self.logger.debug(
-                    f"Logging hardware info from ecosystem: "
-                    f"{ecosystem['uid']}"
-                )
                 uid = ecosystem.pop("uid")
+                ecosystems_to_log.append(uid)
                 for hardware_uid, hardware_dict in ecosystem.items():
                     active_hardware.append(hardware_uid)
                     hardware_dict["ecosystem_uid"] = uid
@@ -338,6 +344,9 @@ class Events:
             inactive = result.scalars().all()
             for hardware in inactive:
                 hardware.active = False
+        self.logger.debug(
+            f"Logged hardware info from ecosystem(s): {', '.join(ecosystems_to_log)}"
+        )
 
     # --------------------------------------------------------------------------
     #   Events Gaia -> Aggregator -> Api
@@ -361,34 +370,36 @@ class Events:
                 } for ecosystem in data
             }
         )
-        async with db.scoped_session() as session:
-            values: list[dict] = []
-            for ecosystem in data:
-                dt_str: str = ecosystem.get("datetime")
-                if not dt_str:
-                    continue
-                dt = datetime.fromisoformat(dt_str)
-                if dt.minute % current_app.config["SENSOR_LOGGING_PERIOD"] == 0:
-                    self.logger.debug(
-                        f"Logging sensors data from ecosystem: "
-                        f"{ecosystem['ecosystem_uid']}"
-                    )
-                    for sensor in ecosystem["data"]:
-                        sensor_uid = sensor["sensor_uid"]
-                        for measure in sensor["measures"]:
-                            value = float(measure["value"])
-                            sensor_data = {
-                                "ecosystem_uid": ecosystem["ecosystem_uid"],
-                                "sensor_uid": sensor_uid,
-                                "measure": measure["name"],
-                                "datetime": dt,
-                                "value": value,
-                            }
-                            values.append(sensor_data)
-                        await sleep(0)
-                    # TODO: if needed get and log avg values from the data
-            if values:
+        values: list[dict] = []
+        ecosystems_to_log: list[str] = []
+        for ecosystem in data:
+            dt_str: str = ecosystem.get("datetime")
+            if not dt_str:
+                continue
+            dt = datetime.fromisoformat(dt_str)
+            if dt.minute % current_app.config["SENSOR_LOGGING_PERIOD"] == 0:
+                ecosystems_to_log.append(ecosystem["ecosystem_uid"])
+                for sensor in ecosystem["data"]:
+                    sensor_uid = sensor["sensor_uid"]
+                    for measure in sensor["measures"]:
+                        value = float(measure["value"])
+                        sensor_data = {
+                            "ecosystem_uid": ecosystem["ecosystem_uid"],
+                            "sensor_uid": sensor_uid,
+                            "measure": measure["name"],
+                            "datetime": dt,
+                            "value": value,
+                        }
+                        values.append(sensor_data)
+                    await sleep(0)
+                # TODO: if needed get and log avg values from the data
+        if values:
+            async with db.scoped_session() as session:
                 await api.sensor.create_records(session, values)
+            self.logger.debug(
+                f"Logged sensors data from ecosystem(s) "
+                f"{', '.join(ecosystems_to_log)}"
+            )
 
     @registration_required
     @dispatch_to_application
@@ -396,35 +407,35 @@ class Events:
         self.logger.debug(
             f"Received 'update_health_data' from {engine_uid}"
         )
-        # self.ouranos_dispatcher.emit("application", "health_data", data=data)
+        ecosystems_to_log: list[str] = []
         # healthData.update(data)
-        async with db.scoped_session() as session:
-            values: list[dict] = []
-            for ecosystem in data:
-                self.logger.debug(
-                    f"Logging health data from ecosystem: "
-                    f"{ecosystem['ecosystem_uid']}"
-                )
-                health_data = {
-                    "ecosystem_uid": ecosystem["ecosystem_uid"],
-                    "datetime": datetime.fromisoformat(ecosystem["datetime"]),
-                    "green": ecosystem["green"],
-                    "necrosis": ecosystem["necrosis"],
-                    "health_index": ecosystem["health_index"]
-                }
-                values.append(health_data)
-            await api.health.create_records(session, values)
+        values: list[dict] = []
+        for ecosystem in data:
+            ecosystems_to_log.append(ecosystem["ecosystem_uid"])
+            health_data = {
+                "ecosystem_uid": ecosystem["ecosystem_uid"],
+                "datetime": datetime.fromisoformat(ecosystem["datetime"]),
+                "green": ecosystem["green"],
+                "necrosis": ecosystem["necrosis"],
+                "health_index": ecosystem["health_index"]
+            }
+            values.append(health_data)
+        if values:
+            async with db.scoped_session() as session:
+                await api.health.create_records(session, values)
+            self.logger.debug(
+                f"Logged health data from ecosystem(s): "
+                f"{', '.join(ecosystems_to_log)}"
+            )
 
     @registration_required
     @dispatch_to_application
     async def on_light_data(self, sid, data, engine_uid) -> None:
         self.logger.debug(f"Received 'light_data' from {engine_uid}")
+        ecosystems_to_log: list[str] = []
         async with db.scoped_session() as session:
             for ecosystem in data:
-                self.logger.debug(
-                    f"Logging light data from ecosystem: "
-                    f"{ecosystem['ecosystem_uid']}"
-                )
+                ecosystems_to_log.append(ecosystem["ecosystem_uid"])
                 morning_start = try_time_from_iso(
                     ecosystem.get("morning_start", None))
                 morning_end = try_time_from_iso(
@@ -444,6 +455,9 @@ class Events:
                     "evening_end": evening_end
                 }
                 await api.light.update_or_create(session, light_info=light_info)
+        self.logger.debug(
+            f"Logging light data from ecosystem(s): {', '.join(ecosystems_to_log)}"
+        )
 
     # ---------------------------------------------------------------------------
     #   Events Api -> Aggregator -> Gaia
@@ -466,13 +480,6 @@ class Events:
 
     async def turn_actuator(self, sid, data) -> None:
         await self._turn_actuator(sid, data)
-
-    # ---------------------------------------------------------------------------
-    #   Events Functionalities -> Aggregator -> Api
-    # ---------------------------------------------------------------------------
-    @dispatch_to_application
-    async def on_current_server_data(self, sid, data) -> None:
-        api.system.update_current_data(data)
 
 
 class DispatcherBasedGaiaEvents(AsyncEventHandler, Events):
