@@ -645,10 +645,11 @@ class hardware:
         args = "hardware_uid", "ecosystem_uid", "levels", "types", "models"
         for arg in args:
             value = l.get(arg)
-            if isinstance(value, str):
-                value = value.split(",")
-            hardware_attr = getattr(Hardware, arg)
-            query = query.where(hardware_attr.in_(value))
+            if value:
+                if isinstance(value, str):
+                    value = value.split(",")
+                hardware_attr = getattr(Hardware, arg)
+                query = query.where(hardware_attr.in_(value))
         return query
 
     @staticmethod
