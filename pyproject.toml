@@ -1,6 +1,20 @@
-[build-system]
-requires = [
-    "setuptools>=42",
-    "wheel"
+[project]
+name = "ouranos"
+version = "0.5.3"
+description = "An api to manage Gaia instances"
+authors = [
+    {name = "Valentin Ambroise", email = "valentin.ambroise@outlook.com"}
 ]
+requires-python = ">=3.7"
+readme = "README.md"
+
+[build-system]
+requires = ["setuptools>=61", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+zip-safe = false
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
