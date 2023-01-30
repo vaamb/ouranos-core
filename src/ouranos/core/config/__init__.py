@@ -6,6 +6,7 @@ from pathlib import Path
 import sys
 from typing import Type
 
+from ouranos import __version__ as version
 from ouranos.core.config.base import BaseConfig, DIR
 from ouranos.core.config.consts import ImmutableDict
 from ouranos.core.utils import stripped_warning
@@ -16,7 +17,7 @@ config_type: ImmutableDict[str, str | int | bool | dict[str, str]]
 
 app_info = {
     "APP_NAME": "Ouranos",
-    "VERSION": "0.5.3",
+    "VERSION": version,
 }
 
 

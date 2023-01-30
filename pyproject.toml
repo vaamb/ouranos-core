@@ -1,12 +1,12 @@
 [project]
 name = "ouranos"
-version = "0.5.3"
 description = "An api to manage Gaia instances"
 authors = [
     {name = "Valentin Ambroise", email = "valentin.ambroise@outlook.com"}
 ]
 requires-python = ">=3.7"
 readme = "README.md"
+dynamic = ["version"]
 
 [build-system]
 requires = ["setuptools>=61", "wheel"]
@@ -15,6 +15,10 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools]
 zip-safe = false
 include-package-data = true
+
+
+[tool.setuptools.dynamic]
+version = {attr = "ouranos.__version__"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
