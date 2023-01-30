@@ -18,7 +18,7 @@ from ouranos.aggregator.decorators import (
     dispatch_to_application, registration_required
 )
 from ouranos.core.database.models import Hardware, Management
-from ouranos.core.utils import decrypt_uid, validate_uid_token
+from ouranos.core.utils import decrypt_uid, humanize_list, validate_uid_token
 from ouranos.sdk import api
 
 
@@ -220,7 +220,7 @@ class Events:
                         ecosystem.last_seen = now
         self.logger.debug(
             f"Updated last seen info for ecosystem(s) "
-            f"{', '.join(ecosystems_seen)}"
+            f"{humanize_list(ecosystems_seen)}"
         )
 
     @registration_required
@@ -238,7 +238,7 @@ class Events:
                 await api.ecosystem.update_or_create(session, ecosystem)
             ecosystems.append({"uid": uid, "status": ecosystem["status"]})
         self.logger.debug(
-            f"Logged base info from ecosystem(s): {', '.join(ecosystems_to_log)}"
+            f"Logged base info from ecosystem(s): {humanize_list(ecosystems_to_log)}"
         )
         await self.ouranos_dispatcher.emit(
             "ecosystem_status",
@@ -268,7 +268,7 @@ class Events:
                 await sleep(0)
         self.logger.debug(
             f"Logged management info from ecosystem(s): "
-            f"{', '.join(ecosystems_to_log)}"
+            f"{humanize_list(ecosystems_to_log)}"
         )
 
     @registration_required
@@ -327,7 +327,7 @@ class Events:
                     )
         self.logger.debug(
             f"Logged environmental parameters from ecosystem(s): "
-            f"{', '.join(ecosystems_to_log)}"
+            f"{humanize_list(ecosystems_to_log)}"
         )
 
     @registration_required
@@ -374,7 +374,7 @@ class Events:
             for hardware in inactive:
                 hardware.active = False
         self.logger.debug(
-            f"Logged hardware info from ecosystem(s): {', '.join(ecosystems_to_log)}"
+            f"Logged hardware info from ecosystem(s): {humanize_list(ecosystems_to_log)}"
         )
 
     # --------------------------------------------------------------------------
@@ -405,7 +405,7 @@ class Events:
         if ecosystems_updated:
             self.logger.debug(
                 f"Updated `sensors_data` cache with data from ecosystem(s) "
-                f"{', '.join(ecosystems_updated)}"
+                f"{humanize_list(ecosystems_updated)}"
             )
         values: list[dict] = []
         ecosystems_to_log: list[str] = []
@@ -437,7 +437,7 @@ class Events:
                 await api.sensor.create_records(session, values)
             self.logger.debug(
                 f"Logged sensors data from ecosystem(s) "
-                f"{', '.join(ecosystems_to_log)}"
+                f"{humanize_list(ecosystems_to_log)}"
             )
 
     @registration_required
@@ -466,7 +466,7 @@ class Events:
                 await api.health.create_records(session, values)
             self.logger.debug(
                 f"Logged health data from ecosystem(s): "
-                f"{', '.join(ecosystems_to_log)}"
+                f"{humanize_list(ecosystems_to_log)}"
             )
 
     @registration_required
@@ -499,7 +499,7 @@ class Events:
                 }
                 await api.light.update_or_create(session, light_info=light_info)
         self.logger.debug(
-            f"Logging light data from ecosystem(s): {', '.join(ecosystems_to_log)}"
+            f"Logging light data from ecosystem(s): {humanize_list(ecosystems_to_log)}"
         )
 
     # ---------------------------------------------------------------------------

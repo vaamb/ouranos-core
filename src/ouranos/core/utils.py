@@ -84,14 +84,12 @@ coordinates = cachetools.LFUCache(maxsize=16)
 
 def humanize_list(lst: list) -> str:
     list_length = len(lst)
-    sentence = []
-    for i in range(list_length):
-        sentence.append(lst[i])
-        if i < list_length - 2:
-            sentence.append(", ")
-        elif i == list_length - 2:
-            sentence.append(" and ")
-    return "".join(sentence)
+    if list_length == 0:
+        return ""
+    elif list_length == 1:
+        return lst[0]
+    else:
+        return f"{', '.join(lst[:list_length-1])} and {lst[list_length-1]}"
 
 
 def async_to_sync(func: t.Callable) -> t.Callable:
