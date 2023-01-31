@@ -8,7 +8,8 @@ import time as ctime
 from argon2 import PasswordHasher
 from argon2.exceptions import VerificationError
 import sqlalchemy as sa
-from sqlalchemy import orm, select
+from sqlalchemy import select
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos import current_app, db
@@ -33,13 +34,14 @@ class Permission(IntFlag):
 class Role(base):
     __tablename__ = "roles"
     __bind_key__ = "app"
-    id = sa.Column(sa.Integer, primary_key=True)
-    name = sa.Column(sa.String(64), unique=True)
-    default = sa.Column(sa.Boolean, default=False, index=True)
-    permissions = sa.Column(sa.Integer)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(sa.String(64), unique=True)
+    default: Mapped[bool] = mapped_column(default=False, index=True)
+    permissions: Mapped[int] = mapped_column()
 
     # relationship
-    users = orm.relationship("User", back_populates="role", lazy="dynamic")
+    users: Mapped[list["User"]] = relationship(back_populates="role")
 
     def __init__(self, **kwargs):
         super(Role, self).__init__(**kwargs)
@@ -144,37 +146,35 @@ anonymous_user = AnonymousUserMixin()
 class User(base, UserMixin):
     __tablename__ = "users"
     __bind_key__ = "app"
-    id = sa.Column(sa.Integer, primary_key=True)
-    username = sa.Column(sa.String(64), index=True, unique=True)
-    email = sa.Column(sa.String(120), index=True, unique=True)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[str] = mapped_column(sa.String(64), index=True, unique=True)
+    email: Mapped[str] = mapped_column(sa.String(120), index=True, unique=True)
 
     # User authentication fields
-    password_hash = sa.Column(sa.String(128))
-    confirmed = sa.Column(sa.Boolean, default=False)
-    role_id = sa.Column(sa.Integer, sa.ForeignKey("roles.id"))
+    password_hash: Mapped[str] = mapped_column(sa.String(128))
+    confirmed: Mapped[bool] = mapped_column(default=False)
+    role_id: Mapped[int] = mapped_column(sa.ForeignKey("roles.id"))
 
     # User registration fields
-    token = sa.Column(sa.String(32))
-    registration_datetime = sa.Column(sa.DateTime,
-                                      default=datetime.now(timezone.utc))
+    token: Mapped[str] = mapped_column(sa.String(32))
+    registration_datetime: Mapped[datetime] = mapped_column(default=datetime.now(timezone.utc))
 
     # User information fields
-    firstname = sa.Column(sa.String(64))
-    lastname = sa.Column(sa.String(64))
-    last_seen = sa.Column(sa.DateTime, default=datetime.now(timezone.utc))
+    firstname: Mapped[str] = mapped_column(sa.String(64))
+    lastname: Mapped[str] = mapped_column(sa.String(64))
+    last_seen: Mapped[datetime] = mapped_column(default=datetime.now(timezone.utc))
 
     # User notifications / services fields
-    daily_recap = sa.Column(sa.Boolean, default=False)
-    daily_recap_channel_id = sa.Column(
-        sa.Integer, sa.ForeignKey("communication_channels.id"))
-    telegram = sa.Column(sa.Boolean, default=False)
-    telegram_chat_id = sa.Column(sa.String(16), unique=True)
+    daily_recap: Mapped[bool] = mapped_column(default=False)
+    daily_recap_channel_id: Mapped[int] = mapped_column(sa.ForeignKey("communication_channels.id"))
+    telegram: Mapped[bool] = mapped_column(default=False)
+    telegram_chat_id: Mapped[str] = mapped_column(sa.String(16), unique=True)
 
     # relationship
-    role = orm.relationship("Role", back_populates="users", lazy="joined")
-    daily_recap_channel = orm.relationship("CommunicationChannel",
-                                           back_populates="users")
-    calendar = orm.relationship("CalendarEvent", back_populates="user")
+    role: Mapped["Role"] = relationship(back_populates="users")
+    daily_recap_channel: Mapped["CommunicationChannel"] = relationship(back_populates="users")
+    calendar: Mapped[list["CalendarEvent"]] = relationship(back_populates="user")
 
     @classmethod
     async def create(cls, session: AsyncSession, **kwargs):
@@ -279,10 +279,11 @@ class User(base, UserMixin):
 class Service(base):
     __tablename__ = "services"
     __bind_key__ = "app"
-    id = sa.Column(sa.Integer, primary_key=True)
-    name = sa.Column(sa.String(length=16))
-    level = sa.Column(sa.String(length=4))
-    status = sa.Column(sa.Boolean, default=False)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(sa.String(length=16))
+    level: Mapped[str] = mapped_column(sa.String(length=4))
+    status: Mapped[bool] = mapped_column(default=False)
 
     def to_dict(self):
         return {
@@ -295,13 +296,13 @@ class Service(base):
 class CommunicationChannel(base):
     __tablename__ = "communication_channels"
     __bind_key__ = "app"
-    id = sa.Column(sa.Integer, primary_key=True)
-    name = sa.Column(sa.String(length=16))
-    status = sa.Column(sa.Boolean, default=False)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(sa.String(length=16))
+    status: Mapped[bool] = mapped_column(default=False)
 
     # relationship
-    users = orm.relationship("User", back_populates="daily_recap_channel",
-                             lazy="dynamic")
+    users: Mapped[list["User"]] = relationship(back_populates="daily_recap_channel")
 
     @staticmethod
     async def insert_channels(session: AsyncSession):
@@ -324,32 +325,36 @@ class CommunicationChannel(base):
 # TODO: When problems solved, after x days: goes to archive
 class FlashMessage(BaseWarning):
     __tablename__ = "flash_message"
+    __bind_key__ = "app"
     __archive_link__ = ArchiveLink("warnings", "recent")
 
 
 class CalendarEvent(base):  # TODO: apply similar to warnings
     __tablename__ = "calendar_events"
     __bind_key__ = "app"
-    id = sa.Column(sa.Integer, primary_key=True)
-    user_id = sa.Column(sa.Integer, sa.ForeignKey("users.id"))
-    start_time = sa.Column(sa.DateTime, nullable=False)
-    end_time = sa.Column(sa.DateTime, nullable=False)
-    type = sa.Column(sa.Integer)
-    title = sa.Column(sa.String(length=256))
-    description = sa.Column(sa.String(length=2048))
-    created_at = sa.Column(sa.DateTime, nullable=False)
-    updated_at = sa.Column(sa.DateTime, nullable=False)
-    active = sa.Column(sa.Boolean, default=True)
-    URL = sa.Column(sa.String(length=1024))
-    content = sa.Column(sa.String)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(sa.ForeignKey("users.id"))
+    start_time: Mapped[datetime] = mapped_column(nullable=False)
+    end_time: Mapped[datetime] = mapped_column(nullable=False)
+    type: Mapped[int] = mapped_column()
+    title: Mapped[str] = mapped_column(sa.String(length=256))
+    description: Mapped[str] = mapped_column(sa.String(length=2048))
+    created_at: Mapped[datetime] = mapped_column(nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(nullable=False)
+    active: Mapped[bool] = mapped_column(default=True)
+    URL: Mapped[str] = mapped_column(sa.String(length=1024))
+    content: Mapped[str] = mapped_column(sa.String(length=2048))
 
     # relationship
-    user = orm.relationship("User", back_populates="calendar")
+    user: Mapped[list["User"]] = relationship(back_populates="calendar")
 
 
 class GaiaJob(base):
     __tablename__ = "gaia_jobs"
-    id = sa.Column(sa.Integer, primary_key=True)
-    command = sa.Column(sa.String)
-    arguments = sa.Column(sa.String)
-    done = sa.Column(sa.Boolean)
+    __bind_key__ = "app"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    command: Mapped[str] = mapped_column(sa.String(length=512))
+    arguments: Mapped[str] = mapped_column(sa.String(length=512))
+    done: Mapped[bool] = mapped_column()
