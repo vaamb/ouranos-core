@@ -2,7 +2,8 @@ from datetime import datetime, time, timedelta
 from enum import IntFlag
 
 import sqlalchemy as sa
-from sqlalchemy import orm, select
+from sqlalchemy import insert, select
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.schema import Table
 
@@ -32,15 +33,15 @@ class Management(IntFlag):
 
 class Engine(base):
     __tablename__ = "engines"
-    __allow_unmapped__ = True
-    uid = sa.Column(sa.String(length=16), primary_key=True)
-    sid = sa.Column(sa.String(length=32))
-    registration_date = sa.Column(sa.DateTime)
-    address = sa.Column(sa.String(length=24))
-    last_seen = sa.Column(sa.DateTime)
+
+    uid: Mapped[str] = mapped_column(sa.String(length=16), primary_key=True)
+    sid: Mapped[str] = mapped_column(sa.String(length=32))
+    registration_date: Mapped[datetime] = mapped_column()
+    address: Mapped[str] = mapped_column(sa.String(length=24))
+    last_seen: Mapped[datetime] = mapped_column()
 
     # relationship
-    ecosystems: list["Ecosystem"] = orm.relationship("Ecosystem", back_populates="engine", lazy="selectin")
+    ecosystems: Mapped[list["Ecosystem"]] = relationship(back_populates="engine", lazy="selectin")
 
     @property
     def connected(self) -> bool:
@@ -60,25 +61,25 @@ class Engine(base):
 
 class Ecosystem(base):
     __tablename__ = "ecosystems"
-    __allow_unmapped__ = True
-    uid = sa.Column(sa.String(length=8), primary_key=True)
-    name = sa.Column(sa.String(length=32))
-    status = sa.Column(sa.Boolean, default=False)
-    last_seen = sa.Column(sa.DateTime)
-    management = sa.Column(sa.Integer, default=0)
-    day_start = sa.Column(sa.Time, default=time(8, 00))
-    night_start = sa.Column(sa.Time, default=time(20, 00))
-    engine_uid = sa.Column(sa.Integer, sa.ForeignKey("engines.uid"))
+
+    uid: Mapped[str] = mapped_column(sa.String(length=8), primary_key=True)
+    name: Mapped[str] = mapped_column(sa.String(length=32))
+    status: Mapped[bool] = mapped_column(default=False)
+    last_seen: Mapped[datetime] = mapped_column()
+    management: Mapped[int] = mapped_column(default=0)
+    day_start: Mapped[time] = mapped_column(default=time(8, 00))
+    night_start: Mapped[time] = mapped_column(default=time(20, 00))
+    engine_uid: Mapped[int] = mapped_column(sa.ForeignKey("engines.uid"))
 
     # relationship
-    engine: "Engine" = orm.relationship("Engine", back_populates="ecosystems", lazy="joined")
-    light = orm.relationship("Light", back_populates="ecosystem", lazy="joined", uselist=False)
-    environment_parameters = orm.relationship("EnvironmentParameter", back_populates="ecosystem", lazy="joined")
-    plants = orm.relationship("Plant", back_populates="ecosystem")
-    hardware = orm.relationship("Hardware", back_populates="ecosystem")
-    sensors_history = orm.relationship("SensorHistory", back_populates="ecosystem")
-    actuators_history = orm.relationship("ActuatorHistory", back_populates="ecosystem")
-    health = orm.relationship("Health", back_populates="ecosystem")
+    engine: Mapped["Engine"] = relationship(back_populates="ecosystems")
+    light: Mapped["Light"] = relationship(back_populates="ecosystem", uselist=False)
+    environment_parameters: Mapped[list["EnvironmentParameter"]] = relationship(back_populates="ecosystem")
+    plants: Mapped[list["Plant"]] = relationship(back_populates="ecosystem")
+    hardware: Mapped[list["Hardware"]] = relationship(back_populates="ecosystem")
+    sensors_history: Mapped[list["SensorHistory"]] = relationship(back_populates="ecosystem")
+    actuators_history: Mapped[list["ActuatorHistory"]] = relationship(back_populates="ecosystem")
+    health: Mapped[list["Health"]] = relationship(back_populates="ecosystem")
 
     def can_manage(self, mng: Management) -> bool:
         return self.management & mng.value == mng.value
@@ -113,73 +114,71 @@ class Ecosystem(base):
 
 class EnvironmentParameter(base):
     __tablename__ = "environment_parameters"
-    ecosystem_uid = sa.Column(sa.String(length=8), sa.ForeignKey("ecosystems.uid"),
-                              primary_key=True)
-    parameter = sa.Column(sa.String(length=16), primary_key=True)
-    day = sa.Column(sa.Float(precision=2))
-    night = sa.Column(sa.Float(precision=2))
-    hysteresis = sa.Column(sa.Float(precision=2))
+
+    ecosystem_uid: Mapped[str] = mapped_column(sa.String(length=8), sa.ForeignKey("ecosystems.uid"), primary_key=True)
+    parameter: Mapped[str] = mapped_column(sa.String(length=16), primary_key=True)
+    day: Mapped[float] = mapped_column(sa.Float(precision=2))
+    night: Mapped[float] = mapped_column(sa.Float(precision=2))
+    hysteresis: Mapped[float] = mapped_column(sa.Float(precision=2))
 
     # relationship
-    ecosystem = orm.relationship("Ecosystem", back_populates="environment_parameters")
+    ecosystem: Mapped["Ecosystem"] = relationship(back_populates="environment_parameters")
 
-    def to_dict(self, display_ecosystem_uid=False):
-        rv = {
+    def to_dict(self):
+        return {
+            "ecosystem_uid": self.ecosystem_uid,
             "parameter": self.parameter,
             "day": self.day,
             "night": self.night,
             "hysteresis": self.hysteresis,
         }
-        if display_ecosystem_uid:
-            rv.update({"ecosystem_uid": self.ecosystem_uid})
-        return rv
 
 
 associationHardwareMeasure = Table(
     "association_hardware_measures", base.metadata,
-    sa.Column('hardware_uid',
+    sa.Column("hardware_uid",
               sa.String(length=32),
-              sa.ForeignKey('hardware.uid')),
-    sa.Column('measure_name',
+              sa.ForeignKey("hardware.uid")),
+    sa.Column("measure_name",
               sa.Integer,
-              sa.ForeignKey('measures.name')),
+              sa.ForeignKey("measures.name")),
 )
 
 
 associationSensorPlant = Table(
     "association_sensors_plants", base.metadata,
-    sa.Column('sensor_uid',
+    sa.Column("sensor_uid",
               sa.String(length=32),
-              sa.ForeignKey('hardware.uid')),
-    sa.Column('plant_uid',
+              sa.ForeignKey("hardware.uid")),
+    sa.Column("plant_uid",
               sa.Integer,
-              sa.ForeignKey('plants.uid')),
+              sa.ForeignKey("plants.uid")),
 )
 
 
 class Hardware(base):
     __tablename__ = "hardware"
-    uid = sa.Column(sa.String(length=32), primary_key=True)
-    ecosystem_uid = sa.Column(sa.String(length=8),
-                              sa.ForeignKey("ecosystems.uid"), primary_key=True)
-    name = sa.Column(sa.String(length=32))
-    level = sa.Column(sa.String(length=16))
-    address = sa.Column(sa.String(length=16))
-    type = sa.Column(sa.String(length=16))
-    model = sa.Column(sa.String(length=32))
-    active = sa.Column(sa.Boolean, default=True)
-    last_log = sa.Column(sa.DateTime)
-    plant_uid = sa.Column(sa.String(8), sa.ForeignKey("plants.uid"))
+
+    uid: Mapped[str] = mapped_column(sa.String(length=32), primary_key=True)
+    ecosystem_uid: Mapped[str] = mapped_column(sa.String(length=8), sa.ForeignKey("ecosystems.uid"), primary_key=True)
+    name: Mapped[str] = mapped_column(sa.String(length=32))
+    level: Mapped[str] = mapped_column(sa.String(length=16))
+    address: Mapped[str] = mapped_column(sa.String(length=16))
+    type: Mapped[str] = mapped_column(sa.String(length=16))
+    model: Mapped[str] = mapped_column(sa.String(length=32))
+    active: Mapped[bool] = mapped_column(default=True)
+    last_log: Mapped[datetime] = mapped_column()
+    plant_uid: Mapped[str] = mapped_column(sa.String(8), sa.ForeignKey("plants.uid"))
 
     # relationship
-    ecosystem = orm.relationship("Ecosystem", back_populates="hardware")
-    measure = orm.relationship("Measure", back_populates="hardware",
-                               secondary=associationHardwareMeasure,
-                               lazy="selectin")
-    plants = orm.relationship("Plant", back_populates="sensors",
-                              secondary=associationSensorPlant)
-    sensors_history = orm.relationship("SensorHistory", back_populates="sensor",
-                                       lazy="raise")
+    ecosystem: Mapped["Ecosystem"] = relationship(back_populates="hardware")
+    measure: Mapped[list["Measure"]] = relationship(
+        back_populates="hardware", secondary=associationHardwareMeasure,
+        lazy="selectin")
+    plants: Mapped[list["Plant"]] = relationship(
+        back_populates="sensors", secondary=associationSensorPlant)
+    sensors_history: Mapped[list["SensorHistory"]] = relationship(
+        back_populates="sensor")
 
     def __repr__(self) -> str:
         return (
@@ -208,13 +207,14 @@ sa.Index("idx_sensors_type", Hardware.type, Hardware.level)
 
 class Measure(base):
     __tablename__ = "measures"
-    id = sa.Column(sa.Integer, primary_key=True)
-    name = sa.Column(sa.String(length=16))
-    unit = sa.Column(sa.String(length=16))
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(sa.String(length=16))
+    unit: Mapped[str] = mapped_column(sa.String(length=16))
 
     # relationship
-    hardware = orm.relationship("Hardware", back_populates="measure",
-                                secondary=associationHardwareMeasure)
+    hardware: Mapped[list["Hardware"]] = relationship(
+        back_populates="measure", secondary=associationHardwareMeasure)
 
     @staticmethod
     async def insert_measures(session: AsyncSession):
@@ -230,8 +230,8 @@ class Measure(base):
             result = await session.execute(stmt)
             measure = result.first()
             if not measure:
-                m = Measure(name=name, unit=unit)
-                session.add(m)
+                stmt = insert(Measure).values({"name": name, "unit": unit})
+                await session.execute(stmt)
         await session.commit()
 
     def to_dict(self):
@@ -244,17 +244,17 @@ class Measure(base):
 
 class Plant(base):
     __tablename__ = "plants"
-    uid = sa.Column(sa.String(16), primary_key=True)
-    name = sa.Column(sa.String(32))
-    ecosystem_uid = sa.Column(sa.String(length=8), sa.ForeignKey("ecosystems.uid"))
-    species = sa.Column(sa.String(32), index=True, nullable=False)
-    sowing_date = sa.Column(sa.DateTime)
+    uid: Mapped[str] = mapped_column(sa.String(16), primary_key=True)
+    name: Mapped[str] = mapped_column(sa.String(32))
+    ecosystem_uid: Mapped[str] = mapped_column(sa.String(length=8), sa.ForeignKey("ecosystems.uid"))
+    species: Mapped[int] = mapped_column(sa.String(32), index=True, nullable=False)
+    sowing_date: Mapped[datetime] = mapped_column()
 
     # relationship
-    ecosystem = orm.relationship("Ecosystem", back_populates="plants", lazy="selectin")
-    sensors = orm.relationship("Hardware", back_populates="plants",
-                               secondary=associationSensorPlant,
-                               lazy="selectin")
+    ecosystem = relationship("Ecosystem", back_populates="plants", lazy="selectin")
+    sensors = relationship("Hardware", back_populates="plants",
+                           secondary=associationSensorPlant,
+                           lazy="selectin")
 
     def to_dict(self):
         return {
@@ -272,8 +272,8 @@ class SensorHistory(BaseSensorHistory):
     __archive_link__ = ArchiveLink("sensor", "recent")
 
     # relationships
-    ecosystem = orm.relationship("Ecosystem", back_populates="sensors_history")
-    sensor = orm.relationship("Hardware", back_populates="sensors_history")
+    ecosystem: Mapped["Ecosystem"] = relationship(back_populates="sensors_history")
+    sensor: Mapped["Hardware"] = relationship(back_populates="sensors_history")
 
 
 class ActuatorHistory(BaseActuatorHistory):
@@ -281,24 +281,24 @@ class ActuatorHistory(BaseActuatorHistory):
     __archive_link__ = ArchiveLink("actuator", "recent")
 
     # relationships
-    ecosystem = orm.relationship("Ecosystem", back_populates="actuators_history")
+    ecosystem: Mapped["Ecosystem"] = relationship(back_populates="actuators_history")
 
 
 class Light(base):
     __tablename__ = "lights"
-    __allow_unmapped__ = True
-    id = sa.Column(sa.Integer, primary_key=True)
-    status = sa.Column(sa.Boolean)
-    mode = sa.Column(sa.String(length=12))
-    method = sa.Column(sa.String(length=12))
-    morning_start = sa.Column(sa.Time)
-    morning_end = sa.Column(sa.Time)
-    evening_start = sa.Column(sa.Time)
-    evening_end = sa.Column(sa.Time)
-    ecosystem_uid = sa.Column(sa.String(length=8), sa.ForeignKey("ecosystems.uid"))
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    status: Mapped[bool] = mapped_column()
+    mode: Mapped[str] = mapped_column(sa.String(length=12))
+    method: Mapped[str] = mapped_column(sa.String(length=12))
+    morning_start: Mapped[time] = mapped_column()
+    morning_end: Mapped[time] = mapped_column()
+    evening_start: Mapped[time] = mapped_column()
+    evening_end: Mapped[time] = mapped_column()
+    ecosystem_uid: Mapped[str] = mapped_column(sa.String(length=8), sa.ForeignKey("ecosystems.uid"))
 
     # relationships
-    ecosystem: "Ecosystem" = orm.relationship("Ecosystem", back_populates="light")
+    ecosystem: Mapped["Ecosystem"] = relationship(back_populates="light")
 
     def to_dict(self):
         return {
@@ -319,7 +319,7 @@ class Health(BaseHealth):
     __archive_link__ = ArchiveLink("health", "recent")
 
     # relationships
-    ecosystem = orm.relationship("Ecosystem", back_populates="health")
+    ecosystem: Mapped["Ecosystem"] = relationship("Ecosystem", back_populates="health")
 
 
 class GaiaWarning(BaseWarning):
