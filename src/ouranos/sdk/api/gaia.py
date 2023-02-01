@@ -356,8 +356,8 @@ class ecosystem:
                 select(Hardware).join(SensorHistory.sensor)
                 .filter(Hardware.level.in_(level))
                 .filter(Hardware.ecosystem_uid == ecosystem_id)
-                .filter((SensorHistory.datetime > time_window.start) &
-                        (SensorHistory.datetime <= time_window.end))
+                .filter((SensorHistory.timestamp > time_window.start) &
+                        (SensorHistory.timestamp <= time_window.end))
             )
             result = await session.execute(stmt)
             sensors = result.unique().scalars().all()
@@ -723,8 +723,8 @@ class sensor:
             stmt = (
                 stmt.join(SensorHistory.sensor)
                 .where(
-                    (SensorHistory.datetime > time_window.start) &
-                    (SensorHistory.datetime <= time_window.end)
+                    (SensorHistory.timestamp > time_window.start) &
+                    (SensorHistory.timestamp <= time_window.end)
                 )
                 .distinct()
             )
@@ -747,8 +747,8 @@ class sensor:
             stmt = (
                 stmt.join(SensorHistory.sensor)
                 .where(
-                    (SensorHistory.datetime > time_window.start) &
-                    (SensorHistory.datetime <= time_window.end)
+                    (SensorHistory.timestamp > time_window.start) &
+                    (SensorHistory.timestamp <= time_window.end)
                 )
                 .distinct()
             )
@@ -769,11 +769,11 @@ class sensor:
                 time_window: timeWindow
         ) -> list:
             stmt = (
-                select(SensorHistory.datetime, SensorHistory.value)
+                select(SensorHistory.timestamp, SensorHistory.value)
                 .filter(SensorHistory.measure == measure)
                 .filter(SensorHistory.sensor_uid == sensor_obj.uid)
-                .filter((SensorHistory.datetime > time_window[0]) &
-                        (SensorHistory.datetime <= time_window[1]))
+                .filter((SensorHistory.timestamp > time_window[0]) &
+                        (SensorHistory.timestamp <= time_window[1]))
             )
             result = await session.execute(stmt)
             return result.all()

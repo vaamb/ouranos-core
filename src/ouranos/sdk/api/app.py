@@ -48,8 +48,8 @@ class flash_message:
     ) -> list[FlashMessage]:
         stmt = (
             select(FlashMessage)
-            .where(FlashMessage.is_solved is False)
-            .order_by(FlashMessage.created.desc())
+            .where(FlashMessage.solved is False)
+            .order_by(FlashMessage.created_on.desc())
             .limit(max_first)
         )
         result = await session.execute(stmt)
@@ -61,4 +61,4 @@ class flash_message:
     ) -> list[str]:
         if isinstance(flash_messages, FlashMessage):
             flash_messages = [flash_messages]
-        return [msg.content_only() for msg in flash_messages]
+        return [msg.description for msg in flash_messages]
