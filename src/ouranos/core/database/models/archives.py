@@ -1,4 +1,5 @@
 import sqlalchemy as sa
+from sqlalchemy.orm import Mapped, mapped_column
 
 from ouranos.core.database import ArchiveLink
 from ouranos.core.database.models.common import (
@@ -16,7 +17,7 @@ class ArchiveActuatorHistory(BaseActuatorHistory):
         "actuator", "archive", "ACTUATOR_ARCHIVING_PERIOD"
     )
 
-    ecosystem_uid = sa.Column(sa.String(length=8), primary_key=True)
+    ecosystem_uid: Mapped[str] = mapped_column(sa.String(length=8), primary_key=True)
 
 
 class ArchiveSensorData(BaseSensorHistory):
@@ -26,8 +27,8 @@ class ArchiveSensorData(BaseSensorHistory):
         "sensor", "archive", "SENSOR_ARCHIVING_PERIOD"
     )
 
-    ecosystem_uid = sa.Column(sa.String(length=8))
-    sensor_uid = sa.Column(sa.String(length=16))
+    ecosystem_uid: Mapped[str] = mapped_column(sa.String(length=8))
+    sensor_uid: Mapped[str] = mapped_column(sa.String(length=16))
 
 
 class ArchiveHealthData(BaseHealth):
@@ -37,7 +38,7 @@ class ArchiveHealthData(BaseHealth):
         "health", "archive", "HEALTH_ARCHIVING_PERIOD"
     )
 
-    ecosystem_uid = sa.Column(sa.String(length=8))
+    ecosystem_uid: Mapped[str] = mapped_column(sa.String(length=8))
 
 
 class ArchiveAppWarning(BaseWarning):
@@ -47,4 +48,4 @@ class ArchiveAppWarning(BaseWarning):
         "warnings", "archive", "WARNING_ARCHIVING_PERIOD"
     )
 
-    ecosystem_uid = sa.Column(sa.String(length=8))
+    ecosystem_uid: Mapped[str] = mapped_column(sa.String(length=8))
