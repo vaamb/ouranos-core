@@ -426,7 +426,7 @@ class Events:
                             "ecosystem_uid": ecosystem["ecosystem_uid"],
                             "sensor_uid": sensor_uid,
                             "measure": measure["name"],
-                            "datetime": dt,
+                            "timestamp": dt,
                             "value": value,
                         }
                         values.append(sensor_data)
@@ -455,7 +455,7 @@ class Events:
             )
             health_data = {
                 "ecosystem_uid": ecosystem["ecosystem_uid"],
-                "datetime": datetime.fromisoformat(ecosystem["datetime"]),
+                "timestamp": datetime.fromisoformat(ecosystem["datetime"]),
                 "green": ecosystem["green"],
                 "necrosis": ecosystem["necrosis"],
                 "health_index": ecosystem["health_index"]
