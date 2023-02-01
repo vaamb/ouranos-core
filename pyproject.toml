@@ -1,6 +1,6 @@
 [project]
 name = "ouranos"
-description = "An api to manage Gaia instances"
+description = "An app to manage Gaia instances"
 authors = [
     {name = "Valentin Ambroise", email = "valentin.ambroise@outlook.com"}
 ]
