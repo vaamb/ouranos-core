@@ -372,7 +372,7 @@ class Events:
             result = await session.execute(stmt)
             inactive = result.scalars().all()
             for hardware in inactive:
-                hardware.active = False
+                hardware.status = False
         self.logger.debug(
             f"Logged hardware info from ecosystem(s): {humanize_list(ecosystems_to_log)}"
         )

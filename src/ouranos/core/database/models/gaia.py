@@ -1,5 +1,7 @@
-from datetime import datetime, time, timedelta
-from enum import IntFlag
+from __future__ import annotations
+
+from datetime import datetime, time, timedelta, timezone
+import enum
 
 import sqlalchemy as sa
 from sqlalchemy import insert, select
@@ -10,7 +12,8 @@ from sqlalchemy.schema import Table
 from ouranos import db
 from ouranos.core.database import ArchiveLink
 from ouranos.core.database.models.common import (
-    BaseActuatorHistory, BaseHealth, BaseSensorHistory, BaseWarning
+    ActuatorMode, BaseActuatorHistory, BaseHealth, BaseSensorHistory,
+    BaseWarning
 )
 from ouranos.core.utils import time_to_datetime
 
@@ -21,7 +24,7 @@ base = db.Model
 # ---------------------------------------------------------------------------
 #   Ecosystems-related models, located in db_main and db_archive
 # ---------------------------------------------------------------------------
-class Management(IntFlag):
+class Management(enum.IntFlag):
     sensors = 1
     light = 2
     climate = 4
@@ -31,14 +34,34 @@ class Management(IntFlag):
     webcam = 64
 
 
+class HardwareLevel(enum.Enum):
+    environment = "environment"
+    plants = "plants"
+
+
+class HardwareType(enum.Enum):
+    cooler = "cooler"
+    dehumidifier = "dehumidifier"
+    heater = "heater"
+    humidifier = "humidifier"
+    light = "light"
+    sensor = "sensor"
+
+
+class LightMethod(enum.Enum):
+    place = "place"
+    fixed = "fixed"
+    elongate = "elongate"
+
+
 class Engine(base):
     __tablename__ = "engines"
 
     uid: Mapped[str] = mapped_column(sa.String(length=16), primary_key=True)
     sid: Mapped[str] = mapped_column(sa.String(length=32))
-    registration_date: Mapped[datetime] = mapped_column()
-    address: Mapped[str] = mapped_column(sa.String(length=24))
-    last_seen: Mapped[datetime] = mapped_column()
+    registration_date: Mapped[datetime] = mapped_column(default=datetime.now(timezone.utc))
+    address: Mapped[str | None] = mapped_column(sa.String(length=24))
+    last_seen: Mapped[datetime] = mapped_column(default=datetime.now(timezone.utc))
 
     # relationship
     ecosystems: Mapped[list["Ecosystem"]] = relationship(back_populates="engine", lazy="selectin")
@@ -65,7 +88,7 @@ class Ecosystem(base):
     uid: Mapped[str] = mapped_column(sa.String(length=8), primary_key=True)
     name: Mapped[str] = mapped_column(sa.String(length=32))
     status: Mapped[bool] = mapped_column(default=False)
-    last_seen: Mapped[datetime] = mapped_column()
+    last_seen: Mapped[datetime] = mapped_column(default=datetime.now(timezone.utc))
     management: Mapped[int] = mapped_column(default=0)
     day_start: Mapped[time] = mapped_column(default=time(8, 00))
     night_start: Mapped[time] = mapped_column(default=time(20, 00))
@@ -119,7 +142,7 @@ class EnvironmentParameter(base):
     parameter: Mapped[str] = mapped_column(sa.String(length=16), primary_key=True)
     day: Mapped[float] = mapped_column(sa.Float(precision=2))
     night: Mapped[float] = mapped_column(sa.Float(precision=2))
-    hysteresis: Mapped[float] = mapped_column(sa.Float(precision=2))
+    hysteresis: Mapped[float] = mapped_column(sa.Float(precision=2), default=0.0)
 
     # relationship
     ecosystem: Mapped["Ecosystem"] = relationship(back_populates="environment_parameters")
@@ -134,7 +157,7 @@ class EnvironmentParameter(base):
         }
 
 
-associationHardwareMeasure = Table(
+AssociationHardwareMeasure = Table(
     "association_hardware_measures", base.metadata,
     sa.Column("hardware_uid",
               sa.String(length=32),
@@ -145,7 +168,7 @@ associationHardwareMeasure = Table(
 )
 
 
-associationSensorPlant = Table(
+AssociationSensorPlant = Table(
     "association_sensors_plants", base.metadata,
     sa.Column("sensor_uid",
               sa.String(length=32),
@@ -162,21 +185,21 @@ class Hardware(base):
     uid: Mapped[str] = mapped_column(sa.String(length=32), primary_key=True)
     ecosystem_uid: Mapped[str] = mapped_column(sa.String(length=8), sa.ForeignKey("ecosystems.uid"), primary_key=True)
     name: Mapped[str] = mapped_column(sa.String(length=32))
-    level: Mapped[str] = mapped_column(sa.String(length=16))
-    address: Mapped[str] = mapped_column(sa.String(length=16))
-    type: Mapped[str] = mapped_column(sa.String(length=16))
+    level: Mapped[HardwareLevel] = mapped_column()
+    address: Mapped[str] = mapped_column(sa.String(length=32))
+    type: Mapped[HardwareType] = mapped_column(sa.String(length=16))
     model: Mapped[str] = mapped_column(sa.String(length=32))
-    active: Mapped[bool] = mapped_column(default=True)
-    last_log: Mapped[datetime] = mapped_column()
-    plant_uid: Mapped[str] = mapped_column(sa.String(8), sa.ForeignKey("plants.uid"))
+    status: Mapped[bool] = mapped_column(default=True)
+    last_log: Mapped[datetime | None] = mapped_column()
+    plant_uid: Mapped[str | None] = mapped_column(sa.String(8), sa.ForeignKey("plants.uid"))
 
     # relationship
     ecosystem: Mapped["Ecosystem"] = relationship(back_populates="hardware")
     measure: Mapped[list["Measure"]] = relationship(
-        back_populates="hardware", secondary=associationHardwareMeasure,
+        back_populates="hardware", secondary=AssociationHardwareMeasure,
         lazy="selectin")
     plants: Mapped[list["Plant"]] = relationship(
-        back_populates="sensors", secondary=associationSensorPlant)
+        back_populates="sensors", secondary=AssociationSensorPlant)
     sensors_history: Mapped[list["SensorHistory"]] = relationship(
         back_populates="sensor")
 
@@ -214,7 +237,7 @@ class Measure(base):
 
     # relationship
     hardware: Mapped[list["Hardware"]] = relationship(
-        back_populates="measure", secondary=associationHardwareMeasure)
+        back_populates="measure", secondary=AssociationHardwareMeasure)
 
     @staticmethod
     async def insert_measures(session: AsyncSession):
@@ -247,13 +270,13 @@ class Plant(base):
     uid: Mapped[str] = mapped_column(sa.String(16), primary_key=True)
     name: Mapped[str] = mapped_column(sa.String(32))
     ecosystem_uid: Mapped[str] = mapped_column(sa.String(length=8), sa.ForeignKey("ecosystems.uid"))
-    species: Mapped[int] = mapped_column(sa.String(32), index=True, nullable=False)
-    sowing_date: Mapped[datetime] = mapped_column()
+    species: Mapped[int | None] = mapped_column(sa.String(32), index=True)
+    sowing_date: Mapped[datetime | None] = mapped_column()
 
     # relationship
     ecosystem = relationship("Ecosystem", back_populates="plants", lazy="selectin")
     sensors = relationship("Hardware", back_populates="plants",
-                           secondary=associationSensorPlant,
+                           secondary=AssociationSensorPlant,
                            lazy="selectin")
 
     def to_dict(self):
@@ -289,12 +312,12 @@ class Light(base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     status: Mapped[bool] = mapped_column()
-    mode: Mapped[str] = mapped_column(sa.String(length=12))
-    method: Mapped[str] = mapped_column(sa.String(length=12))
-    morning_start: Mapped[time] = mapped_column()
-    morning_end: Mapped[time] = mapped_column()
-    evening_start: Mapped[time] = mapped_column()
-    evening_end: Mapped[time] = mapped_column()
+    mode: Mapped[ActuatorMode] = mapped_column(default=ActuatorMode.automatic)
+    method: Mapped[LightMethod] = mapped_column(default=LightMethod.fixed)
+    morning_start: Mapped[time | None] = mapped_column()
+    morning_end: Mapped[time | None] = mapped_column()
+    evening_start: Mapped[time | None] = mapped_column()
+    evening_end: Mapped[time | None] = mapped_column()
     ecosystem_uid: Mapped[str] = mapped_column(sa.String(length=8), sa.ForeignKey("ecosystems.uid"))
 
     # relationships

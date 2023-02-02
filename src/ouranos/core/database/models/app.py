@@ -3,12 +3,13 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from enum import IntFlag
 from hashlib import md5
+import re
 import time as ctime
 
 from argon2 import PasswordHasher
 from argon2.exceptions import VerificationError
 import sqlalchemy as sa
-from sqlalchemy import select
+from sqlalchemy import select, Table
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -143,6 +144,17 @@ class AnonymousUserMixin(UserMixin):
 anonymous_user = AnonymousUserMixin()
 
 
+AssociationUserRecap = Table(
+    "association_user_recap", base.metadata,
+    sa.Column("user_uid",
+              sa.String(length=32),
+              sa.ForeignKey("users.id")),
+    sa.Column("channel_id",
+              sa.Integer,
+              sa.ForeignKey("communication_channels.id")),
+)
+
+
 class User(base, UserMixin):
     __tablename__ = "users"
     __bind_key__ = "app"
@@ -152,28 +164,27 @@ class User(base, UserMixin):
     email: Mapped[str] = mapped_column(sa.String(120), index=True, unique=True)
 
     # User authentication fields
-    password_hash: Mapped[str] = mapped_column(sa.String(128))
+    password_hash: Mapped[str | None] = mapped_column(sa.String(128))
     confirmed: Mapped[bool] = mapped_column(default=False)
     role_id: Mapped[int] = mapped_column(sa.ForeignKey("roles.id"))
 
     # User registration fields
-    token: Mapped[str] = mapped_column(sa.String(32))
+    token: Mapped[str | None] = mapped_column(sa.String(32))
     registration_datetime: Mapped[datetime] = mapped_column(default=datetime.now(timezone.utc))
 
     # User information fields
-    firstname: Mapped[str] = mapped_column(sa.String(64))
-    lastname: Mapped[str] = mapped_column(sa.String(64))
+    firstname: Mapped[str | None] = mapped_column(sa.String(64))
+    lastname: Mapped[str | None] = mapped_column(sa.String(64))
     last_seen: Mapped[datetime] = mapped_column(default=datetime.now(timezone.utc))
 
     # User notifications / services fields
     daily_recap: Mapped[bool] = mapped_column(default=False)
-    daily_recap_channel_id: Mapped[int] = mapped_column(sa.ForeignKey("communication_channels.id"))
-    telegram: Mapped[bool] = mapped_column(default=False)
-    telegram_chat_id: Mapped[str] = mapped_column(sa.String(16), unique=True)
+    telegram_chat_id: Mapped[str | None] = mapped_column(sa.String(16), unique=True)
 
     # relationship
     role: Mapped["Role"] = relationship(back_populates="users")
-    daily_recap_channel: Mapped["CommunicationChannel"] = relationship(back_populates="users")
+    recap_channels: Mapped[list["CommunicationChannel"]] = relationship(back_populates="users",
+                                                                         secondary=AssociationUserRecap)
     calendar: Mapped[list["CalendarEvent"]] = relationship(back_populates="user")
 
     @classmethod
@@ -200,11 +211,16 @@ class User(base, UserMixin):
             stmt = select(Role).where(Role.name == "Administrator")
             result = await session.execute(stmt)
             admin = result.scalars().first()
-            gaia = User(username="Ouranos", confirmed=True, role=admin)
+            gaia = User(
+                username="Ouranos",
+                email="None",
+                confirmed=True,
+                role=admin
+            )
             session.add(gaia)
             await session.commit()
 
-    def set_password(self, password):
+    def set_password(self, password: str):
         self.password_hash = argon2_hasher.hash(password)
 
     def check_password(self, password):
@@ -212,6 +228,10 @@ class User(base, UserMixin):
             return argon2_hasher.verify(self.password_hash, password)
         except VerificationError:
             return False
+
+    def validate_email(self, email_address: str):
+        if re.match(r"^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$", email_address) is not None:
+            self.email = email_address
 
     def can(self, perm: Permission):
         return self.role is not None and self.role.has_permission(perm)
@@ -269,8 +289,6 @@ class User(base, UserMixin):
                 "registration": self.registration_datetime,
                 # TODO: change var name
                 "daily_recap": self.daily_recap,
-                "daily_recap_channel_id": self.daily_recap_channel_id,
-                "telegram": self.telegram,
                 "telegram_chat_id": self.telegram_chat_id,
             })
         return rv
@@ -302,7 +320,8 @@ class CommunicationChannel(base):
     status: Mapped[bool] = mapped_column(default=False)
 
     # relationship
-    users: Mapped[list["User"]] = relationship(back_populates="daily_recap_channel")
+    users: Mapped[list["User"]] = relationship(back_populates="recap_channels",
+                                               secondary=AssociationUserRecap)
 
     @staticmethod
     async def insert_channels(session: AsyncSession):
@@ -335,16 +354,16 @@ class CalendarEvent(base):  # TODO: apply similar to warnings
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(sa.ForeignKey("users.id"))
-    start_time: Mapped[datetime] = mapped_column(nullable=False)
-    end_time: Mapped[datetime] = mapped_column(nullable=False)
+    start_time: Mapped[datetime] = mapped_column()
+    end_time: Mapped[datetime] = mapped_column()
     type: Mapped[int] = mapped_column()
     title: Mapped[str] = mapped_column(sa.String(length=256))
-    description: Mapped[str] = mapped_column(sa.String(length=2048))
-    created_at: Mapped[datetime] = mapped_column(nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(nullable=False)
+    description: Mapped[str | None] = mapped_column(sa.String(length=2048))
+    created_at: Mapped[datetime] = mapped_column()
+    updated_at: Mapped[datetime | None] = mapped_column()
     active: Mapped[bool] = mapped_column(default=True)
-    URL: Mapped[str] = mapped_column(sa.String(length=1024))
-    content: Mapped[str] = mapped_column(sa.String(length=2048))
+    URL: Mapped[str | None] = mapped_column(sa.String(length=1024))
+    content: Mapped[str | None] = mapped_column(sa.String(length=2048))
 
     # relationship
     user: Mapped[list["User"]] = relationship(back_populates="calendar")
@@ -357,4 +376,4 @@ class GaiaJob(base):
     id: Mapped[int] = mapped_column(primary_key=True)
     command: Mapped[str] = mapped_column(sa.String(length=512))
     arguments: Mapped[str] = mapped_column(sa.String(length=512))
-    done: Mapped[bool] = mapped_column()
+    done: Mapped[bool] = mapped_column(default=False)

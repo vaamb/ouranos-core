@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime
 
 import sqlalchemy as sa
@@ -18,7 +20,7 @@ class SystemHistory(base):
     __bind_key__ = "system"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    timestamp: Mapped[datetime] = mapped_column(nullable=False)
+    timestamp: Mapped[datetime] = mapped_column()
     CPU_used: Mapped[float] = mapped_column(sa.Float(precision=1))
     CPU_temp: Mapped[float] = mapped_column(sa.Float(precision=1))
     RAM_total: Mapped[float] = mapped_column(sa.Float(precision=2))
@@ -26,3 +28,4 @@ class SystemHistory(base):
     RAM_process: Mapped[float] = mapped_column(sa.Float(precision=2))
     DISK_total: Mapped[float] = mapped_column(sa.Float(precision=2))
     DISK_used: Mapped[float] = mapped_column(sa.Float(precision=2))
+    temperature: Mapped[float | None] = mapped_column(sa.Float(precision=2))
