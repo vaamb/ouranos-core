@@ -41,7 +41,7 @@ class SystemMonitor:
             mem_proc = current_process.memory_info()
             disk = psutil.disk_usage("/")
             _cache = {
-                "datetime": datetime.now(timezone.utc).replace(microsecond=0),
+                "timestamp": datetime.now(timezone.utc).replace(microsecond=0),
                 "CPU_used": psutil.cpu_percent(),
                 "RAM_total": round(mem[0]/(1024*1024*1024), 2),
                 "RAM_used": round(mem[3]/(1024*1024*1024), 2),
