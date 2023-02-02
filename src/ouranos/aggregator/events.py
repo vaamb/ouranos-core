@@ -34,12 +34,15 @@ async def get_ecosystem_name(
     except KeyError:
         if session is not None:
             ecosystem_obj = await api.ecosystem.get(session, ecosystem_uid)
-            _ecosystem_name_cache[ecosystem_uid] = ecosystem_obj.name
-            return ecosystem_obj.name
+            if ecosystem_obj is not None:
+                _ecosystem_name_cache[ecosystem_uid] = ecosystem_obj.name
+                return ecosystem_obj.name
         async with db.scoped_session() as session:
             ecosystem_obj = await api.ecosystem.get(session, ecosystem_uid)
-            _ecosystem_name_cache[ecosystem_uid] = ecosystem_obj.name
-            return ecosystem_obj.name
+            if ecosystem_obj is not None:
+                _ecosystem_name_cache[ecosystem_uid] = ecosystem_obj.name
+                return ecosystem_obj.name
+        # TODO: return or raise when not found
 
 
 def try_time_from_iso(iso_str: str) -> t.Optional[time]:
@@ -232,9 +235,7 @@ class Events:
             for ecosystem in data:
                 ecosystem.update({"engine_uid": engine_uid})
                 uid: str = ecosystem["uid"]
-                ecosystems_to_log.append(
-                    await get_ecosystem_name(uid, session=session)
-                )
+                ecosystems_to_log.append(ecosystem["name"])
                 await api.ecosystem.update_or_create(session, ecosystem)
             ecosystems.append({"uid": uid, "status": ecosystem["status"]})
         self.logger.debug(
