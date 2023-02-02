@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, time, timedelta, timezone
 import enum
+from typing import Optional
 
 import sqlalchemy as sa
 from sqlalchemy import insert, select
@@ -60,7 +61,7 @@ class Engine(base):
     uid: Mapped[str] = mapped_column(sa.String(length=16), primary_key=True)
     sid: Mapped[str] = mapped_column(sa.String(length=32))
     registration_date: Mapped[datetime] = mapped_column(default=datetime.now(timezone.utc))
-    address: Mapped[str | None] = mapped_column(sa.String(length=24))
+    address: Mapped[Optional[str]] = mapped_column(sa.String(length=24))
     last_seen: Mapped[datetime] = mapped_column(default=datetime.now(timezone.utc))
 
     # relationship
@@ -190,8 +191,8 @@ class Hardware(base):
     type: Mapped[HardwareType] = mapped_column(sa.String(length=16))
     model: Mapped[str] = mapped_column(sa.String(length=32))
     status: Mapped[bool] = mapped_column(default=True)
-    last_log: Mapped[datetime | None] = mapped_column()
-    plant_uid: Mapped[str | None] = mapped_column(sa.String(8), sa.ForeignKey("plants.uid"))
+    last_log: Mapped[Optional[datetime]] = mapped_column()
+    plant_uid: Mapped[Optional[str]] = mapped_column(sa.String(8), sa.ForeignKey("plants.uid"))
 
     # relationship
     ecosystem: Mapped["Ecosystem"] = relationship(back_populates="hardware")
@@ -270,8 +271,8 @@ class Plant(base):
     uid: Mapped[str] = mapped_column(sa.String(16), primary_key=True)
     name: Mapped[str] = mapped_column(sa.String(32))
     ecosystem_uid: Mapped[str] = mapped_column(sa.String(length=8), sa.ForeignKey("ecosystems.uid"))
-    species: Mapped[int | None] = mapped_column(sa.String(32), index=True)
-    sowing_date: Mapped[datetime | None] = mapped_column()
+    species: Mapped[Optional[int]] = mapped_column(sa.String(32), index=True)
+    sowing_date: Mapped[Optional[datetime]] = mapped_column()
 
     # relationship
     ecosystem = relationship("Ecosystem", back_populates="plants", lazy="selectin")
@@ -314,10 +315,10 @@ class Light(base):
     status: Mapped[bool] = mapped_column()
     mode: Mapped[ActuatorMode] = mapped_column(default=ActuatorMode.automatic)
     method: Mapped[LightMethod] = mapped_column(default=LightMethod.fixed)
-    morning_start: Mapped[time | None] = mapped_column()
-    morning_end: Mapped[time | None] = mapped_column()
-    evening_start: Mapped[time | None] = mapped_column()
-    evening_end: Mapped[time | None] = mapped_column()
+    morning_start: Mapped[Optional[None]] = mapped_column()
+    morning_end: Mapped[Optional[None]] = mapped_column()
+    evening_start: Mapped[Optional[time]] = mapped_column()
+    evening_end: Mapped[Optional[time]] = mapped_column()
     ecosystem_uid: Mapped[str] = mapped_column(sa.String(length=8), sa.ForeignKey("ecosystems.uid"))
 
     # relationships

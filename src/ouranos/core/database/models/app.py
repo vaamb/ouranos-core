@@ -5,6 +5,7 @@ from enum import IntFlag
 from hashlib import md5
 import re
 import time as ctime
+from typing import Optional
 
 from argon2 import PasswordHasher
 from argon2.exceptions import VerificationError
@@ -164,22 +165,22 @@ class User(base, UserMixin):
     email: Mapped[str] = mapped_column(sa.String(120), index=True, unique=True)
 
     # User authentication fields
-    password_hash: Mapped[str | None] = mapped_column(sa.String(128))
+    password_hash: Mapped[Optional[str]] = mapped_column(sa.String(128))
     confirmed: Mapped[bool] = mapped_column(default=False)
     role_id: Mapped[int] = mapped_column(sa.ForeignKey("roles.id"))
 
     # User registration fields
-    token: Mapped[str | None] = mapped_column(sa.String(32))
+    token: Mapped[Optional[str]] = mapped_column(sa.String(32))
     registration_datetime: Mapped[datetime] = mapped_column(default=datetime.now(timezone.utc))
 
     # User information fields
-    firstname: Mapped[str | None] = mapped_column(sa.String(64))
-    lastname: Mapped[str | None] = mapped_column(sa.String(64))
+    firstname: Mapped[Optional[str]] = mapped_column(sa.String(64))
+    lastname: Mapped[Optional[str]] = mapped_column(sa.String(64))
     last_seen: Mapped[datetime] = mapped_column(default=datetime.now(timezone.utc))
 
     # User notifications / services fields
     daily_recap: Mapped[bool] = mapped_column(default=False)
-    telegram_chat_id: Mapped[str | None] = mapped_column(sa.String(16), unique=True)
+    telegram_chat_id: Mapped[Optional[str]] = mapped_column(sa.String(16), unique=True)
 
     # relationship
     role: Mapped["Role"] = relationship(back_populates="users")
@@ -358,12 +359,12 @@ class CalendarEvent(base):  # TODO: apply similar to warnings
     end_time: Mapped[datetime] = mapped_column()
     type: Mapped[int] = mapped_column()
     title: Mapped[str] = mapped_column(sa.String(length=256))
-    description: Mapped[str | None] = mapped_column(sa.String(length=2048))
+    description: Mapped[Optional[str]] = mapped_column(sa.String(length=2048))
     created_at: Mapped[datetime] = mapped_column()
-    updated_at: Mapped[datetime | None] = mapped_column()
+    updated_at: Mapped[Optional[datetime]] = mapped_column()
     active: Mapped[bool] = mapped_column(default=True)
-    URL: Mapped[str | None] = mapped_column(sa.String(length=1024))
-    content: Mapped[str | None] = mapped_column(sa.String(length=2048))
+    URL: Mapped[Optional[str]] = mapped_column(sa.String(length=1024))
+    content: Mapped[Optional[str]] = mapped_column(sa.String(length=2048))
 
     # relationship
     user: Mapped[list["User"]] = relationship(back_populates="calendar")

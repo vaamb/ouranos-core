@@ -1,6 +1,5 @@
-from __future__ import annotations
-
 from datetime import datetime
+from typing import Optional
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column
@@ -28,4 +27,4 @@ class SystemHistory(base):
     RAM_process: Mapped[float] = mapped_column(sa.Float(precision=2))
     DISK_total: Mapped[float] = mapped_column(sa.Float(precision=2))
     DISK_used: Mapped[float] = mapped_column(sa.Float(precision=2))
-    temperature: Mapped[float | None] = mapped_column(sa.Float(precision=2))
+    temperature: Mapped[Optional[float]] = mapped_column(sa.Float(precision=2))

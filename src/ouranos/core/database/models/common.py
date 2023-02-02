@@ -1,7 +1,7 @@
-from __future__ import annotations
-
 from datetime import datetime, timezone
 import enum
+from typing import Optional
+
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.ext.declarative import declared_attr
@@ -93,10 +93,10 @@ class BaseWarning(base):
     id: Mapped[int] = mapped_column(primary_key=True)
     level: Mapped[WarningLevel] = mapped_column(default=WarningLevel.low)
     title: Mapped[str] = mapped_column(sa.String(length=256))
-    description: Mapped[str | None] = mapped_column(sa.String(length=2048))
+    description: Mapped[Optional[str]] = mapped_column(sa.String(length=2048))
     created_on: Mapped[datetime] = mapped_column(default=datetime.now(timezone.utc))
-    seen_on: Mapped[datetime | None] = mapped_column()
-    solved_on: Mapped[datetime | None] = mapped_column()
+    seen_on: Mapped[Optional[datetime]] = mapped_column()
+    solved_on: Mapped[Optional[datetime]] = mapped_column()
 
     def to_dict(self) -> dict:
         return {
