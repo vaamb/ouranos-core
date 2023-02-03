@@ -30,10 +30,9 @@ def registration_required(func: Callable):
 def dispatch_to_application(func: Callable):
     """Decorator which dispatch the data to the clients namespace"""
     async def wrapper(self: "Events", sid: str, data: data_type, *args):
-        dispatcher = DispatcherFactory.get("application")
         func_name: str = func.__name__
         event: str = func_name.lstrip("on_")
-        await dispatcher.emit(
+        await self.ouranos_dispatcher.emit(
             event, data=data, namespace="application", ttl=15
         )
         return await func(self, sid, data, *args)

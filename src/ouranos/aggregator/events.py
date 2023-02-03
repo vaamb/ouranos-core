@@ -5,7 +5,6 @@ from datetime import datetime, time, timezone
 import logging
 import random
 import typing as t
-import weakref
 
 import cachetools
 from dispatcher import AsyncDispatcher, AsyncEventHandler
@@ -93,9 +92,9 @@ class Events:
 
     @ouranos_dispatcher.setter
     def ouranos_dispatcher(self, dispatcher: AsyncDispatcher):
-        self._ouranos_dispatcher = weakref.proxy(dispatcher)
-        self._ouranos_dispatcher.on("turn_light", self.turn_light)
-        self._ouranos_dispatcher.on("turn_actuator", self.turn_actuator)
+        self._ouranos_dispatcher = dispatcher
+        self.ouranos_dispatcher.on("turn_light", self.turn_light)
+        self.ouranos_dispatcher.on("turn_actuator", self.turn_actuator)
 
     async def gaia_background_task(self):
         pass
@@ -366,23 +365,24 @@ class Events:
     #   Events Gaia -> Aggregator -> Api
     # --------------------------------------------------------------------------
     @registration_required
-    @dispatch_to_application
     async def on_sensors_data(self, sid, data, engine_uid) -> None:
         self.logger.debug(
             f"Received 'sensors_data' from engine: {engine_uid}"
         )
-        api.sensor.update_current_data(
-            {
-                ecosystem["ecosystem_uid"]: {
-                    "data": {
-                        sensor["sensor_uid"]: {
-                            measure["name"]: measure["value"]
-                            for measure in sensor["measures"]
-                        } for sensor in ecosystem["data"]
-                    },
-                    "datetime": ecosystem["datetime"]
-                } for ecosystem in data
-            }
+        current_data = {
+            ecosystem["ecosystem_uid"]: {
+                "data": {
+                    sensor["sensor_uid"]: {
+                        measure["name"]: measure["value"]
+                        for measure in sensor["measures"]
+                    } for sensor in ecosystem["data"]
+                },
+                "datetime": ecosystem["datetime"]
+            } for ecosystem in data
+        }
+        api.sensor.update_current_data(current_data)
+        await self.ouranos_dispatcher.emit(
+            "current_sensors_data", data=data, namespace="application", ttl=15
         )
         ecosystems_updated: list[str] = [
             ecosystem["ecosystem_uid"] for ecosystem in data
@@ -484,7 +484,7 @@ class Events:
                 }
                 await api.light.update_or_create(session, light_info=light_info)
         self.logger.debug(
-            f"Logging light data from ecosystem(s): {humanize_list(ecosystems_to_log)}"
+            f"Logged light data from ecosystem(s): {humanize_list(ecosystems_to_log)}"
         )
 
     # ---------------------------------------------------------------------------
