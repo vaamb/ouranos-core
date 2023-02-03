@@ -313,7 +313,7 @@ class Light(base):
     __tablename__ = "lights"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    status: Mapped[bool] = mapped_column()
+    status: Mapped[bool] = mapped_column(default=False)
     mode: Mapped[ActuatorMode] = mapped_column(default=ActuatorMode.automatic)
     method: Mapped[LightMethod] = mapped_column(default=LightMethod.fixed)
     morning_start: Mapped[Optional[time]] = mapped_column()
