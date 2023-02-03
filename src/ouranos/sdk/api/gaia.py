@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections import namedtuple
+from dataclasses import dataclass
 
 from cachetools import cached, TTLCache
 import cachetools.func
@@ -30,8 +30,13 @@ cache_sensors_data_average = TTLCache(maxsize=max_ecosystems, ttl=300)
 cache_sensors_data_summary = TTLCache(maxsize=max_ecosystems * 2, ttl=300)
 
 
-class ecosystemIds(namedtuple("ecosystemIds", ("uid", "name"))):
-    __slots__ = ()
+@dataclass(frozen=True)
+class ecosystemIds:
+    uid: str
+    name: str
+
+    def __iter__(self):
+        return iter((self.uid, self.name))
 
 
 async def _create_entry(
@@ -68,7 +73,7 @@ async def _update_entry(
 async def _delete_entry(
         session: AsyncSession,
         model_class,
-        uid: str | None = None,
+        uid: str,
 ) -> None:
     # TODO: call GAIA
     stmt = delete(model_class).where(model_class.uid == uid)
@@ -78,10 +83,9 @@ async def _delete_entry(
 async def _update_or_create(
         session: AsyncSession,
         api_class,
-        info: dict | None = None,
+        info: dict,
         uid: str | None = None,
 ):
-    info = info or {}
     uid = uid or info.pop("uid", None)
     if not uid:
         raise ValueError(
@@ -507,7 +511,7 @@ class environmental_parameter:
         parameter_info = parameter_info or {}
         uid = uid or parameter_info.pop("uid", None)
         parameter = parameter or parameter_info.pop("parameter", None)
-        if not (uid or parameter):
+        if not (uid and parameter):
             raise ValueError(
                 "Provide uid and parameter either as a argument or as a key in the "
                 "updated info"
@@ -570,13 +574,12 @@ class environmental_parameter:
     @staticmethod
     async def update_or_create(
             session: AsyncSession,
+            parameter_info: dict,
             uid: str | None = None,
-            parameter: str | None = None,
-            parameter_info: dict | None = None,
     ) -> EnvironmentParameter:
         parameter_info = parameter_info or {}
         uid = uid or parameter_info.pop("uid", None)
-        parameter = parameter or parameter_info.pop("parameter", None)
+        parameter = parameter_info.get("parameter")
         if not (uid or parameter):
             raise ValueError(
                 "Provide uid and parameter either as a argument or as a key in the "
@@ -603,11 +606,56 @@ class environmental_parameter:
 # ---------------------------------------------------------------------------
 class hardware:
     @staticmethod
+    async def _attach_relationships(
+            session: AsyncSession,
+            hardware_uid: str,
+            relative_list: list,
+            relationship_api_cls,
+            relative_attr: str,
+    ) -> None:
+        objs = await relationship_api_cls.get_multiple(session, relative_list)
+        hardware_obj = await hardware.get(session, hardware_uid=hardware_uid)
+        relatives = getattr(hardware_obj, relative_attr)
+        for obj in objs:
+            if obj not in relatives:
+                relatives.append(obj)
+        session.add(hardware_obj)
+        await session.commit()
+
+    @staticmethod
+    async def attach_relationships(
+            session: AsyncSession,
+            hardware_uid: str,
+            measures: list | str,
+            plants: list | str,
+    ) -> None:
+        if measures:
+            if isinstance(measures, str):
+                measures = [measures]
+            measures = [m.replace("_", " ") for m in measures]
+            await hardware._attach_relationships(
+                session, hardware_uid, measures, measure, "measures"
+            )
+        if plants:
+            if isinstance(plants, str):
+                plants = [plants]
+            await hardware._attach_relationships(
+                session, hardware_uid, plants, plant, "plants"
+            )
+
+    @staticmethod
     async def create(
             session: AsyncSession,
             hardware_dict: dict,
     ) -> Hardware:
-        return await _create_entry(session, Hardware, hardware_dict)
+        measures = hardware_dict.pop("measures", [])
+        plants = hardware_dict.pop("plants", [])
+        hardware_obj = await _create_entry(session, Hardware, hardware_dict)
+        if any((measures, plants)):
+            uid = hardware_dict["uid"]
+            await hardware.attach_relationships(session, uid, measures, plants)
+            hardware_obj = await hardware.get(session, uid)
+        return hardware_obj
 
     @staticmethod
     async def update(
@@ -615,7 +663,12 @@ class hardware:
             hardware_info: dict,
             uid: str | None,
     ) -> None:
+        uid = uid or hardware_info.get("uid")
+        measures = hardware_info.pop("measures", [])
+        plants = hardware_info.pop("plants", [])
         await _update_entry(session, Hardware, hardware_info, uid)
+        if any((measures, plants)):
+            await hardware.attach_relationships(session, uid, measures, plants)
 
     @staticmethod
     async def delete(
@@ -674,35 +727,9 @@ class hardware:
             hardware_info: dict | None = None,
             uid: str | None = None,
     ) -> Hardware:
-        hardware_info = hardware_info or {}
-        measures = hardware_info.pop("measures", [])
-        plants = hardware_info.pop("plants", [])
-        hardware_obj = await _update_or_create(
+        return await _update_or_create(
             session, api_class=hardware, info=hardware_info, uid=uid
         )
-        uid = hardware_obj.uid
-        if measures:
-            if isinstance(measures, str):
-                measures = [measures]
-            measures = [m.replace("_", " ") for m in measures]
-            measure_objs = await measure.get_multiple(session, measures)
-            # Need to recall hardware_obj
-            hardware_obj = await hardware.get(session, hardware_uid=uid)
-            for measure_obj in measure_objs:
-                if measure_obj not in hardware_obj.measures:
-                    hardware_obj.measures.append(measure_obj)
-            session.add(hardware_obj)
-        if plants:
-            if isinstance(plants, str):
-                plants = [plants]
-            plant_objs = await plant.get_multiple(session, plants)
-            # Need to recall hardware_obj
-            hardware_obj = await hardware.get(session, hardware_uid=uid)
-            for plant_obj in plant_objs:
-                if plant_obj not in hardware_obj.plants:
-                    hardware_obj.plants.append(plant_obj)
-            session.add(hardware_obj)
-        return hardware_obj
 
     @staticmethod
     def get_info(

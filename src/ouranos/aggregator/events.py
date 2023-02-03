@@ -318,12 +318,13 @@ class Events:
                 )
                 for (parameter, v) in env_params.items():
                     parameter_info = {
+                        "parameter": parameter,
                         "day": v.get("day"),
                         "night": v.get("night"),
                         "hysteresis": v.get("hysteresis")
                     }
                     await api.environmental_parameter.update_or_create(
-                        session, uid, parameter, parameter_info
+                        session, parameter_info, uid
                     )
         self.logger.debug(
             f"Logged environmental parameters from ecosystem(s): "
