@@ -347,27 +347,11 @@ class Events:
                 for hardware_uid, hardware_dict in ecosystem.items():
                     active_hardware.append(hardware_uid)
                     hardware_dict["ecosystem_uid"] = uid
-                    measures = hardware_dict.pop("measure", [])
-                    plants = hardware_dict.pop("plants", [])
-                    hardware = await api.hardware.update_or_create(
-                        session, hardware_info=hardware_dict, uid=hardware_uid
+                    hardware_dict["measures"] = hardware_dict.pop("measure", [])
+                    hardware_dict["plants"] = hardware_dict.pop("plant", [])
+                    await api.hardware.update_or_create(
+                        session, hardware_info=hardware_dict, uid=hardware_uid,
                     )
-                    if measures:
-                        if isinstance(measures, str):
-                            measures = [measures]
-                        measures = [m.replace("_", " ") for m in measures]
-                        measure_objs = await api.measure.get_multiple(session, measures)
-                        for measure_obj in measure_objs:
-                            if measure_obj not in hardware.measure:
-                                hardware.measure.append(measure_obj)
-                    if plants:
-                        if isinstance(plants, str):
-                            plants = [plants]
-                        plant_objs = await api.plant.get_multiple(session, plants)
-                        for plant_obj in plant_objs:
-                            if plant_obj not in hardware.plants:
-                                hardware.plants.append(plant_obj)
-                    session.add(hardware)
                     await sleep(0)
             stmt = select(Hardware).where(Hardware.uid.not_in(active_hardware))
             result = await session.execute(stmt)

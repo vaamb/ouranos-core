@@ -141,7 +141,7 @@ async def get_measure_for_sensor(
     assert_single_uid(measure, "measure")
     sensor = await hardware_or_abort(session, uid)
     response = {}
-    if measure in [m.name for m in sensor.measure]:
+    if measure in [m.name for m in sensor.measures]:
         response = await api.sensor.get_overview(
             session, sensor, measure, current_data, historic_data,
             time_window

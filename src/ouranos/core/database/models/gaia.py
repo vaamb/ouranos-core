@@ -196,11 +196,12 @@ class Hardware(base):
 
     # relationship
     ecosystem: Mapped["Ecosystem"] = relationship(back_populates="hardware")
-    measure: Mapped[list["Measure"]] = relationship(
+    measures: Mapped[list["Measure"]] = relationship(
         back_populates="hardware", secondary=AssociationHardwareMeasure,
         lazy="selectin")
     plants: Mapped[list["Plant"]] = relationship(
-        back_populates="sensors", secondary=AssociationSensorPlant)
+        back_populates="sensors", secondary=AssociationSensorPlant,
+        lazy="selectin")
     sensors_history: Mapped[list["SensorHistory"]] = relationship(
         back_populates="sensor")
 
@@ -222,7 +223,7 @@ class Hardware(base):
             "ecosystem_uid": self.ecosystem_uid
         }
         if self.type == "sensor":
-            rv.update({"measures": [measure.name for measure in self.measure]})
+            rv.update({"measures": [measure.name for measure in self.measures]})
         return rv
 
 
@@ -238,7 +239,7 @@ class Measure(base):
 
     # relationship
     hardware: Mapped[list["Hardware"]] = relationship(
-        back_populates="measure", secondary=AssociationHardwareMeasure)
+        back_populates="measures", secondary=AssociationHardwareMeasure)
 
     @staticmethod
     async def insert_measures(session: AsyncSession):

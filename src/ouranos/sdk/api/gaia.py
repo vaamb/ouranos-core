@@ -93,6 +93,7 @@ async def _update_or_create(
         obj = await api_class.create(session, info)
     elif info:
         await api_class.update(session, info, uid)
+        obj = await api_class.get(session, uid)
     return obj
 
 
@@ -674,25 +675,34 @@ class hardware:
             uid: str | None = None,
     ) -> Hardware:
         hardware_info = hardware_info or {}
-        uid = uid or hardware_info.pop("uid", None)
-        if not uid:
-            raise ValueError(
-                "Provide uid either as an argument or as a key in the updated info"
-            )
-        hardware_ = await hardware.get(session, uid)
-        if not hardware_:
-            hardware_info["uid"] = uid
-            measures = hardware_info.pop("measure", [])
-            if measures:
-                if isinstance(measures, str):
-                    measures = [measures]
-                measures_ = measure.get_multiple(session, measures)
-                if measures_:
-                    hardware_info["measure"] = measures_
-            hardware_ = await hardware.create(session, hardware_info)
-        elif hardware_info:
-            await hardware.update(session, hardware_info, uid)
-        return hardware_
+        measures = hardware_info.pop("measures", [])
+        plants = hardware_info.pop("plants", [])
+        hardware_obj = await _update_or_create(
+            session, api_class=hardware, info=hardware_info, uid=uid
+        )
+        uid = hardware_obj.uid
+        if measures:
+            if isinstance(measures, str):
+                measures = [measures]
+            measures = [m.replace("_", " ") for m in measures]
+            measure_objs = await measure.get_multiple(session, measures)
+            # Need to recall hardware_obj
+            hardware_obj = await hardware.get(session, hardware_uid=uid)
+            for measure_obj in measure_objs:
+                if measure_obj not in hardware_obj.measures:
+                    hardware_obj.measures.append(measure_obj)
+            session.add(hardware_obj)
+        if plants:
+            if isinstance(plants, str):
+                plants = [plants]
+            plant_objs = await plant.get_multiple(session, plants)
+            # Need to recall hardware_obj
+            hardware_obj = await hardware.get(session, hardware_uid=uid)
+            for plant_obj in plant_objs:
+                if plant_obj not in hardware_obj.plants:
+                    hardware_obj.plants.append(plant_obj)
+            session.add(hardware_obj)
+        return hardware_obj
 
     @staticmethod
     def get_info(
@@ -787,7 +797,7 @@ class sensor:
             measures: str | list | None = None,
     ) -> list:
         if measures is None or "all" in measures:
-            measures = [measure_.name for measure_ in sensor_obj.measure]
+            measures = [measure_.name for measure_ in sensor_obj.measures]
         elif isinstance(measures, str):
             measures = measures.split(",")
         rv = []
@@ -817,7 +827,7 @@ class sensor:
             return []
         else:
             if measures is None or "all" in measures:
-                measures = [measure_.name for measure_ in sensor_obj.measure]
+                measures = [measure_.name for measure_ in sensor_obj.measures]
             elif isinstance(measures, str):
                 measures = measures.split(",")
             rv = []
