@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Type
 
 from cachetools import cached, TTLCache
 import cachetools.func
@@ -39,93 +40,83 @@ class ecosystemIds:
         return iter((self.uid, self.name))
 
 
-async def _create_entry(
-        session: AsyncSession,
-        model_class,
-        model_info: dict,
-):
-    # TODO: call GAIA
-    model = model_class(**model_info)
-    session.add(model)
-    return model
+class _gaia_abc:
+    _model_cls: Type[Ecosystem | Engine | EnvironmentParameter | Hardware | Light]
 
+    @classmethod
+    async def create(
+            cls,
+            session: AsyncSession,
+            values: dict,
+    ) -> _model_cls:
+        model = cls._model_cls(**values)
+        session.add(model)
+        return model
 
-async def _update_entry(
-        session: AsyncSession,
-        model_class,
-        model_info: dict,
-        uid: str | None = None,
-) -> None:
-    # TODO: call GAIA
-    uid = uid or model_info.pop("uid", None)
-    if not uid:
-        raise ValueError(
-            "Provide uid either as a parameter or as a key in the updated info"
+    @classmethod
+    async def update(
+            cls,
+            session: AsyncSession,
+            values: dict,
+            uid: str | None = None,
+    ) -> None:
+        uid = uid or values.pop("uid", None)
+        if not uid:
+            raise ValueError(
+                "Provide uid either as a parameter or as a key in the updated info"
+            )
+        stmt = (
+            update(cls._model_cls)
+            .where(cls._model_cls.uid == uid)
+            .values(**values)
         )
-    stmt = (
-        update(model_class)
-        .where(model_class.uid == uid)
-        .values(**model_info)
-    )
-    await session.execute(stmt)
+        await session.execute(stmt)
 
+    @classmethod
+    async def delete(
+            cls,
+            session: AsyncSession,
+            uid: str,
+    ) -> None:
+        # TODO: call GAIA
+        stmt = delete(cls._model_cls).where(cls._model_cls.uid == uid)
+        await session.execute(stmt)
 
-async def _delete_entry(
-        session: AsyncSession,
-        model_class,
-        uid: str,
-) -> None:
-    # TODO: call GAIA
-    stmt = delete(model_class).where(model_class.uid == uid)
-    await session.execute(stmt)
+    @classmethod
+    async def update_or_create(
+            cls,
+            session: AsyncSession,
+            values: dict | None = None,
+            uid: str | None = None,
+    ) -> _model_cls:
+        values = values or {}
+        uid = uid or values.pop("uid", None)
+        if not uid:
+            raise ValueError(
+                "Provide uid either as an argument or as a key in the values"
+            )
+        obj = await cls.get(session, uid)
+        if not obj:
+            values["uid"] = uid
+            obj = await cls.create(session, values)
+        elif values:
+            await cls.update(session, values, uid)
+            obj = await cls.get(session, uid)
+        return obj
 
-
-async def _update_or_create(
-        session: AsyncSession,
-        api_class,
-        info: dict,
-        uid: str | None = None,
-):
-    uid = uid or info.pop("uid", None)
-    if not uid:
-        raise ValueError(
-            "Provide uid either as an argument or as a key in the updated info"
-        )
-    obj = await api_class.get(session, uid)
-    if not obj:
-        info["uid"] = uid
-        obj = await api_class.create(session, info)
-    elif info:
-        await api_class.update(session, info, uid)
-        obj = await api_class.get(session, uid)
-    return obj
+    @staticmethod
+    async def get(
+            session: AsyncSession,
+            uid: str,
+    ) -> _model_cls | None:
+        raise NotImplementedError
 
 
 # ---------------------------------------------------------------------------
 #   Engine-related APIs
 # ---------------------------------------------------------------------------
-class engine:
-    @staticmethod
-    async def create(
-            session: AsyncSession,
-            engine_info: dict,
-    ) -> Engine:
-        return await _create_entry(session, Engine, engine_info)
-
-    @staticmethod
-    async def update(
-            session: AsyncSession,
-            engine_info: dict,
-            uid: str | None = None,
-    ) -> None:
-        await _update_entry(session, Engine, engine_info, uid)
-
-    @staticmethod
-    async def delete(
-            session: AsyncSession,
-            uid: str,
-    ) -> None:
-        await _delete_entry(session, Engine, uid)
+class engine(_gaia_abc):
+    _model_cls = Engine
 
     @staticmethod
     async def get(
@@ -160,7 +151,7 @@ class engine:
         elif "connected" in engines:
             stmt = (
                 select(Engine)
-                .where(Engine.connected)
+                .where(Engine.connected is True)
                 .order_by(Engine.uid.asc())
             )
         else:
@@ -176,16 +167,6 @@ class engine:
         return result.scalars().all()
 
     @staticmethod
-    async def update_or_create(
-            session: AsyncSession,
-            engine_info: dict | None = None,
-            uid: str | None = None,
-    ) -> Engine:
-        return await _update_or_create(
-            session, api_class=engine, info=engine_info, uid=uid
-        )
-
-    @staticmethod
     def get_info(session: AsyncSession, engine: Engine) -> dict:
         return engine.to_dict()
 
@@ -193,38 +174,17 @@ class engine:
 # ---------------------------------------------------------------------------
 #   Ecosystem-related APIs
 # ---------------------------------------------------------------------------
-class ecosystem:
-    @staticmethod
-    async def create(
-            session: AsyncSession,
-            ecosystem_info: dict,
-    ) -> Ecosystem:
-        return await _create_entry(session, Ecosystem, ecosystem_info)
-
-    @staticmethod
-    async def update(
-            session: AsyncSession,
-            ecosystem_info: dict,
-            uid: str | None = None,
-    ) -> None:
-        await _update_entry(session, Ecosystem, ecosystem_info, uid)
-
-    @staticmethod
-    async def delete(
-            session: AsyncSession,
-            uid: str
-    ) -> None:
-        await _delete_entry(session, Ecosystem, uid)
+class ecosystem(_gaia_abc):
+    _model_cls = Ecosystem
 
     @staticmethod
     async def get(
             session: AsyncSession,
             ecosystem_id: str,
     ) -> Ecosystem | None:
-        ecosystem_id = (ecosystem_id, )
         stmt = (
             select(Ecosystem)
-            .where(Ecosystem.uid.in_(ecosystem_id) | Ecosystem.name.in_(ecosystem_id))
+            .where((Ecosystem.uid == ecosystem_id) | (Ecosystem.name == ecosystem_id))
         )
         result = await session.execute(stmt)
         return result.unique().scalars().one_or_none()
@@ -253,7 +213,7 @@ class ecosystem:
         elif "connected" in ecosystems:
             stmt = (
                 select(Ecosystem).join(Engine.ecosystems)
-                .where(Engine.connected)
+                .where(Engine.connected is True)
                 .order_by(Ecosystem.name.asc())
             )
         else:
@@ -265,16 +225,6 @@ class ecosystem:
             )
         result = await session.execute(stmt)
         return result.unique().scalars().all()
-
-    @staticmethod
-    async def update_or_create(
-            session: AsyncSession,
-            ecosystem_info: dict | None = None,
-            uid: str | None = None,
-    ) -> Ecosystem:
-        return await _update_or_create(
-            session, api_class=ecosystem, info=ecosystem_info, uid=uid
-        )
 
     @staticmethod
     async def get_ids(session: AsyncSession, ecosystem: str) -> ecosystemIds:
@@ -491,22 +441,25 @@ class ecosystem:
 # ---------------------------------------------------------------------------
 #   Environmental parameters-related APIs
 # ---------------------------------------------------------------------------
-class environmental_parameter:
+class environmental_parameter(_gaia_abc):
+    _model_cls = EnvironmentParameter
+
     # TODO: call GAIA
-    @staticmethod
+    @classmethod
     async def create(
+            cls,
             session: AsyncSession,
             parameters_info: dict,
     ) -> EnvironmentParameter:
-        return await _create_entry(session, EnvironmentParameter, parameters_info)
+        return await super().create(session, parameters_info)
 
-    @staticmethod
+    @classmethod
     async def update(
+            cls,
             session: AsyncSession,
             parameter_info: dict,
             uid: str | None = None,
             parameter: str | None = None,
-
     ) -> None:
         parameter_info = parameter_info or {}
         uid = uid or parameter_info.pop("uid", None)
@@ -526,8 +479,9 @@ class environmental_parameter:
         )
         await session.execute(stmt)
 
-    @staticmethod
+    @classmethod
     async def delete(
+            cls,
             session: AsyncSession,
             uid: str,
             parameter: str,
@@ -574,7 +528,7 @@ class environmental_parameter:
     @staticmethod
     async def update_or_create(
             session: AsyncSession,
-            parameter_info: dict,
+            parameter_info: dict | None = None,
             uid: str | None = None,
     ) -> EnvironmentParameter:
         parameter_info = parameter_info or {}
@@ -595,7 +549,7 @@ class environmental_parameter:
                 session, parameter_info
             )
         elif parameter_info:
-            await environmental_parameter.update(
+            environment_parameter = await environmental_parameter.update(
                 session, parameter_info, uid
             )
         return environment_parameter
@@ -604,7 +558,9 @@ class environmental_parameter:
 # ---------------------------------------------------------------------------
 #   Hardware-related APIs
 # ---------------------------------------------------------------------------
-class hardware:
+class hardware(_gaia_abc):
+    _model_cls = Hardware
+
     @staticmethod
     async def _attach_relationships(
             session: AsyncSession,
@@ -643,39 +599,34 @@ class hardware:
                 session, hardware_uid, plants, plant, "plants"
             )
 
-    @staticmethod
+    @classmethod
     async def create(
+            cls,
             session: AsyncSession,
-            hardware_dict: dict,
+            values: dict,
     ) -> Hardware:
-        measures = hardware_dict.pop("measures", [])
-        plants = hardware_dict.pop("plants", [])
-        hardware_obj = await _create_entry(session, Hardware, hardware_dict)
+        measures = values.pop("measures", [])
+        plants = values.pop("plants", [])
+        hardware_obj = await super().create(session, values)
         if any((measures, plants)):
-            uid = hardware_dict["uid"]
+            uid = values["uid"]
             await hardware.attach_relationships(session, uid, measures, plants)
             hardware_obj = await hardware.get(session, uid)
         return hardware_obj
 
-    @staticmethod
+    @classmethod
     async def update(
+            cls,
             session: AsyncSession,
-            hardware_info: dict,
-            uid: str | None,
+            values: dict,
+            uid: str | None = None,
     ) -> None:
-        uid = uid or hardware_info.get("uid")
-        measures = hardware_info.pop("measures", [])
-        plants = hardware_info.pop("plants", [])
-        await _update_entry(session, Hardware, hardware_info, uid)
+        uid = uid or values.get("uid")
+        measures = values.pop("measures", [])
+        plants = values.pop("plants", [])
+        await super().update(session, values, uid)
         if any((measures, plants)):
             await hardware.attach_relationships(session, uid, measures, plants)
-
-    @staticmethod
-    async def delete(
-            session: AsyncSession,
-            uid: str,
-    ) -> None:
-        await _delete_entry(session, Hardware, uid)
 
     @staticmethod
     async def get(
@@ -720,16 +671,6 @@ class hardware:
         )
         result = await session.execute(stmt)
         return result.unique().scalars().all()
-
-    @staticmethod
-    async def update_or_create(
-            session: AsyncSession,
-            hardware_info: dict | None = None,
-            uid: str | None = None,
-    ) -> Hardware:
-        return await _update_or_create(
-            session, api_class=hardware, info=hardware_info, uid=uid
-        )
 
     @staticmethod
     def get_info(
@@ -981,24 +922,18 @@ class measure:
 # ---------------------------------------------------------------------------
 #   Light-related APIs
 # ---------------------------------------------------------------------------
-class light:
-    @staticmethod
-    async def create(
-            session: AsyncSession,
-            light_data: dict,
-    ) -> Light:
-        light = Light(**light_data)
-        session.add(light)
-        return light
+class light(_gaia_abc):
+    _model_cls = Light
 
-    @staticmethod
+    @classmethod
     async def update(
+            cls,
             session: AsyncSession,
-            light_info: dict,
+            values: dict,
             ecosystem_uid: str | None = None,
     ) -> None:
         # TODO: call GAIA
-        ecosystem_uid = ecosystem_uid or light_info.pop("ecosystem_uid", None)
+        ecosystem_uid = ecosystem_uid or values.pop("ecosystem_uid", None)
         if not ecosystem_uid:
             raise ValueError(
                 "Provide uid either as a parameter or as a key in the updated info"
@@ -1006,7 +941,7 @@ class light:
         stmt = (
             update(Light)
             .where(Light.ecosystem_uid == ecosystem_uid)
-            .values(**light_info)
+            .values(**values)
         )
         await session.execute(stmt)
 
@@ -1019,25 +954,27 @@ class light:
         result = await session.execute(stmt)
         return result.one_or_none()
 
-    @staticmethod
+    @classmethod
     async def update_or_create(
+            cls,
             session: AsyncSession,
-            light_info: dict | None = None,
+            values: dict | None = None,
             ecosystem_uid: str | None = None,
     ) -> Light:
-        light_info = light_info or {}
-        ecosystem_uid = ecosystem_uid or light_info.pop("ecosystem_uid", None)
+        values = values or {}
+        ecosystem_uid = ecosystem_uid or values.pop("ecosystem_uid", None)
         if not ecosystem_uid:
             raise ValueError(
-                "Provide uid either as an argument or as a key in the updated info"
+                "Provide ecosystem_uid either as an argument or as a key in the values"
             )
-        light_ = await light.get(session, ecosystem_uid)
-        if not light_:
-            light_info["ecosystem_uid"] = ecosystem_uid
-            light_ = await light.create(session, light_info)
-        elif light_info:
-            await light.update(session, light_info, ecosystem_uid)
-        return light_
+        obj = await cls.get(session, ecosystem_uid)
+        if not obj:
+            values["ecosystem_uid"] = ecosystem_uid
+            obj = await cls.create(session, values)
+        elif values:
+            await cls.update(session, values, ecosystem_uid)
+            obj = await cls.get(session, ecosystem_uid)
+        return obj
 
 
 # ---------------------------------------------------------------------------

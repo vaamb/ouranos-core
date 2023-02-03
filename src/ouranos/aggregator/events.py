@@ -309,12 +309,9 @@ class Events:
                     "day_start": tods.get("day"),
                     "night_start": tods.get("night"),
                 }
-                await api.ecosystem.update_or_create(
-                    session, ecosystem_info=ecosystem_info
-                )
+                await api.ecosystem.update_or_create(session, ecosystem_info)
                 await api.light.update_or_create(
-                    session, light_info={"method": ecosystem.get("light")},
-                    ecosystem_uid=uid
+                    session, {"method": ecosystem.get("light")}, uid
                 )
                 for (parameter, v) in env_params.items():
                     parameter_info = {
@@ -350,7 +347,7 @@ class Events:
                     hardware_dict["measures"] = hardware_dict.pop("measure", [])
                     hardware_dict["plants"] = hardware_dict.pop("plant", [])
                     await api.hardware.update_or_create(
-                        session, hardware_info=hardware_dict, uid=hardware_uid,
+                        session, values=hardware_dict, uid=hardware_uid,
                     )
                     await sleep(0)
             stmt = select(Hardware).where(Hardware.uid.not_in(active_hardware))
@@ -483,7 +480,7 @@ class Events:
                     "evening_start": evening_start,
                     "evening_end": evening_end
                 }
-                await api.light.update_or_create(session, light_info=light_info)
+                await api.light.update_or_create(session, light_info)
         self.logger.debug(
             f"Logged light data from ecosystem(s): {humanize_list(ecosystems_to_log)}"
         )

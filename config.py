@@ -8,7 +8,7 @@ class PlugInConfig(Config):
 
 
 class DevelopmentConfig(PlugInConfig):
-    DEBUG = True
+    DEBUG = False
     DEVELOPMENT = True
     MAIL_DEBUG = True
 
