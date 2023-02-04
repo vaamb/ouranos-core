@@ -39,8 +39,6 @@ class Functionality:
                 setproctitle(f"ouranos-{self.name}")
             # Setup config
             config = setup_config(config_profile)
-            # Configure logging
-            configure_logging(config)
             logger: Logger = getLogger("ouranos")
             if not root and "memory://" in config["DISPATCHER_URL"]:
                 logger.warning(

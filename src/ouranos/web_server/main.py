@@ -59,7 +59,7 @@ class WebServer(Functionality):
             host=host, port=port,
             workers=self.config["API_WORKERS"],
             loop="auto",
-            server_header=False, date_header=False,
+            log_config=None, server_header=False, date_header=False,
         )
         self.server = uvicorn.Server(self.server_cfg)
         if self.server_cfg.should_reload:

@@ -126,7 +126,7 @@ class Aggregator(Functionality):
                 config = uvicorn.Config(
                     asgi_app,
                     host=host, port=port,
-                    server_header=False, date_header=False,
+                    log_config=None, server_header=False, date_header=False,
                 )
                 server = uvicorn.Server(config)
                 asyncio.ensure_future(server.serve())

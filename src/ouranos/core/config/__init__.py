@@ -134,13 +134,15 @@ def configure_logging(config: config_type) -> None:
             handlers.append("errorFileHandler")
         log_dir = get_log_dir()
 
+    debug_fmt = "%(asctime)s - %(levelname)s [%(filename)-15.15s:%(lineno)4d] %(name)-25.25s: %(message)s"
+    regular_fmt = "%(asctime)s - %(levelname)s %(message)s"
     logging_config = {
         "version": 1,
         "disable_existing_loggers": True,
-
         "formatters": {
             "streamFormat": {
-                "format": "%(asctime)s %(levelname)-8.8s [%(filename)-15.15s:%(lineno)4d] %(name)-25.25s: %(message)s",
+                "()": "ouranos.core.logging.ColourFormatter",
+                "format": f"{debug_fmt if debug else regular_fmt}",
                 "datefmt": "%Y-%m-%d %H:%M:%S"
             },
             "fileFormat": {
