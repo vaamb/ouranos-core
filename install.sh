@@ -19,7 +19,7 @@ deactivate
 
 # Make Ouranos utility scripts easily available
 cp main.py $OURANOS_DIR/main.py
-cp run.sh $OURANOS_DIR/start.sh
+cp start.sh $OURANOS_DIR/start.sh
 cp stop.sh $OURANOS_DIR/stop.sh
 cp update.sh $OURANOS_DIR/update.sh
 
@@ -47,7 +47,9 @@ ouranos() {
     update) bash \$OURANOS_DIR/ouranos_update.sh ;;
     *) echo 'Need an argument in \'start\', \'stop\', \'log\' or \'update\'' ;;
   esac
-}" >> $HOME/.bash_profile;
+}
+complete -W 'start stop log update' ouranos
+" >> $HOME/.bash_profile;
 fi
 
 echo "Ouranos installed. To run it, either use \`ouranos start\` or go to the ouranos directory, activate the virtual environment and run \`python main.py\`"
