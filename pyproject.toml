@@ -6,6 +6,7 @@ authors = [
 ]
 requires-python = ">=3.7"
 readme = "README.md"
+license = {file = "LICENSE"}
 dynamic = ["version"]
 dependencies = [
     "APScheduler~=3.9.1",
