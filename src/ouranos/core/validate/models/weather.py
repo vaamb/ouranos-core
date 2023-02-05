@@ -1,17 +1,13 @@
 from pydantic import BaseModel
 
 
-class Empty(BaseModel):
-    pass
-
-
-class PydanticSunTimes(BaseModel):
+class sun_times(BaseModel):
     sunrise: str
     sunset: str
     day_length: str
 
 
-class PydanticCurrentWeather(BaseModel):
+class current_weather(BaseModel):
     time: int
     summary: str
     icon: str
@@ -31,11 +27,11 @@ class PydanticCurrentWeather(BaseModel):
     ozone: float
 
 
-class PydanticHourlyWeather(PydanticCurrentWeather):
+class hourly_weather(current_weather):
     apparentTemperature: float
 
 
-class PydanticDailyWeather(BaseModel):
+class daily_weather(BaseModel):
     time: int
     summary: str
     icon: str

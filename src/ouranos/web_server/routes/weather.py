@@ -2,10 +2,7 @@ import typing as t
 
 from fastapi import APIRouter, Query
 
-from ouranos.core.pydantic.models.weather import (
-    PydanticCurrentWeather, PydanticHourlyWeather, PydanticDailyWeather,
-    PydanticSunTimes
-)
+from ouranos.core import validate
 from ouranos.sdk import api
 from ouranos.web_server.routes.utils import empty_result
 
@@ -20,7 +17,7 @@ router = APIRouter(
 )
 
 
-@router.get("/sun_times", response_model=PydanticSunTimes)
+@router.get("/sun_times", response_model=validate.weather.sun_times)
 async def get_sun_times() -> dict:
     response = api.sun_times.get()
     if response:
@@ -55,7 +52,7 @@ async def get_forecast(exclude: t.Union[list[str], None] = Query(default=None)) 
     return empty_result(response)
 
 
-@router.get("/forecast/currently", response_model=PydanticCurrentWeather)
+@router.get("/forecast/currently", response_model=validate.weather.current_weather)
 async def get_current_forecast() -> dict:
     response = api.weather.get_currently()
     if response:
@@ -63,7 +60,7 @@ async def get_current_forecast() -> dict:
     return empty_result(response)
 
 
-@router.get("/forecast/hourly", response_model=list[PydanticHourlyWeather])
+@router.get("/forecast/hourly", response_model=list[validate.weather.hourly_weather])
 async def get_current_forecast() -> dict:
     response = api.weather.get_hourly()
     if response:
@@ -71,7 +68,7 @@ async def get_current_forecast() -> dict:
     return empty_result(response)
 
 
-@router.get("/forecast/daily", response_model=list[PydanticDailyWeather])
+@router.get("/forecast/daily", response_model=list[validate.weather.daily_weather])
 async def get_current_forecast() -> dict:
     response = api.weather.get_daily()
     if response:

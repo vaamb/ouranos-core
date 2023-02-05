@@ -37,8 +37,7 @@ class user:
                 error.append("telegram_id")
             raise DuplicatedEntry(error)
         kwargs.update({"username": username})
-        user = await User.create(session, **kwargs)
-        user.set_password(password)
+        user = await User.create(session, username, password, **kwargs)
         session.add(user)
         await session.commit()
         return user

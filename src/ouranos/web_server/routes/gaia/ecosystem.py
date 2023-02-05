@@ -48,6 +48,7 @@ async def get_ecosystems(
 
 @router.post("/ecosystem/u", dependencies=[Depends(is_operator)])
 async def create_ecosystem(session: AsyncSession = Depends(get_session)) -> None:
+    # TODO: route
     pass
 
 
@@ -69,14 +70,15 @@ async def update_ecosystem(
 ):
     assert_single_uid(ecosystem_id)
     ecosystem = await ecosystem_or_abort(session, ecosystem_id)
-    # TODO
+    # TODO: route
+    # api.ecosystem.update(session, )
 
 
 @router.delete("/ecosystem/u/<id>", dependencies=[Depends(is_operator)])
 async def delete_ecosystem(ecosystem_id: str, session=Depends(get_session)):
     assert_single_uid(ecosystem_id)
     ecosystem = await ecosystem_or_abort(session, ecosystem_id)
-    # TODO
+    await api.ecosystem.delete(session, ecosystem.uid)
 
 
 @router.get("/ecosystem/management")

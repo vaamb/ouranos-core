@@ -189,7 +189,14 @@ class User(base, UserMixin):
     calendar: Mapped[list["CalendarEvent"]] = relationship(back_populates="user")
 
     @classmethod
-    async def create(cls, session: AsyncSession, **kwargs):
+    async def create(
+            cls,
+            session: AsyncSession,
+            username: str,
+            password: str,
+            **kwargs
+    ) -> User:
+        kwargs["username"] = username
         user = User(**kwargs)
         if user.role is None:
             admins: str | list = current_app.config.get("ADMINS", [])
@@ -201,6 +208,7 @@ class User(base, UserMixin):
                 stmt = select(Role).where(Role.default is True)
             result = await session.execute(stmt)
             user.role = result.scalars().first()
+        user.set_password(password)
         return user
 
     @staticmethod

@@ -3,6 +3,7 @@ import typing as t
 from fastapi import Body, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ouranos.core import validate
 from ouranos.sdk import api
 from ouranos.sdk.api.utils import timeWindow
 from ouranos.web_server.auth import is_operator
@@ -54,12 +55,11 @@ async def get_hardware_available():
 
 
 @router.post("/hardware/u", dependencies=[Depends(is_operator)])
-async def create_hardware(hardware_dict: dict = Depends(Body)):
-    try:
-        uid = "truc"
-        return {"msg": f"New hardware with uid '{uid}' created"}
-    except KeyError:
-        return {"msg": "The server could not parse the data"}, 500
+async def create_hardware(
+        payload: validate.gaia.hardware_creation,
+        session: AsyncSession = Depends(get_session)
+):
+    await api.hardware.create(session, payload.dict())
 
 
 @router.get("/hardware/u/<uid>")
@@ -74,12 +74,20 @@ async def get_hardware(
 
 
 @router.put("/hardware/u/<uid>", dependencies=[Depends(is_operator)])
-async def update_hardware():
-    pass
+async def update_hardware(
+        uid: str,
+        payload: validate.gaia.hardware_creation,
+        session: AsyncSession = Depends(get_session)
+):
+    await api.hardware.update(session, payload.dict(), uid)
 
 
 @router.delete("/hardware/u/<uid>", dependencies=[Depends(is_operator)])
-async def delete_hardware():
+async def delete_hardware(
+        uid: str,
+        session: AsyncSession = Depends(get_session)
+):
+    # TODO: route
     pass
 
 

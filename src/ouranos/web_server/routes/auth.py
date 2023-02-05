@@ -2,10 +2,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from fastapi.security import HTTPBasicCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ouranos.core.pydantic.models.app import (
-    LoginResponse, PydanticLimitedUser, PydanticUserMixin
-)
-from ouranos.core.pydantic.models.common import BaseMsg
+from ouranos.core import validate
 from ouranos.core.utils import ExpiredTokenError, InvalidTokenError, Tokenizer
 from ouranos.sdk import api
 from ouranos.sdk.api.exceptions import DuplicatedEntry
@@ -22,7 +19,7 @@ router = APIRouter(
 )
 
 
-@router.get("/login", response_model=LoginResponse)
+@router.get("/login", response_model=validate.app.login_response)
 async def login(
         remember: bool = False,
         authenticator: Authenticator = Depends(login_manager),
@@ -42,10 +39,10 @@ async def login(
     }
 
 
-@router.get("/logout", response_model=BaseMsg)
+@router.get("/logout", response_model=validate.common.message)
 async def logout(
         authenticator: Authenticator = Depends(login_manager),
-        current_user: PydanticUserMixin = Depends(get_current_user),
+        current_user: validate.app.user = Depends(get_current_user),
 ):
     if current_user.is_anonymous:
         return {"msg": "You were not logged in"}
@@ -53,9 +50,9 @@ async def logout(
     return {"msg": "Logged out"}
 
 
-@router.get("/current_user", response_model=PydanticLimitedUser)
+@router.get("/current_user", response_model=validate.app.user)
 def get_current_user(
-        current_user: PydanticUserMixin = Depends(get_current_user)
+        current_user: validate.app.user = Depends(get_current_user)
 ):
     return current_user.to_dict()
 
@@ -79,16 +76,19 @@ def check_invitation_token(invitation_token: str) -> dict:
 
 @router.post("/register")
 async def register_new_user(
-        registration_payload: dict = Body(),
+        payload: validate.app.user_creation,
         invitation_token: str = Query(),
-        current_user: PydanticUserMixin = Depends(get_current_user),
+        current_user: validate.app.user = Depends(get_current_user),
         session: AsyncSession = Depends(get_session),
 ):
     if current_user.is_authenticated:
         return {"msg": "You cannot register, you are already logged in"}
     check_invitation_token(invitation_token)
     try:
-        user = await api.user.create(session, **registration_payload)
+        payload_dict = payload.dict()
+        username = payload_dict.pop("username")
+        password = payload_dict.pop("password")
+        user = await api.user.create(session, username, password, **payload_dict)
     except DuplicatedEntry as e:
         args = e.args[0]
         raise HTTPException(
