@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if []pgrep -x "ouranos" > /dev/null; then
+if pgrep -x "ouranos" > /dev/null; then
   echo "An instance of Ouranos is already running please stop it before starting another one"
 else
   echo "Starting Ouranos";

@@ -36,7 +36,7 @@ echo "Exporting "
 if [ $(grep -ic "^OURANOS_DIR" $HOME/.bash_profile) -eq 0 ]; then
   echo "
 # Ouranos root directory
-OURANOS_DIR=$OURANOS_DIR" >> $HOME/.bash_profile;
+export OURANOS_DIR=$OURANOS_DIR" >> $HOME/.bash_profile;
 fi
 
 if [ $(grep -ic "^ouranos()" $HOME/.bash_profile) -eq 0 ]; then
