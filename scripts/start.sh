@@ -6,5 +6,5 @@ else
   echo "Starting Ouranos";
   cd "$OURANOS_DIR" || echo "\$OURANOS_DIR is not set, exiting" exit
   source python_venv/bin/activate
-  python3 main.py &
+  python3 -m ouranos
 fi
