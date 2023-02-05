@@ -9,8 +9,9 @@ class BaseConfig:
     DEVELOPMENT = False
     TESTING = False
 
-    LOG_DIR = os.environ.get("OURANOS_LOG_DIR") or os.path.join(DIR, ".logs")
+    LOG_DIR = os.environ.get("OURANOS_LOG_DIR") or os.path.join(DIR, "logs")
     CACHE_DIR = os.environ.get("OURANOS_CACHE_DIR") or os.path.join(DIR, ".cache")
+    DB_DIR = os.environ.get("OURANOS_CACHE_DIR") or os.path.join(DIR, "DBs")
 
     SECRET_KEY = os.environ.get("OURANOS_SECRET_KEY") or "secret_key"
     CONNECTION_KEY = os.environ.get("OURANOS_CONNECTION_KEY") or SECRET_KEY
@@ -57,15 +58,15 @@ class BaseConfig:
     # SQLAlchemy config
     SQLALCHEMY_DATABASE_URI = (
             os.environ.get("OURANOS_DATABASE_URI") or
-            "sqlite+aiosqlite:///" + os.path.join(DIR, "db_ecosystems.db")
+            "sqlite+aiosqlite:///" + os.path.join(DB_DIR, "ecosystems.db")
     )
     SQLALCHEMY_BINDS = {
         "app": (os.environ.get("OURANOS_APP_DATABASE_URI") or
-                "sqlite+aiosqlite:///" + os.path.join(DIR, "db_app.db")),
+                "sqlite+aiosqlite:///" + os.path.join(DB_DIR, "app.db")),
         "system": (os.environ.get("OURANOS_SYSTEM_DATABASE_URI") or
-                   "sqlite+aiosqlite:///" + os.path.join(DIR, "db_system.db")),
+                   "sqlite+aiosqlite:///" + os.path.join(DB_DIR, "system.db")),
         "archive": (os.environ.get("OURANOS_ARCHIVE_DATABASE_URI") or
-                    "sqlite+aiosqlite:///" + os.path.join(DIR, "db_archive.db"))
+                    "sqlite+aiosqlite:///" + os.path.join(DB_DIR, "archive.db"))
     }
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_RECORD_QUERIES = True

@@ -65,7 +65,11 @@ def get_cache_dir() -> Path:
 
 
 def get_log_dir() -> Path:
-    return _get_dir("LOG_DIR", ".logs")
+    return _get_dir("LOG_DIR", "logs")
+
+
+def get_db_dir() -> Path:
+    return _get_dir("DB_DIR", "DBs")
 
 
 def _get_config_class(profile: str | None = None) -> Type[BaseConfig]:

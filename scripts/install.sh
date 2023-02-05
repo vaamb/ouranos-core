@@ -6,24 +6,27 @@ echo "Installing Ouranos"
 mkdir "ouranos"; cd "ouranos"
 OURANOS_DIR=$PWD
 
+echo "Creating a python virtual environment"
 python3 -m venv python_venv
 source python_venv/bin/activate
 
-mkdir "bin"; cd "bin"
+mkdir "logs"
+mkdir "scripts"
+mkdir "lib"; cd "lib"
 
 # Get Ouranos and install the package
-git clone --branch stable https://gitlab.com/gaia/ouranos.git "ouranos_core"; cd "ouranos_core"
+echo "Getting Ouranos repository"
+git clone --branch stable https://gitlab.com/eupla/ouranos.git "ouranos_core"; cd "ouranos_core"
+echo "Installing Ouranos and its dependencies"
 pip install --upgrade pip setuptools wheel
 pip install -e .
 deactivate
 
 # Make Ouranos utility scripts easily available
-cp main.py $OURANOS_DIR/main.py
-cp start.sh $OURANOS_DIR/start.sh
-cp stop.sh $OURANOS_DIR/stop.sh
-cp update.sh $OURANOS_DIR/update.sh
+cp main.py $OURANOS_DIR/scripts/main.py
+cp scripts/ $OURANOS_DIR/scripts/
 
-cd "$OURANOS_DIR"
+cd "$OURANOS_DIR/scripts/"
 chmod +x "start.sh"
 chmod +x "stop.sh"
 chmod +x "update.sh"
@@ -41,11 +44,11 @@ if [ $(grep -ic "^ouranos()" $HOME/.bash_profile) -eq 0 ]; then
 # Ouranos utility function to start and stop the main application
 ouranos() {
   case \$1 in
-    start) nohup \$OURANOS_DIR/start.sh &> \$OURANOS_DIR/.logs/nohup.out & ;;
-    stop) \$OURANOS_DIR/stop.sh ;;
-    log) tail \$OURANOS_DIR/.logs/nohup.out ;;
-    update) bash \$OURANOS_DIR/ouranos_update.sh ;;
-    *) echo 'Need an argument in \'start\', \'stop\', \'log\' or \'update\'' ;;
+    start) nohup \$OURANOS_DIR/scripts/start.sh &> \$OURANOS_DIR/logs/nohup.out & ;;
+    stop) \$OURANOS_DIR/scripts/stop.sh ;;
+    log) tail \$OURANOS_DIR/logs/nohup.out ;;
+    update) bash \$OURANOS_DIR/scripts/update.sh ;;
+    *) echo 'Need an argument in start, stop, log or update' ;;
   esac
 }
 complete -W 'start stop log update' ouranos

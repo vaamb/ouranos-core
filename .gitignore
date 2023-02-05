@@ -3,7 +3,7 @@ __pycache__/
 .pytest_cache/
 
 .cache/
-.logs/
+logs/
 venv/
 migrations/
 
