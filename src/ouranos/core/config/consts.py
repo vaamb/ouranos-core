@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from enum import Enum
 
 
 class ImmutableDict(dict):
@@ -40,3 +41,19 @@ VIRTUAL_SENSORS_AVAILABLE = [
 SENSORS_AVAILABLE = PHYSICAL_SENSORS_AVAILABLE + VIRTUAL_SENSORS_AVAILABLE
 
 HARDWARE_AVAILABLE = ACTUATORS_AVAILABLE + SENSORS_AVAILABLE
+
+
+# Login
+SESSION_FRESHNESS = 15 * 60
+SESSION_TOKEN_VALIDITY = 7 * 24 * 60
+
+REGISTRATION_TOKEN_VALIDITY = 24 * 60
+
+
+class TOKEN_SUBS(Enum):
+    REGISTRATION: str = "registration"
+
+
+class LOGIN_NAME(Enum):
+    COOKIE: str = "session"
+    HEADER: str = "Authorization"

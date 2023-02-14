@@ -183,10 +183,13 @@ class User(base, UserMixin):
     telegram_chat_id: Mapped[Optional[str]] = mapped_column(sa.String(16), unique=True)
 
     # relationship
-    role: Mapped["Role"] = relationship(back_populates="users")
-    recap_channels: Mapped[list["CommunicationChannel"]] = relationship(back_populates="users",
-                                                                         secondary=AssociationUserRecap)
+    role: Mapped["Role"] = relationship(back_populates="users", lazy="selectin")
+    recap_channels: Mapped[list["CommunicationChannel"]] = relationship(
+        back_populates="users", secondary=AssociationUserRecap)
     calendar: Mapped[list["CalendarEvent"]] = relationship(back_populates="user")
+
+    def __repr__(self):
+        return f"<User ({self.username}, role={self.role})>"
 
     @classmethod
     async def create(
@@ -197,17 +200,27 @@ class User(base, UserMixin):
             **kwargs
     ) -> User:
         kwargs["username"] = username
+        role_name = kwargs.pop("role")
         user = User(**kwargs)
-        if user.role is None:
+
+        async def get_role(role_name: str | None = None) -> Role:
+            if role_name is not None:
+                stmt = select(Role).where(Role.name == role_name)
+                result = await session.execute(stmt)
+                role = result.scalars().first()
+                if role:
+                    return role
             admins: str | list = current_app.config.get("ADMINS", [])
             if isinstance(admins, str):
                 admins = admins.split(",")
             if user.email in admins:
                 stmt = select(Role).where(Role.name == "Administrator")
             else:
-                stmt = select(Role).where(Role.default is True)
+                stmt = select(Role).where(Role.default == True)  # noqa
             result = await session.execute(stmt)
-            user.role = result.scalars().first()
+            return result.scalars().first()
+        if user.role is None:
+            user.role = await get_role(role_name)
         user.set_password(password)
         return user
 

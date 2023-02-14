@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import typing as t
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,9 +10,9 @@ class service:
     @staticmethod
     async def get_multiple(
             session: AsyncSession,
-            level: t.Optional[list | tuple | str] = None
+            level: str | list | None = None
     ) -> list[Service]:
-        if level is None or "all" in level:
+        if level is None:
             stmt = select(Service)
         else:
             stmt = select(Service).where(Service.level.in_(level))

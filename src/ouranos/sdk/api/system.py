@@ -15,11 +15,11 @@ async def get_historic_data(
     stmt = (
         select(SystemHistory)
         .where(
-            (SystemHistory.timestamp  > time_window.start) &
-            (SystemHistory.timestamp  <= time_window.end)
+            (SystemHistory.timestamp > time_window.start) &
+            (SystemHistory.timestamp <= time_window.end)
         )
         .with_entities(
-            SystemHistory.timestamp , SystemHistory.CPU_used,
+            SystemHistory.timestamp, SystemHistory.CPU_used,
             SystemHistory.CPU_temp, SystemHistory.RAM_used,
             SystemHistory.RAM_total, SystemHistory.DISK_used,
             SystemHistory.DISK_total

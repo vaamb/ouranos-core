@@ -74,8 +74,10 @@ def create_app(config: dict | None = None) -> FastAPI:
             "Either provide a config dict or set config globally with "
             "g.set_app_config"
         )
-    check_secret_key(config)
     logger = logging.getLogger("ouranos.web_server")
+    secret = check_secret_key(config)
+    if secret is not None:
+        logger.warning(secret)
     logger.debug("Initializing FastAPI application")
 
     app = FastAPI(
@@ -83,8 +85,8 @@ def create_app(config: dict | None = None) -> FastAPI:
         version=config.get("VERSION"),
         description=description,
         openapi_tags=tags_metadata,
-        docs_url="/web_server/docs",
-        redoc_url="/web_server/redoc",
+        docs_url="/api/docs",
+        redoc_url="/api/redoc",
         default_response_class=JSONResponse,
     )
 

@@ -2,13 +2,15 @@ from __future__ import annotations
 
 from typing import Any, Type
 
-from pydantic import create_model
+from pydantic import BaseModel, create_model
 from sqlalchemy import Column, inspect
 from sqlalchemy.orm import Mapper
 
 
 def sqlalchemy_to_pydantic(
-        db_model, exclude: list | None = None
+        db_model,
+        exclude: list | None = None,
+        base: Type[BaseModel] | None = None
 ):
     exclude: list = exclude or []
     fields: dict[str, tuple[Type, Any | None]] = {}
@@ -25,4 +27,22 @@ def sqlalchemy_to_pydantic(
         elif column.default is not None:
             default = column.default.arg
         fields[name] = (python_type, default)
-    return create_model(db_model.__name__, **fields)
+    return create_model(db_model.__name__, __base__=base, **fields)
+
+
+class ExtendedModel(BaseModel):
+    @classmethod
+    def get_properties(cls):
+        return [
+            prop for prop in dir(cls)
+            if isinstance(getattr(cls, prop), property)
+        ]
+
+    def dict(self, *args, **kwargs):
+        self.__dict__.update(
+            {prop: getattr(self, prop) for prop in self.get_properties()}
+        )
+        return super().dict(*args, **kwargs)
+
+    class Config:
+        orm_mode = True

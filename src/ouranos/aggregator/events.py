@@ -393,6 +393,7 @@ class Events:
         values: list[dict] = []
         ecosystems_to_log: list[str] = []
         for ecosystem in data:
+            sensor_uids_seen: list[str] = []
             dt_str: str = ecosystem.get("datetime")
             if not dt_str:
                 continue
@@ -402,18 +403,24 @@ class Events:
                     await get_ecosystem_name(ecosystem["ecosystem_uid"], session=None)
                 )
                 for sensor in ecosystem["data"]:
-                    sensor_uid = sensor["sensor_uid"]
+                    sensor_uid: str = sensor["sensor_uid"]
+                    sensor_uids_seen.append(sensor_uid)
                     for measure in sensor["measures"]:
-                        value = float(measure["value"])
                         sensor_data = {
                             "ecosystem_uid": ecosystem["ecosystem_uid"],
                             "sensor_uid": sensor_uid,
                             "measure": measure["name"],
                             "timestamp": dt,
-                            "value": value,
+                            "value": float(measure["value"]),
                         }
                         values.append(sensor_data)
                     await sleep(0)
+                async with db.scoped_session() as session:
+                    hardware_list = await api.hardware.get_multiple(
+                        session, sensor_uids_seen
+                    )
+                    for hardware in hardware_list:
+                        hardware.last_log = dt
                 # TODO: if needed get and log avg values from the data
         if values:
             async with db.scoped_session() as session:

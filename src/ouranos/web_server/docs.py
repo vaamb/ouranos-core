@@ -3,7 +3,7 @@ description = """
 
 The following options are available
 
-### Api 📱
+### App 📱
 
 Get information about the current app (such as its version, the services
 available ...)

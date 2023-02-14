@@ -5,7 +5,7 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ouranos import sdk
+from ouranos.sdk import api
 
 template_folder = Path(__file__).absolute().parents[0]
 
@@ -30,9 +30,9 @@ async def ecosystem_summary(
         session: AsyncSession,
         ecosystems: str | list[str] | None = None
 ) -> str:
-    ecosystem_objs = await sdk.ecosystem.get_multiple(session, ecosystems)
+    ecosystem_objs = await api.ecosystem.get_multiple(session, ecosystems)
     ecosystems = [
-        sdk.ecosystem.get_info(session, ecosystem)
+        api.ecosystem.get_info(session, ecosystem)
         for ecosystem in ecosystem_objs
     ]
     if ecosystems:

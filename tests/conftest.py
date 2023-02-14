@@ -26,12 +26,12 @@ SERVICES = {
 def patch_config(config_class: t.Type[TestingConfig], temp_directory):
     """Change database URIs to use a temporary directory"""
     config_class.SQLALCHEMY_DATABASE_URI = (
-            "sqlite+aiosqlite:///" + os.path.join(temp_directory, "db_ecosystems.db")
+            "sqlite+aiosqlite:///" + os.path.join(temp_directory, "ecosystems.db")
     )
     config_class.SQLALCHEMY_BINDS = {
-        "app": "sqlite+aiosqlite:///" + os.path.join(temp_directory, "db_app.db"),
-        "archive": "sqlite+aiosqlite:///" + os.path.join(temp_directory, "db_archive.db"),
-        "system": "sqlite+aiosqlite:///" + os.path.join(temp_directory, "db_system.db"),
+        "app": "sqlite+aiosqlite:///" + os.path.join(temp_directory, "app.db"),
+        "archive": "sqlite+aiosqlite:///" + os.path.join(temp_directory, "archive.db"),
+        "system": "sqlite+aiosqlite:///" + os.path.join(temp_directory, "system.db"),
     }
     return config_class
 

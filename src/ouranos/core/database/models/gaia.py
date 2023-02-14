@@ -55,21 +55,27 @@ class LightMethod(enum.Enum):
     elongate = "elongate"
 
 
+class EnvironmentParameterPossibility(enum.Enum):
+    temperature = "temperature"
+    humidity = "humidity"
+    light = "light"
+
+
 class Engine(base):
     __tablename__ = "engines"
 
     uid: Mapped[str] = mapped_column(sa.String(length=16), primary_key=True)
     sid: Mapped[str] = mapped_column(sa.String(length=32))
-    registration_date: Mapped[datetime] = mapped_column(default=datetime.now(timezone.utc))
+    registration_date: Mapped[datetime] = mapped_column()
     address: Mapped[Optional[str]] = mapped_column(sa.String(length=24))
-    last_seen: Mapped[datetime] = mapped_column(default=datetime.now(timezone.utc))
+    last_seen: Mapped[datetime] = mapped_column()
 
     # relationship
     ecosystems: Mapped[list["Ecosystem"]] = relationship(back_populates="engine", lazy="selectin")
 
     @property
     def connected(self) -> bool:
-        return self.last_seen - datetime.now() >= timedelta(seconds=30.0)
+        return datetime.utcnow() - self.last_seen <= timedelta(seconds=30.0)
 
     def to_dict(self) -> dict:
         return {
@@ -96,7 +102,7 @@ class Ecosystem(base):
     engine_uid: Mapped[int] = mapped_column(sa.ForeignKey("engines.uid"))
 
     # relationship
-    engine: Mapped["Engine"] = relationship(back_populates="ecosystems")
+    engine: Mapped["Engine"] = relationship(back_populates="ecosystems", lazy="selectin")
     light: Mapped["Light"] = relationship(back_populates="ecosystem", uselist=False)
     environment_parameters: Mapped[list["EnvironmentParameter"]] = relationship(back_populates="ecosystem")
     plants: Mapped[list["Plant"]] = relationship(back_populates="ecosystem")
@@ -119,13 +125,17 @@ class Ecosystem(base):
     def reset_managements(self):
         self.management = 0
 
+    @property
+    def connected(self) -> bool:
+        return datetime.utcnow() - self.last_seen <= timedelta(seconds=30.0)
+
     def to_dict(self):
         return {
             "uid": self.uid,
             "name": self.name,
             "status": self.status,
             "last_seen": self.last_seen,
-            "connected": self.engine.connected,
+            "connected": self.connected,
             "engine_uid": self.engine_uid,
         }
 
@@ -140,13 +150,13 @@ class EnvironmentParameter(base):
     __tablename__ = "environment_parameters"
 
     ecosystem_uid: Mapped[str] = mapped_column(sa.String(length=8), sa.ForeignKey("ecosystems.uid"), primary_key=True)
-    parameter: Mapped[str] = mapped_column(sa.String(length=16), primary_key=True)
+    parameter: Mapped[EnvironmentParameterPossibility] = mapped_column(primary_key=True)
     day: Mapped[float] = mapped_column(sa.Float(precision=2))
     night: Mapped[float] = mapped_column(sa.Float(precision=2))
     hysteresis: Mapped[float] = mapped_column(sa.Float(precision=2), default=0.0)
 
     # relationship
-    ecosystem: Mapped["Ecosystem"] = relationship(back_populates="environment_parameters")
+    ecosystem: Mapped["Ecosystem"] = relationship(back_populates="environment_parameters", lazy="selectin")
 
     def to_dict(self):
         return {
@@ -155,6 +165,8 @@ class EnvironmentParameter(base):
             "day": self.day,
             "night": self.night,
             "hysteresis": self.hysteresis,
+            "day_start": self.ecosystem.day_start,
+            "night_start": self.ecosystem.night_start,
         }
 
 
@@ -313,6 +325,7 @@ class Light(base):
     __tablename__ = "lights"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    ecosystem_uid: Mapped[str] = mapped_column(sa.String(length=8), sa.ForeignKey("ecosystems.uid"))
     status: Mapped[bool] = mapped_column(default=False)
     mode: Mapped[ActuatorMode] = mapped_column(default=ActuatorMode.automatic)
     method: Mapped[LightMethod] = mapped_column(default=LightMethod.fixed)
@@ -320,7 +333,6 @@ class Light(base):
     morning_end: Mapped[Optional[time]] = mapped_column()
     evening_start: Mapped[Optional[time]] = mapped_column()
     evening_end: Mapped[Optional[time]] = mapped_column()
-    ecosystem_uid: Mapped[str] = mapped_column(sa.String(length=8), sa.ForeignKey("ecosystems.uid"))
 
     # relationships
     ecosystem: Mapped["Ecosystem"] = relationship(back_populates="light")

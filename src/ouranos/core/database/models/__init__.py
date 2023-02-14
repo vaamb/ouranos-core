@@ -6,6 +6,7 @@ from ouranos.core.database.models.archives import (
     ArchiveActuatorHistory, ArchiveAppWarning, ArchiveHealthData,
     ArchiveSensorData
 )
+from ouranos.core.database.models.common import WarningLevel
 from ouranos.core.database.models.gaia import (
     ActuatorHistory, Ecosystem, EnvironmentParameter, Engine, GaiaWarning,
     Hardware, Health, Light, Management, Measure, Plant, SensorHistory
@@ -18,6 +19,7 @@ __all__ = [
     "FlashMessage", "Permission", "Role", "Service", "User", "UserMixin",
     "ArchiveActuatorHistory", "ArchiveAppWarning", "ArchiveHealthData",
     "ArchiveSensorData",
+    "WarningLevel",
     "ActuatorHistory", "Ecosystem", "EnvironmentParameter", "Engine",
     "GaiaWarning", "Hardware", "Health", "Light", "Management", "Measure",
     "Plant", "SensorHistory",

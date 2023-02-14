@@ -7,6 +7,7 @@ from email_validator import validate_email
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ouranos.core.config.consts import REGISTRATION_TOKEN_VALIDITY, TOKEN_SUBS
 from ouranos.core.database.models.app import User, Role
 from ouranos.core.utils import Tokenizer
 from ouranos.sdk.api.exceptions import DuplicatedEntry, NoResultFound
@@ -23,7 +24,7 @@ class user:
         error = []
         stmt = select(User).where(User.username == username)
         if "email" in kwargs:
-            stmt = stmt.where(User.email == kwargs["mail"])
+            stmt = stmt.where(User.email == kwargs["email"])
         if "telegram_id" in kwargs:
             stmt = stmt.where(User.telegram_chat_id == kwargs["telegram_id"])
         result = await session.execute(stmt)
@@ -36,14 +37,13 @@ class user:
             if previous_user.telegram_chat_id == kwargs.get("telegram_id", False):
                 error.append("telegram_id")
             raise DuplicatedEntry(error)
-        kwargs.update({"username": username})
         user = await User.create(session, username, password, **kwargs)
         session.add(user)
         await session.commit()
         return user
 
     @staticmethod
-    async def get(session: AsyncSession, user: int | str) -> User:
+    async def get(session: AsyncSession, user: int | str) -> User | None:
         stmt = (
             select(User)
             .where((User.id == user) | (User.username == user))
@@ -91,46 +91,29 @@ class user:
 
 async def create_invitation_token(
         session: AsyncSession,
-        first_name: str = None,
-        last_name: str = None,
-        email_address: str = None,
-        telegram_chat_id: int = None,
-        role_name: t.Optional[str] = None,
-        expiration_delay: timedelta = timedelta(days=7),
+        role_name: str | None = None,
 ) -> str:
-    email = None
-    if email_address:
-        email = validate_email(email_address.strip()).email
-    assert email_address or telegram_chat_id
-    role_name = role_name or "default"
-    stmt = select(Role).where(Role.default == True)
-    result = await session.execute(stmt)
-    default_role = result.scalars().one()
-    if role_name != "default":
-        stmt = select(Role).where(Role.name == role_name)
-        result = await session.execute(stmt)
-        role = result.scalars().first()
-        if not role:
-            role = default_role
-    else:
-        role = default_role
-    role_name = role.name
-    if role_name == default_role.name:
-        # simple users don't need to know they are simple
-        role_name = None
-
-    tkn_claims = {
-        "fnm": first_name,
-        "lnm": last_name,
-        "eml": email,
-        "tgm": telegram_chat_id,
-        "rle": role_name,
-        "exp": datetime.now(timezone.utc) + expiration_delay,
+    if role_name is not None:
+        if role_name != "default":
+            stmt = select(Role).where(Role.name == role_name)
+            result = await session.execute(stmt)
+            role = result.scalars().first()
+            if role is None:
+                role_name = None
+            else:
+                stmt = select(Role).where(Role.default == True)  # noqa
+                result = await session.execute(stmt)
+                default_role = result.scalars().one()
+                if role.name == default_role.name:
+                    role_name = role.name
+        else:
+            role_name = None
+    payload = {
+        "sub": TOKEN_SUBS.REGISTRATION.value,
+        "exp": datetime.utcnow() + timedelta(seconds=REGISTRATION_TOKEN_VALIDITY),
     }
-    payload = {}
-    for claim in tkn_claims:
-        if tkn_claims[claim]:
-            payload.update({claim: tkn_claims[claim]})
+    if role_name is not None:
+        payload.update({"rle": role_name})
     return Tokenizer.dumps(payload)
 
 """

@@ -17,7 +17,6 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from dispatcher import (
     AsyncBaseDispatcher, AsyncRedisDispatcher, AsyncAMQPDispatcher
 )
-import geopy
 import jwt
 from sqlalchemy.engine import Row
 
@@ -101,11 +100,15 @@ def async_to_sync(func: t.Callable) -> t.Callable:
     return wrapper
 
 
-class ExpiredTokenError(Exception):
+class TokenError(Exception):
     pass
 
 
-class InvalidTokenError(Exception):
+class ExpiredTokenError(TokenError):
+    pass
+
+
+class InvalidTokenError(TokenError):
     pass
 
 
@@ -152,8 +155,10 @@ class Tokenizer:
             return payload
         except jwt.ExpiredSignatureError:
             raise ExpiredTokenError
-        except jwt.PyJWTError:
+        except jwt.InvalidTokenError:
             raise InvalidTokenError
+        except jwt.PyJWTError:
+            raise TokenError
 
 
 class DispatcherFactory:
@@ -257,26 +262,6 @@ def generate_secret_key_from_password(password: str | bytes) -> str:
     return skey
 
 
-def get_coordinates(city: str) -> dict:
-    """
-    Memoize and return the geocode of the given city using geopy API. The
-    memoization step allows to reduce the number of call to the Nominatim API.
-
-    :param city: str, the name of a city.
-    :return: dict with the latitude and longitude of the given city.
-    """
-    # if not memoized, look for coordinates
-    if city not in coordinates:
-        geolocator = geopy.geocoders.Nominatim(user_agent="EP-gaia")
-        location = geolocator.geocode(city)
-        coordinates[city] = {
-            "latitude": location.latitude,
-            "longitude": location.longitude
-        }
-
-    return coordinates[city]
-
-
 def stripped_warning(msg):
     def custom_format_warning(_msg, *args, **kwargs):
         return str(_msg) + '\n'
@@ -287,9 +272,9 @@ def stripped_warning(msg):
     warnings.formatwarning = format_warning
 
 
-def check_secret_key(config: dict) -> None:
+def check_secret_key(config: dict) -> str | None:
     if any((config["DEVELOPMENT"], config["TESTING"])):
-        stripped_warning(
+        return (
             "You are currently running Ouranos in development and/or testing mode"
         )
     else:

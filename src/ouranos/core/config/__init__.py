@@ -85,7 +85,7 @@ def _get_config_class(profile: str | None = None) -> Type[BaseConfig]:
                 f"No `config.py` file found and config profile {profile} requested"
             )
     else:
-        cfgs: dict[str | None, Type] = {None: BaseConfig}
+        cfgs: dict[str | None, Type[BaseConfig]] = {None: BaseConfig}
         for name in dir(config):
             if not name.startswith("__"):
                 obj = getattr(config, name)
@@ -97,7 +97,7 @@ def _get_config_class(profile: str | None = None) -> Type[BaseConfig]:
                         cfgs[name] = obj
         if profile is not None:
             profile = profile.lower().strip("config")
-        cfg: Type = cfgs.get(profile)
+        cfg: Type[BaseConfig] = cfgs.get(profile)
         if cfg:
             return cfg
         else:
@@ -178,40 +178,37 @@ def configure_logging(config: config_type) -> None:
             }
         },
         "loggers": {
-            "": {
+            "ouranos": {
+                "handlers": handlers,
+                "level": f"{'DEBUG' if debug else 'INFO'}"
+            },
+            "dispatcher": {
                 "handlers": handlers,
                 "level": f"{'DEBUG' if debug else 'INFO'}"
             },
             "aiosqlite": {
                 "handlers": handlers,
                 "level": "WARNING",
-                "propagate": False,
             },
             "apscheduler": {
                 "handlers": handlers,
                 "level": f"{'DEBUG' if debug else 'WARNING'}",
-                "propagate": False,
             },
             "urllib3": {
                 "handlers": handlers,
                 "level": "WARNING",
-                "propagate": False,
             },
             "engineio": {
                 "handlers": handlers,
                 "level": f"{'DEBUG' if debug else 'WARNING'}",
-                #"propagate": False,
             },
             "socketio": {
                 "handlers": handlers,
                 "level": f"{'DEBUG' if debug else 'WARNING'}",
-                #"propagate": False,
-
             },
             "uvicorn": {
                 "handlers": handlers,
-                "level": f"{'DEBUG' if debug else 'WARNING'}",
-                # "propagate": False,
+                "level": f"{'DEBUG' if debug else 'INFO'}",
             },
         },
     }
