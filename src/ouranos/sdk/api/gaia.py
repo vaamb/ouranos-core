@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal, Type
+from typing import Literal, Sequence, Type
 
 from cachetools import cached, TTLCache
 import cachetools.func
@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos.core.cache import get_cache
 from ouranos.core.config.consts import (
-    HARDWARE_AVAILABLE, HARDWARE_LEVELS, HARDWARE_TYPES
+    HARDWARE_AVAILABLE, HARDWARE_LEVELS
 )
 from ouranos.core.database.models.gaia import (
     Ecosystem, Engine, EnvironmentParameter, GaiaWarning, Hardware, Health,
@@ -87,7 +87,6 @@ class _gaia_abc:
             session: AsyncSession,
             uid: str,
     ) -> None:
-        # TODO: call GAIA
         stmt = delete(cls._model_cls).where(cls._model_cls.uid == uid)
         await session.execute(stmt)
 
@@ -120,6 +119,13 @@ class _gaia_abc:
     ) -> _model_cls | None:
         raise NotImplementedError
 
+    @staticmethod
+    async def get_multiple(
+            session: AsyncSession,
+            uid: str | list | None = None,
+    ) -> Sequence[_model_cls]:
+        raise NotImplementedError
+
 
 # ---------------------------------------------------------------------------
 #   Engine-related APIs
@@ -132,9 +138,9 @@ class engine(_gaia_abc):
             session: AsyncSession,
             engine_id: str,
     ) -> Engine | None:
-        stmt = (
-            select(Engine)
-            .where((Engine.uid == engine_id) | (Engine.sid == engine_id))
+        stmt = select(Engine).where(
+            (Engine.uid == engine_id)
+            | (Engine.sid == engine_id)
         )
         result = await session.execute(stmt)
         return result.scalars().one_or_none()
@@ -143,13 +149,17 @@ class engine(_gaia_abc):
     async def get_multiple(
             session: AsyncSession,
             engines: str | list | None = None,
-    ) -> list[Engine]:
+    ) -> Sequence[Engine]:
         if engines is None:
             stmt = (
                 select(Engine)
                 .order_by(Engine.last_seen.desc())
             )
-        elif "recent" in engines:
+            result = await session.execute(stmt)
+            return result.scalars().all()
+        if isinstance(engines, str):
+            engines = engines.split(",")
+        if "recent" in engines:
             time_limit = time_limits()["recent"]
             stmt = (
                 select(Engine)
@@ -166,17 +176,13 @@ class engine(_gaia_abc):
             stmt = (
                 select(Engine)
                 .where(
-                    Engine.uid.in_(engines) |
-                    Engine.sid.in_(engines)
+                    (Engine.uid.in_(engines))
+                    | (Engine.sid.in_(engines))
                 )
                 .order_by(Engine.uid.asc())
             )
         result = await session.execute(stmt)
         return result.scalars().all()
-
-    @staticmethod
-    def get_info(session: AsyncSession, engine: Engine) -> dict:
-        return engine.to_dict()
 
 
 # ---------------------------------------------------------------------------
@@ -201,15 +207,15 @@ class ecosystem(_gaia_abc):
     async def get_multiple(
             session: AsyncSession,
             ecosystems: str | list[str] | None = None,
-    ) -> list[Ecosystem]:
-        if not ecosystems:
+    ) -> Sequence[Ecosystem]:
+        if ecosystems is None:
             stmt = (
                 select(Ecosystem)
                 .order_by(Ecosystem.name.asc(),
                           Ecosystem.last_seen.desc())
             )
             result = await session.execute(stmt)
-            return result.unique().scalars().all()
+            return result.scalars().all()
 
         if isinstance(ecosystems, str):
             ecosystems = ecosystems.split(",")
@@ -234,15 +240,15 @@ class ecosystem(_gaia_abc):
                 .order_by(Ecosystem.last_seen.desc(), Ecosystem.name.asc())
             )
         result = await session.execute(stmt)
-        return result.unique().scalars().all()
+        return result.scalars().all()
 
     @staticmethod
-    async def get_ids(session: AsyncSession, ecosystem: str) -> ecosystemIds:
+    async def get_ids(session: AsyncSession, ecosystem_id: str) -> ecosystemIds:
         stmt = (
             select(Ecosystem)
             .where(
-                (Ecosystem.uid == ecosystem) |
-                (Ecosystem.name == ecosystem)
+                (Ecosystem.uid == ecosystem_id) |
+                (Ecosystem.name == ecosystem_id)
             )
         )
         result = await session.execute(stmt)
@@ -252,13 +258,9 @@ class ecosystem(_gaia_abc):
         raise NoEcosystemFound
 
     @staticmethod
-    def get_info(session: AsyncSession, ecosystem: Ecosystem) -> dict:
-        return ecosystem.to_dict()
-
-    @staticmethod
     async def get_management(
             session: AsyncSession,
-            ecosystem: Ecosystem,
+            ecosystem_obj: Ecosystem,
     ) -> dict:
         limits = time_limits()
 
@@ -276,11 +278,11 @@ class ecosystem(_gaia_abc):
             return bool(result.first())
 
         @cached(cache_ecosystem_info)
-        async def cached_func(ecosystem: Ecosystem):
-            management = ecosystem.management_dict()
+        async def inner_func(_ecosystem_obj: Ecosystem):
+            management = ecosystem_obj.management_dict()
             return {
-                "uid": ecosystem.uid,
-                "name": ecosystem.name,
+                "uid": ecosystem_obj.uid,
+                "name": ecosystem_obj.name,
                 "sensors": management.get("sensors", False),
                 "light": management.get("light", False),
                 "climate": management.get("climate", False),
@@ -291,34 +293,36 @@ class ecosystem(_gaia_abc):
                 "switches": any((
                     management.get("climate"), management.get("light")
                 )),
-                "environment_data": await sensor_data(ecosystem.uid, "environment"),
-                "plants_data": await sensor_data(ecosystem.uid, "plants"),
+                "environment_data": await sensor_data(ecosystem_obj.uid, "environment"),
+                "plants_data": await sensor_data(ecosystem_obj.uid, "plants"),
             }
-        return await cached_func(ecosystem)
+        return await inner_func(ecosystem_obj)
 
     @staticmethod
     async def get_sensors_data_skeleton(
             session: AsyncSession,
-            ecosystem: Ecosystem,
+            ecosystem_obj: Ecosystem,
             time_window: timeWindow,
             level: HARDWARE_LEVELS_CHOICES | list[HARDWARE_LEVELS_CHOICES] | None = None,
     ) -> dict:
         @cached(cache_sensors_data_skeleton)
         async def inner_func(
-                ecosystem_id: str,
-                time_window: timeWindow,
-                level: list[HARDWARE_LEVELS_CHOICES] | None = None,
+                ecosystem_uid: str,
+                _time_window: timeWindow,
+                _level: list[HARDWARE_LEVELS_CHOICES] | None = None,
         ) -> list:
             stmt = (
                 select(Hardware).join(SensorHistory.sensor)
-                .where(Hardware.ecosystem_uid == ecosystem_id)
-                .where((SensorHistory.timestamp > time_window.start) &
-                        (SensorHistory.timestamp <= time_window.end))
+                .where(Hardware.ecosystem_uid == ecosystem_uid)
+                .where(
+                    (SensorHistory.timestamp > time_window.start)
+                    & (SensorHistory.timestamp <= time_window.end)
+                )
             )
             if level:
                 stmt = stmt.where(Hardware.level.in_(level))
             result = await session.execute(stmt)
-            sensor_objs: list[Hardware] = result.unique().scalars().all()
+            sensor_objs: Sequence[Hardware] = result.unique().scalars().all()
             temp = {}
             for sensor_obj in sensor_objs:
                 for measure_obj in sensor_obj.measures:
@@ -326,75 +330,31 @@ class ecosystem(_gaia_abc):
                         temp[measure_obj.name][sensor_obj.uid] = sensor_obj.name
                     except KeyError:
                         temp[measure_obj.name] = {sensor_obj.uid: sensor_obj.name}
-            order = [
+            order = (
                 "temperature", "humidity", "lux", "dew_point", "absolute_moisture",
                 "moisture"
-            ]
+            )
             return [{
-                "measure": measure,
+                "measure": measure_name,
                 "sensors": [{
                     "uid": sensor_uid,
-                    "name": temp[measure][sensor_uid]
-                } for sensor_uid in temp[measure]]
-            } for measure in {
+                    "name": temp[measure_name][sensor_uid]
+                } for sensor_uid in temp[measure_name]]
+            } for measure_name in {
                 key: temp[key] for key in order if temp.get(key)
             }]
 
         if isinstance(level, str):
             level = level.split(",")
         return {
-            "uid": ecosystem.uid,
-            "name": ecosystem.name,
+            "uid": ecosystem_obj.uid,
+            "name": ecosystem_obj.name,
             "level": HARDWARE_LEVELS if level is None else level,
             "sensors_skeleton": await inner_func(
-                ecosystem_id=ecosystem.uid, time_window=time_window,
+                ecosystem_uid=ecosystem_obj.uid, time_window=time_window,
                 level=level
             )
         }
-
-    @staticmethod
-    def get_plants_info(
-            session: AsyncSession,
-            ecosystem: Ecosystem,
-    ) -> dict:
-        return {
-            "ecosystem_uid": ecosystem.uid,
-            "ecosystem_name": ecosystem.name,
-            "plants": [
-                plant.to_dict()
-                for plant in ecosystem.plants
-            ]
-        }
-
-    @staticmethod
-    async def get_hardware_info(
-            session: AsyncSession,
-            ecosystem: Ecosystem,
-            level: HARDWARE_LEVELS_CHOICES | list[HARDWARE_LEVELS_CHOICES] | None = None,
-            hardware_type: HARDWARE_TYPES_CHOICES | list[HARDWARE_TYPES_CHOICES] | None = None
-    ) -> dict:
-        if level is None:
-            level = HARDWARE_LEVELS
-        if hardware_type is None:
-            hardware_type = HARDWARE_TYPES
-        elif "actuators" in hardware_type:
-            types = list(HARDWARE_TYPES)
-            hardware_type = types.remove("sensor")
-
-        stmt = (
-            select(Hardware).join(Ecosystem)
-            .filter(Ecosystem.uid == ecosystem.uid)
-            .filter(Hardware.type.in_(hardware_type))
-            .filter(Hardware.level.in_(level))
-            .order_by(Hardware.type)
-            .order_by(Hardware.level)
-        )
-        result = await session.execute(stmt)
-        return {
-                "ecosystem_uid": ecosystem.uid,
-                "ecosystem_name": ecosystem.name,
-                "hardware": [h.to_dict() for h in result.scalars().all()]
-            }
 
     @staticmethod
     async def turn_actuator(
@@ -428,7 +388,6 @@ class ecosystem(_gaia_abc):
 class environmental_parameter(_gaia_abc):
     _model_cls = EnvironmentParameter
 
-    # TODO: call GAIA
     @classmethod
     async def create(
             cls,
@@ -484,7 +443,7 @@ class environmental_parameter(_gaia_abc):
             session: AsyncSession,
             uid: str,
             parameter: str | None = None,
-    ) -> list[EnvironmentParameter]:
+    ) -> Sequence[EnvironmentParameter]:
         stmt = (
             select(EnvironmentParameter)
             .where(EnvironmentParameter.ecosystem_uid == uid)
@@ -499,7 +458,7 @@ class environmental_parameter(_gaia_abc):
              session: AsyncSession,
              uids: list | None = None,
              parameters: list | None = None,
-    ) -> list[EnvironmentParameter]:
+    ) -> Sequence[EnvironmentParameter]:
         stmt = select(EnvironmentParameter)
         if uids:
             stmt = stmt.where(EnvironmentParameter.ecosystem_uid.in_(uids))
@@ -517,7 +476,7 @@ class environmental_parameter(_gaia_abc):
         parameter_info = parameter_info or {}
         uid = uid or parameter_info.pop("uid", None)
         parameter = parameter_info.get("parameter")
-        if not (uid or parameter):
+        if not (uid and parameter):
             raise ValueError(
                 "Provide uid and parameter either as a argument or as a key in the "
                 "updated info"
@@ -621,7 +580,7 @@ class hardware(_gaia_abc):
         return result.unique().scalars().one_or_none()
 
     @staticmethod
-    def _get_query(
+    def generate_query(
             hardware_uid: str | list | None = None,
             ecosystem_uid: str | list | None = None,
             level: HARDWARE_LEVELS_CHOICES | list[HARDWARE_LEVELS_CHOICES] | None = None,
@@ -630,10 +589,10 @@ class hardware(_gaia_abc):
     ):
         uid = hardware_uid
         query = select(Hardware)
-        l = locals()
+        local_vars = locals()
         args = "uid", "ecosystem_uid", "level", "type", "model"
         for arg in args:
-            value = l.get(arg)
+            value = local_vars.get(arg)
             if value:
                 if isinstance(value, str):
                     value = value.split(",")
@@ -649,19 +608,12 @@ class hardware(_gaia_abc):
             levels: HARDWARE_LEVELS_CHOICES | list[HARDWARE_LEVELS_CHOICES] | None = None,
             types: HARDWARE_TYPES_CHOICES | list[HARDWARE_TYPES_CHOICES] | None = None,
             models: str | list | None = None,
-    ) -> list[Hardware]:
-        stmt = hardware._get_query(
+    ) -> Sequence[Hardware]:
+        stmt = hardware.generate_query(
             hardware_uids, ecosystem_uids, levels, types, models
         )
         result = await session.execute(stmt)
         return result.unique().scalars().all()
-
-    @staticmethod
-    def get_info(
-            session: AsyncSession,
-            hardware_obj: Hardware
-    ) -> dict:
-        return hardware_obj.to_dict()
 
     @staticmethod
     def get_models_available() -> list:
@@ -680,7 +632,7 @@ class sensor:
             uid: str,
             time_window: timeWindow | None = None,
     ) -> Hardware | None:
-        stmt = hardware._get_query(hardware_uid=uid)
+        stmt = hardware.generate_query(hardware_uid=uid)
         if time_window:
             stmt = (
                 stmt.join(SensorHistory.sensor)
@@ -701,16 +653,16 @@ class sensor:
             levels: HARDWARE_LEVELS_CHOICES | list[HARDWARE_LEVELS_CHOICES] | None = None,
             models: str | list | None = None,
             time_window: timeWindow = None,
-    ) -> list[Hardware]:
-        stmt = hardware._get_query(
+    ) -> Sequence[Hardware]:
+        stmt = hardware.generate_query(
             hardware_uids, ecosystem_uids, levels, "sensor", models
         )
         if time_window:
             stmt = (
                 stmt.join(SensorHistory.sensor)
                 .where(
-                    (SensorHistory.timestamp > time_window.start) &
-                    (SensorHistory.timestamp <= time_window.end)
+                    (SensorHistory.timestamp > time_window.start)
+                    & (SensorHistory.timestamp <= time_window.end)
                 )
                 .distinct()
             )
@@ -721,26 +673,28 @@ class sensor:
     async def _get_data_record(
             session: AsyncSession,
             sensor_obj: Hardware,
-            measure: str,
+            measure_name: str,
             time_window: timeWindow
     ) -> list:
         @cached(cache_sensors_data_raw)
-        async def cached_func(
-                sensor_obj: Hardware,
-                measure: str,
-                time_window: timeWindow
+        async def inner_func(
+                _sensor_obj: Hardware,
+                _measure_name: str,
+                _time_window: timeWindow
         ) -> list:
             stmt = (
                 select(SensorHistory)
-                .where(SensorHistory.measure == measure)
+                .where(SensorHistory.measure == measure_name)
                 .where(SensorHistory.sensor_uid == sensor_obj.uid)
-                .where((SensorHistory.timestamp > time_window.start) &
-                        (SensorHistory.timestamp <= time_window.end))
+                .where(
+                    (SensorHistory.timestamp > time_window.start)
+                    & (SensorHistory.timestamp <= time_window.end)
+                )
             )
             result = await session.execute(stmt)
-            records = result.scalars().all()
+            records: Sequence[SensorHistory] = result.scalars().all()
             return [(record.timestamp, record.value) for record in records]
-        return await cached_func(sensor_obj, measure, time_window)
+        return await inner_func(sensor_obj, measure_name, time_window)
 
     @staticmethod
     async def _get_historic_data(
@@ -868,15 +822,6 @@ class sensor:
 
 class measure:
     @staticmethod
-    async def get_measure(
-            session: AsyncSession,
-            measure_name: str
-    ) -> Measure | None:
-        stmt = select(Measure).where(Measure.name == measure_name)
-        result = await session.execute(stmt)
-        return result.scalars().one_or_none()
-
-    @staticmethod
     async def get_unit(session: AsyncSession, measure_name: str) -> str | None:
         stmt = (
             select(Measure)
@@ -884,24 +829,29 @@ class measure:
         )
         result = await session.execute(stmt)
         measure_obj = result.scalars().one_or_none()
-        if measure_obj:
+        if measure_obj is not None:
             return measure_obj.unit
         return None
 
     @staticmethod
-    async def get_multiple(
+    async def get(
             session: AsyncSession,
-            measure_names: list[str] | None = None
-    ) -> list[Measure]:
-        stmt = select(Measure)
-        if measure_names:
-            stmt = stmt.where(Measure.name.in_(measure_names))
+            name: str
+    ) -> Measure | None:
+        stmt = select(Measure).where(Measure.name == name)
         result = await session.execute(stmt)
-        return result.scalars().all()
+        return result.scalars().one_or_none()
 
     @staticmethod
-    def get_info(session: AsyncSession, measure_obj: Measure) -> list[dict]:
-        return measure_obj.to_dict()
+    async def get_multiple(
+            session: AsyncSession,
+            names: list[str] | None = None
+    ) -> Sequence[Measure]:
+        stmt = select(Measure)
+        if names:
+            stmt = stmt.where(Measure.name.in_(names))
+        result = await session.execute(stmt)
+        return result.scalars().all()
 
 
 # ---------------------------------------------------------------------------
@@ -917,7 +867,6 @@ class light(_gaia_abc):
             values: dict,
             ecosystem_uid: str | None = None,
     ) -> None:
-        # TODO: call GAIA
         ecosystem_uid = ecosystem_uid or values.pop("ecosystem_uid", None)
         if not ecosystem_uid:
             raise ValueError(
@@ -943,13 +892,12 @@ class light(_gaia_abc):
     async def get_multiple(
             session: AsyncSession,
             ecosystem_uids: list[str] | None = None,
-    ) -> list[Light]:
+    ) -> Sequence[Light]:
         stmt = select(Light)
         if ecosystem_uids:
             stmt = stmt.where(Light.ecosystem_uid.in_(ecosystem_uids))
         result = await session.execute(stmt)
         return result.scalars().all()
-
 
     @classmethod
     async def update_or_create(
@@ -987,15 +935,32 @@ class health:
         await session.execute(stmt)
 
 
-class plant:
+class plant(_gaia_abc):
+    _model_cls = Plant
+
+    @staticmethod
+    async def get(
+            session: AsyncSession,
+            plant_id: str
+    ) -> Plant | None:
+        stmt = select(Plant).where(
+            (Plant.name.in_(plant_id))
+            | (Plant.uid.in_(plant_id))
+        )
+        result = await session.execute(stmt)
+        return result.scalars().one_or_none()
+
     @staticmethod
     async def get_multiple(
             session: AsyncSession,
-            plants_name: list[str] | None = None
-    ) -> list[Plant]:
+            plants_id: list[str] | None = None
+    ) -> Sequence[Plant]:
         stmt = select(Plant)
-        if plants_name:
-            stmt = stmt.where(Plant.name.in_(plants_name))
+        if plants_id:
+            stmt = stmt.where(
+                (Plant.name.in_(plants_id))
+                | (Plant.uid.in_(plants_id))
+            )
         result = await session.execute(stmt)
         return result.scalars().all()
 
@@ -1004,7 +969,7 @@ class plant:
 async def get_recent_warnings(
         session: AsyncSession,
         limit: int = 10
-) -> list[GaiaWarning]:
+) -> Sequence[GaiaWarning]:
     time_limit = time_limits()["warnings"]
     stmt = (
         select(GaiaWarning)

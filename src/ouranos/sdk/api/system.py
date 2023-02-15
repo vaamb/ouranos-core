@@ -60,4 +60,3 @@ def clear_current_data(key: str | None = None) -> None:
         del cache[key]
     else:
         cache.clear()
-

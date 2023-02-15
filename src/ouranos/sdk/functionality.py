@@ -5,7 +5,7 @@ from logging import Logger, getLogger
 import re
 import typing as t
 
-from ouranos import current_app, configure_logging, db, scheduler, setup_config
+from ouranos import current_app, db, scheduler, setup_config
 from ouranos.core.database.init import create_base_data
 
 
@@ -99,10 +99,10 @@ def run_functionality_forever(
         **kwargs
 ):
     async def inner_func(
-            functionality_cls: t.Type[Functionality],
-            config_profile: str | None = None,
-            *args,
-            **kwargs
+            _functionality_cls: t.Type[Functionality],
+            _config_profile: str | None = None,
+            *_args,
+            **_kwargs
     ):
         # Start the functionality
         loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()

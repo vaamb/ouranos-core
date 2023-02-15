@@ -17,7 +17,7 @@ class Runner:
     def __init__(self) -> None:
         self._should_exit = False
 
-    def _handle_stop_signal(self, sig: int, frame: FrameType | None) -> None:
+    def _handle_stop_signal(self, sig: int, frame: FrameType | None) -> None:  # noqa
         self._should_exit = True
 
     def add_signal_handler(self, loop: asyncio.AbstractEventLoop) -> None:

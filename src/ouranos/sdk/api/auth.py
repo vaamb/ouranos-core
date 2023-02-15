@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 import typing as t
 
-from email_validator import validate_email
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -37,16 +36,16 @@ class user:
             if previous_user.telegram_chat_id == kwargs.get("telegram_id", False):
                 error.append("telegram_id")
             raise DuplicatedEntry(error)
-        user = await User.create(session, username, password, **kwargs)
-        session.add(user)
+        user_obj = await User.create(session, username, password, **kwargs)
+        session.add(user_obj)
         await session.commit()
-        return user
+        return user_obj
 
     @staticmethod
-    async def get(session: AsyncSession, user: int | str) -> User | None:
+    async def get(session: AsyncSession, user_id: int | str) -> User | None:
         stmt = (
             select(User)
-            .where((User.id == user) | (User.username == user))
+            .where((User.id == user_id) | (User.username == user_id))
         )
         result = await session.execute(stmt)
         return result.scalars().one_or_none()
@@ -84,8 +83,11 @@ class user:
             return wrong_attrs
 
     @staticmethod
-    async def delete(session: AsyncSession, user: int | str):
-        stmt = delete(User).where((User.id == user) | (User.username == user))
+    async def delete(session: AsyncSession, user_id: int | str):
+        stmt = delete(User).where(
+            (User.id == user_id)
+            | (User.username == user_id)
+        )
         await session.execute(stmt)
 
 

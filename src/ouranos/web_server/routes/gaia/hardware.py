@@ -53,7 +53,7 @@ async def get_multiple_hardware(
         hardware_type: t.Optional[list[str]] = Query(default=None),
         hardware_model: t.Optional[list[str]] = Query(default=None),
         session: AsyncSession = Depends(get_session),
-) -> list[Hardware]:
+):
     hardware = await api.hardware.get_multiple(
         session, hardware_uid, ecosystems_uid, hardware_level,
         hardware_type, hardware_model

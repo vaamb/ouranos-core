@@ -16,6 +16,3 @@ class NoEcosystemFound(NoResultFound):
 
 class WrongDataFormat(OuranosException):
     pass
-
-
-

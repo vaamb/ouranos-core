@@ -19,14 +19,6 @@ class service:
         result = await session.execute(stmt)
         return result.scalars().all()
 
-    @staticmethod
-    def get_info(
-            services: Service | list[Service]
-    ):
-        if isinstance(services, Service):
-            services = [services]
-        return [s.to_dict() for s in services]
-
 
 class flash_message:
     @staticmethod

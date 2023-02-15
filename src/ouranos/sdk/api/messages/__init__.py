@@ -31,10 +31,7 @@ async def ecosystem_summary(
         ecosystems: str | list[str] | None = None
 ) -> str:
     ecosystem_objs = await api.ecosystem.get_multiple(session, ecosystems)
-    ecosystems = [
-        api.ecosystem.get_info(session, ecosystem)
-        for ecosystem in ecosystem_objs
-    ]
+    ecosystems = [ecosystem.to_dict() for ecosystem in ecosystem_objs]
     if ecosystems:
         return render_template(
             "telegram/ecosystem.html", ecosystems=ecosystems
