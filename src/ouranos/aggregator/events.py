@@ -95,6 +95,8 @@ class Events:
         self._ouranos_dispatcher = dispatcher
         self.ouranos_dispatcher.on("turn_light", self.turn_light)
         self.ouranos_dispatcher.on("turn_actuator", self.turn_actuator)
+        self.ouranos_dispatcher.on("crud", self.crud)
+        self.ouranos_dispatcher.start()
 
     async def gaia_background_task(self):
         pass
