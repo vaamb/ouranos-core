@@ -514,6 +514,18 @@ class Events:
     async def turn_actuator(self, sid, data) -> None:
         await self._turn_actuator(sid, data)
 
+    async def crud(self, sid, data) -> None:
+        if self.broker_type == "socketio":
+            await self.emit(
+                "crud", data=data, namespace="/gaia", room=sid
+            )
+        elif self.broker_type == "dispatcher":
+            await self.emit(
+                "crud", data=data, namespace="/gaia", room=sid, ttl=30
+            )
+        else:
+            raise TypeError("Event broker_type is invalid")
+
 
 class DispatcherBasedGaiaEvents(AsyncEventHandler, Events):
     broker_type = "dispatcher"
