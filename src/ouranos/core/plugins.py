@@ -11,6 +11,7 @@ from typing import Iterator
 from fastapi import APIRouter, FastAPI
 from fastapi.responses import JSONResponse
 
+from ouranos import current_app
 from ouranos.sdk import Functionality, Plugin
 
 
@@ -26,9 +27,15 @@ class PluginManager:
 
     def __init__(self):
         self.logger: Logger = getLogger("ouranos.plugin_manager")
-        self.excluded: set = set()
+        self.omitted: set = self._get_omitted()
         self.plugins: dict[str, Plugin] = {}
         self.functionalities: dict[str, Functionality] = {}
+
+    def _get_omitted(self) -> set:
+        omitted = current_app["PLUGINS_OMITTED"]
+        if omitted is not None:
+            return set(omitted.split(","))
+        return set()
 
     def iter_entry_points(
             self,
@@ -46,7 +53,7 @@ class PluginManager:
             if not omit_excluded and isinstance(pkg, Plugin):
                 yield pkg
             else:
-                if isinstance(pkg, Plugin) and pkg.name not in self.excluded:
+                if isinstance(pkg, Plugin) and pkg.name not in self.omitted:
                     yield pkg
 
     def register_plugins(self, omit_excluded: bool = True) -> None:

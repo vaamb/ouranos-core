@@ -35,6 +35,7 @@ class BaseConfig:
     SERVER_RELOAD = False
     START_AGGREGATOR = os.environ.get("OURANOS_START_AGGREGATOR", True)
     AGGREGATOR_PORT = os.environ.get("OURANOS_AGGREGATOR_PORT", API_PORT)
+    PLUGINS_OMITTED = os.environ.get("OURANOS_PLUGINS_OMITTED")
 
     # Ouranos and Gaia config
     ADMINS = os.environ.get("OURANOS_ADMINS", [])
