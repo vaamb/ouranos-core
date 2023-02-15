@@ -32,7 +32,7 @@ class PluginManager:
         self.functionalities: dict[str, Functionality] = {}
 
     def _get_omitted(self) -> set:
-        omitted = current_app["PLUGINS_OMITTED"]
+        omitted = current_app.config["PLUGINS_OMITTED"]
         if omitted is not None:
             return set(omitted.split(","))
         return set()
