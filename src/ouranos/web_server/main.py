@@ -97,7 +97,7 @@ class WebServer(Functionality):
             self._app.stop = stop
 
     def _start(self):
-        self.logger.info("Starting the web server")
+        self.logger.info("Starting the Web server")
         self._app.start()
         self.system_monitor.start()
 

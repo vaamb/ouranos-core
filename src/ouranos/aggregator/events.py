@@ -133,7 +133,7 @@ class Events:
                     return False
         elif self.broker_type == "dispatcher":
             self.logger.debug(f"Connected to the message broker")
-            await self.emit("register", ttl=15)
+            await self.emit("register", ttl=2)
         else:
             raise TypeError("Event broker_type is invalid")
 

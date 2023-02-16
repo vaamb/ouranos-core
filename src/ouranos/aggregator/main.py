@@ -95,7 +95,7 @@ class Aggregator(Functionality):
         self._event_handler = event_handler
 
     def _start(self) -> None:
-        self.logger.info("Starting the aggregator")
+        self.logger.info("Starting the Aggregator")
         if self._uri.startswith("socketio://"):
             self.logger.debug(
                 "Using Socket.IO as the message broker with Gaia"

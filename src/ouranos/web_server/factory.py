@@ -191,7 +191,6 @@ def create_app(config: dict | None = None) -> FastAPI:
         logger.debug("Ouranos frontend detected, mounting it")
         app.mount("/", StaticFiles(directory=frontend_static_dir, html=True))
 
-    logger.info(f"{config['APP_NAME']} web server successfully created")
     return app
 
 

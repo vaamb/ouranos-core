@@ -65,6 +65,7 @@ class Ouranos(Functionality):
         self.plugin_manager.init_plugins()
 
     def _start(self):
+        self.logger.info("Starting Ouranos")
         # Start aggregator
         self.aggregator.start()
         # Start web server

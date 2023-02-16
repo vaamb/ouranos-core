@@ -4,9 +4,6 @@ import typing as t
 from typing import Callable
 
 
-from ouranos.sdk import DispatcherFactory
-
-
 if t.TYPE_CHECKING:
     from ouranos.aggregator.events import Events
 

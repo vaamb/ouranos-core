@@ -14,7 +14,6 @@ from ouranos.core.config.consts import WEATHER_MEASURES
 from ouranos.core.utils import DispatcherFactory, stripped_warning
 from ouranos.sdk import api, json
 
-
 _weather_recency_limit = 6
 _weather_file = "weather.json"
 _sun_times_file = "sun_times.json"
@@ -88,17 +87,16 @@ class SkyWatcher:
         self.logger: Logger = getLogger("ouranos.aggregator")
         self.dispatcher = DispatcherFactory.get("aggregator")
         self._mutex = asyncio.Lock()
-        # TODO: use coordinates from geolocalisation
-        #  Shutdown if no HOME_COORDINATES
         self._coordinates = current_app.config.get("HOME_COORDINATES")
         self._API_key = current_app.config.get("DARKSKY_API_KEY")
 
     """Weather"""
+
     async def _check_weather_recency(self) -> bool:
         """Return True is weather data is recent (less than 5 min)"""
         if api.weather.get("currently") is None:
             try:
-                path = current_app.cache_dir/_weather_file
+                path = current_app.cache_dir / _weather_file
                 async with aiofiles.open(path, "r") as file:
                     data_raw = await file.read()
                 data = json.loads(data_raw)
@@ -117,7 +115,7 @@ class SkyWatcher:
         return False
 
     async def clear_old_weather_data(self):
-        path = current_app.cache_dir/_weather_file
+        path = current_app.cache_dir / _weather_file
         time_ = api.weather.get("currently", {}).get("time")
         # If weather "current" time older than _weather_recency_limit hours: clear
         if time_ < time.time() - _weather_recency_limit * 60 * 60:
@@ -141,10 +139,12 @@ class SkyWatcher:
             )
             parameters = {
                 "exclude": ["minutely", "alerts", "flags"],
-                "units": "ca",  # ca: SI units with speed in km/h rather than m/s
+                "units": "ca",
+                # ca: SI units with speed in km/h rather than m/s
             }
             async with ClientSession() as session:
-                async with session.get(url, params=parameters, timeout=3.0) as resp:
+                async with session.get(url, params=parameters,
+                                       timeout=3.0) as resp:
                     raw_data = await resp.json()
         except ClientError:
             self.logger.error("ConnectionError: cannot update weather data")
@@ -159,10 +159,15 @@ class SkyWatcher:
             try:
                 stringified_data = json.dumps(data).decode("utf8")
                 cache_dir = current_app.cache_dir
-                async with aiofiles.open(cache_dir/_weather_file, "w") as file:
+                async with aiofiles.open(cache_dir / _weather_file,
+                                         "w") as file:
                     await file.write(stringified_data)
             except Exception as e:
-                self.logger.warning("Could not dump updated weather data")
+                print(e)
+                self.logger.warning(
+                    "Could not dump updated weather data. Error msg: "
+                    "`{e.__class__.__name__}: {e}`"
+                )
             api.weather.update(data)
             await self.dispatch_weather_data()
             self.logger.debug("Weather data updated")
@@ -185,8 +190,9 @@ class SkyWatcher:
             )
 
     """Sun times"""
+
     async def _check_sun_times_recency(self) -> bool:
-        path = current_app.cache_dir/_sun_times_file
+        path = current_app.cache_dir / _sun_times_file
         try:
             update_epoch = path.stat().st_ctime
         except FileNotFoundError:
@@ -220,13 +226,14 @@ class SkyWatcher:
                 "lng": self._coordinates[1],
             }
             async with ClientSession() as session:
-                async with session.get(url, params=parameters, timeout=3.0) as resp:
+                async with session.get(url, params=parameters,
+                                       timeout=3.0) as resp:
                     raw_data = await resp.json()
         except ClientError:
             self.logger.error("ConnectionError: cannot update sun times data")
             api.sun_times.clear()
         else:
-            path = current_app.cache_dir/_sun_times_file
+            path = current_app.cache_dir / _sun_times_file
             raw_data = raw_data["results"]
             stringified_data = json.dumps(raw_data).decode("utf8")
             async with aiofiles.open(path, "w") as file:
@@ -267,8 +274,10 @@ class SkyWatcher:
         asyncio.ensure_future(self._start())
 
     def stop(self) -> None:
-        scheduler.remove_job("weather")
-        scheduler.remove_job("suntimes")
+        if scheduler.get_job("weather"):
+            scheduler.remove_job("weather")
+        if scheduler.get_job("suntimes"):
+            scheduler.remove_job("suntimes")
         api.weather.clear()
 
 
