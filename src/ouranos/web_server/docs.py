@@ -29,7 +29,7 @@ sunset times
 tags_metadata = [
     {
         "name": "app",
-        "description": "Api-related info",
+        "description": "App-related info",
     },
     {
         "name": "auth",

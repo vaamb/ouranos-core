@@ -1,17 +1,23 @@
 import typing as t
 
-from fastapi import Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos.core import validate
 from ouranos.sdk import api
 from ouranos.web_server.dependencies import get_session
-from ouranos.web_server.routes.gaia import router
 from ouranos.web_server.routes.utils import assert_single_uid
 
 
 if t.TYPE_CHECKING:
     from ouranos.core.database.models.gaia import Engine
+
+
+router = APIRouter(
+    prefix="/engine",
+    responses={404: {"description": "Not found"}},
+    tags=["engine"],
+)
 
 
 async def engine_or_abort(session: AsyncSession, engine_id: str) -> "Engine":
@@ -26,7 +32,7 @@ async def engine_or_abort(session: AsyncSession, engine_id: str) -> "Engine":
     )
 
 
-@router.get("/engine", response_model=list[validate.gaia.engine])
+@router.get("/", response_model=list[validate.gaia.engine])
 async def get_engines(
         engines_id: t.Optional[list[str]] = Query(default=None),
         session: AsyncSession = Depends(get_session)
@@ -35,7 +41,7 @@ async def get_engines(
     return engines
 
 
-@router.get("/engine/u/<uid>", response_model=validate.gaia.engine)
+@router.get("/u/<uid>", response_model=validate.gaia.engine)
 async def get_engine(
         uid: str,
         session: AsyncSession = Depends(get_session)

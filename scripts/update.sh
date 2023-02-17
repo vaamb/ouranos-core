@@ -1,11 +1,13 @@
 #!/bin/bash
 
 echo "Updating Ouranos"
-ORIGIN=$PWD
 
 # Go to ouranos dir
-cd "$OURANOS_DIR/lib" ||  { echo "Cannot go to \`OURANOS_DIR\`/lib did you install Ouranos using the \`install.sh\` script?"; exit; }
+cd "$OURANOS_DIR" || { echo "Cannot go to \`OURANOS_DIR\`/lib did you install Ouranos using the \`install.sh\` script?"; exit; }
 
+source python_venv/bin/activate
+
+cd "/lib"
 for dir in */ ; do
   (
     cd $dir;
@@ -14,11 +16,13 @@ for dir in */ ; do
 
     if [ $LOCAL_HASH != $ORIGIN_HASH ]; then
       git pull --recurse-submodules
+      pip install -e .
     fi
   )
 done
 
-cd "$ORIGIN"
-echo "Ouranos update. To run it, either use \`ouranos\` or \`python -m ouranos\` within your venv"
+deactivate
+
+echo "Ouranos updated. To run it, either use \`ouranos start\` or go to the ouranos directory, activate the virtual environment and run \`python main.py\` or \`python -m ouranos\`"
 
 exit

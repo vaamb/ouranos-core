@@ -19,7 +19,7 @@ mkdir -p "lib"; cd "lib"
 # Get Ouranos and install the package
 if [ ! -d "ouranos_core" ]; then
   echo "Getting Ouranos repository"
-  git clone --branch installer https://gitlab.com/eupla/ouranos.git "ouranos_core" > /dev/null
+  git clone --branch stable https://gitlab.com/eupla/ouranos.git "ouranos_core" > /dev/null
   if [ $? = 0 ] ; then
     cd "ouranos_core"
   else
@@ -49,14 +49,15 @@ if [ ! -f $HOME/.bash_profile ]; then
   touch $HOME/.bash_profile
 fi
 
-if [ $(grep -ic "^OURANOS_DIR" $HOME/.bash_profile) -eq 0 ]; then
-  echo "
-# Ouranos root directory
-export OURANOS_DIR=$OURANOS_DIR" >> $HOME/.bash_profile;
+if [ $(grep -ic "#>>>Ouranos variables>>>" $HOME/.bash_profile) -eq 1 ]; then
+  sed -i "/#>>>Ouranos variables>>>/,/#<<<Ouranos variables<<</d" $HOME/.bash_profile;
 fi
 
-if [ $(grep -ic "^ouranos()" $HOME/.bash_profile) -eq 0 ]; then
-  echo "
+echo "
+#>>>Ouranos variables>>>
+# Ouranos root directory
+export OURANOS_DIR=$OURANOS_DIR
+
 # Ouranos utility function to start and stop the main application
 ouranos() {
   case \$1 in
@@ -68,11 +69,11 @@ ouranos() {
   esac
 }
 complete -W 'start stop stdout update' ouranos
+#<<<Ouranos variables<<<
 " >> $HOME/.bash_profile;
-fi
 
 source $HOME/.bash_profile
 
-echo "Ouranos installed. To run it, either use \`ouranos start\` or go to the ouranos directory, activate the virtual environment and run \`python main.py\`"
+echo "Ouranos installed. To run it, either use \`ouranos start\` or go to the ouranos directory, activate the virtual environment and run \`python main.py\` or \`python -m ouranos\`"
 
 exit
