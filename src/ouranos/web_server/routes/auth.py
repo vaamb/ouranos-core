@@ -60,8 +60,9 @@ def _get_current_user(
 
 @router.post("/register", response_model=validate.auth.AuthenticatedUser)
 async def register_new_user(
-        invitation_token: str = Query(),
-        payload: validate.auth.user_creation = Body(),
+        invitation_token: str = Query(description="The invitation token received"),
+        payload: validate.auth.user_creation = Body(
+            description="Information about the new user"),
         authenticator: Authenticator = Depends(login_manager),
         current_user: validate.auth.AuthenticatedUser = Depends(get_current_user),
         session: AsyncSession = Depends(get_session),
@@ -89,7 +90,9 @@ async def register_new_user(
 
 @router.get("/registration_token", dependencies=[Depends(is_admin)])
 async def create_registration_token(
-        role_name: str = Query(default=None),
+        role_name: str = Query(
+            default=None, description="The name (with a capital letter) of the "
+                                      "role the future user"),
         session: AsyncSession = Depends(get_session),
 ):
     return await api.auth.create_invitation_token(session, role_name)

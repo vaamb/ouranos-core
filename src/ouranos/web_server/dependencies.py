@@ -13,8 +13,12 @@ async def get_session() -> AsyncSession:
 
 
 def get_time_window(
-        start_time: t.Optional[str] = Query(default=None),
-        end_time: t.Optional[str] = Query(default=None)
+        start_time: t.Optional[str] = Query(
+            default=None, description="ISO (8601) formatted datetime from "
+                                      "which the research will be done"),
+        end_time: t.Optional[str] = Query(
+            default=None, description="ISO (8601) formatted datetime up to "
+                                      "which the research will be done")
 ) -> timeWindow:
     try:
         return create_time_window(start_time, end_time)

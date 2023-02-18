@@ -26,7 +26,13 @@ async def get_sun_times() -> dict:
 
 
 @router.get(path="/forecast")
-async def get_forecast(exclude: t.Union[list[str], None] = Query(default=None)) -> dict:
+async def get_forecast(
+        exclude: t.Union[list[str], None] = Query(
+            default=None,
+            description="Period to exclude from the forecast to choose from "
+                        "'currently', 'hourly' and 'daily'"
+        )
+) -> dict:
     response = {}
     exclude = exclude or []
     if "currently" not in exclude:

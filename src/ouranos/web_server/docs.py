@@ -36,10 +36,28 @@ tags_metadata = [
         "description": "Authenticate and log user to access protected paths",
     },
     {
-        "name": "gaia",
+        "name": "gaia/engine",
+        "description": "Consult the info about Gaia's registered engine"
+    },
+    {
+        "name": "gaia/ecosystem",
         "description": "Manage Gaia's registered ecosystems. Rem creating, "
-                       "updating and deleting ecosystems or hardware require "
-                       "to be logged in as an operator",
+                       "updating and deleting ecosystems to be logged in as "
+                       "an operator",
+    },
+    {
+        "name": "gaia/hardware",
+        "description": "Manage the hardware in Gaia's ecosystems. Rem creating, "
+                       "updating and deleting hardware require to be logged in "
+                       "as an operator",
+    },
+    {
+        "name": "gaia/sensor",
+        "description": "Consult Gaia's sensors info and data",
+    },
+    {
+        "name": "gaia/warning",
+        "description": "Get Gaia's warnings",
     },
     {
         "name": "system",
