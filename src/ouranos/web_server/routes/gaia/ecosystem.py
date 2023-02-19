@@ -196,14 +196,10 @@ async def get_ecosystems_environment_parameters(
 @router.get("/u/<id>/turn_actuator")
 async def turn_actuator(
         id: str = id_query,
-        actuator: str = Query(
-            description="The type of actuator, to choose from 'light', "
-                        "'heater', 'cooler', 'humidifier', 'dehumidifier'"
-        ),
-        mode: str = Query(
-            description="The mode to turn the actuator to, to choose from "
-                        "'on', 'off' and 'automatic'"
-        ),
+        actuator: api.gaia.HARDWARE_TYPES_CHOICES = Query(
+            description="The type of actuator"),
+        mode: api.gaia.ACTUATOR_MODE_CHOICES = Query(
+            description="The mode to turn the actuator to"),
         countdown: float = Query(
             default=0.0,
             description="Time before turning the actuator to the required mode"
@@ -215,3 +211,6 @@ async def turn_actuator(
     dispatcher = DispatcherFactory.get("application")
     await api.ecosystem.turn_actuator(
         dispatcher, ecosystem.uid, actuator, mode, countdown)
+    return validate.common.simple_message(
+        msg=f"Turned {ecosystem.name}'s {actuator} to mode '{mode}'"
+    )
