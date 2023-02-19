@@ -164,7 +164,7 @@ async def get_ecosystem_light(
         session: AsyncSession = Depends(get_session)
 ):
     assert_single_uid(id)
-    ecosystem = await api.ecosystem.get(session, id)
+    ecosystem = await ecosystem_or_abort(session, id)
     light = await api.light.get(session, ecosystem.uid)
     return light
 
@@ -187,7 +187,7 @@ async def get_ecosystems_environment_parameters(
         session: AsyncSession = Depends(get_session)
 ):
     assert_single_uid(id)
-    ecosystem = await api.ecosystem.get(session, id)
+    ecosystem = await ecosystem_or_abort(session, id)
     env_parameters = await api.environmental_parameter.get(
         session, ecosystem.uid, parameters)
     return [parameter.to_dict() for parameter in env_parameters]
@@ -211,7 +211,7 @@ async def turn_actuator(
         session: AsyncSession = Depends(get_session)
 ):
     assert_single_uid(id)
-    ecosystem = await api.ecosystem.get(session, id)
+    ecosystem = await ecosystem_or_abort(session, id)
     dispatcher = DispatcherFactory.get("application")
     await api.ecosystem.turn_actuator(
         dispatcher, ecosystem.uid, actuator, mode, countdown)
