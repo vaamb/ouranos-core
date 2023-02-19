@@ -6,6 +6,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos.core import validate
+from ouranos.core.utils import DispatcherFactory
 from ouranos.sdk import api
 from ouranos.sdk.api.utils import timeWindow
 from ouranos.web_server.auth import is_operator
@@ -190,3 +191,27 @@ async def get_ecosystems_environment_parameters(
     env_parameters = await api.environmental_parameter.get(
         session, ecosystem.uid, parameters)
     return [parameter.to_dict() for parameter in env_parameters]
+
+
+@router.get("/u/<id>/turn_actuator")
+async def turn_actuator(
+        id: str = id_query,
+        actuator: str = Query(
+            description="The type of actuator, to choose from 'light', "
+                        "'heater', 'cooler', 'humidifier', 'dehumidifier'"
+        ),
+        mode: str = Query(
+            description="The mode to turn the actuator to, to choose from "
+                        "'on', 'off' and 'automatic'"
+        ),
+        countdown: float = Query(
+            default=0.0,
+            description="Time before turning the actuator to the required mode"
+        ),
+        session: AsyncSession = Depends(get_session)
+):
+    assert_single_uid(id)
+    ecosystem = await api.ecosystem.get(session, id)
+    dispatcher = DispatcherFactory.get("application")
+    await api.ecosystem.turn_actuator(
+        dispatcher, ecosystem.uid, actuator, mode, countdown)

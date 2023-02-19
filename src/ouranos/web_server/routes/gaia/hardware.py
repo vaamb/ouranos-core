@@ -27,7 +27,7 @@ level_query = Query(
     default=None,
     description="The sensor_level at which the hardware operates. Choose from "
                 "'plants', 'environment' or empty for both"
-),
+)
 
 
 async def hardware_or_abort(
