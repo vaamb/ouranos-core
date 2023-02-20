@@ -6,6 +6,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos.core import validate
+from ouranos.core.database.models.gaia import Management
 from ouranos.core.utils import DispatcherFactory
 from ouranos.sdk import api
 from ouranos.sdk.api.utils import timeWindow
@@ -94,6 +95,14 @@ async def delete_ecosystem(
 ):
     ecosystem = await ecosystem_or_abort(session, id)
     await api.ecosystem.delete(session, ecosystem.uid)
+
+
+@router.get("/managements_available")
+async def get_managements_available():
+    return [
+        {"name": management.name, "value": management.value}
+        for management in Management
+    ]
 
 
 @router.get("/management", response_model=list[validate.gaia.ecosystem_management])
@@ -193,7 +202,7 @@ async def get_ecosystems_environment_parameters(
     return [parameter.to_dict() for parameter in env_parameters]
 
 
-@router.get("/u/<id>/turn_actuator")
+@router.get("/u/<id>/turn_actuator", dependencies=[Depends(is_operator)])
 async def turn_actuator(
         id: str = id_query,
         actuator: api.gaia.HARDWARE_TYPES_CHOICES = Query(
