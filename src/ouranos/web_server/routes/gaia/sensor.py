@@ -43,7 +43,7 @@ async def sensor_or_abort(
     return hardware
 
 
-@router.get("/sensor")
+@router.get("")
 async def get_sensors(
         sensors_uid: t.Optional[list[str]] = Query(
             default=None, description="A list of sensor uids"),

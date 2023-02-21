@@ -45,7 +45,7 @@ async def hardware_or_abort(
     )
 
 
-@router.get("/", response_model=list[validate.gaia.hardware])
+@router.get("", response_model=list[validate.gaia.hardware])
 async def get_multiple_hardware(
         hardware_uid: t.Optional[list[str]] = Query(
             default=None, description="A list of hardware uids"),

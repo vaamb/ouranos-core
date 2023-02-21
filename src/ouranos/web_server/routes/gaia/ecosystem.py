@@ -49,7 +49,7 @@ async def ecosystem_or_abort(
     )
 
 
-@router.get("/", response_model=list[validate.gaia.ecosystem])
+@router.get("", response_model=list[validate.gaia.ecosystem])
 async def get_ecosystems(
         ecosystems_id: t.Optional[list[str]] = ecosystems_uid_q,
         session: AsyncSession = Depends(get_session),

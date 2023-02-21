@@ -31,7 +31,7 @@ async def engine_or_abort(session: AsyncSession, engine_id: str) -> "Engine":
     )
 
 
-@router.get("/", response_model=list[validate.gaia.engine])
+@router.get("", response_model=list[validate.gaia.engine])
 async def get_engines(
         engines_id: t.Optional[list[str]] = Query(
             default=None, description="A list of engine ids (either uids or sids) or "
