@@ -93,7 +93,10 @@ def create_app(config: dict | None = None) -> FastAPI:
     app.extra["logger"] = logger
 
     if config.get("DEVELOPMENT") or config.get("TESTING"):
-        allowed_origins = ("http://127.0.0.1:5173", "http://localhost:5173")
+        allowed_origins = (
+            "http://127.0.0.1:5173", "http://localhost:5173",
+            "ws://127.0.0.1:5173", "ws://localhost:5173",
+        )
     else:
         allowed_origins = ()
 
