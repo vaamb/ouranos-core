@@ -24,7 +24,7 @@ _ecosystem = sqlalchemy_to_pydantic(Ecosystem, base=ExtendedModel)
 class ecosystem(_ecosystem):
     @property
     def connected(self) -> bool:
-        return self.last_seen - datetime.now() >= timedelta(seconds=30.0)
+        return datetime.utcnow() - self.last_seen <= timedelta(seconds=30.0)
 
 
 ecosystem_light = sqlalchemy_to_pydantic(Light, exclude=["id"], base=ExtendedModel)
