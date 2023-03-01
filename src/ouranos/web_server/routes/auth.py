@@ -1,3 +1,5 @@
+import re
+
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from fastapi.security import HTTPBasicCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +13,14 @@ from ouranos.web_server.auth import (
     login_manager, is_admin
 )
 from ouranos.web_server.dependencies import get_session
+
+regex_email = re.compile(r"^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$")  # Oversimplified but ok
+regex_password = re.compile(
+    # At least one lowercase, one capital letter, one number, one special char,
+    #  and no space
+    r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[-+_!$&?.,])(?=.{8,})[^ ]+$"
+)
+
 
 
 router = APIRouter(
@@ -68,14 +78,35 @@ async def register_new_user(
         session: AsyncSession = Depends(get_session),
 ):
     if current_user.is_authenticated:
-        return {"msg": "You cannot register, you are already logged in"}
+        raise HTTPException(
+            status_code=status.HTTP_406_NOT_ACCEPTABLE,
+            detail="Logged in user cannot register"
+        )
     token_payload = check_invitation_token(invitation_token)
     try:
         payload_dict = payload.dict()
+        errors = []
         username = payload_dict.pop("username")
+        user = api.user.get(session, username)
+        if user is not None:
+            errors.append("Username already used.")
+        email = payload_dict.pop("email")
+        if not regex_email.match(email):
+            errors.append("Wrong email format.")
+        user = api.user.get(session, email)
+        if user is not None:
+            errors.append("Email address already used.")
         password = payload_dict.pop("password")
+        if not regex_password.match(password):
+            errors.append("Wrong password format.")
+        if errors:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=errors
+            )
         payload_dict["role"] = token_payload.pop("rle", None)
-        user = await api.user.create(session, username, password, **payload_dict)
+        user = await api.user.create(
+            session, username, password, email=email, **payload_dict)
     except DuplicatedEntry as e:
         args = e.args[0]
         raise HTTPException(

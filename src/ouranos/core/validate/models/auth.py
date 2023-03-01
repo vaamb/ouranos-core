@@ -61,6 +61,7 @@ class CurrentUser(BaseModel):
     iat: datetime | None
     is_authenticated: bool = True
     is_anonymous: bool = False
+    is_confirmed: bool = False
 
     @classmethod
     def from_user(cls, user: User | None):
@@ -73,6 +74,7 @@ class CurrentUser(BaseModel):
             lastname=user.lastname,
             permissions=user.role.permissions,
             iat=datetime.utcnow().replace(microsecond=0),
+            is_confirmed=user.confirmed,
         )
 
     def is_fresh(self) -> bool:
@@ -83,15 +85,6 @@ class CurrentUser(BaseModel):
 
     def can(self, perm: Permission) -> bool:
         return self.permissions & perm.value == perm.value
-
-    def to_dict(self):
-        return {
-            "username": self.username,
-            "firstname": self.firstname,
-            "lastname": self.lastname,
-            "permissions": self.permissions,
-            "fresh": self.is_fresh(),
-        }
 
 
 class AuthenticatedUser(CurrentUser):
@@ -115,11 +108,11 @@ anonymous_user = AnonymousUser()
 
 class user_creation(BaseModel):
     username: str
-    password: str
-    email: str
     firstname: str | None = None
     lastname: str | None = None
-    telegram_chat_id: int | None = None
+    email: str
+    telegram_id: int | None = None
+    password: str
 
 
 class login_data(BaseModel):

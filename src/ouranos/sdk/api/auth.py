@@ -45,7 +45,7 @@ class user:
     async def get(session: AsyncSession, user_id: int | str) -> User | None:
         stmt = (
             select(User)
-            .where((User.id == user_id) | (User.username == user_id))
+            .where((User.id == user_id) | (User.username == user_id) | (User.email == user_id))
         )
         result = await session.execute(stmt)
         return result.scalars().one_or_none()
