@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos.sdk import api
@@ -15,7 +15,8 @@ router = APIRouter(
 
 @router.get("/", dependencies=[Depends(is_authenticated)])
 async def get_warnings(
+        limit: int = Query(default=8, description="The number of warnings to fetch"),
         session: AsyncSession = Depends(get_session),
 ):
-    response = await api.gaia.get_recent_warnings(session, limit=8)
+    response = await api.gaia.get_recent_warnings(session, limit=limit)
     return response
