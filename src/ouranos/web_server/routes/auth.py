@@ -14,13 +14,12 @@ from ouranos.web_server.auth import (
 )
 from ouranos.web_server.dependencies import get_session
 
-regex_email = re.compile(r"^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$")  # Oversimplified but ok
+regex_email = re.compile(r"^[\-\w\.]+@([\w\-]+\.)+[\w\-]{2,4}$")  # Oversimplified but ok
 regex_password = re.compile(
     # At least one lowercase, one capital letter, one number, one special char,
     #  and no space
     r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[-+_!$&?.,])(?=.{8,})[^ ]+$"
 )
-
 
 
 router = APIRouter(
