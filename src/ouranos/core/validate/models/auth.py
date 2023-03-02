@@ -59,8 +59,8 @@ class CurrentUser(BaseModel):
     lastname: str | None
     permissions: int
     iat: datetime | None
-    is_authenticated: bool = True
-    is_anonymous: bool = False
+    is_authenticated: bool = False
+    is_anonymous: bool = True
     is_confirmed: bool = False
 
     @classmethod
@@ -90,14 +90,14 @@ class CurrentUser(BaseModel):
 class AuthenticatedUser(CurrentUser):
     username: str
 
+    is_authenticated: bool = True
+    is_anonymous: bool = False
+
 
 class AnonymousUser(CurrentUser):
     id: int = -1
     username: None = None
     permissions = 0
-
-    is_authenticated: bool = False
-    is_anonymous: bool = True
 
     def can(self, perm: Permission) -> bool:
         return False

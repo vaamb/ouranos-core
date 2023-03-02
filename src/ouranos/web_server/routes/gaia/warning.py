@@ -13,7 +13,7 @@ router = APIRouter(
 )
 
 
-@router.get("/", dependencies=[Depends(is_authenticated)])
+@router.get("", dependencies=[Depends(is_authenticated)])
 async def get_warnings(
         limit: int = Query(default=8, description="The number of warnings to fetch"),
         session: AsyncSession = Depends(get_session),

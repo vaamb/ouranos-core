@@ -170,21 +170,21 @@ async def get_current_user(
         return AuthenticatedUser.from_user(user)
 
 
-async def user_can(user: AuthenticatedUser, permission: Permission):
+async def user_can(user: CurrentUser, permission: Permission):
     if not user.can(permission):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You cannot access this resource",
+            detail="You cannot access this resource.",
         )
     return True
 
 
 # In case we would like to put a restriction for all routes
-async def base_restriction(current_user: AuthenticatedUser = Depends(get_current_user)) -> bool:
+async def base_restriction(current_user: CurrentUser = Depends(get_current_user)) -> bool:
     return True
 
 
-async def is_authenticated(current_user: AuthenticatedUser = Depends(get_current_user)) -> bool:
+async def is_authenticated(current_user: CurrentUser = Depends(get_current_user)) -> bool:
     return await user_can(current_user, Permission.VIEW)
 
 
@@ -192,9 +192,9 @@ async def is_operator(current_user: AuthenticatedUser = Depends(get_current_user
     return await user_can(current_user, Permission.ADMIN)
 
 
-async def is_admin(current_user: AuthenticatedUser = Depends(get_current_user)) -> bool:
+async def is_admin(current_user: CurrentUser = Depends(get_current_user)) -> bool:
     return await user_can(current_user, Permission.ADMIN)
 
 
-async def is_fresh(current_user: AuthenticatedUser = Depends(get_current_user)) -> bool:
+async def is_fresh(current_user: CurrentUser = Depends(get_current_user)) -> bool:
     return current_user.is_fresh()

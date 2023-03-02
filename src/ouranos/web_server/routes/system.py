@@ -24,6 +24,7 @@ router = APIRouter(
 async def get_current_system_data() -> int:
     return consts.START_TIME
 
+
 @router.get(
     "/current_data",
     response_model=validate.system.system_record,
