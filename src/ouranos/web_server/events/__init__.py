@@ -3,11 +3,10 @@
 from logging import getLogger, Logger
 
 from dispatcher import AsyncDispatcher, AsyncEventHandler
-from socketio import AsyncNamespace
+from socketio import AsyncNamespace, BaseManager
 
 from ouranos import db
 from ouranos.web_server.events.decorators import permission_required
-from ouranos.web_server.factory import sio_manager
 from ouranos.sdk import api
 
 
@@ -29,7 +28,7 @@ class ClientEvents(AsyncNamespace):
     def ouranos_dispatcher(self, dispatcher: AsyncDispatcher):
         self._ouranos_dispatcher = dispatcher
 
-    async def on_ping(self, sid, data):
+    async def on_ping(self, sid):
         await self.emit("pong", namespace="/", room=sid)
 
     # ---------------------------------------------------------------------------
@@ -80,40 +79,44 @@ class ClientEvents(AsyncNamespace):
 
 
 class DispatcherEvents(AsyncEventHandler):
+    def __init__(self, sio_manager: BaseManager):
+        super().__init__()
+        self.sio_manager = sio_manager
+
     # ---------------------------------------------------------------------------
     #   Events Aggregator -> Web workers -> Clients
     # ---------------------------------------------------------------------------
     async def on_weather_current(self, sid, data):
         logger.debug("Dispatching 'weather_current' to clients")
-        await sio_manager.emit("weather_current", data=data, namespace="/")
+        await self.sio_manager.emit("weather_current", data=data, namespace="/")
 
     async def on_weather_hourly(self, sid, data):
         logger.debug("Dispatching 'weather_hourly' to clients")
-        await sio_manager.emit("weather_hourly", data=data, namespace="/")
+        await self.sio_manager.emit("weather_hourly", data=data, namespace="/")
 
     async def on_weather_daily(self, sid, data):
         logger.debug("Dispatching 'weather_daily' to clients")
-        await sio_manager.emit("weather_daily", data=data, namespace="/")
+        await self.sio_manager.emit("weather_daily", data=data, namespace="/")
 
     async def on_sun_times(self, sid, data):
         logger.debug("Dispatching 'sun_times' to clients")
-        await sio_manager.emit("sun_times", data=data, namespace="/")
+        await self.sio_manager.emit("sun_times", data=data, namespace="/")
 
     async def on_ecosystem_status(self, sid, data):
         logger.debug("Dispatching 'ecosystem_status' to clients")
-        await sio_manager.emit("ecosystem_status", data=data, namespace="/")
+        await self.sio_manager.emit("ecosystem_status", data=data, namespace="/")
 
     async def on_current_sensors_data(self, sid, data):
         logger.debug("Dispatching 'current_sensors_data' to clients")
-        await sio_manager.emit("current_sensors_data", data=data, namespace="/")
+        await self.sio_manager.emit("current_sensors_data", data=data, namespace="/")
 
     async def on_light_data(self, sid, data):
         logger.debug("Dispatching 'light_data' to clients")
-        await sio_manager.emit("light_data", data=data, namespace="/")
+        await self.sio_manager.emit("light_data", data=data, namespace="/")
 
     # ---------------------------------------------------------------------------
     #   Events Root Web server ->  Web workers -> Clients
     # ---------------------------------------------------------------------------
     async def on_current_server_data(self, sid, data):
         logger.debug("Dispatching 'current_server_data' to clients")
-        await sio_manager.emit("current_server_data", data=data, namespace="/")
+        await self.sio_manager.emit("current_server_data", data=data, namespace="/")

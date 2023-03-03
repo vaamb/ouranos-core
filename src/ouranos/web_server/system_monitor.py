@@ -55,7 +55,8 @@ class SystemMonitor:
                 api.system.update_current_data(_cache)
             await self.dispatcher.emit(
                 "current_server_data",
-                data=_cache
+                data=_cache,
+                namespace="application",
             )
             await asyncio.sleep(update_period)
 

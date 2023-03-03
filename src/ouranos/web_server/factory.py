@@ -59,14 +59,6 @@ def create_sio_manager(config: dict | None = None):
         )
 
 
-dispatcher = DispatcherFactory.get("application")
-sio_manager = create_sio_manager()
-sio = AsyncServer(
-    async_mode='asgi', cors_allowed_origins=[], client_manager=sio_manager
-)
-asgi_app = ASGIApp(sio)
-
-
 def create_app(config: dict | None = None) -> FastAPI:
     config = config or current_app.config
     if not config:
@@ -119,11 +111,6 @@ def create_app(config: dict | None = None) -> FastAPI:
             response.headers["X-Brewing-Time"] = str(brewing_time)
             return response
 
-    @app.on_event("startup")
-    def startup():
-        logger.info("Ouranos web server worker successfully started")
-        dispatcher.start()
-
     # Add a router with "/web_server" path prefixed to it
     prefix = APIRouter(prefix="/api")
 
@@ -165,26 +152,34 @@ def create_app(config: dict | None = None) -> FastAPI:
     app.include_router(prefix)
 
     # Teapots should not brew coffee
+    logger.debug("- Brewing coffee???")
+
     @app.get("/coffee", include_in_schema=False)
     async def get_coffee():
         raise HTTPException(
             status_code=status.HTTP_418_IM_A_TEAPOT,
             detail="I'm a teapot, I can't brew coffee"
         )
-    logger.debug("Brewing coffee???")
+
+    logger.debug("- I'd rather have tea")
 
     # Configure Socket.IO and load the socketio
     logger.debug("Configuring Socket.IO server")
+    dispatcher = DispatcherFactory.get("application")
+    sio_manager = create_sio_manager()
+    sio = AsyncServer(
+        async_mode='asgi', cors_allowed_origins=[], client_manager=sio_manager)
+    asgi_app = ASGIApp(sio)
     app.mount(path="/", app=asgi_app)
 
     logger.debug("Loading client events")
     from ouranos.web_server.events import ClientEvents, DispatcherEvents
     # Events coming from client through sio, to dispatch to Ouranos
-    namespace = ClientEvents("/")
+    namespace = ClientEvents()
     namespace.ouranos_dispatcher = dispatcher
-    sio.register_namespace(namespace)
+    sio.register_namespace(ClientEvents())
     # Events coming from Ouranos dispatcher, to send to client through sio
-    event_handler = DispatcherEvents("application")
+    event_handler = DispatcherEvents(sio_manager)
     dispatcher.register_event_handler(event_handler)
 
     # Load the frontend if present
@@ -193,6 +188,11 @@ def create_app(config: dict | None = None) -> FastAPI:
     if frontend_index.exists():
         logger.debug("Ouranos frontend detected, mounting it")
         app.mount("/", StaticFiles(directory=frontend_static_dir, html=True))
+
+    @app.on_event("startup")
+    def startup():
+        logger.info("Ouranos web server worker successfully started")
+        dispatcher.start()
 
     return app
 
