@@ -369,18 +369,9 @@ class Events:
         self.logger.debug(
             f"Received 'sensors_data' from engine: {engine_uid}"
         )
-        current_data = {
-            ecosystem["ecosystem_uid"]: {
-                "data": {
-                    sensor["sensor_uid"]: {
-                        measure["name"]: measure["value"]
-                        for measure in sensor["measures"]
-                    } for sensor in ecosystem["data"]
-                },
-                "datetime": ecosystem["datetime"]
-            } for ecosystem in data
-        }
-        api.sensor.update_current_data(current_data)
+        api.sensor.update_current_data({
+            ecosystem["ecosystem_uid"]: ecosystem for ecosystem in data
+        })
         await self.ouranos_dispatcher.emit(
             "current_sensors_data", data=data, namespace="application", ttl=15
         )
@@ -411,7 +402,7 @@ class Events:
                         sensor_data = {
                             "ecosystem_uid": ecosystem["ecosystem_uid"],
                             "sensor_uid": sensor_uid,
-                            "measure": measure["name"],
+                            "measure": measure["measure"],
                             "timestamp": dt,
                             "value": float(measure["value"]),
                         }

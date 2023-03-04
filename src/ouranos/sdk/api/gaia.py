@@ -726,20 +726,16 @@ class sensor:
             sensor_obj: Hardware,
             measures: str | list | None = None,
     ) -> list:
-        try:
-            ecosystem_uid = sensor_obj.ecosystem_uid
-            cache = get_cache("sensors_data")
-            ecosystem_ = cache[ecosystem_uid]
-        except KeyError:
-            return []
-        else:
+        ecosystem_uid = sensor_obj.ecosystem_uid
+        data = sensor._get_current_data_as_dict().get(ecosystem_uid)
+        if data:
             if measures is None:
-                measures = [measure_.name for measure_ in sensor_obj.measures]
+                measures = [measure_obj.name for measure_obj in sensor_obj.measures]
             elif isinstance(measures, str):
                 measures = measures.split(",")
             rv = []
             for measure_ in measures:
-                value = ecosystem_["data"].get(sensor_obj.uid, {}).get(measure_, None)
+                value = data["data"].get(sensor_obj.uid, {}).get(measure_, None)
                 if value:
                     rv.append({
                         "measure": measure_,
@@ -797,6 +793,21 @@ class sensor:
         if ecosystem_uid:
             return cache.get(ecosystem_uid, {})
         return {**cache}
+
+    @staticmethod
+    def _get_current_data_as_dict():
+        data = sensor.get_current_data()
+        return {
+            ecosystem_["ecosystem_uid"]: {
+                "data": {
+                    sensor_["sensor_uid"]: {
+                        measure_["measure"]: measure_["value"]
+                        for measure_ in sensor_["measures"]
+                    } for sensor_ in ecosystem_["data"]
+                },
+                "datetime": ecosystem_["datetime"]
+            } for ecosystem_ in data.values()
+        }
 
     @staticmethod
     def clear_current_data(key: str | None = None) -> None:

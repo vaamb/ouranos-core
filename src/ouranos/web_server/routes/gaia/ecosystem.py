@@ -190,7 +190,7 @@ async def get_ecosystems_environment_parameters(
 
 
 @router.get("/u/<id>/environment_parameters", response_model=validate.gaia.environment_parameter)
-async def get_ecosystems_environment_parameters(
+async def get_ecosystem_environment_parameters(
         id: str = id_query,
         parameters: t.Optional[list[str]] = env_parameter_query,
         session: AsyncSession = Depends(get_session)
@@ -200,6 +200,34 @@ async def get_ecosystems_environment_parameters(
     env_parameters = await api.environmental_parameter.get(
         session, ecosystem.uid, parameters)
     return [parameter.to_dict() for parameter in env_parameters]
+
+
+@router.get("/current_data")
+async def get_ecosystems_current_data(
+        ecosystems_id: t.Optional[list[str]] = ecosystems_uid_q,
+        session: AsyncSession = Depends(get_session)
+):
+    ecosystems = await api.ecosystem.get_multiple(
+        session=session, ecosystems=ecosystems_id)
+    current_data = api.sensor.get_current_data()
+
+    return [
+        current_data.get(
+            ecosystem.uid,
+            {"ecosystem_uid": ecosystem.uid, "data": None}
+        )
+        for ecosystem in ecosystems
+    ]
+
+
+@router.get("/u/<id>/current_data")
+async def get_ecosystem_current_data(
+        id: str = id_query,
+        session: AsyncSession = Depends(get_session)
+):
+    assert_single_uid(id)
+    ecosystem = await ecosystem_or_abort(session, id)
+    return api.sensor.get_current_data(ecosystem.uid)
 
 
 @router.get("/u/<id>/turn_actuator", dependencies=[Depends(is_operator)])
