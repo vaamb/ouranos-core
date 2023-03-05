@@ -68,7 +68,7 @@ async def create_ecosystem(
     await api.ecosystem.create(session, payload.dict())
 
 
-@router.get("/u/<id>", response_model=validate.gaia.ecosystem)
+@router.get("/u/{id}", response_model=validate.gaia.ecosystem)
 async def get_ecosystem(
         id: str = id_query,
         session: AsyncSession = Depends(get_session)
@@ -77,7 +77,7 @@ async def get_ecosystem(
     return ecosystem
 
 
-@router.put("/u/<id>", dependencies=[Depends(is_operator)])
+@router.put("/u/{id}", dependencies=[Depends(is_operator)])
 async def update_ecosystem(
         id: str = id_query,
         payload: validate.gaia.ecosystem_creation = Body(
@@ -88,7 +88,7 @@ async def update_ecosystem(
     await api.ecosystem.update(session, payload.dict(), ecosystem.uid)
 
 
-@router.delete("/u/<id>", dependencies=[Depends(is_operator)])
+@router.delete("/u/{id}", dependencies=[Depends(is_operator)])
 async def delete_ecosystem(
         id: str = id_query,
         session: AsyncSession = Depends(get_session)
@@ -117,7 +117,7 @@ async def get_ecosystems_management(
     return response
 
 
-@router.get("/u/<id>/management", response_model=validate.gaia.ecosystem_management)
+@router.get("/u/{id}/management", response_model=validate.gaia.ecosystem_management)
 async def get_ecosystem_management(
         id: str = id_query,
         session: AsyncSession = Depends(get_session)
@@ -143,7 +143,7 @@ async def get_ecosystems_sensors_skeleton(
     return response
 
 
-@router.get("/u/<id>/sensors_skeleton")
+@router.get("/u/{id}/sensors_skeleton")
 async def get_ecosystem_sensors_skeleton(
         id: str = id_query,
         level: t.Optional[list[str]] = sensor_level_q,
@@ -167,7 +167,7 @@ async def get_ecosystems_light(
     return lights
 
 
-@router.get("/u/<id>/light", response_model=validate.gaia.ecosystem_light)
+@router.get("/u/{id}/light", response_model=validate.gaia.ecosystem_light)
 async def get_ecosystem_light(
         id: str = id_query,
         session: AsyncSession = Depends(get_session)
@@ -189,7 +189,7 @@ async def get_ecosystems_environment_parameters(
     return [parameter.to_dict() for parameter in env_parameters]
 
 
-@router.get("/u/<id>/environment_parameters", response_model=validate.gaia.environment_parameter)
+@router.get("/u/{id}/environment_parameters", response_model=validate.gaia.environment_parameter)
 async def get_ecosystem_environment_parameters(
         id: str = id_query,
         parameters: t.Optional[list[str]] = env_parameter_query,
@@ -220,7 +220,7 @@ async def get_ecosystems_current_data(
     ]
 
 
-@router.get("/u/<id>/current_data")
+@router.get("/u/{id}/current_data")
 async def get_ecosystem_current_data(
         id: str = id_query,
         session: AsyncSession = Depends(get_session)
@@ -230,7 +230,7 @@ async def get_ecosystem_current_data(
     return api.sensor.get_current_data(ecosystem.uid)
 
 
-@router.get("/u/<id>/turn_actuator", dependencies=[Depends(is_operator)])
+@router.get("/u/{id}/turn_actuator", dependencies=[Depends(is_operator)])
 async def turn_actuator(
         id: str = id_query,
         actuator: api.gaia.HARDWARE_TYPES_CHOICES = Query(

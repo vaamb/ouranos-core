@@ -78,7 +78,7 @@ async def create_hardware(
     await api.hardware.create(session, payload.dict())
 
 
-@router.get("/u/<uid>", response_model=validate.gaia.hardware)
+@router.get("/u/{uid}", response_model=validate.gaia.hardware)
 async def get_hardware(
         uid: str = Query(description="A hardware uid"),
         session: AsyncSession = Depends(get_session)
@@ -88,7 +88,7 @@ async def get_hardware(
     return hardware
 
 
-@router.put("/u/<uid>", dependencies=[Depends(is_operator)])
+@router.put("/u/{uid}", dependencies=[Depends(is_operator)])
 async def update_hardware(
         uid: str = Query(description="A hardware uid"),
         payload: validate.gaia.hardware_creation = Body(
@@ -98,7 +98,7 @@ async def update_hardware(
     await api.hardware.update(session, payload.dict(), uid)
 
 
-@router.delete("/u/<uid>", dependencies=[Depends(is_operator)])
+@router.delete("/u/{uid}", dependencies=[Depends(is_operator)])
 async def delete_hardware(
         uid: str = Query(description="A hardware uid"),
         session: AsyncSession = Depends(get_session)

@@ -42,11 +42,11 @@ async def get_engines(
     return engines
 
 
-@router.get("/u/<id>", response_model=validate.gaia.engine)
+@router.get("/u/{id}", response_model=validate.gaia.engine)
 async def get_engine(
         id: str = Query(description="An engine id, either its uid or its sid"),
         session: AsyncSession = Depends(get_session)
 ):
-    assert_single_uid(uid)
-    engine = await engine_or_abort(session, uid)
+    assert_single_uid(id)
+    engine = await engine_or_abort(session, id)
     return engine

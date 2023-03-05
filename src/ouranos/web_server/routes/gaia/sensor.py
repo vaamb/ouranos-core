@@ -74,7 +74,7 @@ async def get_measures_available(session: AsyncSession = Depends(get_session)):
     return measures
 
 
-@router.get("/sensor/u/<uid>")
+@router.get("/sensor/u/{uid}")
 async def get_sensor(
         uid: str = Query(description="A sensor uid"),
         current_data: bool = current_data_query,
@@ -89,7 +89,7 @@ async def get_sensor(
     return response
 
 
-@router.get("/sensor/u/<uid>/<measure>")
+@router.get("/sensor/u/{uid}/{measure}")
 async def get_measure_for_sensor(
         uid: str = Query(description="A sensor uid"),
         measure: str = Query(description="The name of the measure to fetch"),
