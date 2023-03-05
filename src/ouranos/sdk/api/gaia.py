@@ -3,7 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal, Sequence, Type
 
-from cachetools import cached, TTLCache
+from asyncache import cached
+from cachetools import TTLCache
 import cachetools.func
 from dispatcher import AsyncDispatcher
 from sqlalchemy import delete, insert, select, update
