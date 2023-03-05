@@ -42,10 +42,8 @@ async def login(
     token = authenticator.login(user, remember)
     return {
         "msg": "You are logged in",
-        "data": {
-            "user": user.dict(),
-            "token": token,
-        },
+        "user": user.dict(),
+        "session_token": token,
     }
 
 

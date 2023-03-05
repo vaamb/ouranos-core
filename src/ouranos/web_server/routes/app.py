@@ -27,12 +27,13 @@ async def get_logging_config():
     }
 
 
-"""
 @router.get("/services")
 async def get_services(level: str = Query(default="all"), session=Depends(get_session)):
-    services = await api.service.get_multiple(session=session, level=level)
-    return api.service.get_info(services)
-"""
+    #services = await api.service.get_multiple(session=session, level=level)
+    return [
+        {"name": "weather", "status": True},
+        {"name": "calendar", "status": True}
+    ]
 
 
 @router.get("/flash_messages", response_model=list[validate.app.flash_message])

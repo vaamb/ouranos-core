@@ -115,10 +115,6 @@ class user_creation(BaseModel):
     password: str
 
 
-class login_data(BaseModel):
-    user: AuthenticatedUser
-    token: str
-
-
 class login_response(simple_message):
-    data: login_data
+    user: AuthenticatedUser
+    session_token: str
