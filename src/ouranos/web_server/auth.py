@@ -156,7 +156,7 @@ async def get_current_user(
         session_id = _create_session_id(
             request.client.host, request.headers.get("user-agent")
         )
-        if session_id != payload.id:
+        if session_id != payload.id and request.client.host != "127.0.0.1":
             raise TokenError
     except (TokenError, ValidationError):
         response.delete_cookie(LOGIN_NAME.COOKIE.value)
