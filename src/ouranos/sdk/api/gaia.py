@@ -346,14 +346,14 @@ class ecosystem(_gaia_abc):
 
         if isinstance(level, str):
             level = level.split(",")
+        skeleton = await inner_func(
+            ecosystem_obj.uid, time_window, level
+        )
         return {
             "uid": ecosystem_obj.uid,
             "name": ecosystem_obj.name,
             "level": HARDWARE_LEVELS if level is None else level,
-            "sensors_skeleton": await inner_func(
-                ecosystem_uid=ecosystem_obj.uid, time_window=time_window,
-                level=level
-            )
+            "sensors_skeleton": skeleton,
         }
 
     @staticmethod
