@@ -73,6 +73,9 @@ class Engine(base):
     # relationship
     ecosystems: Mapped[list["Ecosystem"]] = relationship(back_populates="engine", lazy="selectin")
 
+    def __repr__(self):
+        return f"<Engine({self.uid}, last_seen={self.last_seen})>"
+
     @property
     def connected(self) -> bool:
         return datetime.utcnow() - self.last_seen <= timedelta(seconds=30.0)
@@ -110,6 +113,11 @@ class Ecosystem(base):
     sensors_history: Mapped[list["SensorHistory"]] = relationship(back_populates="ecosystem")
     actuators_history: Mapped[list["ActuatorHistory"]] = relationship(back_populates="ecosystem")
     health: Mapped[list["Health"]] = relationship(back_populates="ecosystem")
+
+    def __repr__(self):
+        return (
+            f"<Ecosystem({self.uid}, name={self.name}, status={self.status})>"
+        )
 
     def can_manage(self, mng: Management) -> bool:
         return self.management & mng.value == mng.value
@@ -219,8 +227,8 @@ class Hardware(base):
 
     def __repr__(self) -> str:
         return (
-            f"Hardware({self.uid}, name={self.name}, "
-            f"ecosystem={self.ecosystem_uid})"
+            f"<Hardware({self.uid}, name={self.name}, "
+            f"ecosystem_uid={self.ecosystem_uid})>"
         )
 
     def to_dict(self):

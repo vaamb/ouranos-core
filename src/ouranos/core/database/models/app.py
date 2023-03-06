@@ -88,7 +88,7 @@ class Role(base):
         self.permissions = 0
 
     def __repr__(self):
-        return f"<Role {self.name}>"
+        return f"<Role({self.name})>"
 
 
 class UserMixin:
@@ -189,7 +189,7 @@ class User(base, UserMixin):
     calendar: Mapped[list["CalendarEvent"]] = relationship(back_populates="user")
 
     def __repr__(self):
-        return f"<User ({self.username}, role={self.role})>"
+        return f"<User({self.username}, role={self.role})>"
 
     @classmethod
     async def create(
