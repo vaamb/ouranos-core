@@ -310,7 +310,7 @@ class ecosystem(_gaia_abc):
         async def inner_func(
                 ecosystem_uid: str,
                 _time_window: timeWindow,
-                _level: list[HARDWARE_LEVELS_CHOICES] | None = None,
+                _level: tuple[HARDWARE_LEVELS_CHOICES] | None = None,
         ) -> list:
             stmt = (
                 select(Hardware).join(SensorHistory.sensor)
@@ -347,6 +347,7 @@ class ecosystem(_gaia_abc):
 
         if isinstance(level, str):
             level = level.split(",")
+        level = (*level, )
         skeleton = await inner_func(
             ecosystem_obj.uid, time_window, level
         )
