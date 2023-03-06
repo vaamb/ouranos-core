@@ -347,7 +347,8 @@ class ecosystem(_gaia_abc):
 
         if isinstance(level, str):
             level = level.split(",")
-        level = (*level, )
+        if isinstance(level, list):
+            level = (*level, )
         skeleton = await inner_func(
             ecosystem_obj.uid, time_window, level
         )
