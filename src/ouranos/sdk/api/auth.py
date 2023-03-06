@@ -25,7 +25,7 @@ class user:
         if "email" in kwargs:
             stmt = stmt.where(User.email == kwargs["email"])
         if "telegram_id" in kwargs:
-            stmt = stmt.where(User.telegram_chat_id == kwargs["telegram_id"])
+            stmt = stmt.where(User.telegram_id == kwargs["telegram_id"])
         result = await session.execute(stmt)
         previous_user: User = result.scalars().first()
         if previous_user:
@@ -33,7 +33,7 @@ class user:
                 error.append("username")
             if previous_user.email == kwargs.get("email", False):
                 error.append("email")
-            if previous_user.telegram_chat_id == kwargs.get("telegram_id", False):
+            if previous_user.telegram_id == kwargs.get("telegram_id", False):
                 error.append("telegram_id")
             raise DuplicatedEntry(error)
         user_obj = await User.create(session, username, password, **kwargs)
@@ -49,6 +49,14 @@ class user:
         )
         result = await session.execute(stmt)
         return result.scalars().one_or_none()
+
+    @staticmethod
+    async def get_all(session: AsyncSession):
+        stmt = (
+            select(User)
+        )
+        result = await session.execute(stmt)
+        return result.scalars().all()
 
     @staticmethod
     async def get_by_telegram_id(

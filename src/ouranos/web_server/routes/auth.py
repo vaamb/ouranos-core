@@ -84,13 +84,13 @@ async def register_new_user(
         payload_dict = payload.dict()
         errors = []
         username = payload_dict.pop("username")
-        user = api.user.get(session, username)
+        user = await api.user.get(session, username)
         if user is not None:
             errors.append("Username already used.")
         email = payload_dict.pop("email")
         if not regex_email.match(email):
             errors.append("Wrong email format.")
-        user = api.user.get(session, email)
+        user = await api.user.get(session, email)
         if user is not None:
             errors.append("Email address already used.")
         password = payload_dict.pop("password")

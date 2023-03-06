@@ -180,7 +180,7 @@ class User(base, UserMixin):
 
     # User notifications / services fields
     daily_recap: Mapped[bool] = mapped_column(default=False)
-    telegram_chat_id: Mapped[Optional[str]] = mapped_column(sa.String(16), unique=True)
+    telegram_id: Mapped[Optional[str]] = mapped_column(sa.String(16), unique=True)
 
     # relationship
     role: Mapped["Role"] = relationship(back_populates="users", lazy="selectin")
@@ -189,7 +189,7 @@ class User(base, UserMixin):
     calendar: Mapped[list["CalendarEvent"]] = relationship(back_populates="user")
 
     def __repr__(self):
-        return f"<User({self.username}, role={self.role})>"
+        return f"<User({self.username}, role={self.role.name})>"
 
     @classmethod
     async def create(
