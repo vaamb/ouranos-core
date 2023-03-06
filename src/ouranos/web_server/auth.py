@@ -88,7 +88,11 @@ class Authenticator:
             password: str,
     ) -> AuthenticatedUser:
         user = await api.user.get(session, username)
-        if user is None or not user.check_password(password):
+        try:
+            password_correct = user.check_password(password)
+        except AttributeError:  # empty password
+            password_correct = False
+        if user is None or not password_correct:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect email or password",

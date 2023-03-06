@@ -3,6 +3,7 @@ from logging import Logger
 
 from ouranos import db, current_app
 from ouranos.core.config import get_db_dir
+from ouranos.sdk import api
 
 
 async def create_base_data(logger: Logger):
@@ -25,6 +26,16 @@ async def create_base_data(logger: Logger):
             await Measure.insert_measures(session)
             await Role.insert_roles(session)
             await User.insert_gaia(session)
+        except Exception as e:
+            logger.error(e)
+            raise e
+
+
+async def print_registration_token(logger: Logger):
+    async with db.scoped_session() as session:
+        try:
+            token = await api.auth.create_invitation_token(session)
+            print(f"registration token: {token}")
         except Exception as e:
             logger.error(e)
             raise e

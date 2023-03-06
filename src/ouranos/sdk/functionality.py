@@ -6,7 +6,9 @@ import re
 import typing as t
 
 from ouranos import current_app, db, scheduler, setup_config
-from ouranos.core.database.init import create_base_data
+from ouranos.core.database.init import (
+    create_base_data, print_registration_token
+)
 
 
 if t.TYPE_CHECKING:
@@ -59,11 +61,13 @@ class Functionality:
         self._status = False
 
     @staticmethod
-    async def init_the_db():
+    async def init_the_db(generate_registration_token: bool = True):
         logger: Logger = getLogger("ouranos")
         logger.info("Initializing the database")
         db.init(current_app.config)
         await create_base_data(logger)
+        if generate_registration_token:
+            await print_registration_token(logger)
 
     def _start(self):
         raise NotImplementedError
