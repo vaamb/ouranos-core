@@ -37,6 +37,7 @@ dependencies = [
     # From git
     "event-dispatcher @ git+https://gitlab.com/eupla/dispatcher.git",
     "gaia-validators @ git+https://gitlab.com/eupla/gaia-validators.git",
+    "sqlalchemy-wrapper @ git+https://gitlab.com/eupla/sqlalchemy-wrapper.git",
 ]
 
 [project.optional-dependencies]

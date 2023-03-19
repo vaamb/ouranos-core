@@ -8,11 +8,11 @@ from apscheduler.schedulers import (
     SchedulerAlreadyRunningError, SchedulerNotRunningError
 )
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
 from ouranos.core.config import (
     get_base_dir, get_cache_dir, get_config, get_log_dir
 )
-from ouranos.core.database.wrapper import AsyncSQLAlchemyWrapper
 
 
 if t.TYPE_CHECKING:
