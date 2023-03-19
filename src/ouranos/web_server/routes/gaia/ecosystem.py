@@ -5,8 +5,9 @@ import typing as t
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from gaia_validators import ManagementFlags
+
 from ouranos.core import validate
-from ouranos.core.database.models.gaia import Management
 from ouranos.core.utils import DispatcherFactory
 from ouranos.sdk import api
 from ouranos.sdk.api.utils import timeWindow
@@ -101,7 +102,7 @@ async def delete_ecosystem(
 async def get_managements_available():
     return [
         {"name": management.name, "value": management.value}
-        for management in Management
+        for management in ManagementFlags
     ]
 
 

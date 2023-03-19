@@ -35,7 +35,8 @@ dependencies = [
     "importlib_metadata; python_version < '3.8'",
 
     # From git
-    "event-dispatcher @ git+https://gitlab.com/eupla/dispatcher.git"
+    "event-dispatcher @ git+https://gitlab.com/eupla/dispatcher.git",
+    "gaia-validators @ git+https://gitlab.com/eupla/gaia-validators.git",
 ]
 
 [project.optional-dependencies]

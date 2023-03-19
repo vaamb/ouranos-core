@@ -16,8 +16,8 @@ def registration_required(func: Callable):
     engine_uid"""
     async def wrapper(self: "Events", sid: str, data: data_type):
         async with self.session(sid, namespace="/gaia") as session:
-            engine_uid = session.get("engine_uid")
-        if not engine_uid:
+            engine_uid: str | None = session.get("engine_uid")
+        if engine_uid is None:
             await self.disconnect(sid, namespace="/gaia")
         else:
             return await func(self, sid, data, engine_uid)

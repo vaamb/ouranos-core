@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime, time, timedelta, timezone
-import enum
 from typing import Optional
 
 import sqlalchemy as sa
@@ -9,6 +8,10 @@ from sqlalchemy import insert, select
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.schema import Table
+
+from gaia_validators import (
+    ClimateParameter, HardwareLevel, HardwareType, LightMethod, ManagementFlags
+)
 
 from ouranos import db
 from ouranos.core.database import ArchiveLink
@@ -25,42 +28,6 @@ base = db.Model
 # ---------------------------------------------------------------------------
 #   Ecosystems-related models, located in db_main and db_archive
 # ---------------------------------------------------------------------------
-class Management(enum.IntFlag):
-    sensors = 1
-    light = 2
-    climate = 4
-    watering = 8
-    health = 16
-    alarms = 32
-    webcam = 64
-
-
-class HardwareLevel(enum.Enum):
-    environment = "environment"
-    plants = "plants"
-
-
-class HardwareType(enum.Enum):
-    cooler = "cooler"
-    dehumidifier = "dehumidifier"
-    heater = "heater"
-    humidifier = "humidifier"
-    light = "light"
-    sensor = "sensor"
-
-
-class LightMethod(enum.Enum):
-    place = "place"
-    fixed = "fixed"
-    elongate = "elongate"
-
-
-class EnvironmentParameterPossibility(enum.Enum):
-    temperature = "temperature"
-    humidity = "humidity"
-    light = "light"
-
-
 class Engine(base):
     __tablename__ = "engines"
 
@@ -119,14 +86,14 @@ class Ecosystem(base):
             f"<Ecosystem({self.uid}, name={self.name}, status={self.status})>"
         )
 
-    def can_manage(self, mng: Management) -> bool:
+    def can_manage(self, mng: ManagementFlags) -> bool:
         return self.management & mng.value == mng.value
 
-    def add_management(self, mng: Management) -> None:
+    def add_management(self, mng: ManagementFlags) -> None:
         if not self.can_manage(mng):
             self.management += mng.value
 
-    def remove_management(self, mng: Management) -> None:
+    def remove_management(self, mng: ManagementFlags) -> None:
         if self.can_manage(mng):
             self.management -= mng.value
 
@@ -150,7 +117,7 @@ class Ecosystem(base):
     def management_dict(self):
         return {
             management.name: self.can_manage(management) for
-            management in Management
+            management in ManagementFlags
         }
 
 
@@ -158,7 +125,7 @@ class EnvironmentParameter(base):
     __tablename__ = "environment_parameters"
 
     ecosystem_uid: Mapped[str] = mapped_column(sa.String(length=8), sa.ForeignKey("ecosystems.uid"), primary_key=True)
-    parameter: Mapped[EnvironmentParameterPossibility] = mapped_column(primary_key=True)
+    parameter: Mapped[ClimateParameter] = mapped_column(primary_key=True)
     day: Mapped[float] = mapped_column(sa.Float(precision=2))
     night: Mapped[float] = mapped_column(sa.Float(precision=2))
     hysteresis: Mapped[float] = mapped_column(sa.Float(precision=2), default=0.0)
