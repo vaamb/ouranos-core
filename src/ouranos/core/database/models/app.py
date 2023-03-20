@@ -14,13 +14,12 @@ from sqlalchemy import select, Table
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ouranos import current_app, db
+from ouranos import current_app
 from ouranos.core.database import ArchiveLink
-from ouranos.core.database.models.common import BaseWarning
+from ouranos.core.database.models.common import base, BaseWarning
 from ouranos.core.utils import ExpiredTokenError, InvalidTokenError, Tokenizer
 
 argon2_hasher = PasswordHasher()
-base = db.Model
 
 
 # ---------------------------------------------------------------------------
@@ -114,9 +113,6 @@ class UserMixin:
     def can(self, perm: int) -> bool:
         raise NotImplementedError
 
-    def to_dict(self) -> dict:
-        raise NotImplementedError
-
 
 class AnonymousUserMixin(UserMixin):
     @property
@@ -132,14 +128,6 @@ class AnonymousUserMixin(UserMixin):
 
     def can(self, perm) -> bool:
         return False
-
-    def to_dict(self) -> dict:
-        return {
-            "username": "",
-            "firstname": "",
-            "lastname": "",
-            "permissions": 0,
-        }
 
 
 anonymous_user = AnonymousUserMixin()
@@ -297,24 +285,6 @@ class User(base, UserMixin):
             return user.can(perm)
         return False
 
-    def to_dict(self, complete=False) -> dict:
-        rv = {
-            "username": self.username,
-            "firstname": self.firstname,
-            "lastname": self.lastname,
-            "permissions": self.role.permissions,
-        }
-        if complete:
-            rv.update({
-                "email": self.email,
-                "last_seen": self.last_seen,
-                "registration": self.registration_datetime,
-                # TODO: change var name
-                "daily_recap": self.daily_recap,
-                "telegram_chat_id": self.telegram_chat_id,
-            })
-        return rv
-
 
 class Service(base):
     __tablename__ = "services"
@@ -324,13 +294,6 @@ class Service(base):
     name: Mapped[str] = mapped_column(sa.String(length=16))
     level: Mapped[str] = mapped_column(sa.String(length=4))
     status: Mapped[bool] = mapped_column(default=False)
-
-    def to_dict(self):
-        return {
-            "name": self.name,
-            "level": self.level,
-            "status": self.status,
-        }
 
 
 class CommunicationChannel(base):

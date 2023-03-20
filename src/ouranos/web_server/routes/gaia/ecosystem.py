@@ -185,9 +185,8 @@ async def get_ecosystems_environment_parameters(
         parameters: t.Optional[list[str]] = env_parameter_query,
         session: AsyncSession = Depends(get_session)
 ):
-    env_parameters = await api.environmental_parameter.get_multiple(
+    return await api.environmental_parameter.get_multiple(
         session, ecosystems_id, parameters)
-    return [parameter.to_dict() for parameter in env_parameters]
 
 
 @router.get("/u/{id}/environment_parameters", response_model=validate.gaia.environment_parameter)
@@ -198,9 +197,8 @@ async def get_ecosystem_environment_parameters(
 ):
     assert_single_uid(id)
     ecosystem = await ecosystem_or_abort(session, id)
-    env_parameters = await api.environmental_parameter.get(
+    return await api.environmental_parameter.get(
         session, ecosystem.uid, parameters)
-    return [parameter.to_dict() for parameter in env_parameters]
 
 
 @router.get("/current_data")

@@ -13,16 +13,12 @@ from gaia_validators import (
     ClimateParameter, HardwareLevel, HardwareType, LightMethod, ManagementFlags
 )
 
-from ouranos import db
 from ouranos.core.database import ArchiveLink
 from ouranos.core.database.models.common import (
-    ActuatorMode, BaseActuatorHistory, BaseHealth, BaseSensorHistory,
+    ActuatorMode, base, BaseActuatorHistory, BaseHealth, BaseSensorHistory,
     BaseWarning
 )
 from ouranos.core.utils import time_to_datetime
-
-
-base = db.Model
 
 
 # ---------------------------------------------------------------------------
@@ -46,17 +42,6 @@ class Engine(base):
     @property
     def connected(self) -> bool:
         return datetime.utcnow() - self.last_seen <= timedelta(seconds=30.0)
-
-    def to_dict(self) -> dict:
-        return {
-            "uid": self.uid,
-            "sid": self.sid,
-            "registration_date": self.registration_date,
-            "address": self.address,
-            "last_seen": self.last_seen,
-            "connected": self.connected,
-            "ecosystems": [ecosystem.uid for ecosystem in self.ecosystems]
-        }
 
 
 class Ecosystem(base):
@@ -104,15 +89,6 @@ class Ecosystem(base):
     def connected(self) -> bool:
         return datetime.utcnow() - self.last_seen <= timedelta(seconds=30.0)
 
-    def to_dict(self):
-        return {
-            "uid": self.uid,
-            "name": self.name,
-            "status": self.status,
-            "last_seen": self.last_seen,
-            "connected": self.connected,
-            "engine_uid": self.engine_uid,
-        }
 
     def management_dict(self):
         return {
@@ -132,17 +108,6 @@ class EnvironmentParameter(base):
 
     # relationship
     ecosystem: Mapped["Ecosystem"] = relationship(back_populates="environment_parameters", lazy="selectin")
-
-    def to_dict(self):
-        return {
-            "ecosystem_uid": self.ecosystem_uid,
-            "parameter": self.parameter,
-            "day": self.day,
-            "night": self.night,
-            "hysteresis": self.hysteresis,
-            "day_start": self.ecosystem.day_start,
-            "night_start": self.ecosystem.night_start,
-        }
 
 
 AssociationHardwareMeasure = Table(
@@ -198,21 +163,6 @@ class Hardware(base):
             f"ecosystem_uid={self.ecosystem_uid})>"
         )
 
-    def to_dict(self):
-        rv = {
-            "uid": self.uid,
-            "name": self.name,
-            "address": self.address,
-            "level": self.level,
-            "type": self.type,
-            "model": self.model,
-            "last_log": self.last_log,
-            "ecosystem_uid": self.ecosystem_uid
-        }
-        if self.type == "sensor":
-            rv.update({"measures": [measure.name for measure in self.measures]})
-        return rv
-
 
 sa.Index("idx_sensors_type", Hardware.type, Hardware.level)
 
@@ -246,13 +196,6 @@ class Measure(base):
                 await session.execute(stmt)
         await session.commit()
 
-    def to_dict(self):
-        return {
-            "name": self.name,
-            "unit": self.unit,
-            # "sensors": [sensor.uid for sensor in self.hardware],
-        }
-
 
 class Plant(base):
     __tablename__ = "plants"
@@ -267,16 +210,6 @@ class Plant(base):
     sensors = relationship("Hardware", back_populates="plants",
                            secondary=AssociationSensorPlant,
                            lazy="selectin")
-
-    def to_dict(self):
-        return {
-            "uid": self.uid,
-            "name": self.name,
-            "ecosystem_uid": self.ecosystem_uid,
-            "species": self.species,
-            "sowing_date": self.sowing_date,
-            "sensors": [sensor.uid for sensor in self.sensors],
-        }
 
 
 class SensorHistory(BaseSensorHistory):
@@ -311,19 +244,6 @@ class Light(base):
 
     # relationships
     ecosystem: Mapped["Ecosystem"] = relationship(back_populates="light")
-
-    def to_dict(self):
-        return {
-            "ecosystem_uid": self.ecosystem_uid,
-            "ecosystem_name": self.ecosystem.name,
-            "method": self.method,
-            "mode": self.mode,
-            "status": self.status,
-            "morning_start": time_to_datetime(self.morning_start),
-            "morning_end": time_to_datetime(self.morning_end),
-            "evening_start": time_to_datetime(self.evening_start),
-            "evening_end": time_to_datetime(self.evening_end),
-        }
 
 
 class Health(BaseHealth):

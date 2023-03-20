@@ -5,10 +5,7 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column
 
 
-from ouranos import db
-
-
-base = db.Model
+from ouranos.core.database.models.common import base
 
 
 # ---------------------------------------------------------------------------

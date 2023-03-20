@@ -70,12 +70,7 @@ class hardware_creation(ExtendedModel):
 hardware = sqlalchemy_to_pydantic(Hardware, base=ExtendedModel)
 
 
-_environment_parameter = sqlalchemy_to_pydantic(EnvironmentParameter, base=ExtendedModel)
-
-
-class environment_parameter(_environment_parameter):
-    day_start: time
-    night_start: time
+environment_parameter = sqlalchemy_to_pydantic(EnvironmentParameter, base=ExtendedModel)
 
 
 measure = sqlalchemy_to_pydantic(Measure, exclude=["id"], base=ExtendedModel)

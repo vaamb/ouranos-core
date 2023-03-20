@@ -26,6 +26,7 @@ def render_template(rel_path, **context) -> str:
     return environment.get_template(rel_path).render(context)
 
 
+"""
 async def ecosystem_summary(
         session: AsyncSession,
         ecosystems: str | list[str] | None = None
@@ -38,7 +39,7 @@ async def ecosystem_summary(
         )
     return "No ecosystem found"
 
-"""
+
 def weather(currently: bool = True, forecast: bool = True, **kwargs) -> str:
     weather = {}
 

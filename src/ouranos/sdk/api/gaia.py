@@ -757,7 +757,8 @@ class sensor:
             time_window: timeWindow = None,
     ) -> dict:
         assert sensor_obj.type == "sensor"
-        rv = sensor_obj.to_dict()
+        rv = sensor_obj.to_dict(exclude=["measure"])
+        rv.update({"measures": [measure_obj.name for measure_obj in sensor_obj.measures]})
         if current_data or historic_data:
             rv.update({"data": {}})
             if current_data:

@@ -1,21 +1,31 @@
+from __future__ import annotations
+
 from datetime import datetime, timezone
 import enum
 from typing import Optional
 
+from gaia_validators import ActuatorMode
 import sqlalchemy as sa
+from sqlalchemy import UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.ext.declarative import declared_attr
-from sqlalchemy import UniqueConstraint
+
 
 from ouranos import db
 
 
-base = db.Model
+_base = db.Model
 
 
-class ActuatorMode(enum.Enum):
-    automatic = "automatic"
-    manual = "manual"
+class base(_base):
+    __abstract__ = True
+
+    def to_dict(self, exclude: list | None = None) -> dict:
+        exclude: list = exclude or []
+        return {
+            key: value for key, value in vars(self).items()
+            if key not in exclude
+        }
 
 
 class WarningLevel(enum.Enum):
@@ -97,13 +107,6 @@ class BaseWarning(base):
     created_on: Mapped[datetime] = mapped_column(default=datetime.now(timezone.utc))
     seen_on: Mapped[Optional[datetime]] = mapped_column()
     solved_on: Mapped[Optional[datetime]] = mapped_column()
-
-    def to_dict(self) -> dict:
-        return {
-            "level": self.level,
-            "title": self.title,
-            "description": self.description,
-        }
 
     @property
     def seen(self):
