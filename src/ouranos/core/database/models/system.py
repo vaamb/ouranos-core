@@ -4,7 +4,6 @@ from typing import Optional
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column
 
-
 from ouranos.core.database.models.common import base
 
 

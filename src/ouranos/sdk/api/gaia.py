@@ -15,8 +15,8 @@ from ouranos.core.config.consts import (
     HARDWARE_AVAILABLE, HARDWARE_LEVELS
 )
 from ouranos.core.database.models.gaia import (
-    Ecosystem, Engine, EnvironmentParameter, GaiaWarning, Hardware, Health,
-    Light, Measure, Plant, SensorHistory
+    Ecosystem, Engine, EnvironmentParameter, GaiaWarning, Hardware, HealthRecord,
+    Light, Measure, Plant, SensorRecord
 )
 from ouranos.sdk.api.exceptions import NoEcosystemFound
 from ouranos.sdk.api.utils import time_limits, timeWindow, create_time_window
@@ -313,11 +313,11 @@ class ecosystem(_gaia_abc):
                 _level: tuple[HARDWARE_LEVELS_CHOICES] | None = None,
         ) -> list:
             stmt = (
-                select(Hardware).join(SensorHistory.sensor)
+                select(Hardware).join(SensorRecord.sensor)
                 .where(Hardware.ecosystem_uid == ecosystem_uid)
                 .where(
-                    (SensorHistory.timestamp > time_window.start)
-                    & (SensorHistory.timestamp <= time_window.end)
+                    (SensorRecord.timestamp > time_window.start)
+                    & (SensorRecord.timestamp <= time_window.end)
                 )
             )
             if level:
@@ -638,10 +638,10 @@ class sensor:
         stmt = hardware.generate_query(hardware_uid=uid)
         if time_window:
             stmt = (
-                stmt.join(SensorHistory.sensor)
+                stmt.join(SensorRecord.sensor)
                 .where(
-                    (SensorHistory.timestamp > time_window.start) &
-                    (SensorHistory.timestamp <= time_window.end)
+                    (SensorRecord.timestamp > time_window.start) &
+                    (SensorRecord.timestamp <= time_window.end)
                 )
                 .distinct()
             )
@@ -662,10 +662,10 @@ class sensor:
         )
         if time_window:
             stmt = (
-                stmt.join(SensorHistory.sensor)
+                stmt.join(SensorRecord.sensor)
                 .where(
-                    (SensorHistory.timestamp > time_window.start)
-                    & (SensorHistory.timestamp <= time_window.end)
+                    (SensorRecord.timestamp > time_window.start)
+                    & (SensorRecord.timestamp <= time_window.end)
                 )
                 .distinct()
             )
@@ -686,16 +686,16 @@ class sensor:
                 _time_window: timeWindow
         ) -> list:
             stmt = (
-                select(SensorHistory)
-                .where(SensorHistory.measure == measure_name)
-                .where(SensorHistory.sensor_uid == sensor_obj.uid)
+                select(SensorRecord)
+                .where(SensorRecord.measure == measure_name)
+                .where(SensorRecord.sensor_uid == sensor_obj.uid)
                 .where(
-                    (SensorHistory.timestamp > time_window.start)
-                    & (SensorHistory.timestamp <= time_window.end)
+                    (SensorRecord.timestamp > time_window.start)
+                    & (SensorRecord.timestamp <= time_window.end)
                 )
             )
             result = await session.execute(stmt)
-            records: Sequence[SensorHistory] = result.scalars().all()
+            records: Sequence[SensorRecord] = result.scalars().all()
             return [(record.timestamp, record.value) for record in records]
         return await inner_func(sensor_obj, measure_name, time_window)
 
@@ -831,7 +831,7 @@ class sensor:
             session: AsyncSession,
             values: list[dict],
     ) -> None:
-        stmt = insert(SensorHistory).values(values)
+        stmt = insert(SensorRecord).values(values)
         await session.execute(stmt)
 
 
@@ -938,7 +938,7 @@ class light(_gaia_abc):
 
 
 # ---------------------------------------------------------------------------
-#   Health-related APIs
+#   HealthRecord-related APIs
 # ---------------------------------------------------------------------------
 class health:
     @staticmethod
@@ -946,7 +946,7 @@ class health:
             session: AsyncSession,
             values: list[dict],
     ) -> None:
-        stmt = insert(Health).values(values)
+        stmt = insert(HealthRecord).values(values)
         await session.execute(stmt)
 
 

@@ -15,10 +15,9 @@ from gaia_validators import (
 
 from ouranos.core.database import ArchiveLink
 from ouranos.core.database.models.common import (
-    ActuatorMode, base, BaseActuatorHistory, BaseHealth, BaseSensorHistory,
+    ActuatorMode, base, BaseActuatorRecord, BaseHealthRecord, BaseSensorRecord,
     BaseWarning
 )
-from ouranos.core.utils import time_to_datetime
 
 
 # ---------------------------------------------------------------------------
@@ -62,9 +61,12 @@ class Ecosystem(base):
     environment_parameters: Mapped[list["EnvironmentParameter"]] = relationship(back_populates="ecosystem")
     plants: Mapped[list["Plant"]] = relationship(back_populates="ecosystem")
     hardware: Mapped[list["Hardware"]] = relationship(back_populates="ecosystem")
-    sensors_history: Mapped[list["SensorHistory"]] = relationship(back_populates="ecosystem")
-    actuators_history: Mapped[list["ActuatorHistory"]] = relationship(back_populates="ecosystem")
-    health: Mapped[list["Health"]] = relationship(back_populates="ecosystem")
+    sensor_records: Mapped[list[
+        "SensorRecord"]] = relationship(back_populates="ecosystem")
+    actuator_records: Mapped[list[
+        "ActuatorRecord"]] = relationship(back_populates="ecosystem")
+    health_records: Mapped[list[
+        "HealthRecord"]] = relationship(back_populates="ecosystem")
 
     def __repr__(self):
         return (
@@ -88,7 +90,6 @@ class Ecosystem(base):
     @property
     def connected(self) -> bool:
         return datetime.utcnow() - self.last_seen <= timedelta(seconds=30.0)
-
 
     def management_dict(self):
         return {
@@ -121,8 +122,8 @@ AssociationHardwareMeasure = Table(
 )
 
 
-AssociationSensorPlant = Table(
-    "association_sensors_plants", base.metadata,
+AssociationActuatorPlant = Table(
+    "association_actuators_plants", base.metadata,
     sa.Column("sensor_uid",
               sa.String(length=32),
               sa.ForeignKey("hardware.uid")),
@@ -152,9 +153,9 @@ class Hardware(base):
         back_populates="hardware", secondary=AssociationHardwareMeasure,
         lazy="selectin")
     plants: Mapped[list["Plant"]] = relationship(
-        back_populates="sensors", secondary=AssociationSensorPlant,
+        back_populates="sensors", secondary=AssociationActuatorPlant,
         lazy="selectin")
-    sensors_history: Mapped[list["SensorHistory"]] = relationship(
+    sensor_records: Mapped[list["SensorRecord"]] = relationship(
         back_populates="sensor")
 
     def __repr__(self) -> str:
@@ -208,25 +209,25 @@ class Plant(base):
     # relationship
     ecosystem = relationship("Ecosystem", back_populates="plants", lazy="selectin")
     sensors = relationship("Hardware", back_populates="plants",
-                           secondary=AssociationSensorPlant,
+                           secondary=AssociationActuatorPlant,
                            lazy="selectin")
 
 
-class SensorHistory(BaseSensorHistory):
-    __tablename__ = "sensors_history"
+class SensorRecord(BaseSensorRecord):
+    __tablename__ = "sensor_records"
     __archive_link__ = ArchiveLink("sensor", "recent")
 
     # relationships
-    ecosystem: Mapped["Ecosystem"] = relationship(back_populates="sensors_history")
-    sensor: Mapped["Hardware"] = relationship(back_populates="sensors_history")
+    ecosystem: Mapped["Ecosystem"] = relationship(back_populates="sensor_records")
+    sensor: Mapped["Hardware"] = relationship(back_populates="sensor_records")
 
 
-class ActuatorHistory(BaseActuatorHistory):
-    __tablename__ = "actuators_history"
+class ActuatorRecord(BaseActuatorRecord):
+    __tablename__ = "actuator_records"
     __archive_link__ = ArchiveLink("actuator", "recent")
 
     # relationships
-    ecosystem: Mapped["Ecosystem"] = relationship(back_populates="actuators_history")
+    ecosystem: Mapped["Ecosystem"] = relationship(back_populates="actuator_records")
 
 
 class Light(base):
@@ -246,12 +247,12 @@ class Light(base):
     ecosystem: Mapped["Ecosystem"] = relationship(back_populates="light")
 
 
-class Health(BaseHealth):
-    __tablename__ = "health"
-    __archive_link__ = ArchiveLink("health", "recent")
+class HealthRecord(BaseHealthRecord):
+    __tablename__ = "health_records"
+    __archive_link__ = ArchiveLink("health_records", "recent")
 
     # relationships
-    ecosystem: Mapped["Ecosystem"] = relationship("Ecosystem", back_populates="health")
+    ecosystem: Mapped["Ecosystem"] = relationship("Ecosystem", back_populates="health_records")
 
 
 class GaiaWarning(BaseWarning):

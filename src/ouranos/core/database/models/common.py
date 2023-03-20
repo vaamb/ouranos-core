@@ -4,12 +4,12 @@ from datetime import datetime, timezone
 import enum
 from typing import Optional
 
-from gaia_validators import ActuatorMode
 import sqlalchemy as sa
 from sqlalchemy import UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.ext.declarative import declared_attr
 
+from gaia_validators import ActuatorMode
 
 from ouranos import db
 
@@ -39,7 +39,7 @@ class WarningLevel(enum.Enum):
 # ---------------------------------------------------------------------------
 #   Base models common.py to main app and archive
 # ---------------------------------------------------------------------------
-class BaseSensorHistory(base):
+class BaseSensorRecord(base):
     __abstract__ = True
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -65,7 +65,7 @@ class BaseSensorHistory(base):
     )
 
 
-class BaseActuatorHistory(base):
+class BaseActuatorRecord(base):
     __abstract__ = True
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -81,7 +81,7 @@ class BaseActuatorHistory(base):
         )
 
 
-class BaseHealth(base):
+class BaseHealthRecord(base):
     __abstract__ = True
 
     id: Mapped[int] = mapped_column(primary_key=True)
