@@ -360,8 +360,8 @@ class Events:
                     hardware_uid = hardware.pop("uid")
                     active_hardware.append(hardware_uid)
                     hardware["ecosystem_uid"] = uid
-                    hardware["measures"] = hardware.pop("measure", [])
-                    hardware["plants"] = hardware.pop("plant", [])
+                    # TODO: register multiplexer ?
+                    del hardware["multiplexer_model"]
                     await api.hardware.update_or_create(
                         session, values=hardware, uid=hardware_uid,)
                     await sleep(0)
