@@ -174,6 +174,7 @@ class Events:
 
     async def on_register_engine(self, sid, data) -> None:
         validated = False
+        remote_addr: str
         if self.broker_type == "socketio":
             async with self.session(sid) as session:
                 remote_addr = session["REMOTE_ADDR"]
@@ -205,6 +206,7 @@ class Events:
             if engine_uid:
                 async with self.session(sid) as session:
                     session["engine_uid"] = engine_uid
+                remote_addr = data.get("address", "")
                 validated = True
             else:
                 await self.disconnect(sid)
@@ -217,7 +219,7 @@ class Events:
                 "sid": sid,
                 "registration_date": now,
                 "last_seen": now,
-                # "address": f"{remote_addr}",
+                "address": f"{remote_addr}",
             }
             async with db.scoped_session() as session:
                 await api.engine.update_or_create(session, engine_info)
