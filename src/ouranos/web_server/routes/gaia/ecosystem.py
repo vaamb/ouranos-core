@@ -232,9 +232,9 @@ async def get_ecosystem_current_data(
 @router.get("/u/{id}/turn_actuator", dependencies=[Depends(is_operator)])
 async def turn_actuator(
         id: str = id_query,
-        actuator: api.gaia.HARDWARE_TYPES_CHOICES = Query(
+        actuator: api.gaia.HardwareTypeNames = Query(
             description="The type of actuator"),
-        mode: api.gaia.ACTUATOR_MODE_CHOICES = Query(
+        mode: api.gaia.ActuatorTurnTo = Query(
             description="The mode to turn the actuator to"),
         countdown: float = Query(
             default=0.0,

@@ -1,14 +1,17 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Literal, Sequence, Type
 
 from asyncache import cached
 from cachetools import TTLCache
-import cachetools.func
+from cachetools.keys import hashkey
 from dispatcher import AsyncDispatcher
 from sqlalchemy import delete, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from gaia_validators import (
+    ActuatorTurnTo, HardwareLevelNames, HardwareTypeNames, IDs as EcosystemIDs
+)
 
 from ouranos.core.cache import get_cache
 from ouranos.core.config.consts import (
@@ -29,25 +32,16 @@ cache_sensors_data_skeleton = TTLCache(maxsize=max_ecosystems, ttl=900)
 cache_sensors_data_raw = TTLCache(maxsize=max_ecosystems * 32, ttl=900)
 cache_sensors_data_average = TTLCache(maxsize=max_ecosystems, ttl=300)
 cache_sensors_data_summary = TTLCache(maxsize=max_ecosystems * 2, ttl=300)
+cache_recent_warnings = TTLCache(maxsize=5, ttl=60)
 
 
-ACTUATOR_MODE_CHOICES = Literal["on", "off", "automatic"]
-ACTUATOR_TYPES_CHOICES = Literal[
+def _sessionless_hashkey(session: AsyncSession, *args, **kwargs):
+    return hashkey(*args, **kwargs)
+
+
+ActuatorTypeNames = Literal[
     "light", "heater", "cooler", "humidifier", "dehumidifier"
 ]
-HARDWARE_LEVELS_CHOICES = Literal["plants", "environment"]
-HARDWARE_TYPES_CHOICES = Literal[
-    "sensor", "light", "heater", "cooler", "humidifier", "dehumidifier"
-]
-
-
-@dataclass(frozen=True)
-class ecosystemIds:
-    uid: str
-    name: str
-
-    def __iter__(self):
-        return iter((self.uid, self.name))
 
 
 class _gaia_abc:
@@ -244,7 +238,7 @@ class ecosystem(_gaia_abc):
         return result.scalars().all()
 
     @staticmethod
-    async def get_ids(session: AsyncSession, ecosystem_id: str) -> ecosystemIds:
+    async def get_ids(session: AsyncSession, ecosystem_id: str) -> EcosystemIDs:
         stmt = (
             select(Ecosystem)
             .where(
@@ -255,10 +249,11 @@ class ecosystem(_gaia_abc):
         result = await session.execute(stmt)
         ecosystem_ = result.first()
         if ecosystem_:
-            return ecosystemIds(ecosystem_.uid, ecosystem_.name)
+            return EcosystemIDs(ecosystem_.uid, ecosystem_.name)
         raise NoEcosystemFound
 
     @staticmethod
+    @cached()
     async def get_management(
             session: AsyncSession,
             ecosystem_obj: Ecosystem,
@@ -304,13 +299,13 @@ class ecosystem(_gaia_abc):
             session: AsyncSession,
             ecosystem_obj: Ecosystem,
             time_window: timeWindow,
-            level: HARDWARE_LEVELS_CHOICES | list[HARDWARE_LEVELS_CHOICES] | None = None,
+            level: HardwareLevelNames | list[HardwareLevelNames] | None = None,
     ) -> dict:
         @cached(cache_sensors_data_skeleton)
         async def inner_func(
                 ecosystem_uid: str,
                 _time_window: timeWindow,
-                _level: tuple[HARDWARE_LEVELS_CHOICES] | None = None,
+                _level: tuple[HardwareLevelNames] | None = None,
         ) -> list:
             stmt = (
                 select(Hardware).join(SensorRecord.sensor)
@@ -363,8 +358,8 @@ class ecosystem(_gaia_abc):
     async def turn_actuator(
             dispatcher: AsyncDispatcher,
             ecosystem_uid: str,
-            actuator: ACTUATOR_TYPES_CHOICES,
-            mode: ACTUATOR_MODE_CHOICES = "automatic",
+            actuator: ActuatorTypeNames,
+            mode: ActuatorTurnTo = "automatic",
             countdown: float = 0.0,
     ) -> None:
         # TODO: select room using db
@@ -377,7 +372,7 @@ class ecosystem(_gaia_abc):
     async def turn_light(
             dispatcher: AsyncDispatcher,
             ecosystem_uid: str,
-            mode: ACTUATOR_MODE_CHOICES = "automatic",
+            mode: ActuatorTurnTo = "automatic",
             countdown: float = 0.0,
     ) -> None:
         await ecosystem.turn_actuator(
@@ -586,8 +581,8 @@ class hardware(_gaia_abc):
     def generate_query(
             hardware_uid: str | list | None = None,
             ecosystem_uid: str | list | None = None,
-            level: HARDWARE_LEVELS_CHOICES | list[HARDWARE_LEVELS_CHOICES] | None = None,
-            type: HARDWARE_TYPES_CHOICES | list[HARDWARE_TYPES_CHOICES] | None = None,
+            level: HardwareLevelNames | list[HardwareLevelNames] | None = None,
+            type: HardwareTypeNames | list[HardwareTypeNames] | None = None,
             model: str | list | None = None,
     ):
         uid = hardware_uid
@@ -608,8 +603,8 @@ class hardware(_gaia_abc):
             session: AsyncSession,
             hardware_uids: str | list | None = None,
             ecosystem_uids: str | list | None = None,
-            levels: HARDWARE_LEVELS_CHOICES | list[HARDWARE_LEVELS_CHOICES] | None = None,
-            types: HARDWARE_TYPES_CHOICES | list[HARDWARE_TYPES_CHOICES] | None = None,
+            levels: HardwareLevelNames | list[HardwareLevelNames] | None = None,
+            types: HardwareTypeNames | list[HardwareTypeNames] | None = None,
             models: str | list | None = None,
     ) -> Sequence[Hardware]:
         stmt = hardware.generate_query(
@@ -653,7 +648,7 @@ class sensor:
             session: AsyncSession,
             hardware_uids: str | list | None = None,
             ecosystem_uids: str | list | None = None,
-            levels: HARDWARE_LEVELS_CHOICES | list[HARDWARE_LEVELS_CHOICES] | None = None,
+            levels: HardwareLevelNames | list[HardwareLevelNames] | None = None,
             models: str | list | None = None,
             time_window: timeWindow = None,
     ) -> Sequence[Hardware]:
@@ -980,7 +975,7 @@ class plant(_gaia_abc):
         return result.scalars().all()
 
 
-@cachetools.func.ttl_cache(ttl=60)
+@cached(cache_recent_warnings)
 async def get_recent_warnings(
         session: AsyncSession,
         limit: int = 10
