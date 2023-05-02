@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from typing import Type
+from typing import Literal, Type
 
 from cachetools import cached, TTLCache
 from cachetools.keys import hashkey
@@ -12,6 +12,9 @@ from ouranos.core.database.models.common import Base
 
 
 _timelimit_cache = TTLCache(maxsize=1, ttl=5)
+
+
+time_limits_category: Literal["recent", "sensors", "health", "warnings"]
 
 
 def sessionless_hashkey(
@@ -44,7 +47,7 @@ def paginate(
 
 
 @cached(_timelimit_cache)
-def _time_limits() -> dict[str, datetime]:
+def _time_limits() -> dict[time_limits_category, datetime]:
     now_utc = datetime.now(timezone.utc)
     return {
         "recent": (now_utc - timedelta(hours=36)).replace(tzinfo=None),
@@ -54,5 +57,5 @@ def _time_limits() -> dict[str, datetime]:
     }
 
 
-def time_limits(category: str) -> datetime:
+def time_limits(category: time_limits_category) -> datetime:
     return _time_limits()[category]
