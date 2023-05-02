@@ -13,6 +13,7 @@ from sqlalchemy.ext.declarative import declared_attr
 from gaia_validators import ActuatorMode
 
 from ouranos import db
+from ouranos.core.database.models.types import UtcDateTime
 
 
 class WarningLevel(Enum):
@@ -53,7 +54,7 @@ class BaseSensorRecord(Base, Record):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     measure: Mapped[int] = mapped_column()
-    timestamp: Mapped[datetime] = mapped_column()
+    timestamp: Mapped[datetime] = mapped_column(UtcDateTime)
     value: Mapped[float] = mapped_column(sa.Float(precision=2))
 
     @declared_attr
@@ -79,7 +80,7 @@ class BaseActuatorRecord(Base, Record):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     type: Mapped[str] = mapped_column(sa.String(length=16))
-    timestamp: Mapped[datetime] = mapped_column()
+    timestamp: Mapped[datetime] = mapped_column(UtcDateTime)
     mode: Mapped[ActuatorMode] = mapped_column(default=ActuatorMode.automatic)
     status: Mapped[bool] = mapped_column(default=False)
 
@@ -100,7 +101,7 @@ class BaseHealthRecord(Base, Record):
     __abstract__ = True
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    timestamp: Mapped[datetime] = mapped_column()
+    timestamp: Mapped[datetime] = mapped_column(UtcDateTime)
     green: Mapped[int] = mapped_column()
     necrosis: Mapped[int] = mapped_column()
     health_index: Mapped[int] = mapped_column()
@@ -119,9 +120,9 @@ class BaseWarning(Base):
     level: Mapped[WarningLevel] = mapped_column(default=WarningLevel.low)
     title: Mapped[str] = mapped_column(sa.String(length=256))
     description: Mapped[Optional[str]] = mapped_column(sa.String(length=2048))
-    created_on: Mapped[datetime] = mapped_column(default=datetime.now(timezone.utc))
-    seen_on: Mapped[Optional[datetime]] = mapped_column()
-    solved_on: Mapped[Optional[datetime]] = mapped_column()
+    created_on: Mapped[datetime] = mapped_column(UtcDateTime, default=datetime.now(timezone.utc))
+    seen_on: Mapped[Optional[datetime]] = mapped_column(UtcDateTime)
+    solved_on: Mapped[Optional[datetime]] = mapped_column(UtcDateTime)
 
     @property
     def seen(self):

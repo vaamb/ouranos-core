@@ -69,8 +69,8 @@ def try_time_from_iso(iso_str: str | None) -> time | None:
 
 def try_datetime_from_iso(iso_str: str | None) -> datetime | None:
     try:
-        return datetime.fromisoformat(iso_str).astimezone(timezone.utc)
-    except (TypeError, AttributeError):
+        return datetime.fromisoformat(iso_str)
+    except (TypeError, ValueError):
         return None
 
 

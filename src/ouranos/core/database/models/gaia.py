@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime, time, timedelta, timezone
-from typing import Literal, Optional, overload, Sequence, Self, TypedDict
+from datetime import datetime, time, timedelta
+from typing import Literal, Optional, Sequence, Self, TypedDict
 
 from asyncache import cached
 from cachetools import TTLCache
@@ -15,7 +15,7 @@ from sqlalchemy.schema import Table
 from gaia_validators import (
     ActuatorTurnTo, ClimateParameter, HardwareLevel, HardwareLevelNames,
     HardwareType, HardwareTypeNames, IDs as EcosystemIDs, LightMethod,
-    ManagementFlags, SensorsDataDict
+    ManagementFlags
 )
 
 from ouranos.core.cache import get_cache
@@ -24,6 +24,7 @@ from ouranos.core.database.models.common import (
     ActuatorMode, Base, BaseActuatorRecord, BaseHealthRecord, BaseSensorRecord,
     BaseWarning
 )
+from ouranos.core.database.models.types import UtcDateTime
 from ouranos.core.database.models.utils import time_limits, sessionless_hashkey
 from ouranos.core.utils import timeWindow, create_time_window
 
@@ -153,9 +154,9 @@ class Engine(GaiaBase):
 
     uid: Mapped[str] = mapped_column(sa.String(length=16), primary_key=True)
     sid: Mapped[str] = mapped_column(sa.String(length=32))
-    registration_date: Mapped[datetime] = mapped_column()
+    registration_date: Mapped[datetime] = mapped_column(UtcDateTime)
     address: Mapped[Optional[str]] = mapped_column(sa.String(length=24))
-    last_seen: Mapped[datetime] = mapped_column()
+    last_seen: Mapped[datetime] = mapped_column(UtcDateTime)
 
     # relationships
     ecosystems: Mapped[list["Ecosystem"]] = relationship(back_populates="engine", lazy="selectin")
@@ -227,7 +228,7 @@ class Ecosystem(GaiaBase):
     uid: Mapped[str] = mapped_column(sa.String(length=8), primary_key=True)
     name: Mapped[str] = mapped_column(sa.String(length=32))
     status: Mapped[bool] = mapped_column(default=False)
-    last_seen: Mapped[datetime] = mapped_column(default=datetime.now(timezone.utc))
+    last_seen: Mapped[datetime] = mapped_column(UtcDateTime)
     management: Mapped[int] = mapped_column(default=0)
     day_start: Mapped[time] = mapped_column(default=time(8, 00))
     night_start: Mapped[time] = mapped_column(default=time(20, 00))
