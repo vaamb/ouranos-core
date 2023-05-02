@@ -4,13 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos.core import validate
-from ouranos.sdk import api
+from ouranos.core.database.models.gaia import Engine
 from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.routes.utils import assert_single_uid
-
-
-if t.TYPE_CHECKING:
-    from ouranos.core.database.models.gaia import Engine
 
 
 router = APIRouter(
@@ -21,7 +17,7 @@ router = APIRouter(
 
 
 async def engine_or_abort(session: AsyncSession, engine_id: str) -> "Engine":
-    engine = await api.engine.get(
+    engine = await Engine.get(
         session=session, engine_id=engine_id)
     if engine:
         return engine
@@ -38,7 +34,7 @@ async def get_engines(
                                       "'recent' or 'connected'"),
         session: AsyncSession = Depends(get_session)
 ):
-    engines = await api.engine.get_multiple(session, engines_id)
+    engines = await Engine.get_multiple(session, engines_id)
     return engines
 
 

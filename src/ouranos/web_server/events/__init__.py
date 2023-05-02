@@ -6,8 +6,9 @@ from dispatcher import AsyncDispatcher, AsyncEventHandler
 from socketio import AsyncNamespace, BaseManager
 
 from ouranos import db
-from ouranos.web_server.events.decorators import permission_required
+from ouranos.core.database.models import Ecosystem
 from ouranos.sdk import api
+from ouranos.web_server.events.decorators import permission_required
 
 
 logger: Logger = getLogger(f"aggregator.socketio")
@@ -38,7 +39,7 @@ class ClientEvents(AsyncNamespace):
     async def on_turn_light(self, sid, data):
         ecosystem_uid = data["ecosystem"]
         with db.scoped_session() as session:
-            ecosystem = await api.ecosystem.get(session, ecosystem_uid)
+            ecosystem = await Ecosystem.get(session, ecosystem_uid)
         if not ecosystem:
             return
         ecosystem_sid = ecosystem.engine.sid
@@ -58,7 +59,7 @@ class ClientEvents(AsyncNamespace):
     async def on_manage_ecosystem(self, sid, data):
         ecosystem_uid = data["ecosystem"]
         with db.scoped_session() as session:
-            ecosystem = await api.ecosystem.get(session, ecosystem_uid)
+            ecosystem = await Ecosystem.get(session, ecosystem_uid)
         if not ecosystem:
             return
         ecosystem_sid = ecosystem.engine.sid

@@ -21,9 +21,12 @@ from ouranos import current_app, db
 from ouranos.aggregator.decorators import (
     dispatch_to_application, registration_required
 )
-from ouranos.core.database.models import Hardware
+from ouranos.core.cache import SensorDataCache
+from ouranos.core.database.models.gaia import (
+    Ecosystem, Engine, EnvironmentParameter, Hardware, HealthRecord, Light,
+    SensorRecord
+)
 from ouranos.core.utils import decrypt_uid, humanize_list, validate_uid_token
-from ouranos.sdk import api
 
 
 class SensorDataRecord(TypedDict):
@@ -45,12 +48,12 @@ async def get_ecosystem_name(
         return _ecosystem_name_cache[ecosystem_uid]
     except KeyError:
         if session is not None:
-            ecosystem_obj = await api.ecosystem.get(session, ecosystem_uid)
+            ecosystem_obj = await Ecosystem.get(session, ecosystem_uid)
             if ecosystem_obj is not None:
                 _ecosystem_name_cache[ecosystem_uid] = ecosystem_obj.name
                 return ecosystem_obj.name
         async with db.scoped_session() as session:
-            ecosystem_obj = await api.ecosystem.get(session, ecosystem_uid)
+            ecosystem_obj = await Ecosystem.get(session, ecosystem_uid)
             if ecosystem_obj is not None:
                 _ecosystem_name_cache[ecosystem_uid] = ecosystem_obj.name
                 return ecosystem_obj.name
@@ -59,14 +62,14 @@ async def get_ecosystem_name(
 
 def try_time_from_iso(iso_str: str | None) -> time | None:
     try:
-        return time.fromisoformat(iso_str).replace(tzinfo=timezone.utc)
+        return time.fromisoformat(iso_str)
     except (TypeError, AttributeError):
         return None
 
 
 def try_datetime_from_iso(iso_str: str | None) -> datetime | None:
     try:
-        return datetime.fromisoformat(iso_str).replace(tzinfo=timezone.utc)
+        return datetime.fromisoformat(iso_str).astimezone(timezone.utc)
     except (TypeError, AttributeError):
         return None
 
@@ -159,7 +162,7 @@ class Events:
 
     async def on_disconnect(self, sid, *args) -> None:
         async with db.scoped_session() as session:
-            engine = await api.engine.get(session, engine_id=sid)
+            engine = await Engine.get(session, engine_id=sid)
             if engine is None:
                 return
             uid = engine.uid
@@ -222,7 +225,7 @@ class Events:
                 "address": f"{remote_addr}",
             }
             async with db.scoped_session() as session:
-                await api.engine.update_or_create(session, engine_info)
+                await Engine.update_or_create(session, engine_info)
             self.enter_room(sid, room="engines", namespace="/gaia")
             if self.broker_type == "socketio":
                 await self.emit("register_ack", namespace="/gaia", room=sid)
@@ -236,11 +239,11 @@ class Events:
         now = datetime.now(timezone.utc).replace(microsecond=0)
         ecosystems_seen: list[str] = []
         async with db.scoped_session() as session:
-            engine = await api.engine.get(session, sid)
+            engine = await Engine.get(session, sid)
             if engine:
                 engine.last_seen = now
                 for ecosystem_uid in data:
-                    ecosystem = await api.ecosystem.get(session, ecosystem_uid)
+                    ecosystem = await Ecosystem.get(session, ecosystem_uid)
                     if ecosystem is not None:
                         ecosystems_seen.append(ecosystem.name)
                         ecosystem.last_seen = now
@@ -263,7 +266,7 @@ class Events:
             for payload in data:
                 ecosystem = payload["data"]
                 ecosystems_to_log.append(ecosystem["name"])
-                await api.ecosystem.update_or_create(session, ecosystem)
+                await Ecosystem.update_or_create(session, ecosystem)
             ecosystems.append({"uid": payload["uid"], "status": ecosystem["status"]})
         self.logger.debug(
             f"Logged base info from ecosystem(s): {humanize_list(ecosystems_to_log)}"
@@ -290,7 +293,7 @@ class Events:
                 ecosystems_to_log.append(
                     await get_ecosystem_name(uid, session=session)
                 )
-                ecosystem_obj = await api.ecosystem.update_or_create(session, uid=uid)
+                ecosystem_obj = await Ecosystem.get(session, uid)
                 for management in ManagementFlags:
                     try:
                         if ecosystem[management.name]:
@@ -329,11 +332,11 @@ class Events:
                     "day_start": try_time_from_iso(sky.get("day")),
                     "night_start": try_time_from_iso(sky.get("night")),
                 }
-                await api.ecosystem.update_or_create(session, ecosystem_info)
-                await api.light.update_or_create(
+                await Ecosystem.update_or_create(session, ecosystem_info)
+                await Light.update_or_create(
                     session, {"method": sky.get("lighting")}, uid)
                 for param in ecosystem["climate"]:
-                    await api.environmental_parameter.update_or_create(
+                    await EnvironmentParameter.update_or_create(
                         session, param, uid)
         self.logger.debug(
             f"Logged environmental parameters from ecosystem(s): "
@@ -364,7 +367,7 @@ class Events:
                     hardware["ecosystem_uid"] = uid
                     # TODO: register multiplexer ?
                     del hardware["multiplexer_model"]
-                    await api.hardware.update_or_create(
+                    await Hardware.update_or_create(
                         session, values=hardware, uid=hardware_uid,)
                     await sleep(0)
             stmt = select(Hardware).where(Hardware.uid.not_in(active_hardware))
@@ -389,7 +392,7 @@ class Events:
         self.logger.debug(
             f"Received 'sensors_data' from engine: {engine_uid}"
         )
-        api.sensor.update_current_data({
+        SensorDataCache.update({
             payload["uid"]: payload["data"] for payload in data
         })
         await self.ouranos_dispatcher.emit(
@@ -426,14 +429,14 @@ class Events:
                         values.append(sensor_data)
                     await sleep(0)
                 async with db.scoped_session() as session:
-                    hardware_list = await api.hardware.get_multiple(
+                    hardware_list = await Hardware.get_multiple(
                         session, sensor_uids_seen)
                     for hardware in hardware_list:
                         hardware.last_log = dt
                 # TODO: if needed get and log avg values from the data
         if values:
             async with db.scoped_session() as session:
-                await api.sensor.create_records(session, values)
+                await SensorRecord.create_records(session, values)
             self.logger.debug(
                 f"Logged sensors data from ecosystem(s) "
                 f"{humanize_list(logged)}"
@@ -468,7 +471,7 @@ class Events:
             values.append(health_data)
         if values:
             async with db.scoped_session() as session:
-                await api.health.create_records(session, values)
+                await HealthRecord.create_records(session, values)
             self.logger.debug(
                 f"Logged health data from ecosystem(s): "
                 f"{humanize_list(logged)}"
@@ -508,7 +511,7 @@ class Events:
                     "evening_start": evening_start,
                     "evening_end": evening_end
                 }
-                await api.light.update_or_create(session, light_info)
+                await Light.update_or_create(session, light_info)
         self.logger.debug(
             f"Logged light data from ecosystem(s): {humanize_list(ecosystems_to_log)}"
         )

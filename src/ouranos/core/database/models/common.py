@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-import enum
-from typing import Optional
+from enum import Enum
+from typing import Optional, Self, Sequence
 
 import sqlalchemy as sa
-from sqlalchemy import UniqueConstraint
+from sqlalchemy import insert, select, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.declarative import declared_attr
 
 from gaia_validators import ActuatorMode
@@ -14,10 +15,15 @@ from gaia_validators import ActuatorMode
 from ouranos import db
 
 
-_base = db.Model
+class WarningLevel(Enum):
+    low = 0
+    elevated = 1
+    high = 2
+    severe = 3
+    critical = 4
 
 
-class base(_base):
+class Base(db.Model):
     __abstract__ = True
 
     def to_dict(self, exclude: list | None = None) -> dict:
@@ -28,18 +34,21 @@ class base(_base):
         }
 
 
-class WarningLevel(enum.Enum):
-    low = 0
-    elevated = 1
-    high = 2
-    severe = 3
-    critical = 4
+class Record:
+    @classmethod
+    async def create_records(
+            cls,
+            session: AsyncSession,
+            values: dict | list[dict],
+    ) -> None:
+        stmt = insert(cls).values(values)
+        await session.execute(stmt)
 
 
 # ---------------------------------------------------------------------------
 #   Base models common.py to main app and archive
 # ---------------------------------------------------------------------------
-class BaseSensorRecord(base):
+class BaseSensorRecord(Base, Record):
     __abstract__ = True
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -65,7 +74,7 @@ class BaseSensorRecord(base):
     )
 
 
-class BaseActuatorRecord(base):
+class BaseActuatorRecord(Base, Record):
     __abstract__ = True
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -80,8 +89,14 @@ class BaseActuatorRecord(base):
             sa.String(length=8), sa.ForeignKey("ecosystems.uid"), index=True
         )
 
+    @declared_attr
+    def actuator_uid(cls) -> Mapped[str]:
+        return mapped_column(
+            sa.String(length=16), sa.ForeignKey("hardware.uid"), index=True
+        )
 
-class BaseHealthRecord(base):
+
+class BaseHealthRecord(Base, Record):
     __abstract__ = True
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -97,7 +112,7 @@ class BaseHealthRecord(base):
         )
 
 
-class BaseWarning(base):
+class BaseWarning(Base):
     __abstract__ = True
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -115,3 +130,29 @@ class BaseWarning(base):
     @property
     def solved(self):
         return self.solved_on is not None
+
+    @classmethod
+    async def create(
+            cls,
+            session: AsyncSession,
+            message_payload: dict,
+    ) -> Self:
+        msg = cls(**message_payload)
+        session.add(msg)
+        await session.commit()
+        return msg
+
+    @classmethod
+    async def get_multiple(
+            cls,
+            session: AsyncSession,
+            max_first: int = 10
+    ) -> Sequence[Self]:
+        stmt = (
+            select(cls)
+            .where(cls.solved is False)
+            .order_by(cls.created_on.desc())
+            .limit(max_first)
+        )
+        result = await session.execute(stmt)
+        return result.scalars().all()

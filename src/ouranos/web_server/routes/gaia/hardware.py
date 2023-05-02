@@ -5,15 +5,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos.core import validate
 from ouranos.core.database.models.gaia import Hardware
-from ouranos.sdk import api
 from ouranos.web_server.auth import is_operator
 from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.routes.utils import assert_single_uid
 from ouranos.web_server.routes.gaia.common_queries import ecosystems_uid_q
-
-
-if t.TYPE_CHECKING:
-    from ouranos.core.database.models.gaia import Hardware
 
 
 router = APIRouter(
@@ -34,7 +29,7 @@ async def hardware_or_abort(
         session: AsyncSession,
         hardware_uid: str
 ) -> Hardware:
-    hardware = await api.hardware.get(
+    hardware = await Hardware.get(
         session=session, hardware_uid=hardware_uid
     )
     if hardware:
@@ -57,7 +52,7 @@ async def get_multiple_hardware(
             default=None, description="A list of precise hardware model"),
         session: AsyncSession = Depends(get_session),
 ):
-    hardware = await api.hardware.get_multiple(
+    hardware = await Hardware.get_multiple(
         session, hardware_uid, ecosystems_uid, hardware_level,
         hardware_type, hardware_model)
     return hardware
@@ -65,7 +60,7 @@ async def get_multiple_hardware(
 
 @router.get("/models_available")
 async def get_hardware_available() -> list[str]:
-    response = api.hardware.get_models_available()
+    response = Hardware.get_models_available()
     return response
 
 
@@ -75,7 +70,7 @@ async def create_hardware(
             description="Information about the new hardware"),
         session: AsyncSession = Depends(get_session)
 ):
-    await api.hardware.create(session, payload.dict())
+    await Hardware.create(session, payload.dict())
 
 
 @router.get("/u/{uid}", response_model=validate.gaia.hardware)
@@ -95,7 +90,7 @@ async def update_hardware(
             description="Updated information about the hardware"),
         session: AsyncSession = Depends(get_session)
 ):
-    await api.hardware.update(session, payload.dict(), uid)
+    await Hardware.update(session, payload.dict(), uid)
 
 
 @router.delete("/u/{uid}", dependencies=[Depends(is_operator)])
@@ -103,5 +98,5 @@ async def delete_hardware(
         uid: str = Query(description="A hardware uid"),
         session: AsyncSession = Depends(get_session)
 ):
-    await api.hardware.delete(session, uid)
+    await Hardware.delete(session, uid)
 

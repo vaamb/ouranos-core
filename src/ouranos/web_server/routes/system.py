@@ -2,9 +2,10 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos.core import validate
+from ouranos.core.cache import SystemDataCache
 from ouranos.core.config import consts
-from ouranos.sdk import api
-from ouranos.sdk.api.utils import timeWindow
+from ouranos.core.database.models.system import SystemHistory
+from ouranos.core.utils import timeWindow
 from ouranos.web_server.auth import is_admin
 from ouranos.web_server.dependencies import get_session, get_time_window
 from ouranos.web_server.routes.utils import empty_result
@@ -31,21 +32,29 @@ async def get_current_system_data() -> int:
     dependencies=[Depends(is_admin)],
 )
 async def get_current_system_data() -> dict:
-    return api.system.get_current_data()
+    return SystemDataCache.get()
 
 
 @router.get(
     "/data",
-    response_model=list[validate.system.system_record],
+    # response_model=list[validate.system.system_record],
     dependencies=[Depends(is_admin)],
 )
 async def get_historic_system_data(
         time_window: timeWindow = Depends(get_time_window),
         session: AsyncSession = Depends(get_session),
 ):
-    historic_system_data = await api.system.get_historic_data(
-        session, time_window
-    )
+    historic_system_data = await SystemHistory.get_records(
+        session, time_window)
     if historic_system_data:
-        return historic_system_data
-    return empty_result({})
+        return {
+            "records": [
+                (record.timestamp, record.CPU_used, record.CPU_temp,
+                 record.RAM_used, record.RAM_total, record.DISK_used,
+                 record.DISK_total)
+                for record in historic_system_data
+            ],
+            "order": ["timestamp", "CPU_used", "CPU_temp", "RAM_used",
+                      "RAM_total", "DISK_used", "DISK_total"]
+        }
+    return empty_result([])

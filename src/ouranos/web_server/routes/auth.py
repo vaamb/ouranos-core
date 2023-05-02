@@ -5,9 +5,9 @@ from fastapi.security import HTTPBasicCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos.core import validate
+from ouranos.core.database.models.app import User
 from ouranos.core.validate.models.auth import AuthenticatedUser
-from ouranos.sdk import api
-from ouranos.sdk.api.exceptions import DuplicatedEntry
+from core.exceptions import DuplicatedEntry
 from ouranos.web_server.auth import (
     Authenticator, basic_auth, check_invitation_token, get_current_user,
     login_manager, is_admin
@@ -84,13 +84,13 @@ async def register_new_user(
         payload_dict = payload.dict()
         errors = []
         username = payload_dict.pop("username")
-        user = await api.user.get(session, username)
+        user = await User.get(session, username)
         if user is not None:
             errors.append("Username already used.")
         email = payload_dict.pop("email")
         if not regex_email.match(email):
             errors.append("Wrong email format.")
-        user = await api.user.get(session, email)
+        user = await User.get(session, email)
         if user is not None:
             errors.append("Email address already used.")
         password = payload_dict.pop("password")
@@ -102,7 +102,7 @@ async def register_new_user(
                 detail=errors
             )
         payload_dict["role"] = token_payload.pop("rle", None)
-        user = await api.user.create(
+        user = await User.create(
             session, username, password, email=email, **payload_dict)
     except DuplicatedEntry as e:
         args = e.args[0]
@@ -123,4 +123,4 @@ async def create_registration_token(
                                       "role the future user"),
         session: AsyncSession = Depends(get_session),
 ):
-    return await api.auth.create_invitation_token(session, role_name)
+    return await User.create_invitation_token(session, role_name)

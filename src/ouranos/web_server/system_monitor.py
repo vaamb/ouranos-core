@@ -7,8 +7,9 @@ import os
 import psutil
 
 from ouranos import current_app, db, scheduler
-from ouranos.sdk import api
+from ouranos.core.cache import SystemDataCache
 from ouranos.core.config.consts import START_TIME
+from ouranos.core.database.models.system import SystemHistory
 from ouranos.core.utils import DispatcherFactory
 
 
@@ -52,7 +53,7 @@ class SystemMonitor:
                 "start_time": START_TIME,
             }
             async with self._mutex:
-                api.system.update_current_data(_cache)
+                SystemDataCache.update(_cache)
             await self.dispatcher.emit(
                 "current_server_data",
                 data=_cache,
@@ -63,13 +64,13 @@ class SystemMonitor:
     async def log_resources_data(self) -> None:
         self.logger.debug("Logging system resources")
         async with db.scoped_session() as session:
-            data = api.system.get_current_data()
+            data = SystemDataCache.get()
             try:
                 del data["start_time"]
             except KeyError:
                 pass
             if data:
-                await api.system.create_data_record(session, data)
+                await SystemHistory.create_records(session, data)
 
     def start(self) -> None:
         update_period = current_app.config.get("SYSTEM_UPDATE_PERIOD")
@@ -88,7 +89,7 @@ class SystemMonitor:
     def stop(self) -> None:
         async def safe_clear():
             async with self._mutex:
-                api.system.clear_current_data()
+                SystemDataCache.clear()
 
         self._stop_event.set()
         scheduler.remove_job(job_id="system_monitoring")

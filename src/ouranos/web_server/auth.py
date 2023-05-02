@@ -20,7 +20,6 @@ from ouranos.core.utils import (
 from ouranos.core.validate.models.auth import (
     anonymous_user, AuthenticatedUser, CurrentUser
 )
-from ouranos.sdk import api
 from ouranos.web_server.dependencies import get_session
 
 
@@ -87,7 +86,7 @@ class Authenticator:
             username: str,
             password: str,
     ) -> AuthenticatedUser:
-        user = await api.user.get(session, username)
+        user = await User.get(session, username)
         try:
             password_correct = user.check_password(password)
         except AttributeError:  # empty password
@@ -143,7 +142,7 @@ login_manager = LoginManager()
 
 @login_manager.user_loader
 async def load_user(user_id: Optional[int], session: AsyncSession) -> User:
-    return await api.user.get(session, user_id)
+    return await User.get(session, user_id)
 
 
 async def get_current_user(

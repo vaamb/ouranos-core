@@ -1,22 +1,24 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from enum import IntFlag
 from hashlib import md5
 import re
 import time as ctime
-from typing import Optional
+from typing import Optional, Self, Sequence
 
 from argon2 import PasswordHasher
 from argon2.exceptions import VerificationError
 import sqlalchemy as sa
-from sqlalchemy import select, Table
+from sqlalchemy import delete, select, Table, update
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos import current_app
+from ouranos.core.config.consts import REGISTRATION_TOKEN_VALIDITY, TOKEN_SUBS
 from ouranos.core.database import ArchiveLink
-from ouranos.core.database.models.common import base, BaseWarning
+from ouranos.core.database.models.common import Base, BaseWarning
+from ouranos.core.exceptions import DuplicatedEntry, NoResultFound
 from ouranos.core.utils import ExpiredTokenError, InvalidTokenError, Tokenizer
 
 argon2_hasher = PasswordHasher()
@@ -32,7 +34,7 @@ class Permission(IntFlag):
     ADMIN = 8
 
 
-class Role(base):
+class Role(Base):
     __tablename__ = "roles"
     __bind_key__ = "app"
 
@@ -134,7 +136,7 @@ anonymous_user = AnonymousUserMixin()
 
 
 AssociationUserRecap = Table(
-    "association_user_recap", base.metadata,
+    "association_user_recap", Base.metadata,
     sa.Column("user_uid",
               sa.String(length=32),
               sa.ForeignKey("users.id")),
@@ -144,7 +146,7 @@ AssociationUserRecap = Table(
 )
 
 
-class User(base, UserMixin):
+class User(Base, UserMixin):
     __tablename__ = "users"
     __bind_key__ = "app"
 
@@ -187,6 +189,24 @@ class User(base, UserMixin):
             password: str,
             **kwargs
     ) -> User:
+        # Check if new user is a duplicate
+        error = []
+        stmt = select(User).where(User.username == username)
+        if "email" in kwargs:
+            stmt = stmt.where(User.email == kwargs["email"])
+        if "telegram_id" in kwargs:
+            stmt = stmt.where(User.telegram_id == kwargs["telegram_id"])
+        result = await session.execute(stmt)
+        previous_user: User = result.scalars().first()
+        if previous_user:
+            if previous_user.username == username:
+                error.append("username")
+            if previous_user.email == kwargs.get("email", False):
+                error.append("email")
+            if previous_user.telegram_id == kwargs.get("telegram_id", False):
+                error.append("telegram_id")
+            raise DuplicatedEntry(error)
+        # Create user
         kwargs["username"] = username
         role_name = kwargs.pop("role")
         user = User(**kwargs)
@@ -210,7 +230,77 @@ class User(base, UserMixin):
         if user.role is None:
             user.role = await get_role(role_name)
         user.set_password(password)
+        session.add(user)
+        await session.commit()
         return user
+
+    @classmethod
+    async def update(
+            cls,
+            session: AsyncSession,
+            values: dict,
+            user_id: int | str | None,
+    ) -> None:
+        user_id = user_id or values.pop("uid", None)
+        if not user_id:
+            raise ValueError(
+                "Provide user_id either as a parameter or as a key in the updated info"
+            )
+        password = values.pop("password")
+        stmt = (
+            update(cls)
+            .where(
+                (User.id == user_id)
+                | (User.username == user_id)
+                | (User.email == user_id)
+            )
+            .values(**values)
+        )
+        await session.execute(stmt)
+        user = await cls.get(session, user_id)
+        if password:
+            user.set_password(password)
+        session.add(user)
+        await session.commit()
+
+    @classmethod
+    async def delete(cls, session: AsyncSession, user_id: int | str) -> None:
+        stmt = (
+            delete(cls)
+            .where(
+                (cls.id == user_id)
+                | (cls.username == user_id)
+                | (cls.email == user_id)
+            )
+        )
+        await session.execute(stmt)
+
+    @classmethod
+    async def get(
+            cls,
+            session: AsyncSession,
+            user_id: int | str
+    ) -> Self | None:
+        stmt = (
+            select(cls)
+            .where(
+                (cls.id == user_id)
+                | (cls.username == user_id)
+                | (cls.email == user_id)
+            )
+        )
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    @classmethod
+    async def get_by_telegram_id(
+            cls,
+            session: AsyncSession,
+            telegram_id: int
+    ) -> Self:
+        stmt = select(cls).where(cls.telegram_id == telegram_id)
+        result = await session.execute(stmt)
+        return result.scalars().one_or_none()
 
     @staticmethod
     async def insert_gaia(session: AsyncSession):
@@ -268,6 +358,35 @@ class User(base, UserMixin):
         return Tokenizer.dumps(payload, secret_key)
 
     @staticmethod
+    async def create_invitation_token(
+            session: AsyncSession,
+            role_name: str | None = None,
+    ) -> str:
+        if role_name is not None:
+            if role_name != "default":
+                stmt = select(Role).where(Role.name == role_name)
+                result = await session.execute(stmt)
+                role = result.scalars().first()
+                if role is None:
+                    role_name = None
+                else:
+                    stmt = select(Role).where(Role.default == True)  # noqa
+                    result = await session.execute(stmt)
+                    default_role = result.scalars().one()
+                    if role.name == default_role.name:
+                        role_name = role.name
+            else:
+                role_name = None
+        payload = {
+            "sub": TOKEN_SUBS.REGISTRATION.value,
+            "exp": datetime.utcnow() + timedelta(
+                seconds=REGISTRATION_TOKEN_VALIDITY),
+        }
+        if role_name is not None:
+            payload.update({"rle": role_name})
+        return Tokenizer.dumps(payload)
+
+    @staticmethod
     def load_from_token(token: str, token_use: str):
         try:
             payload = Tokenizer.loads(token)
@@ -286,7 +405,7 @@ class User(base, UserMixin):
         return False
 
 
-class Service(base):
+class Service(Base):
     __tablename__ = "services"
     __bind_key__ = "app"
 
@@ -295,8 +414,20 @@ class Service(base):
     level: Mapped[str] = mapped_column(sa.String(length=4))
     status: Mapped[bool] = mapped_column(default=False)
 
+    @classmethod
+    async def get_multiple(
+            cls,
+            session: AsyncSession,
+            level: str | list | None = None
+    ) -> Sequence[Service]:
+        stmt = select(cls)
+        if level:
+            stmt = stmt.where(cls.level.in_(level))
+        result = await session.execute(stmt)
+        return result.scalars().all()
 
-class CommunicationChannel(base):
+
+class CommunicationChannel(Base):
     __tablename__ = "communication_channels"
     __bind_key__ = "app"
 
@@ -333,7 +464,7 @@ class FlashMessage(BaseWarning):
     __archive_link__ = ArchiveLink("warnings", "recent")
 
 
-class CalendarEvent(base):  # TODO: apply similar to warnings
+class CalendarEvent(Base):  # TODO: apply similar to warnings
     __tablename__ = "calendar_events"
     __bind_key__ = "app"
 
@@ -354,7 +485,7 @@ class CalendarEvent(base):  # TODO: apply similar to warnings
     user: Mapped[list["User"]] = relationship(back_populates="calendar")
 
 
-class GaiaJob(base):
+class GaiaJob(Base):
     __tablename__ = "gaia_jobs"
     __bind_key__ = "app"
 

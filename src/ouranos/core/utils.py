@@ -3,7 +3,8 @@ from __future__ import annotations
 import asyncio
 import base64
 import dataclasses
-from datetime import date, datetime, time, timezone
+from dataclasses import dataclass
+from datetime import date, datetime, time, timedelta, timezone
 from functools import wraps
 import typing as t
 from typing import Any
@@ -79,6 +80,58 @@ else:
 dispatcher_type: "AsyncBaseDispatcher" | "AsyncRedisDispatcher" | "AsyncAMQPDispatcher"
 
 coordinates = cachetools.LFUCache(maxsize=16)
+
+
+@dataclass(frozen=True)
+class timeWindow:
+    start: datetime
+    end: datetime
+
+
+def create_time_window(
+        start: str | datetime = None,
+        end: str | datetime = None,
+        window_length: int = 7,
+        **kwargs
+) -> timeWindow:
+    if end:
+        if isinstance(end, str):
+            _end = datetime.fromisoformat(end)
+        elif isinstance(end, datetime):
+            _end = end
+        else:
+            raise ValueError
+    else:
+        _end = datetime.now(timezone.utc)
+    if start:
+        if isinstance(start, str):
+            _start = datetime.fromisoformat(start)
+        elif isinstance(start, datetime):
+            _start = start
+        else:
+            raise ValueError
+    else:
+        _start = _end - timedelta(days=window_length)
+    if _start > _end:
+        _start, _end = _end, _start
+    return timeWindow(
+        start=round_datetime(_start, **kwargs),
+        end=round_datetime(_end, **kwargs)
+    )
+
+
+def round_datetime(
+        dt: datetime,
+        rounding_base: int = 10,
+        grace_time: int = 60
+) -> datetime:
+    """ Round the datetime to the nearest 10 minutes to allow result caching
+    """
+    grace_time = timedelta(seconds=grace_time)
+    rounded_minute = dt.minute // rounding_base * rounding_base
+    return (
+        dt.replace(minute=rounded_minute, second=0, microsecond=0) + grace_time
+    )
 
 
 def humanize_list(lst: list) -> str:

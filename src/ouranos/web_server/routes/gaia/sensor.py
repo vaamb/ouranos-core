@@ -4,18 +4,13 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos.core import validate
-from ouranos.core.database.models.gaia import Hardware, HardwareType
-from ouranos.sdk import api
-from ouranos.sdk.api.utils import timeWindow
+from ouranos.core.database.models.gaia import Measure, Sensor
+from ouranos.core.utils import timeWindow
 from ouranos.web_server.dependencies import get_session, get_time_window
 from ouranos.web_server.routes.utils import assert_single_uid
 from ouranos.web_server.routes.gaia.common_queries import (
     ecosystems_uid_q, sensor_level_q
 )
-
-
-if t.TYPE_CHECKING:
-    from ouranos.core.database.models.gaia import Hardware
 
 
 router = APIRouter(
@@ -32,15 +27,14 @@ historic_data_query = Query(default=True, description="Fetch logged data")
 async def sensor_or_abort(
         session: AsyncSession,
         sensor_uid: str
-) -> Hardware:
-    hardware = await api.hardware.get(
-        session=session, hardware_uid=sensor_uid)
-    if hardware is None or hardware.type != HardwareType.sensor:
+) -> Sensor:
+    sensor = await Sensor.get(session=session, uid=sensor_uid)
+    if sensor is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No sensor(s) found"
         )
-    return hardware
+    return sensor
 
 
 @router.get("")
@@ -58,19 +52,19 @@ async def get_sensors(
         time_window: timeWindow = Depends(get_time_window),
         session: AsyncSession = Depends(get_session),
 ):
-    sensor_objs = await api.sensor.get_multiple(
+    sensors = await Sensor.get_multiple(
         session, sensors_uid, ecosystems_uid, sensors_level, sensors_model,
         time_window)
-    response = [await api.sensor.get_overview(
-        session, sensor_obj, measures, current_data,
-        historic_data, time_window
-    ) for sensor_obj in sensor_objs]
+    response = [
+        await sensor.get_overview(
+            session, measures, current_data, historic_data, time_window)
+        for sensor in sensors]
     return response
 
 
 @router.get("/sensor/measures_available", response_model=list[validate.gaia.measure])
 async def get_measures_available(session: AsyncSession = Depends(get_session)):
-    measures = await api.measure.get_multiple(session)
+    measures = await Measure.get_multiple(session)
     return measures
 
 
@@ -84,8 +78,8 @@ async def get_sensor(
 ):
     assert_single_uid(uid)
     sensor = await sensor_or_abort(session, uid)
-    response = await api.sensor.get_overview(
-        session, sensor, None, current_data, historic_data, time_window)
+    response = await sensor.get_overview(
+        session, None, current_data, historic_data, time_window)
     return response
 
 
@@ -103,8 +97,6 @@ async def get_measure_for_sensor(
     sensor = await sensor_or_abort(session, uid)
     response = {}
     if measure in [m.name for m in sensor.measures]:
-        response = await api.sensor.get_overview(
-            session, sensor, measure, current_data, historic_data,
-            time_window
-        )
+        response = await sensor.get_overview(
+            session, measure, current_data, historic_data, time_window)
     return response

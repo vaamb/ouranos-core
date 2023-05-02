@@ -4,7 +4,8 @@ from fastapi import HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos import db
-from ouranos.sdk.api.utils import create_time_window, timeWindow
+
+from ouranos.core.utils import create_time_window, timeWindow
 
 
 async def get_session() -> AsyncSession:
