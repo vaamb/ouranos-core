@@ -253,7 +253,6 @@ class ecosystem(_gaia_abc):
         raise NoEcosystemFound
 
     @staticmethod
-    @cached()
     async def get_management(
             session: AsyncSession,
             ecosystem_obj: Ecosystem,
@@ -274,7 +273,7 @@ class ecosystem(_gaia_abc):
             return bool(result.first())
 
         @cached(cache_ecosystem_info)
-        async def inner_func(_ecosystem_obj: Ecosystem):
+        async def inner_func(ecosystem_uid: str):
             management = ecosystem_obj.management_dict()
             return {
                 "uid": ecosystem_obj.uid,
@@ -292,7 +291,7 @@ class ecosystem(_gaia_abc):
                 "environment_data": await sensor_data(ecosystem_obj.uid, "environment"),
                 "plants_data": await sensor_data(ecosystem_obj.uid, "plants"),
             }
-        return await inner_func(ecosystem_obj)
+        return await inner_func(ecosystem_obj.uid)
 
     @staticmethod
     async def get_sensors_data_skeleton(
@@ -676,7 +675,7 @@ class sensor:
     ) -> list:
         @cached(cache_sensors_data_raw)
         async def inner_func(
-                _sensor_obj: Hardware,
+                _sensor_uid: str,
                 _measure_name: str,
                 _time_window: timeWindow
         ) -> list:
@@ -692,7 +691,7 @@ class sensor:
             result = await session.execute(stmt)
             records: Sequence[SensorRecord] = result.scalars().all()
             return [(record.timestamp, record.value) for record in records]
-        return await inner_func(sensor_obj, measure_name, time_window)
+        return await inner_func(sensor_obj.uid, measure_name, time_window)
 
     @staticmethod
     async def _get_historic_data(
