@@ -806,6 +806,17 @@ class Sensor(Hardware):
     Sensors creation, update and deletion are handled by the class `Hardware`
     """
 
+    @staticmethod
+    def _add_time_window_to_stmt(stmt, time_window: timeWindow):
+        return (
+            stmt.join(SensorRecord.sensor)
+            .where(
+                (SensorRecord.timestamp > time_window.start) &
+                (SensorRecord.timestamp <= time_window.end)
+            )
+            .distinct()
+        )
+
     @classmethod
     async def get(
             cls,
@@ -815,14 +826,7 @@ class Sensor(Hardware):
     ) -> Self | None:
         stmt = cls.generate_query(hardware_uid=uid)
         if time_window:
-            stmt = (
-                stmt.join(SensorRecord.sensor)
-                .where(
-                    (SensorRecord.timestamp > time_window.start) &
-                    (SensorRecord.timestamp <= time_window.end)
-                )
-                .distinct()
-            )
+            stmt = cls._add_time_window_to_stmt(stmt, time_window)
         result = await session.execute(stmt)
         hardware: Hardware | None = result.unique().scalar_one_or_none()
         if hardware:
@@ -843,14 +847,7 @@ class Sensor(Hardware):
         stmt = cls.generate_query(
             hardware_uids, ecosystem_uids, levels, "sensor", models)
         if time_window:
-            stmt = (
-                stmt.join(SensorRecord.sensor)
-                .where(
-                    (SensorRecord.timestamp > time_window.start)
-                    & (SensorRecord.timestamp <= time_window.end)
-                )
-                .distinct()
-            )
+            stmt = cls._add_time_window_to_stmt(stmt, time_window)
         result = await session.execute(stmt)
         hardware: Sequence[Hardware] = result.unique().scalars().all()
         return [h for h in hardware if h.type == HardwareType.sensor.name]
@@ -960,6 +957,17 @@ class Actuator(Hardware):
     Actuators creation, update and deletion are handled by the class `Hardware`
     """
 
+    @staticmethod
+    def _add_time_window_to_stmt(stmt, time_window: timeWindow):
+        return (
+            stmt.join(ActuatorRecord.actuator)
+            .where(
+                (ActuatorRecord.timestamp > time_window.start)
+                & (ActuatorRecord.timestamp <= time_window.end)
+            )
+            .distinct()
+        )
+
     @classmethod
     async def get(
             cls,
@@ -969,14 +977,7 @@ class Actuator(Hardware):
     ) -> Self | None:
         stmt = cls.generate_query(hardware_uid=uid)
         if time_window:
-            stmt = (
-                stmt.join(ActuatorRecord.actuator)
-                .where(
-                    (ActuatorRecord.timestamp > time_window.start) &
-                    (ActuatorRecord.timestamp <= time_window.end)
-                )
-                .distinct()
-            )
+            stmt = cls._add_time_window_to_stmt(stmt, time_window)
         result = await session.execute(stmt)
         hardware: Hardware | None = result.unique().scalar_one_or_none()
         if hardware:
@@ -997,14 +998,7 @@ class Actuator(Hardware):
         stmt = cls.generate_query(
             hardware_uids, ecosystem_uids, levels, "sensor", models)
         if time_window:
-            stmt = (
-                stmt.join(ActuatorRecord.actuator)
-                .where(
-                    (ActuatorRecord.timestamp > time_window.start)
-                    & (ActuatorRecord.timestamp <= time_window.end)
-                )
-                .distinct()
-            )
+            stmt = cls._add_time_window_to_stmt(stmt, time_window)
         result = await session.execute(stmt)
         hardware: Sequence[Hardware] = result.unique().scalars().all()
         return [h for h in hardware if h.type != HardwareType.sensor.name]
