@@ -20,7 +20,11 @@ def sqlalchemy_to_pydantic(
         name = column.key
         if name in exclude:
             continue
-        python_type = column.type.python_type
+        try:
+            python_type = column.type.python_type
+        except Exception:
+            # Column type is a custom type implementing a base sqlalchemy type
+            python_type = column.type.impl.python_type
         default = None
         if column.default is None and not column.nullable:
             default = ...
