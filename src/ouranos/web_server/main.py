@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import typing as t
+from typing import Callable
 
 import click
 import uvicorn
@@ -14,6 +15,12 @@ from ouranos.web_server.system_monitor import SystemMonitor
 
 if t.TYPE_CHECKING:
     from ouranos.core.config import profile_type
+
+
+class _AppWrapper:
+    def __init__(self, start: Callable[[], None], stop: Callable[[], None]):
+        self.start = start
+        self.stop = stop
 
 
 @click.command()
@@ -62,6 +69,7 @@ class WebServer(Functionality):
             log_config=None, server_header=False, date_header=False,
         )
         self.server = uvicorn.Server(self.server_cfg)
+        self._app: _AppWrapper
         if self.server_cfg.should_reload:
             # TODO: make it work, handle stop and shutdown
             from uvicorn.supervisors import ChangeReload
@@ -70,8 +78,7 @@ class WebServer(Functionality):
             reload = ChangeReload(
                 self.server_cfg, target=self.server.run, sockets=[sock]
             )
-            self._app = reload
-            self._app.start = reload.run
+            self._app = _AppWrapper(reload.run, reload.shutdown)
         elif self.server_cfg.workers > 1:
             # Works on linux, not on Windows
             from uvicorn.supervisors import Multiprocess
@@ -80,21 +87,15 @@ class WebServer(Functionality):
             multi = Multiprocess(
                 self.server_cfg, target=self.server.run, sockets=[sock]
             )
-            self._app = multi
-            self._app.start = multi.startup
-            self._app.stop = multi.shutdown
+            self._app = _AppWrapper(multi.startup, multi.shutdown)
         else:
-            class Holder:
-                __slots__ = ("start", "stop")
-
             def start():
                 asyncio.ensure_future(self.server.serve())
 
             def stop():
                 self.server.should_exit = True
-            self._app = Holder()
-            self._app.start = start
-            self._app.stop = stop
+
+            self._app = _AppWrapper(start, stop)
 
     def _start(self):
         self.logger.info("Starting the Web server")
