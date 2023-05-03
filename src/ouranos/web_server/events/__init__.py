@@ -7,7 +7,6 @@ from socketio import AsyncNamespace, BaseManager
 
 from ouranos import db
 from ouranos.core.database.models import Ecosystem
-from ouranos.sdk import api
 from ouranos.web_server.events.decorators import permission_required
 
 
