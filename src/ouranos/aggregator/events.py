@@ -8,14 +8,12 @@ from typing import cast, TypedDict
 
 from cachetools import LRUCache, TTLCache
 from dispatcher import AsyncDispatcher, AsyncEventHandler
+from pydantic import BaseModel, parse_obj_as
 from socketio import AsyncNamespace
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from gaia_validators import (
-    BaseInfoConfigPayloadDict, EnvironmentConfigPayloadDict, HealthDataPayloadDict,
-    LightDataPayloadDict, HardwareConfigPayloadDict, ManagementConfigPayloadDict,
-    ManagementFlags, SensorsDataPayloadDict)
+from gaia_validators import *
 from ouranos import current_app, db
 from ouranos.aggregator.decorators import (
     dispatch_to_application, registration_required)
@@ -34,6 +32,11 @@ class SensorDataRecord(TypedDict):
     value: float
 
 
+def validate_payload(data: list[dict], model_cls: BaseModel) -> list[dict]:
+    temp: list[BaseModel] = parse_obj_as(list[model_cls], data)
+    return [obj.dict() for obj in temp]
+
+
 _ecosystem_name_cache = LRUCache(maxsize=32)
 
 
@@ -44,31 +47,17 @@ async def get_ecosystem_name(
     try:
         return _ecosystem_name_cache[ecosystem_uid]
     except KeyError:
+        async def inner_func(session: AsyncSession, ecosystem_uid: str):
+            ecosystem_obj = await Ecosystem.get(session, ecosystem_uid)
+            if ecosystem_obj is not None:
+                _ecosystem_name_cache[ecosystem_uid] = ecosystem_obj.name
+                return ecosystem_obj.name
+
         if session is not None:
-            ecosystem_obj = await Ecosystem.get(session, ecosystem_uid)
-            if ecosystem_obj is not None:
-                _ecosystem_name_cache[ecosystem_uid] = ecosystem_obj.name
-                return ecosystem_obj.name
+            return await inner_func(session, ecosystem_uid)
         async with db.scoped_session() as session:
-            ecosystem_obj = await Ecosystem.get(session, ecosystem_uid)
-            if ecosystem_obj is not None:
-                _ecosystem_name_cache[ecosystem_uid] = ecosystem_obj.name
-                return ecosystem_obj.name
+            return await inner_func(session, ecosystem_uid)
         # TODO: return or raise when not found
-
-
-def try_time_from_iso(iso_str: str | None) -> time | None:
-    try:
-        return time.fromisoformat(iso_str)
-    except (TypeError, AttributeError):
-        return None
-
-
-def try_datetime_from_iso(iso_str: str | None) -> datetime | None:
-    try:
-        return datetime.fromisoformat(iso_str)
-    except (TypeError, ValueError):
-        return None
 
 
 class Events:
@@ -217,7 +206,6 @@ class Events:
             engine_info = {
                 "uid": engine_uid,
                 "sid": sid,
-                "registration_date": now,
                 "last_seen": now,
                 "address": f"{remote_addr}",
             }
@@ -231,7 +219,7 @@ class Events:
             self.logger.info(f"Successful registration of engine {engine_uid}")
 
     @registration_required
-    async def on_ping(self, sid, data, engine_uid) -> None:
+    async def on_ping(self, sid, data: list[str], engine_uid) -> None:
         self.logger.debug(f"Received 'ping' from engine {engine_uid}")
         now = datetime.now(timezone.utc).replace(microsecond=0)
         ecosystems_seen: list[str] = []
@@ -239,11 +227,11 @@ class Events:
             engine = await Engine.get(session, sid)
             if engine:
                 engine.last_seen = now
-                for ecosystem_uid in data:
-                    ecosystem = await Ecosystem.get(session, ecosystem_uid)
-                    if ecosystem is not None:
-                        ecosystems_seen.append(ecosystem.name)
-                        ecosystem.last_seen = now
+            for ecosystem_uid in data:
+                ecosystem = await Ecosystem.get(session, ecosystem_uid)
+                if ecosystem is not None:
+                    ecosystems_seen.append(ecosystem.name)
+                    ecosystem.last_seen = now
         self.logger.debug(
             f"Updated last seen info for ecosystem(s) "
             f"{humanize_list(ecosystems_seen)}"
@@ -257,11 +245,14 @@ class Events:
             engine_uid: str
     ) -> None:
         self.logger.debug(f"Received 'base_info' from engine: {engine_uid}")
+        data: list[BaseInfoConfigPayloadDict] = validate_payload(
+            data, BaseInfoConfigPayload)
         ecosystems: list[dict[str, str]] = []
         ecosystems_to_log: list[str] = []
         async with db.scoped_session() as session:
             for payload in data:
                 ecosystem = payload["data"]
+                ecosystem["last_seen"] = datetime.now(timezone.utc)
                 ecosystems_to_log.append(ecosystem["name"])
                 await Ecosystem.update_or_create(session, ecosystem)
             ecosystems.append({"uid": payload["uid"], "status": ecosystem["status"]})
@@ -282,6 +273,8 @@ class Events:
             engine_uid: str
     ) -> None:
         self.logger.debug(f"Received 'management' from engine: {engine_uid}")
+        data: list[ManagementConfigPayloadDict] = validate_payload(
+            data, ManagementConfigPayload)
         ecosystems_to_log: list[str] = []
         async with db.scoped_session() as session:
             for payload in data:
@@ -315,6 +308,8 @@ class Events:
         self.logger.debug(
             f"Received 'environmental_parameters' from engine: {engine_uid}"
         )
+        data: list[EnvironmentConfigPayloadDict] = validate_payload(
+            data, EnvironmentConfigPayload)
         ecosystems_to_log: list[str] = []
         async with db.scoped_session() as session:
             for payload in data:
@@ -326,12 +321,12 @@ class Events:
                 sky = ecosystem["sky"]
                 ecosystem_info = {
                     "uid": uid,
-                    "day_start": try_time_from_iso(sky.get("day")),
-                    "night_start": try_time_from_iso(sky.get("night")),
+                    "day_start": sky["day"],
+                    "night_start": sky["night"],
                 }
                 await Ecosystem.update_or_create(session, ecosystem_info)
                 await Light.update_or_create(
-                    session, {"method": sky.get("lighting")}, uid)
+                    session, {"method": sky["lighting"]}, uid)
                 for param in ecosystem["climate"]:
                     await EnvironmentParameter.update_or_create(
                         session, param, uid)
@@ -350,6 +345,8 @@ class Events:
         self.logger.debug(
             f"Received 'hardware' from engine: {engine_uid}"
         )
+        data: list[HardwareConfigPayloadDict] = validate_payload(
+            data, HardwareConfigPayload)
         ecosystems_to_log: list[str] = []
         async with db.scoped_session() as session:
             active_hardware = []
@@ -365,7 +362,7 @@ class Events:
                     # TODO: register multiplexer ?
                     del hardware["multiplexer_model"]
                     await Hardware.update_or_create(
-                        session, values=hardware, uid=hardware_uid,)
+                        session, values=hardware, uid=hardware_uid)
                     await sleep(0)
             stmt = select(Hardware).where(Hardware.uid.not_in(active_hardware))
             result = await session.execute(stmt)
@@ -389,22 +386,23 @@ class Events:
         self.logger.debug(
             f"Received 'sensors_data' from engine: {engine_uid}"
         )
+        data: list[SensorsDataPayloadDict] = validate_payload(
+            data, SensorsDataPayload)
         await self.ouranos_dispatcher.emit(
             "current_sensors_data", data=data, namespace="application", ttl=15)
         sensors_data: list[SensorDataRecord] = []
         last_log: dict[str, datetime] = {}
         for ecosystem in data:
             ecosystem_data = ecosystem["data"]
-            dt = try_datetime_from_iso(ecosystem_data["timestamp"])
             for sensor_record in ecosystem_data["records"]:
                 sensor_uid: str = sensor_record["sensor_uid"]
-                last_log[sensor_uid] = dt
+                last_log[sensor_uid] = ecosystem_data["timestamp"]
                 for measure in sensor_record["measures"]:
                     sensors_data.append(cast(SensorDataRecord, {
                         "ecosystem_uid": ecosystem["uid"],
-                        "sensor_uid": sensor_uid,
+                        "sensor_uid": sensor_record["sensor_uid"],
                         "measure": measure["measure"],
-                        "timestamp": dt,
+                        "timestamp": ecosystem_data["timestamp"],
                         "value": float(measure["value"]),
                     }))
             await sleep(0)
@@ -456,6 +454,8 @@ class Events:
         self.logger.debug(
             f"Received 'update_health_data' from {engine_uid}"
         )
+        data: list[HealthDataPayloadDict] = validate_payload(
+            data, HealthDataPayload)
         logged: list[str] = []
         # healthData.update(data)
         values: list[dict] = []
@@ -489,6 +489,8 @@ class Events:
             engine_uid: str
     ) -> None:
         self.logger.debug(f"Received 'light_data' from {engine_uid}")
+        data: list[LightDataPayloadDict] = validate_payload(
+            data, LightDataPayload)
         ecosystems_to_log: list[str] = []
         async with db.scoped_session() as session:
             for payload in data:
@@ -496,23 +498,15 @@ class Events:
                     await get_ecosystem_name(payload["uid"], session)
                 )
                 ecosystem = payload["data"]
-                morning_start = try_time_from_iso(
-                    cast(str, ecosystem.get("morning_start")))
-                morning_end = try_time_from_iso(
-                    cast(str,ecosystem.get("morning_end", None)))
-                evening_start = try_time_from_iso(
-                    cast(str, ecosystem.get("evening_start", None)))
-                evening_end = try_time_from_iso(
-                    cast(str, ecosystem.get("evening_end", None)))
                 light_info = {
                     "ecosystem_uid": payload["uid"],
                     "status": ecosystem["status"],
                     "mode": ecosystem["mode"],
                     "method": ecosystem["method"],
-                    "morning_start": morning_start,
-                    "morning_end": morning_end,
-                    "evening_start": evening_start,
-                    "evening_end": evening_end
+                    "morning_start": ecosystem["morning_start"],
+                    "morning_end": ecosystem["morning_end"],
+                    "evening_start": ecosystem["evening_start"],
+                    "evening_end": ecosystem["evening_end"]
                 }
                 await Light.update_or_create(session, light_info)
         self.logger.debug(

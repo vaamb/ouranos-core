@@ -445,6 +445,12 @@ class Light(GaiaBase):
     # relationships
     ecosystem: Mapped["Ecosystem"] = relationship(back_populates="light")
 
+    def __repr__(self) -> str:
+        return (
+            f"<Light({self.ecosystem_uid}, status={self.status}, "
+            f"mode={self.mode})>"
+        )
+
     @classmethod
     async def update(
             cls,
@@ -654,7 +660,7 @@ class Hardware(GaiaBase):
     name: Mapped[str] = mapped_column(sa.String(length=32))
     level: Mapped[HardwareLevel] = mapped_column()
     address: Mapped[str] = mapped_column(sa.String(length=32))
-    type: Mapped[HardwareType] = mapped_column(sa.String(length=16))
+    type: Mapped[HardwareType] = mapped_column()
     model: Mapped[str] = mapped_column(sa.String(length=32))
     status: Mapped[bool] = mapped_column(default=True)
     last_log: Mapped[Optional[datetime]] = mapped_column()
@@ -710,7 +716,9 @@ class Hardware(GaiaBase):
     ) -> Self:
         measures = values.pop("measures", [])
         plants = values.pop("plants", [])
-        hardware_obj: Hardware = await super().create(session, values)
+        stmt = insert(cls).values(values)
+        await session.execute(stmt)
+        hardware_obj = await cls.get(session, values["uid"])
         if any((measures, plants)):
             await hardware_obj.attach_relationships(session, measures, plants)
         return hardware_obj
