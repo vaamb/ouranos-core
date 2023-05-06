@@ -87,6 +87,12 @@ class timeWindow:
     start: datetime
     end: datetime
 
+    def __repr__(self) -> str:
+        return (
+            f"<timeWindow(start={self.start.isoformat(timespec='minutes')}, "
+            f"end={self.end.isoformat(timespec='minutes')})>"
+        )
+
 
 def create_time_window(
         start: str | datetime = None,

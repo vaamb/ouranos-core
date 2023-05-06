@@ -41,7 +41,7 @@ measure_order = (
 _ecosystem_caches_size = 16
 _cache_ecosystem_has_recent_data = TTLCache(maxsize=_ecosystem_caches_size * 2, ttl=60)
 _cache_sensors_data_skeleton = TTLCache(maxsize=_ecosystem_caches_size, ttl=900)
-_cache_sensor_records = TTLCache(maxsize=_ecosystem_caches_size * 32, ttl=900)
+_cache_sensor_records = TTLCache(maxsize=_ecosystem_caches_size * 32, ttl=300)
 _cache_recent_warnings = TTLCache(maxsize=5, ttl=60)
 _cache_measures = LRUCache(maxsize=16)
 
@@ -320,7 +320,7 @@ class Ecosystem(GaiaBase):
     def reset_managements(self):
         self.management = 0
 
-    @cached(_cache_ecosystem_has_recent_data)
+    @cached(_cache_ecosystem_has_recent_data, key=sessionless_hashkey)
     async def has_recent_sensor_data(
             self,
             session: AsyncSession,
@@ -1109,7 +1109,7 @@ class SensorRecord(BaseSensorRecord):
     sensor: Mapped["Hardware"] = relationship(back_populates="sensor_records")
 
     @classmethod
-    @cached(_cache_sensor_records)
+    @cached(_cache_sensor_records, key=sessionless_hashkey)
     async def get_records(
             cls,
             session: AsyncSession,
