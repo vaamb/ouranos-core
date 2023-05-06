@@ -34,7 +34,7 @@ def _create_cache(
         "sun_times_data": 0,
     }
 
-    url = config.get("CACHING_SERVER_URL", "")
+    url = config.get("CACHE_SERVER_URL", "")
     if url.startswith("redis"):
         try:
             import redis
@@ -108,18 +108,6 @@ class DataCache:
             del cache[key]
         else:
             cache.clear()
-
-
-class SensorDataCache(DataCache):
-    @classmethod
-    def _get_cache(cls):
-        return get_cache("sensors_data")
-
-
-class SystemDataCache(DataCache):
-    @classmethod
-    def _get_cache(cls):
-        return get_cache("system_data")
 
 
 class WeatherCache(DataCache):

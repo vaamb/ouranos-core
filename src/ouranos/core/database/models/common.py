@@ -1,19 +1,22 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from abc import abstractmethod
+from datetime import datetime
 from enum import Enum
 from typing import Optional, Self, Sequence
 
 import sqlalchemy as sa
 from sqlalchemy import insert, select, UniqueConstraint
+from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.ext.declarative import declared_attr
+from sqlalchemy.sql import func
 
 from gaia_validators import ActuatorMode
 
 from ouranos import db
 from ouranos.core.database.models.types import UtcDateTime
+from ouranos.core.utils import timeWindow
 
 
 class WarningLevel(Enum):
@@ -45,11 +48,20 @@ class Record:
         stmt = insert(cls).values(values)
         await session.execute(stmt)
 
+    @classmethod
+    @abstractmethod
+    async def get_records(
+            cls,
+            session: AsyncSession,
+            **kwargs
+    ) -> Sequence[Self]:
+        raise NotImplementedError
+
 
 # ---------------------------------------------------------------------------
-#   Base models common.py to main app and archive
+#   Models common to memory/redis db and sql db
 # ---------------------------------------------------------------------------
-class BaseSensorRecord(Base, Record):
+class BaseSensorData(Base):
     __abstract__ = True
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -73,6 +85,51 @@ class BaseSensorRecord(Base, Record):
         UniqueConstraint("measure", "timestamp", "value", "ecosystem_uid",
                          "sensor_uid", name="_no_repost_constraint"),
     )
+
+
+class BaseSystemData(Base):
+    __abstract__ = True
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    system_uid: Mapped[str] = mapped_column(default="NA")
+    timestamp: Mapped[datetime] = mapped_column(UtcDateTime)
+    CPU_used: Mapped[float] = mapped_column(sa.Float(precision=1))
+    CPU_temp: Mapped[Optional[float]] = mapped_column(sa.Float(precision=1))
+    RAM_total: Mapped[float] = mapped_column(sa.Float(precision=2))
+    RAM_used: Mapped[float] = mapped_column(sa.Float(precision=2))
+    RAM_process: Mapped[float] = mapped_column(sa.Float(precision=2))
+    DISK_total: Mapped[float] = mapped_column(sa.Float(precision=2))
+    DISK_used: Mapped[float] = mapped_column(sa.Float(precision=2))
+
+
+# ---------------------------------------------------------------------------
+#   Models common to main app and archive
+# ---------------------------------------------------------------------------
+class BaseSensorRecord(BaseSensorData, Record):
+    __abstract__ = True
+
+    @classmethod
+    async def get_records(
+            cls,
+            session: AsyncSession,
+            sensor_uid: str,
+            measure_name: str,
+            time_window: timeWindow
+    ) -> Sequence[Self]:
+        stmt = (
+            select(cls)
+            .where(cls.measure == measure_name)
+            .where(cls.sensor_uid == sensor_uid)
+            .where(
+                (cls.timestamp > time_window.start)
+                & (cls.timestamp <= time_window.end)
+            )
+        )
+        result = await session.execute(stmt)
+        return result.scalars().all()
+
+class BaseSystemRecord(BaseSystemData, Record):
+    __abstract__ = True
 
 
 class BaseActuatorRecord(Base, Record):
@@ -120,7 +177,7 @@ class BaseWarning(Base):
     level: Mapped[WarningLevel] = mapped_column(default=WarningLevel.low)
     title: Mapped[str] = mapped_column(sa.String(length=256))
     description: Mapped[Optional[str]] = mapped_column(sa.String(length=2048))
-    created_on: Mapped[datetime] = mapped_column(UtcDateTime, default=datetime.now(timezone.utc))
+    created_on: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
     seen_on: Mapped[Optional[datetime]] = mapped_column(UtcDateTime)
     solved_on: Mapped[Optional[datetime]] = mapped_column(UtcDateTime)
 

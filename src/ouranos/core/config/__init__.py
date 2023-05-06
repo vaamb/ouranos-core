@@ -226,7 +226,7 @@ def setup(
     """
     if isclass(profile):
         if issubclass(profile, BaseConfig):
-            config_cls: Type = profile
+            config_cls: Type[BaseConfig] = profile
         else:
             raise ValueError(
                 "Class-based profile need to be a subclass of `BaseConfig`"

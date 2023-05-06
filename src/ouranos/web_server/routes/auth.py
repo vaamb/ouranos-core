@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ouranos.core import validate
 from ouranos.core.database.models.app import User
 from ouranos.core.validate.models.auth import AuthenticatedUser
-from core.exceptions import DuplicatedEntry
+from ouranos.core.exceptions import DuplicatedEntry
 from ouranos.web_server.auth import (
     Authenticator, basic_auth, check_invitation_token, get_current_user,
     login_manager, is_admin

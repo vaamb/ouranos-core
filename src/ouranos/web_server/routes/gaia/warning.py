@@ -18,5 +18,5 @@ async def get_warnings(
         limit: int = Query(default=8, description="The number of warnings to fetch"),
         session: AsyncSession = Depends(get_session),
 ):
-    response = await GaiaWarning.get_recent_warnings(session, limit=limit)
+    response = await GaiaWarning.get_recent(session, limit=limit)
     return response

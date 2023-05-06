@@ -5,6 +5,7 @@ from typing import Any, Type
 from pydantic import BaseModel, create_model
 from sqlalchemy import Column, inspect
 from sqlalchemy.orm import Mapper
+from sqlalchemy.sql.functions import GenericFunction
 
 
 def sqlalchemy_to_pydantic(
@@ -29,7 +30,10 @@ def sqlalchemy_to_pydantic(
         if column.default is None and not column.nullable:
             default = ...
         elif column.default is not None:
-            default = column.default.arg
+            if isinstance(column.default.arg, GenericFunction):
+                default = ...
+            else:
+                default = column.default.arg
         fields[name] = (python_type, default)
     return create_model(db_model.__name__, __base__=base, **fields)
 

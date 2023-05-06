@@ -11,8 +11,9 @@ from argon2 import PasswordHasher
 from argon2.exceptions import VerificationError
 import sqlalchemy as sa
 from sqlalchemy import delete, select, Table, update
-from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.sql import func
 
 from ouranos import current_app
 from ouranos.core.config.consts import REGISTRATION_TOKEN_VALIDITY, TOKEN_SUBS
@@ -161,12 +162,12 @@ class User(Base, UserMixin):
 
     # User registration fields
     token: Mapped[Optional[str]] = mapped_column(sa.String(32))
-    registration_datetime: Mapped[datetime] = mapped_column(default=datetime.now(timezone.utc))
+    registration_datetime: Mapped[datetime] = mapped_column(default=func.utc_timestamp())
 
     # User information fields
     firstname: Mapped[Optional[str]] = mapped_column(sa.String(64))
     lastname: Mapped[Optional[str]] = mapped_column(sa.String(64))
-    last_seen: Mapped[datetime] = mapped_column(default=datetime.now(timezone.utc))
+    last_seen: Mapped[datetime] = mapped_column(onupdate=func.utc_timestamp())
 
     # User notifications / services fields
     daily_recap: Mapped[bool] = mapped_column(default=False)
@@ -379,7 +380,7 @@ class User(Base, UserMixin):
                 role_name = None
         payload = {
             "sub": TOKEN_SUBS.REGISTRATION.value,
-            "exp": datetime.utcnow() + timedelta(
+            "exp": datetime.now(timezone.utc) + timedelta(
                 seconds=REGISTRATION_TOKEN_VALIDITY),
         }
         if role_name is not None:
@@ -388,6 +389,7 @@ class User(Base, UserMixin):
 
     @staticmethod
     def load_from_token(token: str, token_use: str):
+        # TODO: be explicit and use session
         try:
             payload = Tokenizer.loads(token)
         except (ExpiredTokenError, InvalidTokenError):
@@ -475,8 +477,8 @@ class CalendarEvent(Base):  # TODO: apply similar to warnings
     type: Mapped[int] = mapped_column()
     title: Mapped[str] = mapped_column(sa.String(length=256))
     description: Mapped[Optional[str]] = mapped_column(sa.String(length=2048))
-    created_at: Mapped[datetime] = mapped_column()
-    updated_at: Mapped[Optional[datetime]] = mapped_column()
+    created_at: Mapped[datetime] = mapped_column(default=func.current_timestamp())
+    updated_at: Mapped[Optional[datetime]] = mapped_column(onupdate=func.current_timestamp())
     active: Mapped[bool] = mapped_column(default=True)
     URL: Mapped[Optional[str]] = mapped_column(sa.String(length=1024))
     content: Mapped[Optional[str]] = mapped_column(sa.String(length=2048))

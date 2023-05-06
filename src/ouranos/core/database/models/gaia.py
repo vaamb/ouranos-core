@@ -1,32 +1,32 @@
 from __future__ import annotations
 
-from datetime import datetime, time, timedelta
+from abc import abstractmethod
+from datetime import datetime, time, timedelta, timezone
 from typing import Literal, Optional, Sequence, Self, TypedDict
 
 from asyncache import cached
-from cachetools import TTLCache
+from cachetools import LRUCache, TTLCache
 from dispatcher import AsyncDispatcher
 import sqlalchemy as sa
 from sqlalchemy import delete, insert, select, update
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.schema import Table
+from sqlalchemy.sql import func
 
 from gaia_validators import (
     ActuatorTurnTo, ClimateParameter, HardwareLevel, HardwareLevelNames,
     HardwareType, HardwareTypeNames, IDs as EcosystemIDs, LightMethod,
-    ManagementFlags
-)
+    ManagementFlags)
 
-from ouranos.core.cache import get_cache
 from ouranos.core.database import ArchiveLink
 from ouranos.core.database.models.common import (
     ActuatorMode, Base, BaseActuatorRecord, BaseHealthRecord, BaseSensorRecord,
-    BaseWarning
-)
+    BaseWarning)
+from ouranos.core.database.models.memory import SensorDbCache
 from ouranos.core.database.models.types import UtcDateTime
-from ouranos.core.database.models.utils import time_limits, sessionless_hashkey
-from ouranos.core.utils import timeWindow, create_time_window
+from ouranos.core.database.models.utils import sessionless_hashkey, time_limits
+from ouranos.core.utils import create_time_window, timeWindow
 
 
 ActuatorTypeNames = Literal[
@@ -43,26 +43,12 @@ _cache_ecosystem_has_recent_data = TTLCache(maxsize=_ecosystem_caches_size * 2, 
 _cache_sensors_data_skeleton = TTLCache(maxsize=_ecosystem_caches_size, ttl=900)
 _cache_sensor_records = TTLCache(maxsize=_ecosystem_caches_size * 32, ttl=900)
 _cache_recent_warnings = TTLCache(maxsize=5, ttl=60)
+_cache_measures = LRUCache(maxsize=16)
 
 
 class EcosystemCurrentData(TypedDict):
     sensors: dict[str, dict[str, float]]
     timestamp: datetime
-
-
-def get_current_data() -> dict[str, EcosystemCurrentData]:
-    cache = get_cache("sensors_data")
-    return {
-        ecosystem["ecosystem_uid"]: {
-            "sensors": {
-                sensor_record["sensor_uid"]: {
-                    measure_record["measure"]: measure_record["value"]
-                    for measure_record in sensor_record["measures"]
-                } for sensor_record in ecosystem["records"]
-            },
-            "timestamp": ecosystem["timestamp"]
-        } for ecosystem in cache.values()
-    }
 
 
 class GaiaBase(Base):
@@ -130,6 +116,7 @@ class GaiaBase(Base):
         return obj
 
     @classmethod
+    @abstractmethod
     async def get(
             cls,
             session: AsyncSession,
@@ -138,6 +125,7 @@ class GaiaBase(Base):
         raise NotImplementedError
 
     @classmethod
+    @abstractmethod
     async def get_multiple(
             cls,
             session: AsyncSession,
@@ -154,9 +142,9 @@ class Engine(GaiaBase):
 
     uid: Mapped[str] = mapped_column(sa.String(length=16), primary_key=True)
     sid: Mapped[str] = mapped_column(sa.String(length=32))
-    registration_date: Mapped[datetime] = mapped_column(UtcDateTime)
+    registration_date: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
     address: Mapped[Optional[str]] = mapped_column(sa.String(length=24))
-    last_seen: Mapped[datetime] = mapped_column(UtcDateTime)
+    last_seen: Mapped[datetime] = mapped_column(UtcDateTime, onupdate=func.current_timestamp())
 
     # relationships
     ecosystems: Mapped[list["Ecosystem"]] = relationship(back_populates="engine", lazy="selectin")
@@ -166,7 +154,7 @@ class Engine(GaiaBase):
 
     @property
     def connected(self) -> bool:
-        return datetime.utcnow() - self.last_seen <= timedelta(seconds=30.0)
+        return datetime.now(timezone.utc) - self.last_seen <= timedelta(seconds=30.0)
 
     @classmethod
     async def get(
@@ -228,7 +216,8 @@ class Ecosystem(GaiaBase):
     uid: Mapped[str] = mapped_column(sa.String(length=8), primary_key=True)
     name: Mapped[str] = mapped_column(sa.String(length=32))
     status: Mapped[bool] = mapped_column(default=False)
-    last_seen: Mapped[datetime] = mapped_column(UtcDateTime)
+    registration_date: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
+    last_seen: Mapped[datetime] = mapped_column(UtcDateTime, onupdate=func.current_timestamp())
     management: Mapped[int] = mapped_column(default=0)
     day_start: Mapped[time] = mapped_column(default=time(8, 00))
     night_start: Mapped[time] = mapped_column(default=time(20, 00))
@@ -255,7 +244,7 @@ class Ecosystem(GaiaBase):
 
     @property
     def connected(self) -> bool:
-        return datetime.utcnow() - self.last_seen <= timedelta(seconds=30.0)
+        return datetime.now(timezone.now) - self.last_seen <= timedelta(seconds=30.0)
 
     @property
     def management_dict(self):
@@ -407,9 +396,8 @@ class Ecosystem(GaiaBase):
             "sensors_skeleton": skeleton,
         }
 
-    def current_data(self) -> dict:
-        cache = get_cache("sensors_data")
-        return cache.get(self.uid, {})
+    async def current_data(self, session: AsyncSession) -> Sequence[SensorDbCache]:
+        return await SensorDbCache.get_recent(session, self.uid)
 
     async def turn_actuator(
             self,
@@ -852,7 +840,7 @@ class Sensor(Hardware):
         hardware: Sequence[Hardware] = result.unique().scalars().all()
         return [h for h in hardware if h.type == HardwareType.sensor.name]
 
-    async def _get_historic_data_as_list(
+    async def _get_formatted_historic_data(
             self,
             session: AsyncSession,
             time_window: timeWindow,
@@ -876,28 +864,24 @@ class Sensor(Hardware):
                 })
         return rv
 
-    async def _get_current_data_as_list(
+    async def _get_formatted_current_data(
             self,
             session: AsyncSession,
             measures: str | list | None = None,
     ) -> list:
-        rv = []
-        current_data = get_current_data().get(self.ecosystem_uid, {})
-        sensor_data = current_data.get("sensors", {}).get(self.uid, {})
-        if not sensor_data:
-            return rv
         if measures is None:
             measures = [measure.name for measure in self.measures]
         elif isinstance(measures, str):
             measures = measures.split(",")
-        for measure in measures:
-            value = sensor_data.get(measure)
-            if value:
-                rv.append({
-                    "measure": measure,
-                    "unit": await Measure.get_unit(session, measure),
-                    "value": value,
-                })
+        rv = []
+        temp_data = await SensorDbCache.get_recent(
+            session, sensor_uid=self.uid, measure=measures)
+        for data in temp_data:
+            rv.append({
+                "measure": data.measure,
+                "unit": await Measure.get_unit(session, data.measure),
+                "value": data.value,
+            })
         return rv
 
     async def get_overview(
@@ -914,23 +898,23 @@ class Sensor(Hardware):
         if current_data or historic_data:
             rv.update({"data": {}})
             if current_data:
-                data = await self._get_current_data_as_list(session, measures)
+                data = await self._get_formatted_current_data(session, measures)
                 if data:
-                    cache = get_cache("sensors_data")
                     rv["data"].update({
                         "current": {
-                            "timestamp": cache[self.ecosystem_uid]["datetime"],
                             "data": data,
                         }
                     })
                 else:
                     rv["data"].update({"current": None})
             if historic_data:
-                if not time_window:
-                    time_window = create_time_window()
-                data = await self._get_historic_data_as_list(
-                    session, time_window, measures
-                )
+                if time_window:
+                    restricted_time_window = create_time_window(
+                        time_window.start, time_window.end)
+                else:
+                    restricted_time_window = create_time_window()
+                data = await self._get_formatted_historic_data(
+                    session, restricted_time_window, measures)
                 if data:
                     rv["data"].update({
                         "historic": {
@@ -1034,6 +1018,7 @@ class Measure(GaiaBase):
         await session.commit()
 
     @classmethod
+    @cached(_cache_measures, key=sessionless_hashkey)
     async def get_unit(
             cls,
             session: AsyncSession,
@@ -1132,17 +1117,8 @@ class SensorRecord(BaseSensorRecord):
             measure_name: str,
             time_window: timeWindow
     ) -> Sequence[Self]:
-        stmt = (
-            select(cls)
-            .where(cls.measure == measure_name)
-            .where(cls.sensor_uid == sensor_uid)
-            .where(
-                (cls.timestamp > time_window.start)
-                & (cls.timestamp <= time_window.end)
-            )
-        )
-        result = await session.execute(stmt)
-        return result.scalars().all()
+        return await super().get_records(
+            session, sensor_uid, measure_name, time_window)
 
 
 class ActuatorRecord(BaseActuatorRecord):
@@ -1168,7 +1144,7 @@ class GaiaWarning(BaseWarning):
 
     @classmethod
     @cached(_cache_recent_warnings, key=sessionless_hashkey)
-    async def get_recent_warnings(
+    async def get_recent(
             cls,
             session: AsyncSession,
             limit: int = 10

@@ -18,11 +18,12 @@ class TestingConfig(PlugInConfig):
 
     DISPATCHER_URL = os.environ.get("OURANOS_DISPATCHER_URL") or "amqp://"
 
-    SQLALCHEMY_DATABASE_URI = "sqlite+aiosqlite:///"
+    SQLALCHEMY_DATABASE_URI = "sqlite+aiosqlite://"
     SQLALCHEMY_BINDS = {
-        "app": "sqlite+aiosqlite:///",
-        "archive": "sqlite+aiosqlite:///",
-        "system": "sqlite+aiosqlite:///",
+        "app": "sqlite+aiosqlite://",
+        "archive": "sqlite+aiosqlite://",
+        "system": "sqlite+aiosqlite://",
+        "memory": "sqlite+aiosqlite://",
     }
 
 

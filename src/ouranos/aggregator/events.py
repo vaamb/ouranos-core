@@ -6,7 +6,7 @@ import logging
 import random
 from typing import cast, TypedDict
 
-import cachetools
+from cachetools import LRUCache, TTLCache
 from dispatcher import AsyncDispatcher, AsyncEventHandler
 from socketio import AsyncNamespace
 from sqlalchemy import select
@@ -15,17 +15,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from gaia_validators import (
     BaseInfoConfigPayloadDict, EnvironmentConfigPayloadDict, HealthDataPayloadDict,
     LightDataPayloadDict, HardwareConfigPayloadDict, ManagementConfigPayloadDict,
-    ManagementFlags, SensorsDataPayloadDict
-)
+    ManagementFlags, SensorsDataPayloadDict)
 from ouranos import current_app, db
 from ouranos.aggregator.decorators import (
-    dispatch_to_application, registration_required
-)
-from ouranos.core.cache import SensorDataCache
+    dispatch_to_application, registration_required)
 from ouranos.core.database.models.gaia import (
     Ecosystem, Engine, EnvironmentParameter, Hardware, HealthRecord, Light,
-    SensorRecord
-)
+    SensorRecord)
+from ouranos.core.database.models.memory import SensorDbCache
 from ouranos.core.utils import decrypt_uid, humanize_list, validate_uid_token
 
 
@@ -37,7 +34,7 @@ class SensorDataRecord(TypedDict):
     value: float
 
 
-_ecosystem_name_cache: dict[str, str] = {}
+_ecosystem_name_cache = LRUCache(maxsize=32)
 
 
 async def get_ecosystem_name(
@@ -80,7 +77,7 @@ class Events:
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self._background_task_started: bool = False
-        self.engines_blacklist = cachetools.TTLCache(maxsize=62, ttl=60 * 60 * 24)
+        self.engines_blacklist = TTLCache(maxsize=62, ttl=60 * 60 * 24)
         self.logger = logging.getLogger("ouranos.aggregator")
         self._ouranos_dispatcher: AsyncDispatcher | None = None
 
@@ -392,54 +389,60 @@ class Events:
         self.logger.debug(
             f"Received 'sensors_data' from engine: {engine_uid}"
         )
-        SensorDataCache.update({
-            payload["uid"]: payload["data"] for payload in data
-        })
         await self.ouranos_dispatcher.emit(
             "current_sensors_data", data=data, namespace="application", ttl=15)
-        ecosystems_updated: list[str] = [payload["uid"] for payload in data]
-        if ecosystems_updated:
+        sensors_data: list[SensorDataRecord] = []
+        last_log: dict[str, datetime] = {}
+        for ecosystem in data:
+            ecosystem_data = ecosystem["data"]
+            dt = try_datetime_from_iso(ecosystem_data["timestamp"])
+            for sensor_record in ecosystem_data["records"]:
+                sensor_uid: str = sensor_record["sensor_uid"]
+                last_log[sensor_uid] = dt
+                for measure in sensor_record["measures"]:
+                    sensors_data.append(cast(SensorDataRecord, {
+                        "ecosystem_uid": ecosystem["uid"],
+                        "sensor_uid": sensor_uid,
+                        "measure": measure["measure"],
+                        "timestamp": dt,
+                        "value": float(measure["value"]),
+                    }))
+            await sleep(0)
+        if not sensors_data:
+            return
+        async with db.scoped_session() as session:
+            # Send all data to temp database
+            await SensorDbCache.insert_data(session, sensors_data)
+            await session.commit()
+            hardware_uids = [*{s["sensor_uid"] for s in sensors_data}]
             self.logger.debug(
-                f"Updated `sensors_data` cache with data from ecosystem(s) "
-                f"{humanize_list(ecosystems_updated)}"
+                f"Updated `sensors_data` cache with data from sensors "
+                f"{humanize_list(hardware_uids)}"
             )
-        values: list[dict] = []
-        logged: list[str] = []
-        for payload in data:
-            sensor_uids_seen: list[str] = []
-            ecosystem = payload["data"]
-            dt = try_datetime_from_iso(ecosystem.get("timestamp"))
-            if dt is None:
-                continue
-            if dt.minute % current_app.config["SENSOR_LOGGING_PERIOD"] == 0:
-                logged.append(
-                    await get_ecosystem_name(payload["uid"], session=None)
+
+            # Send data to records database if SENSOR_LOGGING_PERIOD requires it
+            logging_period = current_app.config["SENSOR_LOGGING_PERIOD"]
+            sensors_data = [
+                s for s in sensors_data
+                if (
+                    logging_period and
+                    s["timestamp"].minute % logging_period == 0
                 )
-                for sensor in ecosystem["records"]:
-                    sensor_uid: str = sensor["sensor_uid"]
-                    sensor_uids_seen.append(sensor_uid)
-                    for measure in sensor["measures"]:
-                        sensor_data = {
-                            "ecosystem_uid": payload["uid"],
-                            "sensor_uid": sensor_uid,
-                            "measure": measure["measure"],
-                            "timestamp": dt,
-                            "value": float(measure["value"]),
-                        }
-                        values.append(sensor_data)
-                    await sleep(0)
-                async with db.scoped_session() as session:
-                    hardware_list = await Hardware.get_multiple(
-                        session, sensor_uids_seen)
-                    for hardware in hardware_list:
-                        hardware.last_log = dt
-                # TODO: if needed get and log avg values from the data
-        if values:
-            async with db.scoped_session() as session:
-                await SensorRecord.create_records(session, values)
+            ]
+            if not sensors_data:
+                return
+            await SensorRecord.create_records(session, sensors_data)
+            # Update the last_log column for hardware
+            hardware_uids = [*{s["sensor_uid"] for s in sensors_data}]
+            for hardware in await Hardware.get_multiple(session, hardware_uids):
+                hardware.last_log = last_log.get(hardware.uid)
+            await session.commit()
+            # Get ecosystem IDs
+            ecosystems = await Ecosystem.get_multiple(
+                session, [payload["uid"] for payload in data])
             self.logger.debug(
                 f"Logged sensors data from ecosystem(s) "
-                f"{humanize_list(logged)}"
+                f"{humanize_list([e.name for e in ecosystems])}"
             )
 
     @registration_required

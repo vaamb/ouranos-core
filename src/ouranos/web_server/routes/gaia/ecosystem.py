@@ -204,7 +204,7 @@ async def get_ecosystems_current_data(
 ):
     ecosystems = await Ecosystem.get_multiple(
         session=session, ecosystems=ecosystems_id)
-    return [ecosystem.current_data() for ecosystem in ecosystems]
+    return [await ecosystem.current_data(session) for ecosystem in ecosystems]
 
 
 @router.get("/u/{id}/current_data")
@@ -214,7 +214,7 @@ async def get_ecosystem_current_data(
 ):
     assert_single_uid(id)
     ecosystem = await ecosystem_or_abort(session, id)
-    return ecosystem.current_data()
+    return await ecosystem.current_data(session)
 
 
 @router.get("/u/{id}/turn_actuator", dependencies=[Depends(is_operator)])

@@ -1,10 +1,9 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ouranos.core import validate
-from ouranos.core.cache import SystemDataCache
 from ouranos.core.config import consts
-from ouranos.core.database.models.system import SystemHistory
+from ouranos.core.database.models.memory import SystemDbCache
+from ouranos.core.database.models.system import SystemRecord
 from ouranos.core.utils import timeWindow
 from ouranos.web_server.auth import is_admin
 from ouranos.web_server.dependencies import get_session, get_time_window
@@ -27,16 +26,18 @@ async def get_current_system_data() -> int:
 
 
 @router.get(
-    "/current_data",
-    response_model=validate.system.system_record,
+    "/data/current",
+    # response_model=validate.system.system_record,
     dependencies=[Depends(is_admin)],
 )
-async def get_current_system_data() -> dict:
-    return SystemDataCache.get()
+async def get_current_system_data(
+        session: AsyncSession = Depends(get_session),
+):
+    return await SystemDbCache.get_recent(session)
 
 
 @router.get(
-    "/data",
+    "/data/historic",
     # response_model=list[validate.system.system_record],
     dependencies=[Depends(is_admin)],
 )
@@ -44,7 +45,7 @@ async def get_historic_system_data(
         time_window: timeWindow = Depends(get_time_window),
         session: AsyncSession = Depends(get_session),
 ):
-    historic_system_data = await SystemHistory.get_records(
+    historic_system_data = await SystemRecord.get_records(
         session, time_window)
     if historic_system_data:
         return {
