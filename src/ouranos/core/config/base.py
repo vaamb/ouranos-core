@@ -1,17 +1,24 @@
 import os
 
 
-DIR = os.environ.get("OURANOS_DIR") or os.getcwd()
-
-
 class BaseConfig:
     DEBUG = False
     DEVELOPMENT = False
     TESTING = False
 
-    LOG_DIR = os.environ.get("OURANOS_LOG_DIR") or os.path.join(DIR, "logs")
-    CACHE_DIR = os.environ.get("OURANOS_CACHE_DIR") or os.path.join(DIR, ".cache")
-    DB_DIR = os.environ.get("OURANOS_CACHE_DIR") or os.path.join(DIR, "DBs")
+    DIR = os.environ.get("OURANOS_DIR") or os.getcwd()
+
+    @property
+    def LOG_DIR(self):
+        return os.environ.get("OURANOS_LOG_DIR") or os.path.join(self.DIR, "logs")
+
+    @property
+    def CACHE_DIR(self):
+        return os.environ.get("OURANOS_CACHE_DIR") or os.path.join(self.DIR, "logs")
+
+    @property
+    def DB_DIR(self):
+        return os.environ.get("OURANOS_DB_DIR") or os.path.join(self.DIR, "DBs")
 
     SECRET_KEY = os.environ.get("OURANOS_SECRET_KEY") or "secret_key"
     CONNECTION_KEY = os.environ.get("OURANOS_CONNECTION_KEY") or SECRET_KEY
@@ -57,20 +64,26 @@ class BaseConfig:
     WARNING_ARCHIVING_PERIOD = None  # 90
 
     # SQLAlchemy config
-    SQLALCHEMY_DATABASE_URI = (
+    @property
+    def SQLALCHEMY_DATABASE_URI(self):
+        return (
             os.environ.get("OURANOS_DATABASE_URI") or
-            "sqlite+aiosqlite:///" + os.path.join(DB_DIR, "ecosystems.db")
-    )
-    SQLALCHEMY_BINDS = {
-        "app": (os.environ.get("OURANOS_APP_DATABASE_URI") or
-                "sqlite+aiosqlite:///" + os.path.join(DB_DIR, "app.db")),
-        "system": (os.environ.get("OURANOS_SYSTEM_DATABASE_URI") or
-                   "sqlite+aiosqlite:///" + os.path.join(DB_DIR, "system.db")),
-        "archive": (os.environ.get("OURANOS_ARCHIVE_DATABASE_URI") or
-                    "sqlite+aiosqlite:///" + os.path.join(DB_DIR, "archive.db")),
-        "memory": "sqlite+aiosqlite:///" if CACHE_SERVER_URL == "memory://"
-                  else CACHE_SERVER_URL,
-    }
+            "sqlite+aiosqlite:///" + os.path.join(self.DB_DIR, "ecosystems.db")
+        )
+
+    @property
+    def SQLALCHEMY_BINDS(self):
+        return {
+            "app": (os.environ.get("OURANOS_APP_DATABASE_URI") or
+                    "sqlite+aiosqlite:///" + os.path.join(self.DB_DIR, "app.db")),
+            "system": (os.environ.get("OURANOS_SYSTEM_DATABASE_URI") or
+                       "sqlite+aiosqlite:///" + os.path.join(self.DB_DIR, "system.db")),
+            "archive": (os.environ.get("OURANOS_ARCHIVE_DATABASE_URI") or
+                        "sqlite+aiosqlite:///" + os.path.join(self.DB_DIR, "archive.db")),
+            "memory": "sqlite+aiosqlite:///" if self.CACHE_SERVER_URL == "memory://"
+                      else self.CACHE_SERVER_URL,
+        }
+
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_RECORD_QUERIES = True
     SLOW_DB_QUERY_TIME = 0.5

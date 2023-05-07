@@ -7,7 +7,7 @@ import sys
 from typing import Type
 
 from ouranos import __version__ as version
-from ouranos.core.config.base import BaseConfig, DIR
+from ouranos.core.config.base import BaseConfig
 from ouranos.core.config.consts import ImmutableDict
 from ouranos.core.utils import stripped_warning
 
@@ -35,7 +35,7 @@ def get_config() -> config_type:
 def get_base_dir() -> Path:
     global _base_dir
     if _base_dir is None:
-        _base_dir = Path(DIR)
+        _base_dir = Path(BaseConfig.DIR)
         if not _base_dir.exists():
             raise ValueError(
                 "Environment variable `OURANOS_DIR` is not set to a valid path"
@@ -112,7 +112,18 @@ def _config_dict_from_class(
         set_up: bool = True,
         **params,
 ) -> config_type:
-    config_dict = {key: getattr(obj, key) for key in dir(obj) if key.isupper()}
+    if not issubclass(obj, BaseConfig):
+        raise ValueError("'obj' needs to be a subclass of `BaseConfig`")
+    inst = obj()
+    config_dict = {}
+    for key in dir(inst):
+        if not key.isupper():
+            continue
+        attr = getattr(inst, key)
+        if callable(attr):
+            config_dict[key] = attr()
+        else:
+            config_dict[key] = attr
     config_dict.update({"SET_UP": set_up})
     config_dict.update(params)
     config_dict.update(app_info)
