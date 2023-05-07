@@ -12,8 +12,8 @@ from aiohttp import ClientError, ClientSession
 from ouranos import current_app, scheduler
 from ouranos.core.cache import SunTimesCache, WeatherCache
 from ouranos.core.config.consts import WEATHER_MEASURES
-from ouranos.core.utils import DispatcherFactory, stripped_warning
-from ouranos.sdk import json
+from ouranos.core.utils import DispatcherFactory, json, stripped_warning
+
 
 _weather_recency_limit = 6
 _weather_file = "weather.json"
