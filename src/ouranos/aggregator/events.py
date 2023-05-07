@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from asyncio import sleep
-from datetime import datetime, time, timezone
+from datetime import datetime, timezone
 import logging
 import random
 from typing import cast, TypedDict
@@ -24,6 +24,9 @@ from ouranos.core.database.models.memory import SensorDbCache
 from ouranos.core.utils import decrypt_uid, humanize_list, validate_uid_token
 
 
+_ecosystem_name_cache = LRUCache(maxsize=32)
+
+
 class SensorDataRecord(TypedDict):
     ecosystem_uid: str
     sensor_uid: str
@@ -35,9 +38,6 @@ class SensorDataRecord(TypedDict):
 def validate_payload(data: list[dict], model_cls: BaseModel) -> list[dict]:
     temp: list[BaseModel] = parse_obj_as(list[model_cls], data)
     return [obj.dict() for obj in temp]
-
-
-_ecosystem_name_cache = LRUCache(maxsize=32)
 
 
 async def get_ecosystem_name(

@@ -41,7 +41,7 @@ measure_order = (
 _ecosystem_caches_size = 16
 _cache_ecosystem_has_recent_data = TTLCache(maxsize=_ecosystem_caches_size * 2, ttl=60)
 _cache_sensors_data_skeleton = TTLCache(maxsize=_ecosystem_caches_size, ttl=900)
-_cache_sensor_records = TTLCache(maxsize=_ecosystem_caches_size * 32, ttl=300)
+_cache_sensor_records = TTLCache(maxsize=_ecosystem_caches_size * 32, ttl=600)
 _cache_recent_warnings = TTLCache(maxsize=5, ttl=60)
 _cache_measures = LRUCache(maxsize=16)
 
@@ -61,10 +61,9 @@ class GaiaBase(Base):
             cls,
             session: AsyncSession,
             values: dict,
-    ) -> Self:
-        model = cls(**values)
-        session.add(model)
-        return model
+    ) -> None:
+        stmt = insert(cls).values(values)
+        await session.execute(stmt)
 
     @classmethod
     async def update(
@@ -100,7 +99,7 @@ class GaiaBase(Base):
             session: AsyncSession,
             values: dict,
             uid: str | None = None,
-    ) -> Self:
+    ) -> None:
         uid = uid or values.pop("uid", None)
         if not uid:
             raise ValueError(
@@ -109,11 +108,11 @@ class GaiaBase(Base):
         obj = await cls.get(session, uid)
         if not obj:
             values["uid"] = uid
-            obj = await cls.create(session, values)
+            await cls.create(session, values)
         elif values:
             await cls.update(session, values, uid)
-            obj = await cls.get(session, uid)
-        return obj
+        else:
+            raise ValueError
 
     @classmethod
     @abstractmethod
@@ -498,7 +497,7 @@ class Light(GaiaBase):
             session: AsyncSession,
             values,
             ecosystem_uid: str | None = None,
-    ) -> Light:
+    ) -> None:
         ecosystem_uid = ecosystem_uid or values.pop("ecosystem_uid", None)
         if not ecosystem_uid:
             raise ValueError(
@@ -507,11 +506,11 @@ class Light(GaiaBase):
         obj = await cls.get(session, ecosystem_uid)
         if not obj:
             values["ecosystem_uid"] = ecosystem_uid
-            obj = await cls.create(session, values)
+            await cls.create(session, values)
         elif values:
             await cls.update(session, values, ecosystem_uid)
-            obj = await cls.get(session, ecosystem_uid)
-        return obj
+        else:
+            raise ValueError
 
 
 class EnvironmentParameter(GaiaBase):
@@ -575,7 +574,7 @@ class EnvironmentParameter(GaiaBase):
             session: AsyncSession,
             values: dict,
             uid: str | None = None,
-    ) -> EnvironmentParameter:
+    ) -> None:
         uid = uid or values.pop("uid", None)
         parameter = values.get("parameter")
         if not (uid and parameter):
@@ -589,14 +588,11 @@ class EnvironmentParameter(GaiaBase):
         if not environment_parameter:
             values["ecosystem_uid"] = uid
             values["parameter"] = parameter
-            environment_parameter = await cls.create(
-                session, values
-            )
+            await cls.create(session, values)
+        elif values:
+            await cls.update(session, values, uid)
         else:
-            environment_parameter = await cls.update(
-                session, values, uid
-            )
-        return environment_parameter
+            raise ValueError
 
     @classmethod
     async def get(
@@ -713,7 +709,7 @@ class Hardware(GaiaBase):
             cls,
             session: AsyncSession,
             values: dict,
-    ) -> Self:
+    ) -> None:
         measures = values.pop("measures", [])
         plants = values.pop("plants", [])
         stmt = insert(cls).values(values)
@@ -721,7 +717,6 @@ class Hardware(GaiaBase):
         hardware_obj = await cls.get(session, values["uid"])
         if any((measures, plants)):
             await hardware_obj.attach_relationships(session, measures, plants)
-        return hardware_obj
 
     @classmethod
     async def update(
