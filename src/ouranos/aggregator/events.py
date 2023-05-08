@@ -35,6 +35,16 @@ class SensorDataRecord(TypedDict):
     value: float
 
 
+class SocketIOEnginePayload(EnginePayload):
+    ikys: str | None = None
+    uid_token: str | None = None
+
+
+class SocketIOEnginePayloadDict(EnginePayloadDict):
+    ikys: str | None
+    uid_token: str | None
+
+
 def validate_payload(data: list[dict], model_cls: BaseModel) -> list[dict]:
     temp: list[BaseModel] = parse_obj_as(list[model_cls], data)
     return [obj.dict() for obj in temp]
@@ -161,7 +171,8 @@ class Events:
             )
             self.logger.info(f"Engine {uid} disconnected")
 
-    async def on_register_engine(self, sid, data) -> None:
+    async def on_register_engine(self, sid, data: SocketIOEnginePayloadDict) -> None:
+        data: SocketIOEnginePayloadDict = SocketIOEnginePayload(**data).dict()
         validated = False
         remote_addr: str
         if self.broker_type == "socketio":
@@ -195,7 +206,7 @@ class Events:
             if engine_uid:
                 async with self.session(sid) as session:
                     session["engine_uid"] = engine_uid
-                remote_addr = data.get("address", "")
+                remote_addr = data["address"]
                 validated = True
             else:
                 await self.disconnect(sid)
