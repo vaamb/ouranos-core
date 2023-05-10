@@ -8,7 +8,7 @@ from asyncache import cached
 from cachetools import LRUCache, TTLCache
 from dispatcher import AsyncDispatcher
 import sqlalchemy as sa
-from sqlalchemy import delete, insert, select, update
+from sqlalchemy import delete, insert, Row, select, update
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.schema import Table
@@ -41,7 +41,7 @@ measure_order = (
 _ecosystem_caches_size = 16
 _cache_ecosystem_has_recent_data = TTLCache(maxsize=_ecosystem_caches_size * 2, ttl=60)
 _cache_sensors_data_skeleton = TTLCache(maxsize=_ecosystem_caches_size, ttl=900)
-_cache_sensor_records = TTLCache(maxsize=_ecosystem_caches_size * 32, ttl=600)
+_cache_sensor_values = TTLCache(maxsize=_ecosystem_caches_size * 32, ttl=600)
 _cache_recent_warnings = TTLCache(maxsize=5, ttl=60)
 _cache_measures = LRUCache(maxsize=16)
 
@@ -370,6 +370,7 @@ class Ecosystem(GaiaBase):
             if isinstance(level, str):
                 level = level.split(",")
             stmt = stmt.where(Hardware.level.in_(level))
+        stmt = stmt.group_by(Hardware.uid)
         result = await session.execute(stmt)
         sensor_objs: Sequence[Hardware] = result.unique().scalars().all()
         temp = {}
@@ -855,14 +856,14 @@ class Sensor(Hardware):
             measures = measures.split(",")
         rv = []
         for measure in measures:
-            records = await SensorRecord.get_records(
+            timed_values = await SensorRecord.get_timed_values(
                 session, self.uid, measure, time_window)
-            if records:
+            if timed_values:
                 rv.append({
                     "measure": measure,
                     "unit": await Measure.get_unit(session, measure),
                     "records": [
-                        (record.timestamp, record.value) for record in records
+                        (value.timestamp, value.value) for value in timed_values
                     ],
                 })
         return rv
@@ -1112,7 +1113,6 @@ class SensorRecord(BaseSensorRecord):
     sensor: Mapped["Hardware"] = relationship(back_populates="sensor_records")
 
     @classmethod
-    @cached(_cache_sensor_records, key=sessionless_hashkey)
     async def get_records(
             cls,
             session: AsyncSession,
@@ -1122,6 +1122,27 @@ class SensorRecord(BaseSensorRecord):
     ) -> Sequence[Self]:
         return await super().get_records(
             session, sensor_uid, measure_name, time_window)
+
+    @classmethod
+    @cached(_cache_sensor_values, key=sessionless_hashkey)
+    async def get_timed_values(
+            cls,
+            session: AsyncSession,
+            sensor_uid: str,
+            measure_name: str,
+            time_window: timeWindow
+    ) -> Sequence[Row]:
+        stmt = (
+            select(cls.timestamp, cls.value)
+            .where(cls.measure == measure_name)
+            .where(cls.sensor_uid == sensor_uid)
+            .where(
+                (cls.timestamp > time_window.start)
+                & (cls.timestamp <= time_window.end)
+            )
+        )
+        result = await session.execute(stmt)
+        x = result.all()
 
 
 class ActuatorRecord(BaseActuatorRecord):
