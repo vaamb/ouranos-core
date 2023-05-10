@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from asyncio import sleep
 from datetime import datetime, timezone
+import inspect
 import logging
 import random
-from typing import cast, TypedDict
+from typing import cast, overload, Type, TypedDict
 
 from cachetools import LRUCache, TTLCache
 from dispatcher import AsyncDispatcher, AsyncEventHandler
-from pydantic import BaseModel, parse_obj_as
+from pydantic import BaseModel, parse_obj_as, ValidationError
 from socketio import AsyncNamespace
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -43,11 +44,6 @@ class SocketIOEnginePayload(EnginePayload):
 class SocketIOEnginePayloadDict(EnginePayloadDict):
     ikys: str | None
     uid_token: str | None
-
-
-def validate_payload(data: list[dict], model_cls: BaseModel) -> list[dict]:
-    temp: list[BaseModel] = parse_obj_as(list[model_cls], data)
-    return [obj.dict() for obj in temp]
 
 
 async def get_ecosystem_name(
@@ -120,6 +116,56 @@ class Events:
     async def gaia_background_task(self):
         pass
 
+    @overload
+    def validate_payload(
+            self,
+            data: dict,
+            model_cls: Type[BaseModel],
+            type_=dict
+    ) -> dict:
+        ...
+
+    @overload
+    def validate_payload(
+            self,
+            data: list[dict],
+            model_cls: Type[BaseModel],
+            type_=list[dict]
+    ) -> list[dict]:
+        ...
+
+    def validate_payload(self, data: dict | list, model_cls: Type[BaseModel], expected: Type):
+        if not data:
+            event = inspect.stack()[1].function.lstrip("on_")
+            self.logger.error(
+                f"Encountered an error while validating '{event}' data. Error "
+                f"msg: Empty data."
+            )
+            raise ValidationError
+        if not isinstance(data, expected):
+            event = inspect.stack()[1].function.lstrip("on_")
+            received = type(data)
+            self.logger.error(
+                f"Encountered an error while validating '{event}' data. Error "
+                f"msg: Wrong data format, expected '{expected}', received "
+                f"'{received}'."
+            )
+            raise ValidationError
+        try:
+            if expected == list:
+                temp: list[BaseModel] = parse_obj_as(list[model_cls], data)
+                return [obj.dict() for obj in temp]
+            elif expected == dict:
+                return model_cls(**data).dict()
+        except ValidationError as e:
+            event = inspect.stack()[1].function.lstrip("on_")
+            msg_list = [f"{error['loc'][0]}: {error['msg']}" for error in e.errors()]
+            self.logger.error(
+                f"Encountered an error while validating '{event}' data. Error "
+                f"msg: {', '.join(msg_list)}"
+            )
+            raise
+
     # ---------------------------------------------------------------------------
     #   Events Gaia <-> Aggregator
     # ---------------------------------------------------------------------------
@@ -172,7 +218,8 @@ class Events:
             self.logger.info(f"Engine {uid} disconnected")
 
     async def on_register_engine(self, sid, data: SocketIOEnginePayloadDict) -> None:
-        data: SocketIOEnginePayloadDict = SocketIOEnginePayload(**data).dict()
+        data: SocketIOEnginePayloadDict = self.validate_payload(
+            data, SocketIOEnginePayload, dict)
         validated = False
         remote_addr: str
         if self.broker_type == "socketio":
@@ -256,8 +303,8 @@ class Events:
             engine_uid: str
     ) -> None:
         self.logger.debug(f"Received 'base_info' from engine: {engine_uid}")
-        data: list[BaseInfoConfigPayloadDict] = validate_payload(
-            data, BaseInfoConfigPayload)
+        data: list[BaseInfoConfigPayloadDict] = self.validate_payload(
+            data, BaseInfoConfigPayload, list)
         ecosystems: list[dict[str, str]] = []
         ecosystems_to_log: list[str] = []
         async with db.scoped_session() as session:
@@ -284,8 +331,8 @@ class Events:
             engine_uid: str
     ) -> None:
         self.logger.debug(f"Received 'management' from engine: {engine_uid}")
-        data: list[ManagementConfigPayloadDict] = validate_payload(
-            data, ManagementConfigPayload)
+        data: list[ManagementConfigPayloadDict] = self.validate_payload(
+            data, ManagementConfigPayload, list)
         ecosystems_to_log: list[str] = []
         async with db.scoped_session() as session:
             for payload in data:
@@ -319,8 +366,8 @@ class Events:
         self.logger.debug(
             f"Received 'environmental_parameters' from engine: {engine_uid}"
         )
-        data: list[EnvironmentConfigPayloadDict] = validate_payload(
-            data, EnvironmentConfigPayload)
+        data: list[EnvironmentConfigPayloadDict] = self.validate_payload(
+            data, EnvironmentConfigPayload, list)
         ecosystems_to_log: list[str] = []
         async with db.scoped_session() as session:
             for payload in data:
@@ -356,8 +403,8 @@ class Events:
         self.logger.debug(
             f"Received 'hardware' from engine: {engine_uid}"
         )
-        data: list[HardwareConfigPayloadDict] = validate_payload(
-            data, HardwareConfigPayload)
+        data: list[HardwareConfigPayloadDict] = self.validate_payload(
+            data, HardwareConfigPayload, list)
         ecosystems_to_log: list[str] = []
         async with db.scoped_session() as session:
             active_hardware = []
@@ -397,8 +444,8 @@ class Events:
         self.logger.debug(
             f"Received 'sensors_data' from engine: {engine_uid}"
         )
-        data: list[SensorsDataPayloadDict] = validate_payload(
-            data, SensorsDataPayload)
+        data: list[SensorsDataPayloadDict] = self.validate_payload(
+            data, SensorsDataPayload, list)
         await self.ouranos_dispatcher.emit(
             "current_sensors_data", data=data, namespace="application", ttl=15)
         sensors_data: list[SensorDataRecord] = []
@@ -465,8 +512,8 @@ class Events:
         self.logger.debug(
             f"Received 'update_health_data' from {engine_uid}"
         )
-        data: list[HealthDataPayloadDict] = validate_payload(
-            data, HealthDataPayload)
+        data: list[HealthDataPayloadDict] = self.validate_payload(
+            data, HealthDataPayload, list)
         logged: list[str] = []
         # healthData.update(data)
         values: list[dict] = []
@@ -500,8 +547,8 @@ class Events:
             engine_uid: str
     ) -> None:
         self.logger.debug(f"Received 'light_data' from {engine_uid}")
-        data: list[LightDataPayloadDict] = validate_payload(
-            data, LightDataPayload)
+        data: list[LightDataPayloadDict] = self.validate_payload(
+            data, LightDataPayload, list)
         ecosystems_to_log: list[str] = []
         async with db.scoped_session() as session:
             for payload in data:
