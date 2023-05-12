@@ -6,6 +6,7 @@ import dataclasses
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
 from functools import wraps
+import json as _json
 import typing as t
 from typing import Any
 import uuid
@@ -26,8 +27,6 @@ try:
 except ImportError:
     warnings.warn("Ouranos could be faster if orjson was installed")
 
-    import json as _json
-
     def _serializer(self, o: Any) -> dict | str:
         if isinstance(o, datetime):
             return o.astimezone(tz=timezone.utc).isoformat(timespec="seconds")
@@ -41,8 +40,8 @@ except ImportError:
         if isinstance(o, uuid.UUID):
             return str(o)
         if isinstance(o, Row):
-            return o._mapping  # return a tuple
-        #             return {**o._mapping}  # return a dict
+            return o.tuple()  # return a tuple
+        #    return {**o._mapping}  # return a dict
         if dataclasses.is_dataclass(o):
             return dataclasses.asdict(o)
         if hasattr(o, "__html__"):
@@ -61,8 +60,8 @@ except ImportError:
 else:
     def _serializer(self, o: Any) -> dict | str:
         if isinstance(o, Row):
-            return o._data  # return a tuple
-        #             return {**o._mapping}  # return a dict
+            return o.tuple()  # return a tuple
+        #    return {**o._mapping}  # return a dict
         if hasattr(o, "__html__"):
             return str(o.__html__())
         return _json.JSONEncoder.default(self, o)

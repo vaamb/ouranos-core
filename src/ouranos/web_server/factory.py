@@ -2,29 +2,28 @@ from __future__ import annotations
 
 import logging
 import time as ctime
+from typing import Any
 
 from fastapi import APIRouter, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse as BaseResponse
 from fastapi.staticfiles import StaticFiles
 from socketio.asgi import ASGIApp
 from socketio.asyncio_server import AsyncServer
 
 from ouranos import current_app
 from ouranos.core.plugins import PluginManager
-from ouranos.core.utils import check_secret_key, DispatcherFactory
+from ouranos.core.utils import check_secret_key, DispatcherFactory, json
 from ouranos.web_server.docs import description, tags_metadata
 
-try:
-    import orjson
-except ImportError:
-    try:
-        import ujson
-    except ImportError:
-        from fastapi.responses import JSONResponse
-    else:
-        from fastapi.responses import UJSONResponse as JSONResponse
-else:
-    from fastapi.responses import ORJSONResponse as JSONResponse
+
+class JSONResponse(BaseResponse):
+    # Customize based on fastapi.responses.ORJSONResponse
+
+    media_type = "application/json"
+
+    def render(self, content: Any) -> bytes:
+        return json.dumps(content)
 
 
 def create_sio_manager(config: dict | None = None):
