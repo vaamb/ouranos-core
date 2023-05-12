@@ -16,3 +16,15 @@ class NoEcosystemFound(NoResultFound):
 
 class WrongDataFormat(OuranosException):
     pass
+
+
+class TokenError(Exception):
+    pass
+
+
+class ExpiredTokenError(TokenError):
+    pass
+
+
+class InvalidTokenError(TokenError):
+    pass

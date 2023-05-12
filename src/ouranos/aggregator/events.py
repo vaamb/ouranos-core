@@ -72,7 +72,7 @@ class Events:
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self._background_task_started: bool = False
-        self.engines_blacklist = TTLCache(maxsize=62, ttl=60 * 60 * 24)
+        self.engines_blacklist = TTLCache(maxsize=64, ttl=60 * 60 * 24)
         self.logger = logging.getLogger("ouranos.aggregator")
         self._ouranos_dispatcher: AsyncDispatcher | None = None
 
@@ -271,9 +271,9 @@ class Events:
                 await Engine.update_or_create(session, engine_info)
             self.enter_room(sid, room="engines", namespace="/gaia")
             if self.broker_type == "socketio":
-                await self.emit("register_ack", namespace="/gaia", room=sid)
+                await self.emit("registration_ack", room=sid)
             elif self.broker_type == "dispatcher":
-                await self.emit("register_ack", namespace="/gaia", room=sid, ttl=15)
+                await self.emit("registration_ack", room=sid, ttl=2)
             self.logger.info(f"Successful registration of engine {engine_uid}")
 
     @registration_required

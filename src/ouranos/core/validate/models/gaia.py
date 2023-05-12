@@ -1,4 +1,4 @@
-from datetime import datetime, time, timedelta
+from datetime import datetime, time, timedelta, timezone
 
 from pydantic import BaseModel
 
@@ -24,7 +24,7 @@ _ecosystem = sqlalchemy_to_pydantic(Ecosystem, base=ExtendedModel)
 class ecosystem(_ecosystem):
     @property
     def connected(self) -> bool:
-        return datetime.utcnow() - self.last_seen <= timedelta(seconds=30.0)
+        return datetime.now(timezone.utc) - self.last_seen <= timedelta(seconds=30.0)
 
 
 ecosystem_light = sqlalchemy_to_pydantic(Light, exclude=["id"], base=ExtendedModel)
@@ -53,7 +53,7 @@ class engine(_engine):
 
     @property
     def connected(self) -> bool:
-        return self.last_seen - datetime.now() >= timedelta(seconds=30.0)
+        return self.last_seen - datetime.now(timezone.utc) >= timedelta(seconds=30.0)
 
 
 class hardware_creation(ExtendedModel):

@@ -20,7 +20,10 @@ from dispatcher import (
     AsyncBaseDispatcher, AsyncRedisDispatcher, AsyncAMQPDispatcher
 )
 import jwt
-from sqlalchemy.engine import Row
+from sqlalchemy import Row
+
+from ouranos.core.exceptions import (
+    ExpiredTokenError, InvalidTokenError, TokenError)
 
 try:
     import orjson
@@ -59,6 +62,7 @@ except ImportError:
 
 else:
     def _serializer(self, o: Any) -> dict | str:
+        print(o)
         if isinstance(o, Row):
             return o.tuple()  # return a tuple
         #    return {**o._mapping}  # return a dict
@@ -156,18 +160,6 @@ def async_to_sync(func: t.Callable) -> t.Callable:
         ret = asyncio.run(func(*args, **kwargs))
         return ret
     return wrapper
-
-
-class TokenError(Exception):
-    pass
-
-
-class ExpiredTokenError(TokenError):
-    pass
-
-
-class InvalidTokenError(TokenError):
-    pass
 
 
 class Tokenizer:

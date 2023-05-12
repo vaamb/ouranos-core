@@ -20,8 +20,8 @@ router = APIRouter(
 )
 
 
-current_data_query = Query(default=True, description="Fetch the current data")
-historic_data_query = Query(default=True, description="Fetch logged data")
+current_data_query = Query(default=False, description="Fetch the current data")
+historic_data_query = Query(default=False, description="Fetch logged data")
 
 
 async def sensor_or_abort(
@@ -55,20 +55,20 @@ async def get_sensors(
     sensors = await Sensor.get_multiple(
         session, sensors_uid, ecosystems_uid, sensors_level, sensors_model,
         time_window)
-    response = [
+    return [
         await sensor.get_overview(
             session, measures, current_data, historic_data, time_window)
-        for sensor in sensors]
-    return response
+        for sensor in sensors
+    ]
 
 
-@router.get("/sensor/measures_available", response_model=list[validate.gaia.measure])
+@router.get("/measures_available", response_model=list[validate.gaia.measure])
 async def get_measures_available(session: AsyncSession = Depends(get_session)):
     measures = await Measure.get_multiple(session)
     return measures
 
 
-@router.get("/sensor/u/{uid}")
+@router.get("/u/{uid}")
 async def get_sensor(
         uid: str = Query(description="A sensor uid"),
         current_data: bool = current_data_query,
@@ -83,20 +83,43 @@ async def get_sensor(
     return response
 
 
-@router.get("/sensor/u/{uid}/{measure}")
-async def get_measure_for_sensor(
+@router.get("/u/{uid}/data/current")
+async def get_sensor_current_data(
         uid: str = Query(description="A sensor uid"),
-        measure: str = Query(description="The name of the measure to fetch"),
-        current_data: bool = current_data_query,
-        historic_data: bool = historic_data_query,
+        measures: t.Optional[list[str]] = Query(
+            default=None, description="A list of measures taken by the sensor"),
+        session: AsyncSession = Depends(get_session),
+):
+    assert_single_uid(uid)
+    sensor = await sensor_or_abort(session, uid)
+    if not measures:
+        measures = [m.name for m in sensor.measures]
+    return [
+        {
+            "measure": measure,
+            "value": await sensor.get_recent_timed_values(session, measure),
+        }
+        for measure in measures
+    ]
+
+
+@router.get("/u/{uid}/data/historic")
+async def get_sensor_historic_data(
+        uid: str = Query(description="A sensor uid"),
+        measures: t.Optional[list[str]] = Query(
+            default=None, description="A list of measures taken by the sensor"),
         time_window: timeWindow = Depends(get_time_window),
         session: AsyncSession = Depends(get_session),
 ):
     assert_single_uid(uid)
-    assert_single_uid(measure, "measure")
     sensor = await sensor_or_abort(session, uid)
-    response = {}
-    if measure in [m.name for m in sensor.measures]:
-        response = await sensor.get_overview(
-            session, measure, current_data, historic_data, time_window)
-    return response
+    if not measures:
+        measures = [m.name for m in sensor.measures]
+    return [
+        {
+            "measure": measure,
+            "span": (time_window.start, time_window.end),
+            "values": await sensor.get_historic_timed_values(session, measure, time_window),
+        }
+        for measure in measures
+    ]

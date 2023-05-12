@@ -13,4 +13,4 @@ class UtcDateTime(TypeDecorator):
 
     def process_result_value(self, value, dialect):
         if isinstance(value, datetime):
-            return value.astimezone(timezone.utc)
+            return value.replace(tzinfo=timezone.utc)

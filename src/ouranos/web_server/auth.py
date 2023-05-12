@@ -12,14 +12,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ouranos.core import validate
 from ouranos.core.config.consts import LOGIN_NAME, TOKEN_SUBS
 from ouranos.core.database.models.app import Permission, User
-from ouranos.core.utils import (
-    ExpiredTokenError, InvalidTokenError, TokenError, Tokenizer
-)
-
-
+from ouranos.core.exceptions import (
+    ExpiredTokenError, InvalidTokenError, TokenError)
+from ouranos.core.utils import Tokenizer
 from ouranos.core.validate.models.auth import (
-    anonymous_user, AuthenticatedUser, CurrentUser
-)
+    anonymous_user, AuthenticatedUser, CurrentUser)
 from ouranos.web_server.dependencies import get_session
 
 

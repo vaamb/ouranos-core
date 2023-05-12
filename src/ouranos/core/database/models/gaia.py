@@ -143,7 +143,7 @@ class Engine(GaiaBase):
     sid: Mapped[str] = mapped_column(sa.String(length=32))
     registration_date: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
     address: Mapped[Optional[str]] = mapped_column(sa.String(length=24))
-    last_seen: Mapped[datetime] = mapped_column(UtcDateTime, onupdate=func.current_timestamp())
+    last_seen: Mapped[datetime] = mapped_column(UtcDateTime)  # , onupdate=func.current_timestamp())
 
     # relationships
     ecosystems: Mapped[list["Ecosystem"]] = relationship(back_populates="engine", lazy="selectin")
@@ -216,7 +216,7 @@ class Ecosystem(GaiaBase):
     name: Mapped[str] = mapped_column(sa.String(length=32))
     status: Mapped[bool] = mapped_column(default=False)
     registration_date: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
-    last_seen: Mapped[datetime] = mapped_column(UtcDateTime, onupdate=func.current_timestamp())
+    last_seen: Mapped[datetime] = mapped_column(UtcDateTime)  # , onupdate=func.current_timestamp())
     management: Mapped[int] = mapped_column(default=0)
     day_start: Mapped[time] = mapped_column(default=time(8, 00))
     night_start: Mapped[time] = mapped_column(default=time(20, 00))
@@ -243,7 +243,7 @@ class Ecosystem(GaiaBase):
 
     @property
     def connected(self) -> bool:
-        return datetime.now(timezone.now) - self.last_seen <= timedelta(seconds=30.0)
+        return datetime.now(timezone.utc) - self.last_seen <= timedelta(seconds=30.0)
 
     @property
     def management_dict(self):
@@ -330,7 +330,7 @@ class Ecosystem(GaiaBase):
             select(Hardware)
             .where(Hardware.ecosystem_uid == self.uid)
             .where(
-                Hardware.type == HardwareType.sensor.name,
+                Hardware.type == HardwareType.sensor,
                 Hardware.level == level
             )
             .filter(Hardware.last_log >= limits)
@@ -822,7 +822,7 @@ class Sensor(Hardware):
         result = await session.execute(stmt)
         hardware: Hardware | None = result.unique().scalar_one_or_none()
         if hardware:
-            if hardware.type != HardwareType.sensor.name:
+            if hardware.type != HardwareType.sensor:
                 hardware = None
         return hardware
 
@@ -842,31 +842,28 @@ class Sensor(Hardware):
             stmt = cls._add_time_window_to_stmt(stmt, time_window)
         result = await session.execute(stmt)
         hardware: Sequence[Hardware] = result.unique().scalars().all()
-        return [h for h in hardware if h.type == HardwareType.sensor.name]
+        return [h for h in hardware if h.type == HardwareType.sensor]
 
-    async def _get_formatted_historic_data(
+    async def get_recent_timed_values(
             self,
             session: AsyncSession,
-            time_window: timeWindow,
-            measures: str | list | None = None,
-    ) -> list:
-        if measures is None:
-            measures = [measure.name for measure in self.measures]
-        elif isinstance(measures, str):
-            measures = measures.split(",")
-        rv = []
-        for measure in measures:
-            timed_values = await SensorRecord.get_timed_values(
-                session, self.uid, measure, time_window)
-            if timed_values:
-                rv.append({
-                    "measure": measure,
-                    "unit": await Measure.get_unit(session, measure),
-                    "records": [
-                        (value.timestamp, value.value) for value in timed_values
-                    ],
-                })
-        return rv
+            measure: str,
+    ) -> list[tuple[datetime, float]]:
+        data = await SensorDbCache.get_recent_timed_values(
+            session, sensor_uid=self.uid, measure=measure)
+        return data
+
+    async def get_historic_timed_values(
+            self,
+            session: AsyncSession,
+            measure: str,
+            time_window: timeWindow | None = None,
+    ) -> list[tuple[datetime, float]]:
+        if time_window is None:
+            time_window = create_time_window()
+        data = await SensorRecord.get_timed_values(
+            session, self.uid, measure, time_window)
+        return data
 
     async def _get_formatted_current_data(
             self,
@@ -878,13 +875,33 @@ class Sensor(Hardware):
         elif isinstance(measures, str):
             measures = measures.split(",")
         rv = []
-        temp_data = await SensorDbCache.get_recent(
-            session, sensor_uid=self.uid, measure=measures)
-        for data in temp_data:
+        for measure in measures:
+            timed_values = await self.get_recent_timed_values(session, measure)
             rv.append({
-                "measure": data.measure,
-                "unit": await Measure.get_unit(session, data.measure),
-                "value": data.value,
+                "measure": measure,
+                "unit": await Measure.get_unit(session, measure),
+                "value": timed_values,
+            })
+        return rv
+
+    async def _get_formatted_historic_data(
+            self,
+            session: AsyncSession,
+            measures: str | list | None = None,
+            time_window: timeWindow | None = None,
+    ) -> list:
+        if measures is None:
+            measures = [measure.name for measure in self.measures]
+        elif isinstance(measures, str):
+            measures = measures.split(",")
+        rv = []
+        for measure in measures:
+            timed_values = await self.get_historic_timed_values(
+                session, measure, time_window)
+            rv.append({
+                "measure": measure,
+                "unit": await Measure.get_unit(session, measure),
+                "values": timed_values,
             })
         return rv
 
@@ -892,11 +909,10 @@ class Sensor(Hardware):
             self,
             session: AsyncSession,
             measures: str | list | None = None,
-            current_data: bool = True,
-            historic_data: bool = True,
-            time_window: timeWindow = None,
+            current_data: bool = False,
+            historic_data: bool = False,
+            time_window: timeWindow | None = None,
     ) -> dict:
-        assert self.type == "sensor"
         rv = self.to_dict(exclude=["measure"])
         rv.update({"measures": [measure_obj.name for measure_obj in self.measures]})
         if current_data or historic_data:
@@ -912,13 +928,10 @@ class Sensor(Hardware):
                 else:
                     rv["data"].update({"current": None})
             if historic_data:
-                if time_window:
-                    restricted_time_window = create_time_window(
-                        time_window.start, time_window.end)
-                else:
-                    restricted_time_window = create_time_window()
+                if time_window is None:
+                    time_window = create_time_window()
                 data = await self._get_formatted_historic_data(
-                    session, restricted_time_window, measures)
+                    session, measures, time_window)
                 if data:
                     rv["data"].update({
                         "historic": {
@@ -969,7 +982,7 @@ class Actuator(Hardware):
         result = await session.execute(stmt)
         hardware: Hardware | None = result.unique().scalar_one_or_none()
         if hardware:
-            if hardware.type == HardwareType.sensor.name:
+            if hardware.type == HardwareType.sensor:
                 hardware = None
         return hardware
 
@@ -989,7 +1002,7 @@ class Actuator(Hardware):
             stmt = cls._add_time_window_to_stmt(stmt, time_window)
         result = await session.execute(stmt)
         hardware: Sequence[Hardware] = result.unique().scalars().all()
-        return [h for h in hardware if h.type != HardwareType.sensor.name]
+        return [h for h in hardware if h.type != HardwareType.sensor]
 
 
 class Measure(GaiaBase):
@@ -1131,7 +1144,7 @@ class SensorRecord(BaseSensorRecord):
             sensor_uid: str,
             measure_name: str,
             time_window: timeWindow
-    ) -> Sequence[Row]:
+    ) -> list[tuple[datetime, float]]:
         stmt = (
             select(cls.timestamp, cls.value)
             .where(cls.measure == measure_name)
@@ -1142,7 +1155,8 @@ class SensorRecord(BaseSensorRecord):
             )
         )
         result = await session.execute(stmt)
-        x = result.all()
+        from typing import cast
+        return [r._data for r in result.all()]
 
 
 class ActuatorRecord(BaseActuatorRecord):

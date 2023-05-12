@@ -4,7 +4,7 @@ from abc import abstractmethod
 from datetime import datetime, timedelta, timezone
 from typing import Self, Sequence
 
-from sqlalchemy import delete, insert, select
+from sqlalchemy import delete, insert, Row, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.functions import max as sa_max
 
@@ -88,6 +88,29 @@ class SensorDbCache(BaseSensorData, DbCache):
                 stmt = stmt.where(hardware_attr.in_(value))
         result = await session.execute(stmt)
         return result.scalars().all()
+
+    @classmethod
+    async def get_recent_timed_values(
+            cls,
+            session: AsyncSession,
+            sensor_uid: str,
+            measure: str,
+    ) -> list[tuple[datetime, float]]:
+        await cls.remove_expired(session)
+        sub_stmt = (
+            select(cls.id, sa_max(cls.timestamp))
+            .group_by(cls.sensor_uid, cls.measure)
+            .subquery()
+        )
+        stmt = (
+            select(cls.timestamp, cls.measure)
+            .join(sub_stmt, cls.id == sub_stmt.c.id)
+            .where(cls.sensor_uid == sensor_uid)
+            .where(cls.measure == measure)
+        )
+        result = await session.execute(stmt)
+        #
+        return [r._data for r in result.all()]
 
 
 class SystemDbCache(BaseSystemData, DbCache):
