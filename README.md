@@ -1,7 +1,7 @@
 Ouranos
 =======
 
-Ouranos is a companion application of [Gaia](https://gitlab.com/eupla/gaia.git).
+Ouranos is the companion application of [Gaia](https://github.com/vaamb/gaia.git).
 It can be used to manage multiple instances of Gaia, log data and it provides a
 web api to retrieve data.
 
@@ -24,5 +24,5 @@ To do so on a Raspberry Pi, use
 ``sudo apt update; sudo apt install python3 python3-pip python3-venv git rustc`` 
 if required).
 
-To install Ouranos, copy the install.sh script from the script directory and 
+To install Ouranos, copy the install.sh script from the scripts directory and 
 run it in the directory in which you want to install Ouranos

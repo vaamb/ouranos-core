@@ -35,9 +35,9 @@ dependencies = [
     "importlib_metadata; python_version < '3.8'",
 
     # From git
-    "event-dispatcher @ git+https://gitlab.com/eupla/dispatcher.git",
-    "gaia-validators @ git+https://gitlab.com/eupla/gaia-validators.git",
-    "sqlalchemy-wrapper @ git+https://gitlab.com/eupla/sqlalchemy-wrapper.git",
+    "event-dispatcher @ git+https://github.com/vaamb/dispatcher.git",
+    "gaia-validators @ git+https://github.com/vaamb/gaia-validators.git",
+    "sqlalchemy-wrapper @ git+https://github.com/vaamb/sqlalchemy-wrapper.git",
 ]
 
 [project.optional-dependencies]
