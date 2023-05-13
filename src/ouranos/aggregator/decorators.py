@@ -3,6 +3,8 @@ from __future__ import annotations
 import typing as t
 from typing import Callable
 
+from ouranos.core.exceptions import NotRegisteredError
+
 
 if t.TYPE_CHECKING:
     from ouranos.aggregator.events import Events
@@ -19,6 +21,7 @@ def registration_required(func: Callable):
             engine_uid: str | None = session.get("engine_uid")
         if engine_uid is None:
             await self.disconnect(sid, namespace="/gaia")
+            raise NotRegisteredError
         else:
             return await func(self, sid, data, engine_uid)
     return wrapper

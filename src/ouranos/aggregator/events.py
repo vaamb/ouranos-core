@@ -203,12 +203,14 @@ class Events:
             raise TypeError("Event broker_type is invalid")
 
     async def on_disconnect(self, sid, *args) -> None:
+        self.leave_room(sid, "engines", namespace="/gaia")
+        async with self.session(sid) as session:
+            session.clear()
         async with db.scoped_session() as session:
             engine = await Engine.get(session, engine_id=sid)
             if engine is None:
                 return
             uid = engine.uid
-            self.leave_room(sid, "engines", namespace="/gaia")
             await self.ouranos_dispatcher.emit(
                 "ecosystem_status",
                 {ecosystem.uid: {"status": ecosystem.status, "connected": False}
@@ -524,7 +526,7 @@ class Events:
             )
             health_data = {
                 "ecosystem_uid": payload["uid"],
-                "timestamp": datetime.fromisoformat(ecosystem["timestamp"]),
+                "timestamp": ecosystem["timestamp"],
                 "green": ecosystem["green"],
                 "necrosis": ecosystem["necrosis"],
                 "health_index": ecosystem["index"]
@@ -574,13 +576,23 @@ class Events:
     # ---------------------------------------------------------------------------
     #   Events Api -> Aggregator -> Gaia
     # ---------------------------------------------------------------------------
-    async def _turn_actuator(self, sid, data) -> None:
+    async def _turn_actuator(self, sid, data: TurnActuatorPayloadDict) -> None:
+        data: TurnActuatorPayloadDict = self.validate_payload(
+            data, TurnActuatorPayload, dict)
+        async with db.scoped_session() as session:
+            ecosystem_uid = data["ecosystem_uid"]
+            ecosystem = await Ecosystem.get(session, ecosystem_uid)
+            try:
+                engine_sid = ecosystem.engine.sid
+            except Exception:
+                engine_sid = None
         if self.broker_type == "socketio":
             await self.emit(
-                "turn_actuator", data=data, namespace="/gaia", room=sid)
+                "turn_actuator", data=data, namespace="/gaia", room=engine_sid)
         elif self.broker_type == "dispatcher":
             await self.emit(
-                "turn_actuator", data=data, namespace="/gaia", room=sid, ttl=30)
+                "turn_actuator", data=data, namespace="/gaia", room=engine_sid,
+                ttl=30)
         else:
             raise TypeError("Event broker_type is invalid")
 

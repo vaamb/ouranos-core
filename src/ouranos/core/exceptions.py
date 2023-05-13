@@ -14,6 +14,10 @@ class NoEcosystemFound(NoResultFound):
     """No ecosystem could be found"""
 
 
+class NotRegisteredError(OuranosException):
+    pass
+
+
 class WrongDataFormat(OuranosException):
     pass
 
