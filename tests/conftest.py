@@ -1,102 +1,48 @@
 import asyncio
-import os
-import shutil
-import tempfile
-import typing as t
+from pathlib import Path
+import sys
+from typing import Type
 
-from fastapi.testclient import TestClient
 import pytest
-from sqlalchemy import select
+import pytest_asyncio
 
-from .utils import user, operator, admin
-from ouranos.web_server import create_app, db as _db
-from ouranos.core.database.models import Role, User
-from config import TestingConfig
-
-
-SERVICES = {
-    "calendar": "app",
-    "weather": "app",
-    "webcam": "app",
-    "daily_recap": "user",
-    "telegram_chatbot": "user",
-}
-
-
-def patch_config(config_class: t.Type[TestingConfig], temp_directory):
-    """Change database URIs to use a temporary directory"""
-    config_class.SQLALCHEMY_DATABASE_URI = (
-            "sqlite+aiosqlite:///" + os.path.join(temp_directory, "ecosystems.db")
-    )
-    config_class.SQLALCHEMY_BINDS = {
-        "app": "sqlite+aiosqlite:///" + os.path.join(temp_directory, "app.db"),
-        "archive": "sqlite+aiosqlite:///" + os.path.join(temp_directory, "archive.db"),
-        "system": "sqlite+aiosqlite:///" + os.path.join(temp_directory, "system.db"),
-    }
-    return config_class
+from ouranos import Config, db, setup_config
+from ouranos.core.config import _config_dict_from_class
 
 
 @pytest.fixture(scope="session")
 def event_loop():
-    loop = asyncio.get_event_loop()
+    if sys.platform.startswith("win") and sys.version_info[:2] >= (3, 8):
+        # Avoid "RuntimeError: Event loop is closed" on Windows when tearing down tests
+        # https://github.com/encode/httpx/issues/914
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+    loop = asyncio.new_event_loop()
     yield loop
     loop.close()
 
 
-@pytest.fixture(scope="session")
-def temp_dir():
-    temp_directory = tempfile.mkdtemp(suffix="gaiaWeb")
-    try:
-        yield temp_directory
-    finally:
-        try:
-            shutil.rmtree(temp_directory)
-        except PermissionError:
-            # Raised in Windows although the directory is effectively deleted
-            pass
+@pytest.fixture(scope="session", autouse=True)
+def config(tmp_path_factory):
+    tmp_path = tmp_path_factory.mktemp("base-dir")
+    Config.DIR = str(tmp_path)
+    db_dir = Path(Config().DB_DIR)
+    if not db_dir.exists():
+        db_dir.mkdir()
+    del Config.SQLALCHEMY_BINDS
+    yield Config
 
 
-@pytest.fixture(scope="session")
-def config(temp_dir):
-    config = patch_config(TestingConfig, temp_dir)
-    yield config
+@pytest.fixture(scope="session", autouse=True)
+def setup_ouranos_config(config: Type[Config]):
+    setup_config(config)
+    return config
 
 
-@pytest.fixture(scope="session")
-def db():
-    yield _db
-
-
-@pytest.fixture(scope="session")
-def app(config, db):
-    # Patch dependencies
-    async def patched_session():
-        yield db._session_factory()
-
-    get_session = patched_session
-
-    app = create_app(config)
-
-    async def create_fake_users():
-        async with db._session() as session:
-            for usr in (user, operator, admin):
-                stmt = select(Role).where(Role.name == usr.role)
-                result = await session.execute(stmt)
-                u = User(
-                    username=usr.username,
-                    firstname=usr.firstname,
-                    lastname=usr.lastname,
-                    role=result.scalars().first(),
-                )
-                u.set_password(usr.password)
-                session.add(u)
-            session.commit()
-
-    asyncio.run(create_fake_users())
-    yield app
-
-
-@pytest.fixture()
-def client(app):
-    client = TestClient(app)
-    yield client
+@pytest_asyncio.fixture(scope="session", autouse=True)
+async def setup_db(config: Type[Config]):
+    cfg = _config_dict_from_class(config)
+    db.init(cfg)
+    from ouranos.core.database import models  # noqa
+    await db.create_all()
+    return db
