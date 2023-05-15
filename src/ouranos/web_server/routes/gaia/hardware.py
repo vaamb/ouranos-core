@@ -1,14 +1,17 @@
-import typing as t
+from __future__ import annotations
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from gaia_validators import HardwareLevel, HardwareType
 
 from ouranos.core import validate
 from ouranos.core.database.models.gaia import Hardware
 from ouranos.web_server.auth import is_operator
 from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.routes.utils import assert_single_uid
-from ouranos.web_server.routes.gaia.common_queries import ecosystems_uid_q
+from ouranos.web_server.routes.gaia.common_queries import (
+    ecosystems_uid_q, hardware_level_q)
 
 
 router = APIRouter(
@@ -18,10 +21,11 @@ router = APIRouter(
 )
 
 
+uid_param = Path(description="The uid of a hardware")
+
 level_query = Query(
     default=None,
-    description="The sensor_level at which the hardware operates. Choose from "
-                "'plants', 'environment' or empty for both"
+    description="The level at which the hardware operates"
 )
 
 
@@ -42,13 +46,13 @@ async def hardware_or_abort(
 
 @router.get("", response_model=list[validate.gaia.hardware])
 async def get_multiple_hardware(
-        hardware_uid: t.Optional[list[str]] = Query(
+        hardware_uid: list[str] | None = Query(
             default=None, description="A list of hardware uids"),
-        ecosystems_uid: t.Optional[list[str]] = ecosystems_uid_q,
-        hardware_level: t.Optional[list[str]] = level_query,
-        hardware_type: t.Optional[list[str]] = Query(
+        ecosystems_uid: list[str] | None = ecosystems_uid_q,
+        hardware_level: list[HardwareLevel] | None = hardware_level_q,
+        hardware_type: list[HardwareType] | None = Query(
             default=None, description="A list of types of hardware"),
-        hardware_model: t.Optional[list[str]] = Query(
+        hardware_model: list[str] | None = Query(
             default=None, description="A list of precise hardware model"),
         session: AsyncSession = Depends(get_session),
 ):
@@ -75,7 +79,7 @@ async def create_hardware(
 
 @router.get("/u/{uid}", response_model=validate.gaia.hardware)
 async def get_hardware(
-        uid: str = Query(description="A hardware uid"),
+        uid: str = uid_param,
         session: AsyncSession = Depends(get_session)
 ):
     assert_single_uid(uid)
@@ -85,7 +89,7 @@ async def get_hardware(
 
 @router.put("/u/{uid}", dependencies=[Depends(is_operator)])
 async def update_hardware(
-        uid: str = Query(description="A hardware uid"),
+        uid: str = uid_param,
         payload: validate.gaia.hardware_creation = Body(
             description="Updated information about the hardware"),
         session: AsyncSession = Depends(get_session)
@@ -95,7 +99,7 @@ async def update_hardware(
 
 @router.delete("/u/{uid}", dependencies=[Depends(is_operator)])
 async def delete_hardware(
-        uid: str = Query(description="A hardware uid"),
+        uid: str = uid_param,
         session: AsyncSession = Depends(get_session)
 ):
     await Hardware.delete(session, uid)
