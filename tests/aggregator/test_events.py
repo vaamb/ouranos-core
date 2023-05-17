@@ -94,7 +94,7 @@ def events_handler(mock_dispatcher, events_handler_module):
 def test_handler(mock_dispatcher, events_handler: DispatcherBasedGaiaEvents):
     assert events_handler._dispatcher == mock_dispatcher
     assert events_handler.broker_type == "dispatcher"
-    assert events_handler.namespace == "/gaia"
+    assert events_handler.namespace == "gaia"
     assert len(mock_dispatcher.emit_store) == 0
 
 
