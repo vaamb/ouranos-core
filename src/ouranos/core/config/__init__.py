@@ -251,7 +251,6 @@ def setup(
         config_cls = _get_config_class(profile)
     config = _config_dict_from_class(config_cls, **params)
     _config = config
-    configure_logging(config)
 
     return _config
 

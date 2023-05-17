@@ -5,7 +5,7 @@ from logging import Logger, getLogger
 import re
 import typing as t
 
-from ouranos import current_app, db, scheduler, setup_config
+from ouranos import configure_logging, current_app, db, scheduler, setup_config
 from ouranos.core.database.init import (
     create_base_data, print_registration_token
 )
@@ -59,6 +59,7 @@ class Functionality:
                 setproctitle(f"ouranos-{self.name}")
             # Setup config
             config = setup_config(config_profile)
+            configure_logging(config)
             logger: Logger = getLogger("ouranos")
             if not root and "memory://" in config["DISPATCHER_URL"]:
                 logger.warning(
