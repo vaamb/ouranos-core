@@ -131,10 +131,10 @@ def _config_dict_from_class(
 
 
 def configure_logging(config: ConfigDict) -> None:
-    debug = config.get("DEBUG")
-    log_to_stdout = config.get("LOG_TO_STDOUT")
-    log_to_file = config.get("LOG_TO_FILE")
-    log_error = config.get("LOG_ERROR")
+    debug = config.get["DEBUG"]
+    log_to_stdout = config.get["LOG_TO_STDOUT"]
+    log_to_file = config.get["LOG_TO_FILE"]
+    log_error = config.get["LOG_ERROR"]
 
     handlers = []
 
@@ -226,7 +226,7 @@ def configure_logging(config: ConfigDict) -> None:
     logging.config.dictConfig(logging_config)
 
 
-def setup(
+def setup_config(
         profile: profile_type = None,
         **params,
 ) -> ConfigDict:
