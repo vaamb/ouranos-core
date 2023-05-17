@@ -49,12 +49,23 @@ class Ouranos(Functionality):
             config_override: dict | None = None,
             **kwargs
     ) -> None:
-        super().__init__(config_profile, config_override, root=True)
+        """The master functionality.
+        This functionality is able to launch all the other functionalities,
+        either core functionalities (the Webserver, the Aggregator) or plugins.
+
+        :param config_profile: The configuration profile to provide. Either a
+        `BaseConfig` or its subclass, a str corresponding to a profile name
+        accessible in a `config.py` file, or None to take the default profile.
+        :param config_override: A dictionary containing some overriding
+        parameters for the configuration.
+        :param kwargs: Other parameters to pass to the base class.
+        """
+        super().__init__(config_profile, config_override, root=True, **kwargs)
         self._plugins: dict[str, Plugin] = {}
         # Init web server
-        self.web_server = WebServer(self.config)
+        self.web_server = WebServer()
         # Init aggregator
-        self.aggregator = Aggregator(self.config)
+        self.aggregator = Aggregator()
         # Init services
         """
         from ouranos.services import Services

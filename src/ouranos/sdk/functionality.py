@@ -32,6 +32,23 @@ class Functionality:
             root: bool = False,
             **kwargs
     ) -> None:
+        """ Create a new `Functionality` instance.
+        `Functionality` instances are the base working units of Ouranos. They
+        can be divided into core functionalities (the aggregator and the web
+        api) and all the plugins.
+
+        :param config_profile: The configuration profile to provide. Either a
+        `BaseConfig` or its subclass, a str corresponding to a profile name
+        accessible in a `config.py` file, or None to take the default profile.
+        :param config_override: A dictionary containing some overriding
+        parameters for the configuration.
+        :param auto_setup_config: Whether to automatically set up the
+        configuration or not. Should remain `True` for most cases, except during
+        testing or when config is set up manually prior to the use of the
+        `Functionality`
+        :param root: Whether the functionality is managing other (sub)-
+        functionalities or not. Should remain `False` for most cases.
+        """
         self.name = pattern.sub('_', self.__class__.__name__).lower()
         if not _SetUp.done and auto_setup_config:
             # Change process name

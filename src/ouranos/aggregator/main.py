@@ -49,7 +49,20 @@ class Aggregator(Functionality):
             config_override: dict | None = None,
             **kwargs
     ) -> None:
-        super().__init__(config_profile, config_override)
+        """The Gaia data aggregator.
+        This functionality collects data from, and sends instructions to Gaia
+        instances. It can work using a message queue such as RabbitMQ (the
+        recommended way) via a custom events dispatcher, or using socketio via
+        `python-socketio`.
+
+        :param config_profile: The configuration profile to provide. Either a
+        `BaseConfig` or its subclass, a str corresponding to a profile name
+        accessible in a `config.py` file, or None to take the default profile.
+        :param config_override: A dictionary containing some overriding
+        parameters for the configuration.
+        :param kwargs: Other parameters to pass to the base class.
+        """
+        super().__init__(config_profile, config_override, **kwargs)
         self.logger.info("Creating Ouranos aggregator")
         self._uri: str = self.config.get("GAIA_COMMUNICATION_URL")
         if (
