@@ -7,7 +7,7 @@ import pytest
 import pytest_asyncio
 
 from ouranos import Config, db, setup_config
-from ouranos.core.config import _config_dict_from_class
+from ouranos.core.config import ConfigDict
 
 
 @pytest.fixture(scope="session")
@@ -29,20 +29,14 @@ def config(tmp_path_factory):
     db_dir = Path(Config().DB_DIR)
     if not db_dir.exists():
         db_dir.mkdir()
-    del Config.SQLALCHEMY_BINDS
-    yield Config
-
-
-@pytest.fixture(scope="session", autouse=True)
-def setup_ouranos_config(config: Type[Config]):
-    setup_config(config)
-    return config
+    Config.TESTING = True
+    config = setup_config(Config)
+    yield config
 
 
 @pytest_asyncio.fixture(scope="session", autouse=True)
-async def setup_db(config: Type[Config]):
-    cfg = _config_dict_from_class(config)
-    db.init(cfg)
+async def setup_db(config: ConfigDict):
+    db.init(config)
     from ouranos.core.database import models  # noqa
     await db.create_all()
     return db
