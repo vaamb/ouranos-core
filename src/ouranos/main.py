@@ -47,6 +47,7 @@ class Ouranos(Functionality):
             self,
             config_profile: "profile_type" = None,
             config_override: dict | None = None,
+            **kwargs
     ) -> None:
         super().__init__(config_profile, config_override, root=True)
         self._plugins: dict[str, Plugin] = {}

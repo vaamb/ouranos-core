@@ -11,7 +11,7 @@ from ouranos.core.config.base import BaseConfig
 from ouranos.core.config.consts import ImmutableDict
 from ouranos.core.utils import stripped_warning
 
-profile_type: BaseConfig | str | None
+profile_type: Type[BaseConfig] | str | None
 config_type: ImmutableDict[str, str | int | bool | dict[str, str]]
 
 
@@ -235,6 +235,11 @@ def setup(
     :param params: Parameters to override config
     :return: the config as a dict
     """
+    global _config
+    if _config["SET_UP"]:
+        raise RuntimeError(
+            "Trying to setup config a second time"
+        )
     if isclass(profile):
         if issubclass(profile, BaseConfig):
             config_cls: Type[BaseConfig] = profile
@@ -245,7 +250,6 @@ def setup(
     else:
         config_cls = _get_config_class(profile)
     config = _config_dict_from_class(config_cls, **params)
-    global _config
     _config = config
     configure_logging(config)
 

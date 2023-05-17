@@ -27,12 +27,13 @@ class Functionality:
             self,
             config_profile: "profile_type" = None,
             config_override: dict | None = None,
-            *args,
+            *,
+            auto_setup_config: bool = True,
             root: bool = False,
             **kwargs
     ) -> None:
         self.name = pattern.sub('_', self.__class__.__name__).lower()
-        if not _SetUp.done:
+        if not _SetUp.done and auto_setup_config:
             # Change process name
             from setproctitle import setproctitle
             if root:
