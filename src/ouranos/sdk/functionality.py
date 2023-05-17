@@ -4,15 +4,15 @@ import asyncio
 from logging import Logger, getLogger
 import re
 import typing as t
+from typing import Type
 
 from ouranos import configure_logging, current_app, db, scheduler, setup_config
 from ouranos.core.database.init import (
-    create_base_data, print_registration_token
-)
+    create_base_data, print_registration_token)
 
 
 if t.TYPE_CHECKING:
-    from ouranos.core.config import config_type, profile_type
+    from ouranos.core.config import ConfigDict, profile_type
 
 
 pattern = re.compile(r'(?<!^)(?=[A-Z])')
@@ -70,8 +70,9 @@ class Functionality:
             # Init database
             _SetUp.done = True
 
-        self.config: config_type = current_app.config
+        self.config: ConfigDict = current_app.config
         if config_override:
+            self.config = self.config.copy()
             self.config.update(config_override)
         if root:
             self.logger: Logger = getLogger(f"ouranos")
@@ -116,13 +117,13 @@ class Functionality:
 
 
 def run_functionality_forever(
-        functionality_cls: t.Type[Functionality],
+        functionality_cls: Type[Functionality],
         config_profile: str | None = None,
         *args,
         **kwargs
 ):
     async def inner_func(
-            _functionality_cls: t.Type[Functionality],
+            _functionality_cls: Type[Functionality],
             _config_profile: str | None = None,
             *_args,
             **_kwargs

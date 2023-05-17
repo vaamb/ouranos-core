@@ -64,10 +64,10 @@ class Aggregator(Functionality):
         """
         super().__init__(config_profile, config_override, **kwargs)
         self.logger.info("Creating Ouranos aggregator")
-        self._uri: str = self.config.get("GAIA_COMMUNICATION_URL")
+        self._uri: str = self.config["GAIA_COMMUNICATION_URL"]
         if (
             self._uri.startswith("socketio://") and
-            self.config.get("API_PORT") == self.config.get("AGGREGATOR_PORT")
+            self.config["API_PORT"] == self.config["AGGREGATOR_PORT"]
         ):
             self.logger.warning(
                 "The Aggregator and the API are using the same port, this will "
@@ -164,7 +164,7 @@ class Aggregator(Functionality):
             )
             # Create the dispatcher used for internal communication
             #  It might be the same as the one used to communicate with Gaia
-            if self.config.get("DISPATCHER_URL") == self._uri:
+            if self.config["DISPATCHER_URL"] == self._uri:
                 ouranos_dispatcher = self.engine
             else:
                 ouranos_dispatcher = DispatcherFactory.get("aggregator")
