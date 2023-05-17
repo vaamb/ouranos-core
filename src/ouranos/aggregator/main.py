@@ -47,13 +47,27 @@ class Aggregator(Functionality):
             self,
             config_profile: "profile_type" = None,
             config_override: dict | None = None,
+            **kwargs
     ) -> None:
-        super().__init__(config_profile, config_override)
+        """The Gaia data aggregator.
+        This functionality collects data from, and sends instructions to Gaia
+        instances. It can work using a message queue such as RabbitMQ (the
+        recommended way) via a custom events dispatcher, or using socketio via
+        `python-socketio`.
+
+        :param config_profile: The configuration profile to provide. Either a
+        `BaseConfig` or its subclass, a str corresponding to a profile name
+        accessible in a `config.py` file, or None to take the default profile.
+        :param config_override: A dictionary containing some overriding
+        parameters for the configuration.
+        :param kwargs: Other parameters to pass to the base class.
+        """
+        super().__init__(config_profile, config_override, **kwargs)
         self.logger.info("Creating Ouranos aggregator")
-        self._uri: str = self.config.get("GAIA_COMMUNICATION_URL")
+        self._uri: str = self.config["GAIA_COMMUNICATION_URL"]
         if (
             self._uri.startswith("socketio://") and
-            self.config.get("API_PORT") == self.config.get("AGGREGATOR_PORT")
+            self.config["API_PORT"] == self.config["AGGREGATOR_PORT"]
         ):
             self.logger.warning(
                 "The Aggregator and the API are using the same port, this will "
@@ -150,7 +164,7 @@ class Aggregator(Functionality):
             )
             # Create the dispatcher used for internal communication
             #  It might be the same as the one used to communicate with Gaia
-            if self.config.get("DISPATCHER_URL") == self._uri:
+            if self.config["DISPATCHER_URL"] == self._uri:
                 ouranos_dispatcher = self.engine
             else:
                 ouranos_dispatcher = DispatcherFactory.get("aggregator")

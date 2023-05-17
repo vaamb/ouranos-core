@@ -6,8 +6,7 @@ ecosystems_uid_q = Query(
     description="A list of ecosystem ids (either uids or names), or 'recent' "
                 "or 'connected'"
 )
-sensor_level_q = Query(
+hardware_level_q = Query(
     default=None,
-    description="The sensor_level at which the sensor gathers data. Choose from "
-                "'plants', 'environment' or empty for both"
+    description="The sensor_level at which the sensor gathers data. Leave empty for both"
 )

@@ -4,15 +4,15 @@ import asyncio
 from logging import Logger, getLogger
 import re
 import typing as t
+from typing import Type
 
-from ouranos import current_app, db, scheduler, setup_config
+from ouranos import configure_logging, current_app, db, scheduler, setup_config
 from ouranos.core.database.init import (
-    create_base_data, print_registration_token
-)
+    create_base_data, print_registration_token)
 
 
 if t.TYPE_CHECKING:
-    from ouranos.core.config import config_type, profile_type
+    from ouranos.core.config import ConfigDict, profile_type
 
 
 pattern = re.compile(r'(?<!^)(?=[A-Z])')
@@ -27,12 +27,30 @@ class Functionality:
             self,
             config_profile: "profile_type" = None,
             config_override: dict | None = None,
-            *args,
+            *,
+            auto_setup_config: bool = True,
             root: bool = False,
             **kwargs
     ) -> None:
+        """ Create a new `Functionality` instance.
+        `Functionality` instances are the base working units of Ouranos. They
+        can be divided into core functionalities (the aggregator and the web
+        api) and all the plugins.
+
+        :param config_profile: The configuration profile to provide. Either a
+        `BaseConfig` or its subclass, a str corresponding to a profile name
+        accessible in a `config.py` file, or None to take the default profile.
+        :param config_override: A dictionary containing some overriding
+        parameters for the configuration.
+        :param auto_setup_config: Whether to automatically set up the
+        configuration or not. Should remain `True` for most cases, except during
+        testing or when config is set up manually prior to the use of the
+        `Functionality`
+        :param root: Whether the functionality is managing other (sub)-
+        functionalities or not. Should remain `False` for most cases.
+        """
         self.name = pattern.sub('_', self.__class__.__name__).lower()
-        if not _SetUp.done:
+        if not _SetUp.done and auto_setup_config:
             # Change process name
             from setproctitle import setproctitle
             if root:
@@ -41,6 +59,7 @@ class Functionality:
                 setproctitle(f"ouranos-{self.name}")
             # Setup config
             config = setup_config(config_profile)
+            configure_logging(config)
             logger: Logger = getLogger("ouranos")
             if not root and "memory://" in config["DISPATCHER_URL"]:
                 logger.warning(
@@ -51,8 +70,9 @@ class Functionality:
             # Init database
             _SetUp.done = True
 
-        self.config: config_type = current_app.config
+        self.config: ConfigDict = current_app.config
         if config_override:
+            self.config = self.config.copy()
             self.config.update(config_override)
         if root:
             self.logger: Logger = getLogger(f"ouranos")
@@ -97,13 +117,13 @@ class Functionality:
 
 
 def run_functionality_forever(
-        functionality_cls: t.Type[Functionality],
+        functionality_cls: Type[Functionality],
         config_profile: str | None = None,
         *args,
         **kwargs
 ):
     async def inner_func(
-            _functionality_cls: t.Type[Functionality],
+            _functionality_cls: Type[Functionality],
             _config_profile: str | None = None,
             *_args,
             **_kwargs

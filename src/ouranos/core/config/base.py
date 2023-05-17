@@ -1,4 +1,8 @@
+from __future__ import annotations
+
 import os
+from pathlib import Path
+from typing import TypedDict
 
 
 class BaseConfig:
@@ -102,3 +106,84 @@ class BaseConfig:
     HOME_CITY = os.environ.get("HOME_CITY")
     HOME_COORDINATES = os.environ.get("HOME_COORDINATES")
     DARKSKY_API_KEY = os.environ.get("DARKSKY_API_KEY")
+
+
+class BaseConfigDict(TypedDict):
+    # Reserved parameters
+    APP_NAME: str
+    VERSION: str
+
+    DEBUG: bool
+    DEVELOPMENT: bool
+    TESTING: bool
+
+    DIR: str | Path
+    LOG_DIR: str | Path
+    CACHE_DIR: str | Path
+    DB_DIR: str | Path
+
+    SECRET_KEY: str
+    CONNECTION_KEY: str
+
+    # Logging config
+    LOG_TO_STDOUT: bool
+    LOG_TO_FILE: bool
+    LOG_ERROR: bool
+
+    # Brokers config
+    GAIA_COMMUNICATION_URL: str
+    DISPATCHER_URL: str
+    SIO_MANAGER_URL: str
+    CACHE_SERVER_URL: str
+
+    # Services
+    START_API: bool
+    API_HOST: str
+    API_PORT: int
+    API_WORKERS: int
+    SERVER_RELOAD: bool
+    START_AGGREGATOR: bool
+    AGGREGATOR_PORT: int
+    PLUGINS_OMITTED: str
+
+    # Ouranos and Gaia config
+    ADMINS: list[str]
+    RECAP_SENDING_HOUR: int | None
+    MAX_ECOSYSTEMS: int
+    WEATHER_UPDATE_PERIOD: int
+    ECOSYSTEM_TIMEOUT: int
+
+    # Data logging
+    SENSOR_LOGGING_PERIOD: int | None
+    SYSTEM_LOGGING_PERIOD: int | None
+    SYSTEM_UPDATE_PERIOD: int | None
+
+    # Data archiving
+    ACTUATOR_ARCHIVING_PERIOD: int | None
+    HEALTH_ARCHIVING_PERIOD: int | None
+    SENSOR_ARCHIVING_PERIOD: int | None
+    SYSTEM_ARCHIVING_PERIOD: int | None
+    WARNING_ARCHIVING_PERIOD: int | None
+
+    # SQLAlchemy config
+    SQLALCHEMY_DATABASE_URI: str | Path
+    SQLALCHEMY_BINDS: dict[str, str | Path]
+
+    SQLALCHEMY_TRACK_MODIFICATIONS: bool
+    SQLALCHEMY_RECORD_QUERIES: bool
+    SLOW_DB_QUERY_TIME: float
+    SQLALCHEMY_ECHO: bool
+
+    # Mail config
+    MAIL_SERVER: str
+    MAIL_PORT: int
+    MAIL_USE_TLS: bool
+    MAIL_USE_SSL: bool
+    MAIL_USERNAME: str | None
+    MAIL_PASSWORD: str | None
+    MAIL_SUPPRESS_SEND: bool
+
+    # Private parameters
+    HOME_CITY: str | None
+    HOME_COORDINATES: str | None
+    DARKSKY_API_KEY: str | None

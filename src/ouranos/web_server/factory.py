@@ -110,7 +110,7 @@ def create_app(config: dict | None = None) -> FastAPI:
             response.headers["X-Brewing-Time"] = str(brewing_time)
             return response
 
-    # Add a router with "/web_server" path prefixed to it
+    # Add a router with "/api" path prefixed to it
     prefix = APIRouter(prefix="/api")
 
     # Load routes onto prefixed router
@@ -121,7 +121,7 @@ def create_app(config: dict | None = None) -> FastAPI:
 
     logger.debug("Loading auth-related routes")
     from ouranos.web_server.routes.auth import router as auth_router
-    app_router.default_response_class = JSONResponse
+    auth_router.default_response_class = JSONResponse
     prefix.include_router(auth_router)
 
     logger.debug("Loading gaia-related routes")

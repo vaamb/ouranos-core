@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from enum import IntFlag
+from enum import Enum, IntFlag
 from hashlib import md5
 import re
 import time as ctime
@@ -10,7 +10,7 @@ from typing import Optional, Self, Sequence
 from argon2 import PasswordHasher
 from argon2.exceptions import VerificationError
 import sqlalchemy as sa
-from sqlalchemy import delete, select, Table, update
+from sqlalchemy import delete, insert, select, Table, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -73,7 +73,6 @@ class Role(Base):
             role.add_permission(permission)
             role.default = (role.name == default_role)
             session.add(role)
-        await session.commit()
 
     def has_permission(self, perm: Permission):
         return self.permissions & perm.value == perm.value
@@ -319,7 +318,6 @@ class User(Base, UserMixin):
                 role=admin
             )
             session.add(gaia)
-            await session.commit()
 
     def set_password(self, password: str):
         self.password_hash = argon2_hasher.hash(password)
@@ -407,21 +405,57 @@ class User(Base, UserMixin):
         return False
 
 
+class ServiceLevel(Enum):
+    all = "all"
+    app = "app"
+    ecosystem = "ecosystem"
+
+
 class Service(Base):
     __tablename__ = "services"
     __bind_key__ = "app"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(sa.String(length=16))
-    level: Mapped[str] = mapped_column(sa.String(length=4))
+    level: Mapped[ServiceLevel] = mapped_column()
     status: Mapped[bool] = mapped_column(default=False)
+
+    @classmethod
+    async def insert_services(cls, session: AsyncSession) -> None:
+        services_list = [
+            {"name": "weather", "level": ServiceLevel.app},
+            {"name": "suntimes", "level": ServiceLevel.app},
+            {"name": "calendar", "level": ServiceLevel.app},
+        ]
+        for service_dict in services_list:
+            service_in_db = await cls.get(session, service_dict["name"])
+            if service_in_db is None:
+                service = cls(**service_dict)
+                session.add(service)
+
+    @classmethod
+    async def create(
+            cls,
+            session: AsyncSession,
+            values: dict | list[dict],
+    ) -> None:
+        stmt = insert(cls).values(values)
+        await session.execute(stmt)
+
+    @classmethod
+    async def get(cls, session: AsyncSession, name: str) -> Self | None:
+        stmt = select(cls).where(cls.name == name)
+        result = await session.execute(stmt)
+        return result.scalar()
 
     @classmethod
     async def get_multiple(
             cls,
             session: AsyncSession,
-            level: str | list | None = None
+            level: ServiceLevel | list[ServiceLevel] | None = None
     ) -> Sequence[Service]:
+        if level is ServiceLevel.all:
+            level = None
         stmt = select(cls)
         if level:
             stmt = stmt.where(cls.level.in_(level))

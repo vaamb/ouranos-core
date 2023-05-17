@@ -1,4 +1,4 @@
-import typing as t
+from __future__ import annotations
 
 from fastapi import APIRouter, Query
 
@@ -27,7 +27,7 @@ async def get_sun_times() -> dict:
 
 @router.get(path="/forecast")
 async def get_forecast(
-        exclude: t.Union[list[str], None] = Query(
+        exclude: list[str] | None = Query(
             default=None,
             description="Period to exclude from the forecast to choose from "
                         "'currently', 'hourly' and 'daily'"

@@ -49,8 +49,21 @@ class WebServer(Functionality):
             self,
             config_profile: "profile_type" = None,
             config_override: dict | None = None,
+            **kwargs
     ) -> None:
-        super().__init__(config_profile, config_override)
+        """The web-facing API and socketio events.
+        This functionality exposes Ouranos main API functions to the web. It
+        relies on `FastAPI` for the HTTP server and `python-socketio` to manage
+        socketio events.
+
+        :param config_profile: The configuration profile to provide. Either a
+        `BaseConfig` or its subclass, a str corresponding to a profile name
+        accessible in a `config.py` file, or None to take the default profile.
+        :param config_override: A dictionary containing some overriding
+        parameters for the configuration.
+        :param kwargs: Other parameters to pass to the base class.
+        """
+        super().__init__(config_profile, config_override, **kwargs)
         self.logger.info("Creating Ouranos web server")
         self.system_monitor = SystemMonitor()
         use_subprocess: bool = (

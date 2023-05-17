@@ -7,12 +7,15 @@ import sys
 from typing import Type
 
 from ouranos import __version__ as version
-from ouranos.core.config.base import BaseConfig
+from ouranos.core.config.base import BaseConfig, BaseConfigDict
 from ouranos.core.config.consts import ImmutableDict
 from ouranos.core.utils import stripped_warning
 
-profile_type: BaseConfig | str | None
-config_type: ImmutableDict[str, str | int | bool | dict[str, str]]
+
+# TODO: find a better alternative as ConfigDict is both a TypedDict and an
+#  ImmutableDict. For now: use the TypedDict for type hinting
+ConfigDict = BaseConfigDict
+profile_type: Type[BaseConfig] | str | None
 
 
 app_info = {
@@ -21,9 +24,9 @@ app_info = {
 }
 
 
-def get_config() -> config_type:
+def get_config() -> ConfigDict:
     global _config
-    if not _config["SET_UP"]:
+    if _config is None:
         stripped_warning(
             "The variable `config` is accessed before setting up config using "
             "`ouranos.setup_config(profile)`. This could lead to unwanted side "
@@ -44,13 +47,13 @@ def get_base_dir() -> Path:
 
 
 def _get_dir(name: str, fallback_path: str) -> Path:
-    config: config_type = get_config()
-    path = config.get(name)
+    config: ConfigDict = get_config()
     try:
+        path = config[name]
         dir_ = Path(path)
     except ValueError:
         stripped_warning(
-            f"The dir specified by {name} is not valid, using fallback path "
+            f"The dir specified by '{name}' is not valid, using fallback path "
             f"{fallback_path}"
         )
         base_dir = get_base_dir()
@@ -108,10 +111,8 @@ def _get_config_class(profile: str | None = None) -> Type[BaseConfig]:
 
 def _config_dict_from_class(
         obj: Type[BaseConfig],
-        *,
-        set_up: bool = True,
         **params,
-) -> config_type:
+) -> ConfigDict:
     if not issubclass(obj, BaseConfig):
         raise ValueError("'obj' needs to be a subclass of `BaseConfig`")
     inst = obj()
@@ -124,17 +125,16 @@ def _config_dict_from_class(
             config_dict[key] = attr()
         else:
             config_dict[key] = attr
-    config_dict.update({"SET_UP": set_up})
     config_dict.update(params)
     config_dict.update(app_info)
     return ImmutableDict(config_dict)
 
 
-def configure_logging(config: config_type) -> None:
-    debug = config.get("DEBUG")
-    log_to_stdout = config.get("LOG_TO_STDOUT")
-    log_to_file = config.get("LOG_TO_FILE")
-    log_error = config.get("LOG_ERROR")
+def configure_logging(config: ConfigDict) -> None:
+    debug = config.get["DEBUG"]
+    log_to_stdout = config.get["LOG_TO_STDOUT"]
+    log_to_file = config.get["LOG_TO_FILE"]
+    log_error = config.get["LOG_ERROR"]
 
     handlers = []
 
@@ -226,15 +226,20 @@ def configure_logging(config: config_type) -> None:
     logging.config.dictConfig(logging_config)
 
 
-def setup(
+def setup_config(
         profile: profile_type = None,
         **params,
-) -> config_type:
+) -> ConfigDict:
     """
     :param profile: name of the config class to use
     :param params: Parameters to override config
     :return: the config as a dict
     """
+    global _config
+    if _config:
+        raise RuntimeError(
+            "Trying to setup config a second time"
+        )
     if isclass(profile):
         if issubclass(profile, BaseConfig):
             config_cls: Type[BaseConfig] = profile
@@ -245,12 +250,10 @@ def setup(
     else:
         config_cls = _get_config_class(profile)
     config = _config_dict_from_class(config_cls, **params)
-    global _config
     _config = config
-    configure_logging(config)
 
     return _config
 
 
-_config: config_type = _config_dict_from_class(BaseConfig, set_up=False)
+_config: ConfigDict | None = None
 _base_dir: Path | None = None
