@@ -1,57 +1,86 @@
-from datetime import datetime, timezone
+from __future__ import annotations
 
-from gaia_validators import (
-    ActuatorMode, EnvironmentConfig, HardwareLevel, HardwareType, LightMethod)
+from datetime import datetime, time, timezone
+
+from gaia_validators import *
 
 
 ip_address = "127.0.0.1"
 engine_sid = "engine_sid"
 engine_uid = "engine_uid"
 ecosystem_uid = "zutqsCKn"
+ecosystem_name = "TestingEcosystem"
 
 
-def wrap_ecosystem_data_payload(data: dict) -> dict:
+def wrap_ecosystem_data_payload(data: dict | list[dict]) -> dict:
     return {
         "uid": ecosystem_uid,
         "data": data,
     }
 
 
-base_info = {
+base_info: BaseInfoConfigDict = {
     "engine_uid": engine_uid,
     "uid": ecosystem_uid,
-    "name": "Test Ecosystem",
+    "name": ecosystem_name,
     "status": True,
 }
 
 
-base_info_payload = wrap_ecosystem_data_payload(base_info)
+base_info_payload: BaseInfoConfigPayloadDict = \
+    wrap_ecosystem_data_payload(base_info)
 
 
-management = {
+management_data: ManagementConfigDict = {
     "sensors": True,
     "light": True,
     "climate": True,
-    "watering": True,
-    "health": True,
-    "database": True,
-    "alarms": True,
-    "webcam": True,
+    "watering": False,
+    "health": False,
+    "database": False,
+    "alarms": False,
+    "webcam": False,
 }
 
 
-management_payload = wrap_ecosystem_data_payload(management)
+management_payload: ManagementConfigPayloadDict = \
+    wrap_ecosystem_data_payload(management_data)
 
 
-environmental_payload = wrap_ecosystem_data_payload(EnvironmentConfig().dict())
+chaos: ChaosConfigDict = {
+    "frequency": 10,
+    "duration": 2,
+    "intensity": 0.2,
+}
 
 
-hardware = {
+sky: SkyConfigDict = {
+    "day": time(6, 0),
+    "night": time(22, 0),
+    "lighting": LightMethod.elongate,
+}
+
+
+climate: ClimateConfigDict = {
+    "parameter": "temperature",
+    "day": 42,
+    "night": 21,
+    "hysteresis": 5,
+}
+
+
+environmental_payload: EnvironmentConfigPayloadDict = \
+    wrap_ecosystem_data_payload(
+        EnvironmentConfig(chaos=chaos, sky=sky, climate=[climate]).dict()
+    )
+
+
+hardware_data: HardwareConfigDict = {
     "uid": "hardware_uid",
     "name": "TestThermometer",
     "address": "GPIO_7",
-    "type": HardwareType.sensor.value,
-    "level": HardwareLevel.environment.value,
+    "type": HardwareType.sensor,
+    "level": HardwareLevel.environment,
     "model": "virtualDHT22",
     "measures": ["temperature"],
     "plants": [],
@@ -59,27 +88,31 @@ hardware = {
 }
 
 
-hardware_payload = wrap_ecosystem_data_payload(hardware)
+hardware_payload: HardwareConfigPayloadDict = \
+    wrap_ecosystem_data_payload([hardware_data])
 
 
-sensors_data = {
-    "timestamp": datetime.now(timezone.utc),
-    "records": [
-        {
-            "sensor_uid": "hardware_uid",
-            "measures": [
-                {"measure": "temperature", "value": 42}
-            ]
-        }
-    ],
-    "average": [{"measure": "temperature", "value": 42}]
+measure_record: MeasureRecordDict = {"measure": "temperature", "value": 42}
+
+
+sensor_record: SensorRecordDict = {
+    "sensor_uid": "hardware_uid",
+    "measures": [measure_record]
 }
 
 
-sensors_data_payload = wrap_ecosystem_data_payload(sensors_data)
+sensors_data: SensorsDataDict = {
+    "timestamp": datetime.now(timezone.utc),
+    "records": [sensor_record],
+    "average": [measure_record]
+}
 
 
-health_data = {
+sensors_data_payload: SensorsDataPayloadDict = \
+    wrap_ecosystem_data_payload(sensors_data)
+
+
+health_data: HealthDataDict = {
     "timestamp": datetime.now(timezone.utc),
     "green": 0.57,
     "necrosis": 0.15,
@@ -87,10 +120,11 @@ health_data = {
 }
 
 
-health_data_payload = wrap_ecosystem_data_payload(health_data)
+health_data_payload: HealthDataPayloadDict = \
+    wrap_ecosystem_data_payload(health_data)
 
 
-light_data = {
+light_data: LightDataDict = {
     "morning_start": datetime.now(timezone.utc).time(),
     "morning_end": datetime.now(timezone.utc).time(),
     "evening_start": datetime.now(timezone.utc).time(),
@@ -102,10 +136,11 @@ light_data = {
 }
 
 
-light_data_payload = wrap_ecosystem_data_payload(light_data)
+light_data_payload: LightDataPayloadDict = \
+    wrap_ecosystem_data_payload(light_data)
 
 
-turn_actuator_payload = {
+turn_actuator_payload: TurnActuatorPayloadDict = {
     "ecosystem_uid": ecosystem_uid,
     "actuator": HardwareType.light,
     "mode": ActuatorMode.automatic,

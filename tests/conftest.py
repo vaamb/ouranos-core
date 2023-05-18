@@ -1,13 +1,13 @@
 import asyncio
 from pathlib import Path
 import sys
-from typing import Type
 
 import pytest
 import pytest_asyncio
 
-from ouranos import Config, db, setup_config
+from ouranos import Config, db as _db, setup_config
 from ouranos.core.config import ConfigDict
+from ouranos.core.database.init import create_base_data
 
 
 @pytest.fixture(scope="session")
@@ -31,12 +31,14 @@ def config(tmp_path_factory):
         db_dir.mkdir()
     Config.TESTING = True
     config = setup_config(Config)
+    _db.init(config)
     yield config
 
 
-@pytest_asyncio.fixture(scope="session", autouse=True)
-async def setup_db(config: ConfigDict):
-    db.init(config)
+@pytest_asyncio.fixture(scope="function", autouse=True)
+async def db(config: ConfigDict):
     from ouranos.core.database import models  # noqa
-    await db.create_all()
-    return db
+    await _db.create_all()
+    await create_base_data()
+    yield _db
+    await _db.drop_all()
