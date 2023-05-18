@@ -15,6 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from gaia_validators import *
+
 from ouranos import current_app, db
 from ouranos.aggregator.decorators import (
     dispatch_to_application, registration_required)
@@ -210,14 +211,13 @@ class Events:
             engine = await Engine.get(session, engine_id=sid)
             if engine is None:
                 return
-            uid = engine.uid
             await self.ouranos_dispatcher.emit(
                 "ecosystem_status",
                 {ecosystem.uid: {"status": ecosystem.status, "connected": False}
                  for ecosystem in engine.ecosystems},
                 namespace="application"
             )
-            self.logger.info(f"Engine {uid} disconnected")
+            self.logger.info(f"Engine {engine.uid} disconnected")
 
     async def on_register_engine(self, sid, data: SocketIOEnginePayloadDict) -> None:
         data: SocketIOEnginePayloadDict = self.validate_payload(
@@ -287,11 +287,10 @@ class Events:
             engine = await Engine.get(session, sid)
             if engine:
                 engine.last_seen = now
-            for ecosystem_uid in data:
-                ecosystem = await Ecosystem.get(session, ecosystem_uid)
-                if ecosystem is not None:
-                    ecosystems_seen.append(ecosystem.name)
-                    ecosystem.last_seen = now
+            ecosystems = await Ecosystem.get_multiple(session, data)
+            for ecosystem in ecosystems:
+                ecosystems_seen.append(ecosystem.name)
+                ecosystem.last_seen = now
         self.logger.debug(
             f"Updated last seen info for ecosystem(s) "
             f"{humanize_list(ecosystems_seen)}"
@@ -312,9 +311,10 @@ class Events:
         async with db.scoped_session() as session:
             for payload in data:
                 ecosystem = payload["data"]
-                ecosystem["last_seen"] = datetime.now(timezone.utc)
                 ecosystems_to_log.append(ecosystem["name"])
-                await Ecosystem.update_or_create(session, ecosystem)
+                await Ecosystem.update_or_create(
+                    session, {**ecosystem, "last_seen": datetime.now(timezone.utc)}
+                )
             ecosystems.append({"uid": payload["uid"], "status": ecosystem["status"]})
         self.logger.debug(
             f"Logged base info from ecosystem(s): {humanize_list(ecosystems_to_log)}"
@@ -584,7 +584,7 @@ class Events:
             ecosystem = await Ecosystem.get(session, ecosystem_uid)
             try:
                 engine_sid = ecosystem.engine.sid
-            except Exception:
+            except (AttributeError, Exception):
                 engine_sid = None
         if self.broker_type == "socketio":
             await self.emit(

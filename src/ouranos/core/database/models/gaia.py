@@ -143,7 +143,7 @@ class Engine(GaiaBase):
     sid: Mapped[str] = mapped_column(sa.String(length=32))
     registration_date: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
     address: Mapped[Optional[str]] = mapped_column(sa.String(length=24))
-    last_seen: Mapped[datetime] = mapped_column(UtcDateTime)  # , onupdate=func.current_timestamp())
+    last_seen: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())  # , onupdate=func.current_timestamp())
 
     # relationships
     ecosystems: Mapped[list["Ecosystem"]] = relationship(back_populates="engine", lazy="selectin")
@@ -213,10 +213,10 @@ class Ecosystem(GaiaBase):
     __tablename__ = "ecosystems"
 
     uid: Mapped[str] = mapped_column(sa.String(length=8), primary_key=True)
-    name: Mapped[str] = mapped_column(sa.String(length=32))
+    name: Mapped[str] = mapped_column(sa.String(length=32), default="_registering")
     status: Mapped[bool] = mapped_column(default=False)
     registration_date: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
-    last_seen: Mapped[datetime] = mapped_column(UtcDateTime)  # , onupdate=func.current_timestamp())
+    last_seen: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())  # , onupdate=func.current_timestamp())
     management: Mapped[int] = mapped_column(default=0)
     day_start: Mapped[time] = mapped_column(default=time(8, 00))
     night_start: Mapped[time] = mapped_column(default=time(20, 00))
@@ -478,7 +478,7 @@ class Light(GaiaBase):
     ) -> Self | None:
         stmt = select(cls).where(cls.ecosystem_uid == ecosystem_uid)
         result = await session.execute(stmt)
-        return result.one_or_none()
+        return result.scalar_one_or_none()
 
     @classmethod
     async def get_multiple(
@@ -1155,7 +1155,6 @@ class SensorRecord(BaseSensorRecord):
             )
         )
         result = await session.execute(stmt)
-        from typing import cast
         return [r._data for r in result.all()]
 
 
@@ -1174,6 +1173,24 @@ class HealthRecord(BaseHealthRecord):
 
     # relationships
     ecosystem: Mapped["Ecosystem"] = relationship("Ecosystem", back_populates="health_records")
+
+    @classmethod
+    async def get_records(
+            cls,
+            session: AsyncSession,
+            ecosystem_uid: str,
+            time_window: timeWindow,
+    ) -> Sequence[Self]:
+        stmt = (
+            select(cls)
+            .where(cls.ecosystem_uid == ecosystem_uid)
+            .where(
+                (cls.timestamp > time_window.start)
+                & (cls.timestamp <= time_window.end)
+            )
+        )
+        result = await session.execute(stmt)
+        return result.scalars().all()
 
 
 class GaiaWarning(BaseWarning):

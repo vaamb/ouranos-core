@@ -1,4 +1,4 @@
-from logging import Logger
+from logging import getLogger, Logger
 
 
 from ouranos import db, current_app
@@ -6,7 +6,7 @@ from ouranos.core.config import get_db_dir
 from ouranos.core.database.models.app import User
 
 
-async def create_base_data(logger: Logger):
+async def create_base_data(logger: Logger = getLogger()):
     create_db_dir = False
     if "sqlite" in current_app.config["SQLALCHEMY_DATABASE_URI"]:
         create_db_dir = True

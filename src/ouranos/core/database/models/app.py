@@ -161,12 +161,12 @@ class User(Base, UserMixin):
 
     # User registration fields
     token: Mapped[Optional[str]] = mapped_column(sa.String(32))
-    registration_datetime: Mapped[datetime] = mapped_column(default=func.utc_timestamp())
+    registration_datetime: Mapped[datetime] = mapped_column(default=func.current_timestamp())
 
     # User information fields
     firstname: Mapped[Optional[str]] = mapped_column(sa.String(64))
     lastname: Mapped[Optional[str]] = mapped_column(sa.String(64))
-    last_seen: Mapped[datetime] = mapped_column(onupdate=func.utc_timestamp())
+    last_seen: Mapped[datetime] = mapped_column(default=func.current_timestamp(), onupdate=func.current_timestamp())
 
     # User notifications / services fields
     daily_recap: Mapped[bool] = mapped_column(default=False)
