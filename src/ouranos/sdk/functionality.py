@@ -58,8 +58,11 @@ class Functionality:
             else:
                 setproctitle(f"ouranos-{self.name}")
             # Setup config
-            config = setup_config(config_profile)
-            configure_logging(config)
+            try:
+                config = setup_config(config_profile)
+                configure_logging(config)
+            except RuntimeError:
+                config = current_app.config
             logger: Logger = getLogger("ouranos")
             if not root and "memory://" in config["DISPATCHER_URL"]:
                 logger.warning(
@@ -67,7 +70,6 @@ class Functionality:
                     "dispatcher, this will lead to errors as some data won't "
                     "be transferred between the different microservices"
                 )
-            # Init database
             _SetUp.done = True
 
         self.config: ConfigDict = current_app.config

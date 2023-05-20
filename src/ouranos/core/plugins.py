@@ -32,10 +32,14 @@ class PluginManager:
         self.functionalities: dict[str, Functionality] = {}
 
     def _get_omitted(self) -> set:
-        omitted = current_app.config["PLUGINS_OMITTED"]
-        if omitted is not None:
-            return set(omitted.split(","))
-        return set()
+        omitted_str = current_app.config["PLUGINS_OMITTED"]
+        if omitted_str is not None:
+            omitted = set(omitted_str.split(","))
+        else:
+            omitted = set()
+        if not current_app.config["TESTING"]:
+            omitted.add("dummy")
+        return omitted
 
     def iter_entry_points(
             self,
