@@ -35,10 +35,13 @@ dependencies = [
     "importlib_metadata; python_version < '3.8'",
 
     # From git
-    "event-dispatcher @ git+https://github.com/vaamb/dispatcher.git",
+    "event-dispatcher @ git+https://github.com/vaamb/event-dispatcher.git",
     "gaia-validators @ git+https://github.com/vaamb/gaia-validators.git",
     "sqlalchemy-wrapper @ git+https://github.com/vaamb/sqlalchemy-wrapper.git",
 ]
+
+[project.entry-points."ouranos.plugins"]
+dummy = "ouranos.sdk.tests.plugin:dummy_plugin"
 
 [project.optional-dependencies]
 test = [
