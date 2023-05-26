@@ -208,7 +208,7 @@ class User(Base, UserMixin):
             raise DuplicatedEntry(error)
         # Create user
         kwargs["username"] = username
-        role_name = kwargs.pop("role")
+        role_name = kwargs.pop("role", None)
         user = User(**kwargs)
 
         async def get_role(role_name: str | None = None) -> Role:
