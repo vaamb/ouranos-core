@@ -8,7 +8,8 @@ import re
 import typing as t
 from typing import Type
 
-from ouranos import configure_logging, current_app, db, scheduler, setup_config
+from ouranos import (
+    configure_logging, current_app, db, scheduler, setup_config, setup_loop)
 from ouranos.core.database.init import (
     create_base_data, print_registration_token)
 from ouranos.sdk.runner import Runner
@@ -147,6 +148,7 @@ class BaseFunctionality(ABC):
         raise NotImplementedError
 
     def run(self):
+        setup_loop()
         asyncio.run(self._run())
 
     async def _run(self):

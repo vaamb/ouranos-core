@@ -82,7 +82,13 @@ else:
 
 dispatcher_type: "AsyncBaseDispatcher" | "AsyncRedisDispatcher" | "AsyncAMQPDispatcher"
 
-coordinates = cachetools.LFUCache(maxsize=16)
+
+def setup_loop():
+    try:
+        import uvloop
+        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+    except ImportError:
+        pass
 
 
 @dataclass(frozen=True)
@@ -151,15 +157,6 @@ def humanize_list(lst: list) -> str:
         return lst[0]
     else:
         return f"{', '.join(lst[:list_length-1])} and {lst[list_length-1]}"
-
-
-def async_to_sync(func: t.Callable) -> t.Callable:
-    """Decorator to allow calling an async function like a sync function"""
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        ret = asyncio.run(func(*args, **kwargs))
-        return ret
-    return wrapper
 
 
 class Tokenizer:
