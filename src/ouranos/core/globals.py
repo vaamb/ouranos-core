@@ -1,11 +1,10 @@
 from __future__ import annotations
 
+from logging import getLogger, Logger
 from pathlib import Path
-import typing as t
 
-from apscheduler.schedulers import (
-    SchedulerAlreadyRunningError, SchedulerNotRunningError)
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.schedulers.base import STATE_STOPPED
 
 from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
@@ -13,6 +12,9 @@ from ouranos.core.config import (
     ConfigDict, get_base_dir, get_cache_dir, get_config, get_log_dir)
 from ouranos.core.database.base import CustomMeta
 from ouranos.core.utils import json
+
+
+logger: Logger = getLogger(f"ouranos")
 
 
 class _DynamicVar:
@@ -25,16 +27,14 @@ class _DynamicVar:
 
 class _SchedulerWrapper(AsyncIOScheduler):
     def start(self, paused=False):
-        try:
+        if self.state == STATE_STOPPED:
+            logger.info("Starting the scheduler")
             super().start(paused)
-        except SchedulerAlreadyRunningError:
-            pass
 
     def shutdown(self, wait=True):
-        try:
+        if self.state != STATE_STOPPED:
+            logger.info("Starting the scheduler")
             super().shutdown(wait)
-        except SchedulerNotRunningError:
-            pass
 
 
 class _CurrentApp(_DynamicVar):
