@@ -27,6 +27,9 @@ def test_functionality(config):
 def test_plugin_manager():
     plugin_manager = PluginManager()
     plugin_manager.register_plugins()
+
+    assert(plugin_manager.plugins["dummy-plugin"] == dummy_plugin)
+
     plugin_manager.init_plugins()
     plugin_manager.start_plugins()
     with pytest.raises(RuntimeError):
