@@ -10,6 +10,8 @@ class BaseConfig:
     DEVELOPMENT = False
     TESTING = False
 
+    WORKERS = 0
+
     DIR = os.environ.get("OURANOS_DIR") or os.getcwd()
 
     @property
@@ -34,15 +36,15 @@ class BaseConfig:
 
     # Brokers config
     GAIA_COMMUNICATION_URL = os.environ.get("GAIA_COMMUNICATION_URL") or "amqp://"  # amqp:// or socketio://
-    DISPATCHER_URL = os.environ.get("OURANOS_DISPATCHER_URL") or "memory://"  # or memory:// or amqp://
+    DISPATCHER_URL = os.environ.get("OURANOS_DISPATCHER_URL") or "memory://"  # memory:// or amqp://
     SIO_MANAGER_URL = os.environ.get("OURANOS_SIO_MANAGER_URL") or "memory://"  # memory:// or amqp:// or redis://
-    CACHE_SERVER_URL = os.environ.get("OURANOS_CACHE_URL") or "memory://"  # or memory:// or redis://
+    CACHE_SERVER_URL = os.environ.get("OURANOS_CACHE_URL") or "memory://"  # memory:// or redis://
 
     # Services
     START_API = os.environ.get("OURANOS_START_API", True)
     API_HOST = os.environ.get("OURANOS_API_HOST", "127.0.0.1")
     API_PORT = os.environ.get("OURANOS_API_PORT", 5000)
-    API_WORKERS = os.environ.get("OURANOS_API_WORKERS", 1)
+    API_WORKERS = os.environ.get("OURANOS_API_WORKERS", 0)
     SERVER_RELOAD = False
     START_AGGREGATOR = os.environ.get("OURANOS_START_AGGREGATOR", True)
     AGGREGATOR_PORT = os.environ.get("OURANOS_AGGREGATOR_PORT", API_PORT)
@@ -116,6 +118,8 @@ class BaseConfigDict(TypedDict):
     DEBUG: bool
     DEVELOPMENT: bool
     TESTING: bool
+
+    WORKERS: int | None
 
     DIR: str | Path
     LOG_DIR: str | Path

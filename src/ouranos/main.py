@@ -6,9 +6,8 @@ import typing as t
 import click
 
 from ouranos.aggregator import Aggregator
-from ouranos.core.plugins_manager import PluginManager
 from ouranos.cli import RootCommand
-from ouranos.sdk import Functionality, Plugin, run_functionality_forever
+from ouranos.sdk import FunctionalityManager, run_functionality_forever
 from ouranos.web_server import WebServer
 
 
@@ -28,10 +27,18 @@ if t.TYPE_CHECKING:
     help="Configuration profile to use as defined in config.py.",
     show_default=True,
 )
+@click.option(
+    "--use-multiprocess",
+    type=bool,
+    default=False,
+    help="Launch compatible functionalities as separate processes.",
+    show_default=True,
+)
 @click.pass_context
 def main(
         ctx: click.Context,
         config_profile: str | None,
+        use_multiprocess: bool,
 ):
     """Launch Ouranos
 
@@ -39,10 +46,11 @@ def main(
     process
     """
     if ctx.invoked_subcommand is None:
-        run_functionality_forever(Ouranos, config_profile)
+        run_functionality_forever(
+            Ouranos, config_profile, use_multiprocess=use_multiprocess)
 
 
-class Ouranos(Functionality):
+class Ouranos(FunctionalityManager):
     def __init__(
             self,
             config_profile: "profile_type" = None,
@@ -60,42 +68,11 @@ class Ouranos(Functionality):
         parameters for the configuration.
         :param kwargs: Other parameters to pass to the base class.
         """
-        super().__init__(config_profile, config_override, root=True, **kwargs)
-        self._plugins: dict[str, Plugin] = {}
-        # Init web server
-        self.web_server = WebServer()
-        # Init aggregator
-        self.aggregator = Aggregator()
-        # Init services
-        """
-        from ouranos.services import Services
-        self.services = Services(self.config)
-        """
-        # Init plugins
-        self.plugin_manager = PluginManager()
-        self.plugin_manager.register_plugins()
-        self.plugin_manager.init_plugins()
-
-    def _start(self):
-        self.logger.info("Starting Ouranos")
-        # Start aggregator
-        self.aggregator.start()
-        # Start web server
-        self.web_server.start()
-        # Start services
-        """
-        self.services.start()
-        """
-        # Start plugins
-        self.plugin_manager.start_plugins()
-
-    def _stop(self):
-        # Stop plugins
-        self.plugin_manager.stop_plugins()
-        # Stop web server
-        self.web_server.stop()
-        # Stop aggregator
-        self.aggregator.stop()
+        functionalities = [WebServer, Aggregator]
+        super().__init__(
+            config_profile, config_override, functionalities=functionalities,
+            **kwargs)
+        self.register_plugins()
 
 
 if __name__ == "__main__":
