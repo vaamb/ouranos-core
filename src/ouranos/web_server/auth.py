@@ -189,7 +189,7 @@ async def is_authenticated(current_user: CurrentUser = Depends(get_current_user)
 
 
 async def is_operator(current_user: AuthenticatedUser = Depends(get_current_user)) -> bool:
-    return await user_can(current_user, Permission.ADMIN)
+    return await user_can(current_user, Permission.OPERATE)
 
 
 async def is_admin(current_user: CurrentUser = Depends(get_current_user)) -> bool:
