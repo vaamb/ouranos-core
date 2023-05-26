@@ -64,7 +64,6 @@ class WebServer(Functionality):
         :param kwargs: Other parameters to pass to the base class.
         """
         super().__init__(config_profile, config_override, **kwargs)
-        self.logger.info("Creating Ouranos web server")
         self.system_monitor = SystemMonitor()
         use_subprocess: bool = (
                 self.config["SERVER_RELOAD"] or
@@ -110,11 +109,10 @@ class WebServer(Functionality):
 
             self._app = _AppWrapper(start, stop)
 
-    def _start(self):
-        self.logger.info("Starting the Web server")
+    def _startup(self):
         self._app.start()
         self.system_monitor.start()
 
-    def _stop(self):
+    def _shutdown(self):
         self.system_monitor.stop()
         self._app.stop()

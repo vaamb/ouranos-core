@@ -164,10 +164,9 @@ class SkyWatcher:
                                          "w") as file:
                     await file.write(stringified_data)
             except Exception as e:
-                print(e)
                 self.logger.warning(
-                    "Could not dump updated weather data. Error msg: "
-                    "`{e.__class__.__name__}: {e}`"
+                    f"Could not dump updated weather data. Error msg: "
+                    f"`{e.__class__.__name__}: {e}`"
                 )
             WeatherCache.update(data)
             await self.dispatch_weather_data()

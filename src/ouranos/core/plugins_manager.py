@@ -38,7 +38,7 @@ class PluginManager:
         else:
             omitted = set()
         if not current_app.config["TESTING"]:
-            omitted.add("dummy")
+            omitted.add("dummy-plugin")
         return omitted
 
     def iter_entry_points(
@@ -65,30 +65,31 @@ class PluginManager:
             for pkg in self.iter_entry_points(omit_excluded):
                 self.plugins[pkg.name] = pkg
 
-    def init_plugins(self):
+    def init_plugins(self, microservice: bool = True):
         plugins = [*self.plugins]
         plugins.sort()
         for plugin_name in plugins:
-            self.init_plugin(plugin_name)
+            self.init_plugin(plugin_name, microservice)
 
-    def init_plugin(self, plugin_name):
+    def init_plugin(self, plugin_name: str, microservice: bool = True):
         plugin = self.plugins[plugin_name]
         functionality_cls = plugin.functionality_cls
-        self.functionalities[plugin_name] = functionality_cls()
+        self.functionalities[plugin_name] = functionality_cls(
+            microservice=microservice)
 
     def start_plugins(self):
         for plugin_name in self.functionalities:
             self.start_plugin(plugin_name)
 
     def start_plugin(self, plugin_name):
-        self.functionalities[plugin_name].start()
+        self.functionalities[plugin_name].startup()
 
     def stop_plugins(self):
         for plugin_name in self.functionalities:
             self.stop_plugin(plugin_name)
 
     def stop_plugin(self, plugin_name):
-        self.functionalities[plugin_name].stop()
+        self.functionalities[plugin_name].shutdown()
 
     def register_plugins_routes(
             self,

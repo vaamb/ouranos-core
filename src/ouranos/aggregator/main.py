@@ -63,7 +63,6 @@ class Aggregator(Functionality):
         :param kwargs: Other parameters to pass to the base class.
         """
         super().__init__(config_profile, config_override, **kwargs)
-        self.logger.info("Creating Ouranos aggregator")
         self._uri: str = self.config["GAIA_COMMUNICATION_URL"]
         if (
             self._uri.startswith("socketio://") and
@@ -108,8 +107,7 @@ class Aggregator(Functionality):
     def event_handler(self, event_handler: "DispatcherBasedGaiaEvents" | "SioBasedGaiaEvents"):
         self._event_handler = event_handler
 
-    def _start(self) -> None:
-        self.logger.info("Starting the Aggregator")
+    def _startup(self) -> None:
         if self._uri.startswith("socketio://"):
             self.logger.debug(
                 "Using Socket.IO as the message broker with Gaia"
@@ -177,7 +175,7 @@ class Aggregator(Functionality):
         self.archiver.start()
         self.sky_watcher.start()
 
-    def _stop(self) -> None:
+    def _shutdown(self) -> None:
         try:
             self.sky_watcher.stop()
             self.archiver.stop()
