@@ -5,10 +5,10 @@ from ouranos.aggregator.main import Aggregator
 
 def test_aggregator(config):
     aggregator = Aggregator(auto_setup_config=False)
-    aggregator.start()
+    aggregator.startup()
     with pytest.raises(RuntimeError):
-        aggregator.start()
+        aggregator.startup()
 
-    aggregator.stop()
+    aggregator.shutdown()
 
 # TODO: add other tests

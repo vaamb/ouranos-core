@@ -18,10 +18,10 @@ def test_current_app(config: ConfigDict):
 def test_functionality(config):
     functionality = DummyFunctionality(auto_setup_config=False)
     assert functionality.config == config
-    functionality.start()
+    functionality.startup()
     with pytest.raises(RuntimeError):
-        functionality.start()
-    functionality.stop()
+        functionality.startup()
+    functionality.shutdown()
 
 
 def test_plugin_manager():
