@@ -12,7 +12,7 @@ from socketio.asgi import ASGIApp
 from socketio.asyncio_server import AsyncServer
 
 from ouranos import current_app
-from ouranos.core.plugins import PluginManager
+from ouranos.core.plugins_manager import PluginManager
 from ouranos.core.utils import check_secret_key, DispatcherFactory, json
 from ouranos.web_server.docs import description, tags_metadata
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 from click import Command, Context, MultiCommand
 
 from ouranos.aggregator.main import main as aggregator
-from ouranos.core.plugins import PluginManager
+from ouranos.core.plugins_manager import PluginManager
 from ouranos.web_server.main import main as webserver
 
 
