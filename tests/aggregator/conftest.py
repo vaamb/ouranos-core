@@ -1,47 +1,41 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 import pytest
 import pytest_asyncio
 
 from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
 from ouranos.aggregator.events import DispatcherBasedGaiaEvents
+from ouranos.core.database.init import create_base_data
 from ouranos.core.database.models.gaia import Engine, Ecosystem
 
+from ..data.gaia import *
 from ..utils import MockAsyncDispatcher
-from .store import *
+
+
+@pytest_asyncio.fixture(scope="function", autouse=True)
+async def naive_db(db):
+    from ouranos.core.database import models  # noqa
+    yield db
+    await db.drop_all()
+    await db.create_all()
+    await create_base_data()
 
 
 @pytest_asyncio.fixture(scope="function")
-async def engine_aware_db(db: AsyncSQLAlchemyWrapper):
-    async with db.scoped_session() as session:
-        engine_dict = {
-            "uid": engine_uid,
-            "sid": engine_sid,
-            "registration_date": (
-                datetime.now(timezone.utc).replace(microsecond=0)
-            ),
-            "address": ip_address,
-            "last_seen": datetime.now(timezone.utc),
-        }
+async def engine_aware_db(naive_db: AsyncSQLAlchemyWrapper):
+    async with naive_db.scoped_session() as session:
         await Engine.create(session, engine_dict)
-    return db
+    return naive_db
 
 
 @pytest_asyncio.fixture(scope="function")
-async def ecosystem_aware_db(db: AsyncSQLAlchemyWrapper):
-    async with db.scoped_session() as session:
-        ecosystem_dict = {
-            "engine_uid": engine_uid,
-            "uid": ecosystem_uid,
-            "name": ecosystem_name,
-            "status": False,
-            "registration_date": datetime.now(timezone.utc),
-            "last_seen": datetime.now(timezone.utc),
-            "management": 0,
-        }
+async def ecosystem_aware_db(naive_db: AsyncSQLAlchemyWrapper):
+    async with naive_db.scoped_session() as session:
         await Ecosystem.create(session, ecosystem_dict)
-    return db
+    return naive_db
 
 
 @pytest.fixture(scope="module")

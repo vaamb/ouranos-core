@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, time, timezone
+from datetime import timezone
 
 from gaia_validators import *
 
@@ -17,6 +17,28 @@ def wrap_ecosystem_data_payload(data: dict | list[dict]) -> dict:
         "uid": ecosystem_uid,
         "data": data,
     }
+
+
+ecosystem_dict = {
+    "engine_uid": engine_uid,
+    "uid": ecosystem_uid,
+    "name": ecosystem_name,
+    "status": False,
+    "registration_date": datetime.now(timezone.utc),
+    "last_seen": datetime.now(timezone.utc),
+    "management": 0,
+}
+
+
+engine_dict = {
+    "uid": engine_uid,
+    "sid": engine_sid,
+    "registration_date": (
+        datetime.now(timezone.utc).replace(microsecond=0)
+    ),
+    "address": ip_address,
+    "last_seen": datetime.now(timezone.utc),
+}
 
 
 base_info: BaseInfoConfigDict = {
@@ -92,7 +114,10 @@ hardware_payload: HardwareConfigPayloadDict = \
     wrap_ecosystem_data_payload([hardware_data])
 
 
-measure_record: MeasureRecordDict = {"measure": "temperature", "value": 42}
+measure_record: MeasureRecordDict = {
+    "measure": "temperature",
+    "value": 42
+}
 
 
 sensor_record: SensorRecordDict = {
@@ -146,3 +171,13 @@ turn_actuator_payload: TurnActuatorPayloadDict = {
     "mode": ActuatorMode.automatic,
     "countdown": 0.0,
 }
+
+__all__ = (
+    "base_info", "base_info_payload", "chaos", "climate", "ecosystem_dict",
+    "ecosystem_name", "ecosystem_uid", "engine_dict", "engine_sid",
+    "engine_uid", "environmental_payload", "hardware_data", "hardware_payload",
+    "health_data", "health_data_payload", "ip_address", "light_data",
+    "light_data_payload", "management_data", "management_payload",
+    "measure_record", "sky", "sensor_record", "sensors_data",
+    "sensors_data_payload", "turn_actuator_payload"
+)
