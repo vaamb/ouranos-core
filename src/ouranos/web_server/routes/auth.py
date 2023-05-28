@@ -102,7 +102,7 @@ async def register_new_user(
                 detail=errors
             )
         payload_dict["role"] = token_payload.pop("rle", None)
-        user = await User.create(
+        await User.create(
             session, username, password, email=email, **payload_dict)
     except DuplicatedEntry as e:
         args = e.args[0]
@@ -111,6 +111,7 @@ async def register_new_user(
             detail=args
         )
     else:
+        user = await User.get(session, username)
         current_user = AuthenticatedUser.from_user(user)
         authenticator.login(current_user, False)
         return current_user.dict()
