@@ -35,6 +35,14 @@ class Permission(IntFlag):
     ADMIN = 8
 
 
+roles_definition = {
+    "User": Permission.VIEW | Permission.EDIT,
+    "Operator": Permission.VIEW | Permission.EDIT | Permission.OPERATE,
+    "Administrator": Permission.VIEW | Permission.EDIT |
+                     Permission.OPERATE | Permission.ADMIN,
+}
+
+
 class Role(Base):
     __tablename__ = "roles"
     __bind_key__ = "app"
@@ -54,18 +62,13 @@ class Role(Base):
 
     @staticmethod
     async def insert_roles(session: AsyncSession):
-        roles_defined = {
-            "User": Permission.VIEW | Permission.EDIT,
-            "Operator": Permission.VIEW | Permission.EDIT | Permission.OPERATE,
-            "Administrator": Permission.VIEW | Permission.EDIT |
-                             Permission.OPERATE | Permission.ADMIN,
-        }
+
         default_role = "User"
         stmt = select(Role)
         result = await session.execute(stmt)
         roles_in_db: list[Role] = result.scalars().all()
         roles = {role.name: role for role in roles_in_db}
-        for name, permission in roles_defined.items():
+        for name, permission in roles_definition.items():
             role = roles.get(name)
             if role is None:
                 role = Role(name=name)
@@ -411,6 +414,13 @@ class ServiceLevel(Enum):
     ecosystem = "ecosystem"
 
 
+services_definition = {
+        "weather": ServiceLevel.app,
+        "suntimes": ServiceLevel.app,
+        "calendar": ServiceLevel.app
+}
+
+
 class Service(Base):
     __tablename__ = "services"
     __bind_key__ = "app"
@@ -422,15 +432,10 @@ class Service(Base):
 
     @classmethod
     async def insert_services(cls, session: AsyncSession) -> None:
-        services_list = [
-            {"name": "weather", "level": ServiceLevel.app},
-            {"name": "suntimes", "level": ServiceLevel.app},
-            {"name": "calendar", "level": ServiceLevel.app},
-        ]
-        for service_dict in services_list:
-            service_in_db = await cls.get(session, service_dict["name"])
+        for name, level in services_definition.items():
+            service_in_db = await cls.get(session, name)
             if service_in_db is None:
-                service = cls(**service_dict)
+                service = cls(**{"name": name, "level": level})
                 session.add(service)
 
     @classmethod
@@ -463,6 +468,11 @@ class Service(Base):
         return result.scalars().all()
 
 
+channels_definition = [
+    "telegram"
+]
+
+
 class CommunicationChannel(Base):
     __tablename__ = "communication_channels"
     __bind_key__ = "app"
@@ -475,21 +485,19 @@ class CommunicationChannel(Base):
     users: Mapped[list["User"]] = relationship(back_populates="recap_channels",
                                                secondary=AssociationUserRecap)
 
-    @staticmethod
-    async def insert_channels(session: AsyncSession):
-        channels = ["telegram"]
-        stmt = select(CommunicationChannel)
+    @classmethod
+    async def get(cls, session: AsyncSession, name: str) -> Self | None:
+        stmt = select(cls).where(cls.name == name)
         result = await session.execute(stmt)
-        channels_in_db = result.scalars().all()
-        for c in channels:
-            channel = None
-            for channel_in_db in channels_in_db:
-                if channel_in_db.name == c:
-                    channel = channel_in_db
-                    break
-            if channel is None:
-                channel = CommunicationChannel(name=c)
-            session.add(channel)
+        return result.scalar()
+
+    @classmethod
+    async def insert_channels(cls, session: AsyncSession):
+        for channel in channels_definition:
+            channel_in_db = await cls.get(session, channel)
+            if channel_in_db is None:
+                c = cls(name=channel)
+                session.add(c)
         await session.commit()
 
 
