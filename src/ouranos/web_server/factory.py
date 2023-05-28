@@ -139,6 +139,12 @@ def create_app(config: dict | None = None) -> FastAPI:
     weather_router.default_response_class = JSONResponse
     prefix.include_router(weather_router)
 
+    if current_app.config["TESTING"]:
+        logger.debug("Loading tests-related routes")
+        from ouranos.web_server.routes.tests import router as tests_router
+        tests_router.default_response_class = JSONResponse
+        prefix.include_router(tests_router)
+
     # Load add-on routes onto api router with "/addons"
     logger.debug("Loading add-on routes")
     addon_routes = APIRouter(prefix="/addons")
