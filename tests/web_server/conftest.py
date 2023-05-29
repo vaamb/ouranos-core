@@ -1,4 +1,4 @@
-from datetime import datetime, time, timezone
+from datetime import datetime, time, timedelta, timezone
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -13,10 +13,13 @@ from ouranos.core.database.models.app import User
 from ouranos.core.database.models.gaia import (
     Ecosystem, Engine, EnvironmentParameter, GaiaWarning, Hardware,
     HealthRecord, Light, SensorRecord)
+from ouranos.core.database.models.memory import SensorDbCache, SystemDbCache
+from ouranos.core.database.models.system import SystemRecord
 from ouranos.core.validate.models.auth import TokenPayload
 from ouranos.web_server.factory import create_app
 
 from ..data.gaia import *
+from ..data.system import system_dict
 from ..data.users import admin, operator, user
 
 
@@ -55,6 +58,10 @@ async def add_ecosystems(db: AsyncSQLAlchemyWrapper):
             "timestamp": sensors_data["timestamp"],
             "value": float(measure_record["value"]),
         }
+        await SensorDbCache.insert_data(session, adapted_sensor_record)
+
+        adapted_sensor_record["timestamp"] = (
+                sensors_data["timestamp"] - timedelta(hours=1))
         await SensorRecord.create_records(session, adapted_sensor_record)
 
         adapted_health_data = health_data.copy()
@@ -69,6 +76,17 @@ async def add_ecosystems(db: AsyncSQLAlchemyWrapper):
             "description": "Super low level warning",
         }
         await GaiaWarning.create(session, gaia_warning)
+
+
+@pytest_asyncio.fixture(scope="module", autouse=True)
+async def add_system(db: AsyncSQLAlchemyWrapper):
+    async with db.scoped_session() as session:
+        adapted_system_record = system_dict.copy()
+        await SystemDbCache.insert_data(session, adapted_system_record)
+
+        adapted_system_record["timestamp"] = (
+                system_dict["timestamp"] - timedelta(hours=1))
+        await SystemRecord.create_records(session, adapted_system_record)
 
 
 @pytest_asyncio.fixture(scope="module", autouse=True)
