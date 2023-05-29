@@ -4,7 +4,7 @@ import pytest
 
 from ouranos import current_app
 from ouranos.core.config import ConfigDict
-from ouranos.core.plugins import PluginManager
+from ouranos.core.plugins_manager import PluginManager
 from ouranos.sdk.tests.plugin import DummyFunctionality, dummy_plugin
 
 
