@@ -52,5 +52,8 @@ db: AsyncSQLAlchemyWrapper = AsyncSQLAlchemyWrapper(
         "json_serializer": json.dumps,
         "json_deserializer": json.loads,
     },
+    session_options={
+        "expire_on_commit": False,
+    }
 )
 scheduler: AsyncIOScheduler = _SchedulerWrapper()
