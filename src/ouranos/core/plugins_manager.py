@@ -18,6 +18,7 @@ from ouranos.sdk import Functionality, Plugin
 class PluginManager:
     __instance = None
     entry_point = "ouranos.plugins"
+    test_plugin_name = "dummy-plugin"
 
     def __new__(cls):
         if cls.__instance is None:
@@ -38,7 +39,7 @@ class PluginManager:
         else:
             omitted = set()
         if not current_app.config["TESTING"]:
-            omitted.add("dummy-plugin")
+            omitted.add(self.test_plugin_name)
         return omitted
 
     def iter_entry_points(
@@ -54,10 +55,17 @@ class PluginManager:
             entry_points_ = grouped_entry_points.get(self.entry_point, [])
         for entry_point in entry_points_:
             pkg = entry_point.load()
-            if not omit_excluded and isinstance(pkg, Plugin):
-                yield pkg
-            else:
-                if isinstance(pkg, Plugin) and pkg.name not in self.omitted:
+            if isinstance(pkg, Plugin):
+                if current_app.config["TESTING"]:
+                    if pkg.name == self.test_plugin_name:
+                        yield pkg
+                    else:
+                        continue
+
+                if not omit_excluded:
+                    yield pkg
+
+                if pkg.name not in self.omitted:
                     yield pkg
 
     def register_plugins(self, omit_excluded: bool = True) -> None:
