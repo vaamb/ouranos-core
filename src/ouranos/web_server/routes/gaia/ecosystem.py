@@ -5,15 +5,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from gaia_validators import ActuatorTurnTo, HardwareTypeNames, ManagementFlags
 
-from ouranos.core import validate
 from ouranos.core.utils import DispatcherFactory, timeWindow
 from ouranos.core.database.models import Ecosystem, EnvironmentParameter, Light
 from ouranos.web_server.auth import is_operator
 from ouranos.web_server.dependencies import get_session, get_time_window
 from ouranos.web_server.routes.utils import assert_single_uid
 from ouranos.web_server.routes.gaia.common_queries import (
-    ecosystems_uid_q, hardware_level_q
-)
+    ecosystems_uid_q, hardware_level_q)
+from ouranos.web_server.validate.payload.gaia import EcosystemPayload
+from ouranos.web_server.validate.response.base import BaseResponse
+from ouranos.web_server.validate.response.gaia import (
+    EcosystemInfo, EcosystemLightInfo, EcosystemManagementInfo,
+    EnvironmentParameterInfo)
 
 
 router = APIRouter(
@@ -43,7 +46,7 @@ async def ecosystem_or_abort(
     )
 
 
-@router.get("", response_model=list[validate.gaia.ecosystem])
+@router.get("", response_model=list[EcosystemInfo])
 async def get_ecosystems(
         ecosystems_id: list[str] | None = ecosystems_uid_q,
         session: AsyncSession = Depends(get_session),
@@ -55,14 +58,14 @@ async def get_ecosystems(
 
 @router.post("/u", dependencies=[Depends(is_operator)])
 async def create_ecosystem(
-        payload: validate.gaia.ecosystem_creation = Body(
+        payload: EcosystemPayload = Body(
             description="Information about the new ecosystem"),
         session: AsyncSession = Depends(get_session)
 ):
     await Ecosystem.create(session, payload.dict())
 
 
-@router.get("/u/{id}", response_model=validate.gaia.ecosystem)
+@router.get("/u/{id}", response_model=EcosystemInfo)
 async def get_ecosystem(
         id: str = id_param,
         session: AsyncSession = Depends(get_session)
@@ -74,7 +77,7 @@ async def get_ecosystem(
 @router.put("/u/{id}", dependencies=[Depends(is_operator)])
 async def update_ecosystem(
         id: str = id_param,
-        payload: validate.gaia.ecosystem_creation = Body(
+        payload: EcosystemPayload = Body(
             description="Updated information about the ecosystem"),
         session: AsyncSession = Depends(get_session)
 ):
@@ -99,7 +102,7 @@ async def get_managements_available():
     ]
 
 
-@router.get("/management", response_model=list[validate.gaia.ecosystem_management])
+@router.get("/management", response_model=list[EcosystemManagementInfo])
 async def get_ecosystems_management(
         ecosystems_id: list[str] | None = ecosystems_uid_q,
         session: AsyncSession = Depends(get_session)
@@ -113,7 +116,7 @@ async def get_ecosystems_management(
 
 
 # TODO: use functionality
-@router.get("/u/{id}/management", response_model=validate.gaia.ecosystem_management)
+@router.get("/u/{id}/management", response_model=EcosystemManagementInfo)
 async def get_ecosystem_management(
         id: str = id_param,
         session: AsyncSession = Depends(get_session)
@@ -154,7 +157,7 @@ async def get_ecosystem_sensors_skeleton(
     return response
 
 
-@router.get("/light", response_model=list[validate.gaia.ecosystem_light])
+@router.get("/light", response_model=list[EcosystemLightInfo])
 async def get_ecosystems_light(
         ecosystems_id: list[str] | None = ecosystems_uid_q,
         session: AsyncSession = Depends(get_session)
@@ -163,7 +166,7 @@ async def get_ecosystems_light(
     return lights
 
 
-@router.get("/u/{id}/light", response_model=validate.gaia.ecosystem_light)
+@router.get("/u/{id}/light", response_model=EcosystemLightInfo)
 async def get_ecosystem_light(
         id: str = id_param,
         session: AsyncSession = Depends(get_session)
@@ -174,7 +177,7 @@ async def get_ecosystem_light(
     return light
 
 
-@router.get("/environment_parameters", response_model=list[validate.gaia.environment_parameter])
+@router.get("/environment_parameters", response_model=list[EnvironmentParameterInfo])
 async def get_ecosystems_environment_parameters(
         ecosystems_id: list[str] | None = ecosystems_uid_q,
         parameters: list[str] | None = env_parameter_query,
@@ -184,7 +187,7 @@ async def get_ecosystems_environment_parameters(
         session, ecosystems_id, parameters)
 
 
-@router.get("/u/{id}/environment_parameters", response_model=validate.gaia.environment_parameter)
+@router.get("/u/{id}/environment_parameters", response_model=EnvironmentParameterInfo)
 async def get_ecosystem_environment_parameters(
         id: str = id_param,
         parameters: list[str] | None = env_parameter_query,
@@ -234,6 +237,6 @@ async def turn_actuator(
     dispatcher = DispatcherFactory.get("application")
     await ecosystem.turn_actuator(
         dispatcher, actuator, mode, countdown)
-    return validate.common.BaseResponse(
+    return BaseResponse(
         msg=f"Turned {ecosystem.name}'s {actuator} to mode '{mode}'"
     )

@@ -661,8 +661,6 @@ class Hardware(GaiaBase):
     model: Mapped[str] = mapped_column(sa.String(length=32))
     status: Mapped[bool] = mapped_column(default=True)
     last_log: Mapped[Optional[datetime]] = mapped_column()
-    plant_uid: Mapped[Optional[str]] = mapped_column(
-        sa.String(8), sa.ForeignKey("plants.uid"))
 
     # relationships
     ecosystem: Mapped["Ecosystem"] = relationship(back_populates="hardware")

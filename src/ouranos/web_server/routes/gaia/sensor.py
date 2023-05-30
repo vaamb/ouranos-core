@@ -1,18 +1,17 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from gaia_validators import HardwareLevel
 
-from ouranos.core import validate
 from ouranos.core.database.models.gaia import Measure, Sensor
 from ouranos.core.utils import timeWindow
 from ouranos.web_server.dependencies import get_session, get_time_window
-from ouranos.web_server.routes.utils import assert_single_uid
 from ouranos.web_server.routes.gaia.common_queries import (
-    ecosystems_uid_q, hardware_level_q
-)
+    ecosystems_uid_q, hardware_level_q)
+from ouranos.web_server.routes.utils import assert_single_uid
+from ouranos.web_server.validate.response.gaia import MeasureInfo
 
 
 router = APIRouter(
@@ -67,7 +66,7 @@ async def get_sensors(
     ]
 
 
-@router.get("/measures_available", response_model=list[validate.gaia.measure])
+@router.get("/measures_available", response_model=list[MeasureInfo])
 async def get_measures_available(session: AsyncSession = Depends(get_session)):
     measures = await Measure.get_multiple(session)
     return measures

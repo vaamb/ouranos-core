@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, Query
 
 from ouranos import current_app
-from ouranos.core import validate
 from ouranos.core.database.models.app import FlashMessage, Service, ServiceLevel
 from ouranos.web_server.dependencies import get_session
+from ouranos.web_server.validate.response.app import (
+    FlashMessageResponse, LoggingPeriodResponse)
 
 
 router = APIRouter(
@@ -18,7 +19,7 @@ async def get_version():
     return current_app.config["VERSION"]
 
 
-@router.get("/logging_period", response_model=validate.app.logging_period)
+@router.get("/logging_period", response_model=LoggingPeriodResponse)
 async def get_logging_config():
     return {
         "weather": current_app.config["WEATHER_UPDATE_PERIOD"],
@@ -36,7 +37,7 @@ async def get_services(
     return services
 
 
-@router.get("/flash_messages", response_model=list[validate.app.flash_message])
+@router.get("/flash_messages", response_model=list[FlashMessageResponse])
 async def get_flash_messages(session=Depends(get_session)):
     msgs = await FlashMessage.get_multiple(session=session)
     return [msg.description for msg in msgs]

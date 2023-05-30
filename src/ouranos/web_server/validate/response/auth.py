@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from ouranos.core.validate.base import BaseModel
-from ouranos.core.validate.models.common import BaseResponse
+from ouranos.web_server.validate.response.base import BaseResponse
 
 
 class UserInfo(BaseModel):
@@ -15,15 +15,6 @@ class UserInfo(BaseModel):
     iat: datetime | None
     is_authenticated: bool = False
     is_confirmed: bool = False
-
-
-class UserCreationPayload(BaseModel):
-    username: str
-    password: str
-    email: str
-    firstname: str | None = None
-    lastname: str | None = None
-    telegram_id: int | None = None
 
 
 class LoginResponse(BaseResponse):

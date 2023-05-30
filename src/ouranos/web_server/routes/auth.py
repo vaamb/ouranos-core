@@ -4,16 +4,16 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from fastapi.security import HTTPBasicCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ouranos.core import validate
 from ouranos.core.database.models.app import User, UserMixin
 from ouranos.core.exceptions import DuplicatedEntry
-from ouranos.core.validate.models.auth import LoginResponse, UserInfo
-from ouranos.core.validate.models.common import BaseResponse
 from ouranos.web_server.auth import (
     Authenticator, basic_auth, check_invitation_token, get_current_user,
-    login_manager, is_admin
-)
+    login_manager, is_admin)
 from ouranos.web_server.dependencies import get_session
+from ouranos.web_server.validate.payload.auth import UserPayload
+from ouranos.web_server.validate.response.auth import LoginResponse, UserInfo
+from ouranos.web_server.validate.response.base import BaseResponse
+
 
 regex_email = re.compile(r"^[\-\w\.]+@([\w\-]+\.)+[\w\-]{2,4}$")  # Oversimplified but ok
 regex_password = re.compile(
@@ -69,7 +69,7 @@ def get_current_user(
 @router.post("/register", response_model=UserInfo)
 async def register_new_user(
         invitation_token: str = Query(description="The invitation token received"),
-        payload: validate.auth.UserCreationPayload = Body(
+        payload: UserPayload = Body(
             description="Information about the new user"),
         authenticator: Authenticator = Depends(login_manager),
         current_user: UserMixin = Depends(get_current_user),
