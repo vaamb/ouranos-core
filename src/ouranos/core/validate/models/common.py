@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from ouranos.core.database.models import WarningLevel
 
 
-class simple_message(BaseModel):
+class BaseResponse(BaseModel):
     msg: str
 
 

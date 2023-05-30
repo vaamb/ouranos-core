@@ -27,15 +27,17 @@ class WarningLevel(Enum):
     critical = 4
 
 
-class Base(db.Model):
-    __abstract__ = True
-
+class ToDictMixin:
     def to_dict(self, exclude: list | None = None) -> dict:
         exclude: list = exclude or []
         return {
             key: value for key, value in vars(self).items()
             if key not in exclude
         }
+
+
+class Base(db.Model, ToDictMixin):
+    __abstract__ = True
 
 
 class Record:

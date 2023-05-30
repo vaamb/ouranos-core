@@ -16,9 +16,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from ouranos import current_app
-from ouranos.core.config.consts import REGISTRATION_TOKEN_VALIDITY, TOKEN_SUBS
+from ouranos.core.config.consts import (
+    REGISTRATION_TOKEN_VALIDITY, SESSION_FRESHNESS, TOKEN_SUBS)
 from ouranos.core.database import ArchiveLink
-from ouranos.core.database.models.common import Base, BaseWarning
+from ouranos.core.database.models.common import Base, BaseWarning, ToDictMixin
 from ouranos.core.exceptions import DuplicatedEntry, NoResultFound
 from ouranos.core.utils import ExpiredTokenError, InvalidTokenError, Tokenizer
 
@@ -62,7 +63,6 @@ class Role(Base):
 
     @staticmethod
     async def insert_roles(session: AsyncSession):
-
         default_role = "User"
         stmt = select(Role)
         result = await session.execute(stmt)
@@ -95,19 +95,23 @@ class Role(Base):
         return f"<Role({self.name})>"
 
 
-class UserMixin:
-    id: int = 0
-    username: str = ""
-    firstname: str = ""
-    is_fresh: bool = False
+class UserMixin(ToDictMixin):
+    id: int
+    username: str | None
+    firstname: str | None
+    lastname: str | None
+
+    @property
+    def is_confirmed(self) -> bool:
+        raise NotImplementedError
 
     @property
     def is_authenticated(self) -> bool:
-        return True
+        raise NotImplementedError
 
     @property
     def is_anonymous(self) -> bool:
-        return False
+        raise NotImplementedError
 
     def get_id(self) -> int:
         try:
@@ -119,7 +123,16 @@ class UserMixin:
         raise NotImplementedError
 
 
-class AnonymousUserMixin(UserMixin):
+class AnonymousUser(UserMixin):
+    id: int = -1
+    username: str | None = None
+    firstname: str | None = None
+    lastname: str | None = None
+
+    @property
+    def is_confirmed(self) -> bool:
+        return False
+
     @property
     def is_authenticated(self) -> bool:
         return False
@@ -135,7 +148,7 @@ class AnonymousUserMixin(UserMixin):
         return False
 
 
-anonymous_user = AnonymousUserMixin()
+anonymous_user = AnonymousUser()
 
 
 AssociationUserRecap = Table(
@@ -183,6 +196,18 @@ class User(Base, UserMixin):
 
     def __repr__(self):
         return f"<User({self.username}, role={self.role.name})>"
+
+    @property
+    def is_confirmed(self) -> bool:
+        return self.confirmed
+
+    @property
+    def is_authenticated(self) -> bool:
+        return True
+
+    @property
+    def is_anonymous(self) -> bool:
+        return False
 
     @classmethod
     async def create(

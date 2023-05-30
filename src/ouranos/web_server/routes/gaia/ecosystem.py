@@ -234,6 +234,6 @@ async def turn_actuator(
     dispatcher = DispatcherFactory.get("application")
     await ecosystem.turn_actuator(
         dispatcher, actuator, mode, countdown)
-    return validate.common.simple_message(
+    return validate.common.BaseResponse(
         msg=f"Turned {ecosystem.name}'s {actuator} to mode '{mode}'"
     )

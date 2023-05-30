@@ -7,18 +7,16 @@ from typing import Optional, Self
 from fastapi import Depends, HTTPException, Request, Response, status
 from fastapi.security.http import HTTPBasic, HTTPBearer
 from fastapi.security.utils import get_authorization_scheme_param
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, ValidationError, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ouranos.core import validate
 from ouranos.core.config.consts import (
-    LOGIN_NAME, SESSION_TOKEN_VALIDITY, TOKEN_SUBS)
-from ouranos.core.database.models.app import Permission, User
+    LOGIN_NAME, SESSION_FRESHNESS, SESSION_TOKEN_VALIDITY, TOKEN_SUBS)
+from ouranos.core.database.models.app import (
+    anonymous_user, Permission, User, UserMixin)
 from ouranos.core.exceptions import (
     ExpiredTokenError, InvalidTokenError, TokenError)
 from ouranos.core.utils import Tokenizer
-from ouranos.core.validate.models.auth import (
-    anonymous_user, AuthenticatedUser, CurrentUser)
 from ouranos.web_server.dependencies import get_session
 
 
@@ -70,15 +68,27 @@ basic_auth = HTTPBasic()
 cookie_bearer_auth = HTTPCookieBearer()
 
 
-class TokenPayload(BaseModel):
+def _now():
+    return datetime.now(timezone.utc).replace(microsecond=0)
+
+
+class SessionInfo(BaseModel):
     id: str
     user_id: int
-    iat: Optional[float]
-    remember: Optional[bool]
+    iat: datetime = Field(default_factory=_now)
+    remember: bool = False
+
+    @property
+    def is_fresh(self) -> bool:
+        time_limit = (
+            datetime.now(timezone.utc).replace(microsecond=0)
+            - timedelta(seconds=SESSION_FRESHNESS)
+        )
+        return self.iat < time_limit
 
     def to_dict(self, refresh_iat: bool = False) -> dict:
-        if refresh_iat or self.iat is None:
-            iat = datetime.utcnow().replace(microsecond=0)
+        if refresh_iat:
+            iat = datetime.now(timezone.utc).replace(microsecond=0)
         else:
             iat = self.iat
         return {
@@ -124,7 +134,7 @@ class Authenticator:
             session: AsyncSession,
             username: str,
             password: str,
-    ) -> AuthenticatedUser:
+    ) -> User:
         user = await User.get(session, username)
         try:
             password_correct = user.check_password(password)
@@ -136,16 +146,15 @@ class Authenticator:
                 detail="Incorrect email or password",
                 headers={"WWW-Authenticate": "Basic"},
             )
-        return AuthenticatedUser.from_user(user)
+        return user
 
-    def login(self, user: AuthenticatedUser, remember: bool) -> str:
+    def login(self, user: User, remember: bool) -> str:
         remote_address = self.request.client.host
         user_agent = self.request.headers.get("user-agent")
         session_id = _create_session_id(remote_address, user_agent)
-        payload = TokenPayload(
-            id=session_id, user_id=user.id, remember=remember
-        )
-        token = payload.to_token(refresh_iat=True)
+        session_info = SessionInfo(
+            id=session_id, user_id=user.id, remember=remember)
+        token = session_info.to_token(refresh_iat=True)
         self.response.set_cookie(LOGIN_NAME.COOKIE.value, token, httponly=True)
         return token
 
@@ -168,7 +177,7 @@ class LoginManager:
     def user_loader(self, callback) -> None:
         self._user_callback = callback
 
-    def get_user(self, user_id: int, session) -> AuthenticatedUser:
+    def get_user(self, user_id: int, session) -> UserMixin:
         if self._user_callback:
             return self._user_callback(user_id, session)
         raise NotImplementedError(
@@ -180,39 +189,49 @@ login_manager = LoginManager()
 
 
 @login_manager.user_loader
-async def load_user(user_id: Optional[int], session: AsyncSession) -> User:
-    return await User.get(session, user_id)
+async def load_user(user_id: Optional[int], session: AsyncSession) -> UserMixin:
+    user = await User.get(session, user_id)
+    if user is None:
+        return anonymous_user
+    return user
 
 
-async def get_current_user(
+def get_session_info(
         request: Request,
         response: Response,
         auth: HTTPCredentials = Depends(cookie_bearer_auth),
-        session: AsyncSession = Depends(get_session),
-) -> AuthenticatedUser:
+) -> Optional[SessionInfo]:
     if auth.credentials is None:
-        return anonymous_user
+        return None
     try:
         token = auth.credentials
-        payload = TokenPayload.from_token(token)
+        session_info = SessionInfo.from_token(token)
         session_id = _create_session_id(
-            request.client.host, request.headers.get("user-agent")
-        )
-        if session_id != payload.id and request.client.host != "127.0.0.1":
+            request.client.host, request.headers.get("user-agent"))
+        if session_id != session_info.id and request.client.host != "127.0.0.1":
             raise TokenError
     except (TokenError, ValidationError):
         response.delete_cookie(LOGIN_NAME.COOKIE.value)
-        return anonymous_user
+        return None
     else:
-        user_id = payload.user_id
-        user = await login_manager.get_user(user_id, session)
         # Reset the token exp field
-        renewed_token = payload.to_token()
+        renewed_token = session_info.to_token()
         response.set_cookie(LOGIN_NAME.COOKIE.value, renewed_token, httponly=True)
-        return AuthenticatedUser.from_user(user)
+        return session_info
 
 
-async def user_can(user: CurrentUser, permission: Permission):
+async def get_current_user(
+        session_info: Optional[SessionInfo] = Depends(get_session_info),
+        session: AsyncSession = Depends(get_session),
+) -> UserMixin:
+    if session_info is None:
+        return anonymous_user
+    user_id = session_info.user_id
+    user = await login_manager.get_user(user_id, session)
+    return user
+
+
+async def user_can(user: UserMixin, permission: Permission):
     if not user.can(permission):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -222,21 +241,21 @@ async def user_can(user: CurrentUser, permission: Permission):
 
 
 # In case we would like to put a restriction for all routes
-async def base_restriction(current_user: CurrentUser = Depends(get_current_user)) -> bool:
+async def base_restriction(current_user: UserMixin = Depends(get_current_user)) -> bool:
     return True
 
 
-async def is_authenticated(current_user: CurrentUser = Depends(get_current_user)) -> bool:
+async def is_authenticated(current_user: UserMixin = Depends(get_current_user)) -> bool:
     return await user_can(current_user, Permission.VIEW)
 
 
-async def is_operator(current_user: AuthenticatedUser = Depends(get_current_user)) -> bool:
+async def is_operator(current_user: UserMixin = Depends(get_current_user)) -> bool:
     return await user_can(current_user, Permission.OPERATE)
 
 
-async def is_admin(current_user: CurrentUser = Depends(get_current_user)) -> bool:
+async def is_admin(current_user: UserMixin = Depends(get_current_user)) -> bool:
     return await user_can(current_user, Permission.ADMIN)
 
 
-async def is_fresh(current_user: CurrentUser = Depends(get_current_user)) -> bool:
-    return current_user.is_fresh()
+async def is_fresh(session_info: SessionInfo = Depends(get_session_info)) -> bool:
+    return session_info.is_fresh
