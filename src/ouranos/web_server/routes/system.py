@@ -8,39 +8,30 @@ from ouranos.core.utils import timeWindow
 from ouranos.web_server.auth import is_admin
 from ouranos.web_server.dependencies import get_session, get_time_window
 from ouranos.web_server.routes.utils import empty_result
+from ouranos.web_server.validate.response.system import SystemRecordResponse
 
 
 router = APIRouter(
     prefix="/system",
     responses={404: {"description": "Not found"}},
     tags=["system"],
-)
-
-
-@router.get(
-    "/start_time",
     dependencies=[Depends(is_admin)],
 )
+
+
+@router.get("/start_time",)
 async def get_current_system_data() -> int:
     return consts.START_TIME
 
 
-@router.get(
-    "/data/current",
-    # response_model=validate.system.system_record,
-    dependencies=[Depends(is_admin)],
-)
+@router.get("/data/current", response_model=list[SystemRecordResponse])
 async def get_current_system_data(
         session: AsyncSession = Depends(get_session),
 ):
     return await SystemDbCache.get_recent(session)
 
 
-@router.get(
-    "/data/historic",
-    # response_model=list[validate.system.system_record],
-    dependencies=[Depends(is_admin)],
-)
+@router.get("/data/historic", response_model=list[SystemRecordResponse])
 async def get_historic_system_data(
         time_window: timeWindow = Depends(get_time_window),
         session: AsyncSession = Depends(get_session),

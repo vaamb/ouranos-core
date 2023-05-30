@@ -4,7 +4,7 @@ from ouranos import current_app
 from ouranos.core.database.models.app import FlashMessage, Service, ServiceLevel
 from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.validate.response.app import (
-    FlashMessageResponse, LoggingPeriodResponse)
+    FlashMessageResponse, LoggingPeriodResponse, ServiceInfo)
 
 
 router = APIRouter(
@@ -28,7 +28,7 @@ async def get_logging_config():
     }
 
 
-@router.get("/services")
+@router.get("/services", response_model=list[ServiceInfo])
 async def get_services(
         level: ServiceLevel = Query(default=ServiceLevel.all),
         session=Depends(get_session)
@@ -38,6 +38,9 @@ async def get_services(
 
 
 @router.get("/flash_messages", response_model=list[FlashMessageResponse])
-async def get_flash_messages(session=Depends(get_session)):
-    msgs = await FlashMessage.get_multiple(session=session)
+async def get_flash_messages(
+        last: int = Query(default=10),
+        session=Depends(get_session)
+):
+    msgs = await FlashMessage.get_multiple(session=session, max_first=last)
     return [msg.description for msg in msgs]

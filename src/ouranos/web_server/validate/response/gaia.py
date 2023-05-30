@@ -1,6 +1,14 @@
-from ouranos.core.database.models.gaia import (
-    Ecosystem, Engine, EnvironmentParameter, Hardware, Light, Measure, Plant)
+from datetime import datetime
 
+from typing import Optional
+from pydantic import Field
+
+from gaia_validators import HardwareLevel, HardwareType
+
+from ouranos.core.database.models.common import WarningLevel
+from ouranos.core.database.models.gaia import (
+    Ecosystem, Engine, EnvironmentParameter, Hardware, Light, Measure, Plant,
+    SensorRecord)
 from ouranos.core.validate.base import BaseModel
 from ouranos.core.validate.utils import sqlalchemy_to_pydantic
 
@@ -21,8 +29,13 @@ EcosystemLightInfo = sqlalchemy_to_pydantic(
 )
 
 
+class ManagementInfo(BaseModel):
+    name: str
+    value: int
+
+
 class EcosystemManagementInfo(BaseModel):
-    uid: str
+    ecosystem_uid: str = Field(alias="uid")
     name: str
     sensors: bool = False
     light: bool = False
@@ -74,3 +87,70 @@ HardwareInfo = sqlalchemy_to_pydantic(
         "plants": (list[PlantInfo], ...)
     }
 )
+
+
+EcosystemSensorDataUnit = sqlalchemy_to_pydantic(
+    SensorRecord,
+    base=BaseModel,
+    exclude=["id"]
+)
+
+
+class EcosystemSensorData(BaseModel):
+    ecosystem_uid: str
+    data: list[EcosystemSensorDataUnit]
+
+
+class HardwareModelInfo(BaseModel):
+    model: str
+    type: HardwareType
+
+
+class SkSensorBaseInfo(BaseModel):
+    uid: str
+    name: str
+
+
+class SkMeasureBaseInfo(BaseModel):
+    measure: str
+    sensors: list[SkSensorBaseInfo]
+
+
+class SensorSkeletonInfo(BaseModel):
+    ecosystem_uid: str = Field(alias="uid")
+    name: str
+    level: list[HardwareLevel]
+    sensors_skeleton: list[SkMeasureBaseInfo]
+
+
+class GaiaWarningResult(BaseModel):
+    level: WarningLevel
+    title: str
+    description: str
+
+
+class SensorCurrentTimedValue(BaseModel):
+    measure: str
+    unit: str
+    values: list[tuple[datetime, float]]
+
+
+class SensorHistoricTimedValue(BaseModel):
+    measure: str
+    unit: str
+    span: tuple[datetime, datetime]
+    value: list[tuple[datetime, float]]
+
+
+class SensorOverview(BaseModel):
+    uid: str
+    ecosystem_uid: str
+    name: str
+    level: HardwareLevel
+    address: str
+    type: HardwareType
+    model: str
+    status: bool
+    last_log: Optional[datetime] = None
+    measures: list[str]
+    data: dict = Field(default_factory=dict)

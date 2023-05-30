@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Query
 
-from ouranos.core import validate
 from ouranos.core.cache import SunTimesCache, WeatherCache
 from ouranos.web_server.routes.utils import empty_result
 from ouranos.web_server.validate.response.weather import (
