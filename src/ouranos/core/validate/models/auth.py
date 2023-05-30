@@ -4,52 +4,14 @@ from datetime import datetime, timedelta
 
 from pydantic import BaseModel as _BaseModel
 
-from ouranos.core.config.consts import SESSION_FRESHNESS, SESSION_TOKEN_VALIDITY
+from ouranos.core.config.consts import SESSION_FRESHNESS
 from ouranos.core.database.models import Permission, User
-from ouranos.core.utils import Tokenizer
 from ouranos.core.validate.models.common import simple_message
 
 
 class BaseModel(_BaseModel):
     class Config:
         orm_mode = True
-
-
-class HTTPCredentials(BaseModel):
-    credentials: str | None
-
-
-class TokenPayload(BaseModel):
-    id: str
-    user_id: int
-    iat: float | None
-    remember: bool | None
-
-    def to_dict(self, refresh_iat: bool = False) -> dict:
-        if refresh_iat or self.iat is None:
-            iat = datetime.utcnow().replace(microsecond=0)
-        else:
-            iat = self.iat
-        return {
-            "id": self.id,
-            "user_id": self.user_id,
-            "iat": iat,
-            "exp": datetime.utcnow().replace(microsecond=0) + timedelta(seconds=SESSION_TOKEN_VALIDITY),
-            "remember": self.remember is True,
-        }
-
-    def to_token(
-            self,
-            refresh_iat: bool = False,
-    ) -> str:
-        return Tokenizer.dumps(self.to_dict(refresh_iat))
-
-    @classmethod
-    def from_token(
-            cls,
-            token: str,
-    ) -> "TokenPayload":
-        return cls(**Tokenizer.loads(token))
 
 
 class CurrentUser(BaseModel):

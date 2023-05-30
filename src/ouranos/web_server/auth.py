@@ -1,16 +1,18 @@
 # Strange bug: cannot use future annotations, somehow it enters in conflict with
 #  FastAPI (via pydantic ?)
+from datetime import datetime, timedelta, timezone
 from hashlib import sha512
-from typing import Optional
+from typing import Optional, Self
 
 from fastapi import Depends, HTTPException, Request, Response, status
 from fastapi.security.http import HTTPBasic, HTTPBearer
 from fastapi.security.utils import get_authorization_scheme_param
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos.core import validate
-from ouranos.core.config.consts import LOGIN_NAME, TOKEN_SUBS
+from ouranos.core.config.consts import (
+    LOGIN_NAME, SESSION_TOKEN_VALIDITY, TOKEN_SUBS)
 from ouranos.core.database.models.app import Permission, User
 from ouranos.core.exceptions import (
     ExpiredTokenError, InvalidTokenError, TokenError)
@@ -48,20 +50,60 @@ def check_invitation_token(invitation_token: str) -> dict:
         )
 
 
+class HTTPCredentials(BaseModel):
+    credentials: Optional[str]
+
+
 class HTTPCookieBearer(HTTPBearer):
-    async def __call__(self, request: Request) -> validate.auth.HTTPCredentials:
+    async def __call__(self, request: Request) -> HTTPCredentials:
         session_cookie = request.cookies.get(LOGIN_NAME.COOKIE.value)
         if session_cookie is not None:
-            return validate.auth.HTTPCredentials(credentials=session_cookie)
+            return HTTPCredentials(credentials=session_cookie)
         authorization_header = request.headers.get(LOGIN_NAME.HEADER.value)
         if authorization_header is not None:
             scheme, credentials = get_authorization_scheme_param(authorization_header)
-            return validate.auth.HTTPCredentials(credentials=credentials)
-        return validate.auth.HTTPCredentials(credentials=None)
+            return HTTPCredentials(credentials=credentials)
+        return HTTPCredentials(credentials=None)
 
 
 basic_auth = HTTPBasic()
 cookie_bearer_auth = HTTPCookieBearer()
+
+
+class TokenPayload(BaseModel):
+    id: str
+    user_id: int
+    iat: Optional[float]
+    remember: Optional[bool]
+
+    def to_dict(self, refresh_iat: bool = False) -> dict:
+        if refresh_iat or self.iat is None:
+            iat = datetime.utcnow().replace(microsecond=0)
+        else:
+            iat = self.iat
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "iat": iat,
+            "exp": (
+                datetime.now(timezone.utc).replace(microsecond=0)
+                + timedelta(seconds=SESSION_TOKEN_VALIDITY)
+            ),
+            "remember": self.remember is True,
+        }
+
+    def to_token(
+            self,
+            refresh_iat: bool = False,
+    ) -> str:
+        return Tokenizer.dumps(self.to_dict(refresh_iat))
+
+    @classmethod
+    def from_token(
+            cls,
+            token: str,
+    ) -> Self:
+        return cls(**Tokenizer.loads(token))
 
 
 class Authenticator:
@@ -100,7 +142,7 @@ class Authenticator:
         remote_address = self.request.client.host
         user_agent = self.request.headers.get("user-agent")
         session_id = _create_session_id(remote_address, user_agent)
-        payload = validate.auth.TokenPayload(
+        payload = TokenPayload(
             id=session_id, user_id=user.id, remember=remember
         )
         token = payload.to_token(refresh_iat=True)
@@ -145,14 +187,14 @@ async def load_user(user_id: Optional[int], session: AsyncSession) -> User:
 async def get_current_user(
         request: Request,
         response: Response,
-        auth: validate.auth.HTTPCredentials = Depends(cookie_bearer_auth),
+        auth: HTTPCredentials = Depends(cookie_bearer_auth),
         session: AsyncSession = Depends(get_session),
 ) -> AuthenticatedUser:
     if auth.credentials is None:
         return anonymous_user
     try:
         token = auth.credentials
-        payload = validate.auth.TokenPayload.from_token(token)
+        payload = TokenPayload.from_token(token)
         session_id = _create_session_id(
             request.client.host, request.headers.get("user-agent")
         )
