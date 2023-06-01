@@ -67,19 +67,20 @@ async def create_ecosystem(
         response: Response,
         payload: EcosystemPayload = Body(
             description="Information about the new ecosystem"),
-        session: AsyncSession = Depends(get_session),
 ):
     ecosystem_dict = payload.dict()
     try:
-        await Ecosystem.create(session, ecosystem_dict)
+        # TODO: dispatch to Gaia
         return ResultResponse(
-            msg=f"Ecosystem {ecosystem_dict['name']} successfully updated",
+            msg=f"Request to create the new ecosystem '{ecosystem_dict['name']}' "
+                f"successfully sent to engine '{ecosystem_dict['engine_uid']}'",
             status=ResultStatus.success
         )
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         return ResultResponse(
-            msg=f"Failed to update ecosystem {ecosystem_dict['name']}. Error "
+            msg=f"Failed to send ecosystem creation order to engine for "
+                f"ecosystem '{ecosystem_dict['name']}'. Error "
                 f"msg: `{e.__class__.__name__}: {e}`",
             status=ResultStatus.failure
         )
@@ -107,15 +108,17 @@ async def update_ecosystem(
     ecosystem_dict = payload.dict()
     try:
         ecosystem = await ecosystem_or_abort(session, id)
-        await Ecosystem.update(session, ecosystem_dict, ecosystem.uid)
+        # TODO: dispatch to Gaia
         return ResultResponse(
-            msg=f"Ecosystem {ecosystem_dict['name']} successfully updated",
+            msg=f"Request to update the ecosystem '{ecosystem.name}' "
+                f"successfully sent to engine '{ecosystem.engine_uid}'",
             status=ResultStatus.success
         )
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         return ResultResponse(
-            msg=f"Failed to update ecosystem {ecosystem_dict['name']}. Error "
+            msg=f"Failed to send ecosystem update order to engine "
+                f"for ecosystem '{id}'. Error "
                 f"msg: `{e.__class__.__name__}: {e}`",
             status=ResultStatus.failure
         )
@@ -132,16 +135,17 @@ async def delete_ecosystem(
 ):
     try:
         ecosystem = await ecosystem_or_abort(session, id)
-        await Ecosystem.delete(session, ecosystem.uid)
+        # TODO: dispatch to Gaia
         return ResultResponse(
-            msg=f"Ecosystem {ecosystem.name} successfully deleted",
+            msg=f"Request to delete the ecosystem '{ecosystem.name}' "
+                f"successfully sent to engine '{ecosystem.engine_uid}'",
             status=ResultStatus.success
         )
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         return ResultResponse(
-            msg=f"Failed to delete ecosystem with id {id}. Error "
-                f"msg: `{e.__class__.__name__}: {e}`",
+            msg=f"Failed to send delete order for ecosystem with id '{id}'. "
+                f"Error msg: `{e.__class__.__name__}: {e}`",
             status=ResultStatus.failure
         )
 
