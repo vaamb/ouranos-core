@@ -103,7 +103,7 @@ class SensorDbCache(BaseSensorData, DbCache):
             .subquery()
         )
         stmt = (
-            select(cls.timestamp, cls.measure)
+            select(cls.timestamp, cls.value)
             .join(sub_stmt, cls.id == sub_stmt.c.id)
             .where(cls.sensor_uid == sensor_uid)
             .where(cls.measure == measure)

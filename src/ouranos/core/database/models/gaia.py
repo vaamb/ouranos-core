@@ -856,7 +856,7 @@ class Sensor(Hardware):
             rv.append({
                 "measure": measure,
                 "unit": await Measure.get_unit(session, measure),
-                "values": SensorDbCache.get_recent_timed_values(
+                "values": await SensorDbCache.get_recent_timed_values(
                     session, self.uid, measure),
             })
         return rv
@@ -893,32 +893,27 @@ class Sensor(Hardware):
             time_window: timeWindow | None = None,
     ) -> dict:
         rv = self.to_dict(exclude=["measure"])
-        rv.update({"measures": [measure_obj.name for measure_obj in self.measures]})
+        rv.update({
+            **{"measures": [measure_obj.name for measure_obj in self.measures]},
+            "data": None
+        })
         if current_data or historic_data:
             rv.update({"data": {}})
             if current_data:
-                data = await self.get_current_data(session, measures)
-                if data:
-                    rv["data"].update({
-                        "current": {
-                            "data": data,
-                        }
-                    })
-                else:
-                    rv["data"].update({"current": None})
+                rv["data"].update({
+                    "current": await self.get_current_data(session, measures)
+                })
+            else:
+                rv["data"].update({"current": None})
             if historic_data:
                 if time_window is None:
                     time_window = create_time_window()
-                data = await self.get_historic_data(
-                    session, measures, time_window)
-                if data:
-                    rv["data"].update({
-                        "historic": {
-                            "data": data,
-                        }
-                    })
-                else:
-                    rv["data"].update({"historic": None})
+                rv["data"].update({
+                    "historic": await self.get_historic_data(
+                        session, measures, time_window)
+                })
+            else:
+                rv["data"].update({"historic": None})
         return rv
 
     @staticmethod

@@ -62,7 +62,6 @@ except ImportError:
 
 else:
     def _serializer(self, o: Any) -> dict | str:
-        print(o)
         if isinstance(o, Row):
             return o.tuple()  # return a tuple
         #    return {**o._mapping}  # return a dict

@@ -139,7 +139,12 @@ class SensorHistoricTimedValue(BaseModel):
     measure: str
     unit: str
     span: tuple[datetime, datetime]
-    value: list[tuple[datetime, float]]
+    values: list[tuple[datetime, float]]
+
+
+class SensorOverviewData(BaseModel):
+    current: Optional[list[SensorCurrentTimedValue]] = None
+    historic: Optional[list[SensorHistoricTimedValue]] = None
 
 
 class SensorOverview(BaseModel):
@@ -153,4 +158,4 @@ class SensorOverview(BaseModel):
     status: bool
     last_log: Optional[datetime] = None
     measures: list[str]
-    data: dict = Field(default_factory=dict)
+    data: Optional[SensorOverviewData] = None

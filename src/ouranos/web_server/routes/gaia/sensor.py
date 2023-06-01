@@ -100,7 +100,8 @@ async def get_sensor_current_data(
     sensor = await sensor_or_abort(session, uid)
     if not measures:
         measures = [m.name for m in sensor.measures]
-    return sensor.get_current_data(session, measures)
+    response = await sensor.get_current_data(session, measures)
+    return response
 
 
 @router.get("/u/{uid}/data/historic", response_model=list[SensorHistoricTimedValue])
@@ -115,4 +116,5 @@ async def get_sensor_historic_data(
     sensor = await sensor_or_abort(session, uid)
     if not measures:
         measures = [m.name for m in sensor.measures]
-    return sensor.get_historic_data(session, measures, time_window)
+    response = await sensor.get_historic_data(session, measures, time_window)
+    return response
