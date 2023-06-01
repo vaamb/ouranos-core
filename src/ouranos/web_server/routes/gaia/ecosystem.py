@@ -14,12 +14,14 @@ from ouranos.web_server.dependencies import get_session, get_time_window
 from ouranos.web_server.routes.utils import assert_single_uid
 from ouranos.web_server.routes.gaia.common_queries import (
     ecosystems_uid_q, hardware_level_q)
-from ouranos.web_server.validate.payload.gaia import EcosystemPayload
+from ouranos.web_server.validate.payload.gaia import (
+    EcosystemCreationPayload, EcosystemUpdatePayload)
 from ouranos.web_server.validate.response.base import (
     ResultResponse, ResultStatus)
 from ouranos.web_server.validate.response.gaia import (
     EcosystemInfo, EcosystemLightInfo, EcosystemManagementInfo,
-    EnvironmentParameterInfo, ManagementInfo, EcosystemSensorData, SensorSkeletonInfo)
+    EnvironmentParameterInfo, ManagementInfo, EcosystemSensorData,
+    SensorSkeletonInfo)
 
 
 router = APIRouter(
@@ -65,7 +67,7 @@ async def get_ecosystems(
              dependencies=[Depends(is_operator)])
 async def create_ecosystem(
         response: Response,
-        payload: EcosystemPayload = Body(
+        payload: EcosystemCreationPayload = Body(
             description="Information about the new ecosystem"),
 ):
     ecosystem_dict = payload.dict()
@@ -101,7 +103,7 @@ async def get_ecosystem(
 async def update_ecosystem(
         response: Response,
         id: str = id_param,
-        payload: EcosystemPayload = Body(
+        payload: EcosystemUpdatePayload = Body(
             description="Updated information about the ecosystem"),
         session: AsyncSession = Depends(get_session)
 ):

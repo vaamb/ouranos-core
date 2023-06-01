@@ -12,7 +12,8 @@ from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.routes.utils import assert_single_uid
 from ouranos.web_server.routes.gaia.common_queries import (
     ecosystems_uid_q, hardware_level_q)
-from ouranos.web_server.validate.payload.gaia import HardwarePayload
+from ouranos.web_server.validate.payload.gaia import (
+    HardwareCreationPayload, HardwareUpdatePayload)
 from ouranos.web_server.validate.response.base import (
     ResultResponse, ResultStatus)
 from ouranos.web_server.validate.response.gaia import (
@@ -79,7 +80,7 @@ async def get_hardware_available() -> list[str]:
              dependencies=[Depends(is_operator)])
 async def create_hardware(
         response: Response,
-        payload: HardwarePayload = Body(
+        payload: HardwareCreationPayload = Body(
             description="Information about the new hardware"),
         session: AsyncSession = Depends(get_session)
 ):
@@ -119,7 +120,7 @@ async def get_hardware(
 async def update_hardware(
         response: Response,
         uid: str = uid_param,
-        payload: HardwarePayload = Body(
+        payload: HardwareUpdatePayload = Body(
             description="Updated information about the hardware"),
         session: AsyncSession = Depends(get_session)
 ):
