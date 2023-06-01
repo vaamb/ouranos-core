@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from datetime import datetime, timedelta, timezone
-from typing import Self, Sequence
+from typing import Optional, Self, Sequence
 
 from sqlalchemy import delete, insert, Row, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -140,3 +140,30 @@ class SystemDbCache(BaseSystemData, DbCache):
             stmt = stmt.where(cls.system_uid.in_(system_uid))
         result = await session.execute(stmt)
         return result.scalars().all()
+
+    @classmethod
+    async def get_recent_timed_values(
+            cls,
+            session: AsyncSession,
+            system_uid: str | list | None = None
+    ) -> list[
+        tuple[datetime, str, float, Optional[float], float, float, float,
+              float, float]
+    ]:
+        await cls.remove_expired(session)
+        sub_stmt = (
+            select(cls.id, sa_max(cls.timestamp))
+            .group_by(cls.system_uid)
+            .subquery()
+        )
+        stmt = select(
+            cls.timestamp, cls.system_uid, cls.CPU_used, cls.CPU_temp,
+            cls.RAM_total, cls.RAM_used, cls.RAM_process, cls.DISK_total,
+            cls.DISK_used
+        ).join(sub_stmt, cls.id == sub_stmt.c.id)
+        if system_uid:
+            if isinstance(system_uid, str):
+                system_uid = [system_uid, ]
+            stmt = stmt.where(cls.system_uid.in_(system_uid))
+        result = await session.execute(stmt)
+        return [r._data for r in result.all()]

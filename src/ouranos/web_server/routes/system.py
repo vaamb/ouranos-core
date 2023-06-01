@@ -23,29 +23,27 @@ async def get_current_system_data() -> int:
     return consts.START_TIME
 
 
-@router.get("/data/current", response_model=list[SystemRecordResponse])
+@router.get("/data/current", response_model=SystemRecordResponse)
 async def get_current_system_data(
         session: AsyncSession = Depends(get_session),
 ):
-    return await SystemDbCache.get_recent(session)
+    return {
+        "values": await SystemDbCache.get_recent_timed_values(session),
+        "order": ["timestamp", "system_uid", "CPU_used", "CPU_temp",
+                  "RAM_used", "RAM_total", "RAM_process", "DISK_used",
+                  "DISK_total"]
+    }
 
 
-@router.get("/data/historic", response_model=list[SystemRecordResponse])
+@router.get("/data/historic", response_model=SystemRecordResponse)
 async def get_historic_system_data(
         time_window: timeWindow = Depends(get_time_window),
         session: AsyncSession = Depends(get_session),
 ):
-    historic_system_data = await SystemRecord.get_records(
-        session, time_window)
-    if historic_system_data:
-        return {
-            "records": [
-                (record.timestamp, record.CPU_used, record.CPU_temp,
-                 record.RAM_used, record.RAM_total, record.DISK_used,
-                 record.DISK_total)
-                for record in historic_system_data
-            ],
-            "order": ["timestamp", "CPU_used", "CPU_temp", "RAM_used",
-                      "RAM_total", "DISK_used", "DISK_total"]
-        }
-    return empty_result([])
+    return {
+        "values": await SystemRecord.get_timed_values(
+            session, time_window),
+        "order": ["timestamp", "system_uid", "CPU_used", "CPU_temp",
+                  "RAM_used", "RAM_total", "RAM_process", "DISK_used",
+                  "DISK_total"]
+    }
