@@ -43,7 +43,7 @@ async def login(
     token = authenticator.login(user, remember)
     return {
         "msg": "You are logged in",
-        "user": UserInfo(**user.to_dict()),
+        "user": user,
         "session_token": token,
     }
 
@@ -63,7 +63,7 @@ async def logout(
 def get_current_user(
         current_user: UserMixin = Depends(get_current_user)
 ):
-    return current_user.to_dict()
+    return current_user
 
 
 @router.post("/register", response_model=UserInfo)
@@ -114,7 +114,7 @@ async def register_new_user(
     else:
         user = await User.get(session, username)
         authenticator.login(user, False)
-        return user.to_dict()
+        return user
 
 
 @router.get("/registration_token", dependencies=[Depends(is_admin)])

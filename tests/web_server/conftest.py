@@ -15,7 +15,7 @@ from ouranos.core.database.models.gaia import (
     HealthRecord, Light, SensorRecord)
 from ouranos.core.database.models.memory import SensorDbCache, SystemDbCache
 from ouranos.core.database.models.system import SystemRecord
-from ouranos.core.validate.models.auth import TokenPayload
+from ouranos.web_server.auth import SessionInfo
 from ouranos.web_server.factory import create_app
 
 from ..data.gaia import *
@@ -123,7 +123,7 @@ def client(base_client: TestClient):
 
 
 def get_user_cookie(user_id) -> dict:
-    payload = TokenPayload(id="session_id", user_id=user_id, remember=True)
+    payload = SessionInfo(id="session_id", user_id=user_id, remember=True)
     token = payload.to_token()
     return {LOGIN_NAME.COOKIE.value: token}
 

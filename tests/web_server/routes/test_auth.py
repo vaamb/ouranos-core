@@ -6,8 +6,7 @@ from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
 from ouranos import json
 from ouranos.core.config.consts import TOKEN_SUBS
-from ouranos.core.database.models.app import User
-from ouranos.core.validate.models.auth import anonymous_user
+from ouranos.core.database.models.app import anonymous_user, User
 from ouranos.core.utils import Tokenizer
 
 from ...data.users import admin
