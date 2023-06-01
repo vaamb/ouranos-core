@@ -11,7 +11,7 @@ class EcosystemPayload(BaseModel):
     management: int = 0
     day_start: time = time(8, 00)
     night_start: time = time(20, 00)
-    engine_uid: int
+    engine_uid: str
 
 
 class HardwarePayload(BaseModel):

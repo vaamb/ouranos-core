@@ -6,8 +6,8 @@ from ouranos.core.validate.base import BaseModel
 
 
 class ResultStatus(Enum):
-    failure: 0
-    success: 1
+    failure = 0
+    success = 1
 
 
 class BaseResponse(BaseModel):
