@@ -661,8 +661,6 @@ class Hardware(GaiaBase):
     model: Mapped[str] = mapped_column(sa.String(length=32))
     status: Mapped[bool] = mapped_column(default=True)
     last_log: Mapped[Optional[datetime]] = mapped_column()
-    plant_uid: Mapped[Optional[str]] = mapped_column(
-        sa.String(8), sa.ForeignKey("plants.uid"))
 
     # relationships
     ecosystem: Mapped["Ecosystem"] = relationship(back_populates="hardware")
@@ -844,28 +842,7 @@ class Sensor(Hardware):
         hardware: Sequence[Hardware] = result.unique().scalars().all()
         return [h for h in hardware if h.type == HardwareType.sensor]
 
-    async def get_recent_timed_values(
-            self,
-            session: AsyncSession,
-            measure: str,
-    ) -> list[tuple[datetime, float]]:
-        data = await SensorDbCache.get_recent_timed_values(
-            session, sensor_uid=self.uid, measure=measure)
-        return data
-
-    async def get_historic_timed_values(
-            self,
-            session: AsyncSession,
-            measure: str,
-            time_window: timeWindow | None = None,
-    ) -> list[tuple[datetime, float]]:
-        if time_window is None:
-            time_window = create_time_window()
-        data = await SensorRecord.get_timed_values(
-            session, self.uid, measure, time_window)
-        return data
-
-    async def _get_formatted_current_data(
+    async def get_current_data(
             self,
             session: AsyncSession,
             measures: str | list | None = None,
@@ -876,15 +853,15 @@ class Sensor(Hardware):
             measures = measures.split(",")
         rv = []
         for measure in measures:
-            timed_values = await self.get_recent_timed_values(session, measure)
             rv.append({
                 "measure": measure,
                 "unit": await Measure.get_unit(session, measure),
-                "value": timed_values,
+                "values": await SensorDbCache.get_recent_timed_values(
+                    session, self.uid, measure),
             })
         return rv
 
-    async def _get_formatted_historic_data(
+    async def get_historic_data(
             self,
             session: AsyncSession,
             measures: str | list | None = None,
@@ -894,14 +871,16 @@ class Sensor(Hardware):
             measures = [measure.name for measure in self.measures]
         elif isinstance(measures, str):
             measures = measures.split(",")
+        if time_window is None:
+            time_window = create_time_window()
         rv = []
         for measure in measures:
-            timed_values = await self.get_historic_timed_values(
-                session, measure, time_window)
             rv.append({
                 "measure": measure,
                 "unit": await Measure.get_unit(session, measure),
-                "values": timed_values,
+                "span": (time_window.start, time_window.end),
+                "values": await SensorRecord.get_timed_values(
+                    session, self.uid, measure, time_window),
             })
         return rv
 
@@ -914,34 +893,27 @@ class Sensor(Hardware):
             time_window: timeWindow | None = None,
     ) -> dict:
         rv = self.to_dict(exclude=["measure"])
-        rv.update({"measures": [measure_obj.name for measure_obj in self.measures]})
+        rv.update({
+            **{"measures": [measure_obj.name for measure_obj in self.measures]},
+            "data": None
+        })
         if current_data or historic_data:
             rv.update({"data": {}})
             if current_data:
-                data = await self._get_formatted_current_data(session, measures)
-                if data:
-                    rv["data"].update({
-                        "current": {
-                            "data": data,
-                        }
-                    })
-                else:
-                    rv["data"].update({"current": None})
+                rv["data"].update({
+                    "current": await self.get_current_data(session, measures)
+                })
+            else:
+                rv["data"].update({"current": None})
             if historic_data:
                 if time_window is None:
                     time_window = create_time_window()
-                data = await self._get_formatted_historic_data(
-                    session, measures, time_window)
-                if data:
-                    rv["data"].update({
-                        "historic": {
-                            "from": time_window.start,
-                            "to": time_window.end,
-                            "data": data,
-                        }
-                    })
-                else:
-                    rv["data"].update({"historic": None})
+                rv["data"].update({
+                    "historic": await self.get_historic_data(
+                        session, measures, time_window)
+                })
+            else:
+                rv["data"].update({"historic": None})
         return rv
 
     @staticmethod

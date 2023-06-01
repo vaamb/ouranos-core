@@ -5,13 +5,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from gaia_validators import HardwareLevel, HardwareType
 
-from ouranos.core import validate
 from ouranos.core.database.models.gaia import Hardware
 from ouranos.web_server.auth import is_operator
 from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.routes.utils import assert_single_uid
 from ouranos.web_server.routes.gaia.common_queries import (
     ecosystems_uid_q, hardware_level_q)
+from ouranos.web_server.validate.payload.gaia import HardwarePayload
+from ouranos.web_server.validate.response.base import (
+    ResultResponse, ResultStatus)
+from ouranos.web_server.validate.response.gaia import (
+    HardwareInfo, HardwareModelInfo)
 
 
 router = APIRouter(
@@ -44,7 +48,7 @@ async def hardware_or_abort(
     )
 
 
-@router.get("", response_model=list[validate.gaia.hardware])
+@router.get("", response_model=list[HardwareInfo])
 async def get_multiple_hardware(
         hardware_uid: list[str] | None = Query(
             default=None, description="A list of hardware uids"),
@@ -62,22 +66,34 @@ async def get_multiple_hardware(
     return hardware
 
 
-@router.get("/models_available")
+@router.get("/models_available", response_model=list[HardwareModelInfo])
 async def get_hardware_available() -> list[str]:
     response = Hardware.get_models_available()
     return response
 
 
-@router.post("/u", dependencies=[Depends(is_operator)])
+@router.post("/u", response_model=ResultResponse, dependencies=[Depends(is_operator)])
 async def create_hardware(
-        payload: validate.gaia.hardware_creation = Body(
+        payload: HardwarePayload = Body(
             description="Information about the new hardware"),
         session: AsyncSession = Depends(get_session)
 ):
-    await Hardware.create(session, payload.dict())
+    hardware_dict = payload.dict()
+    try:
+        await Hardware.create(session, hardware_dict)
+        return ResultResponse(
+            msg=f"Hardware {hardware_dict['name']} successfully created",
+            status=ResultStatus.success
+        )
+    except Exception as e:
+        return ResultResponse(
+            msg=f"Failed to create hardware {hardware_dict['name']}. Error "
+                f"msg: `{e.__class__.__name__}: {e}`",
+            status=ResultStatus.failure
+        )
 
 
-@router.get("/u/{uid}", response_model=validate.gaia.hardware)
+@router.get("/u/{uid}", response_model=HardwareInfo)
 async def get_hardware(
         uid: str = uid_param,
         session: AsyncSession = Depends(get_session)
@@ -87,20 +103,48 @@ async def get_hardware(
     return hardware
 
 
-@router.put("/u/{uid}", dependencies=[Depends(is_operator)])
+@router.put("/u/{uid}",
+            response_model=ResultResponse,
+            dependencies=[Depends(is_operator)])
 async def update_hardware(
         uid: str = uid_param,
-        payload: validate.gaia.hardware_creation = Body(
+        payload: HardwarePayload = Body(
             description="Updated information about the hardware"),
         session: AsyncSession = Depends(get_session)
 ):
-    await Hardware.update(session, payload.dict(), uid)
+    hardware_dict = payload.dict()
+    try:
+        await hardware_or_abort(session, uid)
+        await Hardware.update(session, hardware_dict, uid)
+        return ResultResponse(
+            msg=f"Hardware {hardware_dict['name']} successfully updated",
+            status=ResultStatus.success
+        )
+    except Exception as e:
+        return ResultResponse(
+            msg=f"Failed to update hardware {hardware_dict['name']}. Error "
+                f"msg: `{e.__class__.__name__}: {e}`",
+            status=ResultStatus.failure
+        )
 
 
-@router.delete("/u/{uid}", dependencies=[Depends(is_operator)])
+@router.delete("/u/{uid}",
+               response_model=ResultResponse,
+               dependencies=[Depends(is_operator)])
 async def delete_hardware(
         uid: str = uid_param,
         session: AsyncSession = Depends(get_session)
 ):
-    await Hardware.delete(session, uid)
-
+    try:
+        hardware = await hardware_or_abort(session, uid)
+        await Hardware.delete(session, uid)
+        return ResultResponse(
+            msg=f"Hardware {hardware.name} successfully deleted",
+            status=ResultStatus.success
+        )
+    except Exception as e:
+        return ResultResponse(
+            msg=f"Failed to delete hardware with uid {uid}. Error "
+                f"msg: `{e.__class__.__name__}: {e}`",
+            status=ResultStatus.failure
+        )

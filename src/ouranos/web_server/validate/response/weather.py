@@ -1,13 +1,13 @@
-from pydantic import BaseModel
+from ouranos.core.validate.base import BaseModel
 
 
-class sun_times(BaseModel):
+class SunTimesResponse(BaseModel):
     sunrise: str
     sunset: str
     day_length: str
 
 
-class current_weather(BaseModel):
+class CurrentWeatherResponse(BaseModel):
     time: int
     summary: str
     icon: str
@@ -27,11 +27,11 @@ class current_weather(BaseModel):
     ozone: float
 
 
-class hourly_weather(current_weather):
+class HourlyWeatherResponse(CurrentWeatherResponse):
     apparentTemperature: float
 
 
-class daily_weather(BaseModel):
+class DailyWeatherResponse(BaseModel):
     time: int
     summary: str
     icon: str

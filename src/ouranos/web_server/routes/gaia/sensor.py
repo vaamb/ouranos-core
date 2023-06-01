@@ -1,18 +1,19 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from gaia_validators import HardwareLevel
 
-from ouranos.core import validate
 from ouranos.core.database.models.gaia import Measure, Sensor
 from ouranos.core.utils import timeWindow
 from ouranos.web_server.dependencies import get_session, get_time_window
-from ouranos.web_server.routes.utils import assert_single_uid
 from ouranos.web_server.routes.gaia.common_queries import (
-    ecosystems_uid_q, hardware_level_q
-)
+    ecosystems_uid_q, hardware_level_q)
+from ouranos.web_server.routes.utils import assert_single_uid
+from ouranos.web_server.validate.response.gaia import (
+    MeasureInfo, SensorCurrentTimedValue, SensorHistoricTimedValue,
+    SensorOverview)
 
 
 router = APIRouter(
@@ -42,7 +43,7 @@ async def sensor_or_abort(
     return sensor
 
 
-@router.get("")
+@router.get("", response_model=list[SensorOverview])
 async def get_sensors(
         sensors_uid: list[str] | None = Query(
             default=None, description="A list of sensor uids"),
@@ -67,13 +68,13 @@ async def get_sensors(
     ]
 
 
-@router.get("/measures_available", response_model=list[validate.gaia.measure])
+@router.get("/measures_available", response_model=list[MeasureInfo])
 async def get_measures_available(session: AsyncSession = Depends(get_session)):
     measures = await Measure.get_multiple(session)
     return measures
 
 
-@router.get("/u/{uid}")
+@router.get("/u/{uid}", response_model=SensorOverview)
 async def get_sensor(
         uid: str = uid_param,
         current_data: bool = current_data_query,
@@ -88,7 +89,7 @@ async def get_sensor(
     return response
 
 
-@router.get("/u/{uid}/data/current")
+@router.get("/u/{uid}/data/current", response_model=list[SensorCurrentTimedValue])
 async def get_sensor_current_data(
         uid: str = uid_param,
         measures: list[str] | None = Query(
@@ -99,16 +100,11 @@ async def get_sensor_current_data(
     sensor = await sensor_or_abort(session, uid)
     if not measures:
         measures = [m.name for m in sensor.measures]
-    return [
-        {
-            "measure": measure,
-            "value": await sensor.get_recent_timed_values(session, measure),
-        }
-        for measure in measures
-    ]
+    response = await sensor.get_current_data(session, measures)
+    return response
 
 
-@router.get("/u/{uid}/data/historic")
+@router.get("/u/{uid}/data/historic", response_model=list[SensorHistoricTimedValue])
 async def get_sensor_historic_data(
         uid: str = uid_param,
         measures: list[str] | None = Query(
@@ -120,11 +116,5 @@ async def get_sensor_historic_data(
     sensor = await sensor_or_abort(session, uid)
     if not measures:
         measures = [m.name for m in sensor.measures]
-    return [
-        {
-            "measure": measure,
-            "span": (time_window.start, time_window.end),
-            "values": await sensor.get_historic_timed_values(session, measure, time_window),
-        }
-        for measure in measures
-    ]
+    response = await sensor.get_historic_data(session, measures, time_window)
+    return response

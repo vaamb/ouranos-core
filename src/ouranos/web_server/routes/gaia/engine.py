@@ -3,10 +3,10 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ouranos.core import validate
 from ouranos.core.database.models.gaia import Engine
 from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.routes.utils import assert_single_uid
+from ouranos.web_server.validate.response.gaia import EngineInfo
 
 
 router = APIRouter(
@@ -27,7 +27,7 @@ async def engine_or_abort(session: AsyncSession, engine_id: str) -> "Engine":
     )
 
 
-@router.get("", response_model=list[validate.gaia.engine])
+@router.get("", response_model=list[EngineInfo])
 async def get_engines(
         engines_id: list[str] | None = Query(
             default=None, description="A list of engine ids (either uids or sids) or "
@@ -38,7 +38,7 @@ async def get_engines(
     return engines
 
 
-@router.get("/u/{id}", response_model=validate.gaia.engine)
+@router.get("/u/{id}", response_model=EngineInfo)
 async def get_engine(
         id: str = Path(description="An engine id, either its uid or its sid"),
         session: AsyncSession = Depends(get_session)
