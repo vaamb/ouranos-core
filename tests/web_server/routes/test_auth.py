@@ -119,7 +119,7 @@ async def test_register_success(db: AsyncSQLAlchemyWrapper, client: TestClient):
         params={"invitation_token": invitation_token},
         json=registration_payload,
     )
-    assert response.status_code == 200
+    assert response.status_code == 201
     data = json.loads(response.text)
     assert data["username"] == registration_payload["username"]
 

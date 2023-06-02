@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, status
+from fastapi import (
+    APIRouter, Body, Depends, HTTPException, Path, Query, Response, status)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from gaia_validators import (
@@ -60,11 +61,13 @@ async def get_ecosystems(
 
 @router.post("/u",
              response_model=ResultResponse,
+             status_code=status.HTTP_202_ACCEPTED,
              dependencies=[Depends(is_operator)])
 async def create_ecosystem(
+        response: Response,
         payload: EcosystemPayload = Body(
             description="Information about the new ecosystem"),
-        session: AsyncSession = Depends(get_session)
+        session: AsyncSession = Depends(get_session),
 ):
     ecosystem_dict = payload.dict()
     try:
@@ -74,6 +77,7 @@ async def create_ecosystem(
             status=ResultStatus.success
         )
     except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         return ResultResponse(
             msg=f"Failed to update ecosystem {ecosystem_dict['name']}. Error "
                 f"msg: `{e.__class__.__name__}: {e}`",
@@ -90,8 +94,11 @@ async def get_ecosystem(
     return ecosystem
 
 
-@router.put("/u/{id}", dependencies=[Depends(is_operator)])
+@router.put("/u/{id}",
+            status_code=status.HTTP_202_ACCEPTED,
+            dependencies=[Depends(is_operator)])
 async def update_ecosystem(
+        response: Response,
         id: str = id_param,
         payload: EcosystemPayload = Body(
             description="Updated information about the ecosystem"),
@@ -106,6 +113,7 @@ async def update_ecosystem(
             status=ResultStatus.success
         )
     except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         return ResultResponse(
             msg=f"Failed to update ecosystem {ecosystem_dict['name']}. Error "
                 f"msg: `{e.__class__.__name__}: {e}`",
@@ -113,8 +121,12 @@ async def update_ecosystem(
         )
 
 
-@router.delete("/u/{id}", dependencies=[Depends(is_operator)])
+@router.delete("/u/{id}",
+               response_model=ResultResponse,
+               status_code=status.HTTP_202_ACCEPTED,
+               dependencies=[Depends(is_operator)])
 async def delete_ecosystem(
+        response: Response,
         id: str = id_param,
         session: AsyncSession = Depends(get_session)
 ):
@@ -126,6 +138,7 @@ async def delete_ecosystem(
             status=ResultStatus.success
         )
     except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         return ResultResponse(
             msg=f"Failed to delete ecosystem with id {id}. Error "
                 f"msg: `{e.__class__.__name__}: {e}`",

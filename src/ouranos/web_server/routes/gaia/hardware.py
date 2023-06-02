@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, status
+from fastapi import (
+    APIRouter, Body, Depends, HTTPException, Path, Query, Response, status)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from gaia_validators import HardwareLevel, HardwareType
@@ -72,8 +73,12 @@ async def get_hardware_available() -> list[str]:
     return response
 
 
-@router.post("/u", response_model=ResultResponse, dependencies=[Depends(is_operator)])
+@router.post("/u",
+             response_model=ResultResponse,
+             status_code=status.HTTP_202_ACCEPTED,
+             dependencies=[Depends(is_operator)])
 async def create_hardware(
+        response: Response,
         payload: HardwarePayload = Body(
             description="Information about the new hardware"),
         session: AsyncSession = Depends(get_session)
@@ -86,6 +91,7 @@ async def create_hardware(
             status=ResultStatus.success
         )
     except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         return ResultResponse(
             msg=f"Failed to create hardware {hardware_dict['name']}. Error "
                 f"msg: `{e.__class__.__name__}: {e}`",
@@ -105,8 +111,10 @@ async def get_hardware(
 
 @router.put("/u/{uid}",
             response_model=ResultResponse,
+            status_code=status.HTTP_202_ACCEPTED,
             dependencies=[Depends(is_operator)])
 async def update_hardware(
+        response: Response,
         uid: str = uid_param,
         payload: HardwarePayload = Body(
             description="Updated information about the hardware"),
@@ -121,6 +129,7 @@ async def update_hardware(
             status=ResultStatus.success
         )
     except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         return ResultResponse(
             msg=f"Failed to update hardware {hardware_dict['name']}. Error "
                 f"msg: `{e.__class__.__name__}: {e}`",
@@ -130,8 +139,10 @@ async def update_hardware(
 
 @router.delete("/u/{uid}",
                response_model=ResultResponse,
+               status_code=status.HTTP_202_ACCEPTED,
                dependencies=[Depends(is_operator)])
 async def delete_hardware(
+        response: Response,
         uid: str = uid_param,
         session: AsyncSession = Depends(get_session)
 ):
@@ -143,6 +154,7 @@ async def delete_hardware(
             status=ResultStatus.success
         )
     except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         return ResultResponse(
             msg=f"Failed to delete hardware with uid {uid}. Error "
                 f"msg: `{e.__class__.__name__}: {e}`",
