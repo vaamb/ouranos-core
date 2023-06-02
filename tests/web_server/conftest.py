@@ -30,8 +30,8 @@ async def add_ecosystems(db: AsyncSQLAlchemyWrapper):
 
         full_ecosystem_dict = {
             **ecosystem_dict,
-            "day_start": time(8, 0),
-            "night_start": time(20, 0),
+            "day_start": sky["day"],
+            "night_start": sky["night"],
         }
         await Ecosystem.create(session, full_ecosystem_dict)
 

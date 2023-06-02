@@ -220,8 +220,8 @@ async def get_ecosystems_light(
         ecosystems_id: list[str] | None = ecosystems_uid_q,
         session: AsyncSession = Depends(get_session)
 ):
-    lights = await Light.get_multiple(session, ecosystems_id)
-    return lights
+    response = await Light.get_multiple(session, ecosystems_id)
+    return response
 
 
 @router.get("/u/{id}/light", response_model=EcosystemLightInfo)
@@ -231,8 +231,8 @@ async def get_ecosystem_light(
 ):
     assert_single_uid(id)
     ecosystem = await ecosystem_or_abort(session, id)
-    light = await Light.get(session, ecosystem.uid)
-    return light
+    response = await Light.get(session, ecosystem.uid)
+    return response
 
 
 @router.get("/environment_parameters", response_model=list[EnvironmentParameterInfo])
@@ -241,11 +241,12 @@ async def get_ecosystems_environment_parameters(
         parameters: list[str] | None = env_parameter_query,
         session: AsyncSession = Depends(get_session)
 ):
-    return await EnvironmentParameter.get_multiple(
+    response = await EnvironmentParameter.get_multiple(
         session, ecosystems_id, parameters)
+    return response
 
 
-@router.get("/u/{id}/environment_parameters", response_model=EnvironmentParameterInfo)
+@router.get("/u/{id}/environment_parameters", response_model=list[EnvironmentParameterInfo])
 async def get_ecosystem_environment_parameters(
         id: str = id_param,
         parameters: list[str] | None = env_parameter_query,
@@ -253,8 +254,9 @@ async def get_ecosystem_environment_parameters(
 ):
     assert_single_uid(id)
     ecosystem = await ecosystem_or_abort(session, id)
-    return await EnvironmentParameter.get_multiple(
+    response = await EnvironmentParameter.get_multiple(
         session, [ecosystem.uid, ], parameters)
+    return response
 
 
 @router.get("/current_data", response_model=list[EcosystemSensorData])
@@ -264,12 +266,13 @@ async def get_ecosystems_current_data(
 ):
     ecosystems = await Ecosystem.get_multiple(
         session=session, ecosystems=ecosystems_id)
-    return [
+    response = [
         {
             "ecosystem_uid": ecosystem.uid,
             "data": await ecosystem.current_data(session)
         } for ecosystem in ecosystems
     ]
+    return response
 
 
 @router.get("/u/{id}/current_data", response_model=EcosystemSensorData)
@@ -279,10 +282,11 @@ async def get_ecosystem_current_data(
 ):
     assert_single_uid(id)
     ecosystem = await ecosystem_or_abort(session, id)
-    return {
+    response = {
         "ecosystem_uid": ecosystem.uid,
         "data": await ecosystem.current_data(session)
     }
+    return response
 
 
 @router.put("/u/{id}/turn_actuator",

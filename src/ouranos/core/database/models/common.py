@@ -67,7 +67,7 @@ class BaseSensorData(Base):
     __abstract__ = True
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    measure: Mapped[int] = mapped_column()
+    measure: Mapped[str] = mapped_column()
     timestamp: Mapped[datetime] = mapped_column(UtcDateTime)
     value: Mapped[float] = mapped_column(sa.Float(precision=2))
 
