@@ -4,11 +4,11 @@ from fastapi import (
     APIRouter, Body, Depends, HTTPException, Path, Query, Response, status)
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from gaia_validators import (
-    ActuatorTurnTo, HardwareLevel, HardwareTypeNames, ManagementFlags)
+from gaia_validators import HardwareLevel, ManagementFlags
 
-from ouranos.core.utils import DispatcherFactory, timeWindow
 from ouranos.core.database.models import Ecosystem, EnvironmentParameter, Light
+from ouranos.core.utils import DispatcherFactory, timeWindow
+from ouranos.core.validate.payload import ActuatorTurnToPayload
 from ouranos.web_server.auth import is_operator
 from ouranos.web_server.dependencies import get_session, get_time_window
 from ouranos.web_server.routes.utils import assert_single_uid
@@ -285,19 +285,20 @@ async def get_ecosystem_current_data(
     }
 
 
-@router.get("/u/{id}/turn_actuator", response_model=ResultResponse, dependencies=[Depends(is_operator)])
+@router.put("/u/{id}/turn_actuator",
+            response_model=ResultResponse,
+            status_code=status.HTTP_202_ACCEPTED,
+            dependencies=[Depends(is_operator)])
 async def turn_actuator(
         id: str = id_param,
-        actuator: HardwareTypeNames = Query(
-            description="The type of actuator"),
-        mode: ActuatorTurnTo = Query(
-            description="The mode to turn the actuator to"),
-        countdown: float = Query(
-            default=0.0,
-            description="Time before turning the actuator to the required mode"
-        ),
+        payload: ActuatorTurnToPayload = Body(
+            description="Instruction for the actuator"),
         session: AsyncSession = Depends(get_session)
 ):
+    instruction_dict = payload.dict()
+    actuator = instruction_dict["actuator"]
+    mode = instruction_dict["mode"]
+    countdown = instruction_dict["countdown"]
     try:
         assert_single_uid(id)
         ecosystem = await ecosystem_or_abort(session, id)
