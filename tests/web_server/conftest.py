@@ -70,11 +70,6 @@ async def add_ecosystems(db: AsyncSQLAlchemyWrapper):
         adapted_health_data["ecosystem_uid"] = ecosystem_uid
         await HealthRecord.create_records(session, adapted_health_data)
 
-        gaia_warning = {
-            "level": "low",
-            "title": "Not a problem",
-            "description": "Super low level warning",
-        }
         await GaiaWarning.create(session, gaia_warning)
 
 

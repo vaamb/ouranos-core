@@ -172,6 +172,15 @@ turn_actuator_payload: TurnActuatorPayloadDict = {
     "countdown": 0.0,
 }
 
+
+gaia_warning = {
+    "level": "low",
+    "title": "Not a problem",
+    "description": "Super low level warning",
+    "created_on": datetime.now(timezone.utc),
+}
+
+
 __all__ = (
     "base_info", "base_info_payload", "chaos", "climate", "ecosystem_dict",
     "ecosystem_name", "ecosystem_uid", "engine_dict", "engine_sid",
@@ -179,5 +188,5 @@ __all__ = (
     "health_data", "health_data_payload", "ip_address", "light_data",
     "light_data_payload", "management_data", "management_payload",
     "measure_record", "sky", "sensor_record", "sensors_data",
-    "sensors_data_payload", "turn_actuator_payload"
+    "sensors_data_payload", "turn_actuator_payload", "gaia_warning"
 )

@@ -42,7 +42,7 @@ _ecosystem_caches_size = 16
 _cache_ecosystem_has_recent_data = TTLCache(maxsize=_ecosystem_caches_size * 2, ttl=60)
 _cache_sensors_data_skeleton = TTLCache(maxsize=_ecosystem_caches_size, ttl=900)
 _cache_sensor_values = TTLCache(maxsize=_ecosystem_caches_size * 32, ttl=600)
-_cache_recent_warnings = TTLCache(maxsize=5, ttl=60)
+_cache_warnings = TTLCache(maxsize=5, ttl=60)
 _cache_measures = LRUCache(maxsize=16)
 
 
@@ -1170,20 +1170,10 @@ class GaiaWarning(BaseWarning):
     __archive_link__ = ArchiveLink("warnings", "recent")
 
     @classmethod
-    @cached(_cache_recent_warnings, key=sessionless_hashkey)
-    async def get_recent(
+    @cached(_cache_warnings, key=sessionless_hashkey)
+    async def get_multiple(
             cls,
             session: AsyncSession,
             limit: int = 10
     ) -> Sequence[Self]:
-        time_limit = time_limits("warnings")
-        stmt = (
-            select(cls)
-            .where(cls.created_on >= time_limit)
-            .where(cls.solved == False)  # noqa
-            .order_by(cls.level.desc())
-            .order_by(cls.id)
-            .limit(limit)
-        )
-        result = await session.execute(stmt)
-        return result.scalars().all()
+        return await super().get_multiple(session, limit)

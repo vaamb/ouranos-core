@@ -206,13 +206,13 @@ class BaseWarning(Base):
     async def get_multiple(
             cls,
             session: AsyncSession,
-            max_first: int = 10
+            limit: int = 10
     ) -> Sequence[Self]:
         stmt = (
             select(cls)
-            .where(cls.solved is False)
+            .where(cls.solved_on is not None)
             .order_by(cls.created_on.desc())
-            .limit(max_first)
+            .limit(limit)
         )
         result = await session.execute(stmt)
         return result.scalars().all()
