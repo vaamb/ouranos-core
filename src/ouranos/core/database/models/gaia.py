@@ -835,12 +835,11 @@ class Sensor(Hardware):
             time_window: timeWindow = None,
     ) -> Sequence[Self]:
         stmt = cls.generate_query(
-            hardware_uids, ecosystem_uids, levels, "sensor", models)
+            hardware_uids, ecosystem_uids, levels, HardwareType.sensor.value, models)
         if time_window:
             stmt = cls._add_time_window_to_stmt(stmt, time_window)
         result = await session.execute(stmt)
-        hardware: Sequence[Hardware] = result.unique().scalars().all()
-        return [h for h in hardware if h.type == HardwareType.sensor]
+        return result.unique().scalars().all()
 
     async def get_current_data(
             self,
@@ -892,11 +891,8 @@ class Sensor(Hardware):
             historic_data: bool = False,
             time_window: timeWindow | None = None,
     ) -> dict:
-        rv = self.to_dict(exclude=["measure"])
-        rv.update({
-            **{"measures": [measure_obj.name for measure_obj in self.measures]},
-            "data": None
-        })
+        rv = self.to_dict()
+        rv["data"] = None
         if current_data or historic_data:
             rv.update({"data": {}})
             if current_data:

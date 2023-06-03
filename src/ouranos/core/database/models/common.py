@@ -32,7 +32,10 @@ class ToDictMixin:
         exclude: list = exclude or []
         return {
             key: value for key, value in vars(self).items()
-            if key not in exclude
+            if (
+                    key not in exclude
+                    and not key.startswith("_")
+            )
         }
 
 
