@@ -42,5 +42,5 @@ async def get_flash_messages(
         last: int = Query(default=10),
         session=Depends(get_session)
 ):
-    msgs = await FlashMessage.get_multiple(session=session, max_first=last)
+    msgs = await FlashMessage.get_multiple(session=session, limit=last)
     return [msg.description for msg in msgs]
