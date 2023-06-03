@@ -1,24 +1,27 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, status
+from fastapi import (
+    APIRouter, Body, Depends, HTTPException, Path, Query, Response, status)
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from gaia_validators import (
-    ActuatorTurnTo, HardwareLevel, HardwareTypeNames, ManagementFlags)
+from gaia_validators import HardwareLevel, ManagementFlags
 
-from ouranos.core.utils import DispatcherFactory, timeWindow
 from ouranos.core.database.models import Ecosystem, EnvironmentParameter, Light
+from ouranos.core.utils import DispatcherFactory, timeWindow
+from ouranos.core.validate.payload import ActuatorTurnToPayload
 from ouranos.web_server.auth import is_operator
 from ouranos.web_server.dependencies import get_session, get_time_window
 from ouranos.web_server.routes.utils import assert_single_uid
 from ouranos.web_server.routes.gaia.common_queries import (
     ecosystems_uid_q, hardware_level_q)
-from ouranos.web_server.validate.payload.gaia import EcosystemPayload
+from ouranos.web_server.validate.payload.gaia import (
+    EcosystemCreationPayload, EcosystemUpdatePayload)
 from ouranos.web_server.validate.response.base import (
     ResultResponse, ResultStatus)
 from ouranos.web_server.validate.response.gaia import (
     EcosystemInfo, EcosystemLightInfo, EcosystemManagementInfo,
-    EnvironmentParameterInfo, ManagementInfo, EcosystemSensorData, SensorSkeletonInfo)
+    EnvironmentParameterInfo, ManagementInfo, EcosystemSensorData,
+    SensorSkeletonInfo)
 
 
 router = APIRouter(
@@ -60,22 +63,26 @@ async def get_ecosystems(
 
 @router.post("/u",
              response_model=ResultResponse,
+             status_code=status.HTTP_202_ACCEPTED,
              dependencies=[Depends(is_operator)])
 async def create_ecosystem(
-        payload: EcosystemPayload = Body(
+        response: Response,
+        payload: EcosystemCreationPayload = Body(
             description="Information about the new ecosystem"),
-        session: AsyncSession = Depends(get_session)
 ):
     ecosystem_dict = payload.dict()
     try:
-        await Ecosystem.create(session, ecosystem_dict)
+        # TODO: dispatch to Gaia
         return ResultResponse(
-            msg=f"Ecosystem {ecosystem_dict['name']} successfully updated",
+            msg=f"Request to create the new ecosystem '{ecosystem_dict['name']}' "
+                f"successfully sent to engine '{ecosystem_dict['engine_uid']}'",
             status=ResultStatus.success
         )
     except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         return ResultResponse(
-            msg=f"Failed to update ecosystem {ecosystem_dict['name']}. Error "
+            msg=f"Failed to send ecosystem creation order to engine for "
+                f"ecosystem '{ecosystem_dict['name']}'. Error "
                 f"msg: `{e.__class__.__name__}: {e}`",
             status=ResultStatus.failure
         )
@@ -90,45 +97,57 @@ async def get_ecosystem(
     return ecosystem
 
 
-@router.put("/u/{id}", dependencies=[Depends(is_operator)])
+@router.put("/u/{id}",
+            status_code=status.HTTP_202_ACCEPTED,
+            dependencies=[Depends(is_operator)])
 async def update_ecosystem(
+        response: Response,
         id: str = id_param,
-        payload: EcosystemPayload = Body(
+        payload: EcosystemUpdatePayload = Body(
             description="Updated information about the ecosystem"),
         session: AsyncSession = Depends(get_session)
 ):
     ecosystem_dict = payload.dict()
     try:
         ecosystem = await ecosystem_or_abort(session, id)
-        await Ecosystem.update(session, ecosystem_dict, ecosystem.uid)
+        # TODO: dispatch to Gaia
         return ResultResponse(
-            msg=f"Ecosystem {ecosystem_dict['name']} successfully updated",
+            msg=f"Request to update the ecosystem '{ecosystem.name}' "
+                f"successfully sent to engine '{ecosystem.engine_uid}'",
             status=ResultStatus.success
         )
     except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         return ResultResponse(
-            msg=f"Failed to update ecosystem {ecosystem_dict['name']}. Error "
+            msg=f"Failed to send ecosystem update order to engine "
+                f"for ecosystem '{id}'. Error "
                 f"msg: `{e.__class__.__name__}: {e}`",
             status=ResultStatus.failure
         )
 
 
-@router.delete("/u/{id}", dependencies=[Depends(is_operator)])
+@router.delete("/u/{id}",
+               response_model=ResultResponse,
+               status_code=status.HTTP_202_ACCEPTED,
+               dependencies=[Depends(is_operator)])
 async def delete_ecosystem(
+        response: Response,
         id: str = id_param,
         session: AsyncSession = Depends(get_session)
 ):
     try:
         ecosystem = await ecosystem_or_abort(session, id)
-        await Ecosystem.delete(session, ecosystem.uid)
+        # TODO: dispatch to Gaia
         return ResultResponse(
-            msg=f"Ecosystem {ecosystem.name} successfully deleted",
+            msg=f"Request to delete the ecosystem '{ecosystem.name}' "
+                f"successfully sent to engine '{ecosystem.engine_uid}'",
             status=ResultStatus.success
         )
     except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         return ResultResponse(
-            msg=f"Failed to delete ecosystem with id {id}. Error "
-                f"msg: `{e.__class__.__name__}: {e}`",
+            msg=f"Failed to send delete order for ecosystem with id '{id}'. "
+                f"Error msg: `{e.__class__.__name__}: {e}`",
             status=ResultStatus.failure
         )
 
@@ -201,8 +220,8 @@ async def get_ecosystems_light(
         ecosystems_id: list[str] | None = ecosystems_uid_q,
         session: AsyncSession = Depends(get_session)
 ):
-    lights = await Light.get_multiple(session, ecosystems_id)
-    return lights
+    response = await Light.get_multiple(session, ecosystems_id)
+    return response
 
 
 @router.get("/u/{id}/light", response_model=EcosystemLightInfo)
@@ -212,8 +231,8 @@ async def get_ecosystem_light(
 ):
     assert_single_uid(id)
     ecosystem = await ecosystem_or_abort(session, id)
-    light = await Light.get(session, ecosystem.uid)
-    return light
+    response = await Light.get(session, ecosystem.uid)
+    return response
 
 
 @router.get("/environment_parameters", response_model=list[EnvironmentParameterInfo])
@@ -222,11 +241,12 @@ async def get_ecosystems_environment_parameters(
         parameters: list[str] | None = env_parameter_query,
         session: AsyncSession = Depends(get_session)
 ):
-    return await EnvironmentParameter.get_multiple(
+    response = await EnvironmentParameter.get_multiple(
         session, ecosystems_id, parameters)
+    return response
 
 
-@router.get("/u/{id}/environment_parameters", response_model=EnvironmentParameterInfo)
+@router.get("/u/{id}/environment_parameters", response_model=list[EnvironmentParameterInfo])
 async def get_ecosystem_environment_parameters(
         id: str = id_param,
         parameters: list[str] | None = env_parameter_query,
@@ -234,8 +254,9 @@ async def get_ecosystem_environment_parameters(
 ):
     assert_single_uid(id)
     ecosystem = await ecosystem_or_abort(session, id)
-    return await EnvironmentParameter.get_multiple(
+    response = await EnvironmentParameter.get_multiple(
         session, [ecosystem.uid, ], parameters)
+    return response
 
 
 @router.get("/current_data", response_model=list[EcosystemSensorData])
@@ -245,12 +266,13 @@ async def get_ecosystems_current_data(
 ):
     ecosystems = await Ecosystem.get_multiple(
         session=session, ecosystems=ecosystems_id)
-    return [
+    response = [
         {
             "ecosystem_uid": ecosystem.uid,
             "data": await ecosystem.current_data(session)
         } for ecosystem in ecosystems
     ]
+    return response
 
 
 @router.get("/u/{id}/current_data", response_model=EcosystemSensorData)
@@ -260,25 +282,27 @@ async def get_ecosystem_current_data(
 ):
     assert_single_uid(id)
     ecosystem = await ecosystem_or_abort(session, id)
-    return {
+    response = {
         "ecosystem_uid": ecosystem.uid,
         "data": await ecosystem.current_data(session)
     }
+    return response
 
 
-@router.get("/u/{id}/turn_actuator", response_model=ResultResponse, dependencies=[Depends(is_operator)])
+@router.put("/u/{id}/turn_actuator",
+            response_model=ResultResponse,
+            status_code=status.HTTP_202_ACCEPTED,
+            dependencies=[Depends(is_operator)])
 async def turn_actuator(
         id: str = id_param,
-        actuator: HardwareTypeNames = Query(
-            description="The type of actuator"),
-        mode: ActuatorTurnTo = Query(
-            description="The mode to turn the actuator to"),
-        countdown: float = Query(
-            default=0.0,
-            description="Time before turning the actuator to the required mode"
-        ),
+        payload: ActuatorTurnToPayload = Body(
+            description="Instruction for the actuator"),
         session: AsyncSession = Depends(get_session)
 ):
+    instruction_dict = payload.dict()
+    actuator = instruction_dict["actuator"]
+    mode = instruction_dict["mode"]
+    countdown = instruction_dict["countdown"]
     try:
         assert_single_uid(id)
         ecosystem = await ecosystem_or_abort(session, id)

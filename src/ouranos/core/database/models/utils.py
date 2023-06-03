@@ -50,10 +50,10 @@ def paginate(
 def _time_limits() -> dict[time_limits_category, datetime]:
     now_utc = datetime.now(timezone.utc)
     return {
-        "recent": (now_utc - timedelta(hours=36)).replace(tzinfo=None),
-        "sensors": (now_utc - timedelta(days=7)).replace(tzinfo=None),
-        "health": (now_utc - timedelta(days=31)).replace(tzinfo=None),
-        "warnings": (now_utc - timedelta(days=7)).replace(tzinfo=None),
+        "recent": (now_utc - timedelta(hours=36)),
+        "sensors": (now_utc - timedelta(days=7)),
+        "health": (now_utc - timedelta(days=31)),
+        "warnings": (now_utc - timedelta(days=7)),
     }
 
 

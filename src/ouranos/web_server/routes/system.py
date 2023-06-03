@@ -19,7 +19,7 @@ router = APIRouter(
 
 
 @router.get("/start_time",)
-async def get_current_system_data() -> int:
+async def get_current_system_data():
     return consts.START_TIME
 
 
@@ -30,7 +30,7 @@ async def get_current_system_data(
     return {
         "values": await SystemDbCache.get_recent_timed_values(session),
         "order": ["timestamp", "system_uid", "CPU_used", "CPU_temp",
-                  "RAM_used", "RAM_total", "RAM_process", "DISK_used",
+                  "RAM_process", "RAM_used", "RAM_total", "DISK_used",
                   "DISK_total"]
     }
 
@@ -44,6 +44,6 @@ async def get_historic_system_data(
         "values": await SystemRecord.get_timed_values(
             session, time_window),
         "order": ["timestamp", "system_uid", "CPU_used", "CPU_temp",
-                  "RAM_used", "RAM_total", "RAM_process", "DISK_used",
+                  "RAM_process", "RAM_used", "RAM_total", "DISK_used",
                   "DISK_total"]
     }

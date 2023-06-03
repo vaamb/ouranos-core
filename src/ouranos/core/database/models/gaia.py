@@ -42,7 +42,7 @@ _ecosystem_caches_size = 16
 _cache_ecosystem_has_recent_data = TTLCache(maxsize=_ecosystem_caches_size * 2, ttl=60)
 _cache_sensors_data_skeleton = TTLCache(maxsize=_ecosystem_caches_size, ttl=900)
 _cache_sensor_values = TTLCache(maxsize=_ecosystem_caches_size * 32, ttl=600)
-_cache_recent_warnings = TTLCache(maxsize=5, ttl=60)
+_cache_warnings = TTLCache(maxsize=5, ttl=60)
 _cache_measures = LRUCache(maxsize=16)
 
 
@@ -784,7 +784,7 @@ class Hardware(GaiaBase):
     @staticmethod
     def get_models_available() -> list:
         # TODO based on gaia / gaia-validators
-        pass
+        return []
 
 
 sa.Index("idx_sensors_type", Hardware.type, Hardware.level)
@@ -835,12 +835,11 @@ class Sensor(Hardware):
             time_window: timeWindow = None,
     ) -> Sequence[Self]:
         stmt = cls.generate_query(
-            hardware_uids, ecosystem_uids, levels, "sensor", models)
+            hardware_uids, ecosystem_uids, levels, HardwareType.sensor.value, models)
         if time_window:
             stmt = cls._add_time_window_to_stmt(stmt, time_window)
         result = await session.execute(stmt)
-        hardware: Sequence[Hardware] = result.unique().scalars().all()
-        return [h for h in hardware if h.type == HardwareType.sensor]
+        return result.unique().scalars().all()
 
     async def get_current_data(
             self,
@@ -892,11 +891,8 @@ class Sensor(Hardware):
             historic_data: bool = False,
             time_window: timeWindow | None = None,
     ) -> dict:
-        rv = self.to_dict(exclude=["measure"])
-        rv.update({
-            **{"measures": [measure_obj.name for measure_obj in self.measures]},
-            "data": None
-        })
+        rv = self.to_dict()
+        rv["data"] = None
         if current_data or historic_data:
             rv.update({"data": {}})
             if current_data:
@@ -1170,20 +1166,10 @@ class GaiaWarning(BaseWarning):
     __archive_link__ = ArchiveLink("warnings", "recent")
 
     @classmethod
-    @cached(_cache_recent_warnings, key=sessionless_hashkey)
-    async def get_recent(
+    @cached(_cache_warnings, key=sessionless_hashkey)
+    async def get_multiple(
             cls,
             session: AsyncSession,
             limit: int = 10
     ) -> Sequence[Self]:
-        time_limit = time_limits("warnings")
-        stmt = (
-            select(cls)
-            .where(cls.created_on >= time_limit)
-            .where(cls.solved == False)  # noqa
-            .order_by(cls.level.desc())
-            .order_by(cls.id)
-            .limit(limit)
-        )
-        result = await session.execute(stmt)
-        return result.scalars().all()
+        return await super().get_multiple(session, limit)

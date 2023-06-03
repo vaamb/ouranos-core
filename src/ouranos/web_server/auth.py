@@ -10,6 +10,7 @@ from fastapi.security.utils import get_authorization_scheme_param
 from pydantic import BaseModel, ValidationError, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ouranos import current_app
 from ouranos.core.config.consts import (
     LOGIN_NAME, SESSION_FRESHNESS, SESSION_TOKEN_VALIDITY, TOKEN_SUBS)
 from ouranos.core.database.models.app import (
@@ -208,7 +209,7 @@ def get_session_info(
         session_info = SessionInfo.from_token(token)
         session_id = _create_session_id(
             request.client.host, request.headers.get("user-agent"))
-        if session_id != session_info.id and request.client.host != "127.0.0.1":
+        if session_id != session_info.id and not current_app.config["TESTING"]:
             raise TokenError
     except (TokenError, ValidationError):
         response.delete_cookie(LOGIN_NAME.COOKIE.value)

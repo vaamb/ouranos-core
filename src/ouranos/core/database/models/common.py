@@ -32,7 +32,10 @@ class ToDictMixin:
         exclude: list = exclude or []
         return {
             key: value for key, value in vars(self).items()
-            if key not in exclude
+            if (
+                    key not in exclude
+                    and not key.startswith("_")
+            )
         }
 
 
@@ -67,7 +70,7 @@ class BaseSensorData(Base):
     __abstract__ = True
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    measure: Mapped[int] = mapped_column()
+    measure: Mapped[str] = mapped_column()
     timestamp: Mapped[datetime] = mapped_column(UtcDateTime)
     value: Mapped[float] = mapped_column(sa.Float(precision=2))
 
@@ -206,13 +209,13 @@ class BaseWarning(Base):
     async def get_multiple(
             cls,
             session: AsyncSession,
-            max_first: int = 10
+            limit: int = 10
     ) -> Sequence[Self]:
         stmt = (
             select(cls)
-            .where(cls.solved is False)
+            .where(cls.solved_on is not None)
             .order_by(cls.created_on.desc())
-            .limit(max_first)
+            .limit(limit)
         )
         result = await session.execute(stmt)
         return result.scalars().all()

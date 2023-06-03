@@ -209,6 +209,10 @@ class User(Base, UserMixin):
     def is_anonymous(self) -> bool:
         return False
 
+    @property
+    def permissions(self) -> int:
+        return self.role.permissions
+
     @classmethod
     async def create(
             cls,

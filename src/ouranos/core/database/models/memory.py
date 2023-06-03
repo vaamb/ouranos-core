@@ -158,8 +158,8 @@ class SystemDbCache(BaseSystemData, DbCache):
         )
         stmt = select(
             cls.timestamp, cls.system_uid, cls.CPU_used, cls.CPU_temp,
-            cls.RAM_total, cls.RAM_used, cls.RAM_process, cls.DISK_total,
-            cls.DISK_used
+            cls.RAM_process, cls.RAM_used, cls.RAM_total, cls.DISK_used,
+            cls.DISK_total
         ).join(sub_stmt, cls.id == sub_stmt.c.id)
         if system_uid:
             if isinstance(system_uid, str):

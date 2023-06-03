@@ -6,9 +6,8 @@ from copy import copy
 import pytest
 from sqlalchemy import select
 
+from gaia_validators import ManagementFlags, TurnActuatorPayload
 from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
-
-from .store import *  # Import first to overwrite if needed
 
 from ouranos.aggregator.events import (
     DispatcherBasedGaiaEvents, SocketIOEnginePayload)
@@ -17,6 +16,7 @@ from ouranos.core.database.models.gaia import (
 from ouranos.core.database.models.memory import SensorDbCache
 from ouranos.core.exceptions import NotRegisteredError
 
+from ..data.gaia import *
 from ..utils import MockAsyncDispatcher
 
 
@@ -74,7 +74,7 @@ async def test_on_disconnect(
 async def test_on_register_engine(
         mock_dispatcher: MockAsyncDispatcher,
         events_handler: DispatcherBasedGaiaEvents,
-        db: AsyncSQLAlchemyWrapper,
+        naive_db: AsyncSQLAlchemyWrapper,
 ):
     payload = SocketIOEnginePayload(
         engine_uid=engine_uid,
@@ -87,7 +87,7 @@ async def test_on_register_engine(
     assert emitted["room"] == engine_sid
     assert mock_dispatcher._sessions[engine_sid]["engine_uid"] == engine_uid
 
-    async with db.scoped_session() as session:
+    async with naive_db.scoped_session() as session:
         engine = await Engine.get(session, engine_id=engine_uid)
         assert engine.uid == engine_uid
         assert engine.address == ip_address
@@ -119,7 +119,7 @@ async def test_on_ping(
 async def test_on_base_info(
         mock_dispatcher: MockAsyncDispatcher,
         events_handler: DispatcherBasedGaiaEvents,
-        db: AsyncSQLAlchemyWrapper,
+        naive_db: AsyncSQLAlchemyWrapper,
 ):
     await events_handler.on_base_info(engine_sid, [base_info_payload])
     emitted = mock_dispatcher.emit_store[0]
@@ -129,7 +129,7 @@ async def test_on_base_info(
     ]
     assert emitted["namespace"] == "application"
 
-    async with db.scoped_session() as session:
+    async with naive_db.scoped_session() as session:
         ecosystem = await Ecosystem.get(session, ecosystem_id=ecosystem_uid)
         assert ecosystem.engine_uid == base_info["engine_uid"]
         assert ecosystem.name == base_info["name"]
@@ -203,9 +203,9 @@ async def test_on_hardware(
     async with ecosystem_aware_db.scoped_session() as session:
         hardware = await Hardware.get(session, hardware_uid=hardware_data["uid"])
         assert hardware.name == hardware_data["name"]
-        assert hardware.level == hardware_data["level"]
+        assert hardware.level.value == hardware_data["level"]
         assert hardware.address == hardware_data["address"]
-        assert hardware.type == hardware_data["type"]
+        assert hardware.type.value == hardware_data["type"]
         assert hardware.model == hardware_data["model"]
         measures = [measure.name for measure in hardware.measures]
         measures.sort()

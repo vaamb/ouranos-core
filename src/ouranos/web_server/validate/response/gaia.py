@@ -157,5 +157,6 @@ class SensorOverview(BaseModel):
     model: str
     status: bool
     last_log: Optional[datetime] = None
-    measures: list[str]
+    measures: list[MeasureInfo]
+    plants: list[PlantInfo]
     data: Optional[SensorOverviewData] = None

@@ -1,17 +1,19 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, status
+from fastapi import (
+    APIRouter, Body, Depends, HTTPException, Path, Query, Response, status)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from gaia_validators import HardwareLevel, HardwareType
 
-from ouranos.core.database.models.gaia import Hardware
+from ouranos.core.database.models.gaia import Ecosystem, Hardware
 from ouranos.web_server.auth import is_operator
 from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.routes.utils import assert_single_uid
 from ouranos.web_server.routes.gaia.common_queries import (
     ecosystems_uid_q, hardware_level_q)
-from ouranos.web_server.validate.payload.gaia import HardwarePayload
+from ouranos.web_server.validate.payload.gaia import (
+    HardwareCreationPayload, HardwareUpdatePayload)
 from ouranos.web_server.validate.response.base import (
     ResultResponse, ResultStatus)
 from ouranos.web_server.validate.response.gaia import (
@@ -72,22 +74,31 @@ async def get_hardware_available() -> list[str]:
     return response
 
 
-@router.post("/u", response_model=ResultResponse, dependencies=[Depends(is_operator)])
+@router.post("/u",
+             response_model=ResultResponse,
+             status_code=status.HTTP_202_ACCEPTED,
+             dependencies=[Depends(is_operator)])
 async def create_hardware(
-        payload: HardwarePayload = Body(
+        response: Response,
+        payload: HardwareCreationPayload = Body(
             description="Information about the new hardware"),
         session: AsyncSession = Depends(get_session)
 ):
     hardware_dict = payload.dict()
     try:
-        await Hardware.create(session, hardware_dict)
+        # TODO: dispatch to Gaia
+        # TODO: check address before dispatching
+        ecosystem = await Ecosystem.get(session, hardware_dict["ecosystem_uid"])
         return ResultResponse(
-            msg=f"Hardware {hardware_dict['name']} successfully created",
+            msg=f"Request to create the new hardware '{hardware_dict['name']}' "
+                f"successfully sent to engine '{ecosystem.engine_uid}'",
             status=ResultStatus.success
         )
     except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         return ResultResponse(
-            msg=f"Failed to create hardware {hardware_dict['name']}. Error "
+            msg=f"Failed to send hardware creation order to engine for "
+                f"hardware '{hardware_dict['name']}'. Error "
                 f"msg: `{e.__class__.__name__}: {e}`",
             status=ResultStatus.failure
         )
@@ -105,24 +116,30 @@ async def get_hardware(
 
 @router.put("/u/{uid}",
             response_model=ResultResponse,
+            status_code=status.HTTP_202_ACCEPTED,
             dependencies=[Depends(is_operator)])
 async def update_hardware(
+        response: Response,
         uid: str = uid_param,
-        payload: HardwarePayload = Body(
+        payload: HardwareUpdatePayload = Body(
             description="Updated information about the hardware"),
         session: AsyncSession = Depends(get_session)
 ):
     hardware_dict = payload.dict()
     try:
-        await hardware_or_abort(session, uid)
-        await Hardware.update(session, hardware_dict, uid)
+        hardware = await hardware_or_abort(session, uid)
+        ecosystem = await Ecosystem.get(session, hardware.ecosystem_uid)
+        # TODO: dispatch to Gaia
         return ResultResponse(
-            msg=f"Hardware {hardware_dict['name']} successfully updated",
+            msg=f"Request to update the hardware '{hardware.name}' "
+                f"successfully sent to engine '{ecosystem.engine_uid}'",
             status=ResultStatus.success
         )
     except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         return ResultResponse(
-            msg=f"Failed to update hardware {hardware_dict['name']}. Error "
+            msg=f"Failed to send hardware update order to engine "
+                f"for hardware '{id}'. Error "
                 f"msg: `{e.__class__.__name__}: {e}`",
             status=ResultStatus.failure
         )
@@ -130,21 +147,26 @@ async def update_hardware(
 
 @router.delete("/u/{uid}",
                response_model=ResultResponse,
+               status_code=status.HTTP_202_ACCEPTED,
                dependencies=[Depends(is_operator)])
 async def delete_hardware(
+        response: Response,
         uid: str = uid_param,
         session: AsyncSession = Depends(get_session)
 ):
     try:
         hardware = await hardware_or_abort(session, uid)
-        await Hardware.delete(session, uid)
+        ecosystem = await Ecosystem.get(session, hardware.ecosystem_uid)
+        # TODO: dispatch to Gaia
         return ResultResponse(
-            msg=f"Hardware {hardware.name} successfully deleted",
+            msg=f"Request to delete the hardware '{hardware.name}' "
+                f"successfully sent to engine '{ecosystem.engine_uid}'",
             status=ResultStatus.success
         )
     except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
         return ResultResponse(
-            msg=f"Failed to delete hardware with uid {uid}. Error "
-                f"msg: `{e.__class__.__name__}: {e}`",
+            msg=f"Failed to send delete order for hardware with uid '{uid}'. "
+                f"Error msg: `{e.__class__.__name__}: {e}`",
             status=ResultStatus.failure
         )
