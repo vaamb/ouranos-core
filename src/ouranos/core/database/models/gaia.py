@@ -784,7 +784,7 @@ class Hardware(GaiaBase):
     @staticmethod
     def get_models_available() -> list:
         # TODO based on gaia / gaia-validators
-        pass
+        return []
 
 
 sa.Index("idx_sensors_type", Hardware.type, Hardware.level)

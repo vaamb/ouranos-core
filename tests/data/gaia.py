@@ -10,6 +10,7 @@ engine_sid = "engine_sid"
 engine_uid = "engine_uid"
 ecosystem_uid = "zutqsCKn"
 ecosystem_name = "TestingEcosystem"
+hardware_uid = "hardware_uid"
 
 
 def wrap_ecosystem_data_payload(data: dict | list[dict]) -> dict:
@@ -98,11 +99,11 @@ environmental_payload: EnvironmentConfigPayloadDict = \
 
 
 hardware_data: HardwareConfigDict = {
-    "uid": "hardware_uid",
+    "uid": hardware_uid,
     "name": "TestThermometer",
     "address": "GPIO_7",
-    "type": HardwareType.sensor,
-    "level": HardwareLevel.environment,
+    "type": HardwareType.sensor.value,
+    "level": HardwareLevel.environment.value,
     "model": "virtualDHT22",
     "measures": ["temperature"],
     "plants": [],
@@ -185,7 +186,7 @@ __all__ = (
     "base_info", "base_info_payload", "chaos", "climate", "ecosystem_dict",
     "ecosystem_name", "ecosystem_uid", "engine_dict", "engine_sid",
     "engine_uid", "environmental_payload", "hardware_data", "hardware_payload",
-    "health_data", "health_data_payload", "ip_address", "light_data",
+    "hardware_uid", "health_data", "health_data_payload", "ip_address", "light_data",
     "light_data_payload", "management_data", "management_payload",
     "measure_record", "sky", "sensor_record", "sensors_data",
     "sensors_data_payload", "turn_actuator_payload", "gaia_warning"

@@ -87,6 +87,7 @@ async def create_hardware(
     hardware_dict = payload.dict()
     try:
         # TODO: dispatch to Gaia
+        # TODO: check address before dispatching
         ecosystem = await Ecosystem.get(session, hardware_dict["ecosystem_uid"])
         return ResultResponse(
             msg=f"Request to create the new hardware '{hardware_dict['name']}' "

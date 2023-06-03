@@ -32,7 +32,8 @@ class HardwareCreationPayload(BaseModel):
     type: HardwareType
     model: str
     status: bool = True
-    plant_uid: list[str]
+    measure: Optional[list[str]] = None
+    plant_uid: Optional[list[str]] = None
 
 
 class HardwareUpdatePayload(BaseModel):
@@ -43,4 +44,5 @@ class HardwareUpdatePayload(BaseModel):
     type: Optional[HardwareType] = None
     model: Optional[str] = None
     status: Optional[bool] = None
+    measure: Optional[list[str]] = None
     plant_uid: Optional[list[str]] = None
