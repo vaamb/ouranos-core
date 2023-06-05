@@ -991,7 +991,7 @@ class Measure(GaiaBase):
             "humidity": "% humidity",
             "dew point": "°C",
             "absolute humidity": "°C",
-            "moisture": "°C"
+            "moisture": "% water capacity"
         }
         for name, unit in measures.items():
             stmt = select(cls).where(cls.name == name)
