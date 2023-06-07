@@ -15,7 +15,9 @@ from ouranos.web_server.routes.utils import assert_single_uid
 from ouranos.web_server.routes.gaia.common_queries import (
     ecosystems_uid_q, hardware_level_q)
 from ouranos.web_server.validate.payload.gaia import (
-    EcosystemCreationPayload, EcosystemUpdatePayload)
+    EcosystemCreationPayload, EcosystemManagementUpdatePayload,
+    EcosystemUpdatePayload, EnvironmentParameterCreationPayload,
+    EnvironmentParameterUpdatePayload)
 from ouranos.web_server.validate.response.base import (
     ResultResponse, ResultStatus)
 from ouranos.web_server.validate.response.gaia import (
@@ -49,6 +51,20 @@ async def ecosystem_or_abort(
         status_code=status.HTTP_404_NOT_FOUND,
         detail="No ecosystem(s) found"
     )
+
+
+async def environment_parameter_or_abort(
+        session: AsyncSession,
+        ecosystem_uid: str,
+        parameter: str
+) -> None:
+    environment_parameter = await EnvironmentParameter.get(
+        session=session, uid=ecosystem_uid, parameter=parameter)
+    if not environment_parameter:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No environment_parameter found"
+        )
 
 
 @router.get("", response_model=list[EcosystemInfo])
@@ -99,6 +115,7 @@ async def get_ecosystem(
 
 @router.put("/u/{id}",
             status_code=status.HTTP_202_ACCEPTED,
+            response_model=ResultResponse,
             dependencies=[Depends(is_operator)])
 async def update_ecosystem(
         response: Response,
@@ -185,6 +202,36 @@ async def get_ecosystem_management(
     return response
 
 
+@router.put("/u/{id}/management",
+            status_code=status.HTTP_202_ACCEPTED,
+            response_model=ResultResponse,
+            dependencies=[Depends(is_operator)])
+async def update_management(
+        response: Response,
+        id: str = id_param,
+        payload: EcosystemManagementUpdatePayload = Body(
+            description="Updated information about the ecosystem management"),
+        session: AsyncSession = Depends(get_session)
+):
+    management_dict = payload.dict()
+    try:
+        ecosystem = await ecosystem_or_abort(session, id)
+        # TODO: dispatch to Gaia
+        return ResultResponse(
+            msg=f"Request to update the ecosystem '{ecosystem.name}'\' management "
+                f"successfully sent to engine '{ecosystem.engine_uid}'",
+            status=ResultStatus.success
+        )
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        return ResultResponse(
+            msg=f"Failed to send ecosystem' management update order to engine "
+                f"for ecosystem '{id}'. Error "
+                f"msg: `{e.__class__.__name__}: {e}`",
+            status=ResultStatus.failure
+        )
+
+
 @router.get("/sensors_skeleton", response_model=list[SensorSkeletonInfo])
 async def get_ecosystems_sensors_skeleton(
         ecosystems_id: list[str] | None = ecosystems_uid_q,
@@ -246,6 +293,38 @@ async def get_ecosystems_environment_parameters(
     return response
 
 
+@router.post("/u/{id}/environment_parameters",
+             status_code=status.HTTP_202_ACCEPTED,
+             response_model=ResultResponse,
+             dependencies=[Depends(is_operator)])
+async def create_environment_parameters(
+        response: Response,
+        id: str = id_param,
+        payload: EnvironmentParameterCreationPayload = Body(
+            description="Creation information about the environment parameters"),
+        session: AsyncSession = Depends(get_session)
+):
+    environment_parameter_dict = payload.dict()
+    parameter = environment_parameter_dict["parameter"]
+    try:
+        ecosystem = await ecosystem_or_abort(session, id)
+        await environment_parameter_or_abort(session, id, parameter)
+        # TODO: dispatch to Gaia
+        return ResultResponse(
+            msg=f"Request to create the environment parameter '{parameter}' "
+                f"successfully sent to engine '{ecosystem.engine_uid}'",
+            status=ResultStatus.success
+        )
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        return ResultResponse(
+            msg=f"Failed to send environment parameter creation order to engine "
+                f"for ecosystem '{id}'. Error "
+                f"msg: `{e.__class__.__name__}: {e}`",
+            status=ResultStatus.failure
+        )
+
+
 @router.get("/u/{id}/environment_parameters", response_model=list[EnvironmentParameterInfo])
 async def get_ecosystem_environment_parameters(
         id: str = id_param,
@@ -257,6 +336,38 @@ async def get_ecosystem_environment_parameters(
     response = await EnvironmentParameter.get_multiple(
         session, [ecosystem.uid, ], parameters)
     return response
+
+
+@router.put("/u/{id}/environment_parameters",
+            status_code=status.HTTP_202_ACCEPTED,
+            response_model=ResultResponse,
+            dependencies=[Depends(is_operator)])
+async def update_environment_parameters(
+        response: Response,
+        id: str = id_param,
+        payload: EnvironmentParameterUpdatePayload = Body(
+            description="Updated information about the environment parameters"),
+        session: AsyncSession = Depends(get_session)
+):
+    environment_parameter_dict = payload.dict()
+    parameter = environment_parameter_dict["parameter"]
+    try:
+        ecosystem = await ecosystem_or_abort(session, id)
+        await environment_parameter_or_abort(session, id, parameter)
+        # TODO: dispatch to Gaia
+        return ResultResponse(
+            msg=f"Request to update the environment parameter '{parameter}' "
+                f"successfully sent to engine '{ecosystem.engine_uid}'",
+            status=ResultStatus.success
+        )
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        return ResultResponse(
+            msg=f"Failed to send environment parameter update order to engine "
+                f"for ecosystem '{id}'. Error "
+                f"msg: `{e.__class__.__name__}: {e}`",
+            status=ResultStatus.failure
+        )
 
 
 @router.get("/current_data", response_model=list[EcosystemSensorData])
