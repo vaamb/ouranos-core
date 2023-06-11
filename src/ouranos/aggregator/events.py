@@ -318,7 +318,7 @@ class Events:
                 for actuator_type in ActuatorType:
                     await ActuatorStatus.update_or_create(session, {
                         "ecosystem_uid": payload["uid"],
-                        "actuator_type": actuator_type.value,
+                        "actuator_type": actuator_type,
                     })
             ecosystems.append({"uid": payload["uid"], "status": ecosystem["status"]})
         self.logger.debug(

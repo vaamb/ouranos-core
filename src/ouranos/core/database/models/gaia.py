@@ -473,6 +473,8 @@ class ActuatorStatus(GaiaBase):
                 "Provide uid and actuator_type either as a argument or as a key in the "
                 "updated info"
             )
+        if not actuator_info:
+            return
         stmt = (
             update(cls)
             .where(
@@ -487,13 +489,13 @@ class ActuatorStatus(GaiaBase):
     async def delete(
             cls,
             session: AsyncSession,
-            uid: str,
+            ecosystem_uid: str,
             actuator_type: str,
     ) -> None:
         stmt = (
             delete(cls)
             .where(
-                cls.ecosystem_uid == uid,
+                cls.ecosystem_uid == ecosystem_uid,
                 cls.actuator_type == actuator_type,
             )
         )
@@ -515,26 +517,24 @@ class ActuatorStatus(GaiaBase):
                 "updated info"
             )
         actuator_status = await cls.get(
-            session, uid=ecosystem_uid, actuator_type=actuator_type)
+            session, ecosystem_uid=ecosystem_uid, actuator_type=actuator_type)
         if not actuator_status:
             values["ecosystem_uid"] = ecosystem_uid
             values["actuator_type"] = actuator_type
             await cls.create(session, values)
         elif values:
             await cls.update(session, values, ecosystem_uid, actuator_type)
-        else:
-            raise ValueError
 
     @classmethod
     async def get(
             cls,
             session: AsyncSession,
-            uid: str,
+            ecosystem_uid: str,
             actuator_type: str,
     ) -> Self | None:
         stmt = (
             select(cls)
-            .where(cls.ecosystem_uid == uid)
+            .where(cls.ecosystem_uid == ecosystem_uid)
             .where(cls.actuator_type == actuator_type)
         )
         result = await session.execute(stmt)
@@ -544,12 +544,12 @@ class ActuatorStatus(GaiaBase):
     async def get_multiple(
             cls,
             session: AsyncSession,
-            uids: list | None = None,
+            ecosystem_uids: list | None = None,
             actuator_types: list | None = None,
     ) -> Sequence[Self]:
         stmt = select(cls)
-        if uids:
-            stmt = stmt.where(cls.ecosystem_uid.in_(uids))
+        if ecosystem_uids:
+            stmt = stmt.where(cls.ecosystem_uid.in_(ecosystem_uids))
         if actuator_types:
             stmt = stmt.where(cls.actuator_type.in_(actuator_types))
         result = await session.execute(stmt)
