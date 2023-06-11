@@ -20,8 +20,8 @@ from ouranos import current_app, db
 from ouranos.aggregator.decorators import (
     dispatch_to_application, registration_required)
 from ouranos.core.database.models.gaia import (
-    Ecosystem, Engine, EnvironmentParameter, Hardware, HealthRecord, Lighting,
-    SensorRecord)
+    ActuatorStatus, ActuatorType, Ecosystem, Engine, EnvironmentParameter,
+    Hardware, HealthRecord, Lighting, SensorRecord)
 from ouranos.core.database.models.memory import SensorDbCache
 from ouranos.core.utils import decrypt_uid, humanize_list, validate_uid_token
 
@@ -315,6 +315,11 @@ class Events:
                 await Ecosystem.update_or_create(
                     session, {**ecosystem, "last_seen": datetime.now(timezone.utc)}
                 )
+                for actuator_type in ActuatorType:
+                    await ActuatorStatus.update_or_create(session, {
+                        "ecosystem_uid": payload["uid"],
+                        "actuator_type": actuator_type.value,
+                    })
             ecosystems.append({"uid": payload["uid"], "status": ecosystem["status"]})
         self.logger.debug(
             f"Logged base info from ecosystem(s): {humanize_list(ecosystems_to_log)}"
