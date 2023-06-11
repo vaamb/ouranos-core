@@ -21,9 +21,9 @@ from ouranos.web_server.validate.payload.gaia import (
 from ouranos.web_server.validate.response.base import (
     ResultResponse, ResultStatus)
 from ouranos.web_server.validate.response.gaia import (
-    EcosystemInfo, EcosystemLightInfo, EcosystemManagementInfo,
-    EnvironmentParameterInfo, ManagementInfo, EcosystemSensorData,
-    SensorSkeletonInfo)
+    EcosystemActuatorStatus, EcosystemInfo, EcosystemLightInfo,
+    EcosystemManagementInfo, EnvironmentParameterInfo, ManagementInfo,
+    EcosystemSensorData, SensorSkeletonInfo)
 
 
 router = APIRouter(
@@ -425,6 +425,36 @@ async def get_ecosystem_current_data(
     response = {
         "ecosystem_uid": ecosystem.uid,
         "data": await ecosystem.current_data(session)
+    }
+    return response
+
+
+@router.get("/actuators_status", response_model=list[EcosystemActuatorStatus])
+async def get_ecosystems_current_data(
+        ecosystems_id: list[str] | None = ecosystems_uid_q,
+        session: AsyncSession = Depends(get_session)
+):
+    ecosystems = await Ecosystem.get_multiple(
+        session=session, ecosystems=ecosystems_id)
+    response = [
+        {
+            "ecosystem_uid": ecosystem.uid,
+            **await ecosystem.actuators_status(session)
+        } for ecosystem in ecosystems
+    ]
+    return response
+
+
+@router.get("/u/{id}/actuators_status", response_model=EcosystemActuatorStatus)
+async def get_ecosystem_actuator_types_managed(
+        id: str = id_param,
+        session: AsyncSession = Depends(get_session)
+):
+    assert_single_uid(id)
+    ecosystem = await ecosystem_or_abort(session, id)
+    response = {
+        "ecosystem_uid": ecosystem.uid,
+        **await ecosystem.actuators_status(session)
     }
     return response
 

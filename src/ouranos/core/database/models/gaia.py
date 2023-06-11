@@ -420,6 +420,21 @@ class Ecosystem(GaiaBase):
     async def current_data(self, session: AsyncSession) -> Sequence[SensorDbCache]:
         return await SensorDbCache.get_recent(session, self.uid)
 
+    async def actuators_status(
+            self,
+            session: AsyncSession
+    ) -> EcosystemActuatorTypesManagedDict:
+        stmt = (
+            select(ActuatorStatus)
+            .where(ActuatorStatus.ecosystem_uid == self.uid)
+        )
+        result = await session.execute(stmt)
+        actuators_status = result.scalars().all()
+        return {
+            actuator.actuator_type.value: actuator
+            for actuator in actuators_status
+        }
+
     async def turn_actuator(
             self,
             dispatcher: AsyncDispatcher,

@@ -7,8 +7,8 @@ from gaia_validators import HardwareLevel, HardwareType, LightMethod
 
 from ouranos.core.database.models.common import WarningLevel
 from ouranos.core.database.models.gaia import (
-    Ecosystem, Engine, EnvironmentParameter, Hardware, Lighting, Measure, Plant,
-    SensorRecord)
+    ActuatorMode, Ecosystem, Engine, EnvironmentParameter, Hardware, Lighting,
+    Measure, Plant, SensorRecord)
 from ouranos.core.validate.base import BaseModel
 from ouranos.core.validate.utils import sqlalchemy_to_pydantic
 
@@ -100,6 +100,20 @@ EcosystemSensorDataUnit = sqlalchemy_to_pydantic(
 class EcosystemSensorData(BaseModel):
     ecosystem_uid: str
     data: list[EcosystemSensorDataUnit]
+
+
+class ActuatorStatusInfo(BaseModel):
+    status: bool = False
+    mode: ActuatorMode = ActuatorMode.automatic
+
+
+class EcosystemActuatorStatus(BaseModel):
+    ecosystem_uid: str
+    light: ActuatorStatusInfo = ActuatorStatusInfo()
+    cooler: ActuatorStatusInfo = ActuatorStatusInfo()
+    heater: ActuatorStatusInfo = ActuatorStatusInfo()
+    humidifier: ActuatorStatusInfo = ActuatorStatusInfo()
+    dehumidifier: ActuatorStatusInfo = ActuatorStatusInfo()
 
 
 class HardwareModelInfo(BaseModel):
