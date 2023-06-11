@@ -224,7 +224,7 @@ class Ecosystem(GaiaBase):
 
     # relationships
     engine: Mapped["Engine"] = relationship(back_populates="ecosystems", lazy="selectin")
-    light: Mapped["Light"] = relationship(back_populates="ecosystem", uselist=False)
+    lighting: Mapped["Lighting"] = relationship(back_populates="ecosystem", uselist=False, lazy="selectin")
     environment_parameters: Mapped[list["EnvironmentParameter"]] = relationship(back_populates="ecosystem")
     plants: Mapped[list["Plant"]] = relationship(back_populates="ecosystem")
     hardware: Mapped[list["Hardware"]] = relationship(back_populates="ecosystem")
@@ -251,6 +251,13 @@ class Ecosystem(GaiaBase):
             management.name: self.can_manage(management) for
             management in ManagementFlags
         }
+
+    @property
+    def lighting_method(self) -> LightMethod | None:
+        try:
+            return self.lighting.method
+        except AttributeError:
+            return None
 
     @classmethod
     async def get(
@@ -429,11 +436,10 @@ class Ecosystem(GaiaBase):
         )
 
 
-class Light(GaiaBase):
-    __tablename__ = "lights"
+class Lighting(GaiaBase):
+    __tablename__ = "lightings"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    ecosystem_uid: Mapped[str] = mapped_column(sa.ForeignKey("ecosystems.uid"))
+    ecosystem_uid: Mapped[str] = mapped_column(sa.ForeignKey("ecosystems.uid"), primary_key=True)
     status: Mapped[bool] = mapped_column(default=False)
     mode: Mapped[ActuatorMode] = mapped_column(default=ActuatorMode.automatic)
     method: Mapped[LightMethod] = mapped_column(default=LightMethod.fixed)
@@ -443,11 +449,11 @@ class Light(GaiaBase):
     evening_end: Mapped[Optional[time]] = mapped_column()
 
     # relationships
-    ecosystem: Mapped["Ecosystem"] = relationship(back_populates="light")
+    ecosystem: Mapped["Ecosystem"] = relationship(back_populates="lighting")
 
     def __repr__(self) -> str:
         return (
-            f"<Light({self.ecosystem_uid}, status={self.status}, "
+            f"<Lighting({self.ecosystem_uid}, status={self.status}, "
             f"mode={self.mode})>"
         )
 

@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from gaia_validators import HardwareLevel, ManagementFlags
 
-from ouranos.core.database.models import Ecosystem, EnvironmentParameter, Light
+from ouranos.core.database.models import Ecosystem, EnvironmentParameter, Lighting
 from ouranos.core.utils import DispatcherFactory, timeWindow
 from ouranos.core.validate.payload import ActuatorTurnToPayload
 from ouranos.web_server.auth import is_operator
@@ -267,7 +267,7 @@ async def get_ecosystems_light(
         ecosystems_id: list[str] | None = ecosystems_uid_q,
         session: AsyncSession = Depends(get_session)
 ):
-    response = await Light.get_multiple(session, ecosystems_id)
+    response = await Lighting.get_multiple(session, ecosystems_id)
     return response
 
 
@@ -278,7 +278,7 @@ async def get_ecosystem_light(
 ):
     assert_single_uid(id)
     ecosystem = await ecosystem_or_abort(session, id)
-    response = await Light.get(session, ecosystem.uid)
+    response = await Lighting.get(session, ecosystem.uid)
     return response
 
 

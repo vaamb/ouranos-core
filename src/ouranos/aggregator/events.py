@@ -20,7 +20,7 @@ from ouranos import current_app, db
 from ouranos.aggregator.decorators import (
     dispatch_to_application, registration_required)
 from ouranos.core.database.models.gaia import (
-    Ecosystem, Engine, EnvironmentParameter, Hardware, HealthRecord, Light,
+    Ecosystem, Engine, EnvironmentParameter, Hardware, HealthRecord, Lighting,
     SensorRecord)
 from ouranos.core.database.models.memory import SensorDbCache
 from ouranos.core.utils import decrypt_uid, humanize_list, validate_uid_token
@@ -385,7 +385,7 @@ class Events:
                     "night_start": sky["night"],
                 }
                 await Ecosystem.update_or_create(session, ecosystem_info)
-                await Light.update_or_create(
+                await Lighting.update_or_create(
                     session, {"method": sky["lighting"]}, uid)
                 for param in ecosystem["climate"]:
                     await EnvironmentParameter.update_or_create(
@@ -568,7 +568,7 @@ class Events:
                     "evening_start": ecosystem["evening_start"],
                     "evening_end": ecosystem["evening_end"]
                 }
-                await Light.update_or_create(session, light_info)
+                await Lighting.update_or_create(session, light_info)
         self.logger.debug(
             f"Logged light data from ecosystem(s): {humanize_list(ecosystems_to_log)}"
         )

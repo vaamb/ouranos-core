@@ -3,11 +3,11 @@ from datetime import datetime
 from typing import Optional
 from pydantic import Field
 
-from gaia_validators import HardwareLevel, HardwareType
+from gaia_validators import HardwareLevel, HardwareType, LightMethod
 
 from ouranos.core.database.models.common import WarningLevel
 from ouranos.core.database.models.gaia import (
-    Ecosystem, Engine, EnvironmentParameter, Hardware, Light, Measure, Plant,
+    Ecosystem, Engine, EnvironmentParameter, Hardware, Lighting, Measure, Plant,
     SensorRecord)
 from ouranos.core.validate.base import BaseModel
 from ouranos.core.validate.utils import sqlalchemy_to_pydantic
@@ -18,12 +18,13 @@ EcosystemInfo = sqlalchemy_to_pydantic(
     base=BaseModel,
     extra_fields={
         "connected": (bool, ...),
+        "lighting_method": (Optional[LightMethod], ...)
     }
 )
 
 
 EcosystemLightInfo = sqlalchemy_to_pydantic(
-    Light,
+    Lighting,
     base=BaseModel,
     exclude=["id"]
 )
