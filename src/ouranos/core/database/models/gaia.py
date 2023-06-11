@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from datetime import datetime, time, timedelta, timezone
+from enum import Enum
 from typing import Literal, Optional, Sequence, Self, TypedDict
 
 from asyncache import cached
@@ -29,13 +30,18 @@ from ouranos.core.database.models.utils import sessionless_hashkey, time_limits
 from ouranos.core.utils import create_time_window, timeWindow
 
 
-ActuatorTypeNames = Literal[
-    "light", "heater", "cooler", "humidifier", "dehumidifier"
-]
 measure_order = (
     "temperature", "humidity", "lux", "dew_point", "absolute_moisture",
     "moisture"
 )
+
+
+class ActuatorType(Enum):
+    light = "light"
+    heater = "heater"
+    cooler = "cooler"
+    humidifier = "humidifier"
+    dehumidifier = "dehumidifier"
 
 
 _ecosystem_caches_size = 16
@@ -49,6 +55,14 @@ _cache_measures = LRUCache(maxsize=16)
 class EcosystemCurrentData(TypedDict):
     sensors: dict[str, dict[str, float]]
     timestamp: datetime
+
+
+class EcosystemActuatorTypesManagedDict(TypedDict):
+    light: bool
+    cooler: bool
+    heater: bool
+    humidifier: bool
+    dehumidifier: bool
 
 
 class GaiaBase(Base):
@@ -409,7 +423,7 @@ class Ecosystem(GaiaBase):
     async def turn_actuator(
             self,
             dispatcher: AsyncDispatcher,
-            actuator: ActuatorTypeNames,
+            actuator: ActuatorType,
             mode: ActuatorTurnTo = "automatic",
             countdown: float = 0.0,
     ) -> None:
@@ -434,6 +448,112 @@ class Ecosystem(GaiaBase):
             dispatcher=dispatcher, actuator="light", mode=mode,
             countdown=countdown
         )
+
+
+class ActuatorStatus(GaiaBase):
+    __tablename__ = "actuators_status"
+
+    ecosystem_uid: Mapped[str] = mapped_column(sa.ForeignKey("ecosystems.uid"), primary_key=True)
+    actuator_type: Mapped[ActuatorType] = mapped_column(primary_key=True)
+    status: Mapped[bool] = mapped_column(default=False)
+    mode: Mapped[ActuatorMode] = mapped_column(default=ActuatorMode.automatic)
+
+    @classmethod
+    async def update(
+            cls,
+            session: AsyncSession,
+            actuator_info: dict,
+            ecosystem_uid: str | None = None,
+            actuator_type: str | None = None,
+    ) -> None:
+        ecosystem_uid = ecosystem_uid or actuator_info.pop("ecosystem_uid", None)
+        actuator_type = actuator_type or actuator_info.pop("actuator_type", None)
+        if not (ecosystem_uid and actuator_type):
+            raise ValueError(
+                "Provide uid and actuator_type either as a argument or as a key in the "
+                "updated info"
+            )
+        stmt = (
+            update(cls)
+            .where(
+                cls.ecosystem_uid == ecosystem_uid,
+                cls.actuator_type == actuator_type
+            )
+            .values(**actuator_info)
+        )
+        await session.execute(stmt)
+
+    @classmethod
+    async def delete(
+            cls,
+            session: AsyncSession,
+            uid: str,
+            actuator_type: str,
+    ) -> None:
+        stmt = (
+            delete(cls)
+            .where(
+                cls.ecosystem_uid == uid,
+                cls.actuator_type == actuator_type,
+            )
+        )
+        await session.execute(stmt)
+
+    @classmethod
+    async def update_or_create(
+            cls,
+            session: AsyncSession,
+            values: dict,
+            ecosystem_uid: str | None = None,
+            actuator_type: str | None = None,
+    ) -> None:
+        ecosystem_uid = ecosystem_uid or values.pop("ecosystem_uid", None)
+        actuator_type = actuator_type or values.pop("actuator_type", None)
+        if not (ecosystem_uid and actuator_type):
+            raise ValueError(
+                "Provide uid and actuator_type either as a argument or as a key in the "
+                "updated info"
+            )
+        actuator_status = await cls.get(
+            session, uid=ecosystem_uid, actuator_type=actuator_type)
+        if not actuator_status:
+            values["ecosystem_uid"] = ecosystem_uid
+            values["actuator_type"] = actuator_type
+            await cls.create(session, values)
+        elif values:
+            await cls.update(session, values, ecosystem_uid, actuator_type)
+        else:
+            raise ValueError
+
+    @classmethod
+    async def get(
+            cls,
+            session: AsyncSession,
+            uid: str,
+            actuator_type: str,
+    ) -> Self | None:
+        stmt = (
+            select(cls)
+            .where(cls.ecosystem_uid == uid)
+            .where(cls.actuator_type == actuator_type)
+        )
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    @classmethod
+    async def get_multiple(
+            cls,
+            session: AsyncSession,
+            uids: list | None = None,
+            actuator_types: list | None = None,
+    ) -> Sequence[Self]:
+        stmt = select(cls)
+        if uids:
+            stmt = stmt.where(cls.ecosystem_uid.in_(uids))
+        if actuator_types:
+            stmt = stmt.where(cls.actuator_type.in_(actuator_types))
+        result = await session.execute(stmt)
+        return result.scalars().all()
 
 
 class Lighting(GaiaBase):
@@ -550,10 +670,10 @@ class EnvironmentParameter(GaiaBase):
                 "updated info"
             )
         stmt = (
-            update(EnvironmentParameter)
+            update(cls)
             .where(
-                EnvironmentParameter.ecosystem_uid == uid,
-                EnvironmentParameter.parameter == parameter
+                cls.ecosystem_uid == uid,
+                cls.parameter == parameter
             )
             .values(**parameter_info)
         )
@@ -567,10 +687,10 @@ class EnvironmentParameter(GaiaBase):
             parameter: str,
     ) -> None:
         stmt = (
-            delete(EnvironmentParameter)
+            delete(cls)
             .where(
-                EnvironmentParameter.ecosystem_uid == uid,
-                EnvironmentParameter.parameter == parameter
+                cls.ecosystem_uid == uid,
+                cls.parameter == parameter
             )
         )
         await session.execute(stmt)
@@ -581,23 +701,23 @@ class EnvironmentParameter(GaiaBase):
             session: AsyncSession,
             values: dict,
             uid: str | None = None,
+            parameter: str | None = None,
     ) -> None:
         uid = uid or values.pop("uid", None)
-        parameter = values.get("parameter")
+        parameter = parameter or values.pop("parameter", None)
         if not (uid and parameter):
             raise ValueError(
                 "Provide uid and parameter either as a argument or as a key in the "
                 "updated info"
             )
         environment_parameter = await cls.get(
-            session, uid=uid, parameter=parameter
-        )
+            session, uid=uid, parameter=parameter)
         if not environment_parameter:
             values["ecosystem_uid"] = uid
             values["parameter"] = parameter
             await cls.create(session, values)
         elif values:
-            await cls.update(session, values, uid)
+            await cls.update(session, values, uid, parameter)
         else:
             raise ValueError
 
@@ -966,12 +1086,13 @@ class Actuator(Hardware):
             session: AsyncSession,
             hardware_uids: str | list | None = None,
             ecosystem_uids: str | list | None = None,
+            type: ActuatorType | list[ActuatorType] | None = None,
             levels: HardwareLevelNames | list[HardwareLevelNames] | None = None,
             models: str | list | None = None,
             time_window: timeWindow = None,
     ) -> Sequence[Self]:
         stmt = cls.generate_query(
-            hardware_uids, ecosystem_uids, levels, "sensor", models)
+            hardware_uids, ecosystem_uids, levels, type, models)
         if time_window:
             stmt = cls._add_time_window_to_stmt(stmt, time_window)
         result = await session.execute(stmt)
