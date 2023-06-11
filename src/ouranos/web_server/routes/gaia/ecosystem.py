@@ -338,25 +338,54 @@ async def get_ecosystem_environment_parameters(
     return response
 
 
-@router.put("/u/{id}/environment_parameters",
+@router.put("/u/{id}/environment_parameters/{parameter}",
             status_code=status.HTTP_202_ACCEPTED,
             response_model=ResultResponse,
             dependencies=[Depends(is_operator)])
 async def update_environment_parameters(
         response: Response,
         id: str = id_param,
+        parameter: str = Path(description="A climate parameter"),
         payload: EnvironmentParameterUpdatePayload = Body(
             description="Updated information about the environment parameters"),
         session: AsyncSession = Depends(get_session)
 ):
     environment_parameter_dict = payload.dict()
-    parameter = environment_parameter_dict["parameter"]
     try:
         ecosystem = await ecosystem_or_abort(session, id)
         await environment_parameter_or_abort(session, id, parameter)
         # TODO: dispatch to Gaia
         return ResultResponse(
             msg=f"Request to update the environment parameter '{parameter}' "
+                f"successfully sent to engine '{ecosystem.engine_uid}'",
+            status=ResultStatus.success
+        )
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        return ResultResponse(
+            msg=f"Failed to send environment parameter update order to engine "
+                f"for ecosystem '{id}'. Error "
+                f"msg: `{e.__class__.__name__}: {e}`",
+            status=ResultStatus.failure
+        )
+
+
+@router.delete("/u/{id}/environment_parameters/{parameter}",
+               status_code=status.HTTP_202_ACCEPTED,
+               response_model=ResultResponse,
+               dependencies=[Depends(is_operator)])
+async def update_environment_parameters(
+        response: Response,
+        id: str = id_param,
+        parameter: str = Path(description="A climate parameter"),
+        session: AsyncSession = Depends(get_session)
+):
+    try:
+        ecosystem = await ecosystem_or_abort(session, id)
+        await environment_parameter_or_abort(session, id, parameter)
+        # TODO: dispatch to Gaia
+        return ResultResponse(
+            msg=f"Request to delete the environment parameter '{parameter}' "
                 f"successfully sent to engine '{ecosystem.engine_uid}'",
             status=ResultStatus.success
         )
