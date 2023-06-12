@@ -4,13 +4,12 @@ from fastapi import (
     APIRouter, Body, Depends, HTTPException, Path, Query, Response, status)
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from gaia_validators import HardwareLevel, ManagementFlags
+from gaia_validators import (
+    ActuatorModePayload, HardwareLevel, ManagementFlags, TurnActuatorPayload)
 
 from ouranos.core.database.models.gaia import (
     ActuatorType, Ecosystem, EnvironmentParameter, Lighting)
 from ouranos.core.utils import DispatcherFactory, timeWindow
-from ouranos.core.validate.payload import (
-    ActuatorModePayload, ActuatorTurnToPayload)
 from ouranos.web_server.auth import is_operator
 from ouranos.web_server.dependencies import get_session, get_time_window
 from ouranos.web_server.routes.utils import assert_single_uid
@@ -467,7 +466,7 @@ async def get_ecosystem_actuator_types_managed(
             dependencies=[Depends(is_operator)])
 async def turn_actuator(
         id: str = id_param,
-        payload: ActuatorTurnToPayload = Body(
+        payload: TurnActuatorPayload = Body(
             description="Instruction for the actuator"),
         session: AsyncSession = Depends(get_session)
 ):

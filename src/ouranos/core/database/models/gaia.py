@@ -16,7 +16,7 @@ from sqlalchemy.schema import Table
 from sqlalchemy.sql import func
 
 from gaia_validators import (
-    ActuatorTurnTo, ClimateParameter, HardwareLevel, HardwareLevelNames,
+    ActuatorModePayload, ClimateParameter, HardwareLevel, HardwareLevelNames,
     HardwareType, HardwareTypeNames, IDs as EcosystemIDs, LightMethod,
     ManagementFlags)
 
@@ -439,7 +439,7 @@ class Ecosystem(GaiaBase):
             self,
             dispatcher: AsyncDispatcher,
             actuator: ActuatorType,
-            mode: ActuatorTurnTo = "automatic",
+            mode: ActuatorModePayload = ActuatorModePayload.automatic,
             countdown: float = 0.0,
     ) -> None:
         # TODO: select room using db
@@ -456,7 +456,7 @@ class Ecosystem(GaiaBase):
     async def turn_light(
             self,
             dispatcher: AsyncDispatcher,
-            mode: ActuatorTurnTo = "automatic",
+            mode: ActuatorModePayload = ActuatorModePayload.automatic,
             countdown: float = 0.0,
     ) -> None:
         await self.turn_actuator(
