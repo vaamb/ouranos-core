@@ -3,11 +3,12 @@ from datetime import datetime
 from typing import Optional
 from pydantic import Field
 
-from gaia_validators import HardwareLevel, HardwareType, LightMethod
+from gaia_validators import (
+    ActuatorState, HardwareLevel, HardwareType, LightMethod)
 
 from ouranos.core.database.models.common import WarningLevel
 from ouranos.core.database.models.gaia import (
-    ActuatorMode, Ecosystem, Engine, EnvironmentParameter, Hardware, Lighting,
+    Ecosystem, Engine, EnvironmentParameter, Hardware, Lighting,
     Measure, Plant, SensorRecord)
 from ouranos.core.validate.base import BaseModel
 from ouranos.core.validate.utils import sqlalchemy_to_pydantic
@@ -102,19 +103,13 @@ class EcosystemSensorData(BaseModel):
     data: list[EcosystemSensorDataUnit]
 
 
-class ActuatorStatusInfo(BaseModel):
-    active: bool = False
-    status: bool = False
-    mode: ActuatorMode = ActuatorMode.automatic
-
-
 class EcosystemActuatorStatus(BaseModel):
     ecosystem_uid: str
-    light: ActuatorStatusInfo = ActuatorStatusInfo()
-    cooler: ActuatorStatusInfo = ActuatorStatusInfo()
-    heater: ActuatorStatusInfo = ActuatorStatusInfo()
-    humidifier: ActuatorStatusInfo = ActuatorStatusInfo()
-    dehumidifier: ActuatorStatusInfo = ActuatorStatusInfo()
+    light: ActuatorState = ActuatorState()
+    cooler: ActuatorState = ActuatorState()
+    heater: ActuatorState = ActuatorState()
+    humidifier: ActuatorState = ActuatorState()
+    dehumidifier: ActuatorState = ActuatorState()
 
 
 class HardwareModelInfo(BaseModel):
