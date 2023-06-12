@@ -6,9 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from gaia_validators import HardwareLevel, ManagementFlags
 
-from ouranos.core.database.models import Ecosystem, EnvironmentParameter, Lighting
+from ouranos.core.database.models.gaia import (
+    ActuatorType, Ecosystem, EnvironmentParameter, Lighting)
 from ouranos.core.utils import DispatcherFactory, timeWindow
-from ouranos.core.validate.payload import ActuatorTurnToPayload
+from ouranos.core.validate.payload import (
+    ActuatorModePayload, ActuatorTurnToPayload)
 from ouranos.web_server.auth import is_operator
 from ouranos.web_server.dependencies import get_session, get_time_window
 from ouranos.web_server.routes.utils import assert_single_uid
@@ -470,8 +472,8 @@ async def turn_actuator(
         session: AsyncSession = Depends(get_session)
 ):
     instruction_dict = payload.dict()
-    actuator = instruction_dict["actuator"]
-    mode = instruction_dict["mode"]
+    actuator: ActuatorType = instruction_dict["actuator"]
+    mode: ActuatorModePayload = instruction_dict["mode"]
     countdown = instruction_dict["countdown"]
     try:
         assert_single_uid(id)
@@ -480,7 +482,7 @@ async def turn_actuator(
         await ecosystem.turn_actuator(
             dispatcher, actuator, mode, countdown)
         return ResultResponse(
-            msg=f"Turned {ecosystem.name}'s {actuator} to mode '{mode}'",
+            msg=f"Turned {ecosystem.name}'s {actuator.value} to mode '{mode.value}'",
             status=ResultStatus.success
         )
     except Exception as e:
