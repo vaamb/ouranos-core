@@ -103,6 +103,7 @@ class EcosystemSensorData(BaseModel):
 
 
 class ActuatorStatusInfo(BaseModel):
+    active: bool = False
     status: bool = False
     mode: ActuatorMode = ActuatorMode.automatic
 

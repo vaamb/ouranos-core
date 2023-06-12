@@ -460,9 +460,8 @@ class Ecosystem(GaiaBase):
             countdown: float = 0.0,
     ) -> None:
         await self.turn_actuator(
-            dispatcher=dispatcher, actuator="light", mode=mode,
-            countdown=countdown
-        )
+            dispatcher=dispatcher, actuator=ActuatorType.light, mode=mode,
+            countdown=countdown)
 
 
 class ActuatorStatus(GaiaBase):
@@ -472,6 +471,7 @@ class ActuatorStatus(GaiaBase):
     actuator_type: Mapped[ActuatorType] = mapped_column(primary_key=True)
     status: Mapped[bool] = mapped_column(default=False)
     mode: Mapped[ActuatorMode] = mapped_column(default=ActuatorMode.automatic)
+    active: Mapped[bool] = mapped_column(default=False)
 
     @classmethod
     async def update(
