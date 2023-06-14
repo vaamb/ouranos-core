@@ -315,11 +315,6 @@ class Events:
                 await Ecosystem.update_or_create(
                     session, {**ecosystem, "last_seen": datetime.now(timezone.utc)}
                 )
-                for actuator_type in ActuatorType:
-                    await ActuatorStatus.update_or_create(session, {
-                        "ecosystem_uid": payload["uid"],
-                        "actuator_type": actuator_type,
-                    })
             ecosystems.append({"uid": payload["uid"], "status": ecosystem["status"]})
         self.logger.debug(
             f"Logged base info from ecosystem(s): {humanize_list(ecosystems_to_log)}"
@@ -509,6 +504,40 @@ class Events:
             )
 
     @registration_required
+    # @dispatch_to_application  # TODO
+    async def on_actuator_data(
+            self,
+            sid: str,
+            data: list[ActuatorsDataPayloadDict],
+            engine_uid: str
+    ) -> None:
+        self.logger.debug(
+            f"Received 'update_health_data' from {engine_uid}")
+        data: list[ActuatorsDataPayloadDict] = self.validate_payload(
+            data, ActuatorsDataPayload, list)
+        logged: list[str] = []
+        async with db.scoped_session() as session:
+            for payload in data:
+                ecosystem = payload["data"]
+                logged.append(
+                    await get_ecosystem_name(payload["uid"], session=None)
+                )
+                for actuator, values in ecosystem.items():
+                    await session.merge(ActuatorStatus(
+                        ecosystem_uid=payload["uid"],
+                        actuator_type=actuator,
+                        active=values["active"],
+                        mode=values["mode"],
+                        status=values["status"],
+
+                    ))
+        if logged:
+            self.logger.debug(
+                f"Logged actuator data from ecosystem(s): "
+                f"{humanize_list(logged)}"
+            )
+
+    @registration_required
     @dispatch_to_application
     async def on_health_data(
             self,
@@ -517,12 +546,10 @@ class Events:
             engine_uid: str
     ) -> None:
         self.logger.debug(
-            f"Received 'update_health_data' from {engine_uid}"
-        )
+            f"Received 'update_health_data' from {engine_uid}")
         data: list[HealthDataPayloadDict] = self.validate_payload(
             data, HealthDataPayload, list)
         logged: list[str] = []
-        # healthData.update(data)
         values: list[dict] = []
         for payload in data:
             ecosystem = payload["data"]
