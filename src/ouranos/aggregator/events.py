@@ -592,8 +592,6 @@ class Events:
                 ecosystem = payload["data"]
                 light_info = {
                     "ecosystem_uid": payload["uid"],
-                    "status": ecosystem["status"],
-                    "mode": ecosystem["mode"],
                     "method": ecosystem["method"],
                     "morning_start": ecosystem["morning_start"],
                     "morning_end": ecosystem["morning_end"],

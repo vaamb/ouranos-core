@@ -575,8 +575,6 @@ class Lighting(GaiaBase):
     __tablename__ = "lightings"
 
     ecosystem_uid: Mapped[str] = mapped_column(sa.ForeignKey("ecosystems.uid"), primary_key=True)
-    status: Mapped[bool] = mapped_column(default=False)
-    mode: Mapped[ActuatorMode] = mapped_column(default=ActuatorMode.automatic)
     method: Mapped[LightMethod] = mapped_column(default=LightMethod.fixed)
     morning_start: Mapped[Optional[time]] = mapped_column()
     morning_end: Mapped[Optional[time]] = mapped_column()
