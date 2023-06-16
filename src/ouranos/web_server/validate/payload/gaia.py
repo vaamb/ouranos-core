@@ -5,15 +5,15 @@ from typing import Optional, Union
 from pydantic import validator
 
 from gaia_validators import (
-    ClimateParameter, HardwareLevel, HardwareType,
-    safe_enum_from_name as enum_from_name)
+    ClimateParameter, HardwareLevel, HardwareType, LightMethod,
+    safe_enum_from_name)
 
 from ouranos.core.validate.base import BaseModel
 
 
-def safe_enum_from_name(enum: Enum, name: Optional[Union[str, Enum]]):
+def safe_enum_or_none_from_name(enum: Enum, name: Optional[Union[str, Enum]]):
     if name is not None:
-        return enum_from_name(enum, name)
+        return safe_enum_from_name(enum, name)
     return None
 
 
@@ -46,6 +46,14 @@ class EcosystemManagementUpdatePayload(BaseModel):
     database: Optional[bool] = None
 
 
+class EcosystemLightingUpdatePayload(BaseModel):
+    method: LightMethod
+
+    @validator("method", pre=True)
+    def parse_method(cls, value):
+        return safe_enum_from_name(LightMethod, value)
+
+
 class EnvironmentParameterCreationPayload(BaseModel):
     parameter: ClimateParameter
     day: float
@@ -54,7 +62,7 @@ class EnvironmentParameterCreationPayload(BaseModel):
 
     @validator("parameter", pre=True)
     def parse_parameter(cls, value):
-        return enum_from_name(ClimateParameter, value)
+        return safe_enum_from_name(ClimateParameter, value)
 
 
 class EnvironmentParameterUpdatePayload(BaseModel):
@@ -65,7 +73,7 @@ class EnvironmentParameterUpdatePayload(BaseModel):
 
     @validator("parameter", pre=True)
     def parse_parameter(cls, value):
-        return safe_enum_from_name(ClimateParameter, value)
+        return safe_enum_or_none_from_name(ClimateParameter, value)
 
 
 class HardwareCreationPayload(BaseModel):
@@ -81,11 +89,11 @@ class HardwareCreationPayload(BaseModel):
 
     @validator("level", pre=True)
     def parse_level(cls, value):
-        return enum_from_name(HardwareLevel, value)
+        return safe_enum_from_name(HardwareLevel, value)
 
     @validator("type", pre=True)
     def parse_type(cls, value):
-        return enum_from_name(HardwareType, value)
+        return safe_enum_from_name(HardwareType, value)
 
 
 class HardwareUpdatePayload(BaseModel):
@@ -101,8 +109,8 @@ class HardwareUpdatePayload(BaseModel):
 
     @validator("level", pre=True)
     def parse_level(cls, value):
-        return safe_enum_from_name(HardwareLevel, value)
+        return safe_enum_or_none_from_name(HardwareLevel, value)
 
     @validator("type", pre=True)
     def parse_type(cls, value):
-        return safe_enum_from_name(HardwareType, value)
+        return safe_enum_or_none_from_name(HardwareType, value)

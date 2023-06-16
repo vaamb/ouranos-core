@@ -17,8 +17,8 @@ from ouranos.web_server.routes.gaia.common_queries import (
     ecosystems_uid_q, hardware_level_q)
 from ouranos.web_server.validate.payload.gaia import (
     EcosystemCreationPayload, EcosystemManagementUpdatePayload,
-    EcosystemUpdatePayload, EnvironmentParameterCreationPayload,
-    EnvironmentParameterUpdatePayload)
+    EcosystemLightingUpdatePayload, EcosystemUpdatePayload,
+    EnvironmentParameterCreationPayload, EnvironmentParameterUpdatePayload)
 from ouranos.web_server.validate.response.base import (
     ResultResponse, ResultStatus)
 from ouranos.web_server.validate.response.gaia import (
@@ -273,7 +273,7 @@ async def get_ecosystems_light(
 
 
 @router.get("/u/{id}/light", response_model=EcosystemLightInfo)
-async def get_ecosystem_light(
+async def get_ecosystem_lighting(
         id: str = id_param,
         session: AsyncSession = Depends(get_session)
 ):
@@ -281,6 +281,37 @@ async def get_ecosystem_light(
     ecosystem = await ecosystem_or_abort(session, id)
     response = await Lighting.get(session, ecosystem.uid)
     return response
+
+
+@router.put("/u/{id}/light",
+            status_code=status.HTTP_202_ACCEPTED,
+            response_model=ResultResponse,
+            dependencies=[Depends(is_operator)])
+async def update_ecosystem_lighting(
+        response: Response,
+        id: str = id_param,
+        payload: EcosystemLightingUpdatePayload = Body(
+            description="Updated information about the ecosystem management"),
+        session: AsyncSession = Depends(get_session)
+):
+    lighting_dict = payload.dict()
+    assert_single_uid(id)
+    ecosystem = await ecosystem_or_abort(session, id)
+    try:
+        # TODO: dispatch to Gaia
+        return ResultResponse(
+            msg=f"Request to update the ecosystem '{ecosystem.name}'\' lighting "
+                f"successfully sent to engine '{ecosystem.engine_uid}'",
+            status=ResultStatus.success
+        )
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        return ResultResponse(
+            msg=f"Failed to send ecosystem' lighting update order to engine "
+                f"for ecosystem '{id}'. Error "
+                f"msg: `{e.__class__.__name__}: {e}`",
+            status=ResultStatus.failure
+        )
 
 
 @router.get("/environment_parameters", response_model=list[EnvironmentParameterInfo])
