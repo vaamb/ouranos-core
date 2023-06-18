@@ -12,7 +12,7 @@ from ouranos.core.config.consts import LOGIN_NAME
 from ouranos.core.database.models.app import User
 from ouranos.core.database.models.gaia import (
     Ecosystem, Engine, EnvironmentParameter, GaiaWarning, Hardware,
-    HealthRecord, Light, SensorRecord)
+    HealthRecord, Lighting, SensorRecord)
 from ouranos.core.database.models.memory import SensorDbCache, SystemDbCache
 from ouranos.core.database.models.system import SystemRecord
 from ouranos.web_server.auth import SessionInfo
@@ -44,7 +44,7 @@ async def add_ecosystems(db: AsyncSQLAlchemyWrapper):
         adapted_light_data = light_data.copy()
         adapted_light_data.pop("timer")
         adapted_light_data["ecosystem_uid"] = ecosystem_uid
-        await Light.create(session, adapted_light_data)
+        await Lighting.create(session, adapted_light_data)
 
         adapted_hardware_data = hardware_data.copy()
         adapted_hardware_data.pop("multiplexer_model")

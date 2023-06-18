@@ -12,7 +12,7 @@ from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 from ouranos.aggregator.events import (
     DispatcherBasedGaiaEvents, SocketIOEnginePayload)
 from ouranos.core.database.models.gaia import (
-    Ecosystem, Engine, EnvironmentParameter, Hardware, HealthRecord, Light)
+    Ecosystem, Engine, EnvironmentParameter, Hardware, HealthRecord, Lighting)
 from ouranos.core.database.models.memory import SensorDbCache
 from ouranos.core.exceptions import NotRegisteredError
 
@@ -178,7 +178,7 @@ async def test_on_environmental_parameters(
         assert ecosystem.day_start == sky["day"]
         assert ecosystem.night_start == sky["night"]
 
-        light = await Light.get(session, ecosystem_uid=ecosystem_uid)
+        light = await Lighting.get(session, ecosystem_uid=ecosystem_uid)
         assert light.method == sky["lighting"]
 
         environment_parameter = await EnvironmentParameter.get(
@@ -271,7 +271,7 @@ async def test_on_light_data(
     await events_handler.on_light_data(engine_sid, [light_data_payload])
 
     async with ecosystem_aware_db.scoped_session() as session:
-        light = await Light.get(session, ecosystem_uid)
+        light = await Lighting.get(session, ecosystem_uid)
         assert light.status == light_data["status"]
         assert light.mode == light_data["mode"]
         assert light.method == light_data["method"]

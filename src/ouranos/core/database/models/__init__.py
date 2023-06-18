@@ -7,7 +7,7 @@ from ouranos.core.database.models.archives import (
 from ouranos.core.database.models.common import WarningLevel
 from ouranos.core.database.models.gaia import (
     ActuatorRecord, Ecosystem, EnvironmentParameter, Engine, GaiaWarning,
-    Hardware, HealthRecord, Light, Measure, Plant, SensorRecord)
+    Hardware, HealthRecord, Lighting, Measure, Plant, SensorRecord)
 from ouranos.core.database.models.memory import SensorDbCache, SystemDbCache
 from ouranos.core.database.models.system import SystemRecord
 
@@ -19,7 +19,7 @@ __all__ = [
     "SensorRecordArchive",
     "WarningLevel",
     "ActuatorRecord", "Ecosystem", "EnvironmentParameter", "Engine",
-    "GaiaWarning", "Hardware", "HealthRecord", "Light", "Measure", "Plant",
+    "GaiaWarning", "Hardware", "HealthRecord", "Lighting", "Measure", "Plant",
     "SensorRecord",
     "SystemRecord"
 ]
