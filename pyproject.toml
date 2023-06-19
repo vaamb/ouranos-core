@@ -51,7 +51,7 @@ test = [
 ]
 
 [project.urls]
-repository  = "https://gitlab.com/eupla/ouranos"
+repository  = "https://github.com/vaamb/ouranos-core.git"
 
 [build-system]
 requires = ["setuptools>=61", "wheel"]
