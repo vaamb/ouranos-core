@@ -4,8 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos.core.database.models.gaia import Engine
+from ouranos.web_server.auth import is_operator
 from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.routes.utils import assert_single_uid
+from ouranos.web_server.validate.response.base import (
+    ResultResponse, ResultStatus)
 from ouranos.web_server.validate.response.gaia import EngineInfo
 
 
@@ -38,11 +41,27 @@ async def get_engines(
     return engines
 
 
-@router.get("/u/{id}", response_model=EngineInfo)
+@router.get("/u/{uid}", response_model=EngineInfo)
 async def get_engine(
-        id: str = Path(description="An engine id, either its uid or its sid"),
+        uid: str = Path(description="An engine uid"),
         session: AsyncSession = Depends(get_session)
 ):
-    assert_single_uid(id)
-    engine = await engine_or_abort(session, id)
+    assert_single_uid(uid)
+    engine = await engine_or_abort(session, uid)
     return engine
+
+
+@router.delete("/u/{uid}",
+               response_model=ResultResponse,
+               dependencies=[Depends(is_operator)])
+async def delete_engine(
+        uid: str = Path(description="An engine uid"),
+        session: AsyncSession = Depends(get_session)
+):
+    assert_single_uid(uid)
+    engine = await engine_or_abort(session, uid)
+    await Engine.delete(session, engine.uid)
+    return ResultResponse(
+        msg=f"Engine {uid} deleted",
+        status=ResultStatus.success
+    )
