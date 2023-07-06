@@ -81,17 +81,28 @@ def create_app(config: dict | None = None) -> FastAPI:
         default_response_class=JSONResponse,
     )
 
-    app.extra["logger"] = logger
+    # Set up CORS
+    allowed_origins = []
+
+    address = config.get("FRONTEND_ADDRESS", "127.0.0.1")
+    if config.get("FRONTEND_PORT"):
+        port = config["FRONTEND_PORT"]
+        allowed_origins += [
+            f"http://{address}:{port}",
+            f"ws://{address}:{port}",
+        ]
+    else:
+        allowed_origins += [
+            f"http://{address}:3000",
+            f"ws://{address}:3000",
+        ]
 
     if config.get("DEVELOPMENT") or config.get("TESTING"):
-        allowed_origins = (
+        allowed_origins += [
             "http://127.0.0.1:5173", "http://localhost:5173",
             "ws://127.0.0.1:5173", "ws://localhost:5173",
-        )
-    else:
-        allowed_origins = ()
+        ]
 
-    # Set up CORS
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allowed_origins,
