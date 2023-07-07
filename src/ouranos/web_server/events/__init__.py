@@ -103,6 +103,18 @@ class DispatcherEvents(AsyncEventHandler):
         logger.debug("Dispatching 'sun_times' to clients")
         await self.sio_manager.emit("sun_times", data=data, namespace="/")
 
+    async def on_base_info(self, sid, data):
+        logger.debug("Dispatching 'base_info' to clients")
+        await self.sio_manager.emit("base_info", data=data, namespace="/")
+
+    async def on_hardware(self, sid, data):
+        logger.debug("Dispatching 'hardware' to clients")
+        await self.sio_manager.emit("hardware", data=data, namespace="/")
+
+    async def on_environmental_parameters(self, sid, data):
+        logger.debug("Dispatching 'environmental_parameters' to clients")
+        await self.sio_manager.emit("environmental_parameters", data=data, namespace="/")
+
     async def on_ecosystem_status(self, sid, data):
         logger.debug("Dispatching 'ecosystem_status' to clients")
         await self.sio_manager.emit("ecosystem_status", data=data, namespace="/")
@@ -139,6 +151,10 @@ class DispatcherEvents(AsyncEventHandler):
                     "data": data,
                 })
         await self.sio_manager.emit("management", data=rv, namespace="/")
+
+    async def on_health_data(self, sid, data):
+        logger.debug("Dispatching 'health_data' to clients")
+        await self.sio_manager.emit("health_data", data=data, namespace="/")
 
     # ---------------------------------------------------------------------------
     #   Events Root Web server ->  Web workers -> Clients
