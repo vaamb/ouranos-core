@@ -38,7 +38,6 @@ class ManagementInfo(BaseModel):
 
 class EcosystemManagementInfo(BaseModel):
     ecosystem_uid: str = Field(alias="uid")
-    name: str
     sensors: bool = False
     light: bool = False
     climate: bool = False
