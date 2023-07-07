@@ -114,6 +114,10 @@ class DispatcherEvents(AsyncEventHandler):
         logger.debug("Dispatching 'light_data' to clients")
         await self.sio_manager.emit("light_data", data=data, namespace="/")
 
+    async def on_actuator_data(self, sid, data):
+        logger.debug("Dispatching 'light_data' to clients")
+        await self.sio_manager.emit("actuator_data", data=data, namespace="/")
+
     # ---------------------------------------------------------------------------
     #   Events Root Web server ->  Web workers -> Clients
     # ---------------------------------------------------------------------------

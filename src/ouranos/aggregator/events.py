@@ -504,7 +504,7 @@ class Events:
             )
 
     @registration_required
-    # @dispatch_to_application  # TODO
+    @dispatch_to_application
     async def on_actuator_data(
             self,
             sid: str,
