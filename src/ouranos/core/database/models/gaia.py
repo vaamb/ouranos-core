@@ -362,7 +362,6 @@ class Ecosystem(GaiaBase):
     async def functionalities(self, session: AsyncSession) -> dict:
         return {
             "uid": self.uid,
-            "name": self.name,
             **self.management_dict,
             "switches": any((
                 self.management_dict.get("climate"),

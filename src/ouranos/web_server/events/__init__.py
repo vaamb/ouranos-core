@@ -3,10 +3,11 @@
 from logging import getLogger, Logger
 
 from dispatcher import AsyncDispatcher, AsyncEventHandler
+from gaia_validators import ManagementConfigPayloadDict
 from socketio import AsyncNamespace, BaseManager
 
 from ouranos import db
-from ouranos.core.database.models import Ecosystem
+from ouranos.core.database.models.gaia import Ecosystem
 from ouranos.web_server.events.decorators import permission_required
 
 
@@ -115,8 +116,29 @@ class DispatcherEvents(AsyncEventHandler):
         await self.sio_manager.emit("light_data", data=data, namespace="/")
 
     async def on_actuator_data(self, sid, data):
-        logger.debug("Dispatching 'light_data' to clients")
+        logger.debug("Dispatching 'actuator_data' to clients")
         await self.sio_manager.emit("actuator_data", data=data, namespace="/")
+
+    async def on_management(self, sid, data: list[ManagementConfigPayloadDict]):
+        logger.debug("Dispatching 'management' to clients")
+
+        rv = []
+        async with db.scoped_session() as session:
+            for payload in data:
+                data = payload["data"]
+                uid: str = payload["uid"]
+                # Add extra functionalities required
+                ecosystem = await Ecosystem.get(session, uid)
+                data["switches"] = data["climate"] or data["light"]
+                data["environment_data"] = await ecosystem.has_recent_sensor_data(
+                    session, "environment")
+                data["plants_data"] = await ecosystem.has_recent_sensor_data(
+                    session, "plants")
+                rv.append({
+                    "uid": uid,
+                    "data": data,
+                })
+        await self.sio_manager.emit("management", data=rv, namespace="/")
 
     # ---------------------------------------------------------------------------
     #   Events Root Web server ->  Web workers -> Clients

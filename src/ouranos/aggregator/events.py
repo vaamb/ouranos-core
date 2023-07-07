@@ -326,6 +326,7 @@ class Events:
         )
 
     @registration_required
+    @dispatch_to_application
     async def on_management(
             self,
             sid: str,
