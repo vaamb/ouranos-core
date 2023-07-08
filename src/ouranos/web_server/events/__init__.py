@@ -123,6 +123,11 @@ class DispatcherEvents(AsyncEventHandler):
         logger.debug("Dispatching 'current_sensors_data' to clients")
         await self.sio_manager.emit("current_sensors_data", data=data, namespace="/")
 
+    async def on_historic_sensors_data_update(self, sid, data):
+        logger.debug("Dispatching 'historic_sensors_data_update' to clients")
+        await self.sio_manager.emit(
+            "historic_sensors_data_update", data=data, namespace="/")
+
     async def on_light_data(self, sid, data):
         logger.debug("Dispatching 'light_data' to clients")
         await self.sio_manager.emit("light_data", data=data, namespace="/")

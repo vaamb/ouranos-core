@@ -449,8 +449,6 @@ class Events:
         )
         data: list[SensorsDataPayloadDict] = self.validate_payload(
             data, SensorsDataPayload, list)
-        await self.ouranos_dispatcher.emit(
-            "current_sensors_data", data=data, namespace="application", ttl=15)
         sensors_data: list[SensorDataRecord] = []
         last_log: dict[str, datetime] = {}
         for ecosystem in data:
@@ -469,6 +467,19 @@ class Events:
             await sleep(0)
         if not sensors_data:
             return
+        logging_period = current_app.config["SENSOR_LOGGING_PERIOD"]
+        await self.ouranos_dispatcher.emit(
+            "current_sensors_data", data=data, namespace="application", ttl=15)
+        data: list[SensorsDataPayloadDict] = [
+            ecosystem for ecosystem in data
+            if (
+                logging_period and
+                ecosystem["data"]["timestamp"].minute % logging_period == 0
+            )
+        ]
+        if data:
+            await self.ouranos_dispatcher.emit(
+                "historic_sensors_data_update", data=data, namespace="application", ttl=15)
         async with db.scoped_session() as session:
             # Send all data to temp database
             await SensorDbCache.insert_data(session, sensors_data)
@@ -480,12 +491,11 @@ class Events:
             )
 
             # Send data to records database if SENSOR_LOGGING_PERIOD requires it
-            logging_period = current_app.config["SENSOR_LOGGING_PERIOD"]
             sensors_data = [
-                s for s in sensors_data
+                sensor_record for sensor_record in sensors_data
                 if (
                     logging_period and
-                    s["timestamp"].minute % logging_period == 0
+                    sensor_record["timestamp"].minute % logging_period == 0
                 )
             ]
             if not sensors_data:
