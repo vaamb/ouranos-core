@@ -5,7 +5,8 @@ from fastapi import (
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from dispatcher import AsyncDispatcher
-from gaia_validators import CrudAction, CrudPayload, HardwareLevel, HardwareType
+from gaia_validators import (
+    CrudAction, CrudPayload, HardwareLevel, HardwareType, Route)
 
 from ouranos.core.database.models.gaia import Ecosystem, Hardware
 from ouranos.core.utils import DispatcherFactory
@@ -96,12 +97,15 @@ async def create_hardware(
         await dispatcher.emit(
             event="crud",
             data=CrudPayload(
-                engine_uid=ecosystem.engine_uid,
+                routing=Route(
+                    engine_uid=ecosystem.engine_uid,
+                    ecosystem_uid=ecosystem.uid
+                ).dict(),
                 action=CrudAction.create,
                 target="hardware",
                 values=hardware_dict,
             ).dict(),
-            to="aggregator",
+            namespace="aggregator",
         )
         return ResultResponse(
             msg=f"Request to create the new hardware '{hardware_dict['name']}' "
@@ -146,12 +150,15 @@ async def update_hardware(
         await dispatcher.emit(
             event="crud",
             data=CrudPayload(
-                engine_uid=ecosystem.engine_uid,
+                routing=Route(
+                    engine_uid=ecosystem.engine_uid,
+                    ecosystem_uid=ecosystem.uid
+                ).dict(),
                 action=CrudAction.update,
                 target="hardware",
                 values=hardware_dict,
             ).dict(),
-            to="aggregator",
+            namespace="aggregator",
         )
         return ResultResponse(
             msg=f"Request to update the hardware '{hardware.name}' "
@@ -183,11 +190,14 @@ async def delete_hardware(
         await dispatcher.emit(
             event="crud",
             data=CrudPayload(
-                engine_uid=ecosystem.engine_uid,
+                routing=Route(
+                    engine_uid=ecosystem.engine_uid,
+                    ecosystem_uid=ecosystem.uid
+                ).dict(),
                 action=CrudAction.delete,
                 target="hardware",
             ).dict(),
-            to="aggregator",
+            namespace="aggregator",
         )
         return ResultResponse(
             msg=f"Request to delete the hardware '{hardware.name}' "

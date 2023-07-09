@@ -671,7 +671,8 @@ class Events:
         await self._turn_actuator(sid, data)
 
     async def crud(self, sid, data: CrudPayloadDict) -> None:
-        engine_sid = get_engine_sid(data["engine_uid"])
+        engine_uid = data["routing"]["engine_uid"]
+        engine_sid = await get_engine_sid(engine_uid)
         if self.broker_type == "socketio":
             await self.emit(
                 "crud", data=data, namespace="/gaia", room=engine_sid)

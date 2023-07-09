@@ -7,7 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from dispatcher import AsyncDispatcher
 from gaia_validators import (
     ActuatorModePayload, ClimateParameter, CrudAction, CrudPayload,
-    HardwareLevel, ManagementFlags, safe_enum_from_name, TurnActuatorPayload)
+    HardwareLevel, ManagementFlags, safe_enum_from_name, Route,
+    TurnActuatorPayload)
 
 from ouranos.core.database.models.gaia import (
     ActuatorType, Ecosystem, EnvironmentParameter, Lighting)
@@ -98,12 +99,14 @@ async def create_ecosystem(
         await dispatcher.emit(
             event="crud",
             data=CrudPayload(
-                engine_uid=ecosystem_dict["engine_uid"],
+                routing=Route(
+                    engine_uid=ecosystem_dict["engine_uid"],
+                ).dict(),
                 action=CrudAction.create,
                 target="ecosystem",
                 values=ecosystem_dict,
             ).dict(),
-            to="aggregator",
+            namespace="aggregator",
         )
         return ResultResponse(
             msg=f"Request to create the new ecosystem '{ecosystem_dict['name']}' "
@@ -146,12 +149,15 @@ async def update_ecosystem(
         await dispatcher.emit(
             event="crud",
             data=CrudPayload(
-                engine_uid=ecosystem.engine_uid,
+                routing=Route(
+                    engine_uid=ecosystem.engine_uid,
+                    ecosystem_uid=ecosystem.uid
+                ).dict(),
                 action=CrudAction.update,
                 target="ecosystem",
                 values=ecosystem_dict,
             ).dict(),
-            to="aggregator",
+            namespace="aggregator",
         )
         return ResultResponse(
             msg=f"Request to update the ecosystem '{ecosystem.name}' "
@@ -182,11 +188,14 @@ async def delete_ecosystem(
         await dispatcher.emit(
             event="crud",
             data=CrudPayload(
-                engine_uid=ecosystem.engine_uid,
+                routing=Route(
+                    engine_uid=ecosystem.engine_uid,
+                    ecosystem_uid=ecosystem.uid
+                ).dict(),
                 action=CrudAction.delete,
                 target="ecosystem",
             ).dict(),
-            to="aggregator",
+            namespace="aggregator",
         )
         return ResultResponse(
             msg=f"Request to delete the ecosystem '{ecosystem.name}' "
@@ -251,14 +260,16 @@ async def update_management(
         await dispatcher.emit(
             event="crud",
             data=CrudPayload(
-                engine_uid=ecosystem.engine_uid,
+                routing=Route(
+                    engine_uid=ecosystem.engine_uid,
+                    ecosystem_uid=ecosystem.uid
+                ).dict(),
                 action=CrudAction.update,
                 target="management",
                 values=management_dict,
             ).dict(),
-            to="aggregator",
+            namespace="aggregator",
         )
-        # TODO: dispatch to Gaia
         return ResultResponse(
             msg=f"Request to update the ecosystem '{ecosystem.name}'\' management "
                 f"successfully sent to engine '{ecosystem.engine_uid}'",
@@ -342,12 +353,15 @@ async def update_ecosystem_lighting(
         await dispatcher.emit(
             event="crud",
             data=CrudPayload(
-                engine_uid=ecosystem.engine_uid,
+                routing=Route(
+                    engine_uid=ecosystem.engine_uid,
+                    ecosystem_uid=ecosystem.uid
+                ).dict(),
                 action=CrudAction.update,
                 target="lighting",
                 values=lighting_dict,
             ).dict(),
-            to="aggregator",
+            namespace="aggregator",
         )
         return ResultResponse(
             msg=f"Request to update the ecosystem '{ecosystem.name}'\' lighting "
@@ -394,12 +408,15 @@ async def create_environment_parameters(
         await dispatcher.emit(
             event="crud",
             data=CrudPayload(
-                engine_uid=ecosystem.engine_uid,
+                routing=Route(
+                    engine_uid=ecosystem.engine_uid,
+                    ecosystem_uid=ecosystem.uid
+                ).dict(),
                 action=CrudAction.create,
                 target="environment_parameter",
                 values=environment_parameter_dict,
             ).dict(),
-            to="aggregator",
+            namespace="aggregator",
         )
         return ResultResponse(
             msg=f"Request to create the environment parameter '{parameter}' "
@@ -448,12 +465,15 @@ async def update_environment_parameters(
         await dispatcher.emit(
             event="crud",
             data=CrudPayload(
-                engine_uid=ecosystem.engine_uid,
+                routing=Route(
+                    engine_uid=ecosystem.engine_uid,
+                    ecosystem_uid=ecosystem.uid
+                ).dict(),
                 action=CrudAction.update,
                 target="environment_parameter",
                 values=environment_parameter_dict,
             ).dict(),
-            to="aggregator",
+            namespace="aggregator",
         )
         return ResultResponse(
             msg=f"Request to update the environment parameter '{parameter}' "
@@ -474,7 +494,7 @@ async def update_environment_parameters(
                status_code=status.HTTP_202_ACCEPTED,
                response_model=ResultResponse,
                dependencies=[Depends(is_operator)])
-async def update_environment_parameters(
+async def delete_environment_parameters(
         response: Response,
         id: str = id_param,
         parameter: str = Path(description="A climate parameter"),
@@ -486,11 +506,14 @@ async def update_environment_parameters(
         await dispatcher.emit(
             event="crud",
             data=CrudPayload(
-                engine_uid=ecosystem.engine_uid,
+                routing=Route(
+                    engine_uid=ecosystem.engine_uid,
+                    ecosystem_uid=ecosystem.uid
+                ).dict(),
                 action=CrudAction.delete,
                 target="environment_parameter",
             ).dict(),
-            to="aggregator",
+            namespace="aggregator",
         )
         return ResultResponse(
             msg=f"Request to delete the environment parameter '{parameter}' "
