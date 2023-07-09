@@ -18,6 +18,7 @@ def safe_enum_or_none_from_name(enum: Enum, name: Optional[Union[str, Enum]]):
 
 
 class EcosystemCreationPayload(BaseModel):
+    engine_uid: str
     name: str
     status: bool = False
     management: int = 0

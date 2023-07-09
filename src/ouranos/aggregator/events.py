@@ -27,6 +27,7 @@ from ouranos.core.utils import decrypt_uid, humanize_list, validate_uid_token
 
 
 _ecosystem_name_cache = LRUCache(maxsize=32)
+_ecosystem_sid_cache = LRUCache(maxsize=32)
 
 
 class SensorDataRecord(TypedDict):
@@ -65,6 +66,26 @@ async def get_ecosystem_name(
         async with db.scoped_session() as session:
             return await inner_func(session, ecosystem_uid)
         # TODO: return or raise when not found
+
+
+async def get_engine_sid(
+        engine_uid: str,
+        session: AsyncSession | None = None
+) -> str:
+    try:
+        return _ecosystem_sid_cache[engine_uid]
+    except KeyError:
+        async def inner_func(session: AsyncSession, engine_uid: str):
+            engine_obj = await Engine.get(session, engine_uid)
+            if engine_obj is not None:
+                sid = engine_obj.sid
+                _ecosystem_sid_cache[engine_uid] = sid
+                return sid
+
+        if session is not None:
+            return await inner_func(session, engine_uid)
+        async with db.scoped_session() as session:
+            return await inner_func(session, engine_uid)
 
 
 class Events:
@@ -135,7 +156,12 @@ class Events:
     ) -> list[dict]:
         ...
 
-    def validate_payload(self, data: dict | list, model_cls: Type[BaseModel], expected: Type):
+    def validate_payload(
+            self,
+            data: dict | list[dict],
+            model_cls: Type[BaseModel],
+            type_: Type
+    ) -> dict | list[dict]:
         if not data:
             event = inspect.stack()[1].function.lstrip("on_")
             self.logger.error(
@@ -143,20 +169,20 @@ class Events:
                 f"msg: Empty data."
             )
             raise ValidationError
-        if not isinstance(data, expected):
+        if not isinstance(data, type_):
             event = inspect.stack()[1].function.lstrip("on_")
             received = type(data)
             self.logger.error(
                 f"Encountered an error while validating '{event}' data. Error "
-                f"msg: Wrong data format, expected '{expected}', received "
+                f"msg: Wrong data format, expected '{type_}', received "
                 f"'{received}'."
             )
             raise ValidationError
         try:
-            if expected == list:
+            if type_ == list:
                 temp: list[BaseModel] = parse_obj_as(list[model_cls], data)
                 return [obj.dict() for obj in temp]
-            elif expected == dict:
+            elif type_ == dict:
                 return model_cls(**data).dict()
         except ValidationError as e:
             event = inspect.stack()[1].function.lstrip("on_")
@@ -644,13 +670,14 @@ class Events:
     async def turn_actuator(self, sid, data) -> None:
         await self._turn_actuator(sid, data)
 
-    async def crud(self, sid, data) -> None:
+    async def crud(self, sid, data: CrudPayloadDict) -> None:
+        engine_sid = get_engine_sid(data["engine_uid"])
         if self.broker_type == "socketio":
             await self.emit(
-                "crud", data=data, namespace="/gaia", room=sid)
+                "crud", data=data, namespace="/gaia", room=engine_sid)
         elif self.broker_type == "dispatcher":
             await self.emit(
-                "crud", data=data, namespace="/gaia", room=sid, ttl=30)
+                "crud", data=data, namespace="/gaia", room=engine_sid, ttl=30)
         else:
             raise TypeError("Event broker_type is invalid")
 
