@@ -6,6 +6,7 @@ import inspect
 import logging
 import random
 from typing import cast, overload, Type, TypedDict
+from uuid import UUID
 
 from cachetools import LRUCache, TTLCache
 from dispatcher import AsyncDispatcher, AsyncEventHandler
@@ -16,11 +17,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from gaia_validators import *
 
-from ouranos import current_app, db
+from ouranos import current_app, db, json
 from ouranos.aggregator.decorators import (
     dispatch_to_application, registration_required)
 from ouranos.core.database.models.gaia import (
-    ActuatorStatus, ActuatorType, Ecosystem, Engine, EnvironmentParameter,
+    ActuatorStatus, CrudRequest, Ecosystem, Engine, EnvironmentParameter,
     Hardware, HealthRecord, Lighting, SensorRecord)
 from ouranos.core.database.models.memory import SensorDbCache
 from ouranos.core.utils import decrypt_uid, humanize_list, validate_uid_token
@@ -352,40 +353,6 @@ class Events:
         )
 
     @registration_required
-    @dispatch_to_application
-    async def on_management(
-            self,
-            sid: str,
-            data: list[ManagementConfigPayloadDict],
-            engine_uid: str
-    ) -> None:
-        self.logger.debug(f"Received 'management' from engine: {engine_uid}")
-        data: list[ManagementConfigPayloadDict] = self.validate_payload(
-            data, ManagementConfigPayload, list)
-        ecosystems_to_log: list[str] = []
-        async with db.scoped_session() as session:
-            for payload in data:
-                ecosystem = payload["data"]
-                uid: str = payload["uid"]
-                ecosystems_to_log.append(
-                    await get_ecosystem_name(uid, session=session)
-                )
-                ecosystem_obj = await Ecosystem.get(session, uid)
-                for management in ManagementFlags:
-                    try:
-                        if ecosystem[management.name]:
-                            ecosystem_obj.add_management(management)
-                    except KeyError:
-                        # Not implemented in gaia yet
-                        pass
-                session.add(ecosystem_obj)
-                await sleep(0)
-        self.logger.debug(
-            f"Logged management info from ecosystem(s): "
-            f"{humanize_list(ecosystems_to_log)}"
-        )
-
-    @registration_required
     async def on_environmental_parameters(
             self,
             sid: str,
@@ -463,6 +430,40 @@ class Events:
     # --------------------------------------------------------------------------
     #   Events Gaia -> Aggregator -> Api
     # --------------------------------------------------------------------------
+    @registration_required
+    @dispatch_to_application
+    async def on_management(
+            self,
+            sid: str,
+            data: list[ManagementConfigPayloadDict],
+            engine_uid: str
+    ) -> None:
+        self.logger.debug(f"Received 'management' from engine: {engine_uid}")
+        data: list[ManagementConfigPayloadDict] = self.validate_payload(
+            data, ManagementConfigPayload, list)
+        ecosystems_to_log: list[str] = []
+        async with db.scoped_session() as session:
+            for payload in data:
+                ecosystem = payload["data"]
+                uid: str = payload["uid"]
+                ecosystems_to_log.append(
+                    await get_ecosystem_name(uid, session=session)
+                )
+                ecosystem_obj = await Ecosystem.get(session, uid)
+                for management in ManagementFlags:
+                    try:
+                        if ecosystem[management.name]:
+                            ecosystem_obj.add_management(management)
+                    except KeyError:
+                        # Not implemented in gaia yet
+                        pass
+                session.add(ecosystem_obj)
+                await sleep(0)
+        self.logger.debug(
+            f"Logged management info from ecosystem(s): "
+            f"{humanize_list(ecosystems_to_log)}"
+        )
+
     @registration_required
     async def on_sensors_data(
             self,
@@ -672,7 +673,20 @@ class Events:
 
     async def crud(self, sid, data: CrudPayloadDict) -> None:
         engine_uid = data["routing"]["engine_uid"]
-        engine_sid = await get_engine_sid(engine_uid)
+        self.logger.debug(
+            f"""Sending crud request {data['uuid']} ({data["action"]} 
+            {data["target"]}) to engine '{engine_uid}'."""
+        )
+        async with db.scoped_session() as session:
+            engine_sid = await get_engine_sid(engine_uid)
+            await CrudRequest.create(session, {
+                "uuid": UUID(data["uuid"]),
+                "engine_uid": engine_uid,
+                "ecosystem_uid": data["routing"]["ecosystem_uid"],
+                "action": data["action"],
+                "target": data["target"],
+                "payload": json.dumps(data["values"]),
+            })
         if self.broker_type == "socketio":
             await self.emit(
                 "crud", data=data, namespace="/gaia", room=engine_sid)
@@ -681,6 +695,14 @@ class Events:
                 "crud", data=data, namespace="/gaia", room=engine_sid, ttl=30)
         else:
             raise TypeError("Event broker_type is invalid")
+
+    # Response to crud, actual path: Gaia -> Aggregator
+    async def on_crud_result(self, sid, data: CrudResultDict):
+        self.logger.debug(f"Received crud result for request {data['uuid']}")
+        async with db.scoped_session() as session:
+            crud_request = await CrudRequest.get(session, UUID(data["uuid"]))
+            crud_request.result = data["status"]
+            crud_request.message = data["message"]
 
 
 class DispatcherBasedGaiaEvents(AsyncEventHandler, Events):
