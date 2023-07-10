@@ -9,7 +9,8 @@ from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.routes.utils import assert_single_uid
 from ouranos.web_server.validate.response.base import (
     ResultResponse, ResultStatus)
-from ouranos.web_server.validate.response.gaia import EngineInfo
+from ouranos.web_server.validate.response.gaia import (
+    CrudRequestInfo, EngineInfo)
 
 
 router = APIRouter(
@@ -65,3 +66,15 @@ async def delete_engine(
         msg=f"Engine {uid} deleted",
         status=ResultStatus.success
     )
+
+
+@router.get("/u/{uid}/crud_requests",
+            response_model=list[CrudRequestInfo])
+async def get_crud_requests(
+        uid: str = Path(description="An engine uid"),
+        session: AsyncSession = Depends(get_session)
+):
+    assert_single_uid(uid)
+    engine = await engine_or_abort(session, uid)
+    response = await engine.get_crud_requests(session)
+    return response
