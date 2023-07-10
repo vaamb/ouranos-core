@@ -450,6 +450,7 @@ class Events:
                     await get_ecosystem_name(uid, session=session)
                 )
                 ecosystem_obj = await Ecosystem.get(session, uid)
+                ecosystem_obj.reset_managements()
                 for management in ManagementFlags:
                     try:
                         if ecosystem[management.name]:
