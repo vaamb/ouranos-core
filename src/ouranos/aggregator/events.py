@@ -12,7 +12,7 @@ from cachetools import LRUCache, TTLCache
 from dispatcher import AsyncDispatcher, AsyncEventHandler
 from pydantic import BaseModel, parse_obj_as, ValidationError
 from socketio import AsyncNamespace
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from gaia_validators import *
@@ -357,8 +357,8 @@ class Events:
                 .where(Ecosystem.uid.not_in(engine_in_use))
             )
             result = await session.execute(stmt)
-            in_use = result.scalars().all()
-            for ecosystem in in_use:
+            not_used = result.scalars().all()
+            for ecosystem in not_used:
                 ecosystem.in_use = False
 
         self.logger.debug(
@@ -398,9 +398,20 @@ class Events:
                 await Ecosystem.update_or_create(session, ecosystem_info)
                 await Lighting.update_or_create(
                     session, {"method": sky["lighting"]}, uid)
+                environment_parameters_in_use: list[str] = []
                 for param in ecosystem["climate"]:
+                    environment_parameters_in_use.append(param["parameter"])
                     await EnvironmentParameter.update_or_create(
                         session, param, uid)
+
+                # Remove environmental parameters not used anymore
+                stmt = (
+                    delete(EnvironmentParameter)
+                    .where(EnvironmentParameter.ecosystem_uid == uid)
+                    .where(Hardware.uid.not_in(environment_parameters_in_use))
+                )
+                await session.execute(stmt)
+
         self.logger.debug(
             f"Logged environmental parameters from ecosystem(s): "
             f"{humanize_list(ecosystems_to_log)}"
@@ -444,8 +455,8 @@ class Events:
                     .where(Hardware.uid.not_in(hardware_in_use))
                 )
                 result = await session.execute(stmt)
-                in_use = result.scalars().all()
-                for hardware in in_use:
+                not_used = result.scalars().all()
+                for hardware in not_used:
                     hardware.in_use = False
         self.logger.debug(
             f"Logged hardware info from ecosystem(s): {humanize_list(ecosystems_to_log)}"
