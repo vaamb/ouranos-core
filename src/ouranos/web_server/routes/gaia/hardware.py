@@ -35,7 +35,7 @@ router = APIRouter(
 
 uid_param = Path(description="The uid of a hardware")
 
-in_use_query = Query(
+in_config_query = Query(
     default=None, description="Only select hardware that are present (True) "
                               "or have been removed (False) from the current "
                               "gaia ecosystems config")
@@ -66,13 +66,13 @@ async def get_multiple_hardware(
             default=None, description="A list of types of hardware"),
         hardware_model: list[str] | None = Query(
             default=None, description="A list of precise hardware model"),
-        in_use: bool | None = in_use_query,
+        in_use: bool | None = in_config_query,
         session: AsyncSession = Depends(get_session),
 ):
     hardware = await Hardware.get_multiple(
         session=session, hardware_uids=hardware_uid,
         ecosystem_uids=ecosystems_uid, levels=hardware_level,
-        types=hardware_type, models=hardware_model, in_use=in_use)
+        types=hardware_type, models=hardware_model, in_config=in_use)
     return hardware
 
 

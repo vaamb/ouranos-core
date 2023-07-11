@@ -333,13 +333,13 @@ class Events:
         self.logger.debug(f"Received 'base_info' from engine: {engine_uid}")
         data: list[BaseInfoConfigPayloadDict] = self.validate_payload(
             data, BaseInfoConfigPayload, list)
-        engine_in_use: list[str] = []
+        engines_in_config: list[str] = []
         ecosystems_status: list[dict[str, str]] = []
         ecosystems_to_log: list[str] = []
         async with db.scoped_session() as session:
             for payload in data:
                 ecosystem = payload["data"]
-                engine_in_use.append(ecosystem["uid"])
+                engines_in_config.append(ecosystem["uid"])
                 ecosystems_status.append({"uid": payload["uid"], "status": ecosystem["status"]})
                 ecosystems_to_log.append(ecosystem["name"])
                 await Ecosystem.update_or_create(
@@ -354,12 +354,12 @@ class Events:
             stmt = (
                 select(Ecosystem)
                 .where(Ecosystem.engine_uid == engine_uid)
-                .where(Ecosystem.uid.not_in(engine_in_use))
+                .where(Ecosystem.uid.not_in(engines_in_config))
             )
             result = await session.execute(stmt)
             not_used = result.scalars().all()
             for ecosystem in not_used:
-                ecosystem.in_use = False
+                ecosystem.in_config = False
 
         self.logger.debug(
             f"Logged base info from ecosystem(s): {humanize_list(ecosystems_to_log)}"
@@ -398,9 +398,9 @@ class Events:
                 await Ecosystem.update_or_create(session, ecosystem_info)
                 await Lighting.update_or_create(
                     session, {"method": sky["lighting"]}, uid)
-                environment_parameters_in_use: list[str] = []
+                environment_parameters_in_config: list[str] = []
                 for param in ecosystem["climate"]:
-                    environment_parameters_in_use.append(param["parameter"])
+                    environment_parameters_in_config.append(param["parameter"])
                     await EnvironmentParameter.update_or_create(
                         session, param, uid)
 
@@ -408,7 +408,7 @@ class Events:
                 stmt = (
                     delete(EnvironmentParameter)
                     .where(EnvironmentParameter.ecosystem_uid == uid)
-                    .where(Hardware.uid.not_in(environment_parameters_in_use))
+                    .where(Hardware.uid.not_in(environment_parameters_in_config))
                 )
                 await session.execute(stmt)
 
@@ -432,14 +432,14 @@ class Events:
         ecosystems_to_log: list[str] = []
         async with db.scoped_session() as session:
             for payload in data:
-                hardware_in_use = []
+                hardware_in_config = []
                 uid = payload["uid"]
                 ecosystems_to_log.append(
                     await get_ecosystem_name(uid, session=session)
                 )
                 for hardware in payload["data"]:
                     hardware_uid = hardware.pop("uid")
-                    hardware_in_use.append(hardware_uid)
+                    hardware_in_config.append(hardware_uid)
                     hardware["ecosystem_uid"] = uid
                     # TODO: register multiplexer ?
                     del hardware["multiplexer_model"]
@@ -452,12 +452,12 @@ class Events:
                 stmt = (
                     select(Hardware)
                     .where(Hardware.ecosystem_uid == uid)
-                    .where(Hardware.uid.not_in(hardware_in_use))
+                    .where(Hardware.uid.not_in(hardware_in_config))
                 )
                 result = await session.execute(stmt)
                 not_used = result.scalars().all()
                 for hardware in not_used:
-                    hardware.in_use = False
+                    hardware.in_config = False
         self.logger.debug(
             f"Logged hardware info from ecosystem(s): {humanize_list(ecosystems_to_log)}"
         )

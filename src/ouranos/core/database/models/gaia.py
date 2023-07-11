@@ -148,8 +148,8 @@ class GaiaBase(Base):
         raise NotImplementedError
 
 
-class RemovableMixin:
-    in_use: Mapped[bool] = mapped_column(default=True)
+class InConfigMixin:
+    in_config: Mapped[bool] = mapped_column(default=True)
 
     @classmethod
     @abstractmethod
@@ -157,7 +157,7 @@ class RemovableMixin:
             cls,
             session: AsyncSession,
             uid: str | list | None = None,
-            in_use: bool | None = None
+            in_config: bool | None = None
     ) -> Sequence[Self]:
         raise NotImplementedError
 
@@ -242,7 +242,7 @@ class Engine(GaiaBase):
         return response
 
 
-class Ecosystem(RemovableMixin, GaiaBase):
+class Ecosystem(InConfigMixin, GaiaBase):
     __tablename__ = "ecosystems"
 
     uid: Mapped[str] = mapped_column(sa.String(length=8), primary_key=True)
@@ -310,7 +310,7 @@ class Ecosystem(RemovableMixin, GaiaBase):
             cls,
             session: AsyncSession,
             ecosystems: str | list[str] | None = None,
-            in_use: bool | None = None,
+            in_config: bool | None = None,
     ) -> Sequence[Ecosystem]:
         if ecosystems is None:
             stmt = (
@@ -318,8 +318,8 @@ class Ecosystem(RemovableMixin, GaiaBase):
                 .order_by(Ecosystem.name.asc(),
                           Ecosystem.last_seen.desc())
             )
-            if in_use is not None:
-                stmt = stmt.where(cls.in_use == in_use)
+            if in_config is not None:
+                stmt = stmt.where(cls.in_config == in_config)
             result = await session.execute(stmt)
             return result.scalars().all()
 
@@ -345,8 +345,8 @@ class Ecosystem(RemovableMixin, GaiaBase):
                        Ecosystem.name.in_(ecosystems))
                 .order_by(Ecosystem.last_seen.desc(), Ecosystem.name.asc())
             )
-        if in_use is not None:
-            stmt = stmt.where(cls.in_use == in_use)
+        if in_config is not None:
+            stmt = stmt.where(cls.in_config == in_config)
         result = await session.execute(stmt)
         return result.scalars().all()
 
@@ -810,7 +810,7 @@ AssociationActuatorPlant = Table(
 )
 
 
-class Hardware(RemovableMixin, GaiaBase):
+class Hardware(InConfigMixin, GaiaBase):
     __tablename__ = "hardware"
 
     uid: Mapped[str] = mapped_column(sa.String(length=32), primary_key=True)
@@ -935,13 +935,13 @@ class Hardware(RemovableMixin, GaiaBase):
             levels: HardwareLevelNames | list[HardwareLevelNames] | None = None,
             types: HardwareTypeNames | list[HardwareTypeNames] | None = None,
             models: str | list | None = None,
-            in_use: bool | None = None,
+            in_config: bool | None = None,
     ) -> Sequence[Hardware]:
         stmt = cls.generate_query(
             hardware_uids, ecosystem_uids, levels, types, models
         )
-        if in_use is not None:
-            stmt = stmt.where(cls.in_use == in_use)
+        if in_config is not None:
+            stmt = stmt.where(cls.in_config == in_config)
         result = await session.execute(stmt)
         return result.unique().scalars().all()
 
@@ -997,14 +997,14 @@ class Sensor(Hardware):
             levels: HardwareLevelNames | list[HardwareLevelNames] | None = None,
             models: str | list | None = None,
             time_window: timeWindow = None,
-            in_use: bool | None = None,
+            in_config: bool | None = None,
     ) -> Sequence[Self]:
         stmt = cls.generate_query(
             hardware_uids, ecosystem_uids, levels, HardwareType.sensor.value, models)
         if time_window:
             stmt = cls._add_time_window_to_stmt(stmt, time_window)
-        if in_use is not None:
-            stmt = stmt.where(cls.in_use == in_use)
+        if in_config is not None:
+            stmt = stmt.where(cls.in_config == in_config)
         result = await session.execute(stmt)
         return result.unique().scalars().all()
 
@@ -1131,14 +1131,14 @@ class Actuator(Hardware):
             levels: HardwareLevelNames | list[HardwareLevelNames] | None = None,
             models: str | list | None = None,
             time_window: timeWindow = None,
-            in_use: bool | None = None,
+            in_config: bool | None = None,
     ) -> Sequence[Self]:
         stmt = cls.generate_query(
             hardware_uids, ecosystem_uids, levels, type, models)
         if time_window:
             stmt = cls._add_time_window_to_stmt(stmt, time_window)
-        if in_use is not None:
-            stmt = stmt.where(cls.in_use == in_use)
+        if in_config is not None:
+            stmt = stmt.where(cls.in_config == in_config)
         result = await session.execute(stmt)
         hardware: Sequence[Hardware] = result.unique().scalars().all()
         return [h for h in hardware if h.type != HardwareType.sensor]
@@ -1213,7 +1213,7 @@ class Measure(GaiaBase):
         return result.scalars().all()
 
 
-class Plant(RemovableMixin, GaiaBase):
+class Plant(InConfigMixin, GaiaBase):
     __tablename__ = "plants"
     uid: Mapped[str] = mapped_column(sa.String(16), primary_key=True)
     name: Mapped[str] = mapped_column(sa.String(32))
@@ -1245,7 +1245,7 @@ class Plant(RemovableMixin, GaiaBase):
             cls,
             session: AsyncSession,
             plants_id: list[str] | None = None,
-            in_use: bool | None = None,
+            in_config: bool | None = None,
     ) -> Sequence[Self]:
         stmt = select(cls)
         if plants_id:
@@ -1253,8 +1253,8 @@ class Plant(RemovableMixin, GaiaBase):
                 (cls.name.in_(plants_id))
                 | (cls.uid.in_(plants_id))
             )
-        if in_use is not None:
-            stmt = stmt.where(cls.in_use == in_use)
+        if in_config is not None:
+            stmt = stmt.where(cls.in_config == in_config)
         result = await session.execute(stmt)
         return result.scalars().all()
 
