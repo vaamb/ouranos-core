@@ -100,10 +100,10 @@ async def create_hardware(
                 routing=Route(
                     engine_uid=ecosystem.engine_uid,
                     ecosystem_uid=ecosystem.uid
-                ).dict(),
+                ),
                 action=CrudAction.create,
                 target="hardware",
-                values=hardware_dict,
+                data=hardware_dict,
             ).dict(),
             namespace="aggregator",
         )
@@ -153,10 +153,10 @@ async def update_hardware(
                 routing=Route(
                     engine_uid=ecosystem.engine_uid,
                     ecosystem_uid=ecosystem.uid
-                ).dict(),
+                ),
                 action=CrudAction.update,
                 target="hardware",
-                values=hardware_dict,
+                data=hardware_dict,
             ).dict(),
             namespace="aggregator",
         )
@@ -193,9 +193,10 @@ async def delete_hardware(
                 routing=Route(
                     engine_uid=ecosystem.engine_uid,
                     ecosystem_uid=ecosystem.uid
-                ).dict(),
+                ),
                 action=CrudAction.delete,
                 target="hardware",
+                data=uid,
             ).dict(),
             namespace="aggregator",
         )

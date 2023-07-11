@@ -686,7 +686,7 @@ class Events:
                 "ecosystem_uid": data["routing"]["ecosystem_uid"],
                 "action": data["action"],
                 "target": data["target"],
-                "payload": json.dumps(data["values"]),
+                "payload": json.dumps(data["data"]),
             })
         if self.broker_type == "socketio":
             await self.emit(

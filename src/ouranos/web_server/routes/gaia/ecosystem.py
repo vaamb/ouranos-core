@@ -101,10 +101,10 @@ async def create_ecosystem(
             data=CrudPayload(
                 routing=Route(
                     engine_uid=ecosystem_dict["engine_uid"],
-                ).dict(),
+                ),
                 action=CrudAction.create,
                 target="ecosystem",
-                values=ecosystem_dict,
+                data=ecosystem_dict,
             ).dict(),
             namespace="aggregator",
         )
@@ -152,10 +152,10 @@ async def update_ecosystem(
                 routing=Route(
                     engine_uid=ecosystem.engine_uid,
                     ecosystem_uid=ecosystem.uid
-                ).dict(),
+                ),
                 action=CrudAction.update,
                 target="ecosystem",
-                values=ecosystem_dict,
+                data=ecosystem_dict,
             ).dict(),
             namespace="aggregator",
         )
@@ -190,10 +190,11 @@ async def delete_ecosystem(
             data=CrudPayload(
                 routing=Route(
                     engine_uid=ecosystem.engine_uid,
-                    ecosystem_uid=ecosystem.uid
-                ).dict(),
+                    ecosystem_uid=ecosystem.uid,
+                ),
                 action=CrudAction.delete,
                 target="ecosystem",
+                data=ecosystem.uid,
             ).dict(),
             namespace="aggregator",
         )
@@ -263,10 +264,10 @@ async def update_management(
                 routing=Route(
                     engine_uid=ecosystem.engine_uid,
                     ecosystem_uid=ecosystem.uid
-                ).dict(),
+                ),
                 action=CrudAction.update,
                 target="management",
-                values=management_dict,
+                data=management_dict,
             ).dict(),
             namespace="aggregator",
         )
@@ -356,10 +357,10 @@ async def update_ecosystem_lighting(
                 routing=Route(
                     engine_uid=ecosystem.engine_uid,
                     ecosystem_uid=ecosystem.uid
-                ).dict(),
+                ),
                 action=CrudAction.update,
                 target="lighting",
-                values=lighting_dict,
+                data=lighting_dict,
             ).dict(),
             namespace="aggregator",
         )
@@ -411,10 +412,10 @@ async def create_environment_parameters(
                 routing=Route(
                     engine_uid=ecosystem.engine_uid,
                     ecosystem_uid=ecosystem.uid
-                ).dict(),
+                ),
                 action=CrudAction.create,
                 target="environment_parameter",
-                values=environment_parameter_dict,
+                data=environment_parameter_dict,
             ).dict(),
             namespace="aggregator",
         )
@@ -468,10 +469,10 @@ async def update_environment_parameters(
                 routing=Route(
                     engine_uid=ecosystem.engine_uid,
                     ecosystem_uid=ecosystem.uid
-                ).dict(),
+                ),
                 action=CrudAction.update,
                 target="environment_parameter",
-                values=environment_parameter_dict,
+                data=environment_parameter_dict,
             ).dict(),
             namespace="aggregator",
         )
@@ -509,9 +510,10 @@ async def delete_environment_parameters(
                 routing=Route(
                     engine_uid=ecosystem.engine_uid,
                     ecosystem_uid=ecosystem.uid
-                ).dict(),
+                ),
                 action=CrudAction.delete,
                 target="environment_parameter",
+                data=parameter
             ).dict(),
             namespace="aggregator",
         )
