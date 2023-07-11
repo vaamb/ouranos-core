@@ -43,6 +43,15 @@ router = APIRouter(
 
 id_param = Path(description="An ecosystem id, either its uid or its name")
 
+in_config_query = Query(
+    default=None, description="Only select ecosystems that are present (True) "
+                              "or have been removed (False) from the current "
+                              "gaia ecosystems config")
+
+in_config_query_hardware = Query(
+    default=None, description="Only select hardware that are present (True) "
+                              "or have been removed (False) from the current "
+                              "gaia ecosystems config")
 
 env_parameter_query = Query(
     default=None, description="The environment parameter targeted. Leave empty "
@@ -66,10 +75,11 @@ async def environment_parameter_or_abort(
 @router.get("", response_model=list[EcosystemInfo])
 async def get_ecosystems(
         ecosystems_id: list[str] | None = ecosystems_uid_q,
+        in_use: bool | None = in_config_query,
         session: AsyncSession = Depends(get_session),
 ):
     ecosystems = await Ecosystem.get_multiple(
-        session=session, ecosystems=ecosystems_id)
+        session=session, ecosystems=ecosystems_id, in_config=in_use)
     return ecosystems
 
 
@@ -211,9 +221,11 @@ async def get_managements_available():
 @router.get("/management", response_model=list[EcosystemManagementInfo])
 async def get_ecosystems_management(
         ecosystems_id: list[str] | None = ecosystems_uid_q,
-        session: AsyncSession = Depends(get_session)
+        in_use: bool | None = in_config_query,
+        session: AsyncSession = Depends(get_session),
 ):
-    ecosystems = await Ecosystem.get_multiple(session, ecosystems_id)
+    ecosystems = await Ecosystem.get_multiple(
+        session=session, ecosystems=ecosystems_id, in_config=in_use)
     response = [
         await ecosystem.functionalities(session)
         for ecosystem in ecosystems
@@ -279,9 +291,11 @@ async def get_ecosystems_sensors_skeleton(
         ecosystems_id: list[str] | None = ecosystems_uid_q,
         level: list[HardwareLevel] | None = hardware_level_q,
         time_window: timeWindow = Depends(get_time_window),
-        session: AsyncSession = Depends(get_session)
+        in_use: bool | None = in_config_query,
+        session: AsyncSession = Depends(get_session),
 ):
-    ecosystems = await Ecosystem.get_multiple(session, ecosystems_id)
+    ecosystems = await Ecosystem.get_multiple(
+        session=session, ecosystems=ecosystems_id, in_config=in_use)
     response = [
         await ecosystem.sensors_data_skeleton(session, time_window, level)
         for ecosystem in ecosystems
@@ -564,20 +578,23 @@ async def create_ecosystem_hardware(
 @router.get("/u/{id}/hardware", response_model=list[HardwareInfo])
 async def get_ecosystem_hardware(
         id: str = id_param,
+        in_use: bool | None = in_config_query_hardware,
         session: AsyncSession = Depends(get_session),
 ):
     hardware = await Hardware.get_multiple(
-        session, None, id, None, None, None)
+        session=session, hardware_uids=None, ecosystem_uids=id, levels=None,
+        types=None, models=None, in_config=in_use)
     return hardware
 
 
 @router.get("/current_data", response_model=list[EcosystemSensorData])
 async def get_ecosystems_current_data(
         ecosystems_id: list[str] | None = ecosystems_uid_q,
-        session: AsyncSession = Depends(get_session)
+        in_use: bool | None = in_config_query,
+        session: AsyncSession = Depends(get_session),
 ):
     ecosystems = await Ecosystem.get_multiple(
-        session=session, ecosystems=ecosystems_id)
+        session=session, ecosystems=ecosystems_id, in_config=in_use)
     response = [
         {
             "ecosystem_uid": ecosystem.uid,
@@ -602,12 +619,13 @@ async def get_ecosystem_current_data(
 
 
 @router.get("/actuators_status", response_model=list[EcosystemActuatorStatus])
-async def get_ecosystems_current_data(
+async def get_ecosystems_actuators_status(
         ecosystems_id: list[str] | None = ecosystems_uid_q,
-        session: AsyncSession = Depends(get_session)
+        in_use: bool | None = in_config_query,
+        session: AsyncSession = Depends(get_session),
 ):
     ecosystems = await Ecosystem.get_multiple(
-        session=session, ecosystems=ecosystems_id)
+        session=session, ecosystems=ecosystems_id, in_config=in_use)
     response = [
         {
             "ecosystem_uid": ecosystem.uid,

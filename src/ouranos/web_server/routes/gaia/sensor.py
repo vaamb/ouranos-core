@@ -29,6 +29,11 @@ current_data_query = Query(default=False, description="Fetch the current data")
 
 historic_data_query = Query(default=False, description="Fetch logged data")
 
+in_config_query = Query(
+    default=None, description="Only select sensors that are present (True) "
+                              "or have been removed (False) from the current "
+                              "gaia ecosystems config")
+
 
 async def sensor_or_abort(
         session: AsyncSession,
@@ -56,11 +61,13 @@ async def get_sensors(
         current_data: bool = current_data_query,
         historic_data: bool = historic_data_query,
         time_window: timeWindow = Depends(get_time_window),
+        in_use: bool | None = in_config_query,
         session: AsyncSession = Depends(get_session),
 ):
     sensors = await Sensor.get_multiple(
-        session, sensors_uid, ecosystems_uid, sensors_level, sensors_model,
-        time_window)
+        session=session, hardware_uids=sensors_uid,
+        ecosystem_uids=ecosystems_uid, levels=sensors_level, 
+        models=sensors_model, time_window=time_window, in_config=in_use)
     return [
         await sensor.get_overview(
             session, measures, current_data, historic_data, time_window)

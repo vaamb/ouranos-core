@@ -148,6 +148,20 @@ class GaiaBase(Base):
         raise NotImplementedError
 
 
+class InConfigMixin:
+    in_config: Mapped[bool] = mapped_column(default=True)
+
+    @classmethod
+    @abstractmethod
+    async def get_multiple(
+            cls,
+            session: AsyncSession,
+            uid: str | list | None = None,
+            in_config: bool | None = None
+    ) -> Sequence[Self]:
+        raise NotImplementedError
+
+
 # ---------------------------------------------------------------------------
 #   Ecosystems-related models, located in db_main and db_archive
 # ---------------------------------------------------------------------------
@@ -228,7 +242,7 @@ class Engine(GaiaBase):
         return response
 
 
-class Ecosystem(GaiaBase):
+class Ecosystem(InConfigMixin, GaiaBase):
     __tablename__ = "ecosystems"
 
     uid: Mapped[str] = mapped_column(sa.String(length=8), primary_key=True)
@@ -296,6 +310,7 @@ class Ecosystem(GaiaBase):
             cls,
             session: AsyncSession,
             ecosystems: str | list[str] | None = None,
+            in_config: bool | None = None,
     ) -> Sequence[Ecosystem]:
         if ecosystems is None:
             stmt = (
@@ -303,6 +318,8 @@ class Ecosystem(GaiaBase):
                 .order_by(Ecosystem.name.asc(),
                           Ecosystem.last_seen.desc())
             )
+            if in_config is not None:
+                stmt = stmt.where(cls.in_config == in_config)
             result = await session.execute(stmt)
             return result.scalars().all()
 
@@ -328,6 +345,8 @@ class Ecosystem(GaiaBase):
                        Ecosystem.name.in_(ecosystems))
                 .order_by(Ecosystem.last_seen.desc(), Ecosystem.name.asc())
             )
+        if in_config is not None:
+            stmt = stmt.where(cls.in_config == in_config)
         result = await session.execute(stmt)
         return result.scalars().all()
 
@@ -791,7 +810,7 @@ AssociationActuatorPlant = Table(
 )
 
 
-class Hardware(GaiaBase):
+class Hardware(InConfigMixin, GaiaBase):
     __tablename__ = "hardware"
 
     uid: Mapped[str] = mapped_column(sa.String(length=32), primary_key=True)
@@ -802,7 +821,6 @@ class Hardware(GaiaBase):
     address: Mapped[str] = mapped_column(sa.String(length=32))
     type: Mapped[HardwareType] = mapped_column()
     model: Mapped[str] = mapped_column(sa.String(length=32))
-    status: Mapped[bool] = mapped_column(default=True)
     last_log: Mapped[Optional[datetime]] = mapped_column()
 
     # relationships
@@ -917,10 +935,13 @@ class Hardware(GaiaBase):
             levels: HardwareLevelNames | list[HardwareLevelNames] | None = None,
             types: HardwareTypeNames | list[HardwareTypeNames] | None = None,
             models: str | list | None = None,
+            in_config: bool | None = None,
     ) -> Sequence[Hardware]:
         stmt = cls.generate_query(
             hardware_uids, ecosystem_uids, levels, types, models
         )
+        if in_config is not None:
+            stmt = stmt.where(cls.in_config == in_config)
         result = await session.execute(stmt)
         return result.unique().scalars().all()
 
@@ -976,11 +997,14 @@ class Sensor(Hardware):
             levels: HardwareLevelNames | list[HardwareLevelNames] | None = None,
             models: str | list | None = None,
             time_window: timeWindow = None,
+            in_config: bool | None = None,
     ) -> Sequence[Self]:
         stmt = cls.generate_query(
             hardware_uids, ecosystem_uids, levels, HardwareType.sensor.value, models)
         if time_window:
             stmt = cls._add_time_window_to_stmt(stmt, time_window)
+        if in_config is not None:
+            stmt = stmt.where(cls.in_config == in_config)
         result = await session.execute(stmt)
         return result.unique().scalars().all()
 
@@ -1107,11 +1131,14 @@ class Actuator(Hardware):
             levels: HardwareLevelNames | list[HardwareLevelNames] | None = None,
             models: str | list | None = None,
             time_window: timeWindow = None,
+            in_config: bool | None = None,
     ) -> Sequence[Self]:
         stmt = cls.generate_query(
             hardware_uids, ecosystem_uids, levels, type, models)
         if time_window:
             stmt = cls._add_time_window_to_stmt(stmt, time_window)
+        if in_config is not None:
+            stmt = stmt.where(cls.in_config == in_config)
         result = await session.execute(stmt)
         hardware: Sequence[Hardware] = result.unique().scalars().all()
         return [h for h in hardware if h.type != HardwareType.sensor]
@@ -1186,7 +1213,7 @@ class Measure(GaiaBase):
         return result.scalars().all()
 
 
-class Plant(GaiaBase):
+class Plant(InConfigMixin, GaiaBase):
     __tablename__ = "plants"
     uid: Mapped[str] = mapped_column(sa.String(16), primary_key=True)
     name: Mapped[str] = mapped_column(sa.String(32))
@@ -1217,7 +1244,8 @@ class Plant(GaiaBase):
     async def get_multiple(
             cls,
             session: AsyncSession,
-            plants_id: list[str] | None = None
+            plants_id: list[str] | None = None,
+            in_config: bool | None = None,
     ) -> Sequence[Self]:
         stmt = select(cls)
         if plants_id:
@@ -1225,6 +1253,8 @@ class Plant(GaiaBase):
                 (cls.name.in_(plants_id))
                 | (cls.uid.in_(plants_id))
             )
+        if in_config is not None:
+            stmt = stmt.where(cls.in_config == in_config)
         result = await session.execute(stmt)
         return result.scalars().all()
 
