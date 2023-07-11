@@ -66,13 +66,13 @@ async def get_multiple_hardware(
             default=None, description="A list of types of hardware"),
         hardware_model: list[str] | None = Query(
             default=None, description="A list of precise hardware model"),
-        in_use: bool | None = in_config_query,
+        in_config: bool | None = in_config_query,
         session: AsyncSession = Depends(get_session),
 ):
     hardware = await Hardware.get_multiple(
         session=session, hardware_uids=hardware_uid,
         ecosystem_uids=ecosystems_uid, levels=hardware_level,
-        types=hardware_type, models=hardware_model, in_config=in_use)
+        types=hardware_type, models=hardware_model, in_config=in_config)
     return hardware
 
 
