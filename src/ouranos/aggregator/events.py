@@ -345,7 +345,7 @@ class Events:
                 await Ecosystem.update_or_create(
                     session, {
                         **ecosystem,
-                        "in_use":True,
+                        "in_config":True,
                         "last_seen": datetime.now(timezone.utc)
                     }
                 )
@@ -408,7 +408,7 @@ class Events:
                 stmt = (
                     delete(EnvironmentParameter)
                     .where(EnvironmentParameter.ecosystem_uid == uid)
-                    .where(Hardware.uid.not_in(environment_parameters_in_config))
+                    .where(EnvironmentParameter.parameter.not_in(environment_parameters_in_config))
                 )
                 await session.execute(stmt)
 
@@ -444,7 +444,7 @@ class Events:
                     # TODO: register multiplexer ?
                     del hardware["multiplexer_model"]
                     await Hardware.update_or_create(
-                        session, values={**hardware, "in_use": True},
+                        session, values={**hardware, "in_config": True},
                         uid=hardware_uid)
                     await sleep(0)
 
