@@ -8,7 +8,7 @@ from gaia_validators import HardwareLevel
 from ouranos.core.database.models.gaia import Measure, Sensor
 from ouranos.core.utils import timeWindow
 from ouranos.web_server.dependencies import get_session, get_time_window
-from ouranos.web_server.routes.gaia.common_queries import (
+from ouranos.web_server.routes.gaia.utils import (
     ecosystems_uid_q, hardware_level_q)
 from ouranos.web_server.routes.utils import assert_single_uid
 from ouranos.web_server.validate.response.gaia import (

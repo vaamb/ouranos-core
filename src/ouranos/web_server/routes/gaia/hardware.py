@@ -13,8 +13,8 @@ from ouranos.core.utils import DispatcherFactory
 from ouranos.web_server.auth import is_operator
 from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.routes.utils import assert_single_uid
-from ouranos.web_server.routes.gaia.common_queries import (
-    ecosystems_uid_q, hardware_level_q)
+from ouranos.web_server.routes.gaia.utils import (
+    ecosystem_or_abort, ecosystems_uid_q, hardware_level_q)
 from ouranos.web_server.validate.payload.gaia import (
     HardwareCreationPayload, HardwareUpdatePayload)
 from ouranos.web_server.validate.response.base import (
@@ -92,7 +92,8 @@ async def create_hardware(
 ):
     hardware_dict = payload.dict()
     try:
-        ecosystem = await Ecosystem.get(session, hardware_dict["ecosystem_uid"])
+        ecosystem_uid = hardware_dict.pop("ecosystem_uid")
+        ecosystem = await ecosystem_or_abort(session, ecosystem_uid)
         # TODO: check address before dispatching
         await dispatcher.emit(
             event="crud",

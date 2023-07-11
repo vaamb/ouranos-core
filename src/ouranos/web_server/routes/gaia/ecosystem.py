@@ -11,23 +11,24 @@ from gaia_validators import (
     TurnActuatorPayload)
 
 from ouranos.core.database.models.gaia import (
-    ActuatorType, Ecosystem, EnvironmentParameter, Lighting)
+    ActuatorType, Ecosystem, EnvironmentParameter, Hardware, Lighting)
 from ouranos.core.utils import DispatcherFactory, timeWindow
 from ouranos.web_server.auth import is_operator
 from ouranos.web_server.dependencies import get_session, get_time_window
 from ouranos.web_server.routes.utils import assert_single_uid
-from ouranos.web_server.routes.gaia.common_queries import (
-    ecosystems_uid_q, hardware_level_q)
+from ouranos.web_server.routes.gaia.utils import (
+    ecosystem_or_abort, ecosystems_uid_q, hardware_level_q)
 from ouranos.web_server.validate.payload.gaia import (
     EcosystemCreationPayload, EcosystemManagementUpdatePayload,
     EcosystemLightingUpdatePayload, EcosystemUpdatePayload,
-    EnvironmentParameterCreationPayload, EnvironmentParameterUpdatePayload)
+    EnvironmentParameterCreationPayload, EnvironmentParameterUpdatePayload,
+    HardwareCreationPayload_NoEcoUid)
 from ouranos.web_server.validate.response.base import (
     ResultResponse, ResultStatus)
 from ouranos.web_server.validate.response.gaia import (
     EcosystemActuatorStatus, EcosystemInfo, EcosystemLightInfo,
     EcosystemManagementInfo, EnvironmentParameterInfo, ManagementInfo,
-    EcosystemSensorData, SensorSkeletonInfo)
+    EcosystemSensorData, HardwareInfo, SensorSkeletonInfo)
 
 
 dispatcher: AsyncDispatcher = DispatcherFactory.get("application")
@@ -46,19 +47,6 @@ id_param = Path(description="An ecosystem id, either its uid or its name")
 env_parameter_query = Query(
     default=None, description="The environment parameter targeted. Leave empty "
                               "to select them all")
-
-
-async def ecosystem_or_abort(
-        session: AsyncSession,
-        ecosystem_id: str,
-) -> Ecosystem:
-    ecosystem = await Ecosystem.get(session=session, ecosystem_id=ecosystem_id)
-    if ecosystem:
-        return ecosystem
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="No ecosystem(s) found"
-    )
 
 
 async def environment_parameter_or_abort(
@@ -530,6 +518,57 @@ async def delete_environment_parameters(
                 f"msg: `{e.__class__.__name__}: {e}`",
             status=ResultStatus.failure
         )
+
+
+@router.post("/u/{id}/hardware",
+             status_code=status.HTTP_202_ACCEPTED,
+             response_model=ResultResponse,
+             dependencies=[Depends(is_operator)])
+async def create_ecosystem_hardware(
+        response: Response,
+        id: str = id_param,
+        payload: HardwareCreationPayload_NoEcoUid = Body(
+            description="Information about the new hardware"),
+        session: AsyncSession = Depends(get_session)
+):
+    hardware_dict = payload.dict()
+    try:
+        ecosystem = await ecosystem_or_abort(session, id)
+        await dispatcher.emit(
+            event="crud",
+            data=CrudPayload(
+                routing=Route(
+                    engine_uid=ecosystem.engine_uid,
+                    ecosystem_uid=ecosystem.uid
+                ),
+                action=CrudAction.create,
+                target="hardware",
+                data=hardware_dict,
+            ).dict(),
+            namespace="aggregator",
+        )
+        return ResultResponse(
+            msg=f"Request to create the new hardware '{hardware_dict['name']}' "
+                f"successfully sent to engine '{ecosystem.engine_uid}'",
+            status=ResultStatus.success
+        )
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        return ResultResponse(
+            msg=f"Failed to send hardware creation order to engine for "
+                f"ecosystem '{id}'. Error msg: `{e.__class__.__name__}: {e}`",
+            status=ResultStatus.failure
+        )
+
+
+@router.get("/u/{id}/hardware", response_model=list[HardwareInfo])
+async def get_ecosystem_hardware(
+        id: str = id_param,
+        session: AsyncSession = Depends(get_session),
+):
+    hardware = await Hardware.get_multiple(
+        session, None, id, None, None, None)
+    return hardware
 
 
 @router.get("/current_data", response_model=list[EcosystemSensorData])
