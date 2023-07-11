@@ -333,22 +333,40 @@ class Events:
         self.logger.debug(f"Received 'base_info' from engine: {engine_uid}")
         data: list[BaseInfoConfigPayloadDict] = self.validate_payload(
             data, BaseInfoConfigPayload, list)
-        ecosystems: list[dict[str, str]] = []
+        engine_in_use: list[str] = []
+        ecosystems_status: list[dict[str, str]] = []
         ecosystems_to_log: list[str] = []
         async with db.scoped_session() as session:
             for payload in data:
                 ecosystem = payload["data"]
+                engine_in_use.append(ecosystem["uid"])
+                ecosystems_status.append({"uid": payload["uid"], "status": ecosystem["status"]})
                 ecosystems_to_log.append(ecosystem["name"])
                 await Ecosystem.update_or_create(
-                    session, {**ecosystem, "last_seen": datetime.now(timezone.utc)}
+                    session, {
+                        **ecosystem,
+                        "in_use":True,
+                        "last_seen": datetime.now(timezone.utc)
+                    }
                 )
-            ecosystems.append({"uid": payload["uid"], "status": ecosystem["status"]})
+
+            # Remove ecosystems not in `ecosystems.cfg` anymore
+            stmt = (
+                select(Ecosystem)
+                .where(Ecosystem.engine_uid == engine_uid)
+                .where(Ecosystem.uid.not_in(engine_in_use))
+            )
+            result = await session.execute(stmt)
+            in_use = result.scalars().all()
+            for ecosystem in in_use:
+                ecosystem.in_use = False
+
         self.logger.debug(
             f"Logged base info from ecosystem(s): {humanize_list(ecosystems_to_log)}"
         )
         await self.ouranos_dispatcher.emit(
             "ecosystem_status",
-            data=ecosystems,
+            data=ecosystems_status,
             namespace="application"
         )
 
@@ -360,8 +378,7 @@ class Events:
             engine_uid: str
     ) -> None:
         self.logger.debug(
-            f"Received 'environmental_parameters' from engine: {engine_uid}"
-        )
+            f"Received 'environmental_parameters' from engine: {engine_uid}")
         data: list[EnvironmentConfigPayloadDict] = self.validate_payload(
             data, EnvironmentConfigPayload, list)
         ecosystems_to_log: list[str] = []
@@ -403,26 +420,33 @@ class Events:
             data, HardwareConfigPayload, list)
         ecosystems_to_log: list[str] = []
         async with db.scoped_session() as session:
-            active_hardware = []
             for payload in data:
+                hardware_in_use = []
                 uid = payload["uid"]
                 ecosystems_to_log.append(
                     await get_ecosystem_name(uid, session=session)
                 )
                 for hardware in payload["data"]:
                     hardware_uid = hardware.pop("uid")
-                    active_hardware.append(hardware_uid)
+                    hardware_in_use.append(hardware_uid)
                     hardware["ecosystem_uid"] = uid
                     # TODO: register multiplexer ?
                     del hardware["multiplexer_model"]
                     await Hardware.update_or_create(
-                        session, values=hardware, uid=hardware_uid)
+                        session, values={**hardware, "in_use": True},
+                        uid=hardware_uid)
                     await sleep(0)
-            stmt = select(Hardware).where(Hardware.uid.not_in(active_hardware))
-            result = await session.execute(stmt)
-            inactive = result.scalars().all()
-            for hardware in inactive:
-                hardware.in_use = False
+
+                # Remove hardware not in `ecosystems.cfg` anymore
+                stmt = (
+                    select(Hardware)
+                    .where(Hardware.ecosystem_uid == uid)
+                    .where(Hardware.uid.not_in(hardware_in_use))
+                )
+                result = await session.execute(stmt)
+                in_use = result.scalars().all()
+                for hardware in in_use:
+                    hardware.in_use = False
         self.logger.debug(
             f"Logged hardware info from ecosystem(s): {humanize_list(ecosystems_to_log)}"
         )
