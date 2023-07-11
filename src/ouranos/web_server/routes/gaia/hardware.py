@@ -4,20 +4,26 @@ from fastapi import (
     APIRouter, Body, Depends, HTTPException, Path, Query, Response, status)
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from gaia_validators import HardwareLevel, HardwareType
+from dispatcher import AsyncDispatcher
+from gaia_validators import (
+    CrudAction, CrudPayload, HardwareLevel, HardwareType, Route)
 
 from ouranos.core.database.models.gaia import Ecosystem, Hardware
+from ouranos.core.utils import DispatcherFactory
 from ouranos.web_server.auth import is_operator
 from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.routes.utils import assert_single_uid
-from ouranos.web_server.routes.gaia.common_queries import (
-    ecosystems_uid_q, hardware_level_q)
+from ouranos.web_server.routes.gaia.utils import (
+    ecosystem_or_abort, ecosystems_uid_q, hardware_level_q)
 from ouranos.web_server.validate.payload.gaia import (
     HardwareCreationPayload, HardwareUpdatePayload)
 from ouranos.web_server.validate.response.base import (
     ResultResponse, ResultStatus)
 from ouranos.web_server.validate.response.gaia import (
     HardwareInfo, HardwareModelInfo)
+
+
+dispatcher: AsyncDispatcher = DispatcherFactory.get("application")
 
 
 router = APIRouter(
@@ -86,9 +92,22 @@ async def create_hardware(
 ):
     hardware_dict = payload.dict()
     try:
-        # TODO: dispatch to Gaia
+        ecosystem_uid = hardware_dict.pop("ecosystem_uid")
+        ecosystem = await ecosystem_or_abort(session, ecosystem_uid)
         # TODO: check address before dispatching
-        ecosystem = await Ecosystem.get(session, hardware_dict["ecosystem_uid"])
+        await dispatcher.emit(
+            event="crud",
+            data=CrudPayload(
+                routing=Route(
+                    engine_uid=ecosystem.engine_uid,
+                    ecosystem_uid=ecosystem.uid
+                ),
+                action=CrudAction.create,
+                target="hardware",
+                data=hardware_dict,
+            ).dict(),
+            namespace="aggregator",
+        )
         return ResultResponse(
             msg=f"Request to create the new hardware '{hardware_dict['name']}' "
                 f"successfully sent to engine '{ecosystem.engine_uid}'",
@@ -129,7 +148,19 @@ async def update_hardware(
     try:
         hardware = await hardware_or_abort(session, uid)
         ecosystem = await Ecosystem.get(session, hardware.ecosystem_uid)
-        # TODO: dispatch to Gaia
+        await dispatcher.emit(
+            event="crud",
+            data=CrudPayload(
+                routing=Route(
+                    engine_uid=ecosystem.engine_uid,
+                    ecosystem_uid=ecosystem.uid
+                ),
+                action=CrudAction.update,
+                target="hardware",
+                data=hardware_dict,
+            ).dict(),
+            namespace="aggregator",
+        )
         return ResultResponse(
             msg=f"Request to update the hardware '{hardware.name}' "
                 f"successfully sent to engine '{ecosystem.engine_uid}'",
@@ -157,7 +188,19 @@ async def delete_hardware(
     try:
         hardware = await hardware_or_abort(session, uid)
         ecosystem = await Ecosystem.get(session, hardware.ecosystem_uid)
-        # TODO: dispatch to Gaia
+        await dispatcher.emit(
+            event="crud",
+            data=CrudPayload(
+                routing=Route(
+                    engine_uid=ecosystem.engine_uid,
+                    ecosystem_uid=ecosystem.uid
+                ),
+                action=CrudAction.delete,
+                target="hardware",
+                data=uid,
+            ).dict(),
+            namespace="aggregator",
+        )
         return ResultResponse(
             msg=f"Request to delete the hardware '{hardware.name}' "
                 f"successfully sent to engine '{ecosystem.engine_uid}'",

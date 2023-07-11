@@ -18,6 +18,7 @@ def safe_enum_or_none_from_name(enum: Enum, name: Optional[Union[str, Enum]]):
 
 
 class EcosystemCreationPayload(BaseModel):
+    engine_uid: str
     name: str
     status: bool = False
     management: int = 0
@@ -76,16 +77,15 @@ class EnvironmentParameterUpdatePayload(BaseModel):
         return safe_enum_or_none_from_name(ClimateParameter, value)
 
 
-class HardwareCreationPayload(BaseModel):
-    ecosystem_uid: str
+class HardwareCreationPayload_NoEcoUid(BaseModel):
     name: str
     level: HardwareLevel
     address: str
     type: HardwareType
     model: str
-    status: bool = True
-    measure: Optional[list[str]] = None
-    plant_uid: Optional[list[str]] = None
+    measures: Optional[list[str]] = None
+    plants: Optional[list[str]] = None
+    multiplexer_model: Optional[str] = None
 
     @validator("level", pre=True)
     def parse_level(cls, value):
@@ -94,6 +94,10 @@ class HardwareCreationPayload(BaseModel):
     @validator("type", pre=True)
     def parse_type(cls, value):
         return safe_enum_from_name(HardwareType, value)
+
+
+class HardwareCreationPayload(HardwareCreationPayload_NoEcoUid):
+    ecosystem_uid: str
 
 
 class HardwareUpdatePayload(BaseModel):

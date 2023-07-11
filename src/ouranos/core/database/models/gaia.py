@@ -4,6 +4,7 @@ from abc import abstractmethod
 from datetime import datetime, time, timedelta, timezone
 from enum import Enum
 from typing import Literal, Optional, Sequence, Self, TypedDict
+from uuid import UUID
 
 from asyncache import cached
 from cachetools import LRUCache, TTLCache
@@ -16,9 +17,9 @@ from sqlalchemy.schema import Table
 from sqlalchemy.sql import func
 
 from gaia_validators import (
-    ActuatorModePayload, ClimateParameter, HardwareLevel, HardwareLevelNames,
-    HardwareType, HardwareTypeNames, IDs as EcosystemIDs, LightMethod,
-    ManagementFlags)
+    ActuatorModePayload, ClimateParameter, CrudAction, HardwareLevel,
+    HardwareLevelNames, HardwareType, HardwareTypeNames, IDs as EcosystemIDs,
+    LightMethod, ManagementFlags, Result)
 
 from ouranos.core.database import ArchiveLink
 from ouranos.core.database.models.common import (
@@ -222,6 +223,10 @@ class Engine(GaiaBase):
         result = await session.execute(stmt)
         return result.scalars().all()
 
+    async def get_crud_requests(self, session: AsyncSession) -> Sequence[CrudRequest]:
+        response = await CrudRequest.get_for_engine(session, self.uid)
+        return response
+
 
 class Ecosystem(GaiaBase):
     __tablename__ = "ecosystems"
@@ -234,7 +239,7 @@ class Ecosystem(GaiaBase):
     management: Mapped[int] = mapped_column(default=0)
     day_start: Mapped[time] = mapped_column(default=time(8, 00))
     night_start: Mapped[time] = mapped_column(default=time(20, 00))
-    engine_uid: Mapped[int] = mapped_column(sa.ForeignKey("engines.uid"))
+    engine_uid: Mapped[str] = mapped_column(sa.ForeignKey("engines.uid"))
 
     # relationships
     engine: Mapped["Engine"] = relationship(back_populates="ecosystems", lazy="selectin")
@@ -345,7 +350,7 @@ class Ecosystem(GaiaBase):
             self,
             session: AsyncSession,
             level: HardwareLevelNames,
-            limits: datetime = time_limits("sensors"),
+            time_limit: datetime = time_limits("sensors"),
     ) -> bool:
         stmt = (
             select(Hardware)
@@ -354,7 +359,7 @@ class Ecosystem(GaiaBase):
                 Hardware.type == HardwareType.sensor,
                 Hardware.level == level
             )
-            .filter(Hardware.last_log >= limits)
+            .filter(Hardware.last_log >= time_limit)
         )
         result = await session.execute(stmt)
         return bool(result.first())
@@ -1312,3 +1317,60 @@ class GaiaWarning(BaseWarning):
             limit: int = 10
     ) -> Sequence[Self]:
         return await super().get_multiple(session, limit)
+
+
+class CrudRequest(GaiaBase):
+    __tablename__ = "crud_requests"
+
+    uuid: Mapped[UUID] = mapped_column(primary_key=True)
+    engine_uid: Mapped[str] = mapped_column(sa.ForeignKey("engines.uid"))
+    ecosystem_uid: Mapped[str] = mapped_column(sa.ForeignKey("ecosystems.uid"))
+    created_on: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
+    result: Mapped[Optional[Result]] = mapped_column()
+    action: Mapped[CrudAction] = mapped_column()
+    target: Mapped[str] = mapped_column()
+    payload: Mapped[Optional[str]] = mapped_column()
+    message: Mapped[Optional[str]] = mapped_column()
+
+    @property
+    def completed(self) -> bool:
+        return self.result is not None
+
+    @classmethod
+    async def get(cls, session: AsyncSession, uuid: UUID) -> Self | None:
+        stmt = select(cls).where(cls.uuid == uuid)
+        result = await session.execute(stmt)
+        return result.scalars().one_or_none()
+
+    @classmethod
+    async def get_multiple(
+            cls,
+            session: AsyncSession,
+            uuid: list[UUID] | None = None,
+            limit: int = 15,
+    ) -> Sequence[Self]:
+        stmt = select(cls)
+        if uuid is not None:
+            stmt = stmt.where(cls.uuid.in_(uuid))
+        stmt = (
+            stmt
+            .order_by(cls.created_on.desc())
+            .limit(limit)
+        )
+        result = await session.execute(stmt)
+        return result.scalars().all()
+
+    @classmethod
+    async def get_for_engine(
+            cls,
+            session: AsyncSession,
+            engine_uid: str,
+            limit: int = 10,
+    ) -> Sequence[Self]:
+        stmt = (
+            select(cls)
+            .where(cls.engine_uid == engine_uid)
+            .limit(limit)
+        )
+        result = await session.execute(stmt)
+        return result.scalars().all()

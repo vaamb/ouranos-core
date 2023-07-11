@@ -9,7 +9,7 @@ from gaia_validators import (
 from ouranos.core.database.models.common import WarningLevel
 from ouranos.core.database.models.gaia import (
     Ecosystem, Engine, EnvironmentParameter, Hardware, Lighting,
-    Measure, Plant, SensorRecord)
+    Measure, Plant, CrudRequest, SensorRecord)
 from ouranos.core.validate.base import BaseModel
 from ouranos.core.validate.utils import sqlalchemy_to_pydantic
 
@@ -170,3 +170,12 @@ class SensorOverview(BaseModel):
     measures: list[MeasureInfo]
     plants: list[PlantInfo]
     data: Optional[SensorOverviewData] = None
+
+
+CrudRequestInfo = sqlalchemy_to_pydantic(
+    CrudRequest,
+    base=BaseModel,
+    extra_fields={
+        "completed": (bool, ...),
+    }
+)

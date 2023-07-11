@@ -6,6 +6,7 @@ import inspect
 import logging
 import random
 from typing import cast, overload, Type, TypedDict
+from uuid import UUID
 
 from cachetools import LRUCache, TTLCache
 from dispatcher import AsyncDispatcher, AsyncEventHandler
@@ -16,17 +17,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from gaia_validators import *
 
-from ouranos import current_app, db
+from ouranos import current_app, db, json
 from ouranos.aggregator.decorators import (
     dispatch_to_application, registration_required)
 from ouranos.core.database.models.gaia import (
-    ActuatorStatus, ActuatorType, Ecosystem, Engine, EnvironmentParameter,
+    ActuatorStatus, CrudRequest, Ecosystem, Engine, EnvironmentParameter,
     Hardware, HealthRecord, Lighting, SensorRecord)
 from ouranos.core.database.models.memory import SensorDbCache
 from ouranos.core.utils import decrypt_uid, humanize_list, validate_uid_token
 
 
 _ecosystem_name_cache = LRUCache(maxsize=32)
+_ecosystem_sid_cache = LRUCache(maxsize=32)
 
 
 class SensorDataRecord(TypedDict):
@@ -65,6 +67,26 @@ async def get_ecosystem_name(
         async with db.scoped_session() as session:
             return await inner_func(session, ecosystem_uid)
         # TODO: return or raise when not found
+
+
+async def get_engine_sid(
+        engine_uid: str,
+        session: AsyncSession | None = None
+) -> str:
+    try:
+        return _ecosystem_sid_cache[engine_uid]
+    except KeyError:
+        async def inner_func(session: AsyncSession, engine_uid: str):
+            engine_obj = await Engine.get(session, engine_uid)
+            if engine_obj is not None:
+                sid = engine_obj.sid
+                _ecosystem_sid_cache[engine_uid] = sid
+                return sid
+
+        if session is not None:
+            return await inner_func(session, engine_uid)
+        async with db.scoped_session() as session:
+            return await inner_func(session, engine_uid)
 
 
 class Events:
@@ -135,7 +157,12 @@ class Events:
     ) -> list[dict]:
         ...
 
-    def validate_payload(self, data: dict | list, model_cls: Type[BaseModel], expected: Type):
+    def validate_payload(
+            self,
+            data: dict | list[dict],
+            model_cls: Type[BaseModel],
+            type_: Type
+    ) -> dict | list[dict]:
         if not data:
             event = inspect.stack()[1].function.lstrip("on_")
             self.logger.error(
@@ -143,20 +170,20 @@ class Events:
                 f"msg: Empty data."
             )
             raise ValidationError
-        if not isinstance(data, expected):
+        if not isinstance(data, type_):
             event = inspect.stack()[1].function.lstrip("on_")
             received = type(data)
             self.logger.error(
                 f"Encountered an error while validating '{event}' data. Error "
-                f"msg: Wrong data format, expected '{expected}', received "
+                f"msg: Wrong data format, expected '{type_}', received "
                 f"'{received}'."
             )
             raise ValidationError
         try:
-            if expected == list:
+            if type_ == list:
                 temp: list[BaseModel] = parse_obj_as(list[model_cls], data)
                 return [obj.dict() for obj in temp]
-            elif expected == dict:
+            elif type_ == dict:
                 return model_cls(**data).dict()
         except ValidationError as e:
             event = inspect.stack()[1].function.lstrip("on_")
@@ -326,40 +353,6 @@ class Events:
         )
 
     @registration_required
-    @dispatch_to_application
-    async def on_management(
-            self,
-            sid: str,
-            data: list[ManagementConfigPayloadDict],
-            engine_uid: str
-    ) -> None:
-        self.logger.debug(f"Received 'management' from engine: {engine_uid}")
-        data: list[ManagementConfigPayloadDict] = self.validate_payload(
-            data, ManagementConfigPayload, list)
-        ecosystems_to_log: list[str] = []
-        async with db.scoped_session() as session:
-            for payload in data:
-                ecosystem = payload["data"]
-                uid: str = payload["uid"]
-                ecosystems_to_log.append(
-                    await get_ecosystem_name(uid, session=session)
-                )
-                ecosystem_obj = await Ecosystem.get(session, uid)
-                for management in ManagementFlags:
-                    try:
-                        if ecosystem[management.name]:
-                            ecosystem_obj.add_management(management)
-                    except KeyError:
-                        # Not implemented in gaia yet
-                        pass
-                session.add(ecosystem_obj)
-                await sleep(0)
-        self.logger.debug(
-            f"Logged management info from ecosystem(s): "
-            f"{humanize_list(ecosystems_to_log)}"
-        )
-
-    @registration_required
     async def on_environmental_parameters(
             self,
             sid: str,
@@ -438,6 +431,41 @@ class Events:
     #   Events Gaia -> Aggregator -> Api
     # --------------------------------------------------------------------------
     @registration_required
+    @dispatch_to_application
+    async def on_management(
+            self,
+            sid: str,
+            data: list[ManagementConfigPayloadDict],
+            engine_uid: str
+    ) -> None:
+        self.logger.debug(f"Received 'management' from engine: {engine_uid}")
+        data: list[ManagementConfigPayloadDict] = self.validate_payload(
+            data, ManagementConfigPayload, list)
+        ecosystems_to_log: list[str] = []
+        async with db.scoped_session() as session:
+            for payload in data:
+                ecosystem = payload["data"]
+                uid: str = payload["uid"]
+                ecosystems_to_log.append(
+                    await get_ecosystem_name(uid, session=session)
+                )
+                ecosystem_obj = await Ecosystem.get(session, uid)
+                ecosystem_obj.reset_managements()
+                for management in ManagementFlags:
+                    try:
+                        if ecosystem[management.name]:
+                            ecosystem_obj.add_management(management)
+                    except KeyError:
+                        # Not implemented in gaia yet
+                        pass
+                session.add(ecosystem_obj)
+                await sleep(0)
+        self.logger.debug(
+            f"Logged management info from ecosystem(s): "
+            f"{humanize_list(ecosystems_to_log)}"
+        )
+
+    @registration_required
     async def on_sensors_data(
             self,
             sid: str,
@@ -449,8 +477,6 @@ class Events:
         )
         data: list[SensorsDataPayloadDict] = self.validate_payload(
             data, SensorsDataPayload, list)
-        await self.ouranos_dispatcher.emit(
-            "current_sensors_data", data=data, namespace="application", ttl=15)
         sensors_data: list[SensorDataRecord] = []
         last_log: dict[str, datetime] = {}
         for ecosystem in data:
@@ -469,6 +495,19 @@ class Events:
             await sleep(0)
         if not sensors_data:
             return
+        logging_period = current_app.config["SENSOR_LOGGING_PERIOD"]
+        await self.ouranos_dispatcher.emit(
+            "current_sensors_data", data=data, namespace="application", ttl=15)
+        data: list[SensorsDataPayloadDict] = [
+            ecosystem for ecosystem in data
+            if (
+                logging_period and
+                ecosystem["data"]["timestamp"].minute % logging_period == 0
+            )
+        ]
+        if data:
+            await self.ouranos_dispatcher.emit(
+                "historic_sensors_data_update", data=data, namespace="application", ttl=15)
         async with db.scoped_session() as session:
             # Send all data to temp database
             await SensorDbCache.insert_data(session, sensors_data)
@@ -480,12 +519,11 @@ class Events:
             )
 
             # Send data to records database if SENSOR_LOGGING_PERIOD requires it
-            logging_period = current_app.config["SENSOR_LOGGING_PERIOD"]
             sensors_data = [
-                s for s in sensors_data
+                sensor_record for sensor_record in sensors_data
                 if (
                     logging_period and
-                    s["timestamp"].minute % logging_period == 0
+                    sensor_record["timestamp"].minute % logging_period == 0
                 )
             ]
             if not sensors_data:
@@ -634,15 +672,38 @@ class Events:
     async def turn_actuator(self, sid, data) -> None:
         await self._turn_actuator(sid, data)
 
-    async def crud(self, sid, data) -> None:
+    async def crud(self, sid, data: CrudPayloadDict) -> None:
+        engine_uid = data["routing"]["engine_uid"]
+        self.logger.debug(
+            f"""Sending crud request {data['uuid']} ({data["action"]} 
+            {data["target"]}) to engine '{engine_uid}'."""
+        )
+        async with db.scoped_session() as session:
+            engine_sid = await get_engine_sid(engine_uid)
+            await CrudRequest.create(session, {
+                "uuid": UUID(data["uuid"]),
+                "engine_uid": engine_uid,
+                "ecosystem_uid": data["routing"]["ecosystem_uid"],
+                "action": data["action"],
+                "target": data["target"],
+                "payload": json.dumps(data["data"]),
+            })
         if self.broker_type == "socketio":
             await self.emit(
-                "crud", data=data, namespace="/gaia", room=sid)
+                "crud", data=data, namespace="/gaia", room=engine_sid)
         elif self.broker_type == "dispatcher":
             await self.emit(
-                "crud", data=data, namespace="/gaia", room=sid, ttl=30)
+                "crud", data=data, namespace="/gaia", room=engine_sid, ttl=30)
         else:
             raise TypeError("Event broker_type is invalid")
+
+    # Response to crud, actual path: Gaia -> Aggregator
+    async def on_crud_result(self, sid, data: CrudResultDict):
+        self.logger.debug(f"Received crud result for request {data['uuid']}")
+        async with db.scoped_session() as session:
+            crud_request = await CrudRequest.get(session, UUID(data["uuid"]))
+            crud_request.result = data["status"]
+            crud_request.message = data["message"]
 
 
 class DispatcherBasedGaiaEvents(AsyncEventHandler, Events):

@@ -28,7 +28,13 @@ def sessionless_hashkey(
         for id_ in ("uid", "id"):
             if hasattr(cls_or_self, id_):
                 inst_ids.append(getattr(cls_or_self, id_))
-    return hashkey(*inst_ids, *args, **kwargs)
+    unlisted_args = []
+    for arg in args:
+        if isinstance(arg, list):
+            unlisted_args.append(tuple(arg))
+        else:
+            unlisted_args.append(arg)
+    return hashkey(*inst_ids, *unlisted_args, **kwargs)
 
 
 def paginate(

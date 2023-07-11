@@ -4,27 +4,34 @@ from fastapi import (
     APIRouter, Body, Depends, HTTPException, Path, Query, Response, status)
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from dispatcher import AsyncDispatcher
 from gaia_validators import (
-    ActuatorModePayload, HardwareLevel, ManagementFlags, TurnActuatorPayload)
+    ActuatorModePayload, ClimateParameter, CrudAction, CrudPayload,
+    HardwareLevel, ManagementFlags, safe_enum_from_name, Route,
+    TurnActuatorPayload)
 
 from ouranos.core.database.models.gaia import (
-    ActuatorType, Ecosystem, EnvironmentParameter, Lighting)
+    ActuatorType, Ecosystem, EnvironmentParameter, Hardware, Lighting)
 from ouranos.core.utils import DispatcherFactory, timeWindow
 from ouranos.web_server.auth import is_operator
 from ouranos.web_server.dependencies import get_session, get_time_window
 from ouranos.web_server.routes.utils import assert_single_uid
-from ouranos.web_server.routes.gaia.common_queries import (
-    ecosystems_uid_q, hardware_level_q)
+from ouranos.web_server.routes.gaia.utils import (
+    ecosystem_or_abort, ecosystems_uid_q, hardware_level_q)
 from ouranos.web_server.validate.payload.gaia import (
     EcosystemCreationPayload, EcosystemManagementUpdatePayload,
     EcosystemLightingUpdatePayload, EcosystemUpdatePayload,
-    EnvironmentParameterCreationPayload, EnvironmentParameterUpdatePayload)
+    EnvironmentParameterCreationPayload, EnvironmentParameterUpdatePayload,
+    HardwareCreationPayload_NoEcoUid)
 from ouranos.web_server.validate.response.base import (
     ResultResponse, ResultStatus)
 from ouranos.web_server.validate.response.gaia import (
     EcosystemActuatorStatus, EcosystemInfo, EcosystemLightInfo,
     EcosystemManagementInfo, EnvironmentParameterInfo, ManagementInfo,
-    EcosystemSensorData, SensorSkeletonInfo)
+    EcosystemSensorData, HardwareInfo, SensorSkeletonInfo)
+
+
+dispatcher: AsyncDispatcher = DispatcherFactory.get("application")
 
 
 router = APIRouter(
@@ -36,22 +43,10 @@ router = APIRouter(
 
 id_param = Path(description="An ecosystem id, either its uid or its name")
 
+
 env_parameter_query = Query(
     default=None, description="The environment parameter targeted. Leave empty "
                               "to select them all")
-
-
-async def ecosystem_or_abort(
-        session: AsyncSession,
-        ecosystem_id: str,
-) -> Ecosystem:
-    ecosystem = await Ecosystem.get(session=session, ecosystem_id=ecosystem_id)
-    if ecosystem:
-        return ecosystem
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="No ecosystem(s) found"
-    )
 
 
 async def environment_parameter_or_abort(
@@ -89,7 +84,18 @@ async def create_ecosystem(
 ):
     ecosystem_dict = payload.dict()
     try:
-        # TODO: dispatch to Gaia
+        await dispatcher.emit(
+            event="crud",
+            data=CrudPayload(
+                routing=Route(
+                    engine_uid=ecosystem_dict["engine_uid"],
+                ),
+                action=CrudAction.create,
+                target="ecosystem",
+                data=ecosystem_dict,
+            ).dict(),
+            namespace="aggregator",
+        )
         return ResultResponse(
             msg=f"Request to create the new ecosystem '{ecosystem_dict['name']}' "
                 f"successfully sent to engine '{ecosystem_dict['engine_uid']}'",
@@ -128,7 +134,19 @@ async def update_ecosystem(
     ecosystem_dict = payload.dict()
     try:
         ecosystem = await ecosystem_or_abort(session, id)
-        # TODO: dispatch to Gaia
+        await dispatcher.emit(
+            event="crud",
+            data=CrudPayload(
+                routing=Route(
+                    engine_uid=ecosystem.engine_uid,
+                    ecosystem_uid=ecosystem.uid
+                ),
+                action=CrudAction.update,
+                target="ecosystem",
+                data=ecosystem_dict,
+            ).dict(),
+            namespace="aggregator",
+        )
         return ResultResponse(
             msg=f"Request to update the ecosystem '{ecosystem.name}' "
                 f"successfully sent to engine '{ecosystem.engine_uid}'",
@@ -155,7 +173,19 @@ async def delete_ecosystem(
 ):
     try:
         ecosystem = await ecosystem_or_abort(session, id)
-        # TODO: dispatch to Gaia
+        await dispatcher.emit(
+            event="crud",
+            data=CrudPayload(
+                routing=Route(
+                    engine_uid=ecosystem.engine_uid,
+                    ecosystem_uid=ecosystem.uid,
+                ),
+                action=CrudAction.delete,
+                target="ecosystem",
+                data=ecosystem.uid,
+            ).dict(),
+            namespace="aggregator",
+        )
         return ResultResponse(
             msg=f"Request to delete the ecosystem '{ecosystem.name}' "
                 f"successfully sent to engine '{ecosystem.engine_uid}'",
@@ -191,7 +221,6 @@ async def get_ecosystems_management(
     return response
 
 
-# TODO: use functionality
 @router.get("/u/{id}/management", response_model=EcosystemManagementInfo)
 async def get_ecosystem_management(
         id: str = id_param,
@@ -217,7 +246,19 @@ async def update_management(
     management_dict = payload.dict()
     try:
         ecosystem = await ecosystem_or_abort(session, id)
-        # TODO: dispatch to Gaia
+        await dispatcher.emit(
+            event="crud",
+            data=CrudPayload(
+                routing=Route(
+                    engine_uid=ecosystem.engine_uid,
+                    ecosystem_uid=ecosystem.uid
+                ),
+                action=CrudAction.update,
+                target="management",
+                data=management_dict,
+            ).dict(),
+            namespace="aggregator",
+        )
         return ResultResponse(
             msg=f"Request to update the ecosystem '{ecosystem.name}'\' management "
                 f"successfully sent to engine '{ecosystem.engine_uid}'",
@@ -298,7 +339,19 @@ async def update_ecosystem_lighting(
     assert_single_uid(id)
     ecosystem = await ecosystem_or_abort(session, id)
     try:
-        # TODO: dispatch to Gaia
+        await dispatcher.emit(
+            event="crud",
+            data=CrudPayload(
+                routing=Route(
+                    engine_uid=ecosystem.engine_uid,
+                    ecosystem_uid=ecosystem.uid
+                ),
+                action=CrudAction.update,
+                target="lighting",
+                data=lighting_dict,
+            ).dict(),
+            namespace="aggregator",
+        )
         return ResultResponse(
             msg=f"Request to update the ecosystem '{ecosystem.name}'\' lighting "
                 f"successfully sent to engine '{ecosystem.engine_uid}'",
@@ -340,8 +393,20 @@ async def create_environment_parameters(
     parameter = environment_parameter_dict["parameter"]
     try:
         ecosystem = await ecosystem_or_abort(session, id)
-        await environment_parameter_or_abort(session, id, parameter)
-        # TODO: dispatch to Gaia
+        safe_enum_from_name(ClimateParameter, parameter)
+        await dispatcher.emit(
+            event="crud",
+            data=CrudPayload(
+                routing=Route(
+                    engine_uid=ecosystem.engine_uid,
+                    ecosystem_uid=ecosystem.uid
+                ),
+                action=CrudAction.create,
+                target="environment_parameter",
+                data=environment_parameter_dict,
+            ).dict(),
+            namespace="aggregator",
+        )
         return ResultResponse(
             msg=f"Request to create the environment parameter '{parameter}' "
                 f"successfully sent to engine '{ecosystem.engine_uid}'",
@@ -386,7 +451,19 @@ async def update_environment_parameters(
     try:
         ecosystem = await ecosystem_or_abort(session, id)
         await environment_parameter_or_abort(session, id, parameter)
-        # TODO: dispatch to Gaia
+        await dispatcher.emit(
+            event="crud",
+            data=CrudPayload(
+                routing=Route(
+                    engine_uid=ecosystem.engine_uid,
+                    ecosystem_uid=ecosystem.uid
+                ),
+                action=CrudAction.update,
+                target="environment_parameter",
+                data=environment_parameter_dict,
+            ).dict(),
+            namespace="aggregator",
+        )
         return ResultResponse(
             msg=f"Request to update the environment parameter '{parameter}' "
                 f"successfully sent to engine '{ecosystem.engine_uid}'",
@@ -406,7 +483,7 @@ async def update_environment_parameters(
                status_code=status.HTTP_202_ACCEPTED,
                response_model=ResultResponse,
                dependencies=[Depends(is_operator)])
-async def update_environment_parameters(
+async def delete_environment_parameters(
         response: Response,
         id: str = id_param,
         parameter: str = Path(description="A climate parameter"),
@@ -415,7 +492,19 @@ async def update_environment_parameters(
     try:
         ecosystem = await ecosystem_or_abort(session, id)
         await environment_parameter_or_abort(session, id, parameter)
-        # TODO: dispatch to Gaia
+        await dispatcher.emit(
+            event="crud",
+            data=CrudPayload(
+                routing=Route(
+                    engine_uid=ecosystem.engine_uid,
+                    ecosystem_uid=ecosystem.uid
+                ),
+                action=CrudAction.delete,
+                target="environment_parameter",
+                data=parameter
+            ).dict(),
+            namespace="aggregator",
+        )
         return ResultResponse(
             msg=f"Request to delete the environment parameter '{parameter}' "
                 f"successfully sent to engine '{ecosystem.engine_uid}'",
@@ -429,6 +518,57 @@ async def update_environment_parameters(
                 f"msg: `{e.__class__.__name__}: {e}`",
             status=ResultStatus.failure
         )
+
+
+@router.post("/u/{id}/hardware",
+             status_code=status.HTTP_202_ACCEPTED,
+             response_model=ResultResponse,
+             dependencies=[Depends(is_operator)])
+async def create_ecosystem_hardware(
+        response: Response,
+        id: str = id_param,
+        payload: HardwareCreationPayload_NoEcoUid = Body(
+            description="Information about the new hardware"),
+        session: AsyncSession = Depends(get_session)
+):
+    hardware_dict = payload.dict()
+    try:
+        ecosystem = await ecosystem_or_abort(session, id)
+        await dispatcher.emit(
+            event="crud",
+            data=CrudPayload(
+                routing=Route(
+                    engine_uid=ecosystem.engine_uid,
+                    ecosystem_uid=ecosystem.uid
+                ),
+                action=CrudAction.create,
+                target="hardware",
+                data=hardware_dict,
+            ).dict(),
+            namespace="aggregator",
+        )
+        return ResultResponse(
+            msg=f"Request to create the new hardware '{hardware_dict['name']}' "
+                f"successfully sent to engine '{ecosystem.engine_uid}'",
+            status=ResultStatus.success
+        )
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        return ResultResponse(
+            msg=f"Failed to send hardware creation order to engine for "
+                f"ecosystem '{id}'. Error msg: `{e.__class__.__name__}: {e}`",
+            status=ResultStatus.failure
+        )
+
+
+@router.get("/u/{id}/hardware", response_model=list[HardwareInfo])
+async def get_ecosystem_hardware(
+        id: str = id_param,
+        session: AsyncSession = Depends(get_session),
+):
+    hardware = await Hardware.get_multiple(
+        session, None, id, None, None, None)
+    return hardware
 
 
 @router.get("/current_data", response_model=list[EcosystemSensorData])
@@ -508,7 +648,6 @@ async def turn_actuator(
     try:
         assert_single_uid(id)
         ecosystem = await ecosystem_or_abort(session, id)
-        dispatcher = DispatcherFactory.get("application")
         await ecosystem.turn_actuator(
             dispatcher, actuator, mode, countdown)
         return ResultResponse(
