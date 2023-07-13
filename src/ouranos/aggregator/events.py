@@ -10,7 +10,7 @@ from uuid import UUID
 
 from cachetools import LRUCache, TTLCache
 from dispatcher import AsyncDispatcher, AsyncEventHandler
-from pydantic import BaseModel, parse_obj_as, ValidationError
+from pydantic import TypeAdapter, ValidationError
 from socketio import AsyncNamespace
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -181,10 +181,10 @@ class Events:
             raise ValidationError
         try:
             if type_ == list:
-                temp: list[BaseModel] = parse_obj_as(list[model_cls], data)
-                return [obj.dict() for obj in temp]
+                temp: list[BaseModel] = TypeAdapter(list[model_cls]).validate_python(data)
+                return [obj.model_dump() for obj in temp]
             elif type_ == dict:
-                return model_cls(**data).dict()
+                return model_cls(**data).model_dump()
         except ValidationError as e:
             event = inspect.stack()[1].function.lstrip("on_")
             msg_list = [f"{error['loc'][0]}: {error['msg']}" for error in e.errors()]

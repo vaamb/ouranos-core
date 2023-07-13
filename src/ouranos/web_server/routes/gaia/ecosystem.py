@@ -92,7 +92,7 @@ async def create_ecosystem(
         payload: EcosystemCreationPayload = Body(
             description="Information about the new ecosystem"),
 ):
-    ecosystem_dict = payload.dict()
+    ecosystem_dict = payload.model_dump()
     try:
         await dispatcher.emit(
             event="crud",
@@ -103,7 +103,7 @@ async def create_ecosystem(
                 action=CrudAction.create,
                 target="ecosystem",
                 data=ecosystem_dict,
-            ).dict(),
+            ).model_dump(),
             namespace="aggregator",
         )
         return ResultResponse(
@@ -141,7 +141,7 @@ async def update_ecosystem(
             description="Updated information about the ecosystem"),
         session: AsyncSession = Depends(get_session)
 ):
-    ecosystem_dict = payload.dict()
+    ecosystem_dict = payload.model_dump()
     try:
         ecosystem = await ecosystem_or_abort(session, id)
         await dispatcher.emit(
@@ -154,7 +154,7 @@ async def update_ecosystem(
                 action=CrudAction.update,
                 target="ecosystem",
                 data=ecosystem_dict,
-            ).dict(),
+            ).model_dump(),
             namespace="aggregator",
         )
         return ResultResponse(
@@ -193,7 +193,7 @@ async def delete_ecosystem(
                 action=CrudAction.delete,
                 target="ecosystem",
                 data=ecosystem.uid,
-            ).dict(),
+            ).model_dump(),
             namespace="aggregator",
         )
         return ResultResponse(
@@ -255,7 +255,7 @@ async def update_management(
             description="Updated information about the ecosystem management"),
         session: AsyncSession = Depends(get_session)
 ):
-    management_dict = payload.dict()
+    management_dict = payload.model_dump()
     try:
         ecosystem = await ecosystem_or_abort(session, id)
         await dispatcher.emit(
@@ -268,7 +268,7 @@ async def update_management(
                 action=CrudAction.update,
                 target="management",
                 data=management_dict,
-            ).dict(),
+            ).model_dump(),
             namespace="aggregator",
         )
         return ResultResponse(
@@ -349,7 +349,7 @@ async def update_ecosystem_lighting(
             description="Updated information about the ecosystem management"),
         session: AsyncSession = Depends(get_session)
 ):
-    lighting_dict = payload.dict()
+    lighting_dict = payload.model_dump()
     assert_single_uid(id)
     ecosystem = await ecosystem_or_abort(session, id)
     try:
@@ -363,7 +363,7 @@ async def update_ecosystem_lighting(
                 action=CrudAction.update,
                 target="lighting",
                 data=lighting_dict,
-            ).dict(),
+            ).model_dump(),
             namespace="aggregator",
         )
         return ResultResponse(
@@ -403,7 +403,7 @@ async def create_environment_parameters(
             description="Creation information about the environment parameters"),
         session: AsyncSession = Depends(get_session)
 ):
-    environment_parameter_dict = payload.dict()
+    environment_parameter_dict = payload.model_dump()
     parameter = environment_parameter_dict["parameter"]
     try:
         ecosystem = await ecosystem_or_abort(session, id)
@@ -418,7 +418,7 @@ async def create_environment_parameters(
                 action=CrudAction.create,
                 target="environment_parameter",
                 data=environment_parameter_dict,
-            ).dict(),
+            ).model_dump(),
             namespace="aggregator",
         )
         return ResultResponse(
@@ -461,7 +461,7 @@ async def update_environment_parameters(
             description="Updated information about the environment parameters"),
         session: AsyncSession = Depends(get_session)
 ):
-    environment_parameter_dict = payload.dict()
+    environment_parameter_dict = payload.model_dump()
     try:
         ecosystem = await ecosystem_or_abort(session, id)
         await environment_parameter_or_abort(session, id, parameter)
@@ -475,7 +475,7 @@ async def update_environment_parameters(
                 action=CrudAction.update,
                 target="environment_parameter",
                 data=environment_parameter_dict,
-            ).dict(),
+            ).model_dump(),
             namespace="aggregator",
         )
         return ResultResponse(
@@ -516,7 +516,7 @@ async def delete_environment_parameters(
                 action=CrudAction.delete,
                 target="environment_parameter",
                 data=parameter
-            ).dict(),
+            ).model_dump(),
             namespace="aggregator",
         )
         return ResultResponse(
@@ -545,7 +545,7 @@ async def create_ecosystem_hardware(
             description="Information about the new hardware"),
         session: AsyncSession = Depends(get_session)
 ):
-    hardware_dict = payload.dict()
+    hardware_dict = payload.model_dump()
     try:
         ecosystem = await ecosystem_or_abort(session, id)
         await dispatcher.emit(
@@ -558,7 +558,7 @@ async def create_ecosystem_hardware(
                 action=CrudAction.create,
                 target="hardware",
                 data=hardware_dict,
-            ).dict(),
+            ).model_dump(),
             namespace="aggregator",
         )
         return ResultResponse(
@@ -659,7 +659,7 @@ async def turn_actuator(
             description="Instruction for the actuator"),
         session: AsyncSession = Depends(get_session)
 ):
-    instruction_dict = payload.dict()
+    instruction_dict = payload.model_dump()
     actuator: ActuatorType = instruction_dict["actuator"]
     mode: ActuatorModePayload = instruction_dict["mode"]
     countdown = instruction_dict["countdown"]

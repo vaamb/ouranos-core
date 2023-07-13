@@ -84,7 +84,7 @@ async def register_new_user(
         )
     token_payload = check_invitation_token(invitation_token)
     try:
-        payload_dict = payload.dict()
+        payload_dict = payload.model_dump()
         errors = []
         username = payload_dict.pop("username")
         user = await User.get(session, username)

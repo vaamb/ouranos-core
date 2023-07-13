@@ -2,7 +2,7 @@ from datetime import time
 from enum import Enum
 from typing import Optional, Union
 
-from pydantic import validator
+from pydantic import field_validator
 
 from gaia_validators import (
     ClimateParameter, HardwareLevel, HardwareType, LightMethod,
@@ -50,7 +50,7 @@ class EcosystemManagementUpdatePayload(BaseModel):
 class EcosystemLightingUpdatePayload(BaseModel):
     method: LightMethod
 
-    @validator("method", pre=True)
+    @field_validator("method", mode="before")
     def parse_method(cls, value):
         return safe_enum_from_name(LightMethod, value)
 
@@ -61,7 +61,7 @@ class EnvironmentParameterCreationPayload(BaseModel):
     night: float
     hysteresis: float = 0.0
 
-    @validator("parameter", pre=True)
+    @field_validator("parameter", mode="before")
     def parse_parameter(cls, value):
         return safe_enum_from_name(ClimateParameter, value)
 
@@ -72,7 +72,7 @@ class EnvironmentParameterUpdatePayload(BaseModel):
     night: Optional[float] = None
     hysteresis: Optional[float] = None
 
-    @validator("parameter", pre=True)
+    @field_validator("parameter", mode="before")
     def parse_parameter(cls, value):
         return safe_enum_or_none_from_name(ClimateParameter, value)
 
@@ -87,11 +87,11 @@ class HardwareCreationPayload_NoEcoUid(BaseModel):
     plants: Optional[list[str]] = None
     multiplexer_model: Optional[str] = None
 
-    @validator("level", pre=True)
+    @field_validator("level", mode="before")
     def parse_level(cls, value):
         return safe_enum_from_name(HardwareLevel, value)
 
-    @validator("type", pre=True)
+    @field_validator("type", mode="before")
     def parse_type(cls, value):
         return safe_enum_from_name(HardwareType, value)
 
@@ -111,10 +111,10 @@ class HardwareUpdatePayload(BaseModel):
     measure: Optional[list[str]] = None
     plant_uid: Optional[list[str]] = None
 
-    @validator("level", pre=True)
+    @field_validator("level", mode="before")
     def parse_level(cls, value):
         return safe_enum_or_none_from_name(HardwareLevel, value)
 
-    @validator("type", pre=True)
+    @field_validator("type", mode="before")
     def parse_type(cls, value):
         return safe_enum_or_none_from_name(HardwareType, value)

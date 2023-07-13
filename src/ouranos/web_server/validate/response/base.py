@@ -1,6 +1,6 @@
 from enum import Enum
 
-from pydantic import validator
+from pydantic import field_validator
 
 from ouranos.core.validate.base import BaseModel
 
@@ -18,7 +18,7 @@ class ResultResponse(BaseResponse):
     msg: str
     status: ResultStatus
 
-    @validator("status", pre=True)
+    @field_validator("status", mode="before")
     def parse_status(cls, value):
         if isinstance(value, Enum):
             return value

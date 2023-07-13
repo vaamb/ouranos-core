@@ -94,7 +94,7 @@ climate: ClimateConfigDict = {
 
 environmental_payload: EnvironmentConfigPayloadDict = \
     wrap_ecosystem_data_payload(
-        EnvironmentConfig(chaos=chaos, sky=sky, climate=[climate]).dict()
+        EnvironmentConfig(chaos=chaos, sky=sky, climate=[climate]).model_dump()
     )
 
 

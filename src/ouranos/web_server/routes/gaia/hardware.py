@@ -92,7 +92,7 @@ async def create_hardware(
             description="Information about the new hardware"),
         session: AsyncSession = Depends(get_session)
 ):
-    hardware_dict = payload.dict()
+    hardware_dict = payload.model_dump()
     try:
         ecosystem_uid = hardware_dict.pop("ecosystem_uid")
         ecosystem = await ecosystem_or_abort(session, ecosystem_uid)
@@ -107,7 +107,7 @@ async def create_hardware(
                 action=CrudAction.create,
                 target="hardware",
                 data=hardware_dict,
-            ).dict(),
+            ).model_dump(),
             namespace="aggregator",
         )
         return ResultResponse(
@@ -146,7 +146,7 @@ async def update_hardware(
             description="Updated information about the hardware"),
         session: AsyncSession = Depends(get_session)
 ):
-    hardware_dict = payload.dict()
+    hardware_dict = payload.model_dump()
     try:
         hardware = await hardware_or_abort(session, uid)
         ecosystem = await Ecosystem.get(session, hardware.ecosystem_uid)
@@ -160,7 +160,7 @@ async def update_hardware(
                 action=CrudAction.update,
                 target="hardware",
                 data=hardware_dict,
-            ).dict(),
+            ).model_dump(),
             namespace="aggregator",
         )
         return ResultResponse(
@@ -200,7 +200,7 @@ async def delete_hardware(
                 action=CrudAction.delete,
                 target="hardware",
                 data=uid,
-            ).dict(),
+            ).model_dump(),
             namespace="aggregator",
         )
         return ResultResponse(

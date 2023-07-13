@@ -79,7 +79,7 @@ async def test_on_register_engine(
     payload = SocketIOEnginePayload(
         engine_uid=engine_uid,
         address=ip_address
-    ).dict()
+    ).model_dump()
     await events_handler.on_register_engine(engine_sid, payload)
     emitted = mock_dispatcher.emit_store[0]
     assert emitted["event"] == "registration_ack"
@@ -291,7 +291,7 @@ async def test_turn_light(
         events_handler: DispatcherBasedGaiaEvents
 ):
     await events_handler.turn_light(engine_sid, turn_actuator_payload)
-    validated_data = TurnActuatorPayload(**turn_actuator_payload).dict()
+    validated_data = TurnActuatorPayload(**turn_actuator_payload).model_dump()
     emitted = mock_dispatcher.emit_store[0]
     assert emitted["event"] == "turn_actuator"
     assert emitted["data"] == validated_data
@@ -305,7 +305,7 @@ async def test_turn_light(
 @pytest.mark.asyncio
 async def test_turn_actuator(mock_dispatcher: MockAsyncDispatcher, events_handler: DispatcherBasedGaiaEvents):
     await events_handler.turn_actuator(engine_sid, turn_actuator_payload)
-    validated_data = TurnActuatorPayload(**turn_actuator_payload).dict()
+    validated_data = TurnActuatorPayload(**turn_actuator_payload).model_dump()
     emitted = mock_dispatcher.emit_store[0]
     assert emitted["event"] == "turn_actuator"
     assert emitted["data"] == validated_data
