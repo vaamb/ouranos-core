@@ -12,7 +12,6 @@ class UserInfo(BaseModel):
     firstname: str | None = None
     lastname: str | None = None
     permissions: int = 0
-    iat: datetime | None
     is_authenticated: bool = False
     is_confirmed: bool = False
 

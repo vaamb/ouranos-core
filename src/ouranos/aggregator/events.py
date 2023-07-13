@@ -701,7 +701,8 @@ class Events:
             raise TypeError("Event broker_type is invalid")
 
     async def turn_light(self, sid, data) -> None:
-        data["actuator"] = "light"
+        if data.get("actuator"):
+            data["actuator"] = "light"
         await self._turn_actuator(sid, data)
 
     async def turn_actuator(self, sid, data) -> None:

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, time
 
 from typing import Optional
 from pydantic import Field
@@ -8,8 +8,8 @@ from gaia_validators import (
 
 from ouranos.core.database.models.common import WarningLevel
 from ouranos.core.database.models.gaia import (
-    Ecosystem, Engine, EnvironmentParameter, Hardware, Lighting,
-    Measure, Plant, CrudRequest, SensorRecord)
+    CrudRequest, Ecosystem, Engine, EnvironmentParameter, Hardware, Measure,
+    Plant, SensorRecord)
 from ouranos.core.validate.base import BaseModel
 from ouranos.core.validate.utils import sqlalchemy_to_pydantic
 
@@ -24,11 +24,13 @@ EcosystemInfo = sqlalchemy_to_pydantic(
 )
 
 
-EcosystemLightInfo = sqlalchemy_to_pydantic(
-    Lighting,
-    base=BaseModel,
-    exclude=["id"]
-)
+class EcosystemLightInfo(BaseModel):
+    ecosystem_uid: str
+    method: LightMethod = LightMethod.fixed
+    morning_start: Optional[time] = None
+    morning_end: Optional[time] = None
+    evening_start: Optional[time] = None
+    evening_end: Optional[time] = None
 
 
 class ManagementInfo(BaseModel):
@@ -80,14 +82,17 @@ PlantInfo = sqlalchemy_to_pydantic(
 )
 
 
-HardwareInfo = sqlalchemy_to_pydantic(
-    Hardware,
-    base=BaseModel,
-    extra_fields={
-        "measures": (list[MeasureInfo], ...),
-        "plants": (list[PlantInfo], ...)
-    }
-)
+class HardwareInfo(BaseModel):
+    uid: str
+    ecosystem_uid: str
+    name: str
+    level: HardwareLevel
+    address: str
+    type: HardwareType
+    model: str
+    last_log: Optional[datetime] = None
+    measures: list[MeasureInfo]
+    plants: list[PlantInfo]
 
 
 EcosystemSensorDataUnit = sqlalchemy_to_pydantic(
@@ -165,11 +170,10 @@ class SensorOverview(BaseModel):
     address: str
     type: HardwareType
     model: str
-    status: bool
-    last_log: Optional[datetime] = None
+    last_log: Optional[datetime]
     measures: list[MeasureInfo]
     plants: list[PlantInfo]
-    data: Optional[SensorOverviewData] = None
+    data: Optional[SensorOverviewData]
 
 
 CrudRequestInfo = sqlalchemy_to_pydantic(
