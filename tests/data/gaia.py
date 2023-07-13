@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import NamedTuple
-
 from datetime import datetime, time, timezone
 
 import gaia_validators as gv

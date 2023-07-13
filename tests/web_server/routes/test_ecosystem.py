@@ -1,3 +1,5 @@
+from datetime import datetime, time
+
 from fastapi.testclient import TestClient
 import pytest
 
@@ -20,7 +22,7 @@ def test_ecosystems(client: TestClient):
     assert data["name"] == ecosystem_name
     assert data["engine_uid"] == engine_uid
     assert data["status"] == ecosystem_dict["status"]
-    assert data["registration_date"] == ecosystem_dict["registration_date"].isoformat()
+    assert datetime.fromisoformat(data["registration_date"]) == ecosystem_dict["registration_date"]
     assert data["day_start"] == sky["day"].isoformat()
     assert data["night_start"] == sky["night"].isoformat()
 
@@ -56,7 +58,7 @@ def test_ecosystem_unique(client: TestClient):
     assert data["name"] == ecosystem_name
     assert data["engine_uid"] == engine_uid
     assert data["status"] == ecosystem_dict["status"]
-    assert data["registration_date"] == ecosystem_dict["registration_date"].isoformat()
+    assert datetime.fromisoformat(data["registration_date"]) == ecosystem_dict["registration_date"]
     assert data["day_start"] == sky["day"].isoformat()
     assert data["night_start"] == sky["night"].isoformat()
 
@@ -164,13 +166,11 @@ def test_light(client: TestClient):
     assert response.status_code == 200
 
     data = json.loads(response.text)[0]
-    assert data["status"] == light_data["status"]
-    assert data["mode"] == light_data["mode"].value
     assert data["method"] == light_data["method"].value
-    assert data["morning_start"] == light_data["morning_start"].isoformat()
-    assert data["morning_end"] == light_data["morning_end"].isoformat()
-    assert data["evening_start"] == light_data["evening_start"].isoformat()
-    assert data["evening_end"] == light_data["evening_end"].isoformat()
+    assert time.fromisoformat(data["morning_start"]) == light_data["morning_start"]
+    assert time.fromisoformat(data["morning_end"]) == light_data["morning_end"]
+    assert time.fromisoformat(data["evening_start"]) == light_data["evening_start"]
+    assert time.fromisoformat(data["evening_end"]) == light_data["evening_end"]
 
 
 def test_light_unique(client: TestClient):
@@ -178,13 +178,11 @@ def test_light_unique(client: TestClient):
     assert response.status_code == 200
 
     data = json.loads(response.text)
-    assert data["status"] == light_data["status"]
-    assert data["mode"] == light_data["mode"].value
     assert data["method"] == light_data["method"].value
-    assert data["morning_start"] == light_data["morning_start"].isoformat()
-    assert data["morning_end"] == light_data["morning_end"].isoformat()
-    assert data["evening_start"] == light_data["evening_start"].isoformat()
-    assert data["evening_end"] == light_data["evening_end"].isoformat()
+    assert time.fromisoformat(data["morning_start"]) == light_data["morning_start"]
+    assert time.fromisoformat(data["morning_end"]) == light_data["morning_end"]
+    assert time.fromisoformat(data["evening_start"]) == light_data["evening_start"]
+    assert time.fromisoformat(data["evening_end"]) == light_data["evening_end"]
 
 
 def test_environment_parameters(client: TestClient):
@@ -216,7 +214,7 @@ def test_current_data(client: TestClient):
     data = json.loads(response.text)[0]
     assert data["ecosystem_uid"] == ecosystem_uid
     inner_data = data["data"][0]
-    assert inner_data["timestamp"] == sensors_data["timestamp"].isoformat()
+    assert datetime.fromisoformat(inner_data["timestamp"]) == sensors_data["timestamp"]
     assert inner_data["sensor_uid"] == sensor_record["sensor_uid"]
     assert inner_data["measure"] == measure_record["measure"]
     assert inner_data["value"] == measure_record["value"]
@@ -229,7 +227,7 @@ def test_current_data_unique(client: TestClient):
     data = json.loads(response.text)
     assert data["ecosystem_uid"] == ecosystem_uid
     inner_data = data["data"][0]
-    assert inner_data["timestamp"] == sensors_data["timestamp"].isoformat()
+    assert datetime.fromisoformat(inner_data["timestamp"]) == sensors_data["timestamp"]
     assert inner_data["sensor_uid"] == sensor_record["sensor_uid"]
     assert inner_data["measure"] == measure_record["measure"]
     assert inner_data["value"] == measure_record["value"]

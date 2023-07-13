@@ -272,8 +272,6 @@ async def test_on_light_data(
 
     async with ecosystem_aware_db.scoped_session() as session:
         light = await Lighting.get(session, ecosystem_uid)
-        assert light.status == light_data["status"]
-        assert light.mode == light_data["mode"]
         assert light.method == light_data["method"]
         assert light.morning_start == light_data["morning_start"]
         assert light.morning_end == light_data["morning_end"]

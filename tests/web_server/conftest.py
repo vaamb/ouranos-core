@@ -42,7 +42,6 @@ async def add_ecosystems(db: AsyncSQLAlchemyWrapper):
         await EnvironmentParameter.create(session, environment_parameter)
 
         adapted_light_data = light_data.copy()
-        adapted_light_data.pop("timer")
         adapted_light_data["ecosystem_uid"] = ecosystem_uid
         await Lighting.create(session, adapted_light_data)
 
