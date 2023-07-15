@@ -1,8 +1,6 @@
 #!/bin/bash
 
-exec </dev/null >"$OURANOS_DIR/logs/stdout" 2>&1
-
-trap '' HUP
+exec </dev/null 1>"$OURANOS_DIR/logs/stdout" 2>&1
 
 if pgrep -x "ouranos" > /dev/null; then
   echo "An instance of Ouranos is already running please stop it before starting another one"
