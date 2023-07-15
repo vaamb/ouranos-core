@@ -27,7 +27,10 @@ class BaseConfig:
         return os.environ.get("OURANOS_DB_DIR") or os.path.join(self.DIR, "DBs")
 
     SECRET_KEY = os.environ.get("OURANOS_SECRET_KEY") or "secret_key"
-    CONNECTION_KEY = os.environ.get("OURANOS_CONNECTION_KEY") or SECRET_KEY
+
+    @property
+    def CONNECTION_KEY(self):
+        return os.environ.get("OURANOS_CONNECTION_KEY") or self.SECRET_KEY
 
     # Logging config
     LOG_TO_STDOUT = True
