@@ -134,7 +134,7 @@ class Events:
         self.ouranos_dispatcher.on("turn_light", self.turn_light)
         self.ouranos_dispatcher.on("turn_actuator", self.turn_actuator)
         self.ouranos_dispatcher.on("crud", self.crud)
-        self.ouranos_dispatcher.start()
+        self.ouranos_dispatcher.start(retry=True, block=False)
 
     async def gaia_background_task(self):
         pass
@@ -226,7 +226,7 @@ class Events:
                     return False
         elif self.broker_type == "dispatcher":
             self.logger.debug(f"Connected to the message broker")
-            await self.emit("register", ttl=2)
+            await self.emit("register", ttl=75)
         else:
             raise TypeError("Event broker_type is invalid")
 

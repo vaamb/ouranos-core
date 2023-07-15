@@ -21,7 +21,7 @@ def registration_required(func: Callable):
             engine_uid: str | None = session.get("engine_uid")
         if engine_uid is None:
             await self.disconnect(sid, namespace="/gaia")
-            raise NotRegisteredError
+            raise NotRegisteredError(f"Engine with sid {sid} is not registered.")
         else:
             return await func(self, sid, data, engine_uid)
     return wrapper

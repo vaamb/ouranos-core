@@ -17,7 +17,7 @@ from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from dispatcher import (
-    AsyncBaseDispatcher, AsyncRedisDispatcher, AsyncAMQPDispatcher
+    AsyncInMemoryDispatcher, AsyncRedisDispatcher, AsyncAMQPDispatcher
 )
 import jwt
 from sqlalchemy import Row
@@ -79,7 +79,7 @@ else:
             return orjson.loads(obj)
 
 
-dispatcher_type: "AsyncBaseDispatcher" | "AsyncRedisDispatcher" | "AsyncAMQPDispatcher"
+dispatcher_type: "AsyncInMemoryDispatcher" | "AsyncRedisDispatcher" | "AsyncAMQPDispatcher"
 
 
 def setup_loop():
@@ -224,7 +224,7 @@ class DispatcherFactory:
             config = config or current_app.config
             broker_url = config["DISPATCHER_URL"]
             if broker_url.startswith("memory://"):
-                return AsyncBaseDispatcher(name, **kwargs)
+                return AsyncInMemoryDispatcher(name, **kwargs)
             elif broker_url.startswith("redis://"):
                 uri = broker_url.removeprefix("redis://")
                 if not uri:

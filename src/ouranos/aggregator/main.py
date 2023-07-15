@@ -169,7 +169,7 @@ class Aggregator(Functionality):
             # Use the internal dispatcher in the event dispatcher
             self.event_handler.ouranos_dispatcher = ouranos_dispatcher
             self.engine.register_event_handler(self.event_handler)
-            self.engine.start()
+            self.engine.start(retry=True, block=False)
         else:
             raise RuntimeError
         self.archiver.start()
