@@ -76,6 +76,7 @@ def create_app(config: dict | None = None) -> FastAPI:
         version=config.get("VERSION"),
         description=description,
         openapi_tags=tags_metadata,
+        openapi_url="/api/openapi.json",
         docs_url="/api/docs",
         redoc_url="/api/redoc",
         default_response_class=JSONResponse,
