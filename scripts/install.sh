@@ -57,7 +57,7 @@ ouranos() {
   case \$1 in
     start) \$OURANOS_DIR/scripts/start.sh ;;
     stop) \$OURANOS_DIR/scripts/stop.sh ;;
-    stdout) tail \$OURANOS_DIR/logs/nohup.out ;;
+    stdout) tail \$OURANOS_DIR/logs/stdout ;;
     update) \$OURANOS_DIR/scripts/update.sh ;;
     *) echo 'Need an argument in start, stop, stdout or update' ;;
   esac

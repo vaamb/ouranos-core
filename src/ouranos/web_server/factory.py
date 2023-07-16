@@ -85,24 +85,14 @@ def create_app(config: dict | None = None) -> FastAPI:
     # Set up CORS
     allowed_origins = []
 
-    address = config.get("FRONTEND_ADDRESS", "127.0.0.1")
-    if config.get("FRONTEND_PORT"):
-        port = config["FRONTEND_PORT"]
-        allowed_origins += [
-            f"http://{address}:{port}",
-            f"ws://{address}:{port}",
-        ]
-    else:
-        allowed_origins += [
-            f"http://{address}:3000",
-            f"ws://{address}:3000",
-        ]
-
     if config.get("DEVELOPMENT") or config.get("TESTING"):
         allowed_origins += [
-            "http://127.0.0.1:5173", "http://localhost:5173",
-            "ws://127.0.0.1:5173", "ws://localhost:5173",
+            "http://127.0.0.1", "ws://127.0.0.1",
         ]
+
+    if config.get("ALLOWED_ORIGINS"):
+        origins = config["ALLOWED_ORIGINS"].split(",")
+        allowed_origins += origins
 
     app.add_middleware(
         CORSMiddleware,
@@ -212,7 +202,6 @@ def create_app(config: dict | None = None) -> FastAPI:
         dispatcher.start()
 
     return app
-
 
 """
 def create_app(config_class=DevelopmentConfig):
