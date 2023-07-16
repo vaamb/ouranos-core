@@ -70,7 +70,7 @@ class BaseSensorData(Base):
     __abstract__ = True
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    measure: Mapped[str] = mapped_column()
+    measure: Mapped[str] = mapped_column(sa.String(16))
     timestamp: Mapped[datetime] = mapped_column(UtcDateTime)
     value: Mapped[float] = mapped_column(sa.Float(precision=2))
 
@@ -96,7 +96,7 @@ class BaseSystemData(Base):
     __abstract__ = True
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    system_uid: Mapped[str] = mapped_column(default="NA")
+    system_uid: Mapped[str] = mapped_column(sa.String(32), default="NA")
     timestamp: Mapped[datetime] = mapped_column(UtcDateTime)
     CPU_used: Mapped[float] = mapped_column(sa.Float(precision=1))
     CPU_temp: Mapped[Optional[float]] = mapped_column(sa.Float(precision=1))

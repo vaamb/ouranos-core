@@ -171,7 +171,7 @@ class Engine(GaiaBase):
     uid: Mapped[str] = mapped_column(sa.String(length=16), primary_key=True)
     sid: Mapped[str] = mapped_column(sa.String(length=32))
     registration_date: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
-    address: Mapped[Optional[str]] = mapped_column(sa.String(length=24))
+    address: Mapped[Optional[str]] = mapped_column(sa.String(length=16))
     last_seen: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())  # , onupdate=func.current_timestamp())
 
     # relationships
@@ -791,21 +791,21 @@ class EnvironmentParameter(GaiaBase):
 AssociationHardwareMeasure = Table(
     "association_hardware_measures", Base.metadata,
     sa.Column("hardware_uid",
-              sa.String(length=32),
+              sa.String(length=16),
               sa.ForeignKey("hardware.uid")),
-    sa.Column("measure_name",
+    sa.Column("measure_id",
               sa.Integer,
-              sa.ForeignKey("measures.name")),
+              sa.ForeignKey("measures.id")),
 )
 
 
 AssociationActuatorPlant = Table(
     "association_actuators_plants", Base.metadata,
     sa.Column("sensor_uid",
-              sa.String(length=32),
+              sa.String(length=16),
               sa.ForeignKey("hardware.uid")),
     sa.Column("plant_uid",
-              sa.Integer,
+              sa.String(length=16),
               sa.ForeignKey("plants.uid")),
 )
 
@@ -813,7 +813,7 @@ AssociationActuatorPlant = Table(
 class Hardware(InConfigMixin, GaiaBase):
     __tablename__ = "hardware"
 
-    uid: Mapped[str] = mapped_column(sa.String(length=32), primary_key=True)
+    uid: Mapped[str] = mapped_column(sa.String(length=16), primary_key=True)
     ecosystem_uid: Mapped[str] = mapped_column(
         sa.String(length=8), sa.ForeignKey("ecosystems.uid"), primary_key=True)
     name: Mapped[str] = mapped_column(sa.String(length=32))
@@ -1148,8 +1148,8 @@ class Measure(GaiaBase):
     __tablename__ = "measures"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(sa.String(length=16))
-    unit: Mapped[str] = mapped_column(sa.String(length=16))
+    name: Mapped[str] = mapped_column(sa.String(length=32))
+    unit: Mapped[str] = mapped_column(sa.String(length=32))
 
     # relationships
     hardware: Mapped[list["Hardware"]] = relationship(
@@ -1215,10 +1215,11 @@ class Measure(GaiaBase):
 
 class Plant(InConfigMixin, GaiaBase):
     __tablename__ = "plants"
-    uid: Mapped[str] = mapped_column(sa.String(16), primary_key=True)
-    name: Mapped[str] = mapped_column(sa.String(32))
-    ecosystem_uid: Mapped[str] = mapped_column(sa.String(length=8), sa.ForeignKey("ecosystems.uid"))
-    species: Mapped[Optional[int]] = mapped_column(sa.String(32), index=True)
+
+    uid: Mapped[str] = mapped_column(sa.String(length=16), primary_key=True)
+    name: Mapped[str] = mapped_column(sa.String(length=32))
+    ecosystem_uid: Mapped[str] = mapped_column(sa.ForeignKey("ecosystems.uid"))
+    species: Mapped[Optional[int]] = mapped_column(sa.String(length=32), index=True)
     sowing_date: Mapped[Optional[datetime]] = mapped_column()
 
     # relationships
@@ -1358,9 +1359,9 @@ class CrudRequest(GaiaBase):
     created_on: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
     result: Mapped[Optional[Result]] = mapped_column()
     action: Mapped[CrudAction] = mapped_column()
-    target: Mapped[str] = mapped_column()
-    payload: Mapped[Optional[str]] = mapped_column()
-    message: Mapped[Optional[str]] = mapped_column()
+    target: Mapped[str] = mapped_column(sa.String(length=32))
+    payload: Mapped[Optional[str]] = mapped_column(sa.String(length=1024))
+    message: Mapped[Optional[str]] = mapped_column(sa.String(length=256))
 
     @property
     def completed(self) -> bool:

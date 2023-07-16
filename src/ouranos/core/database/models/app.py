@@ -152,13 +152,15 @@ anonymous_user = AnonymousUser()
 
 
 AssociationUserRecap = Table(
-    "association_user_recap", Base.metadata,
+    "association_user_recap",
+    Base.metadata,
     sa.Column("user_uid",
-              sa.String(length=32),
+              sa.Integer,
               sa.ForeignKey("users.id")),
     sa.Column("channel_id",
               sa.Integer,
               sa.ForeignKey("communication_channels.id")),
+    info={"bind_key": "app"}
 )
 
 
@@ -168,7 +170,7 @@ class User(Base, UserMixin):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     username: Mapped[str] = mapped_column(sa.String(64), index=True, unique=True)
-    email: Mapped[str] = mapped_column(sa.String(120), index=True, unique=True)
+    email: Mapped[str] = mapped_column(sa.String(64), index=True, unique=True)
 
     # User authentication fields
     password_hash: Mapped[Optional[str]] = mapped_column(sa.String(128))
@@ -551,7 +553,7 @@ class CalendarEvent(Base):  # TODO: apply similar to warnings
     created_at: Mapped[datetime] = mapped_column(default=func.current_timestamp())
     updated_at: Mapped[Optional[datetime]] = mapped_column(onupdate=func.current_timestamp())
     active: Mapped[bool] = mapped_column(default=True)
-    URL: Mapped[Optional[str]] = mapped_column(sa.String(length=1024))
+    URL: Mapped[Optional[str]] = mapped_column(sa.String(length=128))
     content: Mapped[Optional[str]] = mapped_column(sa.String(length=2048))
 
     # relationship

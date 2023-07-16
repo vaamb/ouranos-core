@@ -24,7 +24,7 @@ class System(Base):
     __bind_key__ = "system"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    uid: Mapped[str] = mapped_column()
+    uid: Mapped[str] = mapped_column(sa.String(32))
     RAM_total: Mapped[float] = mapped_column(sa.Float(precision=2))
     DISK_total: Mapped[float] = mapped_column(sa.Float(precision=2))
 
