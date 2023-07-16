@@ -175,7 +175,7 @@ def configure_logging(config: ConfigDict) -> None:
                 "level": f"{'DEBUG' if debug else 'INFO'}",
                 "formatter": "fileFormat",
                 "class": "logging.handlers.RotatingFileHandler",
-                "filename": f"{log_dir / 'base.log'}",
+                "filename": f"{log_dir/'base.log'}",
                 "mode": "a",
                 "maxBytes": 1024 * 512,
                 "backupCount": 5,
@@ -184,9 +184,18 @@ def configure_logging(config: ConfigDict) -> None:
                 "level": "ERROR",
                 "formatter": "fileFormat",
                 "class": "logging.FileHandler",
-                "filename": f"{log_dir / 'errors.log'}",
+                "filename": f"{log_dir/'errors.log'}",
                 "mode": "a",
-            }
+            },
+            "uvicornHandler": {
+                "level": f"{'DEBUG' if debug else 'INFO'}",
+                "formatter": "fileFormat",
+                "class": "logging.handlers.RotatingFileHandler",
+                "filename": f"{log_dir/'uvicorn.log'}",
+                "mode": "a",
+                "maxBytes": 1024 * 512,
+                "backupCount": 5,
+            },
         },
         "loggers": {
             "ouranos": {
@@ -218,7 +227,9 @@ def configure_logging(config: ConfigDict) -> None:
                 "level": f"{'DEBUG' if debug else 'WARNING'}",
             },
             "uvicorn": {
-                "handlers": handlers,
+                "handlers": (
+                    ["streamHandler", "uvicornHandler"] if log_to_stdout
+                    else ["uvicornHandler"]),
                 "level": f"{'DEBUG' if debug else 'INFO'}",
             },
         },
