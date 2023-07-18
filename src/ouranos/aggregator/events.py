@@ -9,12 +9,12 @@ from typing import cast, overload, Type, TypedDict
 from uuid import UUID
 
 from cachetools import LRUCache, TTLCache
-from dispatcher import AsyncDispatcher, AsyncEventHandler
 from pydantic import TypeAdapter, ValidationError
 from socketio import AsyncNamespace
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from dispatcher import AsyncDispatcher, AsyncEventHandler
 from gaia_validators import *
 
 from ouranos import current_app, db, json
@@ -516,23 +516,20 @@ class Events:
         last_log: dict[str, datetime] = {}
         for ecosystem in data:
             ecosystem_data = ecosystem["data"]
-            for sensor_record in ecosystem_data["records"]:
-                sensor_uid: str = sensor_record["sensor_uid"]
-                last_log[sensor_uid] = ecosystem_data["timestamp"]
-                for measure in sensor_record["measures"]:
-                    sensors_data.append(cast(SensorDataRecord, {
-                        "ecosystem_uid": ecosystem["uid"],
-                        "sensor_uid": sensor_record["sensor_uid"],
-                        "measure": measure["measure"],
-                        "timestamp": ecosystem_data["timestamp"],
-                        "value": float(measure["value"]),
-                    }))
+            timestamp = ecosystem_data["timestamp"]
+            for record in ecosystem_data["records"]:
+                sensors_data.append(cast(SensorDataRecord, {
+                    "ecosystem_uid": ecosystem["uid"],
+                    "sensor_uid": record.sensor_uid,
+                    "measure": record.sensor_uid,
+                    "timestamp": record.timestamp if record.timestamp else timestamp,
+                    "value": float(record.value),
+                }))
             await sleep(0)
         if not sensors_data:
             return
         logging_period = current_app.config["SENSOR_LOGGING_PERIOD"]
-        await self.ouranos_dispatcher.emit(
-            "current_sensors_data", data=data, namespace="application", ttl=15)
+
         data: list[SensorsDataPayloadDict] = [
             ecosystem for ecosystem in data
             if (
@@ -540,11 +537,11 @@ class Events:
                 ecosystem["data"]["timestamp"].minute % logging_period == 0
             )
         ]
-        if data:
-            await self.ouranos_dispatcher.emit(
-                "historic_sensors_data_update", data=data, namespace="application", ttl=15)
+        # Dispatch current data
+        await self.ouranos_dispatcher.emit(
+            "current_sensors_data", data=sensors_data, namespace="application", ttl=15)
+        # Log current data in memory
         async with db.scoped_session() as session:
-            # Send all data to temp database
             await SensorDbCache.insert_data(session, sensors_data)
             await session.commit()
             hardware_uids = [*{s["sensor_uid"] for s in sensors_data}]
@@ -553,16 +550,18 @@ class Events:
                 f"{humanize_list(hardware_uids)}"
             )
 
-            # Send data to records database if SENSOR_LOGGING_PERIOD requires it
-            sensors_data = [
-                sensor_record for sensor_record in sensors_data
-                if (
-                    logging_period and
-                    sensor_record["timestamp"].minute % logging_period == 0
-                )
-            ]
-            if not sensors_data:
-                return
+        # Filter data that needs to be logged into db
+        sensors_data: list[SensorDataRecord] = [
+            sensor_data for sensor_data in sensors_data
+            if sensor_data["timestamp"].minute % logging_period == 0
+        ]
+        if not sensors_data:
+            return
+        # Dispatch the data that will become historic data
+        await self.ouranos_dispatcher.emit(
+            "historic_sensors_data_update", data=data, namespace="application", ttl=15)
+        # Log historic data in db
+        async with db.scoped_session() as session:
             await SensorRecord.create_records(session, sensors_data)
             # Update the last_log column for hardware
             hardware_uids = [*{s["sensor_uid"] for s in sensors_data}]
