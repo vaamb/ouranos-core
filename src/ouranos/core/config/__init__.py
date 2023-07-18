@@ -77,7 +77,7 @@ def get_db_dir() -> Path:
 
 def _get_config_class(profile: str | None = None) -> Type[BaseConfig]:
     base_dir = get_base_dir()
-    sys.path.extend([str(base_dir)])
+    sys.path.insert(0, str(base_dir))
     try:
         import config
     except ImportError:
