@@ -5,20 +5,17 @@ import base64
 import dataclasses
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
-from functools import wraps
 import json as _json
 import typing as t
 from typing import Any
 import uuid
 import warnings
 
-import cachetools
 from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from dispatcher import (
-    AsyncInMemoryDispatcher, AsyncRedisDispatcher, AsyncAMQPDispatcher
-)
+    AsyncInMemoryDispatcher, AsyncRedisDispatcher, AsyncAMQPDispatcher)
 import jwt
 from sqlalchemy import Row
 
@@ -207,7 +204,7 @@ class Tokenizer:
             raise TokenError
 
 
-class DispatcherFactory:
+class InternalEventsDispatcherFactory:
     __dispatchers: dict[str, dispatcher_type] = {}
 
     @classmethod

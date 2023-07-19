@@ -12,7 +12,7 @@ from aiohttp import ClientError, ClientSession
 from ouranos import current_app, scheduler
 from ouranos.core.cache import SunTimesCache, WeatherCache
 from ouranos.core.config.consts import WEATHER_MEASURES
-from ouranos.core.utils import DispatcherFactory, json, stripped_warning
+from ouranos.core.utils import InternalEventsDispatcherFactory, json, stripped_warning
 
 
 _weather_recency_limit = 6
@@ -86,7 +86,7 @@ def format_sun_times_data(data: dict[str, str]) -> dict[str, datetime | str]:
 class SkyWatcher:
     def __init__(self, ):
         self.logger: Logger = getLogger("ouranos.aggregator")
-        self.dispatcher = DispatcherFactory.get("aggregator")
+        self.dispatcher = InternalEventsDispatcherFactory.get("aggregator")
         self._mutex = asyncio.Lock()
         self._coordinates = current_app.config.get("HOME_COORDINATES")
         self._API_key = current_app.config.get("DARKSKY_API_KEY")

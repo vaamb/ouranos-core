@@ -16,6 +16,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from dispatcher import AsyncDispatcher, AsyncEventHandler
 from gaia_validators import *
+from gaia_validators import (
+    HealthRecord as gvHealthRecord, SensorRecord as gvSensorRecord)
 
 from ouranos import current_app, db, json
 from ouranos.aggregator.decorators import (
@@ -134,7 +136,6 @@ class Events:
         self.ouranos_dispatcher.on("turn_light", self.turn_light)
         self.ouranos_dispatcher.on("turn_actuator", self.turn_actuator)
         self.ouranos_dispatcher.on("crud", self.crud)
-        self.ouranos_dispatcher.start(retry=True, block=False)
 
     async def gaia_background_task(self):
         pass
@@ -517,7 +518,8 @@ class Events:
         for ecosystem in data:
             ecosystem_data = ecosystem["data"]
             timestamp = ecosystem_data["timestamp"]
-            for record in ecosystem_data["records"]:
+            for raw_record in ecosystem_data["records"]:
+                record: gvSensorRecord = gvSensorRecord(*raw_record)
                 sensors_data.append(cast(SensorDataRecord, {
                     "ecosystem_uid": ecosystem["uid"],
                     "sensor_uid": record.sensor_uid,
@@ -625,16 +627,17 @@ class Events:
         logged: list[str] = []
         values: list[dict] = []
         for payload in data:
-            ecosystem = payload["data"]
+            raw_ecosystem = payload["data"]
+            ecosystem = gvHealthRecord(*raw_ecosystem)
             logged.append(
                 await get_ecosystem_name(payload["uid"], session=None)
             )
             health_data = {
                 "ecosystem_uid": payload["uid"],
-                "timestamp": ecosystem["timestamp"],
-                "green": ecosystem["green"],
-                "necrosis": ecosystem["necrosis"],
-                "health_index": ecosystem["index"]
+                "timestamp": ecosystem.timestamp,
+                "green": ecosystem.green,
+                "necrosis": ecosystem.necrosis,
+                "health_index": ecosystem.index
             }
             values.append(health_data)
         if values:

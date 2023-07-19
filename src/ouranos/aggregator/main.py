@@ -8,7 +8,7 @@ import uvicorn
 
 from ouranos.aggregator.archiver import Archiver
 from ouranos.aggregator.sky_watcher import SkyWatcher
-from ouranos.core.utils import DispatcherFactory
+from ouranos.core.utils import InternalEventsDispatcherFactory
 from ouranos.sdk import Functionality, run_functionality_forever
 
 
@@ -63,9 +63,9 @@ class Aggregator(Functionality):
         :param kwargs: Other parameters to pass to the base class.
         """
         super().__init__(config_profile, config_override, **kwargs)
-        self._uri: str = self.config["GAIA_COMMUNICATION_URL"]
+        self.gaia_broker_uri: str = self.config["GAIA_COMMUNICATION_URL"]
         if (
-            self._uri.startswith("socketio://") and
+            self.gaia_broker_uri.startswith("socketio://") and
             self.config["API_PORT"] == self.config["AGGREGATOR_PORT"]
         ):
             self.logger.warning(
@@ -74,7 +74,7 @@ class Aggregator(Functionality):
             )
 
         try:
-            protocol: str = self._uri[:self._uri.index("://")]
+            protocol: str = self.gaia_broker_uri[:self.gaia_broker_uri.index("://")]
         except ValueError:
             protocol = ""
         if protocol not in {"amqp", "redis", "socketio"}:
@@ -108,7 +108,7 @@ class Aggregator(Functionality):
         self._event_handler = event_handler
 
     def _startup(self) -> None:
-        if self._uri.startswith("socketio://"):
+        if self.gaia_broker_uri.startswith("socketio://"):
             self.logger.debug(
                 "Using Socket.IO as the message broker with Gaia"
             )
@@ -117,7 +117,7 @@ class Aggregator(Functionality):
             self.event_handler = SioBasedGaiaEvents()
             # Create the dispatcher used for internal communication and use it
             #  in the event handler
-            ouranos_dispatcher = DispatcherFactory.get("aggregator")
+            ouranos_dispatcher = InternalEventsDispatcherFactory.get("aggregator")
             self.event_handler.ouranos_dispatcher = ouranos_dispatcher
             # Create the sio server used to communicate with Gaia
             #  It might be the same as the one used for webserver
@@ -142,38 +142,45 @@ class Aggregator(Functionality):
                 )
                 server = uvicorn.Server(config)
                 asyncio.ensure_future(server.serve())
-        elif self._uri.startswith("amqp://") or self._uri.startswith("redis://"):
+        elif self.gaia_broker_uri.startswith("amqp://") or self.gaia_broker_uri.startswith("redis://"):
             # Get the event handler
             from ouranos.aggregator.events import DispatcherBasedGaiaEvents
             self.event_handler = DispatcherBasedGaiaEvents()
             # Create the dispatcher used to communicate with gaia
-            if self._uri.startswith("amqp://"):
+            if self.gaia_broker_uri.startswith("amqp://"):
                 self.logger.debug(
                     "Using RabbitMQ as the message broker with Gaia")
-                if self._uri == "amqp://":
+                if self.gaia_broker_uri == "amqp://":
                     # replace with default url
-                    self._uri = "amqp://guest:guest@localhost:5672//"
+                    broker_uri = "amqp://guest:guest@localhost:5672//"
+                else:
+                    broker_uri = self.gaia_broker_uri
                 from dispatcher import AsyncAMQPDispatcher as Dispatcher
             else:
                 self.logger.debug(
-                    "Using Redis as the message broker with Gaia"
-                )
-                if self._uri == "redis://":
+                    "Using Redis as the message broker with Gaia")
+                if self.gaia_broker_uri == "redis://":
                     # replace with default url
-                    self._uri = "redis://localhost:6379/0"
+                    broker_uri = "redis://localhost:6379/0"
+                else:
+                    broker_uri = self.gaia_broker_uri
                 from dispatcher import AsyncRedisDispatcher as Dispatcher
             self.engine = Dispatcher(
-                "aggregator", url=self._uri, queue_options={"durable": True})
+                "aggregator", url=broker_uri, queue_options={"durable": True})
             # Create the dispatcher used for internal communication
             #  It might be the same as the one used to communicate with Gaia
-            if self.config["DISPATCHER_URL"] == self._uri:
-                ouranos_dispatcher = self.engine
+            separate_ouranos_dispatcher: bool
+            if self.config["DISPATCHER_URL"] == self.gaia_broker_uri:
+                self.event_handler.ouranos_dispatcher = self.engine
+                separate_ouranos_dispatcher = False
             else:
-                ouranos_dispatcher = DispatcherFactory.get("aggregator")
+                self.event_handler.ouranos_dispatcher = InternalEventsDispatcherFactory.get("aggregator")
+                separate_ouranos_dispatcher = True
             # Use the internal dispatcher in the event dispatcher
-            self.event_handler.ouranos_dispatcher = ouranos_dispatcher
             self.engine.register_event_handler(self.event_handler)
             self.engine.start(retry=True, block=False)
+            if separate_ouranos_dispatcher:
+                self.event_handler.ouranos_dispatcher.start(retry=True, block=False)
         else:
             raise RuntimeError
         self.archiver.start()

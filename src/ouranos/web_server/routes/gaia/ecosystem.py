@@ -12,7 +12,7 @@ from gaia_validators import (
 
 from ouranos.core.database.models.gaia import (
     ActuatorType, Ecosystem, EnvironmentParameter, Hardware, Lighting)
-from ouranos.core.utils import DispatcherFactory, timeWindow
+from ouranos.core.utils import InternalEventsDispatcherFactory, timeWindow
 from ouranos.web_server.auth import is_operator
 from ouranos.web_server.dependencies import get_session, get_time_window
 from ouranos.web_server.routes.utils import assert_single_uid
@@ -31,7 +31,7 @@ from ouranos.web_server.validate.response.gaia import (
     EcosystemSensorData, HardwareInfo, SensorSkeletonInfo)
 
 
-dispatcher: AsyncDispatcher = DispatcherFactory.get("application")
+dispatcher: AsyncDispatcher = InternalEventsDispatcherFactory.get("application")
 
 
 router = APIRouter(

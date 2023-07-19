@@ -13,7 +13,7 @@ from socketio.asyncio_server import AsyncServer
 
 from ouranos import current_app
 from ouranos.core.plugins_manager import PluginManager
-from ouranos.core.utils import check_secret_key, DispatcherFactory, json
+from ouranos.core.utils import check_secret_key, InternalEventsDispatcherFactory, json
 from ouranos.web_server.docs import description, tags_metadata
 
 
@@ -172,7 +172,7 @@ def create_app(config: dict | None = None) -> FastAPI:
 
     # Configure Socket.IO and load the socketio
     logger.debug("Configuring Socket.IO server")
-    dispatcher = DispatcherFactory.get("application")
+    dispatcher = InternalEventsDispatcherFactory.get("application")
     sio_manager = create_sio_manager()
     sio = AsyncServer(
         async_mode='asgi', cors_allowed_origins=[], client_manager=sio_manager)
