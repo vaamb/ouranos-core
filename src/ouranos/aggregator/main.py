@@ -149,17 +149,21 @@ class Aggregator(Functionality):
             # Create the dispatcher used to communicate with gaia
             if self._uri.startswith("amqp://"):
                 self.logger.debug(
-                    "Using RabbitMQ as the message broker with Gaia"
-                )
+                    "Using RabbitMQ as the message broker with Gaia")
+                if self._uri == "amqp://":
+                    # replace with default url
+                    self._uri = "amqp://guest:guest@localhost:5672//"
                 from dispatcher import AsyncAMQPDispatcher as Dispatcher
             else:
                 self.logger.debug(
                     "Using Redis as the message broker with Gaia"
                 )
+                if self._uri == "redis://":
+                    # replace with default url
+                    self._uri = "redis://localhost:6379/0"
                 from dispatcher import AsyncRedisDispatcher as Dispatcher
             self.engine = Dispatcher(
-                "aggregator", queue_options={"durable": True}
-            )
+                "aggregator", url=self._uri, queue_options={"durable": True})
             # Create the dispatcher used for internal communication
             #  It might be the same as the one used to communicate with Gaia
             if self.config["DISPATCHER_URL"] == self._uri:

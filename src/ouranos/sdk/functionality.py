@@ -81,11 +81,11 @@ class BaseFunctionality(ABC):
 
         if microservice and (
                 "memory://" in self.config["DISPATCHER_URL"]
-                or "memory://" in self.config["OURANOS_CACHE_URL"]
+                or "memory://" in self.config["CACHE_SERVER_URL"]
         ):
             self.logger.warning(
-                "Using Ouranos as microservices and the memory-based "
-                "dispatcher, this will lead to errors as some data won't "
+                "Using Ouranos as microservices and the memory-based dispatcher "
+                "or cache server, this could lead to errors as some data won't "
                 "be transferred between the different microservices"
             )
 
