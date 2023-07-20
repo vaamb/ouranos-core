@@ -522,7 +522,7 @@ class Events:
                 sensors_data.append(cast(SensorDataRecord, {
                     "ecosystem_uid": ecosystem["uid"],
                     "sensor_uid": record.sensor_uid,
-                    "measure": record.sensor_uid,
+                    "measure": record.measure,
                     "timestamp": record.timestamp if record.timestamp else timestamp,
                     "value": float(record.value),
                 }))
