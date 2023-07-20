@@ -41,7 +41,6 @@ class BaseConfig:
     GAIA_COMMUNICATION_URL = os.environ.get("GAIA_COMMUNICATION_URL") or "amqp://"  # amqp:// or socketio://
     DISPATCHER_URL = os.environ.get("OURANOS_DISPATCHER_URL") or "memory://"  # memory:// or amqp://
     SIO_MANAGER_URL = os.environ.get("OURANOS_SIO_MANAGER_URL") or "memory://"  # memory:// or amqp:// or redis://
-    CACHE_SERVER_URL = os.environ.get("OURANOS_CACHE_URL") or "memory://"  # memory:// or redis://
 
     # Services
     START_API = os.environ.get("OURANOS_START_API", True)
@@ -89,8 +88,7 @@ class BaseConfig:
                        "sqlite+aiosqlite:///" + os.path.join(self.DB_DIR, "system.db")),
             "archive": (os.environ.get("OURANOS_ARCHIVE_DATABASE_URI") or
                         "sqlite+aiosqlite:///" + os.path.join(self.DB_DIR, "archive.db")),
-            "memory": "sqlite+aiosqlite:///" if self.CACHE_SERVER_URL == "memory://"
-                      else self.CACHE_SERVER_URL,
+            "memory": "sqlite+aiosqlite:///",
         }
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
@@ -141,7 +139,6 @@ class BaseConfigDict(TypedDict):
     GAIA_COMMUNICATION_URL: str
     DISPATCHER_URL: str
     SIO_MANAGER_URL: str
-    CACHE_SERVER_URL: str
 
     # Services
     START_API: bool

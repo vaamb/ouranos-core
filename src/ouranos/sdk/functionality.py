@@ -79,10 +79,7 @@ class BaseFunctionality(ABC):
         if not self.is_root:
             self.logger.info(f"Creating Ouranos' {self.name.capitalize()}")
 
-        if microservice and (
-                "memory://" in self.config["DISPATCHER_URL"]
-                or "memory://" in self.config["CACHE_SERVER_URL"]
-        ):
+        if microservice and "memory://" in self.config["DISPATCHER_URL"]:
             self.logger.warning(
                 "Using Ouranos as microservices and the memory-based dispatcher "
                 "or cache server, this could lead to errors as some data won't "
