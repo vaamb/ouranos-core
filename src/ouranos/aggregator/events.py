@@ -287,8 +287,6 @@ class Events:
                 validated = True
             else:
                 await self.disconnect(sid)
-        else:
-            raise TypeError("Event broker_type is invalid")
         if validated:
             now = datetime.now(timezone.utc).replace(microsecond=0)
             engine_info = {
@@ -300,10 +298,11 @@ class Events:
             async with db.scoped_session() as session:
                 await Engine.update_or_create(session, engine_info)
             self.enter_room(sid, room="engines", namespace="/gaia")
+            await sleep(3)
             if self.broker_type == "socketio":
                 await self.emit("registration_ack", room=sid)
             elif self.broker_type == "dispatcher":
-                await self.emit("registration_ack", room=sid, ttl=2)
+                await self.emit("registration_ack", room=sid)
             self.logger.info(f"Successful registration of engine {engine_uid}")
 
     @registration_required
