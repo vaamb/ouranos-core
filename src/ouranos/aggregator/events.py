@@ -12,6 +12,7 @@ from cachetools import LRUCache, TTLCache
 from pydantic import TypeAdapter, ValidationError
 from socketio import AsyncNamespace
 from sqlalchemy import delete, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from dispatcher import AsyncDispatcher, AsyncEventHandler
@@ -540,16 +541,22 @@ class Events:
         ]
         # Dispatch current data
         await self.ouranos_dispatcher.emit(
-            "current_sensors_data", data=sensors_data, namespace="application", ttl=15)
+            "current_sensors_data", data=sensors_data, namespace="application",
+            ttl=15)
+        self.logger.debug(
+            f"Sent `current_sensors_data` to Ouranos")
         # Log current data in memory
         async with db.scoped_session() as session:
             await SensorDbCache.insert_data(session, sensors_data)
-            await session.commit()
             hardware_uids = [*{s["sensor_uid"] for s in sensors_data}]
-            self.logger.debug(
-                f"Updated `sensors_data` cache with data from sensors "
-                f"{humanize_list(hardware_uids)}"
-            )
+            try:
+                await session.commit()
+            except IntegrityError:  # Received same data twice if connection issue for ex.
+                pass
+            else:
+                self.logger.info(
+                    f"Updated `sensors_data` cache with data from sensors "
+                    f"{humanize_list(hardware_uids)}")
 
         # Filter data that needs to be logged into db
         sensors_data: list[SensorDataRecord] = [
@@ -560,7 +567,10 @@ class Events:
             return
         # Dispatch the data that will become historic data
         await self.ouranos_dispatcher.emit(
-            "historic_sensors_data_update", data=data, namespace="application", ttl=15)
+            "historic_sensors_data_update", data=data, namespace="application",
+            ttl=15)
+        self.logger.debug(
+            f"Sent `historic_sensors_data_update` to Ouranos")
         # Log historic data in db
         async with db.scoped_session() as session:
             await SensorRecord.create_records(session, sensors_data)
@@ -568,14 +578,17 @@ class Events:
             hardware_uids = [*{s["sensor_uid"] for s in sensors_data}]
             for hardware in await Hardware.get_multiple(session, hardware_uids):
                 hardware.last_log = last_log.get(hardware.uid)
-            await session.commit()
-            # Get ecosystem IDs
-            ecosystems = await Ecosystem.get_multiple(
-                session, [payload["uid"] for payload in data])
-            self.logger.debug(
-                f"Logged sensors data from ecosystem(s) "
-                f"{humanize_list([e.name for e in ecosystems])}"
-            )
+            try:
+                await session.commit()
+            except IntegrityError:  # Received same data twice if connection issue for ex.
+                pass
+            else:
+                # Get ecosystem IDs
+                ecosystems = await Ecosystem.get_multiple(
+                    session, [payload["uid"] for payload in data])
+                self.logger.info(
+                    f"Logged sensors data from ecosystem(s) "
+                    f"{humanize_list([e.name for e in ecosystems])}")
 
     @registration_required
     @dispatch_to_application
