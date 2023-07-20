@@ -520,14 +520,16 @@ class Events:
             timestamp = ecosystem_data["timestamp"]
             for raw_record in ecosystem_data["records"]:
                 record: gvSensorRecord = gvSensorRecord(*raw_record)
+                record_timestamp = record.timestamp if record.timestamp else timestamp
                 sensors_data.append(cast(SensorDataRecord, {
                     "ecosystem_uid": ecosystem["uid"],
                     "sensor_uid": record.sensor_uid,
                     "measure": record.measure,
-                    "timestamp": record.timestamp if record.timestamp else timestamp,
+                    "timestamp": record_timestamp,
                     "value": float(record.value),
                 }))
-            await sleep(0)
+                last_log[record.sensor_uid] = record_timestamp
+                await sleep(0)
         if not sensors_data:
             return
         logging_period = current_app.config["SENSOR_LOGGING_PERIOD"]
