@@ -87,7 +87,8 @@ def create_app(config: dict | None = None) -> FastAPI:
 
     if config.get("DEVELOPMENT") or config.get("TESTING"):
         allowed_origins += [
-            "http://127.0.0.1", "ws://127.0.0.1",
+            "http://127.0.0.1:5173", "ws://127.0.0.1:5173",  # Vite development server
+            "http://127.0.0.1:3000", "ws://127.0.0.1:3000",  # Node server
         ]
 
     if config.get("ALLOWED_ORIGINS"):
