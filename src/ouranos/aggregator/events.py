@@ -200,37 +200,14 @@ class Events:
     #   Events Gaia <-> Aggregator
     # ---------------------------------------------------------------------------
     async def on_connect(self, sid, environ):
-        # if not self._background_task_started:
-        #     asyncio.ensure_future(self.gaia_background_task())
-        #     self._background_task_started = True
         if self.broker_type == "socketio":
             async with self.session(sid, namespace="/gaia") as session:
                 remote_addr = session["REMOTE_ADDR"] = environ["REMOTE_ADDR"]
-                self.logger.debug(f"Received a connection from {remote_addr}")
-                attempts = self.engines_blacklist.get(remote_addr, 0)
-                max_attempts: int = current_app.config.get("GAIA_CLIENT_MAX_ATTEMPT", 2)
-                if attempts == max_attempts:
-                    self.logger.warning(
-                        f"Received {max_attempts} invalid registration requests "
-                        f"from {remote_addr}."
-                    )
-                if attempts >= max_attempts:
-                    over_attempts = attempts - max_attempts
-                    if over_attempts > 4:
-                        over_attempts = 4
-                    fix_tempering = 1.5 ** over_attempts  # max 5 secs
-                    random_tempering = 2 * random.random() - 1  # [-1: 1]
-                    await sleep(fix_tempering + random_tempering)
-                    try:
-                        self.engines_blacklist[remote_addr] += 1
-                    except KeyError:
-                        pass
-                    return False
+            self.logger.debug(f"Received a connection from {remote_addr}")
+            await self.emit("register")
         elif self.broker_type == "dispatcher":
             self.logger.info(f"Connected to the message broker")
             await self.emit("register", ttl=75)
-        else:
-            raise TypeError("Event broker_type is invalid")
 
     async def on_disconnect(self, sid, *args) -> None:
         self.leave_room(sid, "engines", namespace="/gaia")
@@ -254,28 +231,15 @@ class Events:
         validated = False
         remote_addr: str
         if self.broker_type == "socketio":
+            engine_uid = data.get("engine_uid")
+            self.logger.debug(
+                f"Received 'register_engine' from engine {engine_uid}")
             async with self.session(sid) as session:
                 remote_addr = session["REMOTE_ADDR"]
-                engine_uid = decrypt_uid(data["ikys"])
-                if validate_uid_token(data["uid_token"], engine_uid):
-                    session["engine_uid"] = engine_uid
-                    self.logger.debug(
-                        f"Received 'register_engine' from engine {engine_uid}"
-                    )
-                    validated = True
-                    try:
-                        del self.engines_blacklist[remote_addr]
-                    except KeyError:
-                        pass
-                else:
-                    try:
-                        self.engines_blacklist[remote_addr] += 1
-                    except KeyError:
-                        self.engines_blacklist[remote_addr] = 0
-                    self.logger.info(
-                        f"Received invalid registration request from {remote_addr}")
-                    validated = False
-                    await self.disconnect(sid)
+            if engine_uid:
+                validated = True
+            else:
+                await self.disconnect(sid)
         elif self.broker_type == "dispatcher":
             engine_uid = data.get("engine_uid")
             self.logger.debug(
