@@ -25,7 +25,7 @@ from ouranos.aggregator.decorators import (
     dispatch_to_application, registration_required)
 from ouranos.core.database.models.gaia import (
     ActuatorStatus, CrudRequest, Ecosystem, Engine, EnvironmentParameter,
-    Hardware, HealthRecord, Lighting, SensorRecord)
+    Hardware, HealthRecord, Lighting, Measure, SensorRecord)
 from ouranos.core.database.models.memory import SensorDbCache
 from ouranos.core.utils import decrypt_uid, humanize_list, validate_uid_token
 
@@ -408,6 +408,14 @@ class Events:
                     hardware["ecosystem_uid"] = uid
                     # TODO: register multiplexer ?
                     del hardware["multiplexer_model"]
+                    measures_to_add = []
+                    for measure in hardware["measures"]:
+                        if not bool(await Measure.get(session, measure)):
+                            measures_to_add.append(
+                                {"name": measure, "unit": ""}
+                            )
+                    if measures_to_add:
+                        await Measure.create(session, measures_to_add)
                     await Hardware.update_or_create(
                         session, values={**hardware, "in_config": True},
                         uid=hardware_uid)
