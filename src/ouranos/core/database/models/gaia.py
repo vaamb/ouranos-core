@@ -424,15 +424,25 @@ class Ecosystem(InConfigMixin, GaiaBase):
                     temp[measure_obj.name][sensor_obj.uid] = sensor_obj.name
                 except KeyError:
                     temp[measure_obj.name] = {sensor_obj.uid: sensor_obj.name}
-        skeleton = [{
-            "measure": measure_name,
-            "sensors": [{
-                "uid": sensor_uid,
-                "name": temp[measure_name][sensor_uid]
-            } for sensor_uid in temp[measure_name]]
-        } for measure_name in {
-            key: temp[key] for key in measure_order if temp.get(key)
-        }]
+        skeleton = []
+        for measure_name in measure_order:
+            measure_data = temp.pop(measure_name, None)
+            if measure_data:
+                skeleton.append({
+                    "measure": measure_name,
+                    "sensors": [{
+                        "uid": sensor_uid,
+                        "name": sensor_name
+                    } for sensor_uid, sensor_name in measure_data.items()]
+                })
+        for measure_name, measure_data in temp.items():
+            skeleton.append({
+                "measure": measure_name,
+                "sensors": [{
+                    "uid": sensor_uid,
+                    "name": sensor_name
+                } for sensor_uid, sensor_name in measure_data.items()]
+            })
         return {
             "uid": self.uid,
             "name": self.name,
