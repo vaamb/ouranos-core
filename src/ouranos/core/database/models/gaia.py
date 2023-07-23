@@ -865,7 +865,6 @@ class Hardware(InConfigMixin, GaiaBase):
             if relative_list:
                 if isinstance(relative_list, str):
                     relative_list = [relative_list]
-                relative_list = [m.replace("_", " ") for m in relative_list]
                 objs = await relationship_cls.get_multiple(
                     session, relative_list)
                 relatives = getattr(self, relationship_attr)
@@ -1170,8 +1169,8 @@ class Measure(GaiaBase):
         measures = {
             "temperature": "°C",
             "humidity": "% humidity",
-            "dew point": "°C",
-            "absolute humidity": "°C",
+            "dew_point": "°C",
+            "absolute_humidity": "°C",
             "moisture": "% water capacity"
         }
         for name, unit in measures.items():
