@@ -4,7 +4,6 @@ from asyncio import sleep
 from datetime import datetime, timezone
 import inspect
 import logging
-import random
 from typing import cast, overload, Type, TypedDict
 from uuid import UUID
 
@@ -16,9 +15,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from dispatcher import AsyncDispatcher, AsyncEventHandler
-from gaia_validators import *
-from gaia_validators import (
-    HealthRecord as gvHealthRecord, SensorRecord as gvSensorRecord)
+import gaia_validators as gv
 
 from ouranos import current_app, db, json
 from ouranos.aggregator.decorators import (
@@ -27,7 +24,7 @@ from ouranos.core.database.models.gaia import (
     ActuatorStatus, CrudRequest, Ecosystem, Engine, EnvironmentParameter,
     Hardware, HealthRecord, Lighting, Measure, SensorRecord)
 from ouranos.core.database.models.memory import SensorDbCache
-from ouranos.core.utils import decrypt_uid, humanize_list, validate_uid_token
+from ouranos.core.utils import humanize_list
 
 
 _ecosystem_name_cache = LRUCache(maxsize=32)
@@ -42,12 +39,12 @@ class SensorDataRecord(TypedDict):
     value: float
 
 
-class SocketIOEnginePayload(EnginePayload):
+class SocketIOEnginePayload(gv.EnginePayload):
     ikys: str | None = None
     uid_token: str | None = None
 
 
-class SocketIOEnginePayloadDict(EnginePayloadDict):
+class SocketIOEnginePayloadDict(gv.EnginePayloadDict):
     ikys: str | None
     uid_token: str | None
 
@@ -145,7 +142,7 @@ class Events:
     def validate_payload(
             self,
             data: dict,
-            model_cls: Type[BaseModel],
+            model_cls: Type[gv.BaseModel],
             type_=dict
     ) -> dict:
         ...
@@ -154,7 +151,7 @@ class Events:
     def validate_payload(
             self,
             data: list[dict],
-            model_cls: Type[BaseModel],
+            model_cls: Type[gv.BaseModel],
             type_=list[dict]
     ) -> list[dict]:
         ...
@@ -162,7 +159,7 @@ class Events:
     def validate_payload(
             self,
             data: dict | list[dict],
-            model_cls: Type[BaseModel],
+            model_cls: Type[gv.BaseModel],
             type_: Type
     ) -> dict | list[dict]:
         if not data:
@@ -183,7 +180,7 @@ class Events:
             raise ValidationError
         try:
             if type_ == list:
-                temp: list[BaseModel] = TypeAdapter(list[model_cls]).validate_python(data)
+                temp: list[gv.BaseModel] = TypeAdapter(list[model_cls]).validate_python(data)
                 return [obj.model_dump() for obj in temp]
             elif type_ == dict:
                 return model_cls(**data).model_dump()
@@ -292,12 +289,12 @@ class Events:
     async def on_base_info(
             self,
             sid: str,
-            data: list[BaseInfoConfigPayloadDict],
+            data: list[gv.BaseInfoConfigPayloadDict],
             engine_uid: str
     ) -> None:
         self.logger.debug(f"Received 'base_info' from engine: {engine_uid}")
-        data: list[BaseInfoConfigPayloadDict] = self.validate_payload(
-            data, BaseInfoConfigPayload, list)
+        data: list[gv.BaseInfoConfigPayloadDict] = self.validate_payload(
+            data, gv.BaseInfoConfigPayload, list)
         engines_in_config: list[str] = []
         ecosystems_status: list[dict[str, str]] = []
         ecosystems_to_log: list[str] = []
@@ -339,13 +336,13 @@ class Events:
     async def on_environmental_parameters(
             self,
             sid: str,
-            data: list[EnvironmentConfigPayloadDict],
+            data: list[gv.EnvironmentConfigPayloadDict],
             engine_uid: str
     ) -> None:
         self.logger.debug(
             f"Received 'environmental_parameters' from engine: {engine_uid}")
-        data: list[EnvironmentConfigPayloadDict] = self.validate_payload(
-            data, EnvironmentConfigPayload, list)
+        data: list[gv.EnvironmentConfigPayloadDict] = self.validate_payload(
+            data, gv.EnvironmentConfigPayload, list)
         ecosystems_to_log: list[str] = []
         async with db.scoped_session() as session:
             for payload in data:
@@ -386,14 +383,14 @@ class Events:
     async def on_hardware(
             self,
             sid: str,
-            data: list[HardwareConfigPayloadDict],
+            data: list[gv.HardwareConfigPayloadDict],
             engine_uid: str
     ) -> None:
         self.logger.debug(
             f"Received 'hardware' from engine: {engine_uid}"
         )
-        data: list[HardwareConfigPayloadDict] = self.validate_payload(
-            data, HardwareConfigPayload, list)
+        data: list[gv.HardwareConfigPayloadDict] = self.validate_payload(
+            data, gv.HardwareConfigPayload, list)
         ecosystems_to_log: list[str] = []
         async with db.scoped_session() as session:
             for payload in data:
@@ -443,12 +440,12 @@ class Events:
     async def on_management(
             self,
             sid: str,
-            data: list[ManagementConfigPayloadDict],
+            data: list[gv.ManagementConfigPayloadDict],
             engine_uid: str
     ) -> None:
         self.logger.debug(f"Received 'management' from engine: {engine_uid}")
-        data: list[ManagementConfigPayloadDict] = self.validate_payload(
-            data, ManagementConfigPayload, list)
+        data: list[gv.ManagementConfigPayloadDict] = self.validate_payload(
+            data, gv.ManagementConfigPayload, list)
         ecosystems_to_log: list[str] = []
         async with db.scoped_session() as session:
             for payload in data:
@@ -459,7 +456,7 @@ class Events:
                 )
                 ecosystem_obj = await Ecosystem.get(session, uid)
                 ecosystem_obj.reset_managements()
-                for management in ManagementFlags:
+                for management in gv.ManagementFlags:
                     try:
                         if ecosystem[management.name]:
                             ecosystem_obj.add_management(management)
@@ -477,21 +474,21 @@ class Events:
     async def on_sensors_data(
             self,
             sid: str,
-            data: list[SensorsDataPayloadDict],
+            data: list[gv.SensorsDataPayloadDict],
             engine_uid: str
     ) -> None:
         self.logger.debug(
             f"Received 'sensors_data' from engine: {engine_uid}"
         )
-        data: list[SensorsDataPayloadDict] = self.validate_payload(
-            data, SensorsDataPayload, list)
+        data: list[gv.SensorsDataPayloadDict] = self.validate_payload(
+            data, gv.SensorsDataPayload, list)
         sensors_data: list[SensorDataRecord] = []
         last_log: dict[str, datetime] = {}
         for ecosystem in data:
             ecosystem_data = ecosystem["data"]
             timestamp = ecosystem_data["timestamp"]
             for raw_record in ecosystem_data["records"]:
-                record: gvSensorRecord = gvSensorRecord(*raw_record)
+                record = gv.SensorRecord(*raw_record)
                 record_timestamp = record.timestamp if record.timestamp else timestamp
                 sensors_data.append(cast(SensorDataRecord, {
                     "ecosystem_uid": ecosystem["uid"],
@@ -506,7 +503,7 @@ class Events:
             return
         logging_period = current_app.config["SENSOR_LOGGING_PERIOD"]
 
-        data: list[SensorsDataPayloadDict] = [
+        data: list[gv.SensorsDataPayloadDict] = [
             ecosystem for ecosystem in data
             if (
                 logging_period and
@@ -569,13 +566,13 @@ class Events:
     async def on_actuator_data(
             self,
             sid: str,
-            data: list[ActuatorsDataPayloadDict],
+            data: list[gv.ActuatorsDataPayloadDict],
             engine_uid: str
     ) -> None:
         self.logger.debug(
             f"Received 'update_health_data' from {engine_uid}")
-        data: list[ActuatorsDataPayloadDict] = self.validate_payload(
-            data, ActuatorsDataPayload, list)
+        data: list[gv.ActuatorsDataPayloadDict] = self.validate_payload(
+            data, gv.ActuatorsDataPayload, list)
         logged: list[str] = []
         async with db.scoped_session() as session:
             for payload in data:
@@ -603,18 +600,18 @@ class Events:
     async def on_health_data(
             self,
             sid: str,
-            data: list[HealthDataPayloadDict],
+            data: list[gv.HealthDataPayloadDict],
             engine_uid: str
     ) -> None:
         self.logger.debug(
             f"Received 'update_health_data' from {engine_uid}")
-        data: list[HealthDataPayloadDict] = self.validate_payload(
-            data, HealthDataPayload, list)
+        data: list[gv.HealthDataPayloadDict] = self.validate_payload(
+            data, gv.HealthDataPayload, list)
         logged: list[str] = []
         values: list[dict] = []
         for payload in data:
             raw_ecosystem = payload["data"]
-            ecosystem = gvHealthRecord(*raw_ecosystem)
+            ecosystem = gv.HealthRecord(*raw_ecosystem)
             logged.append(
                 await get_ecosystem_name(payload["uid"], session=None)
             )
@@ -639,12 +636,12 @@ class Events:
     async def on_light_data(
             self,
             sid: str,
-            data: list[LightDataPayloadDict],
+            data: list[gv.LightDataPayloadDict],
             engine_uid: str
     ) -> None:
         self.logger.debug(f"Received 'light_data' from {engine_uid}")
-        data: list[LightDataPayloadDict] = self.validate_payload(
-            data, LightDataPayload, list)
+        data: list[gv.LightDataPayloadDict] = self.validate_payload(
+            data, gv.LightDataPayload, list)
         ecosystems_to_log: list[str] = []
         async with db.scoped_session() as session:
             for payload in data:
@@ -668,9 +665,9 @@ class Events:
     # ---------------------------------------------------------------------------
     #   Events Api -> Aggregator -> Gaia
     # ---------------------------------------------------------------------------
-    async def _turn_actuator(self, sid, data: TurnActuatorPayloadDict) -> None:
-        data: TurnActuatorPayloadDict = self.validate_payload(
-            data, TurnActuatorPayload, dict)
+    async def _turn_actuator(self, sid, data: gv.TurnActuatorPayloadDict) -> None:
+        data: gv.TurnActuatorPayloadDict = self.validate_payload(
+            data, gv.TurnActuatorPayload, dict)
         async with db.scoped_session() as session:
             ecosystem_uid = data["ecosystem_uid"]
             ecosystem = await Ecosystem.get(session, ecosystem_uid)
@@ -696,7 +693,7 @@ class Events:
     async def turn_actuator(self, sid, data) -> None:
         await self._turn_actuator(sid, data)
 
-    async def crud(self, sid, data: CrudPayloadDict) -> None:
+    async def crud(self, sid, data: gv.CrudPayloadDict) -> None:
         engine_uid = data["routing"]["engine_uid"]
         self.logger.debug(
             f"""Sending crud request {data['uuid']} ({data["action"]} 
@@ -722,7 +719,7 @@ class Events:
             raise TypeError("Event broker_type is invalid")
 
     # Response to crud, actual path: Gaia -> Aggregator
-    async def on_crud_result(self, sid, data: CrudResultDict):
+    async def on_crud_result(self, sid, data: gv.CrudResultDict):
         self.logger.debug(f"Received crud result for request {data['uuid']}")
         async with db.scoped_session() as session:
             crud_request = await CrudRequest.get(session, UUID(data["uuid"]))

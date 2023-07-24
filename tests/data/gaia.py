@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-from datetime import timezone
+from typing import NamedTuple
 
-from gaia_validators import *
+from datetime import datetime, time, timezone
+
+import gaia_validators as gv
 
 
 ip_address = "127.0.0.1"
@@ -13,7 +15,7 @@ ecosystem_name = "TestingEcosystem"
 hardware_uid = "hardware_uid"
 
 
-def wrap_ecosystem_data_payload(data: dict | list[dict]) -> dict:
+def wrap_ecosystem_data_payload(data: dict | list[dict] | NamedTuple) -> dict:
     return {
         "uid": ecosystem_uid,
         "data": data,
@@ -42,7 +44,7 @@ engine_dict = {
 }
 
 
-base_info: BaseInfoConfigDict = {
+base_info: gv.BaseInfoConfigDict = {
     "engine_uid": engine_uid,
     "uid": ecosystem_uid,
     "name": ecosystem_name,
@@ -50,11 +52,11 @@ base_info: BaseInfoConfigDict = {
 }
 
 
-base_info_payload: BaseInfoConfigPayloadDict = \
+base_info_payload: gv.BaseInfoConfigPayloadDict = \
     wrap_ecosystem_data_payload(base_info)
 
 
-management_data: ManagementConfigDict = {
+management_data: gv.ManagementConfigDict = {
     "sensors": True,
     "light": True,
     "climate": True,
@@ -66,25 +68,25 @@ management_data: ManagementConfigDict = {
 }
 
 
-management_payload: ManagementConfigPayloadDict = \
+management_payload: gv.ManagementConfigPayloadDict = \
     wrap_ecosystem_data_payload(management_data)
 
 
-chaos: ChaosConfigDict = {
+chaos: gv.ChaosConfigDict = {
     "frequency": 10,
     "duration": 2,
     "intensity": 0.2,
 }
 
 
-sky: SkyConfigDict = {
+sky: gv.SkyConfigDict = {
     "day": time(6, 0),
     "night": time(22, 0),
-    "lighting": LightMethod.elongate,
+    "lighting": gv.LightMethod.elongate,
 }
 
 
-climate: ClimateConfigDict = {
+climate: gv.ClimateConfigDict = {
     "parameter": "temperature",
     "day": 42,
     "night": 21,
@@ -92,18 +94,18 @@ climate: ClimateConfigDict = {
 }
 
 
-environmental_payload: EnvironmentConfigPayloadDict = \
+environmental_payload: gv.EnvironmentConfigPayloadDict = \
     wrap_ecosystem_data_payload(
-        EnvironmentConfig(chaos=chaos, sky=sky, climate=[climate]).model_dump()
+        gv.EnvironmentConfig(chaos=chaos, sky=sky, climate=[climate]).model_dump()
     )
 
 
-hardware_data: HardwareConfigDict = {
+hardware_data: gv.HardwareConfigDict = {
     "uid": hardware_uid,
     "name": "TestThermometer",
     "address": "GPIO_7",
-    "type": HardwareType.sensor.value,
-    "level": HardwareLevel.environment.value,
+    "type": gv.HardwareType.sensor.value,
+    "level": gv.HardwareLevel.environment.value,
     "model": "virtualDHT22",
     "measures": ["temperature"],
     "plants": [],
@@ -111,65 +113,65 @@ hardware_data: HardwareConfigDict = {
 }
 
 
-hardware_payload: HardwareConfigPayloadDict = \
+hardware_payload: gv.HardwareConfigPayloadDict = \
     wrap_ecosystem_data_payload([hardware_data])
 
 
-measure_record: MeasureRecordDict = {
-    "measure": "temperature",
-    "value": 42
-}
+measure_record = gv.MeasureAverage(
+    "temperature",
+    42,
+    None
+)
 
 
-sensor_record: SensorRecordDict = {
-    "sensor_uid": "hardware_uid",
-    "measures": [measure_record]
-}
+sensor_record = gv.SensorRecord(
+    "hardware_uid",
+    "temperature",
+    42,
+    None
+)
 
 
-sensors_data: SensorsDataDict = {
+sensors_data: gv.SensorsDataDict = {
     "timestamp": datetime.now(timezone.utc),
     "records": [sensor_record],
     "average": [measure_record]
 }
 
 
-sensors_data_payload: SensorsDataPayloadDict = \
+sensors_data_payload: gv.SensorsDataPayloadDict = \
     wrap_ecosystem_data_payload(sensors_data)
 
 
-health_data: HealthDataDict = {
-    "timestamp": datetime.now(timezone.utc),
-    "green": 0.57,
-    "necrosis": 0.15,
-    "index": 0.85,
-}
+health_data: gv.HealthRecord = gv.HealthRecord(
+    0.57,
+    0.15,
+    0.85,
+    datetime.now(timezone.utc)
+)
 
 
-health_data_payload: HealthDataPayloadDict = \
+health_data_payload: gv.HealthDataPayloadDict = \
     wrap_ecosystem_data_payload(health_data)
 
 
-light_data: LightDataDict = {
+light_data: gv.LightDataDict = {
     "morning_start": datetime.now(timezone.utc).time(),
     "morning_end": datetime.now(timezone.utc).time(),
     "evening_start": datetime.now(timezone.utc).time(),
     "evening_end": datetime.now(timezone.utc).time(),
-    "status": False,
-    "mode": ActuatorMode.automatic,
-    "method": LightMethod.elongate,
-    "timer": 0.0,
+    "method": gv.LightMethod.elongate,
 }
 
 
-light_data_payload: LightDataPayloadDict = \
+light_data_payload: gv.LightDataPayloadDict = \
     wrap_ecosystem_data_payload(light_data)
 
 
-turn_actuator_payload: TurnActuatorPayloadDict = {
+turn_actuator_payload: gv.TurnActuatorPayloadDict = {
     "ecosystem_uid": ecosystem_uid,
-    "actuator": HardwareType.light,
-    "mode": ActuatorMode.automatic,
+    "actuator": gv.HardwareType.light,
+    "mode": gv.ActuatorModePayload.automatic,
     "countdown": 0.0,
 }
 
