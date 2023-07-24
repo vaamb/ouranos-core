@@ -562,6 +562,44 @@ class Events:
                     f"{humanize_list([e.name for e in ecosystems])}")
 
     @registration_required
+    async def on_buffered_sensors_data(
+            self,
+            sid: str,
+            data: gv.BufferedSensorsDataPayloadDict,
+            engine_uid: str
+    ) -> None:
+        self.logger.debug(
+            f"Received 'buffered_sensors_data' from {engine_uid}")
+        data: gv.BufferedSensorsDataPayloadDict = self.validate_payload(
+            data, gv.BufferedSensorsDataPayload, dict)
+        async with db.scoped_session() as session:
+            uuid: UUID = data["uuid"]
+            try:
+                await SensorRecord.create_records(session, data["data"])
+            except Exception as e:
+                await self.emit(
+                    "buffered_data_ack",
+                    data=gv.RequestResult(
+                        uuid=uuid,
+                        status=gv.Result.failure,
+                        message=str(e)
+                    ),
+                    namespace="/gaia",
+                    room=sid
+                )
+            else:
+                await self.emit(
+                    "buffered_data_ack",
+                    data=gv.RequestResult(
+                        uuid=uuid,
+                        status=gv.Result.success,
+                    ),
+                    namespace="/gaia",
+                    room=sid
+                )
+
+
+    @registration_required
     @dispatch_to_application
     async def on_actuator_data(
             self,

@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import abstractmethod
 from datetime import datetime
 from enum import Enum
-from typing import Optional, Self, Sequence
+from typing import NamedTuple,Optional, Self, Sequence
 
 import sqlalchemy as sa
 from sqlalchemy import insert, select, UniqueConstraint
@@ -48,7 +48,7 @@ class Record:
     async def create_records(
             cls,
             session: AsyncSession,
-            values: dict | list[dict],
+            values: dict | list[dict] | list[NamedTuple],
     ) -> None:
         stmt = insert(cls).values(values)
         await session.execute(stmt)
