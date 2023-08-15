@@ -52,10 +52,10 @@ async def add_ecosystems(db: AsyncSQLAlchemyWrapper):
 
         adapted_sensor_record = {
             "ecosystem_uid": ecosystem_uid,
-            "sensor_uid": sensor_record["sensor_uid"],
-            "measure": measure_record["measure"],
-            "timestamp": sensors_data["timestamp"],
-            "value": float(measure_record["value"]),
+            "sensor_uid": sensor_record.sensor_uid,
+            "measure": sensor_record.measure,
+            "timestamp": timestamp_now,
+            "value": sensor_record.value,
         }
         await SensorDbCache.insert_data(session, adapted_sensor_record)
 
@@ -63,10 +63,13 @@ async def add_ecosystems(db: AsyncSQLAlchemyWrapper):
                 sensors_data["timestamp"] - timedelta(hours=1))
         await SensorRecord.create_records(session, adapted_sensor_record)
 
-        adapted_health_data = health_data.copy()
-        adapted_health_data["health_index"] = adapted_health_data["index"]
-        adapted_health_data.pop("index")
-        adapted_health_data["ecosystem_uid"] = ecosystem_uid
+        adapted_health_data = {
+            "ecosystem_uid": ecosystem_uid,
+            "green": health_data.green,
+            "necrosis": health_data.necrosis,
+            "health_index": health_data.index,
+            "timestamp": health_data.timestamp,
+        }
         await HealthRecord.create_records(session, adapted_health_data)
 
         await GaiaWarning.create(session, gaia_warning)

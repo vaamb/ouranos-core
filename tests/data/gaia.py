@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from typing import NamedTuple
+
 from datetime import datetime, time, timezone
 
 import gaia_validators as gv
 
 
+timestamp_now = datetime.now(timezone.utc)
 ip_address = "127.0.0.1"
 engine_sid = "engine_sid"
 engine_uid = "engine_uid"
@@ -25,8 +28,8 @@ ecosystem_dict = {
     "uid": ecosystem_uid,
     "name": ecosystem_name,
     "status": False,
-    "registration_date": datetime.now(timezone.utc),
-    "last_seen": datetime.now(timezone.utc),
+    "registration_date": timestamp_now,
+    "last_seen": timestamp_now,
     "management": 0,
 }
 
@@ -35,10 +38,10 @@ engine_dict = {
     "uid": engine_uid,
     "sid": engine_sid,
     "registration_date": (
-        datetime.now(timezone.utc).replace(microsecond=0)
+        timestamp_now.replace(microsecond=0)
     ),
     "address": ip_address,
-    "last_seen": datetime.now(timezone.utc),
+    "last_seen": timestamp_now,
 }
 
 
@@ -131,7 +134,7 @@ sensor_record = gv.SensorRecord(
 
 
 sensors_data: gv.SensorsDataDict = {
-    "timestamp": datetime.now(timezone.utc),
+    "timestamp": timestamp_now,
     "records": [sensor_record],
     "average": [measure_record]
 }
@@ -145,7 +148,7 @@ health_data: gv.HealthRecord = gv.HealthRecord(
     0.57,
     0.15,
     0.85,
-    datetime.now(timezone.utc)
+    timestamp_now
 )
 
 
@@ -154,10 +157,10 @@ health_data_payload: gv.HealthDataPayloadDict = \
 
 
 light_data: gv.LightDataDict = {
-    "morning_start": datetime.now(timezone.utc).time(),
-    "morning_end": datetime.now(timezone.utc).time(),
-    "evening_start": datetime.now(timezone.utc).time(),
-    "evening_end": datetime.now(timezone.utc).time(),
+    "morning_start": timestamp_now.time(),
+    "morning_end": timestamp_now.time(),
+    "evening_start": timestamp_now.time(),
+    "evening_end": timestamp_now.time(),
     "method": gv.LightMethod.elongate,
 }
 
@@ -178,16 +181,17 @@ gaia_warning = {
     "level": "low",
     "title": "Not a problem",
     "description": "Super low level warning",
-    "created_on": datetime.now(timezone.utc),
+    "created_on": timestamp_now,
 }
 
 
 __all__ = (
     "base_info", "base_info_payload", "chaos", "climate", "ecosystem_dict",
     "ecosystem_name", "ecosystem_uid", "engine_dict", "engine_sid",
-    "engine_uid", "environmental_payload", "hardware_data", "hardware_payload",
-    "hardware_uid", "health_data", "health_data_payload", "ip_address", "light_data",
-    "light_data_payload", "management_data", "management_payload",
-    "measure_record", "sky", "sensor_record", "sensors_data",
-    "sensors_data_payload", "turn_actuator_payload", "gaia_warning"
+    "engine_uid", "environmental_payload", "gaia_warning", "hardware_data",
+    "hardware_payload", "hardware_uid", "health_data", "health_data_payload",
+    "ip_address", "light_data", "light_data_payload", "management_data",
+    "management_payload", "measure_record", "sky", "sensor_record",
+    "sensors_data", "sensors_data_payload", "timestamp_now",
+    "turn_actuator_payload"
 )

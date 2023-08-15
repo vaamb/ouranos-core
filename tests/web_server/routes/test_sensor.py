@@ -17,17 +17,17 @@ def test_sensor(client: TestClient):
     data = json.loads(response.text)[0]
     # Most data is the same as the one given by hardware, focus on the difference
     current_data = data["data"]["current"][0]
-    assert current_data["measure"] == measure_record["measure"]
+    assert current_data["measure"] == sensor_record.measure
     current_value = current_data["values"][0]
     assert datetime.fromisoformat(current_value[0]) == sensors_data["timestamp"]
-    assert current_value[1] == measure_record["value"]
+    assert current_value[1] == sensor_record.value
 
     historic_data = data["data"]["historic"][0]
-    assert historic_data["measure"] == measure_record["measure"]
+    assert historic_data["measure"] == sensor_record.measure
     historic_value = historic_data["values"][0]
     assert datetime.fromisoformat(historic_value[0]) == \
            (sensors_data["timestamp"] - timedelta(hours=1))
-    assert historic_value[1] == measure_record["value"]
+    assert historic_value[1] == sensor_record.value
 
 
 def test_measures_available(client: TestClient):
@@ -45,17 +45,17 @@ def test_hardware_unique(client: TestClient):
     data = json.loads(response.text)
     # Most data is the same as the one given by hardware, focus on the difference
     current_data = data["data"]["current"][0]
-    assert current_data["measure"] == measure_record["measure"]
+    assert current_data["measure"] == sensor_record.measure
     current_value = current_data["values"][0]
     assert datetime.fromisoformat(current_value[0]) == sensors_data["timestamp"]
-    assert current_value[1] == measure_record["value"]
+    assert current_value[1] == sensor_record.value
 
     historic_data = data["data"]["historic"][0]
-    assert historic_data["measure"] == measure_record["measure"]
+    assert historic_data["measure"] == sensor_record.measure
     historic_value = historic_data["values"][0]
     assert datetime.fromisoformat(historic_value[0]) == \
            (sensors_data["timestamp"] - timedelta(hours=1))
-    assert historic_value[1] == measure_record["value"]
+    assert historic_value[1] == sensor_record.value
 
 
 def test_hardware_unique_current(client: TestClient):
@@ -64,10 +64,10 @@ def test_hardware_unique_current(client: TestClient):
 
     current_data = json.loads(response.text)[0]
     # Most data is the same as the one given by hardware, focus on the difference
-    assert current_data["measure"] == measure_record["measure"]
+    assert current_data["measure"] == sensor_record.measure
     current_value = current_data["values"][0]
     assert datetime.fromisoformat(current_value[0]) == sensors_data["timestamp"]
-    assert current_value[1] == measure_record["value"]
+    assert current_value[1] == sensor_record.value
 
 
 def test_hardware_unique_historic(client: TestClient):
@@ -76,8 +76,8 @@ def test_hardware_unique_historic(client: TestClient):
 
     historic_data = json.loads(response.text)[0]
     # Most data is the same as the one given by hardware, focus on the difference
-    assert historic_data["measure"] == measure_record["measure"]
+    assert historic_data["measure"] == sensor_record.measure
     current_value = historic_data["values"][0]
     assert datetime.fromisoformat(current_value[0]) == \
            (sensors_data["timestamp"] - timedelta(hours=1))
-    assert current_value[1] == measure_record["value"]
+    assert current_value[1] == sensor_record.value

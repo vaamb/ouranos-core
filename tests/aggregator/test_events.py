@@ -10,7 +10,7 @@ from gaia_validators import ManagementFlags, TurnActuatorPayload
 from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
 from ouranos.aggregator.events import (
-    DispatcherBasedGaiaEvents, SocketIOEnginePayload)
+    BrokerType, DispatcherBasedGaiaEvents, SocketIOEnginePayload)
 from ouranos.core.database.models.gaia import (
     Ecosystem, Engine, EnvironmentParameter, Hardware, HealthRecord, Lighting)
 from ouranos.core.database.models.memory import SensorDbCache
@@ -25,7 +25,7 @@ def test_handler(
         events_handler: DispatcherBasedGaiaEvents
 ):
     assert events_handler._dispatcher == mock_dispatcher
-    assert events_handler.broker_type == "dispatcher"
+    assert events_handler.broker_type == BrokerType.dispatcher
     assert events_handler.namespace == "gaia"
     assert len(mock_dispatcher.emit_store) == 0
 
@@ -227,13 +227,19 @@ async def test_on_sensors_data(
     await events_handler.on_sensors_data(engine_sid, [sensors_data_payload])
     emitted = mock_dispatcher.emit_store[0]
     assert emitted["event"] == "current_sensors_data"
-    assert emitted["data"] == [sensors_data_payload]
+    assert emitted["data"] == [{
+        'ecosystem_uid': sensors_data_payload["uid"],
+        'sensor_uid': sensor_record.sensor_uid,
+        'measure': sensor_record.measure,
+        'timestamp': sensors_data["timestamp"],
+        'value': sensor_record.value
+    }]
     assert emitted["namespace"] == "application"
 
     async with ecosystem_aware_db.scoped_session() as session:
         sensor_data = (await SensorDbCache.get_recent(session))[0]
-        assert sensor_data.measure == measure_record["measure"]
-        assert sensor_data.value == measure_record["value"]
+        assert sensor_data.measure == sensor_record.measure
+        assert sensor_data.value == sensor_record.value
         assert sensor_data.timestamp == sensors_data["timestamp"]
 
     wrong_payload = {}
@@ -251,11 +257,10 @@ async def test_on_health_data(
 
     async with ecosystem_aware_db.scoped_session() as session:
         health_record = (await session.execute(select(HealthRecord))).scalar()
-        assert health_record.timestamp == health_data["timestamp"]
-        # TODO: fix, somehow parsed as '0's
-        # assert health_record.green == health_data["green"]
-        # assert health_record.necrosis == health_data["necrosis"]
-        # assert health_record.health_index == health_data["index"]
+        assert health_record.timestamp == health_data.timestamp
+        assert health_record.green == health_data.green
+        assert health_record.necrosis == health_data.necrosis
+        assert health_record.health_index == health_data.index
 
     wrong_payload = {}
     with pytest.raises(Exception):

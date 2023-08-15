@@ -215,9 +215,9 @@ def test_current_data(client: TestClient):
     assert data["ecosystem_uid"] == ecosystem_uid
     inner_data = data["data"][0]
     assert datetime.fromisoformat(inner_data["timestamp"]) == sensors_data["timestamp"]
-    assert inner_data["sensor_uid"] == sensor_record["sensor_uid"]
-    assert inner_data["measure"] == measure_record["measure"]
-    assert inner_data["value"] == measure_record["value"]
+    assert inner_data["sensor_uid"] == sensor_record.sensor_uid
+    assert inner_data["measure"] == sensor_record.measure
+    assert inner_data["value"] == sensor_record.value
 
 
 def test_current_data_unique(client: TestClient):
@@ -228,9 +228,9 @@ def test_current_data_unique(client: TestClient):
     assert data["ecosystem_uid"] == ecosystem_uid
     inner_data = data["data"][0]
     assert datetime.fromisoformat(inner_data["timestamp"]) == sensors_data["timestamp"]
-    assert inner_data["sensor_uid"] == sensor_record["sensor_uid"]
-    assert inner_data["measure"] == measure_record["measure"]
-    assert inner_data["value"] == measure_record["value"]
+    assert inner_data["sensor_uid"] == sensor_record.sensor_uid
+    assert inner_data["measure"] == sensor_record.measure
+    assert inner_data["value"] == sensor_record.value
 
 
 def test_turn_actuator_failure_user(
