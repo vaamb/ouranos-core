@@ -22,7 +22,7 @@ class ArchivableData(DeclarativeMeta):
 
 
 class Archiver:
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.logger: Logger = getLogger("ouranos.aggregator")
         self._mapping = {}
@@ -102,7 +102,7 @@ class Archiver:
             archive = self._mapping[data]["archive"]
             asyncio.ensure_future(self._archive(data, recent, archive))
 
-    def start(self):
+    def start(self) -> None:
         self.logger.info("Scheduling the archiver")
         scheduler.add_job(
             self.archive_old_data,
@@ -110,6 +110,6 @@ class Archiver:
             id="archiver"
         )
 
-    def stop(self):
+    def stop(self) -> None:
         self.logger.info("Stopping the archiver")
         scheduler.remove_job(job_id="archiver")

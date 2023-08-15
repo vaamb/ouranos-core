@@ -94,7 +94,10 @@ class Aggregator(Functionality):
         return self._engine
 
     @engine.setter
-    def engine(self, engine: "AsyncServer" | "AsyncAMQPDispatcher" | "AsyncRedisDispatcher"):
+    def engine(
+            self,
+            engine: "AsyncServer" | "AsyncAMQPDispatcher" | "AsyncRedisDispatcher" | None
+    ) -> None:
         self._engine = engine
 
     @property
@@ -104,7 +107,10 @@ class Aggregator(Functionality):
         return self._event_handler
 
     @event_handler.setter
-    def event_handler(self, event_handler: "DispatcherBasedGaiaEvents" | "SioBasedGaiaEvents"):
+    def event_handler(
+            self,
+            event_handler: "DispatcherBasedGaiaEvents" | "SioBasedGaiaEvents" | None
+    ) -> None:
         self._event_handler = event_handler
 
     def _startup(self) -> None:
@@ -127,22 +133,23 @@ class Aggregator(Functionality):
                     self.config["START_API"] and
                     self.config["API_PORT"] == port
             ):
-                from ouranos.web_server.factory import sio
-                self.engine = sio
-                self.engine.register_namespace(self.event_handler)
+                raise RuntimeError(
+                    "Aggregator port should not be the same as Api server port"
+                )
             else:
                 from socketio import ASGIApp, AsyncServer
                 self.engine = AsyncServer(async_mode='asgi', cors_allowed_origins=[])
                 self.engine.register_namespace(self.event_handler)
                 asgi_app = ASGIApp(self.engine)
                 config = uvicorn.Config(
-                    asgi_app,
-                    host=host, port=port,
-                    log_config=None, server_header=False, date_header=False,
-                )
+                    asgi_app, host=host, port=port,
+                    log_config=None, server_header=False, date_header=False)
                 server = uvicorn.Server(config)
                 asyncio.ensure_future(server.serve())
-        elif self.gaia_broker_uri.startswith("amqp://") or self.gaia_broker_uri.startswith("redis://"):
+        elif (
+                self.gaia_broker_uri.startswith("amqp://") or
+                self.gaia_broker_uri.startswith("redis://")
+        ):
             # Get the event handler
             from ouranos.aggregator.events import DispatcherBasedGaiaEvents
             self.event_handler = DispatcherBasedGaiaEvents()
@@ -182,7 +189,9 @@ class Aggregator(Functionality):
             if separate_ouranos_dispatcher:
                 self.event_handler.ouranos_dispatcher.start(retry=True, block=False)
         else:
-            raise RuntimeError
+            raise ValueError(
+                "'GAIA_COMMUNICATION_URL' should start with 'socketio://', "
+                "'rabbitmq://' or 'redis://'")
         self.archiver.start()
         self.sky_watcher.start()
 

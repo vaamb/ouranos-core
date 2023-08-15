@@ -23,8 +23,7 @@ _sun_times_file = "sun_times.json"
 async def is_connected(ip_to_connect: str = "1.1.1.1", port: int = 80) -> bool:
     try:
         reader, writer = await asyncio.wait_for(
-            asyncio.open_connection(ip_to_connect, port), 2
-        )
+            asyncio.open_connection(ip_to_connect, port), 2)
         writer.close()
         return True
     except Exception as ex:
@@ -115,7 +114,7 @@ class SkyWatcher:
             return True
         return False
 
-    async def clear_old_weather_data(self):
+    async def clear_old_weather_data(self) -> None:
         path = current_app.cache_dir / _weather_file
         time_ = WeatherCache.get_currently().get("time")
         # If weather "current" time older than _weather_recency_limit hours: clear
@@ -172,7 +171,7 @@ class SkyWatcher:
             await self.dispatch_weather_data()
             self.logger.debug("Weather data updated")
 
-    async def dispatch_weather_data(self):
+    async def dispatch_weather_data(self) -> None:
         now = datetime.now()
         await self.dispatcher.emit(
             "application", "weather_current",
@@ -209,7 +208,7 @@ class SkyWatcher:
         self.logger.debug("Sun times data already up to date")
         return True
 
-    async def update_sun_times_data(self):
+    async def update_sun_times_data(self) -> None:
         self.logger.debug("Updating sun times")
         if not await is_connected():
             async with self._mutex:
