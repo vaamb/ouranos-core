@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from typing import NamedTuple
 
 from datetime import datetime, time, timezone
@@ -14,6 +15,7 @@ engine_uid = "engine_uid"
 ecosystem_uid = "zutqsCKn"
 ecosystem_name = "TestingEcosystem"
 hardware_uid = "hardware_uid"
+request_uuid = uuid.uuid4()
 
 
 def wrap_ecosystem_data_payload(data: dict | list[dict] | NamedTuple) -> dict:
@@ -97,7 +99,11 @@ climate: gv.ClimateConfigDict = {
 
 environmental_payload: gv.EnvironmentConfigPayloadDict = \
     wrap_ecosystem_data_payload(
-        gv.EnvironmentConfig(chaos=chaos, sky=sky, climate=[climate]).model_dump()
+        gv.EnvironmentConfig(
+            chaos=chaos,
+            sky=sky,
+            climate=[climate]
+        ).model_dump()
     )
 
 
@@ -129,14 +135,14 @@ sensor_record = gv.SensorRecord(
     "hardware_uid",
     "temperature",
     42,
-    None
+    None,
 )
 
 
 sensors_data: gv.SensorsDataDict = {
     "timestamp": timestamp_now,
     "records": [sensor_record],
-    "average": [measure_record]
+    "average": [measure_record],
 }
 
 
@@ -145,10 +151,10 @@ sensors_data_payload: gv.SensorsDataPayloadDict = \
 
 
 health_data: gv.HealthRecord = gv.HealthRecord(
-    0.57,
-    0.15,
-    0.85,
-    timestamp_now
+    green=0.57,
+    necrosis=0.15,
+    index=0.85,
+    timestamp=timestamp_now,
 )
 
 
@@ -185,13 +191,52 @@ gaia_warning = {
 }
 
 
-__all__ = (
-    "base_info", "base_info_payload", "chaos", "climate", "ecosystem_dict",
-    "ecosystem_name", "ecosystem_uid", "engine_dict", "engine_sid",
-    "engine_uid", "environmental_payload", "gaia_warning", "hardware_data",
-    "hardware_payload", "hardware_uid", "health_data", "health_data_payload",
-    "ip_address", "light_data", "light_data_payload", "management_data",
-    "management_payload", "measure_record", "sky", "sensor_record",
-    "sensors_data", "sensors_data_payload", "timestamp_now",
-    "turn_actuator_payload"
+buffered_data_humidity = gv.BufferedSensorRecord(
+    ecosystem_uid=ecosystem_uid,
+    sensor_uid=hardware_uid,
+    measure="humidity",
+    value=42.0,
+    timestamp=timestamp_now,
+)
+
+
+buffered_data_temperature = gv.BufferedSensorRecord(
+    ecosystem_uid=ecosystem_uid,
+    sensor_uid=hardware_uid,
+    measure="temperature",
+    value=25.0,
+    timestamp=timestamp_now,
+)
+
+
+buffered_data_payload = gv.BufferedSensorsDataPayloadDict(
+    uuid=request_uuid,
+    data=[
+        buffered_data_humidity,
+        buffered_data_temperature,
+    ],
+)
+
+
+light_state: gv.ActuatorStateDict = \
+    {"active": True, "status": True, "mode": gv.ActuatorMode.automatic}
+cooler_state: gv.ActuatorStateDict = \
+    {"active": True, "status": False, "mode": gv.ActuatorMode.manual}
+heater_state: gv.ActuatorStateDict = \
+    {"active": False, "status": False, "mode": gv.ActuatorMode.automatic}
+humidifier_state: gv.ActuatorStateDict = \
+    {"active": False, "status": False, "mode": gv.ActuatorMode.automatic}
+dehumidifier_state: gv.ActuatorStateDict = \
+    {"active": False, "status": False, "mode": gv.ActuatorMode.automatic}
+
+
+actuator_state_payload = gv.ActuatorsDataPayloadDict(
+    uid=ecosystem_uid,
+    data=gv.ActuatorsDataDict(
+        light = light_state,
+        cooler = cooler_state,
+        heater = heater_state,
+        humidifier = humidifier_state,
+        dehumidifier = dehumidifier_state,
+    )
 )

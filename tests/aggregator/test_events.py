@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from asyncio import sleep
 from copy import copy
+from datetime import datetime,timedelta, timezone
 
 import pytest
 from sqlalchemy import select
@@ -12,9 +13,11 @@ from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 from ouranos.aggregator.events import (
     BrokerType, DispatcherBasedGaiaEvents, SocketIOEnginePayload)
 from ouranos.core.database.models.gaia import (
-    Ecosystem, Engine, EnvironmentParameter, Hardware, HealthRecord, Lighting)
+    ActuatorStatus, ActuatorType, Ecosystem, Engine, EnvironmentParameter,
+    Hardware, HealthRecord, Lighting, SensorRecord)
 from ouranos.core.database.models.memory import SensorDbCache
 from ouranos.core.exceptions import NotRegisteredError
+from ouranos.core.utils import create_time_window
 
 from ..data.gaia import *
 from ..utils import MockAsyncDispatcher
@@ -241,6 +244,78 @@ async def test_on_sensors_data(
         assert sensor_data.measure == sensor_record.measure
         assert sensor_data.value == sensor_record.value
         assert sensor_data.timestamp == sensors_data["timestamp"]
+
+    wrong_payload = {}
+    with pytest.raises(Exception):
+        await events_handler.on_sensors_data(engine_sid, [wrong_payload])
+
+
+@pytest.mark.asyncio
+async def test_on_buffered_sensors_data(
+        mock_dispatcher: MockAsyncDispatcher,
+        events_handler: DispatcherBasedGaiaEvents,
+        ecosystem_aware_db: AsyncSQLAlchemyWrapper,
+):
+    await events_handler.on_buffered_sensors_data(engine_sid, buffered_data_payload)
+    emitted = mock_dispatcher.emit_store[0]
+    assert emitted["namespace"] == "gaia"
+    assert emitted["room"] == engine_sid
+    assert emitted["event"] == "buffered_data_ack"
+    result: gv.RequestResultDict = emitted["data"]
+    assert result["uuid"] == request_uuid
+    assert result["status"] == gv.Result.success
+
+    async with ecosystem_aware_db.scoped_session() as session:
+        temperature_data = (
+            await SensorRecord.get_records(
+                session,
+                sensor_uid=hardware_uid,
+                measure_name="temperature",
+                time_window=create_time_window(
+                    end=datetime.now(timezone.utc) + timedelta(days=1))
+            )
+        )[0]
+        assert temperature_data.ecosystem_uid == buffered_data_temperature.ecosystem_uid
+        assert temperature_data.sensor_uid == buffered_data_temperature.sensor_uid
+        assert temperature_data.measure == buffered_data_temperature.measure
+        assert temperature_data.value == buffered_data_temperature.value
+        assert temperature_data.timestamp == buffered_data_temperature.timestamp
+
+    """
+    # TODO: fix as it currently doesn't fail but yet doesn't save duplicate
+    # Resend same data to have an integrity error
+    await events_handler.on_buffered_sensors_data(engine_sid, buffered_data_payload)
+    emitted = mock_dispatcher.emit_store[0]
+    assert emitted["namespace"] == "gaia"
+    assert emitted["room"] == engine_sid
+    assert emitted["event"] == "buffered_data_ack"
+    result: gv.RequestResultDict = emitted["data"]
+    assert result["uuid"] == request_uuid
+    assert result["status"] == gv.Result.failure
+    assert "IntegrityError" in result["message"]
+    """
+
+    wrong_payload = {}
+    with pytest.raises(Exception):
+        await events_handler.on_sensors_data(engine_sid, [wrong_payload])
+
+
+@pytest.mark.asyncio
+async def test_on_actuator_data(
+        mock_dispatcher: MockAsyncDispatcher,
+        events_handler: DispatcherBasedGaiaEvents,
+        ecosystem_aware_db: AsyncSQLAlchemyWrapper,
+):
+    await events_handler.on_actuator_data(engine_sid, [actuator_state_payload])
+    async with ecosystem_aware_db.scoped_session() as session:
+        logged_light_state = (
+            await ActuatorStatus.get(
+                session, ecosystem_uid=ecosystem_uid, actuator_type="light")
+        )
+        assert logged_light_state.actuator_type == ActuatorType.light
+        assert logged_light_state.active == light_state["active"]
+        assert logged_light_state.mode == light_state["mode"]
+        assert logged_light_state.status == light_state["status"]
 
     wrong_payload = {}
     with pytest.raises(Exception):
