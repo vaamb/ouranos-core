@@ -75,7 +75,7 @@ class GaiaBase(Base):
     async def create(
             cls,
             session: AsyncSession,
-            values: dict,
+            values: dict | list[dict],
     ) -> None:
         stmt = insert(cls).values(values)
         await session.execute(stmt)

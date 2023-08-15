@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from asyncio import sleep
 from datetime import datetime, timezone
+from enum import Enum
 import inspect
 import logging
 from typing import cast, overload, Type, TypedDict
@@ -31,6 +32,12 @@ _ecosystem_name_cache = LRUCache(maxsize=32)
 _ecosystem_sid_cache = LRUCache(maxsize=32)
 
 
+class BrokerType(Enum):
+    naive = "naive"
+    dispatcher = "dispatcher"
+    socketio = "socketio"
+
+
 class SensorDataRecord(TypedDict):
     ecosystem_uid: str
     sensor_uid: str
@@ -56,7 +63,7 @@ async def get_ecosystem_name(
     try:
         return _ecosystem_name_cache[ecosystem_uid]
     except KeyError:
-        async def inner_func(session: AsyncSession, ecosystem_uid: str):
+        async def inner_func(session: AsyncSession, ecosystem_uid: str) -> str:
             ecosystem_obj = await Ecosystem.get(session, ecosystem_uid)
             if ecosystem_obj is not None:
                 _ecosystem_name_cache[ecosystem_uid] = ecosystem_obj.name
@@ -76,7 +83,7 @@ async def get_engine_sid(
     try:
         return _ecosystem_sid_cache[engine_uid]
     except KeyError:
-        async def inner_func(session: AsyncSession, engine_uid: str):
+        async def inner_func(session: AsyncSession, engine_uid: str) -> str:
             engine_obj = await Engine.get(session, engine_uid)
             if engine_obj is not None:
                 sid = engine_obj.sid
@@ -90,9 +97,11 @@ async def get_engine_sid(
 
 
 class Events:
-    broker_type: str = "raw"
+    broker_type: BrokerType = BrokerType.naive
 
     def __init__(self, *args, **kwargs) -> None:
+        if self.broker_type not in (BrokerType.dispatcher, BrokerType.socketio):
+            raise AttributeError("'broker_type' must be a valid 'BrokerType'")
         super().__init__(*args, **kwargs)
         self._background_task_started: bool = False
         self.engines_blacklist = TTLCache(maxsize=64, ttl=60 * 60 * 24)
@@ -102,10 +111,10 @@ class Events:
     async def emit(
             self,
             event: str,
-            data=None,
-            to=None,
-            room=None,
-            namespace=None,
+            data: dict | list | str | tuple | None = None,
+            to: dict | None = None,
+            room: str | None = None,
+            namespace: str | None = None,
             **kwargs
     ) -> None:
         raise NotImplementedError
@@ -129,7 +138,10 @@ class Events:
         return self._ouranos_dispatcher
 
     @ouranos_dispatcher.setter
-    def ouranos_dispatcher(self, dispatcher: AsyncDispatcher):
+    def ouranos_dispatcher(
+            self,
+            dispatcher: AsyncDispatcher
+    ) -> None:
         self._ouranos_dispatcher = dispatcher
         self.ouranos_dispatcher.on("turn_light", self.turn_light)
         self.ouranos_dispatcher.on("turn_actuator", self.turn_actuator)
@@ -160,7 +172,7 @@ class Events:
             self,
             data: dict | list[dict],
             model_cls: Type[gv.BaseModel],
-            type_: Type
+            type_: Type,
     ) -> dict | list[dict]:
         if not data:
             event = inspect.stack()[1].function.lstrip("on_")
@@ -168,7 +180,7 @@ class Events:
                 f"Encountered an error while validating '{event}' data. Error "
                 f"msg: Empty data."
             )
-            raise ValidationError
+            raise ValidationError("Empty data")
         if not isinstance(data, type_):
             event = inspect.stack()[1].function.lstrip("on_")
             received = type(data)
@@ -177,12 +189,12 @@ class Events:
                 f"msg: Wrong data format, expected '{type_}', received "
                 f"'{received}'."
             )
-            raise ValidationError
+            raise ValidationError(f"Data is not of the expected type '{type_}'")
         try:
-            if type_ == list:
+            if isinstance(data, list):
                 temp: list[gv.BaseModel] = TypeAdapter(list[model_cls]).validate_python(data)
                 return [obj.model_dump() for obj in temp]
-            elif type_ == dict:
+            elif isinstance(data, dict):
                 return model_cls(**data).model_dump()
         except ValidationError as e:
             event = inspect.stack()[1].function.lstrip("on_")
@@ -196,17 +208,27 @@ class Events:
     # ---------------------------------------------------------------------------
     #   Events Gaia <-> Aggregator
     # ---------------------------------------------------------------------------
-    async def on_connect(self, sid, environ):
-        if self.broker_type == "socketio":
+    async def on_connect(
+            self,
+            sid: str,
+            environ: dict,
+    ) -> None:
+        if self.broker_type == BrokerType.dispatcher:
+            self.logger.info(f"Connected to the message broker")
+            await self.emit("register", ttl=75)
+            self.logger.info(f"Requested connected 'Gaia' instances to register")
+        else:
             async with self.session(sid, namespace="/gaia") as session:
                 remote_addr = session["REMOTE_ADDR"] = environ["REMOTE_ADDR"]
             self.logger.debug(f"Received a connection from {remote_addr}")
             await self.emit("register")
-        elif self.broker_type == "dispatcher":
-            self.logger.info(f"Connected to the message broker")
-            await self.emit("register", ttl=75)
+            self.logger.info(f"Requested connected 'Gaia' instances to register")
 
-    async def on_disconnect(self, sid, *args) -> None:
+    async def on_disconnect(
+            self,
+            sid: str,
+            *args,  # noqa
+    ) -> None:
         self.leave_room(sid, "engines", namespace="/gaia")
         async with self.session(sid) as session:
             session.clear()
@@ -222,53 +244,51 @@ class Events:
             )
             self.logger.info(f"Engine {engine.uid} disconnected")
 
-    async def on_register_engine(self, sid, data: SocketIOEnginePayloadDict) -> None:
+    async def on_register_engine(
+            self,
+            sid: str,
+            data: SocketIOEnginePayloadDict,
+    ) -> None:
         data: SocketIOEnginePayloadDict = self.validate_payload(
             data, SocketIOEnginePayload, dict)
-        validated = False
+        engine_uid: str
         remote_addr: str
-        if self.broker_type == "socketio":
-            engine_uid = data.get("engine_uid")
+        if self.broker_type == BrokerType.dispatcher:
+            engine_uid = data["engine_uid"]
+            self.logger.debug(
+                f"Received 'register_engine' from engine {engine_uid}")
+            async with self.session(sid) as session:
+                session["engine_uid"] = engine_uid
+            remote_addr = data["address"]
+        else:
+            engine_uid = data["engine_uid"]
             self.logger.debug(
                 f"Received 'register_engine' from engine {engine_uid}")
             async with self.session(sid) as session:
                 remote_addr = session["REMOTE_ADDR"]
-            if engine_uid:
-                validated = True
-            else:
-                await self.disconnect(sid)
-        elif self.broker_type == "dispatcher":
-            engine_uid = data.get("engine_uid")
-            self.logger.debug(
-                f"Received 'register_engine' from engine {engine_uid}"
-            )
-            if engine_uid:
-                async with self.session(sid) as session:
-                    session["engine_uid"] = engine_uid
-                remote_addr = data["address"]
-                validated = True
-            else:
-                await self.disconnect(sid)
-        if validated:
-            now = datetime.now(timezone.utc).replace(microsecond=0)
-            engine_info = {
-                "uid": engine_uid,
-                "sid": sid,
-                "last_seen": now,
-                "address": f"{remote_addr}",
-            }
-            async with db.scoped_session() as session:
-                await Engine.update_or_create(session, engine_info)
-            self.enter_room(sid, room="engines", namespace="/gaia")
-            await sleep(3)
-            if self.broker_type == "socketio":
-                await self.emit("registration_ack", room=sid)
-            elif self.broker_type == "dispatcher":
-                await self.emit("registration_ack", room=sid)
-            self.logger.info(f"Successful registration of engine {engine_uid}")
+
+        now = datetime.now(timezone.utc).replace(microsecond=0)
+        engine_info = {
+            "uid": engine_uid,
+            "sid": sid,
+            "last_seen": now,
+            "address": f"{remote_addr}",
+        }
+        async with db.scoped_session() as session:
+            await Engine.update_or_create(session, engine_info)
+        self.enter_room(sid, room="engines", namespace="/gaia")
+
+        await sleep(3)  # Allow slower Raspi0 to finish Gaia startup
+        await self.emit("registration_ack", room=sid)
+        self.logger.info(f"Successful registration of engine {engine_uid}")
 
     @registration_required
-    async def on_ping(self, sid, data: list[str], engine_uid) -> None:
+    async def on_ping(
+            self,
+            sid: str,
+            data: list[str],
+            engine_uid: str,
+    ) -> None:
         self.logger.debug(f"Received 'ping' from engine {engine_uid}")
         now = datetime.now(timezone.utc).replace(microsecond=0)
         ecosystems_seen: list[str] = []
@@ -288,7 +308,7 @@ class Events:
     @registration_required
     async def on_base_info(
             self,
-            sid: str,
+            sid: str,  # noqa
             data: list[gv.BaseInfoConfigPayloadDict],
             engine_uid: str
     ) -> None:
@@ -335,7 +355,7 @@ class Events:
     @registration_required
     async def on_environmental_parameters(
             self,
-            sid: str,
+            sid: str,  # noqa
             data: list[gv.EnvironmentConfigPayloadDict],
             engine_uid: str
     ) -> None:
@@ -382,7 +402,7 @@ class Events:
     @registration_required
     async def on_hardware(
             self,
-            sid: str,
+            sid: str,  # noqa
             data: list[gv.HardwareConfigPayloadDict],
             engine_uid: str
     ) -> None:
@@ -400,6 +420,7 @@ class Events:
                     await get_ecosystem_name(uid, session=session)
                 )
                 for hardware in payload["data"]:
+                    hardware: dict  # Treat hardware as regular dict
                     hardware_uid = hardware.pop("uid")
                     hardware_in_config.append(hardware_uid)
                     hardware["ecosystem_uid"] = uid
@@ -439,7 +460,7 @@ class Events:
     @dispatch_to_application
     async def on_management(
             self,
-            sid: str,
+            sid: str,  # noqa
             data: list[gv.ManagementConfigPayloadDict],
             engine_uid: str
     ) -> None:
@@ -473,7 +494,7 @@ class Events:
     @registration_required
     async def on_sensors_data(
             self,
-            sid: str,
+            sid: str,  # noqa
             data: list[gv.SensorsDataPayloadDict],
             engine_uid: str
     ) -> None:
@@ -583,7 +604,7 @@ class Events:
                         uuid=uuid,
                         status=gv.Result.failure,
                         message=str(e)
-                    ),
+                    ).model_dump(),
                     namespace="/gaia",
                     room=sid
                 )
@@ -593,7 +614,7 @@ class Events:
                     data=gv.RequestResult(
                         uuid=uuid,
                         status=gv.Result.success,
-                    ),
+                    ).model_dump(),
                     namespace="/gaia",
                     room=sid
                 )
@@ -603,7 +624,7 @@ class Events:
     @dispatch_to_application
     async def on_actuator_data(
             self,
-            sid: str,
+            sid: str,  # noqa
             data: list[gv.ActuatorsDataPayloadDict],
             engine_uid: str
     ) -> None:
@@ -619,14 +640,15 @@ class Events:
                     await get_ecosystem_name(payload["uid"], session=None)
                 )
                 for actuator, values in ecosystem.items():
-                    await session.merge(ActuatorStatus(
-                        ecosystem_uid=payload["uid"],
-                        actuator_type=actuator,
-                        active=values["active"],
-                        mode=values["mode"],
-                        status=values["status"],
-
-                    ))
+                    await session.merge(
+                        ActuatorStatus(
+                            ecosystem_uid=payload["uid"],
+                            actuator_type=actuator,
+                            active=values["active"],
+                            mode=values["mode"],
+                            status=values["status"],
+                        )
+                    )
         if logged:
             self.logger.debug(
                 f"Logged actuator data from ecosystem(s): "
@@ -637,7 +659,7 @@ class Events:
     @dispatch_to_application
     async def on_health_data(
             self,
-            sid: str,
+            sid: str,  # noqa
             data: list[gv.HealthDataPayloadDict],
             engine_uid: str
     ) -> None:
@@ -673,7 +695,7 @@ class Events:
     @dispatch_to_application
     async def on_light_data(
             self,
-            sid: str,
+            sid: str,  # noqa
             data: list[gv.LightDataPayloadDict],
             engine_uid: str
     ) -> None:
@@ -703,7 +725,11 @@ class Events:
     # ---------------------------------------------------------------------------
     #   Events Api -> Aggregator -> Gaia
     # ---------------------------------------------------------------------------
-    async def _turn_actuator(self, sid, data: gv.TurnActuatorPayloadDict) -> None:
+    async def _turn_actuator(
+            self,
+            sid: str,  # noqa
+            data: gv.TurnActuatorPayloadDict
+    ) -> None:
         data: gv.TurnActuatorPayloadDict = self.validate_payload(
             data, gv.TurnActuatorPayload, dict)
         async with db.scoped_session() as session:
@@ -713,25 +739,35 @@ class Events:
                 engine_sid = ecosystem.engine.sid
             except (AttributeError, Exception):
                 engine_sid = None
-        if self.broker_type == "socketio":
-            await self.emit(
-                "turn_actuator", data=data, namespace="/gaia", room=engine_sid)
-        elif self.broker_type == "dispatcher":
+        if self.broker_type == BrokerType.dispatcher:
             await self.emit(
                 "turn_actuator", data=data, namespace="/gaia", room=engine_sid,
                 ttl=30)
         else:
-            raise TypeError("Event broker_type is invalid")
+            await self.emit(
+                "turn_actuator", data=data, namespace="/gaia", room=engine_sid)
 
-    async def turn_light(self, sid, data) -> None:
+    async def turn_light(
+            self,
+            sid: str,  # noqa
+            data: gv.TurnActuatorPayloadDict,
+    ) -> None:
         if data.get("actuator"):
-            data["actuator"] = "light"
+            data["actuator"] = gv.HardwareType.light
         await self._turn_actuator(sid, data)
 
-    async def turn_actuator(self, sid, data) -> None:
+    async def turn_actuator(
+            self,
+            sid: str,  # noqa
+            data: gv.TurnActuatorPayloadDict,
+    ) -> None:
         await self._turn_actuator(sid, data)
 
-    async def crud(self, sid, data: gv.CrudPayloadDict) -> None:
+    async def crud(
+            self,
+            sid: str,  # noqa
+            data: gv.CrudPayloadDict,
+    ) -> None:
         engine_uid = data["routing"]["engine_uid"]
         self.logger.debug(
             f"""Sending crud request {data['uuid']} ({data["action"]} 
@@ -747,17 +783,19 @@ class Events:
                 "target": data["target"],
                 "payload": json.dumps(data["data"]),
             })
-        if self.broker_type == "socketio":
-            await self.emit(
-                "crud", data=data, namespace="/gaia", room=engine_sid)
-        elif self.broker_type == "dispatcher":
+        if self.broker_type == BrokerType.dispatcher:
             await self.emit(
                 "crud", data=data, namespace="/gaia", room=engine_sid, ttl=30)
         else:
-            raise TypeError("Event broker_type is invalid")
+            await self.emit(
+                "crud", data=data, namespace="/gaia", room=engine_sid)
 
     # Response to crud, actual path: Gaia -> Aggregator
-    async def on_crud_result(self, sid, data: gv.CrudResultDict):
+    async def on_crud_result(
+            self,
+            sid: str,  # noqa
+            data: gv.RequestResultDict
+    ) -> None:
         self.logger.debug(f"Received crud result for request {data['uuid']}")
         async with db.scoped_session() as session:
             crud_request = await CrudRequest.get(session, UUID(data["uuid"]))
@@ -766,14 +804,14 @@ class Events:
 
 
 class DispatcherBasedGaiaEvents(AsyncEventHandler, Events):
-    broker_type = "dispatcher"
+    broker_type = BrokerType.dispatcher
 
     def __init__(self) -> None:
         super().__init__(namespace="/gaia")
 
 
 class SioBasedGaiaEvents(AsyncNamespace, Events):
-    broker_type = "socketio"
+    broker_type = BrokerType.socketio
 
     def __init__(self) -> None:
         super().__init__(namespace="/gaia")
