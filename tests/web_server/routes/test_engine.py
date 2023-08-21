@@ -41,9 +41,16 @@ async def test_engine_unique(
         assert data["ecosystems"][0]["uid"] == engine.ecosystems[0].uid
 
 
-@pytest.mark.asyncio
-async def test_engine_unique_wrong_id(
-        client: TestClient,
-):
-    response = client.get("/api/gaia/engine/u/wrong_id}")
+async def test_engine_unique_wrong_id(client: TestClient):
+    response = client.get("/api/gaia/engine/u/wrong_id")
     assert response.status_code == 404
+
+
+async def test_engine_delete_request_failure_anon(client: TestClient):
+    response = client.delete("/api/gaia/engine/u/{ecosystem_uid}")
+    assert response.status_code == 403
+
+
+def test_engine_delete_request_success(client_operator: TestClient):
+    response = client_operator.delete(f"/api/gaia/ecosystem/u/{ecosystem_uid}")
+    assert response.status_code == 202
