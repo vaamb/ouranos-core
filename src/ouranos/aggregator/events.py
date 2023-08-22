@@ -8,7 +8,7 @@ import logging
 from typing import cast, overload, Type, TypedDict
 from uuid import UUID
 
-from cachetools import LRUCache, TTLCache
+from cachetools import LRUCache
 from pydantic import TypeAdapter, ValidationError
 from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
@@ -39,6 +39,9 @@ class SensorDataRecord(TypedDict):
     value: float
 
 
+# ------------------------------------------------------------------------------
+#   Utility functions
+# ------------------------------------------------------------------------------
 async def get_ecosystem_name(
         ecosystem_uid: str,
         session: AsyncSession | None = None
@@ -79,28 +82,14 @@ async def get_engine_sid(
             return await inner_func(session, engine_uid)
 
 
-class GaiaEvents(AsyncEventHandler):
+# ------------------------------------------------------------------------------
+#   BaseEvents class with common validation method
+# ------------------------------------------------------------------------------
+class BaseEvents(AsyncEventHandler):
     def __init__(self, *args, **kwargs) -> None:
         kwargs["namespace"] = "/gaia"
         super().__init__(*args, **kwargs)
-        self.logger = logging.getLogger("ouranos.aggregator")
-        self._ouranos_dispatcher: AsyncDispatcher | None = None
-
-    @property
-    def ouranos_dispatcher(self) -> AsyncDispatcher:
-        if not self._ouranos_dispatcher:
-            raise RuntimeError("You need to set dispatcher")
-        return self._ouranos_dispatcher
-
-    @ouranos_dispatcher.setter
-    def ouranos_dispatcher(
-            self,
-            dispatcher: AsyncDispatcher
-    ) -> None:
-        self._ouranos_dispatcher = dispatcher
-        self.ouranos_dispatcher.on("turn_light", self.turn_light)
-        self.ouranos_dispatcher.on("turn_actuator", self.turn_actuator)
-        self.ouranos_dispatcher.on("crud", self.crud)
+        self.logger: logging.Logger = logging.getLogger("ouranos.aggregator")
 
     @overload
     def validate_payload(
@@ -156,6 +145,32 @@ class GaiaEvents(AsyncEventHandler):
                 f"msg: {', '.join(msg_list)}"
             )
             raise
+
+
+# ------------------------------------------------------------------------------
+#   Events class handling all events except short-lived payloads (stream)
+# ------------------------------------------------------------------------------
+class GaiaEvents(BaseEvents):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.logger = logging.getLogger("ouranos.aggregator")
+        self._ouranos_dispatcher: AsyncDispatcher | None = None
+
+    @property
+    def ouranos_dispatcher(self) -> AsyncDispatcher:
+        if not self._ouranos_dispatcher:
+            raise RuntimeError("You need to set dispatcher")
+        return self._ouranos_dispatcher
+
+    @ouranos_dispatcher.setter
+    def ouranos_dispatcher(
+            self,
+            dispatcher: AsyncDispatcher
+    ) -> None:
+        self._ouranos_dispatcher = dispatcher
+        self.ouranos_dispatcher.on("turn_light", self.turn_light)
+        self.ouranos_dispatcher.on("turn_actuator", self.turn_actuator)
+        self.ouranos_dispatcher.on("crud", self.crud)
 
     # ---------------------------------------------------------------------------
     #   Events Gaia <-> Aggregator
@@ -436,8 +451,7 @@ class GaiaEvents(AsyncEventHandler):
             engine_uid: str
     ) -> None:
         self.logger.debug(
-            f"Received 'sensors_data' from engine: {engine_uid}"
-        )
+            f"Received 'sensors_data' from engine: {engine_uid}")
         data: list[gv.SensorsDataPayloadDict] = self.validate_payload(
             data, gv.SensorsDataPayload, list)
         sensors_data: list[SensorDataRecord] = []
@@ -556,7 +570,6 @@ class GaiaEvents(AsyncEventHandler):
                     room=sid
                 )
 
-
     @registration_required
     @dispatch_to_application
     async def on_actuator_data(
@@ -565,8 +578,7 @@ class GaiaEvents(AsyncEventHandler):
             data: list[gv.ActuatorsDataPayloadDict],
             engine_uid: str
     ) -> None:
-        self.logger.debug(
-            f"Received 'update_health_data' from {engine_uid}")
+        self.logger.debug(f"Received 'update_health_data' from {engine_uid}")
         data: list[gv.ActuatorsDataPayloadDict] = self.validate_payload(
             data, gv.ActuatorsDataPayload, list)
         logged: list[str] = []
@@ -719,7 +731,7 @@ class GaiaEvents(AsyncEventHandler):
         await self.emit(
             "crud", data=data, namespace="/gaia", room=engine_sid, ttl=30)
 
-    # Response to crud, actual path: Gaia -> Aggregator
+    # Response to crud event, actual path: Gaia -> Aggregator -> Api
     async def on_crud_result(
             self,
             sid: str,  # noqa
@@ -730,3 +742,19 @@ class GaiaEvents(AsyncEventHandler):
             crud_request = await CrudRequest.get(session, UUID(data["uuid"]))
             crud_request.result = data["status"]
             crud_request.message = data["message"]
+
+
+# ------------------------------------------------------------------------------
+#   StreamEvents class handling short-lived payloads (stream)
+# ------------------------------------------------------------------------------
+class StreamGaiaEvents(BaseEvents):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.logger = logging.getLogger("ouranos.aggregator.stream")
+
+    async def on_ecosystem_image(
+        self,
+        sid: str,  # noqa
+        data: dict
+    ) -> None:
+        pass
