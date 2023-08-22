@@ -10,7 +10,6 @@ from uuid import UUID
 
 from cachetools import LRUCache, TTLCache
 from pydantic import TypeAdapter, ValidationError
-from socketio import AsyncNamespace
 from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,28 +31,12 @@ _ecosystem_name_cache = LRUCache(maxsize=32)
 _ecosystem_sid_cache = LRUCache(maxsize=32)
 
 
-class BrokerType(Enum):
-    naive = "naive"
-    dispatcher = "dispatcher"
-    socketio = "socketio"
-
-
 class SensorDataRecord(TypedDict):
     ecosystem_uid: str
     sensor_uid: str
     measure: str
     timestamp: datetime
     value: float
-
-
-class SocketIOEnginePayload(gv.EnginePayload):
-    ikys: str | None = None
-    uid_token: str | None = None
-
-
-class SocketIOEnginePayloadDict(gv.EnginePayloadDict):
-    ikys: str | None
-    uid_token: str | None
 
 
 async def get_ecosystem_name(
@@ -96,40 +79,12 @@ async def get_engine_sid(
             return await inner_func(session, engine_uid)
 
 
-class Events:
-    broker_type: BrokerType = BrokerType.naive
-
+class GaiaEvents(AsyncEventHandler):
     def __init__(self, *args, **kwargs) -> None:
-        if self.broker_type not in (BrokerType.dispatcher, BrokerType.socketio):
-            raise AttributeError("'broker_type' must be a valid 'BrokerType'")
+        kwargs["namespace"] = "/gaia"
         super().__init__(*args, **kwargs)
-        self._background_task_started: bool = False
-        self.engines_blacklist = TTLCache(maxsize=64, ttl=60 * 60 * 24)
         self.logger = logging.getLogger("ouranos.aggregator")
         self._ouranos_dispatcher: AsyncDispatcher | None = None
-
-    async def emit(
-            self,
-            event: str,
-            data: dict | list | str | tuple | None = None,
-            to: dict | None = None,
-            room: str | None = None,
-            namespace: str | None = None,
-            **kwargs
-    ) -> None:
-        raise NotImplementedError
-
-    async def session(self, sid: str, namespace: str | None = None) -> None:
-        raise NotImplementedError
-
-    def enter_room(self, sid: str, room: str, namespace: str | None = None) -> None:
-        raise NotImplementedError
-
-    def leave_room(self, sid: str, room: str, namespace: str | None = None) -> None:
-        raise NotImplementedError
-
-    async def disconnect(self, sid: str, namespace: str | None = None) -> None:
-        raise NotImplementedError
 
     @property
     def ouranos_dispatcher(self) -> AsyncDispatcher:
@@ -146,9 +101,6 @@ class Events:
         self.ouranos_dispatcher.on("turn_light", self.turn_light)
         self.ouranos_dispatcher.on("turn_actuator", self.turn_actuator)
         self.ouranos_dispatcher.on("crud", self.crud)
-
-    async def gaia_background_task(self):
-        pass
 
     @overload
     def validate_payload(
@@ -213,16 +165,9 @@ class Events:
             sid: str,
             environ: dict,
     ) -> None:
-        if self.broker_type == BrokerType.dispatcher:
-            self.logger.info(f"Connected to the message broker")
-            await self.emit("register", ttl=75)
-            self.logger.info(f"Requested connected 'Gaia' instances to register")
-        else:
-            async with self.session(sid, namespace="/gaia") as session:
-                remote_addr = session["REMOTE_ADDR"] = environ["REMOTE_ADDR"]
-            self.logger.debug(f"Received a connection from {remote_addr}")
-            await self.emit("register")
-            self.logger.info(f"Requested connected 'Gaia' instances to register")
+        self.logger.info(f"Connected to the message broker")
+        await self.emit("register", ttl=75)
+        self.logger.info(f"Requesting connected 'Gaia' instances to register")
 
     async def on_disconnect(
             self,
@@ -247,26 +192,18 @@ class Events:
     async def on_register_engine(
             self,
             sid: str,
-            data: SocketIOEnginePayloadDict,
+            data: gv.EnginePayloadDict,
     ) -> None:
-        data: SocketIOEnginePayloadDict = self.validate_payload(
-            data, SocketIOEnginePayload, dict)
+        data: gv.EnginePayloadDict = self.validate_payload(
+            data, gv.EnginePayload, dict)
         engine_uid: str
         remote_addr: str
-        if self.broker_type == BrokerType.dispatcher:
-            engine_uid = data["engine_uid"]
-            self.logger.debug(
-                f"Received 'register_engine' from engine {engine_uid}")
-            async with self.session(sid) as session:
-                session["engine_uid"] = engine_uid
-            remote_addr = data["address"]
-        else:
-            engine_uid = data["engine_uid"]
-            self.logger.debug(
-                f"Received 'register_engine' from engine {engine_uid}")
-            async with self.session(sid) as session:
-                remote_addr = session["REMOTE_ADDR"]
-
+        engine_uid = data["engine_uid"]
+        remote_addr = data["address"]
+        self.logger.debug(
+            f"Received 'register_engine' from engine {engine_uid}")
+        async with self.session(sid) as session:
+            session["engine_uid"] = engine_uid
         now = datetime.now(timezone.utc).replace(microsecond=0)
         engine_info = {
             "uid": engine_uid,
@@ -739,13 +676,9 @@ class Events:
                 engine_sid = ecosystem.engine.sid
             except (AttributeError, Exception):
                 engine_sid = None
-        if self.broker_type == BrokerType.dispatcher:
-            await self.emit(
-                "turn_actuator", data=data, namespace="/gaia", room=engine_sid,
-                ttl=30)
-        else:
-            await self.emit(
-                "turn_actuator", data=data, namespace="/gaia", room=engine_sid)
+        await self.emit(
+            "turn_actuator", data=data, namespace="/gaia", room=engine_sid,
+            ttl=30)
 
     async def turn_light(
             self,
@@ -783,12 +716,8 @@ class Events:
                 "target": data["target"],
                 "payload": json.dumps(data["data"]),
             })
-        if self.broker_type == BrokerType.dispatcher:
-            await self.emit(
-                "crud", data=data, namespace="/gaia", room=engine_sid, ttl=30)
-        else:
-            await self.emit(
-                "crud", data=data, namespace="/gaia", room=engine_sid)
+        await self.emit(
+            "crud", data=data, namespace="/gaia", room=engine_sid, ttl=30)
 
     # Response to crud, actual path: Gaia -> Aggregator
     async def on_crud_result(
@@ -801,17 +730,3 @@ class Events:
             crud_request = await CrudRequest.get(session, UUID(data["uuid"]))
             crud_request.result = data["status"]
             crud_request.message = data["message"]
-
-
-class DispatcherBasedGaiaEvents(AsyncEventHandler, Events):
-    broker_type = BrokerType.dispatcher
-
-    def __init__(self) -> None:
-        super().__init__(namespace="/gaia")
-
-
-class SioBasedGaiaEvents(AsyncNamespace, Events):
-    broker_type = BrokerType.socketio
-
-    def __init__(self) -> None:
-        super().__init__(namespace="/gaia")
