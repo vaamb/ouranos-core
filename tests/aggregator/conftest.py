@@ -7,7 +7,7 @@ import pytest_asyncio
 
 from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
-from ouranos.aggregator.events import DispatcherBasedGaiaEvents
+from ouranos.aggregator.events import GaiaEvents
 from ouranos.core.database.init import create_base_data
 from ouranos.core.database.models.gaia import Engine, Ecosystem
 
@@ -46,7 +46,7 @@ def mock_dispatcher():
 
 @pytest.fixture(scope="module")
 def events_handler_module(mock_dispatcher: MockAsyncDispatcher):
-    events_handler = DispatcherBasedGaiaEvents()
+    events_handler = GaiaEvents()
     events_handler.ouranos_dispatcher = mock_dispatcher
     mock_dispatcher.register_event_handler(events_handler)
     return events_handler

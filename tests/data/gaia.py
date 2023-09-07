@@ -67,7 +67,7 @@ management_data: gv.ManagementConfigDict = {
     "health": False,
     "database": False,
     "alarms": False,
-    "webcam": False,
+    "pictures": False,
 }
 
 

@@ -10,8 +10,7 @@ from sqlalchemy import select
 from gaia_validators import ManagementFlags, TurnActuatorPayload
 from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
-from ouranos.aggregator.events import (
-    BrokerType, DispatcherBasedGaiaEvents, SocketIOEnginePayload)
+from ouranos.aggregator.events import GaiaEvents
 from ouranos.core.database.models.gaia import (
     ActuatorStatus, ActuatorType, Ecosystem, Engine, EnvironmentParameter,
     Hardware, HealthRecord, Lighting, SensorRecord)
@@ -25,10 +24,9 @@ from ..utils import MockAsyncDispatcher
 
 def test_handler(
         mock_dispatcher: MockAsyncDispatcher,
-        events_handler: DispatcherBasedGaiaEvents
+        events_handler: GaiaEvents
 ):
     assert events_handler._dispatcher == mock_dispatcher
-    assert events_handler.broker_type == BrokerType.dispatcher
     assert events_handler.namespace == "gaia"
     assert len(mock_dispatcher.emit_store) == 0
 
@@ -36,7 +34,7 @@ def test_handler(
 @pytest.mark.asyncio
 async def test_registration_wrapper(
         mock_dispatcher: MockAsyncDispatcher,
-        events_handler: DispatcherBasedGaiaEvents
+        events_handler: GaiaEvents
 ):
     await events_handler.on_ping(engine_sid, [ecosystem_uid])
 
@@ -49,7 +47,7 @@ async def test_registration_wrapper(
 @pytest.mark.asyncio
 async def test_on_connect(
         mock_dispatcher: MockAsyncDispatcher,
-        events_handler: DispatcherBasedGaiaEvents
+        events_handler: GaiaEvents
 ):
     await events_handler.on_connect(engine_sid, "")
     emitted = mock_dispatcher.emit_store[0]
@@ -60,7 +58,7 @@ async def test_on_connect(
 @pytest.mark.asyncio
 async def test_on_disconnect(
         mock_dispatcher: MockAsyncDispatcher,
-        events_handler: DispatcherBasedGaiaEvents,
+        events_handler: GaiaEvents,
         engine_aware_db: AsyncSQLAlchemyWrapper  # noqa
 ):
     await events_handler.on_disconnect(engine_sid)
@@ -76,10 +74,10 @@ async def test_on_disconnect(
 @pytest.mark.asyncio
 async def test_on_register_engine(
         mock_dispatcher: MockAsyncDispatcher,
-        events_handler: DispatcherBasedGaiaEvents,
+        events_handler: GaiaEvents,
         naive_db: AsyncSQLAlchemyWrapper,
 ):
-    payload = SocketIOEnginePayload(
+    payload = gv.EnginePayload(
         engine_uid=engine_uid,
         address=ip_address
     ).model_dump()
@@ -103,7 +101,7 @@ async def test_on_register_engine(
 @pytest.mark.asyncio
 async def test_on_ping(
         mock_dispatcher: MockAsyncDispatcher,
-        events_handler: DispatcherBasedGaiaEvents,
+        events_handler: GaiaEvents,
         engine_aware_db: AsyncSQLAlchemyWrapper,
 ):
     async with engine_aware_db.scoped_session() as session:
@@ -121,7 +119,7 @@ async def test_on_ping(
 @pytest.mark.asyncio
 async def test_on_base_info(
         mock_dispatcher: MockAsyncDispatcher,
-        events_handler: DispatcherBasedGaiaEvents,
+        events_handler: GaiaEvents,
         naive_db: AsyncSQLAlchemyWrapper,
 ):
     await events_handler.on_base_info(engine_sid, [base_info_payload])
@@ -146,7 +144,7 @@ async def test_on_base_info(
 @pytest.mark.asyncio
 async def test_on_management(
         mock_dispatcher: MockAsyncDispatcher,
-        events_handler: DispatcherBasedGaiaEvents,
+        events_handler: GaiaEvents,
         ecosystem_aware_db: AsyncSQLAlchemyWrapper,
 ):
     await events_handler.on_management(engine_sid, [management_payload])
@@ -171,7 +169,7 @@ async def test_on_management(
 @pytest.mark.asyncio
 async def test_on_environmental_parameters(
         mock_dispatcher: MockAsyncDispatcher,
-        events_handler: DispatcherBasedGaiaEvents,
+        events_handler: GaiaEvents,
         ecosystem_aware_db: AsyncSQLAlchemyWrapper,
 ):
     await events_handler.on_environmental_parameters(engine_sid, [environmental_payload])
@@ -198,7 +196,7 @@ async def test_on_environmental_parameters(
 @pytest.mark.asyncio
 async def test_on_hardware(
         mock_dispatcher: MockAsyncDispatcher,
-        events_handler: DispatcherBasedGaiaEvents,
+        events_handler: GaiaEvents,
         ecosystem_aware_db: AsyncSQLAlchemyWrapper,
 ):
     await events_handler.on_hardware(engine_sid, [hardware_payload])
@@ -224,7 +222,7 @@ async def test_on_hardware(
 @pytest.mark.asyncio
 async def test_on_sensors_data(
         mock_dispatcher: MockAsyncDispatcher,
-        events_handler: DispatcherBasedGaiaEvents,
+        events_handler: GaiaEvents,
         ecosystem_aware_db: AsyncSQLAlchemyWrapper,
 ):
     await events_handler.on_sensors_data(engine_sid, [sensors_data_payload])
@@ -253,7 +251,7 @@ async def test_on_sensors_data(
 @pytest.mark.asyncio
 async def test_on_buffered_sensors_data(
         mock_dispatcher: MockAsyncDispatcher,
-        events_handler: DispatcherBasedGaiaEvents,
+        events_handler: GaiaEvents,
         ecosystem_aware_db: AsyncSQLAlchemyWrapper,
 ):
     await events_handler.on_buffered_sensors_data(engine_sid, buffered_data_payload)
@@ -303,7 +301,7 @@ async def test_on_buffered_sensors_data(
 @pytest.mark.asyncio
 async def test_on_actuator_data(
         mock_dispatcher: MockAsyncDispatcher,
-        events_handler: DispatcherBasedGaiaEvents,
+        events_handler: GaiaEvents,
         ecosystem_aware_db: AsyncSQLAlchemyWrapper,
 ):
     await events_handler.on_actuator_data(engine_sid, [actuator_state_payload])
@@ -325,7 +323,7 @@ async def test_on_actuator_data(
 @pytest.mark.asyncio
 async def test_on_health_data(
         mock_dispatcher: MockAsyncDispatcher,
-        events_handler: DispatcherBasedGaiaEvents,
+        events_handler: GaiaEvents,
         ecosystem_aware_db: AsyncSQLAlchemyWrapper,
 ):
     await events_handler.on_health_data(engine_sid, [health_data_payload])
@@ -345,7 +343,7 @@ async def test_on_health_data(
 @pytest.mark.asyncio
 async def test_on_light_data(
         mock_dispatcher: MockAsyncDispatcher,
-        events_handler: DispatcherBasedGaiaEvents,
+        events_handler: GaiaEvents,
         ecosystem_aware_db: AsyncSQLAlchemyWrapper,
 ):
     await events_handler.on_light_data(engine_sid, [light_data_payload])
@@ -366,7 +364,7 @@ async def test_on_light_data(
 @pytest.mark.asyncio
 async def test_turn_light(
         mock_dispatcher: MockAsyncDispatcher,
-        events_handler: DispatcherBasedGaiaEvents
+        events_handler: GaiaEvents
 ):
     await events_handler.turn_light(engine_sid, turn_actuator_payload)
     validated_data = TurnActuatorPayload(**turn_actuator_payload).model_dump()
@@ -381,7 +379,7 @@ async def test_turn_light(
 
 
 @pytest.mark.asyncio
-async def test_turn_actuator(mock_dispatcher: MockAsyncDispatcher, events_handler: DispatcherBasedGaiaEvents):
+async def test_turn_actuator(mock_dispatcher: MockAsyncDispatcher, events_handler: GaiaEvents):
     await events_handler.turn_actuator(engine_sid, turn_actuator_payload)
     validated_data = TurnActuatorPayload(**turn_actuator_payload).model_dump()
     emitted = mock_dispatcher.emit_store[0]
