@@ -67,14 +67,9 @@ class EnvironmentParameterCreationPayload(BaseModel):
 
 
 class EnvironmentParameterUpdatePayload(BaseModel):
-    parameter: ClimateParameter
     day: Optional[float] = None
     night: Optional[float] = None
     hysteresis: Optional[float] = None
-
-    @field_validator("parameter", mode="before")
-    def parse_parameter(cls, value):
-        return safe_enum_or_none_from_name(ClimateParameter, value)
 
 
 class HardwareCreationPayload_NoEcoUid(BaseModel):

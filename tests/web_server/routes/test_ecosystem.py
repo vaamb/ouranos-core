@@ -3,7 +3,7 @@ from datetime import datetime, time
 from fastapi.testclient import TestClient
 import pytest
 
-from gaia_validators import ManagementFlags
+from gaia_validators import ManagementConfig, ManagementFlags
 from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
 from ouranos import json
@@ -13,6 +13,9 @@ from ouranos.core.utils import create_time_window
 from ...data.gaia import *
 
 
+# ------------------------------------------------------------------------------
+#   Base ecosystem info
+# ------------------------------------------------------------------------------
 def test_ecosystems(client: TestClient):
     response = client.get("/api/gaia/ecosystem")
     assert response.status_code == 200
@@ -99,6 +102,9 @@ def test_ecosystem_delete_request_success(client_operator: TestClient):
     assert response.status_code == 202
 
 
+# ------------------------------------------------------------------------------
+#   Ecosystem management
+# ------------------------------------------------------------------------------
 def test_managements_available(client: TestClient):
     response = client.get("/api/gaia/ecosystem/managements_available")
     assert response.status_code == 200
@@ -129,6 +135,33 @@ def test_management_unique(client: TestClient):
             assert data[0][management] == value
 
 
+def test_update_management_request_failure_user(client_user: TestClient):
+    response = client_user.put(f"/api/gaia/ecosystem/u/{ecosystem_uid}/management")
+    assert response.status_code == 403
+
+
+def test_update_management_request_failure_payload(client_operator: TestClient):
+    response = client_operator.put(f"/api/gaia/ecosystem/u/{ecosystem_uid}/management")
+    assert response.status_code == 422
+
+
+def test_update_management_request_success(client_operator: TestClient):
+    payload = management_data.copy()
+    payload.update({
+        "sensors": False,
+        "pictures": True,
+    })
+
+    response = client_operator.put(
+        f"/api/gaia/ecosystem/u/{ecosystem_uid}/management",
+        json=payload,
+    )
+    assert response.status_code == 202
+
+
+# ------------------------------------------------------------------------------
+#   Ecosystem sensors skeleton
+# ------------------------------------------------------------------------------
 @pytest.mark.asyncio
 async def test_ecosystems_sensors_skeleton(
         client: TestClient,
@@ -161,6 +194,9 @@ async def test_ecosystem_sensors_skeleton_unique(
         assert data == skeleton
 
 
+# ------------------------------------------------------------------------------
+#   Ecosystem light
+# ------------------------------------------------------------------------------
 def test_light(client: TestClient):
     response = client.get("/api/gaia/ecosystem/light")
     assert response.status_code == 200
@@ -185,6 +221,29 @@ def test_light_unique(client: TestClient):
     assert time.fromisoformat(data["evening_end"]) == light_data["evening_end"]
 
 
+def test_update_light_request_failure_user(client_user: TestClient):
+    response = client_user.put(f"/api/gaia/ecosystem/u/{ecosystem_uid}/light")
+    assert response.status_code == 403
+
+
+def test_update_light_request_failure_payload(client_operator: TestClient):
+    response = client_operator.put(f"/api/gaia/ecosystem/u/{ecosystem_uid}/light")
+    assert response.status_code == 422
+
+
+def test_update_light_request_success(client_operator: TestClient):
+    payload = {"method": "mimic"}
+
+    response = client_operator.put(
+        f"/api/gaia/ecosystem/u/{ecosystem_uid}/light",
+        json=payload,
+    )
+    assert response.status_code == 202
+
+
+# ------------------------------------------------------------------------------
+#   Ecosystem environment parameters
+# ------------------------------------------------------------------------------
 def test_environment_parameters(client: TestClient):
     response = client.get("/api/gaia/ecosystem/environment_parameters")
     assert response.status_code == 200
@@ -207,6 +266,104 @@ def test_environment_parameters_unique(client: TestClient):
     assert data["hysteresis"] == climate["hysteresis"]
 
 
+def test_create_environment_parameter_request_failure_user(client_user: TestClient):
+    response = client_user.post(
+        f"/api/gaia/ecosystem/u/{ecosystem_uid}/environment_parameters")
+    assert response.status_code == 403
+
+
+def test_create_environment_parameter_request_failure_payload(client_operator: TestClient):
+    response = client_operator.post(
+        f"/api/gaia/ecosystem/u/{ecosystem_uid}/environment_parameters")
+    assert response.status_code == 422
+
+
+def test_create_environment_parameter_request_success(client_operator: TestClient):
+    payload = climate.copy()
+    payload["parameter"] = "humidity"
+
+    response = client_operator.post(
+        f"/api/gaia/ecosystem/u/{ecosystem_uid}/environment_parameters",
+        json=payload,
+    )
+    assert response.status_code == 202
+
+
+def test_update_environment_parameter_request_failure_user(client_user: TestClient):
+    response = client_user.put(
+        f"/api/gaia/ecosystem/u/{ecosystem_uid}/environment_parameters/temperature")
+    assert response.status_code == 403
+
+
+def test_update_environment_parameter_request_failure_payload(client_operator: TestClient):
+    response = client_operator.put(
+        f"/api/gaia/ecosystem/u/{ecosystem_uid}/environment_parameters/temperature")
+    assert response.status_code == 422
+
+
+def test_update_environment_parameter_request_success(client_operator: TestClient):
+    payload = climate.copy()
+    del payload["parameter"]
+    payload["day"] = 37.0
+
+    response = client_operator.put(
+        f"/api/gaia/ecosystem/u/{ecosystem_uid}/environment_parameters/temperature",
+        json=payload,
+    )
+    assert response.status_code == 202
+
+
+def test_delete_environment_parameter_request_failure_anon(client: TestClient):
+    response = client.delete(
+        f"/api/gaia/ecosystem/u/{ecosystem_uid}/environment_parameters/temperature")
+    assert response.status_code == 403
+
+
+def test_delete_environment_parameter_request_success(client_operator: TestClient):
+    response = client_operator.delete(
+        f"/api/gaia/ecosystem/u/{ecosystem_uid}/environment_parameters/temperature")
+    assert response.status_code == 202
+
+
+# ------------------------------------------------------------------------------
+#   Ecosystem hardware
+# ------------------------------------------------------------------------------
+def test_get_ecosystem_hardware(client: TestClient):
+    response = client.get(f"/api/gaia/ecosystem/u/{ecosystem_uid}/hardware")
+    assert response.status_code == 200
+
+    data = json.loads(response.text)
+    hardware = data[0]
+    assert hardware["uid"] == hardware_data["uid"]
+    assert hardware["level"] == hardware_data["level"]
+    assert hardware["last_log"] is None
+    assert hardware["measures"][0]["name"] == hardware_data["measures"][0]
+
+
+def test_create_ecosystem_hardware_request_failure_user(client_user: TestClient):
+    response = client_user.post(f"/api/gaia/ecosystem/u/{ecosystem_uid}/hardware")
+    assert response.status_code == 403
+
+
+def test_create_ecosystem_hardware_request_failure_payload(client_operator: TestClient):
+    response = client_operator.post(f"/api/gaia/ecosystem/u/{ecosystem_uid}/hardware")
+    assert response.status_code == 422
+
+
+def test_create_ecosystem_hardware_request_success(client_operator: TestClient):
+    payload = hardware_data.copy()
+    del payload["uid"]
+
+    response = client_operator.post(
+        f"/api/gaia/ecosystem/u/{ecosystem_uid}/hardware",
+        json=payload,
+    )
+    assert response.status_code == 202
+
+
+# ------------------------------------------------------------------------------
+#   Ecosystem current data
+# ------------------------------------------------------------------------------
 def test_current_data(client: TestClient):
     response = client.get("/api/gaia/ecosystem/current_data")
     assert response.status_code == 200
@@ -233,6 +390,9 @@ def test_current_data_unique(client: TestClient):
     assert inner_data["value"] == sensor_record.value
 
 
+# ------------------------------------------------------------------------------
+#   Ecosystem actuators state
+# ------------------------------------------------------------------------------
 def test_turn_actuator_failure_user(
         client_user: TestClient,
 ):
