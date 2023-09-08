@@ -2,7 +2,7 @@ from fastapi.testclient import TestClient
 
 from ouranos import json
 
-from ...data.gaia import *
+import tests.data.gaia as g_data
 
 
 def test_warning_failure_anon(client: TestClient):
@@ -16,5 +16,5 @@ def test_warning_success(client_user: TestClient):
 
     data = json.loads(response.text)
     assert data[0]["level"] == 0
-    assert data[0]["title"] == gaia_warning["title"]
-    assert data[0]["description"] == gaia_warning["description"]
+    assert data[0]["title"] == g_data.gaia_warning["title"]
+    assert data[0]["description"] == g_data.gaia_warning["description"]

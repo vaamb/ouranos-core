@@ -4,7 +4,7 @@ from gaia_validators import HardwareLevel, HardwareType
 
 from ouranos import json
 
-from ...data.gaia import *
+import tests.data.gaia as g_data
 
 
 def test_hardware(client: TestClient):
@@ -12,17 +12,17 @@ def test_hardware(client: TestClient):
     assert response.status_code == 200
 
     data = json.loads(response.text)[0]
-    assert data["uid"] == hardware_data["uid"]
-    assert data["name"] == hardware_data["name"]
-    assert data["address"] == hardware_data["address"]
-    assert data["type"] == hardware_data["type"]
-    assert data["level"] == hardware_data["level"]
-    assert data["model"] == hardware_data["model"]
+    assert data["uid"] == g_data.hardware_data["uid"]
+    assert data["name"] == g_data.hardware_data["name"]
+    assert data["address"] == g_data.hardware_data["address"]
+    assert data["type"] == g_data.hardware_data["type"]
+    assert data["level"] == g_data.hardware_data["level"]
+    assert data["model"] == g_data.hardware_data["model"]
     assert data["measures"][0] == {
         "name": "temperature",
         "unit": "°C"
     }
-    assert data["plants"] == hardware_data["plants"]
+    assert data["plants"] == g_data.hardware_data["plants"]
 
 
 def test_hardware_models(client: TestClient):
@@ -45,7 +45,7 @@ def test_hardware_creation_request_failure_payload(client_operator: TestClient):
 
 def test_hardware_creation_request_success(client_operator: TestClient):
     payload = {
-        "ecosystem_uid": ecosystem_uid,
+        "ecosystem_uid": g_data.ecosystem_uid,
         "name": "TestLight",
         "address": "GPIO_17",
         "level": HardwareLevel.environment.value,
@@ -60,21 +60,21 @@ def test_hardware_creation_request_success(client_operator: TestClient):
 
 
 def test_hardware_unique(client: TestClient):
-    response = client.get(f"/api/gaia/hardware/u/{hardware_uid}")
+    response = client.get(f"/api/gaia/hardware/u/{g_data.hardware_uid}")
     assert response.status_code == 200
 
     data = json.loads(response.text)
-    assert data["uid"] == hardware_data["uid"]
-    assert data["name"] == hardware_data["name"]
-    assert data["address"] == hardware_data["address"]
-    assert data["type"] == hardware_data["type"]
-    assert data["level"] == hardware_data["level"]
-    assert data["model"] == hardware_data["model"]
+    assert data["uid"] == g_data.hardware_data["uid"]
+    assert data["name"] == g_data.hardware_data["name"]
+    assert data["address"] == g_data.hardware_data["address"]
+    assert data["type"] == g_data.hardware_data["type"]
+    assert data["level"] == g_data.hardware_data["level"]
+    assert data["model"] == g_data.hardware_data["model"]
     assert data["measures"][0] == {
         "name": "temperature",
         "unit": "°C"
     }
-    assert data["plants"] == hardware_data["plants"]
+    assert data["plants"] == g_data.hardware_data["plants"]
 
 
 def test_hardware_unique_wrong_uid(client: TestClient):
@@ -83,12 +83,12 @@ def test_hardware_unique_wrong_uid(client: TestClient):
 
 
 def test_hardware_update_request_failure_user(client_user: TestClient):
-    response = client_user.put(f"/api/gaia/hardware/u/{hardware_uid}")
+    response = client_user.put(f"/api/gaia/hardware/u/{g_data.hardware_uid}")
     assert response.status_code == 403
 
 
 def test_hardware_update_request_failure_payload(client_operator: TestClient):
-    response = client_operator.put(f"/api/gaia/hardware/u/{hardware_uid}")
+    response = client_operator.put(f"/api/gaia/hardware/u/{g_data.hardware_uid}")
     assert response.status_code == 422
 
 
@@ -98,17 +98,17 @@ def test_hardware_update_request_success(client_operator: TestClient):
         "address": "GPIO_37",
     }
     response = client_operator.put(
-        f"/api/gaia/hardware/u/{hardware_uid}",
+        f"/api/gaia/hardware/u/{g_data.hardware_uid}",
         json=payload,
     )
     assert response.status_code == 202
 
 
 def test_hardware_delete_request_failure_user(client_user: TestClient):
-    response = client_user.delete(f"/api/gaia/hardware/u/{hardware_uid}")
+    response = client_user.delete(f"/api/gaia/hardware/u/{g_data.hardware_uid}")
     assert response.status_code == 403
 
 
 def test_hardware_delete_request_success(client_operator: TestClient):
-    response = client_operator.delete(f"/api/gaia/hardware/u/{hardware_uid}")
+    response = client_operator.delete(f"/api/gaia/hardware/u/{g_data.hardware_uid}")
     assert response.status_code == 202

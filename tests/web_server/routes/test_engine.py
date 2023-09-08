@@ -6,7 +6,7 @@ from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 from ouranos import json
 from ouranos.core.database.models.gaia import Engine
 
-from ...data.gaia import *
+import tests.data.gaia as g_data
 
 
 @pytest.mark.asyncio
@@ -30,27 +30,27 @@ async def test_engine_unique(
         client: TestClient,
         db: AsyncSQLAlchemyWrapper,
 ):
-    response = client.get(f"/api/gaia/engine/u/{engine_uid}")
+    response = client.get(f"/api/gaia/engine/u/{g_data.engine_uid}")
     assert response.status_code == 200
     data = json.loads(response.text)
 
     async with db.scoped_session() as session:
-        engine = await Engine.get(session, engine_uid)
+        engine = await Engine.get(session, g_data.engine_uid)
         assert data["uid"] == engine.uid
         assert data["address"] == engine.address
         assert data["ecosystems"][0]["uid"] == engine.ecosystems[0].uid
 
 
-async def test_engine_unique_wrong_id(client: TestClient):
+def test_engine_unique_wrong_id(client: TestClient):
     response = client.get("/api/gaia/engine/u/wrong_id")
     assert response.status_code == 404
 
 
-async def test_engine_delete_request_failure_anon(client: TestClient):
+def test_engine_delete_request_failure_anon(client: TestClient):
     response = client.delete("/api/gaia/engine/u/{ecosystem_uid}")
     assert response.status_code == 403
 
 
 def test_engine_delete_request_success(client_operator: TestClient):
-    response = client_operator.delete(f"/api/gaia/ecosystem/u/{ecosystem_uid}")
+    response = client_operator.delete(f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}")
     assert response.status_code == 202
