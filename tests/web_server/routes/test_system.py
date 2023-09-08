@@ -1,11 +1,11 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from fastapi.testclient import TestClient
 
 from ouranos import json
 from ouranos.core.config.consts import START_TIME
 
-from ...data.system import *
+import tests.data.system as g_data
 
 
 def test_route_anonymous(client: TestClient):
@@ -18,7 +18,7 @@ def test_start_time(client_admin: TestClient):
     assert response.status_code == 200
 
     data = json.loads(response.text)
-    assert data == START_TIME.isoformat()
+    assert datetime.fromisoformat(data) == START_TIME
 
 
 def test_current_data(client_admin: TestClient):
@@ -31,15 +31,15 @@ def test_current_data(client_admin: TestClient):
         "RAM_used", "RAM_total", "DISK_used", "DISK_total"
     ]
     value = data["values"][0]
-    assert value[0] == system_dict["timestamp"].isoformat()
-    assert value[1] == system_dict["system_uid"]
-    assert value[2] == system_dict["CPU_used"]
-    assert value[3] == system_dict["CPU_temp"]
-    assert value[4] == system_dict["RAM_process"]
-    assert value[5] == system_dict["RAM_used"]
-    assert value[6] == system_dict["RAM_total"]
-    assert value[7] == system_dict["DISK_used"]
-    assert value[8] == system_dict["DISK_total"]
+    assert datetime.fromisoformat(value[0]) == g_data.system_dict["timestamp"]
+    assert value[1] == g_data.system_dict["system_uid"]
+    assert value[2] == g_data.system_dict["CPU_used"]
+    assert value[3] == g_data.system_dict["CPU_temp"]
+    assert value[4] == g_data.system_dict["RAM_process"]
+    assert value[5] == g_data.system_dict["RAM_used"]
+    assert value[6] == g_data.system_dict["RAM_total"]
+    assert value[7] == g_data.system_dict["DISK_used"]
+    assert value[8] == g_data.system_dict["DISK_total"]
 
 
 def test_historic_data(client_admin: TestClient):
@@ -52,12 +52,12 @@ def test_historic_data(client_admin: TestClient):
         "RAM_used", "RAM_total", "DISK_used", "DISK_total"
     ]
     value = data["values"][0]
-    assert value[0] == (system_dict["timestamp"] - timedelta(hours=1)).isoformat()
-    assert value[1] == system_dict["system_uid"]
-    assert value[2] == system_dict["CPU_used"]
-    assert value[3] == system_dict["CPU_temp"]
-    assert value[4] == system_dict["RAM_process"]
-    assert value[5] == system_dict["RAM_used"]
-    assert value[6] == system_dict["RAM_total"]
-    assert value[7] == system_dict["DISK_used"]
-    assert value[8] == system_dict["DISK_total"]
+    assert datetime.fromisoformat(value[0]) == (g_data.system_dict["timestamp"] - timedelta(hours=1))
+    assert value[1] == g_data.system_dict["system_uid"]
+    assert value[2] == g_data.system_dict["CPU_used"]
+    assert value[3] == g_data.system_dict["CPU_temp"]
+    assert value[4] == g_data.system_dict["RAM_process"]
+    assert value[5] == g_data.system_dict["RAM_used"]
+    assert value[6] == g_data.system_dict["RAM_total"]
+    assert value[7] == g_data.system_dict["DISK_used"]
+    assert value[8] == g_data.system_dict["DISK_total"]

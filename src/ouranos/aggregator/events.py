@@ -35,8 +35,8 @@ class SensorDataRecord(TypedDict):
     ecosystem_uid: str
     sensor_uid: str
     measure: str
-    timestamp: datetime
     value: float
+    timestamp: datetime
 
 
 # ------------------------------------------------------------------------------
@@ -466,8 +466,8 @@ class GaiaEvents(BaseEvents):
                     "ecosystem_uid": ecosystem["uid"],
                     "sensor_uid": record.sensor_uid,
                     "measure": record.measure,
-                    "timestamp": record_timestamp,
                     "value": float(record.value),
+                    "timestamp": record_timestamp,
                 }))
                 last_log[record.sensor_uid] = record_timestamp
                 await sleep(0)
@@ -547,7 +547,17 @@ class GaiaEvents(BaseEvents):
         async with db.scoped_session() as session:
             uuid: UUID = data["uuid"]
             try:
-                await SensorRecord.create_records(session, data["data"])
+                records = [
+                    cast(SensorDataRecord, {
+                        "ecosystem_uid": record[0],
+                        "sensor_uid": record[1],
+                        "measure": record[2],
+                        "value": record[3],
+                        "timestamp": record[4],
+                    })
+                    for record in data["data"]
+                ]
+                await SensorRecord.create_records(session, records)
             except Exception as e:
                 await self.emit(
                     "buffered_data_ack",

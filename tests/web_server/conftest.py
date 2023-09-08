@@ -1,4 +1,4 @@
-from datetime import datetime, time, timedelta, timezone
+from datetime import timedelta
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -18,59 +18,61 @@ from ouranos.core.database.models.system import SystemRecord
 from ouranos.web_server.auth import SessionInfo
 from ouranos.web_server.factory import create_app
 
-from ..data.gaia import *
-from ..data.system import system_dict
-from ..data.users import admin, operator, user
+import tests.data.gaia as g_data
+from tests.data.system import system_dict
+from tests.data.users import admin, operator, user
 
 
 @pytest_asyncio.fixture(scope="module", autouse=True)
 async def add_ecosystems(db: AsyncSQLAlchemyWrapper):
     async with db.scoped_session() as session:
-        await Engine.create(session, engine_dict)
+        await Engine.create(session, g_data.engine_dict)
 
         full_ecosystem_dict = {
-            **ecosystem_dict,
-            "day_start": sky["day"],
-            "night_start": sky["night"],
+            **g_data.ecosystem_dict,
+            "day_start": g_data.sky["day"],
+            "night_start": g_data.sky["night"],
         }
         await Ecosystem.create(session, full_ecosystem_dict)
 
         environment_parameter = {
-            "ecosystem_uid": ecosystem_uid,
-            **climate
+            "ecosystem_uid": g_data.ecosystem_uid,
+            **g_data.climate
         }
         await EnvironmentParameter.create(session, environment_parameter)
 
-        adapted_light_data = light_data.copy()
-        adapted_light_data.pop("timer")
-        adapted_light_data["ecosystem_uid"] = ecosystem_uid
+        adapted_light_data = g_data.light_data.copy()
+        adapted_light_data["ecosystem_uid"] = g_data.ecosystem_uid
         await Lighting.create(session, adapted_light_data)
 
-        adapted_hardware_data = hardware_data.copy()
+        adapted_hardware_data = g_data.hardware_data.copy()
         adapted_hardware_data.pop("multiplexer_model")
-        adapted_hardware_data["ecosystem_uid"] = ecosystem_uid
+        adapted_hardware_data["ecosystem_uid"] = g_data.ecosystem_uid
         await Hardware.create(session, adapted_hardware_data)
 
         adapted_sensor_record = {
-            "ecosystem_uid": ecosystem_uid,
-            "sensor_uid": sensor_record["sensor_uid"],
-            "measure": measure_record["measure"],
-            "timestamp": sensors_data["timestamp"],
-            "value": float(measure_record["value"]),
+            "ecosystem_uid": g_data.ecosystem_uid,
+            "sensor_uid": g_data.sensor_record.sensor_uid,
+            "measure": g_data.sensor_record.measure,
+            "timestamp": g_data.timestamp_now,
+            "value": g_data.sensor_record.value,
         }
         await SensorDbCache.insert_data(session, adapted_sensor_record)
 
         adapted_sensor_record["timestamp"] = (
-                sensors_data["timestamp"] - timedelta(hours=1))
+                g_data.sensors_data["timestamp"] - timedelta(hours=1))
         await SensorRecord.create_records(session, adapted_sensor_record)
 
-        adapted_health_data = health_data.copy()
-        adapted_health_data["health_index"] = adapted_health_data["index"]
-        adapted_health_data.pop("index")
-        adapted_health_data["ecosystem_uid"] = ecosystem_uid
+        adapted_health_data = {
+            "ecosystem_uid": g_data.ecosystem_uid,
+            "green": g_data.health_data.green,
+            "necrosis": g_data.health_data.necrosis,
+            "health_index": g_data.health_data.index,
+            "timestamp": g_data.health_data.timestamp,
+        }
         await HealthRecord.create_records(session, adapted_health_data)
 
-        await GaiaWarning.create(session, gaia_warning)
+        await GaiaWarning.create(session, g_data.gaia_warning)
 
 
 @pytest_asyncio.fixture(scope="module", autouse=True)

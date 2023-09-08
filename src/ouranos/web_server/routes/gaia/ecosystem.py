@@ -72,6 +72,9 @@ async def environment_parameter_or_abort(
         )
 
 
+# ------------------------------------------------------------------------------
+#   Base ecosystem info
+# ------------------------------------------------------------------------------
 @router.get("", response_model=list[EcosystemInfo])
 async def get_ecosystems(
         ecosystems_id: list[str] | None = ecosystems_uid_q,
@@ -210,6 +213,11 @@ async def delete_ecosystem(
         )
 
 
+# ------------------------------------------------------------------------------
+#   Ecosystem management
+#   Rem: there is no 'post' method as management dict is automatically created
+#        upon ecosystem creation
+# ------------------------------------------------------------------------------
 @router.get("/managements_available", response_model=list[ManagementInfo])
 async def get_managements_available():
     return [
@@ -286,6 +294,9 @@ async def update_management(
         )
 
 
+# ------------------------------------------------------------------------------
+#   Ecosystem sensors skeleton
+# ------------------------------------------------------------------------------
 @router.get("/sensors_skeleton", response_model=list[SensorSkeletonInfo])
 async def get_ecosystems_sensors_skeleton(
         ecosystems_id: list[str] | None = ecosystems_uid_q,
@@ -318,6 +329,11 @@ async def get_ecosystem_sensors_skeleton(
     return response
 
 
+# ------------------------------------------------------------------------------
+#   Ecosystem light
+#   Rem: there is no 'post' method as light info dict is automatically created
+#        upon ecosystem creation
+# ------------------------------------------------------------------------------
 @router.get("/light", response_model=list[EcosystemLightInfo])
 async def get_ecosystems_light(
         ecosystems_id: list[str] | None = ecosystems_uid_q,
@@ -381,6 +397,9 @@ async def update_ecosystem_lighting(
         )
 
 
+# ------------------------------------------------------------------------------
+#   Ecosystem environment parameters
+# ------------------------------------------------------------------------------
 @router.get("/environment_parameters", response_model=list[EnvironmentParameterInfo])
 async def get_ecosystems_environment_parameters(
         ecosystems_id: list[str] | None = ecosystems_uid_q,
@@ -462,6 +481,7 @@ async def update_environment_parameters(
         session: AsyncSession = Depends(get_session)
 ):
     environment_parameter_dict = payload.model_dump()
+    environment_parameter_dict["parameter"] = parameter
     try:
         ecosystem = await ecosystem_or_abort(session, id)
         await environment_parameter_or_abort(session, id, parameter)
@@ -534,6 +554,10 @@ async def delete_environment_parameters(
         )
 
 
+# ------------------------------------------------------------------------------
+#   Ecosystem hardware
+#   Rem: there is no 'put' method as hardware has its own API interface
+# ------------------------------------------------------------------------------
 @router.post("/u/{id}/hardware",
              status_code=status.HTTP_202_ACCEPTED,
              response_model=ResultResponse,
@@ -587,6 +611,9 @@ async def get_ecosystem_hardware(
     return hardware
 
 
+# ------------------------------------------------------------------------------
+#   Ecosystem current data
+# ------------------------------------------------------------------------------
 @router.get("/current_data", response_model=list[EcosystemSensorData])
 async def get_ecosystems_current_data(
         ecosystems_id: list[str] | None = ecosystems_uid_q,
@@ -618,6 +645,9 @@ async def get_ecosystem_current_data(
     return response
 
 
+# ------------------------------------------------------------------------------
+#   Ecosystem actuators state
+# ------------------------------------------------------------------------------
 @router.get("/actuators_status", response_model=list[EcosystemActuatorStatus])
 async def get_ecosystems_actuators_status(
         ecosystems_id: list[str] | None = ecosystems_uid_q,
