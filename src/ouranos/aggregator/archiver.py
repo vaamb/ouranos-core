@@ -79,7 +79,7 @@ class Archiver:
                     for model in list_of_models
                 ]
 
-            with db.scoped_session() as session:
+            async with db.scoped_session() as session:
                 session: AsyncSession
                 stmt = select(recent_model).where(recent_model.datetime < time_limit)
                 result = await session.execute(stmt)
