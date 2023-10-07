@@ -136,6 +136,9 @@ class BaseFunctionality(ABC):
                 f"{self.__class__.__name__} is not running"
             )
 
+    async def init_async(self):
+        pass
+
     @abstractmethod
     def _startup(self):
         raise NotImplementedError
@@ -150,6 +153,7 @@ class BaseFunctionality(ABC):
 
     async def _run(self):
         await self.init_the_db()
+        await self.init_async()
         scheduler.start()
         self.startup()
         self.logger.info(
