@@ -111,8 +111,8 @@ class WebServer(Functionality):
 
     async def _startup(self):
         self._app.start()
-        self.system_monitor.start()
+        await self.system_monitor.start()
 
     async def _shutdown(self):
-        self.system_monitor.stop()
+        await self.system_monitor.stop()
         self._app.stop()
