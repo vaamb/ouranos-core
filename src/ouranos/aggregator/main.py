@@ -217,11 +217,11 @@ class Aggregator(Functionality):
         self._start_handling_gaia_events()
         self._start_handling_stream_gaia_events()
         self.archiver.start()
-        self.sky_watcher.start()
+        await self.sky_watcher.start()
 
     async def _shutdown(self) -> None:
         try:
-            self.sky_watcher.stop()
+            await self.sky_watcher.stop()
             self.archiver.stop()
             self.broker.stop()
             self.stream_broker.stop()
