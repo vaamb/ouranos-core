@@ -82,19 +82,19 @@ class PluginManager:
         self.functionalities[plugin_name] = functionality_cls(
             microservice=microservice)
 
-    def start_plugins(self):
+    async def start_plugins(self):
         for plugin_name in self.functionalities:
-            self.start_plugin(plugin_name)
+            await self.start_plugin(plugin_name)
 
-    def start_plugin(self, plugin_name):
-        self.functionalities[plugin_name].startup()
+    async def start_plugin(self, plugin_name):
+        await self.functionalities[plugin_name].startup()
 
-    def stop_plugins(self):
+    async def stop_plugins(self):
         for plugin_name in self.functionalities:
-            self.stop_plugin(plugin_name)
+            await self.stop_plugin(plugin_name)
 
-    def stop_plugin(self, plugin_name):
-        self.functionalities[plugin_name].shutdown()
+    async def stop_plugin(self, plugin_name):
+        await self.functionalities[plugin_name].shutdown()
 
     def register_plugins_routes(
             self,

@@ -25,7 +25,8 @@ class FunctionalityWrapper:
     functionality_cls: Type[Functionality]
     workers: int = 0
     kwargs: dict = field(default_factory=dict)
-    process: Functionality | list[SpawnProcess] | None = None
+    instance: Functionality | None = None
+    process: list[SpawnProcess] = field(default_factory=list)
 
 
 class FunctionalityManager(BaseFunctionality, ABC):
@@ -68,9 +69,9 @@ class FunctionalityManager(BaseFunctionality, ABC):
         func_name = format_functionality_name(functionality)
         func_workers_limit: int | None = self.config.get(
             f"{func_name.upper()}_WORKERS")
-        global_workers_limit: int | None = self.config["WORKERS"]
         if func_workers_limit is not None and workers > func_workers_limit:
             workers = func_workers_limit
+        global_workers_limit: int | None = self.config["WORKERS"]
         if global_workers_limit is not None and workers > global_workers_limit:
             workers = global_workers_limit
 
@@ -85,45 +86,75 @@ class FunctionalityManager(BaseFunctionality, ABC):
 
     add_functionality = wrap_functionality
 
-    def start_functionality(
-            self,
-            functionality_cls: Type[Functionality],
-            func_kwargs: dict | None = None
-    ) -> Functionality:
-        func_kwargs = func_kwargs or {}
-        functionality = functionality_cls(**func_kwargs)
-        functionality.startup()
-        return functionality
+    @staticmethod
+    def init_func(functionality_wrapper: FunctionalityWrapper) -> None:
+        if functionality_wrapper.workers > 0:
+            functionality_name = format_functionality_name(
+                functionality_wrapper.functionality_cls)
+            raise ValueError(
+                f"Functionality '{functionality_name}' should be run as a "
+                f"worker"
+            )
+        functionality_cls = functionality_wrapper.functionality_cls
+        kwargs = functionality_wrapper.kwargs
+        functionality = functionality_cls(**kwargs)
+        functionality_wrapper.instance = functionality
 
-    def _startup(self) -> None:
+    @staticmethod
+    async def init_async_func(functionality_wrapper: FunctionalityWrapper) -> None:
+        if functionality_wrapper.workers > 0:
+            functionality_name = format_functionality_name(
+                functionality_wrapper.functionality_cls)
+            raise ValueError(
+                f"Functionality '{functionality_name}' should be run as a "
+                f"worker"
+            )
+        await functionality_wrapper.instance.init_async()
+
+    async def init_async(self):
         for functionality_wrapper in self.functionalities.values():
             if functionality_wrapper.workers > 0:
-                functionality_wrapper.process = []
-                for _ in range(functionality_wrapper.workers):
-                    functionality_wrapper.process.append(
-                        spawn.Process(
-                            target=self.start_functionality,
-                            kwargs={
-                                "functionality_cls": functionality_wrapper.functionality_cls,
-                                "func_kwargs": functionality_wrapper.kwargs,
-                            }
-                        )
-                    )
+                # Will be done in subprocess
+                pass
             else:
-                functionality_wrapper.process = self.start_functionality(
-                    functionality_cls=functionality_wrapper.functionality_cls,
-                    func_kwargs=functionality_wrapper.kwargs,
-                )
+                self.init_func(functionality_wrapper)
+                await self.init_async_func(functionality_wrapper)
 
-    def _shutdown(self) -> None:
+    @staticmethod
+    def run_in_subprocess(functionality_wrapper: FunctionalityWrapper) -> None:
+        functionality_cls = functionality_wrapper.functionality_cls
+        kwargs = functionality_wrapper.kwargs
+        functionality = functionality_cls(**kwargs)
+        functionality.run()
+
+    async def _startup(self) -> None:
+        for functionality_wrapper in self.functionalities.values():
+            if functionality_wrapper.workers > 0:
+                for _ in range(functionality_wrapper.workers):
+                    # Might be broken
+                    process = spawn.Process(
+                        target=self.run_in_subprocess,
+                        kwargs={
+                            "functionality_wrapper": functionality_wrapper,
+                        }
+                    )
+                    process.start()
+                    functionality_wrapper.process.append(process)
+            else:
+                await functionality_wrapper.instance.startup()
+
+    async def _shutdown(self) -> None:
         functionalities = [*self.functionalities.keys()]
         functionalities.reverse()
         for functionality_name in functionalities:
             functionality_wrapper = self.functionalities[functionality_name]
-            if isinstance(functionality_wrapper.process, list):
+            if functionality_wrapper.workers > 0:
+                y = functionality_wrapper.process
                 for process in functionality_wrapper.process:
                     process: SpawnProcess
                     process.terminate()
                     process.join()
             elif isinstance(functionality_wrapper.process, Functionality):
-                functionality_wrapper.process.shutdown()
+                await functionality_wrapper.process.shutdown()
+            else:
+                raise ValueError("Unrecognized type of functionality process")

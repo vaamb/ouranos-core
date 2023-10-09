@@ -213,13 +213,13 @@ class Aggregator(Functionality):
         # Start the dispatcher
         self.stream_broker.start(retry=True, block=False)
 
-    def _startup(self) -> None:
+    async def _startup(self) -> None:
         self._start_handling_gaia_events()
         self._start_handling_stream_gaia_events()
         self.archiver.start()
         self.sky_watcher.start()
 
-    def _shutdown(self) -> None:
+    async def _shutdown(self) -> None:
         try:
             self.sky_watcher.stop()
             self.archiver.stop()

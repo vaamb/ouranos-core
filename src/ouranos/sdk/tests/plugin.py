@@ -2,10 +2,10 @@ from ouranos.sdk import Functionality, Plugin
 
 
 class DummyFunctionality(Functionality):
-    def _startup(self):
+    async def _startup(self):
         pass
 
-    def _shutdown(self):
+    async def _shutdown(self):
         pass
 
 
