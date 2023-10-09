@@ -224,6 +224,7 @@ class Aggregator(Functionality):
             self.sky_watcher.stop()
             self.archiver.stop()
             self.broker.stop()
+            self.stream_broker.stop()
         except AttributeError:  # Not dispatcher_based
             pass  # Handled by uvicorn or by Api
         except RuntimeError:
