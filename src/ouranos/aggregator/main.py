@@ -206,22 +206,22 @@ class Aggregator(Functionality):
         self.stream_event_handler = StreamGaiaEvents()
         self.stream_broker.register_event_handler(self.stream_event_handler)
 
-    def start_gaia_events_dispatcher(self) -> None:
+    async def start_gaia_events_dispatcher(self) -> None:
         separate_ouranos_dispatcher: bool
         if self.config["DISPATCHER_URL"] == self.config["GAIA_COMMUNICATION_URL"]:
             separate_ouranos_dispatcher = False
         else:
             separate_ouranos_dispatcher = True
-        self.broker.start(retry=True, block=False)
+        await self.broker.start(retry=True, block=False)
         if separate_ouranos_dispatcher:
-            self.event_handler.ouranos_dispatcher.start(retry=True, block=False)
+            await self.event_handler.ouranos_dispatcher.start(retry=True, block=False)
 
-    def start_stream_gaia_events_dispatcher(self) -> None:
-        self.stream_broker.start(retry=True, block=False)
+    async def start_stream_gaia_events_dispatcher(self) -> None:
+        await self.stream_broker.start(retry=True, block=False)
 
     async def _startup(self) -> None:
-        self.start_gaia_events_dispatcher()
-        self.start_stream_gaia_events_dispatcher()
+        await self.start_gaia_events_dispatcher()
+        await self.start_stream_gaia_events_dispatcher()
         await self.archiver.start()
         await self.sky_watcher.start()
 
@@ -229,8 +229,8 @@ class Aggregator(Functionality):
         try:
             await self.sky_watcher.stop()
             await self.archiver.stop()
-            self.broker.stop()
-            self.stream_broker.stop()
+            await self.broker.stop()
+            await self.stream_broker.stop()
         except AttributeError:  # Not dispatcher_based
             pass  # Handled by uvicorn or by Api
         except RuntimeError:
