@@ -216,13 +216,13 @@ class Aggregator(Functionality):
     async def _startup(self) -> None:
         self._start_handling_gaia_events()
         self._start_handling_stream_gaia_events()
-        self.archiver.start()
+        await self.archiver.start()
         await self.sky_watcher.start()
 
     async def _shutdown(self) -> None:
         try:
             await self.sky_watcher.stop()
-            self.archiver.stop()
+            await self.archiver.stop()
             self.broker.stop()
             self.stream_broker.stop()
         except AttributeError:  # Not dispatcher_based
