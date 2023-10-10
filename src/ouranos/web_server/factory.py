@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import asyncio
+from contextlib import asynccontextmanager
 import logging
 import time as ctime
 from typing import Any
@@ -198,10 +198,14 @@ def create_app(config: dict | None = None) -> FastAPI:
         logger.debug("Ouranos frontend detected, mounting it")
         app.mount("/", StaticFiles(directory=frontend_static_dir, html=True))
 
-    @app.on_event("startup")
-    def startup():
+    @asynccontextmanager
+    async def lifespan(app_: FastAPI):
         logger.info("Ouranos web server worker successfully started")
-        asyncio.ensure_future(dispatcher.start())
+        await dispatcher.start(retry=True, block=False)
+        yield
+        await dispatcher.stop()
+
+    app.router.lifespan_context = lifespan
 
     return app
 
