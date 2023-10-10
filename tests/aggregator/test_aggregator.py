@@ -3,12 +3,13 @@ import pytest
 from ouranos.aggregator.main import Aggregator
 
 
-def test_aggregator(config):
+@pytest.mark.asyncio
+async def test_aggregator(config):
     aggregator = Aggregator(auto_setup_config=False)
-    aggregator.startup()
+    await aggregator.startup()
     with pytest.raises(RuntimeError):
-        aggregator.startup()
+        await aggregator.startup()
 
-    aggregator.shutdown()
+    await aggregator.shutdown()
 
 # TODO: add other tests

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from asyncio import Event, Task
 from datetime import datetime, timezone
 from logging import getLogger, Logger
 import os
@@ -33,8 +34,19 @@ class SystemMonitor:
     def __init__(self):
         self.logger: Logger = getLogger("ouranos.aggregator")
         self.dispatcher = InternalEventsDispatcherFactory.get("application")
-        self._mutex = asyncio.Lock()
-        self._stop_event = asyncio.Event()
+        self._stop_event: Event = Event()
+        self._task: Task | None = None
+
+    @property
+    def task(self) -> Task:
+        if self._task is None:
+            raise AttributeError("SystemMonitor task has not been set up")
+        else:
+            return self._task
+
+    @task.setter
+    def task(self, task: Task | None):
+        self._task = task
 
     async def loop(self) -> None:
         update_period = current_app.config.get("SYSTEM_UPDATE_PERIOD")
@@ -74,16 +86,15 @@ class SystemMonitor:
             time_for_loop = ctime.time() - start
             await asyncio.sleep(update_period-time_for_loop)
 
-    def start(self) -> None:
+    async def start(self) -> None:
         update_period = current_app.config.get("SYSTEM_UPDATE_PERIOD")
         if update_period is not None:
             self._stop_event.clear()
-            asyncio.ensure_future(self.loop())
+            self.task = asyncio.ensure_future(self.loop())
 
-    def stop(self) -> None:
-        async def safe_clear():
-            async with db.scoped_session() as session:
-                await SystemDbCache.clear(session)
-
+    async def stop(self) -> None:
         self._stop_event.set()
-        asyncio.ensure_future(safe_clear())
+        self.task.cancel()
+        self.task = None
+        async with db.scoped_session() as session:
+            await SystemDbCache.clear(session)

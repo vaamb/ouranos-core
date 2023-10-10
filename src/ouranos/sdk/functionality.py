@@ -97,7 +97,7 @@ class BaseFunctionality(ABC):
         if generate_registration_token:
             await print_registration_token(logger)
 
-    def startup(self):
+    async def startup(self):
         if not self._status:
             # Start the functionality
             pid = os.getpid()
@@ -108,14 +108,14 @@ class BaseFunctionality(ABC):
                     f"Starting Ouranos' {self.name.replace('_', ' ').capitalize()} "
                     f"process [{pid}]"
                 )
-            self._startup()
+            await self._startup()
             self._status = True
         else:
             raise RuntimeError(
                 f"{self.__class__.__name__} has already started"
             )
 
-    def shutdown(self):
+    async def shutdown(self):
         if self._status:
             # Stop the functionality
             if self.is_root:
@@ -124,7 +124,7 @@ class BaseFunctionality(ABC):
                 self.logger.info(
                     f"Stopping Ouranos' {self.name.replace('_', ' ').capitalize()}")
             try:
-                self._shutdown()
+                await self._shutdown()
             except asyncio.CancelledError as e:
                 self.logger.error(
                     f"Error while shutting down. Error msg: "
@@ -136,12 +136,15 @@ class BaseFunctionality(ABC):
                 f"{self.__class__.__name__} is not running"
             )
 
+    async def init_async(self):
+        pass
+
     @abstractmethod
-    def _startup(self):
+    async def _startup(self):
         raise NotImplementedError
 
     @abstractmethod
-    def _shutdown(self):
+    async def _shutdown(self):
         raise NotImplementedError
 
     def run(self):
@@ -150,12 +153,13 @@ class BaseFunctionality(ABC):
 
     async def _run(self):
         await self.init_the_db()
+        await self.init_async()
         scheduler.start()
-        self.startup()
+        await self.startup()
         self.logger.info(
             f"{self.name.replace('_', ' ').capitalize()} running (Press CTRL+C to quit)")
         await self._runner.run_until_stop()
-        self.shutdown()
+        await self.shutdown()
         scheduler.remove_all_jobs()
         scheduler.shutdown()
 
@@ -189,6 +193,8 @@ class Functionality(BaseFunctionality, ABC):
         :param root: bool, Whether the functionality is managing other (sub)-
         functionalities or not. Should remain `False` for most cases.
         """
+        if kwargs.get("root"):
+            del kwargs["root"]
         super().__init__(
             config_profile,
             config_override,

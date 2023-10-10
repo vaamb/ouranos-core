@@ -250,33 +250,32 @@ class SkyWatcher:
                     raise e
             self.logger.debug("Sun times data updated")
 
-    async def _start(self) -> None:
+    async def start(self) -> None:
         weather_delay = current_app.config.get("WEATHER_UPDATE_PERIOD")
+        tasks = []
         if all((self._API_key, self._coordinates, weather_delay)):
             if not await self._check_weather_recency():
-                await self.update_weather_data()
+                tasks.append(self.update_weather_data())
             scheduler.add_job(
                 self.update_weather_data,
                 "cron", minute=f"*/{weather_delay}", misfire_grace_time=5 * 60,
-                id="weather"
+                id="sky_watcher-weather"
             )
         if self._coordinates is not None:
             if not await self._check_sun_times_recency():
-                await self.update_sun_times_data()
+                tasks.append(self.update_sun_times_data())
             scheduler.add_job(
                 self.update_sun_times_data,
                 "cron", hour="1", misfire_grace_time=15 * 60,
-                id="suntimes"
+                id="sky_watcher-suntimes"
             )
+        await asyncio.gather(*tasks)
 
-    def start(self) -> None:
-        asyncio.ensure_future(self._start())
-
-    def stop(self) -> None:
+    async def stop(self) -> None:
         if scheduler.get_job("weather"):
-            scheduler.remove_job("weather")
+            scheduler.remove_job("sky_watcher-weather")
         if scheduler.get_job("suntimes"):
-            scheduler.remove_job("suntimes")
+            scheduler.remove_job("sky_watcher-suntimes")
         SunTimesCache.clear()
 
 

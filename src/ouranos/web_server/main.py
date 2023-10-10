@@ -109,10 +109,10 @@ class WebServer(Functionality):
 
             self._app = _AppWrapper(start, stop)
 
-    def _startup(self):
+    async def _startup(self):
         self._app.start()
-        self.system_monitor.start()
+        await self.system_monitor.start()
 
-    def _shutdown(self):
-        self.system_monitor.stop()
+    async def _shutdown(self):
+        await self.system_monitor.stop()
         self._app.stop()

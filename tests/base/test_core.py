@@ -15,23 +15,25 @@ def test_current_app(config: ConfigDict):
     assert Path(config["CACHE_DIR"]) == current_app.cache_dir
 
 
-def test_functionality(config):
+@pytest.mark.asyncio
+async def test_functionality(config):
     functionality = DummyFunctionality(auto_setup_config=False)
     assert functionality.config == config
-    functionality.startup()
+    await functionality.startup()
     with pytest.raises(RuntimeError):
-        functionality.startup()
-    functionality.shutdown()
+        await functionality.startup()
+    await functionality.shutdown()
 
 
-def test_plugin_manager():
+@pytest.mark.asyncio
+async def test_plugin_manager():
     plugin_manager = PluginManager()
     plugin_manager.register_plugins()
 
     assert(plugin_manager.plugins["dummy-plugin"] == dummy_plugin)
 
     plugin_manager.init_plugins()
-    plugin_manager.start_plugins()
+    await plugin_manager.start_plugins()
     with pytest.raises(RuntimeError):
-        plugin_manager.start_plugins()
-    plugin_manager.stop_plugins()
+        await plugin_manager.start_plugins()
+    await plugin_manager.stop_plugins()

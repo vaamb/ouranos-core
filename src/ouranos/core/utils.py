@@ -15,7 +15,8 @@ from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from dispatcher import (
-    AsyncInMemoryDispatcher, AsyncRedisDispatcher, AsyncAMQPDispatcher)
+    AsyncDispatcher, AsyncInMemoryDispatcher, AsyncRedisDispatcher,
+    AsyncAMQPDispatcher)
 import jwt
 from sqlalchemy import Row
 
@@ -74,9 +75,6 @@ else:
         @staticmethod
         def loads(obj) -> t.Any:
             return orjson.loads(obj)
-
-
-dispatcher_type: "AsyncInMemoryDispatcher" | "AsyncRedisDispatcher" | "AsyncAMQPDispatcher"
 
 
 def setup_loop():
@@ -205,7 +203,7 @@ class Tokenizer:
 
 
 class InternalEventsDispatcherFactory:
-    __dispatchers: dict[str, dispatcher_type] = {}
+    __dispatchers: dict[str, AsyncDispatcher] = {}
 
     @classmethod
     def get(
@@ -213,7 +211,7 @@ class InternalEventsDispatcherFactory:
             name: str,
             config: dict | None = None,
             **kwargs
-    ) -> dispatcher_type:
+    ) -> AsyncDispatcher:
         try:
             return cls.__dispatchers[name]
         except KeyError:
@@ -221,24 +219,26 @@ class InternalEventsDispatcherFactory:
             config = config or current_app.config
             broker_url = config["DISPATCHER_URL"]
             if broker_url.startswith("memory://"):
-                return AsyncInMemoryDispatcher(name, **kwargs)
+                dispatcher =  AsyncInMemoryDispatcher(name, **kwargs)
             elif broker_url.startswith("redis://"):
                 uri = broker_url.removeprefix("redis://")
                 if not uri:
                     uri = "localhost:6379/0"
                 url = f"redis://{uri}"
-                return AsyncRedisDispatcher(name, url, **kwargs)
+                dispatcher = AsyncRedisDispatcher(name, url, **kwargs)
             elif broker_url.startswith("amqp://"):
                 uri = broker_url.removeprefix("amqp://")
                 if not uri:
                     uri = "guest:guest@localhost:5672//"
                 url = f"amqp://{uri}"
-                return AsyncAMQPDispatcher(name, url, **kwargs)
+                dispatcher = AsyncAMQPDispatcher(name, url, **kwargs)
             else:
                 raise RuntimeError(
                     "'DISPATCHER_URL' is not set to a supported protocol, choose"
                     "from 'memory', 'redis' or 'amqp'"
                 )
+            cls.__dispatchers[name] = dispatcher
+            return cls.__dispatchers[name]
 
 
 def time_to_datetime(_time: time | None) -> datetime | None:

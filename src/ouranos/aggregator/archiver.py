@@ -93,16 +93,16 @@ class Archiver:
         else:
             self.logger.warning(f"No limit_key set for {data_name} ArchiveLink")
 
-    def archive_old_data(self) -> None:
+    async def archive_old_data(self) -> None:
         self.logger.info("Archiving old data")
         if not self._mapping:
             self._map_archives()
         for data in self._mapping:
             recent = self._mapping[data]["recent"]
             archive = self._mapping[data]["archive"]
-            asyncio.ensure_future(self._archive(data, recent, archive))
+            await self._archive(data, recent, archive)
 
-    def start(self) -> None:
+    async def start(self) -> None:
         self.logger.info("Scheduling the archiver")
         scheduler.add_job(
             self.archive_old_data,
@@ -110,6 +110,6 @@ class Archiver:
             id="archiver"
         )
 
-    def stop(self) -> None:
+    async def stop(self) -> None:
         self.logger.info("Stopping the archiver")
         scheduler.remove_job(job_id="archiver")
