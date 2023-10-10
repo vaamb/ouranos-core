@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import time as ctime
 from typing import Any
@@ -200,7 +201,7 @@ def create_app(config: dict | None = None) -> FastAPI:
     @app.on_event("startup")
     def startup():
         logger.info("Ouranos web server worker successfully started")
-        dispatcher.start()
+        asyncio.ensure_future(dispatcher.start())
 
     return app
 
