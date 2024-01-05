@@ -5,8 +5,7 @@ from fastapi import (
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from dispatcher import AsyncDispatcher
-from gaia_validators import (
-    CrudAction, CrudPayload, HardwareLevel, HardwareType, Route)
+import gaia_validators as gv
 
 from ouranos.core.database.models.gaia import Ecosystem, Hardware
 from ouranos.core.utils import InternalEventsDispatcherFactory
@@ -61,8 +60,8 @@ async def get_multiple_hardware(
         hardware_uid: list[str] | None = Query(
             default=None, description="A list of hardware uids"),
         ecosystems_uid: list[str] | None = ecosystems_uid_q,
-        hardware_level: list[HardwareLevel] | None = hardware_level_q,
-        hardware_type: list[HardwareType] | None = Query(
+        hardware_level: list[gv.HardwareLevel] | None = hardware_level_q,
+        hardware_type: list[gv.HardwareType] | None = Query(
             default=None, description="A list of types of hardware"),
         hardware_model: list[str] | None = Query(
             default=None, description="A list of precise hardware model"),
@@ -99,12 +98,12 @@ async def create_hardware(
         # TODO: check address before dispatching
         await dispatcher.emit(
             event="crud",
-            data=CrudPayload(
-                routing=Route(
+            data=gv.CrudPayload(
+                routing=gv.Route(
                     engine_uid=ecosystem.engine_uid,
                     ecosystem_uid=ecosystem.uid
                 ),
-                action=CrudAction.create,
+                action=gv.CrudAction.create,
                 target="hardware",
                 data=hardware_dict,
             ).model_dump(),
@@ -152,12 +151,12 @@ async def update_hardware(
         ecosystem = await Ecosystem.get(session, hardware.ecosystem_uid)
         await dispatcher.emit(
             event="crud",
-            data=CrudPayload(
-                routing=Route(
+            data=gv.CrudPayload(
+                routing=gv.Route(
                     engine_uid=ecosystem.engine_uid,
                     ecosystem_uid=ecosystem.uid
                 ),
-                action=CrudAction.update,
+                action=gv.CrudAction.update,
                 target="hardware",
                 data=hardware_dict,
             ).model_dump(),
@@ -192,12 +191,12 @@ async def delete_hardware(
         ecosystem = await Ecosystem.get(session, hardware.ecosystem_uid)
         await dispatcher.emit(
             event="crud",
-            data=CrudPayload(
-                routing=Route(
+            data=gv.CrudPayload(
+                routing=gv.Route(
                     engine_uid=ecosystem.engine_uid,
                     ecosystem_uid=ecosystem.uid
                 ),
-                action=CrudAction.delete,
+                action=gv.CrudAction.delete,
                 target="hardware",
                 data=uid,
             ).model_dump(),
