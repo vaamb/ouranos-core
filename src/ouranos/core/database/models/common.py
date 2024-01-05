@@ -12,8 +12,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import func
 
-from gaia_validators import ActuatorMode
-
+import gaia_validators as gv
 from ouranos import db
 from ouranos.core.database.models.types import UtcDateTime
 from ouranos.core.utils import timeWindow
@@ -143,7 +142,7 @@ class BaseActuatorRecord(Base, Record):
     id: Mapped[int] = mapped_column(primary_key=True)
     type: Mapped[str] = mapped_column(sa.String(length=16))
     timestamp: Mapped[datetime] = mapped_column(UtcDateTime)
-    mode: Mapped[ActuatorMode] = mapped_column(default=ActuatorMode.automatic)
+    mode: Mapped[gv.ActuatorMode] = mapped_column(default=gv.ActuatorMode.automatic)
     status: Mapped[bool] = mapped_column(default=False)
 
     @declared_attr
