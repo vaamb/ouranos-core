@@ -6,7 +6,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from dispatcher import AsyncDispatcher
 import gaia_validators as gv
-from gaia_validators import safe_enum_from_name
 
 from ouranos.core.database.models.gaia import (
     ActuatorType, Ecosystem, EnvironmentParameter, Hardware, Lighting)
@@ -424,7 +423,7 @@ async def create_environment_parameters(
     parameter = environment_parameter_dict["parameter"]
     try:
         ecosystem = await ecosystem_or_abort(session, id)
-        safe_enum_from_name(gv.ClimateParameter, parameter)
+        gv.ClimateParameter(parameter)
         await dispatcher.emit(
             event="crud",
             data=gv.CrudPayload(
