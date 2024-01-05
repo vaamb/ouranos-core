@@ -3,7 +3,7 @@
 from logging import getLogger, Logger
 
 from dispatcher import AsyncDispatcher, AsyncEventHandler
-from gaia_validators import ManagementConfigPayloadDict
+import gaia_validators as gv
 from socketio import AsyncNamespace, BaseManager
 
 from ouranos import db
@@ -136,7 +136,7 @@ class DispatcherEvents(AsyncEventHandler):
         logger.debug("Dispatching 'actuator_data' to clients")
         await self.sio_manager.emit("actuator_data", data=data, namespace="/")
 
-    async def on_management(self, sid, data: list[ManagementConfigPayloadDict]):
+    async def on_management(self, sid, data: list[gv.ManagementConfigPayloadDict]):
         logger.debug("Dispatching 'management' to clients")
 
         rv = []
