@@ -16,15 +16,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.schema import Table
 from sqlalchemy.sql import func
 
-from gaia_validators import (
-    ActuatorModePayload, ClimateParameter, CrudAction, HardwareLevel,
-    HardwareLevelNames, HardwareType, HardwareTypeNames, IDs as EcosystemIDs,
-    LightMethod, ManagementFlags, Result)
+import gaia_validators as gv
 
 from ouranos.core.database import ArchiveLink
 from ouranos.core.database.models.common import (
-    ActuatorMode, Base, BaseActuatorRecord, BaseHealthRecord, BaseSensorRecord,
-    BaseWarning)
+    Base, BaseActuatorRecord, BaseHealthRecord, BaseSensorRecord, BaseWarning)
 from ouranos.core.database.models.memory import SensorDbCache
 from ouranos.core.database.models.types import UtcDateTime
 from ouranos.core.database.models.utils import sessionless_hashkey, time_limits
@@ -271,8 +267,8 @@ class Ecosystem(InConfigMixin, GaiaBase):
         )
 
     @property
-    def ids(self) -> EcosystemIDs:
-        return EcosystemIDs(self.uid, self.name)
+    def ids(self) -> gv.EcosystemIDs:
+        return gv.EcosystemIDs(self.uid, self.name)
 
     @property
     def connected(self) -> bool:
@@ -282,11 +278,11 @@ class Ecosystem(InConfigMixin, GaiaBase):
     def management_dict(self):
         return {
             management.name: self.can_manage(management) for
-            management in ManagementFlags
+            management in gv.ManagementFlags
         }
 
     @property
-    def lighting_method(self) -> LightMethod | None:
+    def lighting_method(self) -> gv.LightMethod | None:
         try:
             return self.lighting.method
         except AttributeError:
@@ -350,14 +346,14 @@ class Ecosystem(InConfigMixin, GaiaBase):
         result = await session.execute(stmt)
         return result.scalars().all()
 
-    def can_manage(self, mng: ManagementFlags) -> bool:
+    def can_manage(self, mng: gv.ManagementFlags) -> bool:
         return self.management & mng.value == mng.value
 
-    def add_management(self, mng: ManagementFlags) -> None:
+    def add_management(self, mng: gv.ManagementFlags) -> None:
         if not self.can_manage(mng):
             self.management += mng.value
 
-    def remove_management(self, mng: ManagementFlags) -> None:
+    def remove_management(self, mng: gv.ManagementFlags) -> None:
         if self.can_manage(mng):
             self.management -= mng.value
 
@@ -368,14 +364,14 @@ class Ecosystem(InConfigMixin, GaiaBase):
     async def has_recent_sensor_data(
             self,
             session: AsyncSession,
-            level: HardwareLevelNames,
+            level: gv.HardwareLevelNames,
             time_limit: datetime = time_limits("sensors"),
     ) -> bool:
         stmt = (
             select(Hardware)
             .where(Hardware.ecosystem_uid == self.uid)
             .where(
-                Hardware.type == HardwareType.sensor,
+                Hardware.type == gv.HardwareType.sensor,
                 Hardware.level == level
             )
             .filter(Hardware.last_log >= time_limit)
@@ -400,7 +396,7 @@ class Ecosystem(InConfigMixin, GaiaBase):
             self,
             session: AsyncSession,
             time_window: timeWindow,
-            level: HardwareLevelNames | list[HardwareLevelNames] | None = None,
+            level: gv.HardwareLevelNames | list[gv.HardwareLevelNames] | None = None,
     ) -> dict:
         stmt = (
             select(Hardware).join(SensorRecord.sensor)
@@ -446,7 +442,7 @@ class Ecosystem(InConfigMixin, GaiaBase):
         return {
             "uid": self.uid,
             "name": self.name,
-            "level": [i.name for i in HardwareLevel] if level is None else level,
+            "level": [i.name for i in gv.HardwareLevel] if level is None else level,
             "sensors_skeleton": skeleton,
         }
 
@@ -472,7 +468,7 @@ class Ecosystem(InConfigMixin, GaiaBase):
             self,
             dispatcher: AsyncDispatcher,
             actuator: ActuatorType,
-            mode: ActuatorModePayload = ActuatorModePayload.automatic,
+            mode: gv.ActuatorModePayload = gv.ActuatorModePayload.automatic,
             countdown: float = 0.0,
     ) -> None:
         # TODO: select room using db
@@ -489,7 +485,7 @@ class Ecosystem(InConfigMixin, GaiaBase):
     async def turn_light(
             self,
             dispatcher: AsyncDispatcher,
-            mode: ActuatorModePayload = ActuatorModePayload.automatic,
+            mode: gv.ActuatorModePayload = gv.ActuatorModePayload.automatic,
             countdown: float = 0.0,
     ) -> None:
         await self.turn_actuator(
@@ -503,7 +499,7 @@ class ActuatorStatus(GaiaBase):
     ecosystem_uid: Mapped[str] = mapped_column(sa.ForeignKey("ecosystems.uid"), primary_key=True)
     actuator_type: Mapped[ActuatorType] = mapped_column(primary_key=True)
     status: Mapped[bool] = mapped_column(default=False)
-    mode: Mapped[ActuatorMode] = mapped_column(default=ActuatorMode.automatic)
+    mode: Mapped[gv.ActuatorMode] = mapped_column(default=gv.ActuatorMode.automatic)
     active: Mapped[bool] = mapped_column(default=False)
 
     @classmethod
@@ -608,7 +604,7 @@ class Lighting(GaiaBase):
     __tablename__ = "lightings"
 
     ecosystem_uid: Mapped[str] = mapped_column(sa.ForeignKey("ecosystems.uid"), primary_key=True)
-    method: Mapped[LightMethod] = mapped_column(default=LightMethod.fixed)
+    method: Mapped[gv.LightMethod] = mapped_column(default=gv.LightMethod.fixed)
     morning_start: Mapped[Optional[time]] = mapped_column()
     morning_end: Mapped[Optional[time]] = mapped_column()
     evening_start: Mapped[Optional[time]] = mapped_column()
@@ -691,7 +687,7 @@ class EnvironmentParameter(GaiaBase):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     ecosystem_uid: Mapped[str] = mapped_column(sa.String(length=8), sa.ForeignKey("ecosystems.uid"))
-    parameter: Mapped[ClimateParameter] = mapped_column()
+    parameter: Mapped[gv.ClimateParameter] = mapped_column()
     day: Mapped[float] = mapped_column(sa.Float(precision=2))
     night: Mapped[float] = mapped_column(sa.Float(precision=2))
     hysteresis: Mapped[float] = mapped_column(sa.Float(precision=2), default=0.0)
@@ -827,9 +823,9 @@ class Hardware(InConfigMixin, GaiaBase):
     ecosystem_uid: Mapped[str] = mapped_column(
         sa.String(length=8), sa.ForeignKey("ecosystems.uid"), primary_key=True)
     name: Mapped[str] = mapped_column(sa.String(length=32))
-    level: Mapped[HardwareLevel] = mapped_column()
+    level: Mapped[gv.HardwareLevel] = mapped_column()
     address: Mapped[str] = mapped_column(sa.String(length=32))
-    type: Mapped[HardwareType] = mapped_column()
+    type: Mapped[gv.HardwareType] = mapped_column()
     model: Mapped[str] = mapped_column(sa.String(length=32))
     last_log: Mapped[Optional[datetime]] = mapped_column()
 
@@ -918,8 +914,8 @@ class Hardware(InConfigMixin, GaiaBase):
             cls,
             hardware_uid: str | list | None = None,
             ecosystem_uid: str | list | None = None,
-            level: HardwareLevelNames | list[HardwareLevelNames] | None = None,
-            type: HardwareTypeNames | list[HardwareTypeNames] | None = None,
+            level: gv.HardwareLevelNames | list[gv.HardwareLevelNames] | None = None,
+            type: gv.HardwareTypeNames | list[gv.HardwareTypeNames] | None = None,
             model: str | list | None = None,
     ):
         uid = hardware_uid
@@ -941,8 +937,8 @@ class Hardware(InConfigMixin, GaiaBase):
             session: AsyncSession,
             hardware_uids: str | list | None = None,
             ecosystem_uids: str | list | None = None,
-            levels: HardwareLevelNames | list[HardwareLevelNames] | None = None,
-            types: HardwareTypeNames | list[HardwareTypeNames] | None = None,
+            levels: gv.HardwareLevelNames | list[gv.HardwareLevelNames] | None = None,
+            types: gv.HardwareTypeNames | list[gv.HardwareTypeNames] | None = None,
             models: str | list | None = None,
             in_config: bool | None = None,
     ) -> Sequence[Hardware]:
@@ -993,7 +989,7 @@ class Sensor(Hardware):
         result = await session.execute(stmt)
         hardware: Hardware | None = result.unique().scalar_one_or_none()
         if hardware:
-            if hardware.type != HardwareType.sensor:
+            if hardware.type != gv.HardwareType.sensor:
                 hardware = None
         return hardware
 
@@ -1003,13 +999,13 @@ class Sensor(Hardware):
             session: AsyncSession,
             hardware_uids: str | list | None = None,
             ecosystem_uids: str | list | None = None,
-            levels: HardwareLevelNames | list[HardwareLevelNames] | None = None,
+            levels: gv.HardwareLevelNames | list[gv.HardwareLevelNames] | None = None,
             models: str | list | None = None,
             time_window: timeWindow = None,
             in_config: bool | None = None,
     ) -> Sequence[Self]:
         stmt = cls.generate_query(
-            hardware_uids, ecosystem_uids, levels, HardwareType.sensor.value, models)
+            hardware_uids, ecosystem_uids, levels, gv.HardwareType.sensor.value, models)
         if time_window:
             stmt = cls._add_time_window_to_stmt(stmt, time_window)
         if in_config is not None:
@@ -1126,7 +1122,7 @@ class Actuator(Hardware):
         result = await session.execute(stmt)
         hardware: Hardware | None = result.unique().scalar_one_or_none()
         if hardware:
-            if hardware.type == HardwareType.sensor:
+            if hardware.type == gv.HardwareType.sensor:
                 hardware = None
         return hardware
 
@@ -1137,7 +1133,7 @@ class Actuator(Hardware):
             hardware_uids: str | list | None = None,
             ecosystem_uids: str | list | None = None,
             type: ActuatorType | list[ActuatorType] | None = None,
-            levels: HardwareLevelNames | list[HardwareLevelNames] | None = None,
+            levels: gv.HardwareLevelNames | list[gv.HardwareLevelNames] | None = None,
             models: str | list | None = None,
             time_window: timeWindow = None,
             in_config: bool | None = None,
@@ -1150,7 +1146,7 @@ class Actuator(Hardware):
             stmt = stmt.where(cls.in_config == in_config)
         result = await session.execute(stmt)
         hardware: Sequence[Hardware] = result.unique().scalars().all()
-        return [h for h in hardware if h.type != HardwareType.sensor]
+        return [h for h in hardware if h.type != gv.HardwareType.sensor]
 
 
 class Measure(GaiaBase):
@@ -1366,8 +1362,8 @@ class CrudRequest(GaiaBase):
     engine_uid: Mapped[str] = mapped_column(sa.ForeignKey("engines.uid"))
     ecosystem_uid: Mapped[str] = mapped_column(sa.ForeignKey("ecosystems.uid"))
     created_on: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
-    result: Mapped[Optional[Result]] = mapped_column()
-    action: Mapped[CrudAction] = mapped_column()
+    result: Mapped[Optional[gv.Result]] = mapped_column()
+    action: Mapped[gv.CrudAction] = mapped_column()
     target: Mapped[str] = mapped_column(sa.String(length=32))
     payload: Mapped[Optional[str]] = mapped_column(sa.String(length=1024))
     message: Mapped[Optional[str]] = mapped_column(sa.String(length=256))
