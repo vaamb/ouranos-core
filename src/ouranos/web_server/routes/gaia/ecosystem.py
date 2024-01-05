@@ -5,10 +5,8 @@ from fastapi import (
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from dispatcher import AsyncDispatcher
-from gaia_validators import (
-    ActuatorModePayload, ClimateParameter, CrudAction, CrudPayload,
-    HardwareLevel, ManagementFlags, safe_enum_from_name, Route,
-    TurnActuatorPayload)
+import gaia_validators as gv
+from gaia_validators import safe_enum_from_name
 
 from ouranos.core.database.models.gaia import (
     ActuatorType, Ecosystem, EnvironmentParameter, Hardware, Lighting)
@@ -99,11 +97,11 @@ async def create_ecosystem(
     try:
         await dispatcher.emit(
             event="crud",
-            data=CrudPayload(
-                routing=Route(
+            data=gv.CrudPayload(
+                routing=gv.Route(
                     engine_uid=ecosystem_dict["engine_uid"],
                 ),
-                action=CrudAction.create,
+                action=gv.CrudAction.create,
                 target="ecosystem",
                 data=ecosystem_dict,
             ).model_dump(),
@@ -149,12 +147,12 @@ async def update_ecosystem(
         ecosystem = await ecosystem_or_abort(session, id)
         await dispatcher.emit(
             event="crud",
-            data=CrudPayload(
-                routing=Route(
+            data=gv.CrudPayload(
+                routing=gv.Route(
                     engine_uid=ecosystem.engine_uid,
                     ecosystem_uid=ecosystem.uid
                 ),
-                action=CrudAction.update,
+                action=gv.CrudAction.update,
                 target="ecosystem",
                 data=ecosystem_dict,
             ).model_dump(),
@@ -188,12 +186,12 @@ async def delete_ecosystem(
         ecosystem = await ecosystem_or_abort(session, id)
         await dispatcher.emit(
             event="crud",
-            data=CrudPayload(
-                routing=Route(
+            data=gv.CrudPayload(
+                routing=gv.Route(
                     engine_uid=ecosystem.engine_uid,
                     ecosystem_uid=ecosystem.uid,
                 ),
-                action=CrudAction.delete,
+                action=gv.CrudAction.delete,
                 target="ecosystem",
                 data=ecosystem.uid,
             ).model_dump(),
@@ -222,7 +220,7 @@ async def delete_ecosystem(
 async def get_managements_available():
     return [
         {"name": management.name, "value": management.value}
-        for management in ManagementFlags
+        for management in gv.ManagementFlags
     ]
 
 
@@ -268,12 +266,12 @@ async def update_management(
         ecosystem = await ecosystem_or_abort(session, id)
         await dispatcher.emit(
             event="crud",
-            data=CrudPayload(
-                routing=Route(
+            data=gv.CrudPayload(
+                routing=gv.Route(
                     engine_uid=ecosystem.engine_uid,
                     ecosystem_uid=ecosystem.uid
                 ),
-                action=CrudAction.update,
+                action=gv.CrudAction.update,
                 target="management",
                 data=management_dict,
             ).model_dump(),
@@ -300,7 +298,7 @@ async def update_management(
 @router.get("/sensors_skeleton", response_model=list[SensorSkeletonInfo])
 async def get_ecosystems_sensors_skeleton(
         ecosystems_id: list[str] | None = ecosystems_uid_q,
-        level: list[HardwareLevel] | None = hardware_level_q,
+        level: list[gv.HardwareLevel] | None = hardware_level_q,
         time_window: timeWindow = Depends(get_time_window),
         in_config: bool | None = in_config_query,
         session: AsyncSession = Depends(get_session),
@@ -317,7 +315,7 @@ async def get_ecosystems_sensors_skeleton(
 @router.get("/u/{id}/sensors_skeleton", response_model=SensorSkeletonInfo)
 async def get_ecosystem_sensors_skeleton(
         id: str = id_param,
-        level: list[HardwareLevel] | None = hardware_level_q,
+        level: list[gv.HardwareLevel] | None = hardware_level_q,
         time_window: timeWindow = Depends(get_time_window),
         session: AsyncSession = Depends(get_session)
 ):
@@ -371,12 +369,12 @@ async def update_ecosystem_lighting(
     try:
         await dispatcher.emit(
             event="crud",
-            data=CrudPayload(
-                routing=Route(
+            data=gv.CrudPayload(
+                routing=gv.Route(
                     engine_uid=ecosystem.engine_uid,
                     ecosystem_uid=ecosystem.uid
                 ),
-                action=CrudAction.update,
+                action=gv.CrudAction.update,
                 target="lighting",
                 data=lighting_dict,
             ).model_dump(),
@@ -426,15 +424,15 @@ async def create_environment_parameters(
     parameter = environment_parameter_dict["parameter"]
     try:
         ecosystem = await ecosystem_or_abort(session, id)
-        safe_enum_from_name(ClimateParameter, parameter)
+        safe_enum_from_name(gv.ClimateParameter, parameter)
         await dispatcher.emit(
             event="crud",
-            data=CrudPayload(
-                routing=Route(
+            data=gv.CrudPayload(
+                routing=gv.Route(
                     engine_uid=ecosystem.engine_uid,
                     ecosystem_uid=ecosystem.uid
                 ),
-                action=CrudAction.create,
+                action=gv.CrudAction.create,
                 target="environment_parameter",
                 data=environment_parameter_dict,
             ).model_dump(),
@@ -487,12 +485,12 @@ async def update_environment_parameters(
         await environment_parameter_or_abort(session, id, parameter)
         await dispatcher.emit(
             event="crud",
-            data=CrudPayload(
-                routing=Route(
+            data=gv.CrudPayload(
+                routing=gv.Route(
                     engine_uid=ecosystem.engine_uid,
                     ecosystem_uid=ecosystem.uid
                 ),
-                action=CrudAction.update,
+                action=gv.CrudAction.update,
                 target="environment_parameter",
                 data=environment_parameter_dict,
             ).model_dump(),
@@ -528,12 +526,12 @@ async def delete_environment_parameters(
         await environment_parameter_or_abort(session, id, parameter)
         await dispatcher.emit(
             event="crud",
-            data=CrudPayload(
-                routing=Route(
+            data=gv.CrudPayload(
+                routing=gv.Route(
                     engine_uid=ecosystem.engine_uid,
                     ecosystem_uid=ecosystem.uid
                 ),
-                action=CrudAction.delete,
+                action=gv.CrudAction.delete,
                 target="environment_parameter",
                 data=parameter
             ).model_dump(),
@@ -574,12 +572,12 @@ async def create_ecosystem_hardware(
         ecosystem = await ecosystem_or_abort(session, id)
         await dispatcher.emit(
             event="crud",
-            data=CrudPayload(
-                routing=Route(
+            data=gv.CrudPayload(
+                routing=gv.Route(
                     engine_uid=ecosystem.engine_uid,
                     ecosystem_uid=ecosystem.uid
                 ),
-                action=CrudAction.create,
+                action=gv.CrudAction.create,
                 target="hardware",
                 data=hardware_dict,
             ).model_dump(),
@@ -685,13 +683,13 @@ async def get_ecosystem_actuator_types_managed(
             dependencies=[Depends(is_operator)])
 async def turn_actuator(
         id: str = id_param,
-        payload: TurnActuatorPayload = Body(
+        payload: gv.TurnActuatorPayload = Body(
             description="Instruction for the actuator"),
         session: AsyncSession = Depends(get_session)
 ):
     instruction_dict = payload.model_dump()
     actuator: ActuatorType = instruction_dict["actuator"]
-    mode: ActuatorModePayload = instruction_dict["mode"]
+    mode: gv.ActuatorModePayload = instruction_dict["mode"]
     countdown = instruction_dict["countdown"]
     try:
         assert_single_uid(id)
