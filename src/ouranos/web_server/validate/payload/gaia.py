@@ -5,6 +5,7 @@ from typing import Optional, Type, TypeVar, Union
 from pydantic import field_validator
 
 import gaia_validators as gv
+from gaia_validators import safe_enum_from_name
 
 from ouranos.core.validate.base import BaseModel
 
@@ -17,7 +18,7 @@ def safe_enum_or_none_from_name(
         name: Optional[Union[str, Enum]]
 ) -> Optional[T]:
     if name is not None:
-        return enum(name)
+        return safe_enum_from_name(enum, name)
     return None
 
 
@@ -56,7 +57,7 @@ class EcosystemLightingUpdatePayload(BaseModel):
 
     @field_validator("method", mode="before")
     def parse_method(cls, value):
-        return gv.LightMethod(value)
+        return safe_enum_from_name(gv.LightMethod, value)
 
 
 class EnvironmentParameterCreationPayload(BaseModel):
@@ -67,7 +68,7 @@ class EnvironmentParameterCreationPayload(BaseModel):
 
     @field_validator("parameter", mode="before")
     def parse_parameter(cls, value):
-        return gv.ClimateParameter(value)
+        return safe_enum_from_name(gv.ClimateParameter, value)
 
 
 class EnvironmentParameterUpdatePayload(BaseModel):
@@ -88,11 +89,11 @@ class HardwareCreationPayload_NoEcoUid(BaseModel):
 
     @field_validator("level", mode="before")
     def parse_level(cls, value):
-        return gv.HardwareLevel(value)
+        return safe_enum_from_name(gv.HardwareLevel, value)
 
     @field_validator("type", mode="before")
     def parse_type(cls, value):
-        return gv.HardwareType(value)
+        return safe_enum_from_name(gv.HardwareType, value)
 
 
 class HardwareCreationPayload(HardwareCreationPayload_NoEcoUid):
