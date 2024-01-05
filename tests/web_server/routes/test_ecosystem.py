@@ -3,7 +3,7 @@ from datetime import datetime, time
 from fastapi.testclient import TestClient
 import pytest
 
-from gaia_validators import ManagementFlags
+import gaia_validators as gv
 from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
 from ouranos import json
@@ -112,7 +112,7 @@ def test_managements_available(client: TestClient):
     assert response.status_code == 200
 
     data = json.loads(response.text)
-    assert len(data) == len([m for m in ManagementFlags])
+    assert len(data) == len([m for m in gv.ManagementFlags])
 
 
 def test_managements(client: TestClient):

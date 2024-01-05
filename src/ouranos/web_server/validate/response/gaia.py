@@ -3,8 +3,7 @@ from datetime import datetime, time
 from typing import Optional
 from pydantic import Field
 
-from gaia_validators import (
-    ActuatorState, HardwareLevel, HardwareType, LightMethod)
+import gaia_validators as gv
 
 from ouranos.core.database.models.common import WarningLevel
 from ouranos.core.database.models.gaia import (
@@ -19,14 +18,14 @@ EcosystemInfo = sqlalchemy_to_pydantic(
     base=BaseModel,
     extra_fields={
         "connected": (bool, ...),
-        "lighting_method": (Optional[LightMethod], ...)
+        "lighting_method": (Optional[gv.LightMethod], ...)
     }
 )
 
 
 class EcosystemLightInfo(BaseModel):
     ecosystem_uid: str
-    method: LightMethod = LightMethod.fixed
+    method: gv.LightMethod = gv.LightMethod.fixed
     morning_start: Optional[time] = None
     morning_end: Optional[time] = None
     evening_start: Optional[time] = None
@@ -86,9 +85,9 @@ class HardwareInfo(BaseModel):
     uid: str
     ecosystem_uid: str
     name: str
-    level: HardwareLevel
+    level: gv.HardwareLevel
     address: str
-    type: HardwareType
+    type: gv.HardwareType
     model: str
     last_log: Optional[datetime] = None
     measures: list[MeasureInfo]
@@ -109,16 +108,16 @@ class EcosystemSensorData(BaseModel):
 
 class EcosystemActuatorStatus(BaseModel):
     ecosystem_uid: str
-    light: ActuatorState = ActuatorState()
-    cooler: ActuatorState = ActuatorState()
-    heater: ActuatorState = ActuatorState()
-    humidifier: ActuatorState = ActuatorState()
-    dehumidifier: ActuatorState = ActuatorState()
+    light: gv.ActuatorState = gv.ActuatorState()
+    cooler: gv.ActuatorState = gv.ActuatorState()
+    heater: gv.ActuatorState = gv.ActuatorState()
+    humidifier: gv.ActuatorState = gv.ActuatorState()
+    dehumidifier: gv.ActuatorState = gv.ActuatorState()
 
 
 class HardwareModelInfo(BaseModel):
     model: str
-    type: HardwareType
+    type: gv.HardwareType
 
 
 class SkSensorBaseInfo(BaseModel):
@@ -134,7 +133,7 @@ class SkMeasureBaseInfo(BaseModel):
 class SensorSkeletonInfo(BaseModel):
     ecosystem_uid: str = Field(alias="uid")
     name: str
-    level: list[HardwareLevel]
+    level: list[gv.HardwareLevel]
     sensors_skeleton: list[SkMeasureBaseInfo]
 
 
@@ -166,9 +165,9 @@ class SensorOverview(BaseModel):
     uid: str
     ecosystem_uid: str
     name: str
-    level: HardwareLevel
+    level: gv.HardwareLevel
     address: str
-    type: HardwareType
+    type: gv.HardwareType
     model: str
     last_log: Optional[datetime]
     measures: list[MeasureInfo]

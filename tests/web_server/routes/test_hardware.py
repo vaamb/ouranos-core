@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from gaia_validators import HardwareLevel, HardwareType
+import gaia_validators as gv
 
 from ouranos import json
 
@@ -48,8 +48,8 @@ def test_hardware_creation_request_success(client_operator: TestClient):
         "ecosystem_uid": g_data.ecosystem_uid,
         "name": "TestLight",
         "address": "GPIO_17",
-        "level": HardwareLevel.environment.value,
-        "type": HardwareType.light.value,
+        "level": gv.HardwareLevel.environment.value,
+        "type": gv.HardwareType.light.value,
         "model": "LedPanel",
     }
     response = client_operator.post(

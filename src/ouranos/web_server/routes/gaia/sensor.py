@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from gaia_validators import HardwareLevel
+import gaia_validators as gv
 
 from ouranos.core.database.models.gaia import Measure, Sensor
 from ouranos.core.utils import timeWindow
@@ -53,7 +53,7 @@ async def get_sensors(
         sensors_uid: list[str] | None = Query(
             default=None, description="A list of sensor uids"),
         ecosystems_uid: list[str] | None = ecosystems_uid_q,
-        sensors_level: list[HardwareLevel] | None = hardware_level_q,
+        sensors_level: list[gv.HardwareLevel] | None = hardware_level_q,
         sensors_model: list[str] | None = Query(
             default=None, description="A list of precise sensor model"),
         measures: list[str] | None = Query(

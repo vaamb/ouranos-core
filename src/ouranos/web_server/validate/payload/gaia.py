@@ -1,19 +1,23 @@
 from datetime import time
 from enum import Enum
-from typing import Optional, Union
+from typing import Optional, Type, TypeVar, Union
 
 from pydantic import field_validator
 
-from gaia_validators import (
-    ClimateParameter, HardwareLevel, HardwareType, LightMethod,
-    safe_enum_from_name)
+import gaia_validators as gv
 
 from ouranos.core.validate.base import BaseModel
 
 
-def safe_enum_or_none_from_name(enum: Enum, name: Optional[Union[str, Enum]]):
+T = TypeVar("T", bound=Enum)
+
+
+def safe_enum_or_none_from_name(
+        enum: Type[T],
+        name: Optional[Union[str, Enum]]
+) -> Optional[T]:
     if name is not None:
-        return safe_enum_from_name(enum, name)
+        return enum(name)
     return None
 
 
@@ -48,22 +52,22 @@ class EcosystemManagementUpdatePayload(BaseModel):
 
 
 class EcosystemLightingUpdatePayload(BaseModel):
-    method: LightMethod
+    method: gv.LightMethod
 
     @field_validator("method", mode="before")
     def parse_method(cls, value):
-        return safe_enum_from_name(LightMethod, value)
+        return gv.LightMethod(value)
 
 
 class EnvironmentParameterCreationPayload(BaseModel):
-    parameter: ClimateParameter
+    parameter: gv.ClimateParameter
     day: float
     night: float
     hysteresis: float = 0.0
 
     @field_validator("parameter", mode="before")
     def parse_parameter(cls, value):
-        return safe_enum_from_name(ClimateParameter, value)
+        return gv.ClimateParameter(value)
 
 
 class EnvironmentParameterUpdatePayload(BaseModel):
@@ -74,9 +78,9 @@ class EnvironmentParameterUpdatePayload(BaseModel):
 
 class HardwareCreationPayload_NoEcoUid(BaseModel):
     name: str
-    level: HardwareLevel
+    level: gv.HardwareLevel
     address: str
-    type: HardwareType
+    type: gv.HardwareType
     model: str
     measures: Optional[list[str]] = None
     plants: Optional[list[str]] = None
@@ -84,11 +88,11 @@ class HardwareCreationPayload_NoEcoUid(BaseModel):
 
     @field_validator("level", mode="before")
     def parse_level(cls, value):
-        return safe_enum_from_name(HardwareLevel, value)
+        return gv.HardwareLevel(value)
 
     @field_validator("type", mode="before")
     def parse_type(cls, value):
-        return safe_enum_from_name(HardwareType, value)
+        return gv.HardwareType(value)
 
 
 class HardwareCreationPayload(HardwareCreationPayload_NoEcoUid):
@@ -98,9 +102,9 @@ class HardwareCreationPayload(HardwareCreationPayload_NoEcoUid):
 class HardwareUpdatePayload(BaseModel):
     ecosystem_uid: Optional[str] = None
     name: Optional[str] = None
-    level: Optional[HardwareLevel] = None
+    level: Optional[gv.HardwareLevel] = None
     address: Optional[str] = None
-    type: Optional[HardwareType] = None
+    type: Optional[gv.HardwareType] = None
     model: Optional[str] = None
     status: Optional[bool] = None
     measure: Optional[list[str]] = None
@@ -108,8 +112,8 @@ class HardwareUpdatePayload(BaseModel):
 
     @field_validator("level", mode="before")
     def parse_level(cls, value):
-        return safe_enum_or_none_from_name(HardwareLevel, value)
+        return safe_enum_or_none_from_name(gv.HardwareLevel, value)
 
     @field_validator("type", mode="before")
     def parse_type(cls, value):
-        return safe_enum_or_none_from_name(HardwareType, value)
+        return safe_enum_or_none_from_name(gv.HardwareType, value)
