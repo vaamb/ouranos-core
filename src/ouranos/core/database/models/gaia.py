@@ -1005,7 +1005,7 @@ class Sensor(Hardware):
             in_config: bool | None = None,
     ) -> Sequence[Self]:
         stmt = cls.generate_query(
-            hardware_uids, ecosystem_uids, levels, gv.HardwareType.sensor.value, models)
+            hardware_uids, ecosystem_uids, levels, gv.HardwareType.sensor, models)
         if time_window:
             stmt = cls._add_time_window_to_stmt(stmt, time_window)
         if in_config is not None:

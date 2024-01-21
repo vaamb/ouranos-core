@@ -1,1 +1,5 @@
-from gaia_validators import BaseModel
+from gaia_validators import LaxBaseModel as BaseModel
+
+
+
+

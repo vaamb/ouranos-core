@@ -48,8 +48,8 @@ def test_hardware_creation_request_success(client_operator: TestClient):
         "ecosystem_uid": g_data.ecosystem_uid,
         "name": "TestLight",
         "address": "GPIO_17",
-        "level": gv.HardwareLevel.environment.value,
-        "type": gv.HardwareType.light.value,
+        "level": gv.HardwareLevel.environment.name,
+        "type": gv.HardwareType.light.name,
         "model": "LedPanel",
     }
     response = client_operator.post(

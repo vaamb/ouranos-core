@@ -45,7 +45,8 @@ class EcosystemManagementInfo(BaseModel):
     watering: bool = False
     health: bool = False
     alarms: bool = False
-    webcam: bool = False
+    pictures: bool = False
+    database: bool = False
     switches: bool = False
     environment_data: bool = False
     plants_data: bool = False

@@ -48,7 +48,7 @@ class EcosystemManagementUpdatePayload(BaseModel):
     watering: Optional[bool] = None
     health: Optional[bool] = None
     alarms: Optional[bool] = None
-    webcam: Optional[bool] = None
+    pictures: Optional[bool] = None
     database: Optional[bool] = None
 
 
