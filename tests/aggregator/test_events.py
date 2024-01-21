@@ -107,7 +107,7 @@ async def test_on_ping(
     async with engine_aware_db.scoped_session() as session:
         engine = await Engine.get(session, engine_id=g_data.engine_uid)
         start = copy(engine.last_seen)
-    await sleep(1.1)
+    await sleep(0.1)
 
     await events_handler.on_ping(g_data.engine_sid, [g_data.ecosystem_uid])
 
