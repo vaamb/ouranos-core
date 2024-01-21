@@ -12,7 +12,7 @@ from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
 from ouranos.aggregator.events import GaiaEvents
 from ouranos.core.database.models.gaia import (
-    ActuatorStatus, ActuatorType, Ecosystem, Engine, EnvironmentParameter,
+    ActuatorStatus, Ecosystem, Engine, EnvironmentParameter,
     Hardware, HealthRecord, Lighting, SensorRecord)
 from ouranos.core.database.models.memory import SensorDbCache
 from ouranos.core.exceptions import NotRegisteredError
@@ -314,7 +314,7 @@ async def test_on_actuator_data(
             await ActuatorStatus.get(
                 session, ecosystem_uid=g_data.ecosystem_uid, actuator_type="light")
         )
-        assert logged_light_state.actuator_type == ActuatorType.light
+        assert logged_light_state.actuator_type == gv.HardwareType.light
         assert logged_light_state.active == g_data.light_state["active"]
         assert logged_light_state.mode == g_data.light_state["mode"]
         assert logged_light_state.status == g_data.light_state["status"]
