@@ -33,14 +33,6 @@ measure_order = (
 )
 
 
-class ActuatorType(Enum):
-    light = "light"
-    heater = "heater"
-    cooler = "cooler"
-    humidifier = "humidifier"
-    dehumidifier = "dehumidifier"
-
-
 _ecosystem_caches_size = 16
 _cache_ecosystem_has_recent_data = TTLCache(maxsize=_ecosystem_caches_size * 2, ttl=60)
 _cache_sensors_data_skeleton = TTLCache(maxsize=_ecosystem_caches_size, ttl=900)
@@ -364,7 +356,7 @@ class Ecosystem(InConfigMixin, GaiaBase):
     async def has_recent_sensor_data(
             self,
             session: AsyncSession,
-            level: gv.HardwareLevelNames,
+            level: gv.HardwareLevel,
             time_limit: datetime = time_limits("sensors"),
     ) -> bool:
         stmt = (
@@ -396,7 +388,7 @@ class Ecosystem(InConfigMixin, GaiaBase):
             self,
             session: AsyncSession,
             time_window: timeWindow,
-            level: gv.HardwareLevelNames | list[gv.HardwareLevelNames] | None = None,
+            level: gv.HardwareLevel | list[gv.HardwareLevel] | None = None,
     ) -> dict:
         stmt = (
             select(Hardware).join(SensorRecord.sensor)
@@ -460,22 +452,22 @@ class Ecosystem(InConfigMixin, GaiaBase):
         result = await session.execute(stmt)
         actuators_status = result.scalars().all()
         return {
-            actuator.actuator_type.value: actuator
+            actuator.actuator_type.name: actuator
             for actuator in actuators_status
         }
 
     async def turn_actuator(
             self,
             dispatcher: AsyncDispatcher,
-            actuator: ActuatorType,
+            actuator: gv.HardwareType,
             mode: gv.ActuatorModePayload = gv.ActuatorModePayload.automatic,
             countdown: float = 0.0,
     ) -> None:
-        # TODO: select room using db
+        assert actuator in gv.HardwareType.actuator
         data = {
             "ecosystem_uid": self.uid,
-            "actuator": actuator,
-            "mode": mode,
+            "actuator": actuator.name,
+            "mode": mode.name,
             "countdown": countdown
         }
         await dispatcher.emit(
@@ -489,7 +481,7 @@ class Ecosystem(InConfigMixin, GaiaBase):
             countdown: float = 0.0,
     ) -> None:
         await self.turn_actuator(
-            dispatcher=dispatcher, actuator=ActuatorType.light, mode=mode,
+            dispatcher=dispatcher, actuator=gv.HardwareType.light, mode=mode,
             countdown=countdown)
 
 
@@ -497,7 +489,7 @@ class ActuatorStatus(GaiaBase):
     __tablename__ = "actuators_status"
 
     ecosystem_uid: Mapped[str] = mapped_column(sa.ForeignKey("ecosystems.uid"), primary_key=True)
-    actuator_type: Mapped[ActuatorType] = mapped_column(primary_key=True)
+    actuator_type: Mapped[gv.HardwareType] = mapped_column(primary_key=True)
     status: Mapped[bool] = mapped_column(default=False)
     mode: Mapped[gv.ActuatorMode] = mapped_column(default=gv.ActuatorMode.automatic)
     active: Mapped[bool] = mapped_column(default=False)
@@ -914,8 +906,8 @@ class Hardware(InConfigMixin, GaiaBase):
             cls,
             hardware_uid: str | list | None = None,
             ecosystem_uid: str | list | None = None,
-            level: gv.HardwareLevelNames | list[gv.HardwareLevelNames] | None = None,
-            type: gv.HardwareTypeNames | list[gv.HardwareTypeNames] | None = None,
+            level: gv.HardwareLevel | list[gv.HardwareLevel] | None = None,
+            type: gv.HardwareType | list[gv.HardwareType] | None = None,
             model: str | list | None = None,
     ):
         uid = hardware_uid
@@ -937,8 +929,8 @@ class Hardware(InConfigMixin, GaiaBase):
             session: AsyncSession,
             hardware_uids: str | list | None = None,
             ecosystem_uids: str | list | None = None,
-            levels: gv.HardwareLevelNames | list[gv.HardwareLevelNames] | None = None,
-            types: gv.HardwareTypeNames | list[gv.HardwareTypeNames] | None = None,
+            levels: gv.HardwareLevel | list[gv.HardwareLevel] | None = None,
+            types: gv.HardwareType | list[gv.HardwareType] | None = None,
             models: str | list | None = None,
             in_config: bool | None = None,
     ) -> Sequence[Hardware]:
@@ -999,13 +991,13 @@ class Sensor(Hardware):
             session: AsyncSession,
             hardware_uids: str | list | None = None,
             ecosystem_uids: str | list | None = None,
-            levels: gv.HardwareLevelNames | list[gv.HardwareLevelNames] | None = None,
+            levels: gv.HardwareLevel | list[gv.HardwareLevel] | None = None,
             models: str | list | None = None,
             time_window: timeWindow = None,
             in_config: bool | None = None,
     ) -> Sequence[Self]:
         stmt = cls.generate_query(
-            hardware_uids, ecosystem_uids, levels, gv.HardwareType.sensor.value, models)
+            hardware_uids, ecosystem_uids, levels, gv.HardwareType.sensor, models)
         if time_window:
             stmt = cls._add_time_window_to_stmt(stmt, time_window)
         if in_config is not None:
@@ -1132,12 +1124,18 @@ class Actuator(Hardware):
             session: AsyncSession,
             hardware_uids: str | list | None = None,
             ecosystem_uids: str | list | None = None,
-            type: ActuatorType | list[ActuatorType] | None = None,
-            levels: gv.HardwareLevelNames | list[gv.HardwareLevelNames] | None = None,
+            type: gv.HardwareType | list[gv.HardwareType] | None = None,
+            levels: gv.HardwareLevel | list[gv.HardwareLevel] | None = None,
             models: str | list | None = None,
             time_window: timeWindow = None,
             in_config: bool | None = None,
     ) -> Sequence[Self]:
+        if type is not None:
+            if isinstance(type, list):
+                for t in type:
+                    assert t in gv.HardwareType.actuator
+            else:
+                assert type in gv.HardwareType.actuator
         stmt = cls.generate_query(
             hardware_uids, ecosystem_uids, levels, type, models)
         if time_window:

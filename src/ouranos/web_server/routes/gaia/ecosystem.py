@@ -9,7 +9,7 @@ import gaia_validators as gv
 from gaia_validators import safe_enum_from_name
 
 from ouranos.core.database.models.gaia import (
-    ActuatorType, Ecosystem, EnvironmentParameter, Hardware, Lighting)
+    Ecosystem, EnvironmentParameter, Hardware, Lighting)
 from ouranos.core.utils import InternalEventsDispatcherFactory, timeWindow
 from ouranos.web_server.auth import is_operator
 from ouranos.web_server.dependencies import get_session, get_time_window
@@ -688,7 +688,8 @@ async def turn_actuator(
         session: AsyncSession = Depends(get_session)
 ):
     instruction_dict = payload.model_dump()
-    actuator: ActuatorType = instruction_dict["actuator"]
+    actuator: gv.HardwareType = instruction_dict["actuator"]
+    assert actuator in gv.HardwareType.actuator
     mode: gv.ActuatorModePayload = instruction_dict["mode"]
     countdown = instruction_dict["countdown"]
     try:

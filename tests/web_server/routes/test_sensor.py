@@ -35,7 +35,7 @@ def test_measures_available(client: TestClient):
     assert response.status_code == 200
 
 
-def test_hardware_unique(client: TestClient):
+def test_sensor_unique(client: TestClient):
     response = client.get(
         f"/api/gaia/sensor/u/{g_data.hardware_uid}",
         params={"current_data": True, "historic_data": True}

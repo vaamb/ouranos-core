@@ -12,7 +12,7 @@ from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
 from ouranos.aggregator.events import GaiaEvents
 from ouranos.core.database.models.gaia import (
-    ActuatorStatus, ActuatorType, Ecosystem, Engine, EnvironmentParameter,
+    ActuatorStatus, Ecosystem, Engine, EnvironmentParameter,
     Hardware, HealthRecord, Lighting, SensorRecord)
 from ouranos.core.database.models.memory import SensorDbCache
 from ouranos.core.exceptions import NotRegisteredError
@@ -107,7 +107,7 @@ async def test_on_ping(
     async with engine_aware_db.scoped_session() as session:
         engine = await Engine.get(session, engine_id=g_data.engine_uid)
         start = copy(engine.last_seen)
-    await sleep(1.1)
+    await sleep(0.1)
 
     await events_handler.on_ping(g_data.engine_sid, [g_data.ecosystem_uid])
 
@@ -205,9 +205,9 @@ async def test_on_hardware(
     async with ecosystem_aware_db.scoped_session() as session:
         hardware = await Hardware.get(session, hardware_uid=g_data.hardware_data["uid"])
         assert hardware.name == g_data.hardware_data["name"]
-        assert hardware.level.value == g_data.hardware_data["level"]
+        assert hardware.level.name == g_data.hardware_data["level"]
         assert hardware.address == g_data.hardware_data["address"]
-        assert hardware.type.value == g_data.hardware_data["type"]
+        assert hardware.type.name == g_data.hardware_data["type"]
         assert hardware.model == g_data.hardware_data["model"]
         measures = [measure.name for measure in hardware.measures]
         measures.sort()
@@ -314,7 +314,7 @@ async def test_on_actuator_data(
             await ActuatorStatus.get(
                 session, ecosystem_uid=g_data.ecosystem_uid, actuator_type="light")
         )
-        assert logged_light_state.actuator_type == ActuatorType.light
+        assert logged_light_state.actuator_type == gv.HardwareType.light
         assert logged_light_state.active == g_data.light_state["active"]
         assert logged_light_state.mode == g_data.light_state["mode"]
         assert logged_light_state.status == g_data.light_state["status"]

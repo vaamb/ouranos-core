@@ -1,7 +1,7 @@
 from datetime import datetime, time
 
 from typing import Optional
-from pydantic import Field
+from pydantic import Field, field_serializer
 
 import gaia_validators as gv
 
@@ -45,7 +45,8 @@ class EcosystemManagementInfo(BaseModel):
     watering: bool = False
     health: bool = False
     alarms: bool = False
-    webcam: bool = False
+    pictures: bool = False
+    database: bool = False
     switches: bool = False
     environment_data: bool = False
     plants_data: bool = False
@@ -93,6 +94,10 @@ class HardwareInfo(BaseModel):
     measures: list[MeasureInfo]
     plants: list[PlantInfo]
 
+    @field_serializer("type")
+    def serialize_group(self, type: gv.HardwareType, _info):
+        return type.name
+
 
 EcosystemSensorDataUnit = sqlalchemy_to_pydantic(
     SensorRecord,
@@ -118,6 +123,10 @@ class EcosystemActuatorStatus(BaseModel):
 class HardwareModelInfo(BaseModel):
     model: str
     type: gv.HardwareType
+
+    @field_serializer("type")
+    def serialize_group(self, type: gv.HardwareType, _info):
+        return type.name
 
 
 class SkSensorBaseInfo(BaseModel):
@@ -173,6 +182,10 @@ class SensorOverview(BaseModel):
     measures: list[MeasureInfo]
     plants: list[PlantInfo]
     data: Optional[SensorOverviewData]
+
+    @field_serializer("type")
+    def serialize_group(self, type: gv.HardwareType, _info):
+        return type.name
 
 
 CrudRequestInfo = sqlalchemy_to_pydantic(
