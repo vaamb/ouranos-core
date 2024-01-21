@@ -460,7 +460,7 @@ class Ecosystem(InConfigMixin, GaiaBase):
         result = await session.execute(stmt)
         actuators_status = result.scalars().all()
         return {
-            actuator.actuator_type.value: actuator
+            actuator.actuator_type.name: actuator
             for actuator in actuators_status
         }
 
