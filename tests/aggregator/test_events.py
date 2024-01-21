@@ -205,9 +205,9 @@ async def test_on_hardware(
     async with ecosystem_aware_db.scoped_session() as session:
         hardware = await Hardware.get(session, hardware_uid=g_data.hardware_data["uid"])
         assert hardware.name == g_data.hardware_data["name"]
-        assert hardware.level.value == g_data.hardware_data["level"]
+        assert hardware.level.name == g_data.hardware_data["level"]
         assert hardware.address == g_data.hardware_data["address"]
-        assert hardware.type.value == g_data.hardware_data["type"]
+        assert hardware.type.name == g_data.hardware_data["type"]
         assert hardware.model == g_data.hardware_data["model"]
         measures = [measure.name for measure in hardware.measures]
         measures.sort()
