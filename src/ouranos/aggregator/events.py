@@ -231,7 +231,7 @@ class GaiaEvents(BaseEvents):
         self.enter_room(sid, room="engines", namespace="/gaia")
 
         await sleep(3)  # Allow slower Raspi0 to finish Gaia startup
-        await self.emit("registration_ack", room=sid)
+        await self.emit("registration_ack", ttl=10, room=sid)
         self.logger.info(f"Successful registration of engine {engine_uid}")
 
     @registration_required
