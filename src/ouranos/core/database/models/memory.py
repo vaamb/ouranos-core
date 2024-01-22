@@ -4,8 +4,9 @@ from abc import abstractmethod
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Self, Sequence
 
-from sqlalchemy import delete, insert, Row, select
+from sqlalchemy import delete, insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql.functions import max as sa_max
 
 from ouranos import current_app
@@ -57,6 +58,8 @@ class SensorDbCache(BaseSensorData, DbCache):
     __tablename__ = "sensor_temp"
     __bind_key__ = "memory"
 
+    logged: Mapped[bool] = mapped_column(default=False)
+
     @classmethod
     def get_ttl(cls) -> int:
         return current_app.config["ECOSYSTEM_TIMEOUT"]
@@ -68,6 +71,7 @@ class SensorDbCache(BaseSensorData, DbCache):
             ecosystem_uid: str | list | None = None,
             sensor_uid: str | list | None = None,
             measure: str | list | None = None,
+            discard_logged: bool = False,
     ) -> Sequence[Self]:
         await cls.remove_expired(session)
         sub_stmt = (
@@ -86,6 +90,8 @@ class SensorDbCache(BaseSensorData, DbCache):
                     value = value.split(",")
                 hardware_attr = getattr(cls, arg)
                 stmt = stmt.where(hardware_attr.in_(value))
+        if discard_logged:
+            stmt = stmt.where(cls.logged == False)
         result = await session.execute(stmt)
         return result.scalars().all()
 
