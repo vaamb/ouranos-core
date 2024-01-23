@@ -9,6 +9,7 @@ from dispatcher import AsyncAMQPDispatcher, AsyncRedisDispatcher, Dispatcher
 from ouranos.aggregator.archiver import Archiver
 from ouranos.aggregator.events import GaiaEvents, StreamGaiaEvents
 from ouranos.aggregator.sky_watcher import SkyWatcher
+from ouranos.core.globals import scheduler
 from ouranos.core.utils import InternalEventsDispatcherFactory
 from ouranos.sdk import Functionality, run_functionality_forever
 
@@ -215,6 +216,11 @@ class Aggregator(Functionality):
         await self.broker.start(retry=True, block=False)
         if separate_ouranos_dispatcher:
             await self.event_handler.ouranos_dispatcher.start(retry=True, block=False)
+        scheduler.add_job(
+            self.event_handler.log_sensors_data,
+            id="log_sensors_data", trigger="cron", minute="*",
+            misfire_grace_time=10
+        )
 
     async def start_stream_gaia_events_dispatcher(self) -> None:
         await self.stream_broker.start(retry=True, block=False)

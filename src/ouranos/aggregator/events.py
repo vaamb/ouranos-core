@@ -455,7 +455,6 @@ class GaiaEvents(BaseEvents):
         data: list[gv.SensorsDataPayloadDict] = self.validate_payload(
             data, gv.SensorsDataPayload, list)
         sensors_data: list[SensorDataRecord] = []
-        last_log: dict[str, datetime] = {}
         for ecosystem in data:
             ecosystem_data = ecosystem["data"]
             timestamp = ecosystem_data["timestamp"]
@@ -469,26 +468,16 @@ class GaiaEvents(BaseEvents):
                     "value": float(record.value),
                     "timestamp": record_timestamp,
                 }))
-                last_log[record.sensor_uid] = record_timestamp
                 await sleep(0)
         if not sensors_data:
             return
-        logging_period = current_app.config["SENSOR_LOGGING_PERIOD"]
 
-        data: list[gv.SensorsDataPayloadDict] = [
-            ecosystem for ecosystem in data
-            if (
-                logging_period and
-                ecosystem["data"]["timestamp"].minute % logging_period == 0
-            )
-        ]
         # Dispatch current data
         await self.ouranos_dispatcher.emit(
             "current_sensors_data", data=sensors_data, namespace="application",
             ttl=15)
-        self.logger.debug(
-            f"Sent `current_sensors_data` to Ouranos")
-        # Log current data in memory
+        self.logger.debug(f"Sent `current_sensors_data` to the web API")
+        # Log current data in memory DB
         async with db.scoped_session() as session:
             await SensorDbCache.insert_data(session, sensors_data)
             hardware_uids = [*{s["sensor_uid"] for s in sensors_data}]
@@ -501,37 +490,55 @@ class GaiaEvents(BaseEvents):
                     f"Updated `sensors_data` cache with data from sensors "
                     f"{humanize_list(hardware_uids)}")
 
-        # Filter data that needs to be logged into db
-        sensors_data: list[SensorDataRecord] = [
-            sensor_data for sensor_data in sensors_data
-            if sensor_data["timestamp"].minute % logging_period == 0
-        ]
-        if not sensors_data:
+    async def log_sensors_data(self) -> None:
+        logging_period = current_app.config["SENSOR_LOGGING_PERIOD"]
+        if logging_period is None:
+            return
+
+        last_log: dict[str, datetime] = {}
+        hardware_uids: set[str] = set()
+        ecosystem_uids: set[str] = set()
+        records_to_log: list[SensorDataRecord] = []
+
+        async with db.scoped_session() as session:
+            recent_sensors_record = await SensorDbCache.get_recent(
+                session, discard_logged=True)
+            # Filter data that needs to be logged into db
+            for record in recent_sensors_record:
+                if record.timestamp.minute % logging_period == 0:
+                    last_log[record.sensor_uid] = record.timestamp
+                    hardware_uids.add(record.sensor_uid)
+                    ecosystem_uids.add(record.ecosystem_uid)
+                    records_to_log.append(cast(SensorDataRecord, {
+                        "ecosystem_uid": record.ecosystem_uid,
+                        "sensor_uid": record.sensor_uid,
+                        "measure": record.measure,
+                        "value": record.value,
+                        "timestamp": record.timestamp,
+                    }))
+                    record.logged = True
+
+        if not records_to_log:
             return
         # Dispatch the data that will become historic data
         await self.ouranos_dispatcher.emit(
-            "historic_sensors_data_update", data=data, namespace="application",
-            ttl=15)
+            "historic_sensors_data_update", data=records_to_log,
+            namespace="application", ttl=15)
         self.logger.debug(
-            f"Sent `historic_sensors_data_update` to Ouranos")
+            f"Sent `historic_sensors_data_update` to the web API")
         # Log historic data in db
         async with db.scoped_session() as session:
-            await SensorRecord.create_records(session, sensors_data)
+            await SensorRecord.create_records(session, records_to_log)
             # Update the last_log column for hardware
-            hardware_uids = [*{s["sensor_uid"] for s in sensors_data}]
-            for hardware in await Hardware.get_multiple(session, hardware_uids):
+            for hardware in await Hardware.get_multiple(session, [*hardware_uids]):
                 hardware.last_log = last_log.get(hardware.uid)
-            try:
-                await session.commit()
-            except IntegrityError:  # Received same data twice if connection issue for ex.
-                pass
-            else:
-                # Get ecosystem IDs
-                ecosystems = await Ecosystem.get_multiple(
-                    session, [payload["uid"] for payload in data])
-                self.logger.info(
-                    f"Logged sensors data from ecosystem(s) "
-                    f"{humanize_list([e.name for e in ecosystems])}")
+            await session.commit()
+            # Get ecosystem IDs
+            ecosystems = await Ecosystem.get_multiple(
+                session, ecosystems=[*ecosystem_uids])
+            self.logger.info(
+                f"Logged sensors data from ecosystem(s) "
+                f"{humanize_list([e.name for e in ecosystems])}")
 
     @registration_required
     async def on_buffered_sensors_data(
