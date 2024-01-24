@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from asyncio import sleep
 from datetime import datetime, timezone
-from enum import Enum
 import inspect
 import logging
 from typing import cast, overload, Type, TypedDict
@@ -180,9 +179,9 @@ class GaiaEvents(BaseEvents):
             sid: str,
             environ: dict,
     ) -> None:
-        self.logger.info(f"Connected to the message broker")
-        await self.emit("register", ttl=75)
-        self.logger.info(f"Requesting connected 'Gaia' instances to register")
+        self.logger.info(f"Connected to the message broker.")
+        await self.emit("register", ttl=5)
+        self.logger.info(f"Requesting connected 'Gaia' instances to register.")
 
     async def on_disconnect(
             self,
@@ -211,14 +210,16 @@ class GaiaEvents(BaseEvents):
     ) -> None:
         data: gv.EnginePayloadDict = self.validate_payload(
             data, gv.EnginePayload, dict)
-        engine_uid: str
-        remote_addr: str
-        engine_uid = data["engine_uid"]
-        remote_addr = data["address"]
-        self.logger.debug(
-            f"Received 'register_engine' from engine {engine_uid}")
+        engine_uid: str = data["engine_uid"]
+        remote_addr: str = data["address"]
+        self.logger.info(
+            f"Received registration request from engine {engine_uid} with sid {sid}")
         async with self.session(sid) as session:
             session["engine_uid"] = engine_uid
+            session["init_data"] = {
+                "base_info", "environmental_parameters", "hardware", "management",
+                "actuator_data", "health_data", "light_data",
+            }
         now = datetime.now(timezone.utc).replace(microsecond=0)
         engine_info = {
             "uid": engine_uid,
@@ -230,9 +231,24 @@ class GaiaEvents(BaseEvents):
             await Engine.update_or_create(session, engine_info)
         self.enter_room(sid, room="engines", namespace="/gaia")
 
-        await sleep(3)  # Allow slower Raspi0 to finish Gaia startup
-        await self.emit("registration_ack", ttl=10, room=sid)
-        self.logger.info(f"Successful registration of engine {engine_uid}")
+        # await sleep(3)  # Allow slower Raspi0 to finish Gaia startup
+        self.logger.info(f"Successful registration of engine {engine_uid} with sid {sid}")
+        await self.emit("registration_ack", data=sid, ttl=15, room=sid)
+
+    @registration_required
+    async def on_initialized(
+            self,
+            sid: str,  # noqa
+            engine_uid: str,
+    ) -> None:
+        async with self.session(sid) as session:
+            missing = session["init_data"]
+        if not missing:
+            self.logger.info(
+                f"Successfully received initialization data from engine {engine_uid}.")
+        else:
+            self.logger.warning(
+                f"Missing initialization data from engine {engine_uid}: {missing}.")
 
     @registration_required
     async def on_ping(
@@ -265,6 +281,8 @@ class GaiaEvents(BaseEvents):
             engine_uid: str
     ) -> None:
         self.logger.debug(f"Received 'base_info' from engine: {engine_uid}")
+        async with self.session(sid) as session:
+            session["init_data"].discard("base_info")
         data: list[gv.BaseInfoConfigPayloadDict] = self.validate_payload(
             data, gv.BaseInfoConfigPayload, list)
         engines_in_config: list[str] = []
@@ -313,6 +331,8 @@ class GaiaEvents(BaseEvents):
     ) -> None:
         self.logger.debug(
             f"Received 'environmental_parameters' from engine: {engine_uid}")
+        async with self.session(sid) as session:
+            session["init_data"].discard("environmental_parameters")
         data: list[gv.EnvironmentConfigPayloadDict] = self.validate_payload(
             data, gv.EnvironmentConfigPayload, list)
         ecosystems_to_log: list[str] = []
@@ -358,9 +378,9 @@ class GaiaEvents(BaseEvents):
             data: list[gv.HardwareConfigPayloadDict],
             engine_uid: str
     ) -> None:
-        self.logger.debug(
-            f"Received 'hardware' from engine: {engine_uid}"
-        )
+        self.logger.debug(f"Received 'hardware' from engine: {engine_uid}")
+        async with self.session(sid) as session:
+            session["init_data"].discard("hardware")
         data: list[gv.HardwareConfigPayloadDict] = self.validate_payload(
             data, gv.HardwareConfigPayload, list)
         ecosystems_to_log: list[str] = []
@@ -417,6 +437,8 @@ class GaiaEvents(BaseEvents):
             engine_uid: str
     ) -> None:
         self.logger.debug(f"Received 'management' from engine: {engine_uid}")
+        async with self.session(sid) as session:
+            session["init_data"].discard("management")
         data: list[gv.ManagementConfigPayloadDict] = self.validate_payload(
             data, gv.ManagementConfigPayload, list)
         ecosystems_to_log: list[str] = []
@@ -486,7 +508,7 @@ class GaiaEvents(BaseEvents):
             except IntegrityError:  # Received same data twice if connection issue for ex.
                 pass
             else:
-                self.logger.info(
+                self.logger.debug(
                     f"Updated `sensors_data` cache with data from sensors "
                     f"{humanize_list(hardware_uids)}")
 
@@ -596,6 +618,8 @@ class GaiaEvents(BaseEvents):
             engine_uid: str
     ) -> None:
         self.logger.debug(f"Received 'update_health_data' from {engine_uid}")
+        async with self.session(sid) as session:
+            session["init_data"].discard("actuator_data")
         data: list[gv.ActuatorsDataPayloadDict] = self.validate_payload(
             data, gv.ActuatorsDataPayload, list)
         logged: list[str] = []
@@ -629,8 +653,9 @@ class GaiaEvents(BaseEvents):
             data: list[gv.HealthDataPayloadDict],
             engine_uid: str
     ) -> None:
-        self.logger.debug(
-            f"Received 'update_health_data' from {engine_uid}")
+        self.logger.debug(f"Received 'health_data' from {engine_uid}")
+        async with self.session(sid) as session:
+            session["init_data"].discard("health_data")
         data: list[gv.HealthDataPayloadDict] = self.validate_payload(
             data, gv.HealthDataPayload, list)
         logged: list[str] = []
@@ -666,6 +691,8 @@ class GaiaEvents(BaseEvents):
             engine_uid: str
     ) -> None:
         self.logger.debug(f"Received 'light_data' from {engine_uid}")
+        async with self.session(sid) as session:
+            session["init_data"].discard("light_data")
         data: list[gv.LightDataPayloadDict] = self.validate_payload(
             data, gv.LightDataPayload, list)
         ecosystems_to_log: list[str] = []
