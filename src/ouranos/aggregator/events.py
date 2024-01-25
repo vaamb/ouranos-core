@@ -258,6 +258,7 @@ class GaiaEvents(BaseEvents):
             engine_uid: str,
     ) -> None:
         self.logger.debug(f"Received 'ping' from engine {engine_uid}")
+        await self.emit("pong", room=sid)
         now = datetime.now(timezone.utc).replace(microsecond=0)
         ecosystems_seen: list[str] = []
         async with db.scoped_session() as session:
