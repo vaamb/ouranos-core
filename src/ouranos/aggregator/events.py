@@ -217,8 +217,8 @@ class GaiaEvents(BaseEvents):
         async with self.session(sid) as session:
             session["engine_uid"] = engine_uid
             session["init_data"] = {
-                "base_info", "environmental_parameters", "hardware", "management",
-                "actuator_data", "health_data", "light_data",
+                "base_info", "environmental_parameters", "hardware",
+                "management", "actuator_data", "light_data",
             }
         now = datetime.now(timezone.utc).replace(microsecond=0)
         engine_info = {
@@ -246,9 +246,11 @@ class GaiaEvents(BaseEvents):
         if not missing:
             self.logger.info(
                 f"Successfully received initialization data from engine {engine_uid}.")
+            await self.emit("initialized_ack", data=None)
         else:
             self.logger.warning(
                 f"Missing initialization data from engine {engine_uid}: {missing}.")
+            await self.emit("initialized_ack", data=[*missing])
 
     @registration_required
     async def on_ping(
@@ -618,7 +620,7 @@ class GaiaEvents(BaseEvents):
             data: list[gv.ActuatorsDataPayloadDict],
             engine_uid: str
     ) -> None:
-        self.logger.debug(f"Received 'update_health_data' from {engine_uid}")
+        self.logger.debug(f"Received 'actuator_data' from {engine_uid}")
         async with self.session(sid) as session:
             session["init_data"].discard("actuator_data")
         data: list[gv.ActuatorsDataPayloadDict] = self.validate_payload(
