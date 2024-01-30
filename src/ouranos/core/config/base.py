@@ -20,7 +20,7 @@ class BaseConfig:
 
     @property
     def CACHE_DIR(self):
-        return os.environ.get("OURANOS_CACHE_DIR") or os.path.join(self.DIR, "logs")
+        return os.environ.get("OURANOS_CACHE_DIR") or os.path.join(self.DIR, ".cache")
 
     @property
     def DB_DIR(self):

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from inspect import isclass
 import logging.config
+import os
 from pathlib import Path
 import sys
 from typing import Type
@@ -24,110 +25,171 @@ app_info = {
 }
 
 
-def get_config() -> ConfigDict:
-    global _config
-    if _config is None:
-        stripped_warning(
-            "The variable `config` is accessed before setting up config using "
-            "`ouranos.setup_config(profile)`. This could lead to unwanted side "
-            "effects"
-        )
-    return _config
+class ConfigHelper:
+    _config: ConfigDict | None = None
 
-
-def get_base_dir() -> Path:
-    global _base_dir
-    if _base_dir is None:
-        _base_dir = Path(BaseConfig.DIR)
-        if not _base_dir.exists():
-            raise ValueError(
-                "Environment variable `OURANOS_DIR` is not set to a valid path"
-            )
-    return _base_dir
-
-
-def _get_dir(name: str, fallback_path: str) -> Path:
-    config: ConfigDict = get_config()
-    try:
-        path = config[name]
-        dir_ = Path(path)
-    except ValueError:
-        stripped_warning(
-            f"The dir specified by '{name}' is not valid, using fallback path "
-            f"{fallback_path}"
-        )
-        base_dir = get_base_dir()
-        dir_ = base_dir / fallback_path
-    if not dir_.exists():
-        dir_.mkdir(parents=True)
-    return dir_
-
-
-def get_cache_dir() -> Path:
-    return _get_dir("CACHE_DIR", ".cache")
-
-
-def get_log_dir() -> Path:
-    return _get_dir("LOG_DIR", "logs")
-
-
-def get_db_dir() -> Path:
-    return _get_dir("DB_DIR", "DBs")
-
-
-def _get_config_class(profile: str | None = None) -> Type[BaseConfig]:
-    base_dir = get_base_dir()
-    sys.path.insert(0, str(base_dir))
-    try:
-        import config
-    except ImportError:
-        if profile is None:
-            return BaseConfig
+    @classmethod
+    def _get_config_class(cls, profile: str | None = None) -> Type[BaseConfig]:
+        logger = logging.getLogger("ouranos.config_helper")
+        lookup_dir = os.environ.get("OURANOS_DIR")
+        if lookup_dir is not None:
+            logger.info("Trying to get Ouranos config from 'OURANOS_DIR'.")
         else:
+            logger.info("Trying to get Ouranos config from current directory.")
+            lookup_dir = os.getcwd()
+
+        sys.path.insert(0, str(lookup_dir))
+
+        try:
+            import config
+        except ImportError:
+            if profile is None:
+                return BaseConfig
+            else:
+                raise ValueError(
+                    f"No `config.py` file found and config profile {profile} requested"
+                )
+        else:
+            cfgs: dict[str | None, Type[BaseConfig]] = {None: BaseConfig}
+            for name in dir(config):
+                if not name.startswith("__"):
+                    obj = getattr(config, name)
+                    if isclass(obj) and issubclass(obj, BaseConfig):
+                        if name == "DEFAULT_CONFIG":
+                            cfgs[None] = obj
+                        else:
+                            name = name.lower().strip("config")
+                            cfgs[name] = obj
+            if profile is not None:
+                profile = profile.lower().strip("config")
+            cfg: Type[BaseConfig] = cfgs.get(profile)
+            if cfg:
+                return cfg
+            else:
+                raise ValueError(
+                    f"Could not find config profile {profile} in `config.py`"
+                )
+
+    @classmethod
+    def _config_dict_from_class(
+            cls,
+            config_cls: Type[BaseConfig],
+            **params,
+    ) -> ConfigDict:
+        if not issubclass(config_cls, BaseConfig):
+            raise ValueError("'obj' needs to be a subclass of `BaseConfig`")
+        config_inst = config_cls()
+        config_dict = {}
+        for key in dir(config_inst):
+            if not key.isupper():
+                continue
+            attr = getattr(config_inst, key)
+            if callable(attr):
+                config_dict[key] = attr()
+            else:
+                config_dict[key] = attr
+        config_dict.update(params)
+        config_dict.update(app_info)
+        return ImmutableDict(config_dict)
+
+    @classmethod
+    def config_is_set(cls) -> None:
+        return cls._config is not None
+
+    @classmethod
+    def get_config(cls) -> ConfigDict:
+        if cls._config is None:
+            stripped_warning(
+                "The variable `config` is accessed before setting up config using "
+                "`ouranos.setup_config(profile)`. This could lead to unwanted side "
+                "effects"
+            )
+        return cls._config
+
+    @classmethod
+    def set_config(
+            cls,
+            profile: profile_type = None,
+            **params,
+    ) -> ConfigDict:
+        """
+        :param profile: name of the config class to use
+        :param params: Parameters to override config
+        :return: the config as a dict
+        """
+        if cls._config is not None:
             raise RuntimeError(
-                f"No `config.py` file found and config profile {profile} requested"
+                "Trying to setup config a second time"
             )
-    else:
-        cfgs: dict[str | None, Type[BaseConfig]] = {None: BaseConfig}
-        for name in dir(config):
-            if not name.startswith("__"):
-                obj = getattr(config, name)
-                if isclass(obj) and issubclass(obj, BaseConfig):
-                    if name == "DEFAULT_CONFIG":
-                        cfgs[None] = obj
-                    else:
-                        name = name.lower().strip("config")
-                        cfgs[name] = obj
-        if profile is not None:
-            profile = profile.lower().strip("config")
-        cfg: Type[BaseConfig] = cfgs.get(profile)
-        if cfg:
-            return cfg
+        if isclass(profile):
+            if issubclass(profile, BaseConfig):
+                config_cls: Type[BaseConfig] = profile
+            else:
+                raise ValueError(
+                    "Class-based profile need to be a subclass of `BaseConfig`"
+                )
         else:
-            raise RuntimeError(
-                f"Could not find config profile {profile} in `config.py`"
-            )
+            config_cls = cls._get_config_class(profile)
+        cls._config = cls._config_dict_from_class(config_cls, **params)
+        return cls._config
+
+    @classmethod
+    def reset_config(cls) -> None:
+        if not cls.config_is_set():
+            raise ValueError("Cannot reset a non-set config.")
+        if not cls._config.get("TESTING"):
+            raise ValueError("Only testing config can be reset.")
+        cls._config = None
 
 
-def _config_dict_from_class(
-        obj: Type[BaseConfig],
-        **params,
-) -> ConfigDict:
-    if not issubclass(obj, BaseConfig):
-        raise ValueError("'obj' needs to be a subclass of `BaseConfig`")
-    inst = obj()
-    config_dict = {}
-    for key in dir(inst):
-        if not key.isupper():
-            continue
-        attr = getattr(inst, key)
-        if callable(attr):
-            config_dict[key] = attr()
-        else:
-            config_dict[key] = attr
-    config_dict.update(params)
-    config_dict.update(app_info)
-    return ImmutableDict(config_dict)
+setup_config = ConfigHelper.set_config
+get_config = ConfigHelper.get_config
+
+
+class PathsHelper:
+    _dirs: dict[str, Path] = {}
+
+    @classmethod
+    def _get_dir(cls, dir_name: str) -> Path:
+        try:
+            return cls._dirs[dir_name]
+        except KeyError:
+            try:
+                config = ConfigHelper.get_config()
+                path = Path(config[dir_name])
+            except ValueError:
+                raise ValueError(f"Config.{dir_name} is not a valid directory.")
+            else:
+                if not path.exists():
+                    logger = logging.getLogger("ouranos.paths_helper")
+                    logger.warning(
+                        f"'Config.{dir_name}' variable is set to a non-existing "
+                        f"directory, trying to create it.")
+                    path.mkdir(parents=True)
+                cls._dirs[dir_name] = path
+                return path
+
+    @classmethod
+    def get_base_dir(cls) -> Path:
+        return cls._get_dir("DIR")
+
+    @classmethod
+    def get_cache_dir(cls) -> Path:
+        return cls._get_dir("CACHE_DIR")
+
+    @classmethod
+    def get_log_dir(cls) -> Path:
+        return cls._get_dir("LOG_DIR")
+
+    @classmethod
+    def get_db_dir(cls) -> Path:
+        return cls._get_dir("DB_DIR")
+
+
+get_base_dir = PathsHelper.get_base_dir
+get_cache_dir = PathsHelper.get_cache_dir
+get_log_dir = PathsHelper.get_log_dir
+get_db_dir = PathsHelper.get_db_dir
 
 
 def configure_logging(config: ConfigDict) -> None:
@@ -235,36 +297,3 @@ def configure_logging(config: ConfigDict) -> None:
         },
     }
     logging.config.dictConfig(logging_config)
-
-
-def setup_config(
-        profile: profile_type = None,
-        **params,
-) -> ConfigDict:
-    """
-    :param profile: name of the config class to use
-    :param params: Parameters to override config
-    :return: the config as a dict
-    """
-    global _config
-    if _config:
-        raise RuntimeError(
-            "Trying to setup config a second time"
-        )
-    if isclass(profile):
-        if issubclass(profile, BaseConfig):
-            config_cls: Type[BaseConfig] = profile
-        else:
-            raise ValueError(
-                "Class-based profile need to be a subclass of `BaseConfig`"
-                )
-    else:
-        config_cls = _get_config_class(profile)
-    config = _config_dict_from_class(config_cls, **params)
-    _config = config
-
-    return _config
-
-
-_config: ConfigDict | None = None
-_base_dir: Path | None = None
