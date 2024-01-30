@@ -8,8 +8,8 @@ import re
 import typing as t
 from typing import Type
 
-from ouranos import (
-    configure_logging, current_app, db, scheduler, setup_config, setup_loop)
+from ouranos import current_app, db, scheduler, setup_loop
+from ouranos.core.config import ConfigHelper
 from ouranos.core.database.init import (
     create_base_data, print_registration_token)
 from ouranos.sdk.runner import Runner
@@ -22,13 +22,9 @@ if t.TYPE_CHECKING:
 pattern = re.compile(r'(?<!^)(?=[A-Z])')
 
 
-class _SetUp:
-    config: bool = False
-    proc_name: bool = False
-
-
 class BaseFunctionality(ABC):
     _runner = Runner()
+    _proc_name_setup: bool = False
     workers: int = 0
 
     def __init__(
@@ -45,26 +41,17 @@ class BaseFunctionality(ABC):
         self.is_root = root
         if self.is_root:
             microservice = False
-        if not _SetUp.proc_name:
+        if not self._proc_name_setup:
             # Change process name
             from setproctitle import setproctitle
             if self.is_root:
                 setproctitle(f"ouranos")
             else:
                 setproctitle(f"ouranos-{self.name}")
-            _SetUp.proc_name = True
+            self._proc_name_setup = True
 
-        if auto_setup_config and not _SetUp.config:
-            # Setup config
-            try:
-                config = setup_config(config_profile)
-                configure_logging(config)
-            except RuntimeError:
-                logger: Logger = getLogger("ouranos")
-                logger.warning(
-                    "You are trying to setup config a second time"
-                )
-            _SetUp.config = True
+        if auto_setup_config and not ConfigHelper.config_is_set():
+            ConfigHelper.set_config_and_configure_logging(config_profile)
 
         self.config: ConfigDict = current_app.config
         if config_override:

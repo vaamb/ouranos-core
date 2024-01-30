@@ -10,7 +10,6 @@ from typing import Type
 from ouranos import __version__ as version
 from ouranos.core.config.base import BaseConfig, BaseConfigDict
 from ouranos.core.config.consts import ImmutableDict
-from ouranos.core.utils import stripped_warning
 
 
 # TODO: find a better alternative as ConfigDict is both a TypedDict and an
@@ -99,7 +98,7 @@ class ConfigHelper:
     @classmethod
     def get_config(cls) -> ConfigDict:
         if cls._config is None:
-            stripped_warning(
+            raise RuntimeError(
                 "The variable `config` is accessed before setting up config using "
                 "`ouranos.setup_config(profile)`. This could lead to unwanted side "
                 "effects"
@@ -132,6 +131,16 @@ class ConfigHelper:
             config_cls = cls._get_config_class(profile)
         cls._config = cls._config_dict_from_class(config_cls, **params)
         return cls._config
+
+    @classmethod
+    def set_config_and_configure_logging(
+            cls,
+            profile: profile_type = None,
+            **params,
+    ) -> ConfigDict:
+        config = cls.set_config(profile, **params)
+        configure_logging(config)
+        return config
 
     @classmethod
     def reset_config(cls) -> None:
