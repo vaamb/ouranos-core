@@ -4,13 +4,13 @@ import typing as t
 
 import click
 
-from dispatcher import AsyncAMQPDispatcher, AsyncRedisDispatcher, Dispatcher
+from dispatcher import AsyncAMQPDispatcher, AsyncRedisDispatcher
 
 from ouranos.aggregator.archiver import Archiver
 from ouranos.aggregator.events import GaiaEvents, StreamGaiaEvents
 from ouranos.aggregator.sky_watcher import SkyWatcher
+from ouranos.core.dispatchers import DispatcherFactory
 from ouranos.core.globals import scheduler
-from ouranos.core.utils import InternalEventsDispatcherFactory
 from ouranos.sdk import Functionality, run_functionality_forever
 
 
@@ -135,47 +135,9 @@ class Aggregator(Functionality):
             return True
         return False
 
-    def get_broker(
-            self,
-            broker_uri: str,
-            broker_options: dict | None = None,
-    ) -> Dispatcher:
-        broker_options = broker_options or {}
-        name = broker_options.pop("name", "dispatcher")
-        # Get the event handler
-        # Create the broker used to communicate with gaia
-        if broker_uri.startswith("amqp://"):
-            self.logger.debug(
-                "Using RabbitMQ as the message broker with Gaia")
-            if broker_uri == "amqp://":
-                # Use default rabbitmq uri
-                broker_uri = "amqp://guest:guest@localhost:5672//"
-            from dispatcher import AsyncAMQPDispatcher
-            broker = AsyncAMQPDispatcher(name, url=broker_uri, **broker_options)
-        else:
-            self.logger.debug(
-                "Using Redis as the message broker with Gaia")
-            if broker_uri == "redis://":
-                # Use default Redis uri
-                broker_uri = "redis://localhost:6379/0"
-            from dispatcher import AsyncRedisDispatcher
-            broker = AsyncRedisDispatcher(name, url=broker_uri)
-        return broker
-
     def _init_gaia_events_handling(self) -> None:
         # Get the dispatcher and the event handler
-        self.broker = self.get_broker(
-            broker_uri=self.config["GAIA_COMMUNICATION_URL"],
-            broker_options={
-                "name": "aggregator",
-                "queue_options": {
-                    "arguments": {
-                        # Remove queue after 1 day without consumer
-                        "x-expires": 60 * 60 * 24 * 1000,
-                    },
-                },
-            },
-        )
+        self.broker = DispatcherFactory.get("aggregator")
         # Create and register Gaia events handler
         self.event_handler = GaiaEvents()
         self.broker.register_event_handler(self.event_handler)
@@ -184,25 +146,12 @@ class Aggregator(Functionality):
         if self.config["DISPATCHER_URL"] == self.config["GAIA_COMMUNICATION_URL"]:
             self.event_handler.ouranos_dispatcher = self.broker
         else:
-            self.event_handler.ouranos_dispatcher = \
-                InternalEventsDispatcherFactory.get("aggregator")
+            dispatcher = DispatcherFactory.get("aggregator")
+            self.event_handler.ouranos_dispatcher = dispatcher
 
     def _init_stream_gaia_events_handling(self) -> None:
         # Get the dispatcher and the event handler
-        self.stream_broker = self.get_broker(
-            broker_uri=self.config["GAIA_COMMUNICATION_URL"],  # TODO: change
-            broker_options={
-                "name": "aggregator-stream",
-                "queue_options": {
-                    "arguments": {
-                        # Remove queue after 15 min without consumer
-                        "x-expires": 60 * 15 * 1000,
-                        # Keep messages only 5 sec then remove them
-                        "x-message-ttl": 5 * 1000,
-                    },
-                },
-            },
-        )
+        self.stream_broker = DispatcherFactory.get("aggregator-stream")
         # Create and register stream Gaia events handler
         self.stream_event_handler = StreamGaiaEvents()
         self.stream_broker.register_event_handler(self.stream_event_handler)
