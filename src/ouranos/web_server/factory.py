@@ -86,6 +86,7 @@ def create_app(config: dict | None = None) -> FastAPI:
 
     # Set up CORS
     allowed_origins = []
+    allowed_origins_regex = None
 
     if config.get("DEVELOPMENT") or config.get("TESTING"):
         allowed_origins += [
@@ -99,12 +100,20 @@ def create_app(config: dict | None = None) -> FastAPI:
         origins = config["ALLOWED_ORIGINS"].split(",")
         allowed_origins += origins
 
+    frontend_address = config.get("FRONTEND_ADDRESS")
+    frontend_port = config.get("FRONTEND_PORT")
+    if frontend_address and frontend_port:
+        use_ssl = config.get("FRONTEND_USE_SSL", False)
+        s = "s" if use_ssl else ""
+        allowed_origins_regex = f"((http{s})|(ws{s}))://{frontend_address}:{frontend_port}"
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allowed_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        allowed_origins_regex=allowed_origins_regex,
     )
 
     # Add processing (brewing) time in headers when developing and testing
