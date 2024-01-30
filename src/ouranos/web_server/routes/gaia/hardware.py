@@ -8,7 +8,7 @@ from dispatcher import AsyncDispatcher
 import gaia_validators as gv
 
 from ouranos.core.database.models.gaia import Ecosystem, Hardware
-from ouranos.core.utils import InternalEventsDispatcherFactory
+from ouranos.core.dispatchers import DispatcherFactory
 from ouranos.web_server.auth import is_operator
 from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.routes.utils import assert_single_uid
@@ -22,7 +22,7 @@ from ouranos.web_server.validate.response.gaia import (
     HardwareInfo, HardwareModelInfo)
 
 
-dispatcher: AsyncDispatcher = InternalEventsDispatcherFactory.get("application")
+dispatcher: AsyncDispatcher = DispatcherFactory.get("application")
 
 
 router = APIRouter(
