@@ -63,9 +63,9 @@ class Aggregator(Functionality):
             raise ValueError(
                 "'GAIA_COMMUNICATION_URL' is not set to a supported protocol, "
                 "choose from 'amqp://' or 'redis://'")
-        self._broker = None
+        self._dispatcher = None
         self._event_handler = None
-        self._stream_broker = None
+        self._stream_dispatcher = None
         self._stream_event_handler = None
         self._init_gaia_events_handling()
         self._init_stream_gaia_events_handling()
@@ -73,17 +73,17 @@ class Aggregator(Functionality):
         self.sky_watcher = SkyWatcher()
 
     @property
-    def broker(self) -> AsyncAMQPDispatcher | AsyncRedisDispatcher:
-        if self._broker is None:
+    def dispatcher(self) -> AsyncAMQPDispatcher | AsyncRedisDispatcher:
+        if self._dispatcher is None:
             raise RuntimeError("'broker' is defined at startup")
-        return self._broker
+        return self._dispatcher
 
-    @broker.setter
-    def broker(
+    @dispatcher.setter
+    def dispatcher(
             self,
             broker: AsyncAMQPDispatcher | AsyncRedisDispatcher | None
     ) -> None:
-        self._broker = broker
+        self._dispatcher = broker
 
     @property
     def event_handler(self) -> GaiaEvents:
@@ -99,17 +99,17 @@ class Aggregator(Functionality):
         self._event_handler = event_handler
 
     @property
-    def stream_broker(self) -> AsyncAMQPDispatcher | AsyncRedisDispatcher:
-        if self._stream_broker is None:
+    def stream_dispatcher(self) -> AsyncAMQPDispatcher | AsyncRedisDispatcher:
+        if self._stream_dispatcher is None:
             raise RuntimeError("'stream_broker' is defined at startup")
-        return self._stream_broker
+        return self._stream_dispatcher
 
-    @stream_broker.setter
-    def stream_broker(
+    @stream_dispatcher.setter
+    def stream_dispatcher(
             self,
             broker: AsyncAMQPDispatcher | AsyncRedisDispatcher | None
     ) -> None:
-        self._stream_broker = broker
+        self._stream_dispatcher = broker
 
     @property
     def stream_event_handler(self) -> StreamGaiaEvents:
@@ -137,24 +137,24 @@ class Aggregator(Functionality):
 
     def _init_gaia_events_handling(self) -> None:
         # Get the dispatcher and the event handler
-        self.broker = DispatcherFactory.get("aggregator")
+        self.dispatcher = DispatcherFactory.get("aggregator")
         # Create and register Gaia events handler
         self.event_handler = GaiaEvents()
-        self.broker.register_event_handler(self.event_handler)
+        self.dispatcher.register_event_handler(self.event_handler)
         # Create or get the dispatcher used for internal communication
         #  Rem: it might be the same as the one used to communicate with Gaia
         if self.config["DISPATCHER_URL"] == self.config["GAIA_COMMUNICATION_URL"]:
-            self.event_handler.ouranos_dispatcher = self.broker
+            self.event_handler.ouranos_dispatcher = self.dispatcher
         else:
             dispatcher = DispatcherFactory.get("aggregator")
             self.event_handler.ouranos_dispatcher = dispatcher
 
     def _init_stream_gaia_events_handling(self) -> None:
         # Get the dispatcher and the event handler
-        self.stream_broker = DispatcherFactory.get("aggregator-stream")
+        self.stream_dispatcher = DispatcherFactory.get("aggregator-stream")
         # Create and register stream Gaia events handler
         self.stream_event_handler = StreamGaiaEvents()
-        self.stream_broker.register_event_handler(self.stream_event_handler)
+        self.stream_dispatcher.register_event_handler(self.stream_event_handler)
 
     async def start_gaia_events_dispatcher(self) -> None:
         separate_ouranos_dispatcher: bool
@@ -162,7 +162,7 @@ class Aggregator(Functionality):
             separate_ouranos_dispatcher = False
         else:
             separate_ouranos_dispatcher = True
-        await self.broker.start(retry=True, block=False)
+        await self.dispatcher.start(retry=True, block=False)
         if separate_ouranos_dispatcher:
             await self.event_handler.ouranos_dispatcher.start(retry=True, block=False)
         scheduler.add_job(
@@ -172,7 +172,7 @@ class Aggregator(Functionality):
         )
 
     async def start_stream_gaia_events_dispatcher(self) -> None:
-        await self.stream_broker.start(retry=True, block=False)
+        await self.stream_dispatcher.start(retry=True, block=False)
 
     async def _startup(self) -> None:
         await self.start_gaia_events_dispatcher()
@@ -184,8 +184,8 @@ class Aggregator(Functionality):
         try:
             await self.sky_watcher.stop()
             await self.archiver.stop()
-            await self.broker.stop()
-            await self.stream_broker.stop()
+            await self.dispatcher.stop()
+            await self.stream_dispatcher.stop()
         except AttributeError:  # Not dispatcher_based
             pass  # Handled by uvicorn or by Api
         except RuntimeError:
