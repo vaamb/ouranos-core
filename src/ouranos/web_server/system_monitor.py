@@ -12,7 +12,7 @@ from ouranos import current_app, db
 from ouranos.core.config.consts import START_TIME
 from ouranos.core.database.models.memory import SystemDbCache
 from ouranos.core.database.models.system import SystemRecord
-from ouranos.core.utils import InternalEventsDispatcherFactory
+from ouranos.core.dispatchers import DispatcherFactory
 
 
 current_process = psutil.Process(os.getpid())
@@ -33,7 +33,7 @@ else:
 class SystemMonitor:
     def __init__(self):
         self.logger: Logger = getLogger("ouranos.aggregator")
-        self.dispatcher = InternalEventsDispatcherFactory.get("application")
+        self.dispatcher = DispatcherFactory.get("application")
         self._stop_event: Event = Event()
         self._task: Task | None = None
 

@@ -202,45 +202,6 @@ class Tokenizer:
             raise TokenError
 
 
-class InternalEventsDispatcherFactory:
-    __dispatchers: dict[str, AsyncDispatcher] = {}
-
-    @classmethod
-    def get(
-            cls,
-            name: str,
-            config: dict | None = None,
-            **kwargs
-    ) -> AsyncDispatcher:
-        try:
-            return cls.__dispatchers[name]
-        except KeyError:
-            from ouranos import current_app
-            config = config or current_app.config
-            broker_url = config["DISPATCHER_URL"]
-            if broker_url.startswith("memory://"):
-                dispatcher =  AsyncInMemoryDispatcher(name, **kwargs)
-            elif broker_url.startswith("redis://"):
-                uri = broker_url.removeprefix("redis://")
-                if not uri:
-                    uri = "localhost:6379/0"
-                url = f"redis://{uri}"
-                dispatcher = AsyncRedisDispatcher(name, url, **kwargs)
-            elif broker_url.startswith("amqp://"):
-                uri = broker_url.removeprefix("amqp://")
-                if not uri:
-                    uri = "guest:guest@localhost:5672//"
-                url = f"amqp://{uri}"
-                dispatcher = AsyncAMQPDispatcher(name, url, **kwargs)
-            else:
-                raise RuntimeError(
-                    "'DISPATCHER_URL' is not set to a supported protocol, choose"
-                    "from 'memory', 'redis' or 'amqp'"
-                )
-            cls.__dispatchers[name] = dispatcher
-            return cls.__dispatchers[name]
-
-
 def time_to_datetime(_time: time | None) -> datetime | None:
     # return _time in case it is None
     if not isinstance(_time, time):
