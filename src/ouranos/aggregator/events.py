@@ -199,7 +199,7 @@ class GaiaEvents(BaseEvents):
                 "ecosystem_status",
                 {ecosystem.uid: {"status": ecosystem.status, "connected": False}
                  for ecosystem in engine.ecosystems},
-                namespace="application"
+                namespace="application-internal"
             )
             self.logger.info(f"Engine {engine.uid} disconnected")
 
@@ -322,7 +322,7 @@ class GaiaEvents(BaseEvents):
         await self.ouranos_dispatcher.emit(
             "ecosystem_status",
             data=ecosystems_status,
-            namespace="application"
+            namespace="application-internal"
         )
 
     @registration_required
@@ -499,8 +499,8 @@ class GaiaEvents(BaseEvents):
 
         # Dispatch current data
         await self.ouranos_dispatcher.emit(
-            "current_sensors_data", data=sensors_data, namespace="application",
-            ttl=15)
+            "current_sensors_data", data=sensors_data,
+            namespace="application-internal", ttl=15)
         self.logger.debug(f"Sent `current_sensors_data` to the web API")
         # Log current data in memory DB
         async with db.scoped_session() as session:
@@ -548,7 +548,7 @@ class GaiaEvents(BaseEvents):
         # Dispatch the data that will become historic data
         await self.ouranos_dispatcher.emit(
             "historic_sensors_data_update", data=records_to_log,
-            namespace="application", ttl=15)
+            namespace="application-internal", ttl=15)
         self.logger.debug(
             f"Sent `historic_sensors_data_update` to the web API")
         # Log historic data in db
@@ -736,7 +736,7 @@ class GaiaEvents(BaseEvents):
             except (AttributeError, Exception):
                 engine_sid = None
         await self.emit(
-            "turn_actuator", data=data, namespace="/gaia", room=engine_sid,
+            "turn_actuator", data=data, namespace="gaia", room=engine_sid,
             ttl=30)
 
     async def turn_light(

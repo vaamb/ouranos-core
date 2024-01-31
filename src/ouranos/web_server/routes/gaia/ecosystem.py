@@ -29,7 +29,7 @@ from ouranos.web_server.validate.response.gaia import (
     EcosystemSensorData, HardwareInfo, SensorSkeletonInfo)
 
 
-dispatcher: AsyncDispatcher = DispatcherFactory.get("application")
+dispatcher: AsyncDispatcher = DispatcherFactory.get("application-internal")
 
 
 router = APIRouter(
@@ -105,7 +105,7 @@ async def create_ecosystem(
                 target="ecosystem",
                 data=ecosystem_dict,
             ).model_dump(),
-            namespace="aggregator",
+            namespace="aggregator-internal",
         )
         return ResultResponse(
             msg=f"Request to create the new ecosystem '{ecosystem_dict['name']}' "
@@ -156,7 +156,7 @@ async def update_ecosystem(
                 target="ecosystem",
                 data=ecosystem_dict,
             ).model_dump(),
-            namespace="aggregator",
+            namespace="aggregator-internal",
         )
         return ResultResponse(
             msg=f"Request to update the ecosystem '{ecosystem.name}' "
@@ -195,7 +195,7 @@ async def delete_ecosystem(
                 target="ecosystem",
                 data=ecosystem.uid,
             ).model_dump(),
-            namespace="aggregator",
+            namespace="aggregator-internal",
         )
         return ResultResponse(
             msg=f"Request to delete the ecosystem '{ecosystem.name}' "
@@ -275,7 +275,7 @@ async def update_management(
                 target="management",
                 data=management_dict,
             ).model_dump(),
-            namespace="aggregator",
+            namespace="aggregator-internal",
         )
         return ResultResponse(
             msg=f"Request to update the ecosystem '{ecosystem.name}'\' management "
@@ -378,7 +378,7 @@ async def update_ecosystem_lighting(
                 target="lighting",
                 data=lighting_dict,
             ).model_dump(),
-            namespace="aggregator",
+            namespace="aggregator-internal",
         )
         return ResultResponse(
             msg=f"Request to update the ecosystem '{ecosystem.name}'\' lighting "
@@ -436,7 +436,7 @@ async def create_environment_parameters(
                 target="environment_parameter",
                 data=environment_parameter_dict,
             ).model_dump(),
-            namespace="aggregator",
+            namespace="aggregator-internal",
         )
         return ResultResponse(
             msg=f"Request to create the environment parameter '{parameter}' "
@@ -494,7 +494,7 @@ async def update_environment_parameters(
                 target="environment_parameter",
                 data=environment_parameter_dict,
             ).model_dump(),
-            namespace="aggregator",
+            namespace="aggregator-internal",
         )
         return ResultResponse(
             msg=f"Request to update the environment parameter '{parameter}' "
@@ -535,7 +535,7 @@ async def delete_environment_parameters(
                 target="environment_parameter",
                 data=parameter
             ).model_dump(),
-            namespace="aggregator",
+            namespace="aggregator-internal",
         )
         return ResultResponse(
             msg=f"Request to delete the environment parameter '{parameter}' "
@@ -581,7 +581,7 @@ async def create_ecosystem_hardware(
                 target="hardware",
                 data=hardware_dict,
             ).model_dump(),
-            namespace="aggregator",
+            namespace="aggregator-internal",
         )
         return ResultResponse(
             msg=f"Request to create the new hardware '{hardware_dict['name']}' "

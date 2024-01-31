@@ -86,7 +86,7 @@ def format_sun_times_data(data: dict[str, str]) -> dict[str, datetime | str]:
 class SkyWatcher:
     def __init__(self, ):
         self.logger: Logger = getLogger("ouranos.aggregator")
-        self.dispatcher = DispatcherFactory.get("aggregator")
+        self.dispatcher = DispatcherFactory.get("aggregator-internal")
         self._mutex = asyncio.Lock()
         self._coordinates = current_app.config.get("HOME_COORDINATES")
         self._API_key = current_app.config.get("DARKSKY_API_KEY")
@@ -175,19 +175,18 @@ class SkyWatcher:
     async def dispatch_weather_data(self) -> None:
         now = datetime.now()
         await self.dispatcher.emit(
-            "application", "weather_current",
+            "application-internal", "weather_current",
             data={"currently": WeatherCache.get_currently()},
         )
         if now.minute % 15 == 0:
             await self.dispatcher.emit(
-                "application", "weather_hourly",
+                "application-internal", "weather_hourly",
                 data={"hourly": WeatherCache.get_hourly()},
             )
         if now.hour % 1 == 0 and now.minute == 0:
             await self.dispatcher.emit(
-                "application", "weather_daily",
-                data={"daily": WeatherCache.get_daily()},
-            )
+                "weather_daily", data={"daily": WeatherCache.get_daily()},
+                namespace="application-internal")
 
     """Sun times"""
 
@@ -243,7 +242,7 @@ class SkyWatcher:
                 SunTimesCache.update(formatted_data)
             try:
                 await self.dispatcher.emit(
-                    "application", "sun_times", data=formatted_data
+                    "application-internal", "sun_times", data=formatted_data
                 )
             except AttributeError as e:
                 # Discard error when SocketIO has not started yet
