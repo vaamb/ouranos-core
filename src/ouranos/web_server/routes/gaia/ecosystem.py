@@ -698,7 +698,7 @@ async def turn_actuator(
         await ecosystem.turn_actuator(
             dispatcher, actuator, mode, countdown)
         return ResultResponse(
-            msg=f"Turned {ecosystem.name}'s {actuator.value} to mode '{mode.value}'",
+            msg=f"Turned {ecosystem.name}'s {actuator.name} to mode '{mode.name}'",
             status=ResultStatus.success
         )
     except Exception as e:
