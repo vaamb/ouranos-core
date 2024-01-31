@@ -113,7 +113,7 @@ def create_app(config: dict | None = None) -> FastAPI:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
-        allowed_origins_regex=allowed_origins_regex,
+        allow_origin_regex=allowed_origins_regex,
     )
 
     # Add processing (brewing) time in headers when developing and testing
