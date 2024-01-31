@@ -52,7 +52,7 @@ class ClientEvents(AsyncNamespace):
             event="turn_light",
             data={"ecosystem": ecosystem_uid, "mode": mode, "countdown": countdown},
             room=ecosystem_sid,
-            namespace="aggregator",
+            namespace="aggregator-internal",
         )
 
     # @permission_required(Permission.OPERATE)
@@ -74,7 +74,7 @@ class ClientEvents(AsyncNamespace):
             data={
                 "ecosystem": ecosystem_uid, "management": management, "status": status
             },
-            namespace="aggregator",
+            namespace="aggregator-internal",
             room=ecosystem_sid
         )
 

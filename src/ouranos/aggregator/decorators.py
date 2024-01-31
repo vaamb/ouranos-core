@@ -35,7 +35,6 @@ def dispatch_to_application(func: Callable):
         func_name: str = func.__name__
         event: str = func_name.lstrip("on_")
         await self.ouranos_dispatcher.emit(
-            event, data=data, namespace="application", ttl=15
-        )
+            event, data=data, namespace="application-internal", ttl=15)
         return await func(self, sid, data, *args)
     return wrapper

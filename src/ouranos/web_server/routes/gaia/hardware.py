@@ -22,7 +22,7 @@ from ouranos.web_server.validate.response.gaia import (
     HardwareInfo, HardwareModelInfo)
 
 
-dispatcher: AsyncDispatcher = DispatcherFactory.get("application")
+dispatcher: AsyncDispatcher = DispatcherFactory.get("application-internal")
 
 
 router = APIRouter(
@@ -107,7 +107,7 @@ async def create_hardware(
                 target="hardware",
                 data=hardware_dict,
             ).model_dump(),
-            namespace="aggregator",
+            namespace="aggregator-internal",
         )
         return ResultResponse(
             msg=f"Request to create the new hardware '{hardware_dict['name']}' "
@@ -160,7 +160,7 @@ async def update_hardware(
                 target="hardware",
                 data=hardware_dict,
             ).model_dump(),
-            namespace="aggregator",
+            namespace="aggregator-internal",
         )
         return ResultResponse(
             msg=f"Request to update the hardware '{hardware.name}' "
@@ -200,7 +200,7 @@ async def delete_hardware(
                 target="hardware",
                 data=uid,
             ).model_dump(),
-            namespace="aggregator",
+            namespace="aggregator-internal",
         )
         return ResultResponse(
             msg=f"Request to delete the hardware '{hardware.name}' "

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import enum
-from typing import cast, Literal, TypedDict
+from typing import cast, Literal
 
 
 from dispatcher import (
@@ -18,7 +18,12 @@ class DispatcherType(enum.Enum):
     redis = enum.auto()
 
 
-DispatcherName = Literal["aggregator", "aggregator-stream", "application"]
+DispatcherName = Literal[
+    "aggregator",            # Used by the aggregator, receives regular data from Gaia
+    "aggregator-stream",     # Used by the aggregator, receives large data from Gaia
+    "aggregator-internal",   # Used by the aggregator, receives data from the web server
+    "application-internal",  # Used by the web server, receives data from the aggregator
+]
 
 
 class DispatcherOptions:
@@ -53,7 +58,22 @@ class DispatcherOptions:
             },
             DispatcherType.redis: {},
         },
-        "application": {
+        "aggregator-internal": {
+            "uri_cfg_lookup": "DISPATCHER_URL",
+            DispatcherType.memory: {},
+            DispatcherType.amqp: {
+                "queue_options": {
+                    "arguments": {
+                        # Remove queue after 1 day without consumer
+                        "x-expires": 24 * 60 * 60 * 1000,
+                        # Keep messages only 1 minute then remove them
+                        "x-message-ttl": 1 * 60 * 1000,
+                    },
+                },
+            },
+            DispatcherType.redis: {},
+        },
+        "application-internal": {
             "uri_cfg_lookup": "DISPATCHER_URL",
             DispatcherType.memory: {},
             DispatcherType.amqp: {

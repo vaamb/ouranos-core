@@ -68,7 +68,7 @@ async def test_on_disconnect(
     emitted = mock_dispatcher.emit_store[0]
     assert emitted["event"] == "ecosystem_status"
     assert emitted["data"] == {}
-    assert emitted["namespace"] == "application"
+    assert emitted["namespace"] == "application-internal"
 
 
 @pytest.mark.asyncio
@@ -128,7 +128,7 @@ async def test_on_base_info(
     assert emitted["data"] == [
         {"status": g_data.base_info["status"], 'uid': g_data.base_info["uid"]}
     ]
-    assert emitted["namespace"] == "application"
+    assert emitted["namespace"] == "application-internal"
 
     async with naive_db.scoped_session() as session:
         ecosystem = await Ecosystem.get(session, ecosystem_id=g_data.ecosystem_uid)
@@ -236,7 +236,7 @@ async def test_on_sensors_data(
         'timestamp': g_data.sensors_data["timestamp"],
         'value': g_data.sensor_record.value
     }]
-    assert emitted["namespace"] == "application"
+    assert emitted["namespace"] == "application-internal"
 
     async with ecosystem_aware_db.scoped_session() as session:
         sensor_data = (await SensorDbCache.get_recent(session))[0]

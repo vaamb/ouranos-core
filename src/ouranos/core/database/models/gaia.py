@@ -470,8 +470,7 @@ class Ecosystem(InConfigMixin, GaiaBase):
             "countdown": countdown
         }
         await dispatcher.emit(
-            event="turn_actuator", data=data, namespace="aggregator"
-        )
+            event="turn_actuator", data=data, namespace="aggregator-internal")
 
     async def turn_light(
             self,

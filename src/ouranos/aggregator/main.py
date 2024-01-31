@@ -142,12 +142,8 @@ class Aggregator(Functionality):
         self.event_handler = GaiaEvents()
         self.dispatcher.register_event_handler(self.event_handler)
         # Create or get the dispatcher used for internal communication
-        #  Rem: it might be the same as the one used to communicate with Gaia
-        if self.config["DISPATCHER_URL"] == self.config["GAIA_COMMUNICATION_URL"]:
-            self.event_handler.ouranos_dispatcher = self.dispatcher
-        else:
-            dispatcher = DispatcherFactory.get("aggregator")
-            self.event_handler.ouranos_dispatcher = dispatcher
+        dispatcher = DispatcherFactory.get("aggregator-internal")
+        self.event_handler.ouranos_dispatcher = dispatcher
 
     def _init_stream_gaia_events_handling(self) -> None:
         # Get the dispatcher and the event handler
@@ -157,14 +153,8 @@ class Aggregator(Functionality):
         self.stream_dispatcher.register_event_handler(self.stream_event_handler)
 
     async def start_gaia_events_dispatcher(self) -> None:
-        separate_ouranos_dispatcher: bool
-        if self.config["DISPATCHER_URL"] == self.config["GAIA_COMMUNICATION_URL"]:
-            separate_ouranos_dispatcher = False
-        else:
-            separate_ouranos_dispatcher = True
         await self.dispatcher.start(retry=True, block=False)
-        if separate_ouranos_dispatcher:
-            await self.event_handler.ouranos_dispatcher.start(retry=True, block=False)
+        await self.event_handler.ouranos_dispatcher.start(retry=True, block=False)
         scheduler.add_job(
             self.event_handler.log_sensors_data,
             id="log_sensors_data", trigger="cron", minute="*",
@@ -185,6 +175,7 @@ class Aggregator(Functionality):
             await self.sky_watcher.stop()
             await self.archiver.stop()
             await self.dispatcher.stop()
+            await self.event_handler.ouranos_dispatcher.stop()
             await self.stream_dispatcher.stop()
         except AttributeError:  # Not dispatcher_based
             pass  # Handled by uvicorn or by Api

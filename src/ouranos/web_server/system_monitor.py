@@ -33,7 +33,7 @@ else:
 class SystemMonitor:
     def __init__(self):
         self.logger: Logger = getLogger("ouranos.aggregator")
-        self.dispatcher = DispatcherFactory.get("application")
+        self.dispatcher = DispatcherFactory.get("application-internal")
         self._stop_event: Event = Event()
         self._task: Task | None = None
 
@@ -69,10 +69,8 @@ class SystemMonitor:
                 "CPU_temp": get_temp(),
             }
             await self.dispatcher.emit(
-                "current_server_data",
-                data={**data, "start_time": START_TIME},
-                namespace="application",
-            )
+                "current_server_data", data={**data, "start_time": START_TIME},
+                namespace="application-internal")
             async with db.scoped_session() as session:
                 await SystemDbCache.insert_data(session, data)
             if logging_period and datetime.now().minute % logging_period == 0:
