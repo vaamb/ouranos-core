@@ -53,14 +53,17 @@ class ConfigHelper:
             for name in dir(config):
                 if not name.startswith("__"):
                     obj = getattr(config, name)
-                    if isclass(obj) and issubclass(obj, BaseConfig):
+                    if (
+                            isclass(obj) and issubclass(obj, BaseConfig)
+                            and obj is not BaseConfig
+                    ):
                         if name == "DEFAULT_CONFIG":
                             cfgs[None] = obj
                         else:
-                            name = name.lower().strip("config")
+                            name = name.lower().replace("config", "")
                             cfgs[name] = obj
             if profile is not None:
-                profile = profile.lower().strip("config")
+                profile = profile.lower().replace("config", "")
             cfg: Type[BaseConfig] = cfgs.get(profile)
             if cfg:
                 return cfg
