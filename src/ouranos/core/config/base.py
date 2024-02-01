@@ -34,8 +34,7 @@ class BaseConfig:
 
     # Logging config
     LOG_TO_STDOUT = True
-    LOG_TO_FILE = True
-    LOG_ERROR = True
+    LOG_TO_FILE = False
 
     # Brokers config
     GAIA_COMMUNICATION_URL = os.environ.get("GAIA_COMMUNICATION_URL") or "amqp://"  # amqp:// or socketio://

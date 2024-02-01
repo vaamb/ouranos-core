@@ -59,24 +59,19 @@ def configure_logging(config: BaseConfigDict, log_dir: Path) -> None:
     debug = config["DEBUG"]
     log_to_stdout = config["LOG_TO_STDOUT"]
     log_to_file = config["LOG_TO_FILE"]
-    log_error = config["LOG_ERROR"]
 
     handlers = []
 
     if log_to_stdout:
         handlers.append("streamHandler")
-
-    if log_to_file or log_error:
-        if log_to_file:
-            handlers.append("fileHandler")
-        if log_error:
-            handlers.append("errorFileHandler")
+    if log_to_file:
+        handlers.append("fileHandler")
 
     logging_config = {
         "version": 1,
         "disable_existing_loggers": True,
         "formatters": {
-            "streamFormat": {
+            "baseFormat": {
                 "()": "ouranos.core.logging.ColourFormatter",
                 "format": (
                     "%(asctime)s %(levelname)s [%(filename)-20.20s:%(lineno)3d] %(name)-30.30s: %(message)s"
@@ -85,40 +80,20 @@ def configure_logging(config: BaseConfigDict, log_dir: Path) -> None:
                 ),
                 "datefmt": "%Y-%m-%d %H:%M:%S"
             },
-            "fileFormat": {
-                "format": "%(asctime)s -- %(levelname)s  -- %(name)s -- %(message)s",
-                "datefmt": "%Y-%m-%d %H:%M:%S"
-            },
         },
         "handlers": {
             "streamHandler": {
                 "level": f"{'DEBUG' if debug else 'INFO'}",
-                "formatter": "streamFormat",
+                "formatter": "baseFormat",
                 "class": "logging.StreamHandler",
             },
             "fileHandler": {
                 "level": f"{'DEBUG' if debug else 'INFO'}",
-                "formatter": "fileFormat",
+                "formatter": "baseFormat",
                 "class": "logging.handlers.RotatingFileHandler",
-                "filename": f"{log_dir/'base.log'}",
+                "filename": f"{log_dir / 'ouranos.log'}",
                 "mode": "a",
-                "maxBytes": 1024 * 512,
-                "backupCount": 5,
-            },
-            "errorFileHandler": {
-                "level": "ERROR",
-                "formatter": "fileFormat",
-                "class": "logging.FileHandler",
-                "filename": f"{log_dir/'errors.log'}",
-                "mode": "a",
-            },
-            "uvicornHandler": {
-                "level": f"{'DEBUG' if debug else 'INFO'}",
-                "formatter": "fileFormat",
-                "class": "logging.handlers.RotatingFileHandler",
-                "filename": f"{log_dir/'uvicorn.log'}",
-                "mode": "a",
-                "maxBytes": 1024 * 512,
+                "maxBytes": 4 * 1024 * 1024,
                 "backupCount": 5,
             },
         },
@@ -128,9 +103,7 @@ def configure_logging(config: BaseConfigDict, log_dir: Path) -> None:
                 "level": f"{'DEBUG' if debug else 'INFO'}"
             },
             "uvicorn": {
-                "handlers": (
-                    ["streamHandler", "uvicornHandler"] if log_to_stdout
-                    else ["uvicornHandler"]),
+                "handlers": handlers,
                 "level": f"{'DEBUG' if debug else 'INFO'}",
             },
         },
