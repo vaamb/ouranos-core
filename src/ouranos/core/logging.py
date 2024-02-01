@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from copy import copy
 import logging
+from logging import Formatter, Handler, LogRecord
 import logging.config
 from pathlib import Path
 import sys
@@ -15,7 +16,7 @@ from ouranos.core.config.base import BaseConfigDict
 TRACE_LOG_LEVEL = 5
 
 
-class ColourFormatter(logging.Formatter):
+class ColourFormatter(Formatter):
     level_colors = {
         TRACE_LOG_LEVEL: lambda level_name: click.style(str(level_name), fg="blue"),
         logging.DEBUG: lambda lvl_name: click.style(str(lvl_name), fg="cyan"),
@@ -41,7 +42,7 @@ class ColourFormatter(logging.Formatter):
         func = self.level_colors.get(lvl_nbr, default)
         return func(lvl_name)
 
-    def formatMessage(self, record: logging.LogRecord) -> str:
+    def formatMessage(self, record: LogRecord) -> str:
         record_copy = copy(record)
         lvl_name = record_copy.levelname
         separator = " " * (9 - len(record_copy.levelname))
