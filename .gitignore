@@ -4,7 +4,7 @@ __pycache__/
 
 .cache/
 logs/
-venv/
+*venv/
 migrations/
 
 config.py
