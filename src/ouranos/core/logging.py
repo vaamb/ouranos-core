@@ -89,6 +89,10 @@ logging_config = {
             "handlers": handlers,
             "level": "INFO"
         },
+        "dispatcher": {
+            "handlers": handlers,
+            "level": "WARNING",
+        },
         "uvicorn": {
             "handlers": handlers,
             "level": "INFO",
