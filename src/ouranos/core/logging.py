@@ -55,57 +55,65 @@ class ColourFormatter(Formatter):
         return super().formatMessage(record_copy)
 
 
+handlers: list[str] = []
+
+
+logging_config = {
+    "version": 1,
+    "disable_existing_loggers": True,
+    "formatters": {
+        "base_format": {
+            "()": "ouranos.core.logging.ColourFormatter",
+            "format": "%(asctime)s %(levelname)s %(name)-30.30s: %(message)s",
+            "datefmt": "%Y-%m-%d %H:%M:%S"
+        },
+    },
+    "handlers": {
+        "stream_handler": {
+            "level": "INFO",
+            "formatter": "base_format",
+            "class": "logging.StreamHandler",
+        },
+        "file_handler": {
+            "level": "INFO",
+            "formatter": "base_format",
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": "ouranos.log",
+            "mode": "a",
+            "maxBytes": 4 * 1024 * 1024,
+            "backupCount": 5,
+        },
+    },
+    "loggers": {
+        "ouranos": {
+            "handlers": handlers,
+            "level": "INFO"
+        },
+        "uvicorn": {
+            "handlers": handlers,
+            "level": "INFO",
+        },
+    },
+}
+
+
 def configure_logging(config: BaseConfigDict, log_dir: Path) -> None:
-    debug = config["DEBUG"]
-    log_to_stdout = config["LOG_TO_STDOUT"]
-    log_to_file = config["LOG_TO_FILE"]
+    # Prepend log_dir path to the file handler file name
+    file_handler_filename = logging_config["handlers"]["file_handler"]["filename"]
+    logging_config["handlers"]["file_handler"]["filename"] = str(log_dir / file_handler_filename)
 
-    handlers = []
+    # Tweak formatters, handlers and loggers if debugging
+    if config["DEBUG"]:
+        debug_fmt = "%(asctime)s %(levelname)s [%(filename)-20.20s:%(lineno)3d] %(name)-30.30s: %(message)s"
+        logging_config["formatters"]["stream_format"]["format"] = debug_fmt
+        logging_config["handlers"]["stream_handler"]["level"] = 'DEBUG'
+        logging_config["loggers"]["ouranos"]["level"] = 'DEBUG'
+        logging_config["loggers"]["uvicorn"]["level"] = 'DEBUG'
 
-    if log_to_stdout:
-        handlers.append("streamHandler")
-    if log_to_file:
-        handlers.append("fileHandler")
+    # Use the required handlers
+    if config["LOG_TO_STDOUT"]:
+        handlers.append("stream_handler")
+    if config["LOG_TO_FILE"]:
+        handlers.append("file_handler")
 
-    logging_config = {
-        "version": 1,
-        "disable_existing_loggers": True,
-        "formatters": {
-            "baseFormat": {
-                "()": "ouranos.core.logging.ColourFormatter",
-                "format": (
-                    "%(asctime)s %(levelname)s [%(filename)-20.20s:%(lineno)3d] %(name)-30.30s: %(message)s"
-                    if debug else
-                    "%(asctime)s %(levelname)s %(name)-30.30s: %(message)s"
-                ),
-                "datefmt": "%Y-%m-%d %H:%M:%S"
-            },
-        },
-        "handlers": {
-            "streamHandler": {
-                "level": f"{'DEBUG' if debug else 'INFO'}",
-                "formatter": "baseFormat",
-                "class": "logging.StreamHandler",
-            },
-            "fileHandler": {
-                "level": f"{'DEBUG' if debug else 'INFO'}",
-                "formatter": "baseFormat",
-                "class": "logging.handlers.RotatingFileHandler",
-                "filename": f"{log_dir / 'ouranos.log'}",
-                "mode": "a",
-                "maxBytes": 4 * 1024 * 1024,
-                "backupCount": 5,
-            },
-        },
-        "loggers": {
-            "ouranos": {
-                "handlers": handlers,
-                "level": f"{'DEBUG' if debug else 'INFO'}"
-            },
-            "uvicorn": {
-                "handlers": handlers,
-                "level": f"{'DEBUG' if debug else 'INFO'}",
-            },
-        },
-    }
     logging.config.dictConfig(logging_config)
