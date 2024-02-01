@@ -35,6 +35,7 @@ class BaseConfig:
     # Logging config
     LOG_TO_STDOUT = True
     LOG_TO_FILE = False
+    LOG_TO_DB = False
 
     # Brokers config
     GAIA_COMMUNICATION_URL = os.environ.get("GAIA_COMMUNICATION_URL") or "amqp://"  # amqp:// or socketio://
@@ -132,7 +133,7 @@ class BaseConfigDict(TypedDict):
     # Logging config
     LOG_TO_STDOUT: bool
     LOG_TO_FILE: bool
-    LOG_ERROR: bool
+    LOG_TO_DB: bool
 
     # Brokers config
     GAIA_COMMUNICATION_URL: str
