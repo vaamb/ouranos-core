@@ -126,30 +126,6 @@ def configure_logging(config: BaseConfigDict, log_dir: Path) -> None:
                 "handlers": handlers,
                 "level": f"{'DEBUG' if debug else 'INFO'}"
             },
-            "dispatcher": {
-                "handlers": handlers,
-                "level": f"{'DEBUG' if debug else 'INFO'}"
-            },
-            "aiosqlite": {
-                "handlers": handlers,
-                "level": "WARNING",
-            },
-            "apscheduler": {
-                "handlers": handlers,
-                "level": f"{'DEBUG' if debug else 'WARNING'}",
-            },
-            "urllib3": {
-                "handlers": handlers,
-                "level": "WARNING",
-            },
-            "engineio": {
-                "handlers": handlers,
-                "level": f"{'DEBUG' if debug else 'WARNING'}",
-            },
-            "socketio": {
-                "handlers": handlers,
-                "level": f"{'DEBUG' if debug else 'WARNING'}",
-            },
             "uvicorn": {
                 "handlers": (
                     ["streamHandler", "uvicornHandler"] if log_to_stdout
