@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from inspect import isclass
-import logging.config
+import logging
 import os
 from pathlib import Path
 import sys
@@ -10,6 +10,7 @@ from typing import Type
 from ouranos import __version__ as version
 from ouranos.core.config.base import BaseConfig, BaseConfigDict
 from ouranos.core.config.consts import ImmutableDict
+from ouranos.core.logging import configure_logging
 
 
 # TODO: find a better alternative as ConfigDict is both a TypedDict and an
@@ -142,7 +143,7 @@ class ConfigHelper:
             **params,
     ) -> ConfigDict:
         config = cls.set_config(profile, **params)
-        configure_logging(config)
+        configure_logging(config=config, log_dir=get_log_dir())
         return config
 
     @classmethod
@@ -202,110 +203,3 @@ get_base_dir = PathsHelper.get_base_dir
 get_cache_dir = PathsHelper.get_cache_dir
 get_log_dir = PathsHelper.get_log_dir
 get_db_dir = PathsHelper.get_db_dir
-
-
-def configure_logging(config: ConfigDict) -> None:
-    debug = config["DEBUG"]
-    log_to_stdout = config["LOG_TO_STDOUT"]
-    log_to_file = config["LOG_TO_FILE"]
-    log_error = config["LOG_ERROR"]
-
-    handlers = []
-
-    if log_to_stdout:
-        handlers.append("streamHandler")
-
-    log_dir = get_base_dir()
-    if log_to_file or log_error:
-        if log_to_file:
-            handlers.append("fileHandler")
-        if log_error:
-            handlers.append("errorFileHandler")
-        log_dir = get_log_dir()
-
-    debug_fmt = "%(asctime)s - %(levelname)s [%(filename)-15.15s:%(lineno)4d] %(name)-25.25s: %(message)s"
-    regular_fmt = "%(asctime)s - %(levelname)s %(message)s"
-    logging_config = {
-        "version": 1,
-        "disable_existing_loggers": True,
-        "formatters": {
-            "streamFormat": {
-                "()": "ouranos.core.logging.ColourFormatter",
-                "format": f"{debug_fmt if debug else regular_fmt}",
-                "datefmt": "%Y-%m-%d %H:%M:%S"
-            },
-            "fileFormat": {
-                "format": "%(asctime)s -- %(levelname)s  -- %(name)s -- %(message)s",
-                "datefmt": "%Y-%m-%d %H:%M:%S"
-            },
-        },
-        "handlers": {
-            "streamHandler": {
-                "level": f"{'DEBUG' if debug else 'INFO'}",
-                "formatter": "streamFormat",
-                "class": "logging.StreamHandler",
-            },
-            "fileHandler": {
-                "level": f"{'DEBUG' if debug else 'INFO'}",
-                "formatter": "fileFormat",
-                "class": "logging.handlers.RotatingFileHandler",
-                "filename": f"{log_dir/'base.log'}",
-                "mode": "a",
-                "maxBytes": 1024 * 512,
-                "backupCount": 5,
-            },
-            "errorFileHandler": {
-                "level": "ERROR",
-                "formatter": "fileFormat",
-                "class": "logging.FileHandler",
-                "filename": f"{log_dir/'errors.log'}",
-                "mode": "a",
-            },
-            "uvicornHandler": {
-                "level": f"{'DEBUG' if debug else 'INFO'}",
-                "formatter": "fileFormat",
-                "class": "logging.handlers.RotatingFileHandler",
-                "filename": f"{log_dir/'uvicorn.log'}",
-                "mode": "a",
-                "maxBytes": 1024 * 512,
-                "backupCount": 5,
-            },
-        },
-        "loggers": {
-            "ouranos": {
-                "handlers": handlers,
-                "level": f"{'DEBUG' if debug else 'INFO'}"
-            },
-            "dispatcher": {
-                "handlers": handlers,
-                "level": f"{'DEBUG' if debug else 'INFO'}"
-            },
-            "aiosqlite": {
-                "handlers": handlers,
-                "level": "WARNING",
-            },
-            "apscheduler": {
-                "handlers": handlers,
-                "level": f"{'DEBUG' if debug else 'WARNING'}",
-            },
-            "urllib3": {
-                "handlers": handlers,
-                "level": "WARNING",
-            },
-            "engineio": {
-                "handlers": handlers,
-                "level": f"{'DEBUG' if debug else 'WARNING'}",
-            },
-            "socketio": {
-                "handlers": handlers,
-                "level": f"{'DEBUG' if debug else 'WARNING'}",
-            },
-            "uvicorn": {
-                "handlers": (
-                    ["streamHandler", "uvicornHandler"] if log_to_stdout
-                    else ["uvicornHandler"]),
-                "level": f"{'DEBUG' if debug else 'INFO'}",
-            },
-        },
-    }
-    logging.config.dictConfig(logging_config)

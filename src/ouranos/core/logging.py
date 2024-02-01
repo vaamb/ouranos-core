@@ -2,10 +2,14 @@ from __future__ import annotations
 
 from copy import copy
 import logging
+import logging.config
+from pathlib import Path
 import sys
 from typing import Literal
 
 import click
+
+from ouranos.core.config.base import BaseConfigDict
 
 
 TRACE_LOG_LEVEL = 5
@@ -48,3 +52,110 @@ class ColourFormatter(logging.Formatter):
                 record_copy.__dict__["message"] = record_copy.getMessage()
         record_copy.__dict__["levelname"] = f"{lvl_name}:{separator}"
         return super().formatMessage(record_copy)
+
+
+def configure_logging(config: BaseConfigDict, log_dir: Path) -> None:
+    debug = config["DEBUG"]
+    log_to_stdout = config["LOG_TO_STDOUT"]
+    log_to_file = config["LOG_TO_FILE"]
+    log_error = config["LOG_ERROR"]
+
+    handlers = []
+
+    if log_to_stdout:
+        handlers.append("streamHandler")
+
+    if log_to_file or log_error:
+        if log_to_file:
+            handlers.append("fileHandler")
+        if log_error:
+            handlers.append("errorFileHandler")
+
+    logging_config = {
+        "version": 1,
+        "disable_existing_loggers": True,
+        "formatters": {
+            "streamFormat": {
+                "()": "ouranos.core.logging.ColourFormatter",
+                "format": (
+                    "%(asctime)s %(levelname)s [%(filename)-20.20s:%(lineno)3d] %(name)-30.30s: %(message)s"
+                    if debug else
+                    "%(asctime)s %(levelname)s %(name)-30.30s: %(message)s"
+                ),
+                "datefmt": "%Y-%m-%d %H:%M:%S"
+            },
+            "fileFormat": {
+                "format": "%(asctime)s -- %(levelname)s  -- %(name)s -- %(message)s",
+                "datefmt": "%Y-%m-%d %H:%M:%S"
+            },
+        },
+        "handlers": {
+            "streamHandler": {
+                "level": f"{'DEBUG' if debug else 'INFO'}",
+                "formatter": "streamFormat",
+                "class": "logging.StreamHandler",
+            },
+            "fileHandler": {
+                "level": f"{'DEBUG' if debug else 'INFO'}",
+                "formatter": "fileFormat",
+                "class": "logging.handlers.RotatingFileHandler",
+                "filename": f"{log_dir/'base.log'}",
+                "mode": "a",
+                "maxBytes": 1024 * 512,
+                "backupCount": 5,
+            },
+            "errorFileHandler": {
+                "level": "ERROR",
+                "formatter": "fileFormat",
+                "class": "logging.FileHandler",
+                "filename": f"{log_dir/'errors.log'}",
+                "mode": "a",
+            },
+            "uvicornHandler": {
+                "level": f"{'DEBUG' if debug else 'INFO'}",
+                "formatter": "fileFormat",
+                "class": "logging.handlers.RotatingFileHandler",
+                "filename": f"{log_dir/'uvicorn.log'}",
+                "mode": "a",
+                "maxBytes": 1024 * 512,
+                "backupCount": 5,
+            },
+        },
+        "loggers": {
+            "ouranos": {
+                "handlers": handlers,
+                "level": f"{'DEBUG' if debug else 'INFO'}"
+            },
+            "dispatcher": {
+                "handlers": handlers,
+                "level": f"{'DEBUG' if debug else 'INFO'}"
+            },
+            "aiosqlite": {
+                "handlers": handlers,
+                "level": "WARNING",
+            },
+            "apscheduler": {
+                "handlers": handlers,
+                "level": f"{'DEBUG' if debug else 'WARNING'}",
+            },
+            "urllib3": {
+                "handlers": handlers,
+                "level": "WARNING",
+            },
+            "engineio": {
+                "handlers": handlers,
+                "level": f"{'DEBUG' if debug else 'WARNING'}",
+            },
+            "socketio": {
+                "handlers": handlers,
+                "level": f"{'DEBUG' if debug else 'WARNING'}",
+            },
+            "uvicorn": {
+                "handlers": (
+                    ["streamHandler", "uvicornHandler"] if log_to_stdout
+                    else ["uvicornHandler"]),
+                "level": f"{'DEBUG' if debug else 'INFO'}",
+            },
+        },
+    }
+    logging.config.dictConfig(logging_config)
