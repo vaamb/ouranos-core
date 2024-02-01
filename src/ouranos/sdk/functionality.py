@@ -22,6 +22,10 @@ if t.TYPE_CHECKING:
 pattern = re.compile(r'(?<!^)(?=[A-Z])')
 
 
+class _SetUp:
+    proc_name = False
+
+
 class BaseFunctionality(ABC):
     _runner = Runner()
     _proc_name_setup: bool = False
@@ -41,14 +45,14 @@ class BaseFunctionality(ABC):
         self.is_root = root
         if self.is_root:
             microservice = False
-        if not self._proc_name_setup:
+        if not self.is_proc_name_setup():
             # Change process name
             from setproctitle import setproctitle
             if self.is_root:
                 setproctitle(f"ouranos")
             else:
                 setproctitle(f"ouranos-{self.name}")
-            self._proc_name_setup = True
+            self.proc_name_has_been_setup()
 
         if auto_setup_config and not ConfigHelper.config_is_set():
             ConfigHelper.set_config_and_configure_logging(config_profile)
@@ -74,6 +78,12 @@ class BaseFunctionality(ABC):
             )
 
         self._status = False
+
+    def is_proc_name_setup(self) -> bool:
+        return _SetUp.proc_name
+
+    def proc_name_has_been_setup(self) -> None:
+        _SetUp.proc_name = True
 
     @staticmethod
     async def init_the_db(generate_registration_token: bool = True):
