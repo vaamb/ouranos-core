@@ -158,7 +158,7 @@ logging_config = {
         "db_handler": {
             "level": "INFO",
             "class": "ouranos.core.logging.SQLiteHandler",
-            "db_path": "ouranos.sqlite",
+            "db_path": "log.sqlite",
             "table_name": "logs",
         },
     },
