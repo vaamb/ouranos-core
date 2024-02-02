@@ -33,7 +33,7 @@ class _SchedulerWrapper(AsyncIOScheduler):
 
     def shutdown(self, wait=True):
         if self.state != STATE_STOPPED:
-            logger.info("Starting the scheduler")
+            logger.info("Stopping the scheduler")
             super().shutdown(wait)
 
 
