@@ -16,9 +16,6 @@ import click
 from ouranos.core.config.base import BaseConfigDict
 
 
-TRACE_LOG_LEVEL = 5
-
-
 class SQLiteHandler(Handler):
     _create_query = """\
     CREATE TABLE IF NOT EXISTS %(table_name)s(
@@ -94,7 +91,6 @@ class SQLiteHandler(Handler):
 
 class ColourFormatter(Formatter):
     level_colors = {
-        TRACE_LOG_LEVEL: lambda level_name: click.style(str(level_name), fg="blue"),
         logging.DEBUG: lambda lvl_name: click.style(str(lvl_name), fg="cyan"),
         logging.INFO: lambda lvl_name: click.style(str(lvl_name), fg="green"),
         logging.WARNING: lambda lvl_name: click.style(str(lvl_name), fg="yellow"),
@@ -121,7 +117,7 @@ class ColourFormatter(Formatter):
     def formatMessage(self, record: LogRecord) -> str:
         record_copy = copy(record)
         lvl_name = record_copy.levelname
-        separator = " " * (9 - len(record_copy.levelname))
+        separator = " " * (8 - len(record_copy.levelname))
         if self.use_colours:
             lvl_name = self.color_level_name(lvl_name, record_copy.levelno)
             if "color_message" in record_copy.__dict__:
