@@ -149,12 +149,11 @@ class FunctionalityManager(BaseFunctionality, ABC):
         for functionality_name in functionalities:
             functionality_wrapper = self.functionalities[functionality_name]
             if functionality_wrapper.workers > 0:
-                y = functionality_wrapper.process
                 for process in functionality_wrapper.process:
                     process: SpawnProcess
                     process.terminate()
                     process.join()
-            elif isinstance(functionality_wrapper.process, Functionality):
-                await functionality_wrapper.process.shutdown()
+            elif isinstance(functionality_wrapper.instance, Functionality):
+                await functionality_wrapper.instance.shutdown()
             else:
                 raise ValueError("Unrecognized type of functionality process")
