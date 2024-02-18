@@ -13,7 +13,7 @@ from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 from ouranos.aggregator.events import GaiaEvents
 from ouranos.core.database.models.gaia import (
     ActuatorStatus, Ecosystem, Engine, EnvironmentParameter,
-    Hardware, HealthRecord, Lighting, SensorRecord)
+    Hardware, HealthRecord, Lighting, Place, SensorRecord)
 from ouranos.core.database.models.memory import SensorDbCache
 from ouranos.core.exceptions import NotRegisteredError
 from ouranos.core.utils import create_time_window
@@ -247,6 +247,25 @@ async def test_on_sensors_data(
     wrong_payload = {}
     with pytest.raises(Exception):
         await events_handler.on_sensors_data(g_data.engine_sid, [wrong_payload])
+
+
+@pytest.mark.asyncio
+async def test_on_places_list(
+        mock_dispatcher: MockAsyncDispatcher,
+        events_handler: GaiaEvents,
+        engine_aware_db: AsyncSQLAlchemyWrapper,
+):
+    await events_handler.on_places_list(
+        g_data.engine_sid, g_data.places_payload)
+
+    async with engine_aware_db.scoped_session() as session:
+        place = await Place.get(
+            session,
+            engine_uid=g_data.engine_uid,
+            name=g_data.place_dict.name,
+        )
+        assert place.longitude == g_data.place_dict.coordinates.longitude
+        assert place.latitude == g_data.place_dict.coordinates.latitude
 
 
 @pytest.mark.asyncio
