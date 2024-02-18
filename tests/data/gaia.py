@@ -240,3 +240,15 @@ actuator_state_payload = gv.ActuatorsDataPayloadDict(
         dehumidifier = dehumidifier_state,
     )
 )
+
+
+place_dict = gv.Place(
+    name= "home",
+    coordinates= gv.Coordinates(4.0, 2.0),
+)
+
+
+places_payload = gv.PlacesPayloadDict(
+    uid=engine_uid,
+    data=[place_dict]
+)
