@@ -21,7 +21,7 @@ from ouranos.aggregator.decorators import (
     dispatch_to_application, registration_required)
 from ouranos.core.database.models.gaia import (
     ActuatorStatus, CrudRequest, Ecosystem, Engine, EnvironmentParameter,
-    Hardware, HealthRecord, Lighting, Measure, SensorRecord)
+    Hardware, HealthRecord, Lighting, Measure, Place, SensorRecord)
 from ouranos.core.database.models.memory import SensorDbCache
 from ouranos.core.utils import humanize_list
 
@@ -564,6 +564,27 @@ class GaiaEvents(BaseEvents):
             self.logger.info(
                 f"Logged sensors data from ecosystem(s) "
                 f"{humanize_list([e.name for e in ecosystems])}")
+
+    @registration_required
+    async def on_places_list(
+            self,
+            sid: str,  # noqa
+            data: gv.BufferedSensorsDataPayloadDict,
+            engine_uid: str
+    ) -> None:
+        self.logger.debug(
+            f"Received 'places_list' from {engine_uid}.")
+        payload: gv.PlacesPayloadDict = self.validate_payload(
+            data, gv.PlacesPayload, dict)
+        async with db.scoped_session() as session:
+            for place in payload["data"]:
+                coordinates = {
+                    "longitude": place["coordinates"][0],
+                    "latitude": place["coordinates"][1],
+                }
+                await Place.update_or_create(
+                    session, coordinates, engine_uid, place["name"])
+            await session.commit()
 
     @registration_required
     async def on_buffered_sensors_data(
