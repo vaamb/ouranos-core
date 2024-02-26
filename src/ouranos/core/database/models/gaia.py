@@ -596,7 +596,7 @@ class Place(GaiaBase):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     engine_uid: Mapped[int] = mapped_column(sa.ForeignKey("engines.uid"))
-    name: Mapped[str] = mapped_column()
+    name: Mapped[str] = mapped_column(sa.String(length=32))
     longitude: Mapped[float] = mapped_column()
     latitude: Mapped[float] = mapped_column()
 
