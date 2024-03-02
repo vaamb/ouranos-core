@@ -176,7 +176,7 @@ class GaiaEvents(BaseEvents):
     # ---------------------------------------------------------------------------
     async def on_connect(
             self,
-            sid: str,
+            sid: UUID,
             environ: dict,
     ) -> None:
         self.logger.info(f"Connected to the message broker.")
@@ -185,7 +185,7 @@ class GaiaEvents(BaseEvents):
 
     async def on_disconnect(
             self,
-            sid: str,
+            sid: UUID,
             *args,  # noqa
     ) -> None:
         self.leave_room(sid, "engines", namespace="/gaia")
@@ -205,7 +205,7 @@ class GaiaEvents(BaseEvents):
 
     async def on_register_engine(
             self,
-            sid: str,
+            sid: UUID,
             data: gv.EnginePayloadDict,
     ) -> None:
         data: gv.EnginePayloadDict = self.validate_payload(
@@ -229,16 +229,16 @@ class GaiaEvents(BaseEvents):
         }
         async with db.scoped_session() as session:
             await Engine.update_or_create(session, engine_info)
-        self.enter_room(sid, room="engines", namespace="/gaia")
+        self.enter_room(room="engines")
 
         # await sleep(3)  # Allow slower Raspi0 to finish Gaia startup
         self.logger.info(f"Successful registration of engine {engine_uid} with sid {sid}")
-        await self.emit("registration_ack", data=sid, ttl=15, room=sid)
+        await self.emit("registration_ack", data=sid, ttl=15, to=sid)
 
     @registration_required
     async def on_initialized(
             self,
-            sid: str,  # noqa
+            sid: UUID,  # noqa
             engine_uid: str,
     ) -> None:
         async with self.session(sid) as session:
@@ -255,12 +255,12 @@ class GaiaEvents(BaseEvents):
     @registration_required
     async def on_ping(
             self,
-            sid: str,
+            sid: UUID,
             data: list[str],
             engine_uid: str,
     ) -> None:
         self.logger.debug(f"Received 'ping' from engine {engine_uid}")
-        await self.emit("pong", room=sid)
+        await self.emit("pong", to=sid)
         now = datetime.now(timezone.utc).replace(microsecond=0)
         ecosystems_seen: list[str] = []
         async with db.scoped_session() as session:
@@ -279,7 +279,7 @@ class GaiaEvents(BaseEvents):
     @registration_required
     async def on_base_info(
             self,
-            sid: str,  # noqa
+            sid: UUID,  # noqa
             data: list[gv.BaseInfoConfigPayloadDict],
             engine_uid: str
     ) -> None:
@@ -328,7 +328,7 @@ class GaiaEvents(BaseEvents):
     @registration_required
     async def on_environmental_parameters(
             self,
-            sid: str,  # noqa
+            sid: UUID,  # noqa
             data: list[gv.EnvironmentConfigPayloadDict],
             engine_uid: str
     ) -> None:
@@ -377,7 +377,7 @@ class GaiaEvents(BaseEvents):
     @registration_required
     async def on_hardware(
             self,
-            sid: str,  # noqa
+            sid: UUID,  # noqa
             data: list[gv.HardwareConfigPayloadDict],
             engine_uid: str
     ) -> None:
@@ -435,7 +435,7 @@ class GaiaEvents(BaseEvents):
     @dispatch_to_application
     async def on_management(
             self,
-            sid: str,  # noqa
+            sid: UUID,  # noqa
             data: list[gv.ManagementConfigPayloadDict],
             engine_uid: str
     ) -> None:
@@ -471,7 +471,7 @@ class GaiaEvents(BaseEvents):
     @registration_required
     async def on_sensors_data(
             self,
-            sid: str,  # noqa
+            sid: UUID,  # noqa
             data: list[gv.SensorsDataPayloadDict],
             engine_uid: str
     ) -> None:
@@ -568,7 +568,7 @@ class GaiaEvents(BaseEvents):
     @registration_required
     async def on_places_list(
             self,
-            sid: str,  # noqa
+            sid: UUID,  # noqa
             data: gv.BufferedSensorsDataPayloadDict,
             engine_uid: str
     ) -> None:
@@ -589,7 +589,7 @@ class GaiaEvents(BaseEvents):
     @registration_required
     async def on_buffered_sensors_data(
             self,
-            sid: str,
+            sid: UUID,
             data: gv.BufferedSensorsDataPayloadDict,
             engine_uid: str
     ) -> None:
@@ -620,7 +620,7 @@ class GaiaEvents(BaseEvents):
                         message=str(e)
                     ).model_dump(),
                     namespace="/gaia",
-                    room=sid
+                    to=sid
                 )
             else:
                 await self.emit(
@@ -630,14 +630,14 @@ class GaiaEvents(BaseEvents):
                         status=gv.Result.success,
                     ).model_dump(),
                     namespace="/gaia",
-                    room=sid
+                    to=sid
                 )
 
     @registration_required
     @dispatch_to_application
     async def on_actuator_data(
             self,
-            sid: str,  # noqa
+            sid: UUID,  # noqa
             data: list[gv.ActuatorsDataPayloadDict],
             engine_uid: str
     ) -> None:
@@ -673,7 +673,7 @@ class GaiaEvents(BaseEvents):
     @dispatch_to_application
     async def on_health_data(
             self,
-            sid: str,  # noqa
+            sid: UUID,  # noqa
             data: list[gv.HealthDataPayloadDict],
             engine_uid: str
     ) -> None:
@@ -710,7 +710,7 @@ class GaiaEvents(BaseEvents):
     @dispatch_to_application
     async def on_light_data(
             self,
-            sid: str,  # noqa
+            sid: UUID,  # noqa
             data: list[gv.LightDataPayloadDict],
             engine_uid: str
     ) -> None:
@@ -744,7 +744,7 @@ class GaiaEvents(BaseEvents):
     # ---------------------------------------------------------------------------
     async def _turn_actuator(
             self,
-            sid: str,  # noqa
+            sid: UUID,  # noqa
             data: gv.TurnActuatorPayloadDict
     ) -> None:
         data: gv.TurnActuatorPayloadDict = self.validate_payload(
@@ -757,12 +757,12 @@ class GaiaEvents(BaseEvents):
             except (AttributeError, Exception):
                 engine_sid = None
         await self.emit(
-            "turn_actuator", data=data, namespace="gaia", room=engine_sid,
+            "turn_actuator", data=data, namespace="gaia", to=engine_sid,
             ttl=30)
 
     async def turn_light(
             self,
-            sid: str,  # noqa
+            sid: UUID,  # noqa
             data: gv.TurnActuatorPayloadDict,
     ) -> None:
         if data.get("actuator"):
@@ -771,14 +771,14 @@ class GaiaEvents(BaseEvents):
 
     async def turn_actuator(
             self,
-            sid: str,  # noqa
+            sid: UUID,  # noqa
             data: gv.TurnActuatorPayloadDict,
     ) -> None:
         await self._turn_actuator(sid, data)
 
     async def crud(
             self,
-            sid: str,  # noqa
+            sid: UUID,  # noqa
             data: gv.CrudPayloadDict,
     ) -> None:
         engine_uid = data["routing"]["engine_uid"]
@@ -797,12 +797,12 @@ class GaiaEvents(BaseEvents):
                 "payload": json.dumps(data["data"]),
             })
         await self.emit(
-            "crud", data=data, namespace="/gaia", room=engine_sid, ttl=30)
+            "crud", data=data, namespace="/gaia", to=engine_sid, ttl=30)
 
     # Response to crud event, actual path: Gaia -> Aggregator -> Api
     async def on_crud_result(
             self,
-            sid: str,  # noqa
+            sid: UUID,  # noqa
             data: gv.RequestResultDict
     ) -> None:
         self.logger.debug(f"Received crud result for request {data['uuid']}")
@@ -822,7 +822,7 @@ class StreamGaiaEvents(BaseEvents):
 
     async def on_ecosystem_image(
         self,
-        sid: str,  # noqa
+        sid: UUID,  # noqa
         data: dict
     ) -> None:
         pass
