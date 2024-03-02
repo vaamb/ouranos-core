@@ -1155,17 +1155,23 @@ class Sensor(Hardware):
             session: AsyncSession,
             measures: str | list | None = None,
     ) -> list:
+        measures_obj: list[Measure]
         if measures is None:
-            measures = [measure.name for measure in self.measures]
-        elif isinstance(measures, str):
-            measures = measures.split(",")
+            measures_obj = self.measures
+        else:
+            if isinstance(measures, str):
+                measures = measures.split(",")
+            measures_obj = [
+                measure for measure in self.measures
+                if measure.name in measures
+            ]
         rv = []
-        for measure in measures:
+        for measure_obj in measures_obj:
             rv.append({
-                "measure": measure,
-                "unit": await Measure.get_unit(session, measure),
+                "measure": measure_obj.name,
+                "unit": measure_obj.unit,
                 "values": await SensorDbCache.get_recent_timed_values(
-                    session, self.uid, measure),
+                    session, self.uid, measure_obj.name),
             })
         return rv
 
@@ -1175,20 +1181,26 @@ class Sensor(Hardware):
             measures: str | list | None = None,
             time_window: timeWindow | None = None,
     ) -> list:
+        measures_obj: list[Measure]
         if measures is None:
-            measures = [measure.name for measure in self.measures]
-        elif isinstance(measures, str):
-            measures = measures.split(",")
+            measures_obj = self.measures
+        else:
+            if isinstance(measures, str):
+                measures = measures.split(",")
+            measures_obj = [
+                measure for measure in self.measures
+                if measure.name in measures
+            ]
         if time_window is None:
             time_window = create_time_window()
         rv = []
-        for measure in measures:
+        for measure_obj in measures_obj:
             rv.append({
-                "measure": measure,
-                "unit": await Measure.get_unit(session, measure),
+                "measure": measure_obj.name,
+                "unit": measure_obj.unit,
                 "span": (time_window.start, time_window.end),
                 "values": await SensorRecord.get_timed_values(
-                    session, self.uid, measure, time_window),
+                    session, self.uid, measure_obj.name, time_window),
             })
         return rv
 
