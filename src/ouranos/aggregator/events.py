@@ -402,10 +402,16 @@ class GaiaEvents(BaseEvents):
                     # TODO: register multiplexer ?
                     del hardware["multiplexer_model"]
                     measures_to_add = []
-                    for measure in hardware["measures"]:
+                    for m in hardware["measures"]:
+                        measure_and_unit: list = m.split("|")
+                        measure = measure_and_unit[0]
                         if not bool(await Measure.get(session, measure)):
+                            try:
+                                unit = measure_and_unit[1]
+                            except IndexError:
+                                unit = ""
                             measures_to_add.append(
-                                {"name": measure, "unit": ""}
+                                {"name": measure, "unit": unit}
                             )
                     if measures_to_add:
                         await Measure.create(session, measures_to_add)
