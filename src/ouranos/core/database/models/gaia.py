@@ -994,6 +994,9 @@ class Hardware(InConfigMixin, GaiaBase):
             except IndexError:
                 unit = None
             m = await Measure.get(session, measure, unit)
+            if m is None:
+                await Measure.create(session, {"name": measure, "unit": unit})
+                m = await Measure.get(session, measure, unit)
             self.measures.append(m)
 
     @classmethod
