@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import typing as t
 from typing import Callable
+from uuid import UUID
 
 from ouranos.core.exceptions import NotRegisteredError
 
@@ -16,7 +17,7 @@ data_type: dict | list | str | tuple | None
 def registration_required(func: Callable):
     """Decorator which makes sure the engine is registered and injects
     engine_uid"""
-    async def wrapper(self: "Events", sid: str, data: data_type = None):
+    async def wrapper(self: "Events", sid: UUID, data: data_type = None):
         async with self.session(sid, namespace="/gaia") as session:
             engine_uid: str | None = session.get("engine_uid")
         if engine_uid is None:

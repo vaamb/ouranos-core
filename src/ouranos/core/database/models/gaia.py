@@ -155,8 +155,8 @@ class InConfigMixin:
 class Engine(GaiaBase):
     __tablename__ = "engines"
 
-    uid: Mapped[str] = mapped_column(sa.String(length=16), primary_key=True)
-    sid: Mapped[str] = mapped_column(sa.String(length=32))
+    uid: Mapped[str] = mapped_column(sa.String(length=32), primary_key=True)
+    sid: Mapped[UUID] = mapped_column()
     registration_date: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
     address: Mapped[Optional[str]] = mapped_column(sa.String(length=16))
     last_seen: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())  # , onupdate=func.current_timestamp())
@@ -176,12 +176,14 @@ class Engine(GaiaBase):
     async def get(
             cls,
             session: AsyncSession,
-            engine_id: str,
+            engine_id: str | UUID,
     ) -> Engine | None:
-        stmt = select(Engine).where(
-            (Engine.uid == engine_id)
-            | (Engine.sid == engine_id)
-        )
+        if isinstance(engine_id, UUID):
+            # Received an engine sid
+            stmt = select(Engine).where(Engine.sid == engine_id)
+        else:
+            # Received an engine uid
+            stmt = select(Engine).where(Engine.uid == engine_id)
         result = await session.execute(stmt)
         return result.scalar_one_or_none()
 
@@ -241,7 +243,7 @@ class Ecosystem(InConfigMixin, GaiaBase):
     management: Mapped[int] = mapped_column(default=0)
     day_start: Mapped[time] = mapped_column(default=time(8, 00))
     night_start: Mapped[time] = mapped_column(default=time(20, 00))
-    engine_uid: Mapped[str] = mapped_column(sa.ForeignKey("engines.uid"))
+    engine_uid: Mapped[UUID] = mapped_column(sa.ForeignKey("engines.uid"))
 
     # relationships
     engine: Mapped["Engine"] = relationship(back_populates="ecosystems", lazy="selectin")
@@ -595,7 +597,7 @@ class Place(GaiaBase):
     __tablename__ = "places"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    engine_uid: Mapped[int] = mapped_column(sa.ForeignKey("engines.uid"))
+    engine_uid: Mapped[UUID] = mapped_column(sa.ForeignKey("engines.uid"))
     name: Mapped[str] = mapped_column(sa.String(length=32))
     longitude: Mapped[float] = mapped_column()
     latitude: Mapped[float] = mapped_column()
