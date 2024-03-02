@@ -966,26 +966,35 @@ class Hardware(InConfigMixin, GaiaBase):
             f"ecosystem_uid={self.ecosystem_uid})>"
         )
 
-    async def attach_relationships(
+    async def attach_plants(
             self,
             session: AsyncSession,
-            measures: list | str,
             plants: list | str,
     ) -> None:
-        for relative_list, relationship_cls, relationship_attr in (
-                (measures, Measure, "measures"),
-                (plants, Plant, "plants")
-        ):
-            if relative_list:
-                if isinstance(relative_list, str):
-                    relative_list = [relative_list]
-                objs = await relationship_cls.get_multiple(
-                    session, relative_list)
-                relatives = getattr(self, relationship_attr)
-                for obj in objs:
-                    if obj not in relatives:
-                        relatives.append(obj)
-                session.add(self)
+        if isinstance(plants, str):
+            plants = [plants]
+        self.plants.clear()
+        plants = await Plant.get_multiple(session, plants_id=plants)
+        for plant in plants:
+            self.plants.append(plant)
+
+    async def attach_measures(
+            self,
+            session: AsyncSession,
+            measures_and_units: list[str] | str,
+    ) -> None:
+        if isinstance(measures_and_units, str):
+            measures_and_units = [measures_and_units]
+        self.measures.clear()
+        for m_a_u in measures_and_units:
+            measure_and_unit = m_a_u.split("|")
+            measure = measure_and_unit[0]
+            try:
+                unit = measure_and_unit[1]
+            except IndexError:
+                unit = None
+            m = await Measure.get(session, measure, unit)
+            self.measures.append(m)
 
     @classmethod
     async def create(
@@ -997,9 +1006,13 @@ class Hardware(InConfigMixin, GaiaBase):
         plants = values.pop("plants", [])
         stmt = insert(cls).values(values)
         await session.execute(stmt)
-        hardware_obj = await cls.get(session, values["uid"])
         if any((measures, plants)):
-            await hardware_obj.attach_relationships(session, measures, plants)
+            hardware_obj = await cls.get(session, values["uid"])
+            if measures:
+                await hardware_obj.attach_measures(session, measures)
+            if plants:
+                await hardware_obj.attach_plants(session, plants)
+            await session.commit()
 
     @classmethod
     async def update(
@@ -1014,7 +1027,10 @@ class Hardware(InConfigMixin, GaiaBase):
         await super().update(session, values, uid)
         if any((measures, plants)):
             hardware_obj = await cls.get(session, uid)
-            await hardware_obj.attach_relationships(session, measures, plants)
+            if measures:
+                await hardware_obj.attach_measures(session, measures)
+            if plants:
+                await hardware_obj.attach_plants(session, plants)
             await session.commit()
 
     @classmethod
@@ -1278,29 +1294,11 @@ class Measure(GaiaBase):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(sa.String(length=32))
-    unit: Mapped[str] = mapped_column(sa.String(length=32))
+    unit: Mapped[Optional[str]] = mapped_column(sa.String(length=32))
 
     # relationships
     hardware: Mapped[list["Hardware"]] = relationship(
         back_populates="measures", secondary=AssociationHardwareMeasure)
-
-    @classmethod
-    async def insert_measures(cls, session: AsyncSession) -> None:
-        measures = {
-            "temperature": "°C",
-            "humidity": "% humidity",
-            "dew_point": "°C",
-            "absolute_humidity": "°C",
-            "moisture": "% water capacity"
-        }
-        for name, unit in measures.items():
-            stmt = select(cls).where(cls.name == name)
-            result = await session.execute(stmt)
-            measure = result.first()
-            if not measure:
-                stmt = insert(cls).values({"name": name, "unit": unit})
-                await session.execute(stmt)
-        await session.commit()
 
     @classmethod
     @cached(_cache_measures, key=sessionless_hashkey)
@@ -1323,9 +1321,13 @@ class Measure(GaiaBase):
     async def get(
             cls,
             session: AsyncSession,
-            name: str
+            name: str,
+            unit: str | None = None,
     ) -> Self | None:
-        stmt = select(cls).where(cls.name == name)
+        stmt = select(cls).where(
+            (cls.name == name)
+            & (cls.unit == unit)
+        )
         result = await session.execute(stmt)
         return result.scalars().one_or_none()
 
