@@ -18,7 +18,7 @@ def registration_required(func: Callable):
     """Decorator which makes sure the engine is registered and injects
     engine_uid"""
     async def wrapper(self: "Events", sid: UUID, data: data_type = None):
-        async with self.session(sid, namespace="/gaia") as session:
+        async with self.session(sid) as session:
             engine_uid: str | None = session.get("engine_uid")
         if engine_uid is None:
             await self.disconnect(sid, namespace="/gaia")

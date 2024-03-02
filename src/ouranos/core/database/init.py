@@ -22,7 +22,6 @@ async def create_base_data(logger: Logger = getLogger()):
     async with db.scoped_session() as session:
         try:
             await CommunicationChannel.insert_channels(session)
-            await Measure.insert_measures(session)
             await Role.insert_roles(session)
             await Service.insert_services(session)
             await User.insert_gaia(session)

@@ -401,14 +401,6 @@ class GaiaEvents(BaseEvents):
                     hardware["ecosystem_uid"] = uid
                     # TODO: register multiplexer ?
                     del hardware["multiplexer_model"]
-                    measures_to_add = []
-                    for measure in hardware["measures"]:
-                        if not bool(await Measure.get(session, measure)):
-                            measures_to_add.append(
-                                {"name": measure, "unit": ""}
-                            )
-                    if measures_to_add:
-                        await Measure.create(session, measures_to_add)
                     await Hardware.update_or_create(
                         session, values={**hardware, "in_config": True},
                         uid=hardware_uid)
