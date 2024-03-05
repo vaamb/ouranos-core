@@ -407,31 +407,35 @@ class Ecosystem(InConfigMixin, GaiaBase):
         stmt = stmt.group_by(Hardware.uid)
         result = await session.execute(stmt)
         sensor_objs: Sequence[Hardware] = result.unique().scalars().all()
-        temp = {}
+        sensors_by_measure: dict[str, list[dict[str, str]]] = {}
         for sensor_obj in sensor_objs:
             for measure_obj in sensor_obj.measures:
+                measure_obj: Measure
+                sensor_summary: dict[str, str] = {
+                    "uid": sensor_obj.uid,
+                    "name": sensor_obj.name,
+                    "unit": measure_obj.unit,
+                }
                 try:
-                    temp[measure_obj.name][sensor_obj.uid] = sensor_obj.name
+                    sensors_by_measure[measure_obj.name].append(sensor_summary)
                 except KeyError:
-                    temp[measure_obj.name] = {sensor_obj.uid: sensor_obj.name}
+                    sensors_by_measure[measure_obj.name] = [sensor_summary]
         skeleton = []
+        # Add common measures first
         for measure_name in measure_order:
-            measure_data = temp.pop(measure_name, None)
-            if measure_data:
+            sensors_summary = sensors_by_measure.pop(measure_name, None)
+            if sensors_summary:
                 skeleton.append({
                     "measure": measure_name,
-                    "sensors": [{
-                        "uid": sensor_uid,
-                        "name": sensor_name
-                    } for sensor_uid, sensor_name in measure_data.items()]
+                    "units": {sensor["unit"] for sensor in sensors_summary},
+                    "sensors": sensors_summary,
                 })
-        for measure_name, measure_data in temp.items():
+        # Add less common measures afterwards
+        for measure_name, sensors_summary in sensors_by_measure.items():
             skeleton.append({
                 "measure": measure_name,
-                "sensors": [{
-                    "uid": sensor_uid,
-                    "name": sensor_name
-                } for sensor_uid, sensor_name in measure_data.items()]
+                "units": {sensor["unit"] for sensor in sensors_summary},
+                "sensors": sensors_summary,
             })
         return {
             "uid": self.uid,

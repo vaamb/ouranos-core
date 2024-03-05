@@ -132,10 +132,12 @@ class HardwareModelInfo(BaseModel):
 class SkSensorBaseInfo(BaseModel):
     uid: str
     name: str
+    unit: str
 
 
 class SkMeasureBaseInfo(BaseModel):
     measure: str
+    units: list[str]
     sensors: list[SkSensorBaseInfo]
 
 
