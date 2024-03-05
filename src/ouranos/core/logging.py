@@ -191,11 +191,11 @@ def configure_logging(config: BaseConfigDict, log_dir: Path) -> None:
     # Tweak formatters, handlers and loggers if debugging
     if config["DEBUG"]:
         debug_fmt = "%(asctime)s %(levelname)s [%(filename)-20.20s:%(lineno)3d] %(name)-30.30s: %(message)s"
-        logging_config["formatters"]["stream_format"]["format"] = debug_fmt
-        logging_config["handlers"]["stream_handler"]["level"] = 'DEBUG'
-        logging_config["loggers"]["ouranos"]["level"] = 'DEBUG'
-        logging_config["loggers"]["dispatcher"]["level"] = 'DEBUG'
-        logging_config["loggers"]["uvicorn"]["level"] = 'DEBUG'
+        logging_config["formatters"]["base_format"]["format"] = debug_fmt
+        logging_config["handlers"]["stream_handler"]["level"] = "DEBUG"
+        logging_config["loggers"]["ouranos"]["level"] = "DEBUG"
+        logging_config["loggers"]["dispatcher"]["level"] = "DEBUG"
+        logging_config["loggers"]["uvicorn"]["level"] = "DEBUG"
 
     # Use the required handlers
     if config["LOG_TO_STDOUT"]:
