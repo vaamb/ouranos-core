@@ -51,7 +51,6 @@ db: AsyncSQLAlchemyWrapper = AsyncSQLAlchemyWrapper(
     engine_options={
         "json_serializer": json.dumps,
         "json_deserializer": json.loads,
-        "pool_recycle": 60 * 60 * 4,  # recycle connection before mysql times out (after 8h)
     },
     session_options={
         "expire_on_commit": False,
