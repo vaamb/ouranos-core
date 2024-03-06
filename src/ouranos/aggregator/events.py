@@ -188,7 +188,7 @@ class GaiaEvents(BaseEvents):
             sid: UUID,
             *args,  # noqa
     ) -> None:
-        self.leave_room(sid, "engines", namespace="/gaia")
+        self.leave_room("engines")
         async with self.session(sid) as session:
             session.clear()
         async with db.scoped_session() as session:

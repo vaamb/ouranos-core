@@ -21,7 +21,7 @@ def registration_required(func: Callable):
         async with self.session(sid) as session:
             engine_uid: str | None = session.get("engine_uid")
         if engine_uid is None:
-            await self.disconnect(sid, namespace="/gaia")
+            await self.emit("register", to=sid, ttl=5)
             raise NotRegisteredError(f"Engine with sid {sid} is not registered.")
         else:
             if data is not None:
