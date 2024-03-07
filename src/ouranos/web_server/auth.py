@@ -21,10 +21,9 @@ from ouranos.core.utils import Tokenizer
 from ouranos.web_server.dependencies import get_session
 
 
-def _create_session_id(remote_address, user_agent):
-    base = f"{remote_address}|{user_agent}"
+def _create_session_id(user_agent: str) -> str:
     h = sha512()
-    h.update(base.encode("utf8"))
+    h.update(user_agent.encode("utf8"))
     return h.hexdigest()
 
 
@@ -150,9 +149,8 @@ class Authenticator:
         return user
 
     def login(self, user: User, remember: bool) -> str:
-        remote_address = self.request.client.host
         user_agent = self.request.headers.get("user-agent")
-        session_id = _create_session_id(remote_address, user_agent)
+        session_id = _create_session_id(user_agent)
         session_info = SessionInfo(
             id=session_id, user_id=user.id, remember=remember)
         token = session_info.to_token(refresh_iat=True)
@@ -160,7 +158,7 @@ class Authenticator:
         return token
 
     def logout(self) -> None:
-        self.response.delete_cookie(LOGIN_NAME.COOKIE.value)
+        self.response.delete_cookie(LOGIN_NAME.COOKIE.value, httponly=True)
 
 
 class LoginManager:
@@ -207,12 +205,12 @@ def get_session_info(
     try:
         token = auth.credentials
         session_info = SessionInfo.from_token(token)
-        session_id = _create_session_id(
-            request.client.host, request.headers.get("user-agent"))
+        user_agent = request.headers.get("user-agent")
+        session_id = _create_session_id(user_agent)
         if session_id != session_info.id and not current_app.config["TESTING"]:
             raise TokenError
     except (TokenError, ValidationError):
-        response.delete_cookie(LOGIN_NAME.COOKIE.value)
+        response.delete_cookie(LOGIN_NAME.COOKIE.value, httponly=True)
         return None
     else:
         # Reset the token exp field
