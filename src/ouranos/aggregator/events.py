@@ -256,13 +256,21 @@ class GaiaEvents(BaseEvents):
     async def on_ping(
             self,
             sid: UUID,
-            data: list[str],
+            data: list[dict[str, str]],
             engine_uid: str,
     ) -> None:
         self.logger.debug(f"Received 'ping' from engine {engine_uid}")
         await self.emit("pong", to=sid)
         now = datetime.now(timezone.utc).replace(microsecond=0)
         ecosystems_seen: list[str] = []
+        await self.ouranos_dispatcher.emit(
+            "ecosystems_heartbeat",
+            data={
+                "engine_uid": engine_uid,
+                "ecosystems": data,
+            },
+            namespace="application-internal"
+        )
         async with db.scoped_session() as session:
             engine = await Engine.get(session, sid)
             if engine:
