@@ -103,6 +103,10 @@ class DispatcherEvents(AsyncEventHandler):
         logger.debug("Dispatching 'sun_times' to clients")
         await self.sio_manager.emit("sun_times", data=data, namespace="/")
 
+    async def on_ecosystems_heartbeat(self, sid, data):
+        logger.debug("Dispatching 'ecosystem_heartbeat' to clients")
+        await self.sio_manager.emit("ecosystems_heartbeat", data=data, namespace="/")
+
     async def on_base_info(self, sid, data):
         logger.debug("Dispatching 'base_info' to clients")
         await self.sio_manager.emit("base_info", data=data, namespace="/")
