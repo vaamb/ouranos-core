@@ -275,7 +275,8 @@ class GaiaEvents(BaseEvents):
             engine = await Engine.get(session, sid)
             if engine:
                 engine.last_seen = now
-            ecosystems = await Ecosystem.get_multiple(session, data)
+            ecosystems = await Ecosystem.get_multiple(
+                session, [ecosystem["uid"] for ecosystem in data])
             for ecosystem in ecosystems:
                 ecosystems_seen.append(ecosystem.name)
                 ecosystem.last_seen = now
