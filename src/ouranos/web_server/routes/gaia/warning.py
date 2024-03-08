@@ -17,7 +17,8 @@ router = APIRouter(
 @router.get("", response_model=list[GaiaWarningResult], dependencies=[Depends(is_authenticated)])
 async def get_warnings(
         limit: int = Query(default=8, description="The number of warnings to fetch"),
+        solved: bool = Query(default=False, description="Whether to retrieve solved warnings"),
         session: AsyncSession = Depends(get_session),
 ):
-    response = await GaiaWarning.get_multiple(session, limit=limit)
+    response = await GaiaWarning.get_multiple(session, limit=limit, show_solved=solved)
     return response

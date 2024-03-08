@@ -208,7 +208,8 @@ class BaseWarning(Base):
     async def get_multiple(
             cls,
             session: AsyncSession,
-            limit: int = 10
+            limit: int = 10,
+            show_solved: bool = False,
     ) -> Sequence[Self]:
         stmt = (
             select(cls)
@@ -216,5 +217,7 @@ class BaseWarning(Base):
             .order_by(cls.created_on.desc())
             .limit(limit)
         )
+        if not show_solved:
+            stmt = stmt.where(cls.solved_on != None)
         result = await session.execute(stmt)
         return result.scalars().all()

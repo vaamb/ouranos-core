@@ -1490,9 +1490,10 @@ class GaiaWarning(BaseWarning):
     async def get_multiple(
             cls,
             session: AsyncSession,
-            limit: int = 10
+            limit: int = 10,
+            show_solved: bool = False,
     ) -> Sequence[Self]:
-        return await super().get_multiple(session, limit)
+        return await super().get_multiple(session, limit, show_solved)
 
 
 class CrudRequest(GaiaBase):
