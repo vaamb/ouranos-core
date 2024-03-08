@@ -52,12 +52,17 @@ class EcosystemManagementInfo(BaseModel):
     plants_data: bool = False
 
 
+class EcosystemSummary(BaseModel):
+    uid: str
+    name: str
+
+
 EngineInfo = sqlalchemy_to_pydantic(
     Engine,
     base=BaseModel,
     extra_fields={
         "connected": (bool, ...),
-        "ecosystems": (list[EcosystemInfo], ...)
+        "ecosystems": (list[EcosystemSummary], ...)
     }
 )
 
