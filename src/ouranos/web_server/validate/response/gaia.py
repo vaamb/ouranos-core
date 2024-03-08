@@ -152,6 +152,7 @@ class SensorSkeletonInfo(BaseModel):
 
 
 class GaiaWarningResult(BaseModel):
+    id: int
     level: WarningLevel
     title: str
     description: str
