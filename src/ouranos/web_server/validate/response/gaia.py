@@ -155,6 +155,8 @@ class GaiaWarningResult(BaseModel):
     level: WarningLevel
     title: str
     description: str
+    created_on: datetime
+    solved_on: Optional[datetime]
 
 
 class SensorCurrentTimedValue(BaseModel):
