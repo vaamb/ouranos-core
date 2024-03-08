@@ -218,6 +218,6 @@ class BaseWarning(Base):
             .limit(limit)
         )
         if not show_solved:
-            stmt = stmt.where(cls.solved_on != None)
+            stmt = stmt.where(cls.solved_on == None)
         result = await session.execute(stmt)
         return result.scalars().all()
