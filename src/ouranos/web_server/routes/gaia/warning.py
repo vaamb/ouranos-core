@@ -4,7 +4,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ouranos.core.database.models.gaia import GaiaWarning
 from ouranos.web_server.auth import is_authenticated, is_operator
 from ouranos.web_server.dependencies import get_session
-from ouranos.web_server.validate.payload.common import WarningPayload
+from ouranos.web_server.validate.payload.common import (
+    WarningCreationPayload, WarningUpdatePayload)
 from ouranos.web_server.validate.response.base import ResultResponse, ResultStatus
 from ouranos.web_server.validate.response.common import WarningResult
 
@@ -32,7 +33,7 @@ async def get_warnings(
              dependencies=[Depends(is_operator)])
 async def create_warning(
         response: Response,
-        payload: WarningPayload = Body(
+        payload: WarningCreationPayload = Body(
             description="Information about the new warning"),
         session: AsyncSession = Depends(get_session),
 ):
@@ -57,11 +58,15 @@ async def create_warning(
             dependencies=[Depends(is_operator)])
 async def update_warning(
         id: int = Path(description="The id of the warning message"),
-        payload: WarningPayload = Body(
+        payload: WarningUpdatePayload = Body(
                     description="Updated information about the warning"),
         session: AsyncSession = Depends(get_session),
 ):
-    await GaiaWarning.update(session, values=payload.model_dump(), id=id)
+    values = {
+        key: value for key, value in payload.model_dump().items()
+        if value is not None
+    }
+    await GaiaWarning.update(session, values=values, id=id)
     return ResultResponse(
         msg=f"Updated warning with id '{id}'",
         status=ResultStatus.success
