@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Body, Depends, Path, Query, status
+from fastapi import APIRouter, Body, Depends, Path, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos.core.database.models.gaia import GaiaWarning
@@ -24,6 +24,31 @@ async def get_warnings(
 ):
     response = await GaiaWarning.get_multiple(session, limit=limit, show_solved=solved)
     return response
+
+
+@router.post("/u/",
+             response_model=ResultResponse,
+             status_code=status.HTTP_202_ACCEPTED,
+             dependencies=[Depends(is_operator)])
+async def create_warning(
+        response: Response,
+        payload: WarningPayload = Body(
+            description="Information about the new warning"),
+        session: AsyncSession = Depends(get_session),
+):
+    try:
+        await GaiaWarning.create(session, payload.model_dump())
+        return ResultResponse(
+            msg=f"A new warning was successfully created",
+            status=ResultStatus.success
+        )
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        return ResultResponse(
+            msg=f"Failed to create a new warning. Error msg: "
+                f"`{e.__class__.__name__}: {e}`",
+            status=ResultStatus.failure
+        )
 
 
 @router.post("/u/{id}/mark_as_seen",
