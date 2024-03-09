@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import NamedTuple,Optional, Self, Sequence
 
 import sqlalchemy as sa
-from sqlalchemy import insert, select, UniqueConstraint
+from sqlalchemy import insert, select, UniqueConstraint, update
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -221,3 +221,56 @@ class BaseWarning(Base):
             stmt = stmt.where(cls.solved_on == None)
         result = await session.execute(stmt)
         return result.scalars().all()
+
+    @classmethod
+    async def update(
+            cls,
+            session: AsyncSession,
+            values: dict,
+            id: int | None = None,
+    ) -> None:
+        id = id or values.pop("id", None)
+        values.pop("seen_on", None)
+        values.pop("solved_on", None)
+        if not id:
+            raise ValueError(
+                "Provide id either as a parameter or as a key in the updated info"
+            )
+        stmt = (
+            update(cls)
+            .where(cls.id == id)
+            .values(**values)
+        )
+        await session.execute(stmt)
+
+    @classmethod
+    async def mark_as_seen(
+            cls,
+            session: AsyncSession,
+            id: int,
+    ) -> None:
+        stmt = (
+            update(cls)
+            .where(
+                (cls.id == id)
+                & (cls.seen_on == None)  # Make sure we don't mark twice
+            )
+            .values({"seen_on": datetime.now(timezone.utc)})
+        )
+        await session.execute(stmt)
+
+    @classmethod
+    async def mark_as_solved(
+            cls,
+            session: AsyncSession,
+            id: int,
+    ) -> None:
+        stmt = (
+            update(cls)
+            .where(
+                (cls.id == id)
+                & (cls.solved_on == None)  # Make sure we don't mark twice
+            )
+            .values({"solved_on": datetime.now(timezone.utc)})
+        )
+        await session.execute(stmt)
