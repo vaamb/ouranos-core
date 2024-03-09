@@ -5,7 +5,6 @@ from pydantic import Field, field_serializer
 
 import gaia_validators as gv
 
-from ouranos.core.database.models.common import WarningLevel
 from ouranos.core.database.models.gaia import (
     CrudRequest, Ecosystem, Engine, EnvironmentParameter, Hardware, Measure,
     Plant, SensorRecord)
@@ -149,12 +148,6 @@ class SensorSkeletonInfo(BaseModel):
     name: str
     level: list[gv.HardwareLevel]
     sensors_skeleton: list[SkMeasureBaseInfo]
-
-
-class GaiaWarningResult(BaseModel):
-    level: WarningLevel
-    title: str
-    description: str
 
 
 class SensorCurrentTimedValue(BaseModel):
