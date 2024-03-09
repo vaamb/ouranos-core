@@ -119,9 +119,3 @@ class HardwareUpdatePayload(BaseModel):
     @field_validator("type", mode="before")
     def parse_type(cls, value):
         return safe_enum_or_none_from_name(gv.HardwareType, value)
-
-
-class WarningUpdatePayload(BaseModel):
-    level: WarningLevel
-    title: str
-    description: str
