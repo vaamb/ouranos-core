@@ -63,7 +63,7 @@ async def mark_warning_as_solved(
 async def update_warning(
         id: int = Path(description="The id of the warning message"),
         payload: WarningPayload = Body(
-                    description="Updated information about the hardware"),
+                    description="Updated information about the warning"),
         session: AsyncSession = Depends(get_session),
 ):
     await GaiaWarning.update(session, values=payload.model_dump(), id=id)
