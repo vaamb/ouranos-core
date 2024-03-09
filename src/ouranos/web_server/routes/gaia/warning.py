@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ouranos.core.database.models.gaia import GaiaWarning
 from ouranos.web_server.auth import is_authenticated
 from ouranos.web_server.dependencies import get_session
-from ouranos.web_server.validate.response.gaia import GaiaWarningResult
+from ouranos.web_server.validate.response.common import WarningResult
 
 
 router = APIRouter(
@@ -14,7 +14,7 @@ router = APIRouter(
 )
 
 
-@router.get("", response_model=list[GaiaWarningResult], dependencies=[Depends(is_authenticated)])
+@router.get("", response_model=list[WarningResult], dependencies=[Depends(is_authenticated)])
 async def get_warnings(
         limit: int = Query(default=8, description="The number of warnings to fetch"),
         solved: bool = Query(default=False, description="Whether to retrieve solved warnings"),
