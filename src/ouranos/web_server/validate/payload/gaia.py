@@ -8,6 +8,7 @@ import gaia_validators as gv
 from gaia_validators import safe_enum_from_name
 
 from ouranos.core.validate.base import BaseModel
+from ouranos.core.database.models.common import WarningLevel
 
 
 T = TypeVar("T", bound=Enum)
@@ -118,3 +119,9 @@ class HardwareUpdatePayload(BaseModel):
     @field_validator("type", mode="before")
     def parse_type(cls, value):
         return safe_enum_or_none_from_name(gv.HardwareType, value)
+
+
+class WarningUpdatePayload(BaseModel):
+    level: WarningLevel
+    title: str
+    description: str
