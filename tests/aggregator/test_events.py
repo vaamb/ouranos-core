@@ -36,12 +36,16 @@ async def test_registration_wrapper(
         mock_dispatcher: MockAsyncDispatcher,
         events_handler: GaiaEvents
 ):
-    await events_handler.on_ping(g_data.engine_sid, [g_data.ecosystem_uid])
+    await events_handler.on_ping(g_data.engine_sid, [
+        {"uid": g_data.ecosystem_uid, "status": True}
+    ])
 
     # Remove sid from session dict
     mock_dispatcher._sessions[g_data.engine_sid] = {}
     with pytest.raises(NotRegisteredError):
-        await events_handler.on_ping(g_data.engine_sid, [g_data.ecosystem_uid])
+        await events_handler.on_ping(g_data.engine_sid, [
+            {"uid": g_data.ecosystem_uid, "status": True}
+        ])
 
 
 @pytest.mark.asyncio
@@ -109,7 +113,9 @@ async def test_on_ping(
         start = copy(engine.last_seen)
     await sleep(0.1)
 
-    await events_handler.on_ping(g_data.engine_sid, [g_data.ecosystem_uid])
+    await events_handler.on_ping(g_data.engine_sid, [
+        {"uid": g_data.ecosystem_uid, "status": True}
+    ])
 
     async with engine_aware_db.scoped_session() as session:
         engine = await Engine.get(session, engine_id=g_data.engine_uid)
@@ -209,7 +215,7 @@ async def test_on_hardware(
         assert hardware.address == g_data.hardware_data["address"]
         assert hardware.type.name == g_data.hardware_data["type"]
         assert hardware.model == g_data.hardware_data["model"]
-        measures = [measure.name for measure in hardware.measures]
+        measures = [f"{measure.name}|{measure.unit}" for measure in hardware.measures]
         measures.sort()
         measures_data = copy(g_data.hardware_data["measures"])
         measures_data.sort()

@@ -10,7 +10,7 @@ import gaia_validators as gv
 
 timestamp_now = datetime.now(timezone.utc)
 ip_address = "127.0.0.1"
-engine_sid = "engine_sid"
+engine_sid = uuid.uuid4()
 engine_uid = "engine_uid"
 ecosystem_uid = "zutqsCKn"
 ecosystem_name = "TestingEcosystem"
@@ -114,7 +114,7 @@ hardware_data: gv.HardwareConfigDict = {
     "type": gv.HardwareType.sensor.name,
     "level": gv.HardwareLevel.environment.name,
     "model": "virtualDHT22",
-    "measures": ["temperature"],
+    "measures": ["temperature|°C"],
     "plants": [],
     "multiplexer_model": None,
 }

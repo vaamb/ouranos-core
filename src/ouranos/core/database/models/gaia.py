@@ -427,14 +427,14 @@ class Ecosystem(InConfigMixin, GaiaBase):
             if sensors_summary:
                 skeleton.append({
                     "measure": measure_name,
-                    "units": {sensor["unit"] for sensor in sensors_summary},
+                    "units": list({sensor["unit"] for sensor in sensors_summary}),
                     "sensors": sensors_summary,
                 })
         # Add less common measures afterwards
         for measure_name, sensors_summary in sensors_by_measure.items():
             skeleton.append({
                 "measure": measure_name,
-                "units": {sensor["unit"] for sensor in sensors_summary},
+                "units": list({sensor["unit"] for sensor in sensors_summary}),
                 "sensors": sensors_summary,
             })
         return {
@@ -729,7 +729,7 @@ class Lighting(GaiaBase):
     morning_end: Mapped[Optional[time]] = mapped_column()
     evening_start: Mapped[Optional[time]] = mapped_column()
     evening_end: Mapped[Optional[time]] = mapped_column()
-    target_id: Mapped[int] = mapped_column(sa.ForeignKey("places.id"))
+    target_id: Mapped[Optional[int]] = mapped_column(sa.ForeignKey("places.id"))
 
     # relationships
     ecosystem: Mapped["Ecosystem"] = relationship(back_populates="lighting")

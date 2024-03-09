@@ -52,6 +52,12 @@ def events_handler_module(mock_dispatcher: MockAsyncDispatcher):
 
 @pytest.fixture(scope="function")
 def events_handler(mock_dispatcher, events_handler_module):
-    mock_dispatcher._sessions[g_data.engine_sid] = {"engine_uid": g_data.engine_uid}
+    mock_dispatcher._sessions[g_data.engine_sid] = {
+        "engine_uid": g_data.engine_uid,
+        "init_data": {
+            "base_info", "environmental_parameters", "hardware", "management",
+            "actuator_data", "light_data",
+        }
+    }
     yield events_handler_module
     mock_dispatcher.clear_store()
