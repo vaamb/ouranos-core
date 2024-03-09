@@ -7,6 +7,8 @@ import pytest_asyncio
 
 from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
+import gaia_validators as gv
+
 from ouranos.core.config import ConfigDict
 from ouranos.core.config.consts import LOGIN_NAME
 from ouranos.core.database.models.app import User
@@ -45,7 +47,7 @@ async def add_ecosystems(db: AsyncSQLAlchemyWrapper):
         adapted_light_data["ecosystem_uid"] = g_data.ecosystem_uid
         await Lighting.create(session, adapted_light_data)
 
-        adapted_hardware_data = g_data.hardware_data.copy()
+        adapted_hardware_data = gv.HardwareConfig(**g_data.hardware_data).model_dump()
         adapted_hardware_data.pop("multiplexer_model")
         adapted_hardware_data["ecosystem_uid"] = g_data.ecosystem_uid
         await Hardware.create(session, adapted_hardware_data)

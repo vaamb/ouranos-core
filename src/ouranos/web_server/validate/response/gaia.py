@@ -74,11 +74,9 @@ EnvironmentParameterInfo = sqlalchemy_to_pydantic(
 )
 
 
-MeasureInfo = sqlalchemy_to_pydantic(
-    Measure,
-    base=BaseModel,
-    exclude=["id"]
-)
+class MeasureInfo(BaseModel):
+    name: str
+    unit: Optional[str]
 
 
 PlantInfo = sqlalchemy_to_pydantic(
@@ -137,12 +135,12 @@ class HardwareModelInfo(BaseModel):
 class SkSensorBaseInfo(BaseModel):
     uid: str
     name: str
-    unit: str
+    unit: Optional[str]
 
 
 class SkMeasureBaseInfo(BaseModel):
     measure: str
-    units: list[str]
+    units: list[Optional[str]]
     sensors: list[SkSensorBaseInfo]
 
 

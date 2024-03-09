@@ -580,8 +580,8 @@ class GaiaEvents(BaseEvents):
         async with db.scoped_session() as session:
             for place in payload["data"]:
                 coordinates = {
-                    "longitude": place["coordinates"][0],
-                    "latitude": place["coordinates"][1],
+                    "latitude": place["coordinates"][0],
+                    "longitude": place["coordinates"][1],
                 }
                 await Place.update_or_create(
                     session, coordinates, engine_uid, place["name"])

@@ -11,6 +11,7 @@ from gaia_validators import safe_enum_from_name
 from ouranos.core.database.models.gaia import (
     Ecosystem, EnvironmentParameter, Hardware, Lighting)
 from ouranos.core.dispatchers import DispatcherFactory
+from ouranos.core.utils import timeWindow
 from ouranos.web_server.auth import is_operator
 from ouranos.web_server.dependencies import get_session, get_time_window
 from ouranos.web_server.routes.utils import assert_single_uid

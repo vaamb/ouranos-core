@@ -339,7 +339,9 @@ def test_get_ecosystem_hardware(client: TestClient):
     assert hardware["uid"] == g_data.hardware_data["uid"]
     assert hardware["level"] == g_data.hardware_data["level"]
     assert hardware["last_log"] is None
-    assert hardware["measures"][0]["name"] == g_data.hardware_data["measures"][0]
+    measure = hardware["measures"][0]
+    measure_formatted = f"{measure['name']}|{measure['unit']}"
+    assert measure_formatted == g_data.hardware_data["measures"][0]
 
 
 def test_create_ecosystem_hardware_request_failure_user(client_user: TestClient):
