@@ -985,31 +985,26 @@ class Hardware(InConfigMixin, GaiaBase):
     async def attach_measures(
             self,
             session: AsyncSession,
-            measures_and_units: list[str] | str,
+            measures: list[gv.Measure | gv.MeasureDict],
     ) -> None:
-        if isinstance(measures_and_units, str):
-            measures_and_units = [measures_and_units]
         self.measures.clear()
-        for m_a_u in measures_and_units:
-            measure_and_unit = m_a_u.split("|")
-            measure = measure_and_unit[0]
-            try:
-                unit = measure_and_unit[1]
-            except IndexError:
-                unit = None
-            m = await Measure.get(session, measure, unit)
-            if m is None:
-                await Measure.create(session, {"name": measure, "unit": unit})
-                m = await Measure.get(session, measure, unit)
-            self.measures.append(m)
+        for m in measures:
+            if hasattr(m, "model_dump"):
+                m = m.model_dump()
+            m: gv.MeasureDict
+            measure = await Measure.get(session, m["name"], m["unit"])
+            if measure is None:
+                await Measure.create(session, {"name": m["name"], "unit": m["unit"]})
+                measure = await Measure.get(session, m["name"], m["unit"])
+            self.measures.append(measure)
 
     @classmethod
     async def create(
             cls,
             session: AsyncSession,
-            values: dict,
+            values: gv.HardwareConfigDict,
     ) -> None:
-        measures = values.pop("measures", [])
+        measures: list[gv.Measure | gv.MeasureDict] = values.pop("measures", [])
         plants = values.pop("plants", [])
         stmt = insert(cls).values(values)
         await session.execute(stmt)
