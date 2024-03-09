@@ -51,6 +51,23 @@ async def create_warning(
         )
 
 
+@router.put("/u/{id}",
+            response_model=ResultResponse,
+            status_code=status.HTTP_202_ACCEPTED,
+            dependencies=[Depends(is_operator)])
+async def update_warning(
+        id: int = Path(description="The id of the warning message"),
+        payload: WarningPayload = Body(
+                    description="Updated information about the warning"),
+        session: AsyncSession = Depends(get_session),
+):
+    await GaiaWarning.update(session, values=payload.model_dump(), id=id)
+    return ResultResponse(
+        msg=f"Updated warning with id '{id}'",
+        status=ResultStatus.success
+    )
+
+
 @router.post("/u/{id}/mark_as_seen",
             response_model=ResultResponse,
             status_code=status.HTTP_202_ACCEPTED,
@@ -77,22 +94,5 @@ async def mark_warning_as_solved(
     await GaiaWarning.mark_as_solved(session, id=id)
     return ResultResponse(
         msg=f"Warning with id '{id}' marked as solved",
-        status=ResultStatus.success
-    )
-
-
-@router.put("/u/{id}",
-            response_model=ResultResponse,
-            status_code=status.HTTP_202_ACCEPTED,
-            dependencies=[Depends(is_operator)])
-async def update_warning(
-        id: int = Path(description="The id of the warning message"),
-        payload: WarningPayload = Body(
-                    description="Updated information about the warning"),
-        session: AsyncSession = Depends(get_session),
-):
-    await GaiaWarning.update(session, values=payload.model_dump(), id=id)
-    return ResultResponse(
-        msg=f"Updated warning with id '{id}'",
         status=ResultStatus.success
     )
