@@ -613,6 +613,16 @@ class CalendarEvent(Base):
         await session.execute(stmt)
 
     @classmethod
+    async def get(
+            cls,
+            session: AsyncSession,
+            event_id: int,
+    ) -> Self | None:
+        stmt = select(cls).where(cls.id == event_id)
+        result = await session.execute(stmt)
+        return result.scalars().one_or_none()
+
+    @classmethod
     async def get_multiple(
             cls,
             session: AsyncSession,
