@@ -1510,10 +1510,10 @@ class GaiaWarning(Base):
             cls,
             session: AsyncSession,
             ecosystem_uid: str,
-            message_payload: dict,
+            values: dict,
     ) -> None:
-        message_payload["created_by"] = ecosystem_uid
-        stmt = insert(cls).values(message_payload)
+        values["created_by"] = ecosystem_uid
+        stmt = insert(cls).values(values)
         await session.execute(stmt)
 
     @classmethod
