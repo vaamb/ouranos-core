@@ -2,8 +2,7 @@ from ouranos.core.database.models.app import (
     anonymous_user, CalendarEvent, CommunicationChannel, FlashMessage,
     Permission, Role, Service, User, UserMixin)
 from ouranos.core.database.models.archives import (
-    ActuatorRecordArchive, ArchiveAppWarning, HealthRecordArchive,
-    SensorRecordArchive)
+    ActuatorRecordArchive, HealthRecordArchive, SensorRecordArchive)
 from ouranos.core.database.models.common import ImportanceLevel
 from ouranos.core.database.models.gaia import (
     ActuatorRecord, Ecosystem, EnvironmentParameter, Engine, GaiaWarning,
@@ -15,8 +14,7 @@ from ouranos.core.database.models.system import SystemRecord
 __all__ = [
     "anonymous_user", "CalendarEvent", "CommunicationChannel",
     "FlashMessage", "Permission", "Role", "Service", "User", "UserMixin",
-    "ActuatorRecordArchive", "ArchiveAppWarning", "HealthRecordArchive",
-    "SensorRecordArchive",
+    "ActuatorRecordArchive", "HealthRecordArchive", "SensorRecordArchive",
     "ImportanceLevel",
     "ActuatorRecord", "Ecosystem", "EnvironmentParameter", "Engine",
     "GaiaWarning", "Hardware", "HealthRecord", "Lighting", "Measure", "Plant",

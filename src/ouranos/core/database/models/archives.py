@@ -39,13 +39,3 @@ class HealthRecordArchive(BaseHealthRecord):
     )
 
     ecosystem_uid: Mapped[str] = mapped_column(sa.String(length=8))
-
-
-class ArchiveAppWarning(BaseWarning):
-    __tablename__ = "warnings_archive"
-    __bind_key__ = "archive"
-    __archive_link__ = ArchiveLink(
-        "warnings", "archive", "WARNING_ARCHIVING_PERIOD"
-    )
-
-    ecosystem_uid: Mapped[str] = mapped_column(sa.String(length=8))
