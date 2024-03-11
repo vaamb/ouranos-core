@@ -18,7 +18,7 @@ from ouranos.core.database.models.types import UtcDateTime
 from ouranos.core.utils import timeWindow
 
 
-class WarningLevel(Enum):
+class ImportanceLevel(Enum):
     low = 0
     elevated = 1
     high = 2
@@ -178,7 +178,7 @@ class BaseWarning(Base):
     __abstract__ = True
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    level: Mapped[WarningLevel] = mapped_column(default=WarningLevel.low)
+    level: Mapped[ImportanceLevel] = mapped_column(default=ImportanceLevel.low)
     title: Mapped[str] = mapped_column(sa.String(length=256))
     description: Mapped[Optional[str]] = mapped_column(sa.String(length=2048))
     created_on: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
