@@ -9,8 +9,6 @@ from ouranos.core.database.models.gaia import GaiaWarning
 import tests.data.gaia as g_data
 
 
-# Rem: to pass, GaiaWarning.get_multiple should not be cached
-
 def test_warning_failure_anon(client: TestClient):
     response = client.get("/api/gaia/warning")
     assert response.status_code == 403

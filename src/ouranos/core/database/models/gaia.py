@@ -1495,6 +1495,34 @@ class GaiaWarning(BaseWarning):
     ) -> Sequence[Self]:
         return await super().get_multiple(session, limit, show_solved)
 
+    @classmethod
+    async def update(
+            cls,
+            session: AsyncSession,
+            values: dict,
+            id: int | None = None,
+    ) -> None:
+        await super().update(session, values, id)
+        _cache_warnings.clear()
+
+    @classmethod
+    async def mark_as_seen(
+            cls,
+            session: AsyncSession,
+            id: int,
+    ) -> None:
+        await super().mark_as_seen(session, id)
+        _cache_warnings.clear()
+
+    @classmethod
+    async def mark_as_solved(
+            cls,
+            session: AsyncSession,
+            id: int,
+    ) -> None:
+        await super().mark_as_solved(session, id)
+        _cache_warnings.clear()
+
 
 class CrudRequest(GaiaBase):
     __tablename__ = "crud_requests"
