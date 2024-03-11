@@ -155,11 +155,6 @@ def create_app(config: dict | None = None) -> FastAPI:
     services_router.default_response_class = JSONResponse
     prefix.include_router(services_router)
 
-    logger.debug("Loading weather-related routes")
-    from ouranos.web_server.routes.weather import router as weather_router
-    weather_router.default_response_class = JSONResponse
-    prefix.include_router(weather_router)
-
     if current_app.config["TESTING"]:
         logger.debug("Loading tests-related routes")
         from ouranos.web_server.routes.tests import router as tests_router
