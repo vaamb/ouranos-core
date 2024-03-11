@@ -32,6 +32,15 @@ tags_metadata = [
         "description": "App-related info",
     },
     {
+        "name": "app/services/calendar",
+        "description": "Create and manage the calendar",
+    },
+    {
+        "name": "app/services/weather",
+        "description": "Weather-related info. Rem: it returns data only if "
+                       "the weather service has been enabled",
+    },
+    {
         "name": "auth",
         "description": "Authenticate and log user to access protected paths",
     },
@@ -63,10 +72,5 @@ tags_metadata = [
         "name": "system",
         "description": "Server-related info. Rem: it requires to be logged "
                        "in as an administrator",
-    },
-    {
-        "name": "weather",
-        "description": "Weather-related info. Rem: it returns data only if "
-                       "the weather service has been enabled",
     },
 ]
