@@ -27,9 +27,9 @@ async def get_warnings(
 
 
 @router.post("/u/{warning_id}/mark_as_seen",
-            response_model=ResultResponse,
-            status_code=status.HTTP_202_ACCEPTED,
-            dependencies=[Depends(is_authenticated)])
+             response_model=ResultResponse,
+             status_code=status.HTTP_202_ACCEPTED,
+             dependencies=[Depends(is_authenticated)])
 async def mark_warning_as_seen(
         warning_id: int = Path(description="The id of the warning message"),
         current_user: UserMixin = Depends(get_current_user),
@@ -44,9 +44,9 @@ async def mark_warning_as_seen(
 
 
 @router.post("/u/{warning_id}/mark_as_solved",
-            response_model=ResultResponse,
-            status_code=status.HTTP_202_ACCEPTED,
-            dependencies=[Depends(is_authenticated)])
+             response_model=ResultResponse,
+             status_code=status.HTTP_202_ACCEPTED,
+             dependencies=[Depends(is_authenticated)])
 async def mark_warning_as_solved(
         warning_id: int = Path(description="The id of the warning message"),
         current_user: UserMixin = Depends(get_current_user),
