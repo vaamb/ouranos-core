@@ -1,11 +1,10 @@
-from fastapi import APIRouter, Body, Depends, Path, Query, Response, status
+from fastapi import APIRouter, Depends, Path, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ouranos.core.database.models.app import UserMixin
 from ouranos.core.database.models.gaia import GaiaWarning
-from ouranos.web_server.auth import is_authenticated, is_operator
+from ouranos.web_server.auth import get_current_user, is_authenticated
 from ouranos.web_server.dependencies import get_session
-from ouranos.web_server.validate.payload.common import (
-    WarningCreationPayload, WarningUpdatePayload)
 from ouranos.web_server.validate.response.base import ResultResponse, ResultStatus
 from ouranos.web_server.validate.response.common import WarningResult
 
@@ -27,77 +26,35 @@ async def get_warnings(
     return response
 
 
-@router.post("/u/",
-             response_model=ResultResponse,
-             status_code=status.HTTP_202_ACCEPTED,
-             dependencies=[Depends(is_operator)])
-async def create_warning(
-        response: Response,
-        payload: WarningCreationPayload = Body(
-            description="Information about the new warning"),
-        session: AsyncSession = Depends(get_session),
-):
-    try:
-        await GaiaWarning.create(session, payload.model_dump())
-        return ResultResponse(
-            msg=f"A new warning was successfully created",
-            status=ResultStatus.success
-        )
-    except Exception as e:
-        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        return ResultResponse(
-            msg=f"Failed to create a new warning. Error msg: "
-                f"`{e.__class__.__name__}: {e}`",
-            status=ResultStatus.failure
-        )
-
-
-@router.put("/u/{id}",
-            response_model=ResultResponse,
-            status_code=status.HTTP_202_ACCEPTED,
-            dependencies=[Depends(is_operator)])
-async def update_warning(
-        id: int = Path(description="The id of the warning message"),
-        payload: WarningUpdatePayload = Body(
-                    description="Updated information about the warning"),
-        session: AsyncSession = Depends(get_session),
-):
-    values = {
-        key: value for key, value in payload.model_dump().items()
-        if value is not None
-    }
-    await GaiaWarning.update(session, values=values, id=id)
-    return ResultResponse(
-        msg=f"Updated warning with id '{id}'",
-        status=ResultStatus.success
-    )
-
-
-@router.post("/u/{id}/mark_as_seen",
+@router.post("/u/{warning_id}/mark_as_seen",
             response_model=ResultResponse,
             status_code=status.HTTP_202_ACCEPTED,
             dependencies=[Depends(is_authenticated)])
 async def mark_warning_as_seen(
-        id: int = Path(description="The id of the warning message"),
+        warning_id: int = Path(description="The id of the warning message"),
+        current_user: UserMixin = Depends(get_current_user),
         session: AsyncSession = Depends(get_session),
 ):
-    await GaiaWarning.mark_as_seen(session, id=id)
+    await GaiaWarning.mark_as_seen(
+        session, warning_id=warning_id, user_id=current_user.id)
     return ResultResponse(
-        msg=f"Warning with id '{id}' marked as seen",
+        msg=f"Warning with id '{warning_id}' marked as seen",
         status=ResultStatus.success
     )
 
 
-@router.post("/u/{id}/mark_as_solved",
+@router.post("/u/{warning_id}/mark_as_solved",
             response_model=ResultResponse,
             status_code=status.HTTP_202_ACCEPTED,
             dependencies=[Depends(is_authenticated)])
 async def mark_warning_as_solved(
-        id: int = Path(description="The id of the warning message"),
+        warning_id: int = Path(description="The id of the warning message"),
+        current_user: UserMixin = Depends(get_current_user),
         session: AsyncSession = Depends(get_session),
 ):
-    await GaiaWarning.mark_as_solved(session, id=id)
+    await GaiaWarning.mark_as_solved(
+        session, warning_id=warning_id, user_id=current_user.id)
     return ResultResponse(
-        msg=f"Warning with id '{id}' marked as solved",
+        msg=f"Warning with id '{warning_id}' marked as solved",
         status=ResultStatus.success
     )

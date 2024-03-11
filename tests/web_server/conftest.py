@@ -74,7 +74,8 @@ async def add_ecosystems(db: AsyncSQLAlchemyWrapper):
         }
         await HealthRecord.create_records(session, adapted_health_data)
 
-        await GaiaWarning.create(session, g_data.gaia_warning)
+        await GaiaWarning.create(
+            session, ecosystem_uid=g_data.ecosystem_uid, message_payload=g_data.gaia_warning)
 
 
 @pytest_asyncio.fixture(scope="module", autouse=True)
