@@ -571,15 +571,17 @@ class FlashMessage(Base):
         return result.scalars().all()
 
     @classmethod
-    async def make_inactive(
+    async def inactivate(
             cls,
+            session: AsyncSession,
             message_id: int,
     ) -> None:
         stmt = (
             update(cls)
             .where(cls.id == message_id)
-            .values({"active": True})
+            .values({"active": False})
         )
+        await session.execute(stmt)
 
 
 class CalendarEvent(Base):  # TODO: apply similar to warnings
