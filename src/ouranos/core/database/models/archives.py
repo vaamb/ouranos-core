@@ -3,7 +3,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from ouranos.core.database import ArchiveLink
 from ouranos.core.database.models.common import (
-    BaseActuatorRecord, BaseWarning, BaseHealthRecord, BaseSensorRecord
+    BaseActuatorRecord, BaseHealthRecord, BaseSensorRecord
 )
 
 

@@ -17,10 +17,11 @@ from sqlalchemy.sql import func
 
 from ouranos import current_app
 from ouranos.core.config.consts import (
-    REGISTRATION_TOKEN_VALIDITY, SESSION_FRESHNESS, TOKEN_SUBS)
+    REGISTRATION_TOKEN_VALIDITY, TOKEN_SUBS)
 from ouranos.core.database import ArchiveLink
-from ouranos.core.database.models.common import Base, BaseWarning, ToDictMixin
-from ouranos.core.exceptions import DuplicatedEntry, NoResultFound
+from ouranos.core.database.models.common import Base, ImportanceLevel, ToDictMixin
+from ouranos.core.database.models.types import UtcDateTime
+from ouranos.core.exceptions import DuplicatedEntry
 from ouranos.core.utils import ExpiredTokenError, InvalidTokenError, Tokenizer
 
 argon2_hasher = PasswordHasher()
@@ -533,10 +534,52 @@ class CommunicationChannel(Base):
 
 
 # TODO: When problems solved, after x days: goes to archive
-class FlashMessage(BaseWarning):
+class FlashMessage(Base):
     __tablename__ = "flash_message"
     __bind_key__ = "app"
     __archive_link__ = ArchiveLink("warnings", "recent")
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    level: Mapped[ImportanceLevel] = mapped_column(default=ImportanceLevel.low)
+    title: Mapped[str] = mapped_column(sa.String(length=256))
+    description: Mapped[Optional[str]] = mapped_column(sa.String(length=2048))
+    created_on: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
+    active: Mapped[bool] = mapped_column(default=True)
+
+    @classmethod
+    async def create(
+            cls,
+            session: AsyncSession,
+            values: dict,
+    ) -> None:
+        stmt = insert(cls).values(values)
+        await session.execute(stmt)
+
+    @classmethod
+    async def get_multiple(
+            cls,
+            session: AsyncSession,
+            limit: int = 10,
+    ) -> Sequence[Self]:
+        stmt = (
+            select(cls)
+            .where(cls.active == True)
+            .order_by(cls.created_on.desc(), cls.level)
+            .limit(limit)
+        )
+        result = await session.execute(stmt)
+        return result.scalars().all()
+
+    @classmethod
+    async def make_inactive(
+            cls,
+            message_id: int,
+    ) -> None:
+        stmt = (
+            update(cls)
+            .where(cls.id == message_id)
+            .values({"active": True})
+        )
 
 
 class CalendarEvent(Base):  # TODO: apply similar to warnings
