@@ -1488,7 +1488,7 @@ class GaiaWarning(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     level: Mapped[ImportanceLevel] = mapped_column(default=ImportanceLevel.low)
     title: Mapped[str] = mapped_column(sa.String(length=256))
-    description: Mapped[Optional[str]] = mapped_column(sa.String(length=2048))
+    description: Mapped[str] = mapped_column(sa.String(length=2048))
     created_on: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
     created_by: Mapped[str] = mapped_column(sa.ForeignKey("ecosystems.uid"))
     updated_on: Mapped[Optional[datetime]] = mapped_column(UtcDateTime)

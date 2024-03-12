@@ -14,7 +14,7 @@ from ouranos.web_server.validate.response.calendar import EventResult
 router = APIRouter(
     prefix="/calendar",
     responses={404: {"description": "Not found"}},
-    tags=["services/calendar"],
+    tags=["app/services/calendar"],
 )
 
 

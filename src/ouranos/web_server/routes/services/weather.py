@@ -13,7 +13,7 @@ router = APIRouter(
         204: {"description": "Empty result"},
         404: {"description": "Not found"},
     },
-    tags=["services/weather"],
+    tags=["app/services/weather"],
 )
 
 
