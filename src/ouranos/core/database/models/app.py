@@ -180,12 +180,14 @@ class User(Base, UserMixin):
 
     # User registration fields
     token: Mapped[Optional[str]] = mapped_column(sa.String(32))
-    registration_datetime: Mapped[datetime] = mapped_column(default=func.current_timestamp())
+    registration_datetime: Mapped[datetime] = mapped_column(
+        UtcDateTime, default=func.current_timestamp())
 
     # User information fields
     firstname: Mapped[Optional[str]] = mapped_column(sa.String(64))
     lastname: Mapped[Optional[str]] = mapped_column(sa.String(64))
-    last_seen: Mapped[datetime] = mapped_column(default=func.current_timestamp(), onupdate=func.current_timestamp())
+    last_seen: Mapped[datetime] = mapped_column(
+        UtcDateTime, default=func.current_timestamp(), onupdate=func.current_timestamp())
 
     # User notifications / services fields
     daily_recap: Mapped[bool] = mapped_column(default=False)
@@ -594,8 +596,8 @@ class CalendarEvent(Base):
     description: Mapped[Optional[str]] = mapped_column(sa.String(length=2048))
     created_on: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
     created_by: Mapped[str] = mapped_column(sa.ForeignKey("users.id"))
-    start_time: Mapped[datetime] = mapped_column()
-    end_time: Mapped[datetime] = mapped_column()
+    start_time: Mapped[datetime] = mapped_column(UtcDateTime)
+    end_time: Mapped[datetime] = mapped_column(UtcDateTime)
     active: Mapped[bool] = mapped_column(default=True)
 
     # relationship
