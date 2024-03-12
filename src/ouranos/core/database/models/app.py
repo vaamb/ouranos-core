@@ -17,10 +17,11 @@ from sqlalchemy.sql import func
 
 from ouranos import current_app
 from ouranos.core.config.consts import (
-    REGISTRATION_TOKEN_VALIDITY, SESSION_FRESHNESS, TOKEN_SUBS)
+    REGISTRATION_TOKEN_VALIDITY, TOKEN_SUBS)
 from ouranos.core.database import ArchiveLink
-from ouranos.core.database.models.common import Base, BaseWarning, ToDictMixin
-from ouranos.core.exceptions import DuplicatedEntry, NoResultFound
+from ouranos.core.database.models.common import Base, ImportanceLevel, ToDictMixin
+from ouranos.core.database.models.types import UtcDateTime
+from ouranos.core.exceptions import DuplicatedEntry
 from ouranos.core.utils import ExpiredTokenError, InvalidTokenError, Tokenizer
 
 argon2_hasher = PasswordHasher()
@@ -179,12 +180,14 @@ class User(Base, UserMixin):
 
     # User registration fields
     token: Mapped[Optional[str]] = mapped_column(sa.String(32))
-    registration_datetime: Mapped[datetime] = mapped_column(default=func.current_timestamp())
+    registration_datetime: Mapped[datetime] = mapped_column(
+        UtcDateTime, default=func.current_timestamp())
 
     # User information fields
     firstname: Mapped[Optional[str]] = mapped_column(sa.String(64))
     lastname: Mapped[Optional[str]] = mapped_column(sa.String(64))
-    last_seen: Mapped[datetime] = mapped_column(default=func.current_timestamp(), onupdate=func.current_timestamp())
+    last_seen: Mapped[datetime] = mapped_column(
+        UtcDateTime, default=func.current_timestamp(), onupdate=func.current_timestamp())
 
     # User notifications / services fields
     daily_recap: Mapped[bool] = mapped_column(default=False)
@@ -533,31 +536,138 @@ class CommunicationChannel(Base):
 
 
 # TODO: When problems solved, after x days: goes to archive
-class FlashMessage(BaseWarning):
+class FlashMessage(Base):
     __tablename__ = "flash_message"
     __bind_key__ = "app"
     __archive_link__ = ArchiveLink("warnings", "recent")
 
+    id: Mapped[int] = mapped_column(primary_key=True)
+    level: Mapped[ImportanceLevel] = mapped_column(default=ImportanceLevel.low)
+    title: Mapped[str] = mapped_column(sa.String(length=256))
+    description: Mapped[Optional[str]] = mapped_column(sa.String(length=2048))
+    created_on: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
+    active: Mapped[bool] = mapped_column(default=True)
 
-class CalendarEvent(Base):  # TODO: apply similar to warnings
+    @classmethod
+    async def create(
+            cls,
+            session: AsyncSession,
+            values: dict,
+    ) -> None:
+        stmt = insert(cls).values(values)
+        await session.execute(stmt)
+
+    @classmethod
+    async def get_multiple(
+            cls,
+            session: AsyncSession,
+            limit: int = 10,
+    ) -> Sequence[Self]:
+        stmt = (
+            select(cls)
+            .where(cls.active == True)
+            .order_by(cls.created_on.desc(), cls.level)
+            .limit(limit)
+        )
+        result = await session.execute(stmt)
+        return result.scalars().all()
+
+    @classmethod
+    async def inactivate(
+            cls,
+            session: AsyncSession,
+            message_id: int,
+    ) -> None:
+        stmt = (
+            update(cls)
+            .where(cls.id == message_id)
+            .values({"active": False})
+        )
+        await session.execute(stmt)
+
+
+class CalendarEvent(Base):
     __tablename__ = "calendar_events"
     __bind_key__ = "app"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(sa.ForeignKey("users.id"))
-    start_time: Mapped[datetime] = mapped_column()
-    end_time: Mapped[datetime] = mapped_column()
-    type: Mapped[int] = mapped_column()
+    level: Mapped[ImportanceLevel] = mapped_column(default=ImportanceLevel.low)
     title: Mapped[str] = mapped_column(sa.String(length=256))
     description: Mapped[Optional[str]] = mapped_column(sa.String(length=2048))
-    created_at: Mapped[datetime] = mapped_column(default=func.current_timestamp())
-    updated_at: Mapped[Optional[datetime]] = mapped_column(onupdate=func.current_timestamp())
+    created_on: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
+    created_by: Mapped[str] = mapped_column(sa.ForeignKey("users.id"))
+    start_time: Mapped[datetime] = mapped_column(UtcDateTime)
+    end_time: Mapped[datetime] = mapped_column(UtcDateTime)
     active: Mapped[bool] = mapped_column(default=True)
-    URL: Mapped[Optional[str]] = mapped_column(sa.String(length=128))
-    content: Mapped[Optional[str]] = mapped_column(sa.String(length=2048))
 
     # relationship
     user: Mapped[list["User"]] = relationship(back_populates="calendar")
+
+    @classmethod
+    async def create(
+            cls,
+            session: AsyncSession,
+            creator_id: int,
+            values: dict,
+    ) -> None:
+        values["created_by"] = creator_id
+        stmt = insert(cls).values(values)
+        await session.execute(stmt)
+
+    @classmethod
+    async def get(
+            cls,
+            session: AsyncSession,
+            event_id: int,
+    ) -> Self | None:
+        stmt = select(cls).where(cls.id == event_id)
+        result = await session.execute(stmt)
+        return result.scalars().one_or_none()
+
+    @classmethod
+    async def get_multiple(
+            cls,
+            session: AsyncSession,
+            limit: int = 10,
+    ) -> Sequence[Self]:
+        stmt = (
+            select(cls)
+            .where(
+                (cls.active == True)
+                & (cls.end_time > datetime.now(tz=timezone.utc))
+            )
+            .order_by(cls.start_time.asc())
+            .limit(limit)
+        )
+        result = await session.execute(stmt)
+        return result.scalars().all()
+
+    @classmethod
+    async def update(
+            cls,
+            session: AsyncSession,
+            event_id: int,
+            values: dict
+    ) -> None:
+        stmt = (
+            update(cls)
+            .where(cls.id == event_id)
+            .values(values)
+        )
+        await session.execute(stmt)
+
+    @classmethod
+    async def inactivate(
+            cls,
+            session: AsyncSession,
+            event_id: int,
+    ) -> None:
+        stmt = (
+            update(cls)
+            .where(cls.id == event_id)
+            .values({"active": True})
+        )
+        await session.execute(stmt)
 
 
 class GaiaJob(Base):

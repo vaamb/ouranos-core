@@ -3,7 +3,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from ouranos.core.database import ArchiveLink
 from ouranos.core.database.models.common import (
-    BaseActuatorRecord, BaseWarning, BaseHealthRecord, BaseSensorRecord
+    BaseActuatorRecord, BaseHealthRecord, BaseSensorRecord
 )
 
 
@@ -36,16 +36,6 @@ class HealthRecordArchive(BaseHealthRecord):
     __bind_key__ = "archive"
     __archive_link__ = ArchiveLink(
         "health_records", "archive", "HEALTH_ARCHIVING_PERIOD"
-    )
-
-    ecosystem_uid: Mapped[str] = mapped_column(sa.String(length=8))
-
-
-class ArchiveAppWarning(BaseWarning):
-    __tablename__ = "warnings_archive"
-    __bind_key__ = "archive"
-    __archive_link__ = ArchiveLink(
-        "warnings", "archive", "WARNING_ARCHIVING_PERIOD"
     )
 
     ecosystem_uid: Mapped[str] = mapped_column(sa.String(length=8))

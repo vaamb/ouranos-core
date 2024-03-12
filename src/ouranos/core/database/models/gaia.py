@@ -19,7 +19,7 @@ import gaia_validators as gv
 
 from ouranos.core.database import ArchiveLink
 from ouranos.core.database.models.common import (
-    Base, BaseActuatorRecord, BaseHealthRecord, BaseSensorRecord, BaseWarning)
+    Base, BaseActuatorRecord, BaseHealthRecord, BaseSensorRecord, ImportanceLevel)
 from ouranos.core.database.models.memory import SensorDbCache
 from ouranos.core.database.models.types import UtcDateTime
 from ouranos.core.database.models.utils import sessionless_hashkey, time_limits
@@ -1481,9 +1481,40 @@ class HealthRecord(BaseHealthRecord):
         return result.scalars().all()
 
 
-class GaiaWarning(BaseWarning):
+class GaiaWarning(Base):
     __tablename__ = "warnings"
     __archive_link__ = ArchiveLink("warnings", "recent")
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    level: Mapped[ImportanceLevel] = mapped_column(default=ImportanceLevel.low)
+    title: Mapped[str] = mapped_column(sa.String(length=256))
+    description: Mapped[str] = mapped_column(sa.String(length=2048))
+    created_on: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
+    created_by: Mapped[str] = mapped_column(sa.ForeignKey("ecosystems.uid"))
+    updated_on: Mapped[Optional[datetime]] = mapped_column(UtcDateTime)
+    seen_on: Mapped[Optional[datetime]] = mapped_column(UtcDateTime)
+    seen_by: Mapped[Optional[int]] = mapped_column()
+    solved_on: Mapped[Optional[datetime]] = mapped_column(UtcDateTime)
+    solved_by: Mapped[Optional[int]] = mapped_column()
+
+    @property
+    def seen(self):
+        return self.seen_on is not None
+
+    @property
+    def solved(self):
+        return self.solved_on is not None
+
+    @classmethod
+    async def create(
+            cls,
+            session: AsyncSession,
+            ecosystem_uid: str,
+            values: dict,
+    ) -> None:
+        values["created_by"] = ecosystem_uid
+        stmt = insert(cls).values(values)
+        await session.execute(stmt)
 
     @classmethod
     @cached(_cache_warnings, key=sessionless_hashkey)
@@ -1493,34 +1524,78 @@ class GaiaWarning(BaseWarning):
             limit: int = 10,
             show_solved: bool = False,
     ) -> Sequence[Self]:
-        return await super().get_multiple(session, limit, show_solved)
+        stmt = (
+            select(cls)
+            .order_by(cls.created_on.desc())
+            .limit(limit)
+        )
+        if not show_solved:
+            stmt = stmt.where(cls.solved_on == None)
+        result = await session.execute(stmt)
+        return result.scalars().all()
 
     @classmethod
     async def update(
             cls,
             session: AsyncSession,
+            warning_id: int,
+            ecosystem_uid: str,
             values: dict,
-            id: int | None = None,
     ) -> None:
-        await super().update(session, values, id)
+        values.pop("seen_on", None)
+        values.pop("solved_on", None)
+        stmt = (
+            update(cls)
+            .where(
+                (cls.id == warning_id)
+                & (cls.created_by == ecosystem_uid)
+            )
+            .values(**values)
+        )
+        await session.execute(stmt)
         _cache_warnings.clear()
 
     @classmethod
     async def mark_as_seen(
             cls,
             session: AsyncSession,
-            id: int,
+            warning_id: int,
+            user_id: int,
     ) -> None:
-        await super().mark_as_seen(session, id)
+        stmt = (
+            update(cls)
+            .where(
+                (cls.id == warning_id)
+                & (cls.seen_on == None)  # Make sure we don't mark twice
+            )
+            .values({
+                "seen_on": datetime.now(timezone.utc),
+                "seen_by": user_id,
+            })
+        )
+        await session.execute(stmt)
         _cache_warnings.clear()
 
     @classmethod
     async def mark_as_solved(
             cls,
             session: AsyncSession,
-            id: int,
+            warning_id: int,
+            user_id: int,
     ) -> None:
-        await super().mark_as_solved(session, id)
+        stmt = (
+            update(cls)
+            .where(
+                (cls.id == warning_id)
+                & (cls.solved_on == None)  # Make sure we don't mark twice
+            )
+            .values({
+                "solved_on": datetime.now(timezone.utc),
+                "solved_by": user_id,
+            })
+        )
+        await session.execute(stmt)
+        await cls.mark_as_seen(session, warning_id=warning_id, user_id=user_id)
         _cache_warnings.clear()
 
 
