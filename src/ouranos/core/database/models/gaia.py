@@ -1521,14 +1521,19 @@ class GaiaWarning(Base):
     async def get_multiple(
             cls,
             session: AsyncSession,
-            limit: int = 10,
             show_solved: bool = False,
+            ecosystems: str | list[str] | None = None,
+            limit: int = 10,
     ) -> Sequence[Self]:
         stmt = (
             select(cls)
             .order_by(cls.created_on.desc())
             .limit(limit)
         )
+        if ecosystems:
+            if isinstance(ecosystems, str):
+                ecosystems = ecosystems.split(",")
+            stmt = stmt.where(cls.created_by.in_(ecosystems))
         if not show_solved:
             stmt = stmt.where(cls.solved_on == None)
         result = await session.execute(stmt)
