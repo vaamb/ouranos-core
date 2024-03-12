@@ -22,7 +22,7 @@ from ouranos.web_server.factory import create_app
 
 import tests.data.gaia as g_data
 from tests.data.system import system_dict
-from tests.data.users import admin, operator, user
+from tests.data.auth import admin, operator, user
 
 
 @pytest_asyncio.fixture(scope="module", autouse=True)

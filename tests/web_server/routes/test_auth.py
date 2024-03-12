@@ -9,7 +9,7 @@ from ouranos.core.config.consts import TOKEN_SUBS
 from ouranos.core.database.models.app import anonymous_user, User
 from ouranos.core.utils import Tokenizer
 
-from tests.data.users import admin
+from tests.data.auth import admin
 
 
 registration_payload = {
