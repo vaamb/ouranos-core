@@ -11,7 +11,7 @@ import gaia_validators as gv
 
 from ouranos.core.config import ConfigDict
 from ouranos.core.config.consts import LOGIN_NAME
-from ouranos.core.database.models.app import User
+from ouranos.core.database.models.app import CalendarEvent, User
 from ouranos.core.database.models.gaia import (
     Ecosystem, Engine, EnvironmentParameter, GaiaWarning, Hardware,
     HealthRecord, Lighting, SensorRecord)
@@ -21,6 +21,7 @@ from ouranos.web_server.auth import SessionInfo
 from ouranos.web_server.factory import create_app
 
 import tests.data.gaia as g_data
+from tests.data.app import calendar_event
 from tests.data.auth import admin, operator, user
 from tests.data.system import system_dict
 
@@ -105,6 +106,12 @@ async def users(db: AsyncSQLAlchemyWrapper):
             usr = await User.get(session, u.username)
             users_dict[u.role.value] = usr.id
     return users_dict
+
+
+@pytest_asyncio.fixture(scope="module", autouse=True)
+async def events(db: AsyncSQLAlchemyWrapper):
+    async with db.scoped_session() as session:
+        await CalendarEvent.create(session, creator_id=user.id, values=calendar_event)
 
 
 @pytest.fixture(scope="module")

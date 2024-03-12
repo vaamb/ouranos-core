@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Body, Depends, Path, Query, Response, status
+from fastapi import (
+    APIRouter, Body, Depends, HTTPException, Path, Query, Response, status)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos.core.database.models.app import CalendarEvent, UserMixin
@@ -13,7 +14,10 @@ from ouranos.web_server.validate.response.calendar import EventResult
 
 router = APIRouter(
     prefix="/calendar",
-    responses={404: {"description": "Not found"}},
+    responses={
+        403: {"description": "Unauthorized"},
+        404: {"description": "Not found"},
+    },
     tags=["app/services/calendar"],
 )
 
@@ -29,7 +33,7 @@ async def get_events(
     return response
 
 
-@router.post("/u/",
+@router.post("/u",
              response_model=ResultResponse,
              status_code=status.HTTP_202_ACCEPTED,
              dependencies=[Depends(is_authenticated)])
@@ -61,7 +65,6 @@ async def create_event(
             status_code=status.HTTP_202_ACCEPTED,
             dependencies=[Depends(is_authenticated)])
 async def update_event(
-        response: Response,
         event_id: int = Path(description="The id of the event to update"),
         payload: EventUpdatePayload = Body(
                     description="Updated information about the event"),
@@ -70,8 +73,7 @@ async def update_event(
 ):
     event = await CalendarEvent.get(session, event_id=event_id)
     if event.created_by != current_user.id:
-        response.status_code = status.HTTP_403_FORBIDDEN
-        return
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
     values = {
         key: value for key, value in payload.model_dump().items()
         if value is not None
@@ -88,15 +90,13 @@ async def update_event(
              status_code=status.HTTP_202_ACCEPTED,
              dependencies=[Depends(is_authenticated)])
 async def mark_event_as_inactive(
-        response: Response,
         event_id: int = Path(description="The id of the event to update"),
         current_user: UserMixin = Depends(get_current_user),
         session: AsyncSession = Depends(get_session),
 ):
     event = await CalendarEvent.get(session, event_id=event_id)
     if event.created_by != current_user.id:
-        response.status_code = status.HTTP_403_FORBIDDEN
-        return
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
     await CalendarEvent.inactivate(session, event_id=event_id)
     return ResultResponse(
         msg=f"Event with id '{event_id}' marked as inactive",
