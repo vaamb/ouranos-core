@@ -10,6 +10,7 @@ class RoleNames(Enum):
 
 @dataclass
 class FakeUser:
+    id: int
     firstname: str
     lastname: str
     username: str
@@ -17,6 +18,6 @@ class FakeUser:
     role: RoleNames
 
 
-user = FakeUser("John", "Doe", "Who", "Password1", RoleNames.User)
-operator = FakeUser("Jane", "Doe", "Her", "Password1", RoleNames.Operator)
-admin = FakeUser("Nemo", "Nescio", "Me", "Password1", RoleNames.Administrator)
+user = FakeUser(5, "John", "Doe", "Who", "Password1", RoleNames.User)
+operator = FakeUser(6, "Jane", "Doe", "Her", "Password1", RoleNames.Operator)
+admin = FakeUser(7, "Nemo", "Nescio", "Me", "Password1", RoleNames.Administrator)

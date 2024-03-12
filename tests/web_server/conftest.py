@@ -21,8 +21,8 @@ from ouranos.web_server.auth import SessionInfo
 from ouranos.web_server.factory import create_app
 
 import tests.data.gaia as g_data
-from tests.data.system import system_dict
 from tests.data.auth import admin, operator, user
+from tests.data.system import system_dict
 
 
 @pytest_asyncio.fixture(scope="module", autouse=True)
@@ -95,6 +95,7 @@ async def users(db: AsyncSQLAlchemyWrapper):
     async with db.scoped_session() as session:
         for u in (admin, operator, user):
             user_info = {
+                "id": u.id,
                 "email": f"{u.username}@fakemail.com",
                 "firstname": u.firstname,
                 "lastname": u.lastname,
