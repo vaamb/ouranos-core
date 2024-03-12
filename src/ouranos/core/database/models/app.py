@@ -650,7 +650,7 @@ class CalendarEvent(Base):
             values: dict
     ) -> None:
         stmt = (
-            select(cls)
+            update(cls)
             .where(cls.id == event_id)
             .values(values)
         )
