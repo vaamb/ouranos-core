@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from fastapi import APIRouter, Depends, Path, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -5,6 +7,7 @@ from ouranos.core.database.models.app import UserMixin
 from ouranos.core.database.models.gaia import GaiaWarning
 from ouranos.web_server.auth import get_current_user, is_authenticated
 from ouranos.web_server.dependencies import get_session
+from ouranos.web_server.routes.gaia.utils import ecosystems_uid_q
 from ouranos.web_server.validate.response.base import ResultResponse, ResultStatus
 from ouranos.web_server.validate.response.common import WarningResult
 
@@ -18,11 +21,13 @@ router = APIRouter(
 
 @router.get("", response_model=list[WarningResult], dependencies=[Depends(is_authenticated)])
 async def get_warnings(
-        limit: int = Query(default=8, description="The number of warnings to fetch"),
+        ecosystems_uid: list[str] | None = ecosystems_uid_q,
         solved: bool = Query(default=False, description="Whether to retrieve solved warnings"),
+        limit: int = Query(default=8, description="The number of warnings to fetch"),
         session: AsyncSession = Depends(get_session),
 ):
-    response = await GaiaWarning.get_multiple(session, limit=limit, show_solved=solved)
+    response = await GaiaWarning.get_multiple(
+        session, limit=limit, ecosystems=ecosystems_uid, show_solved=solved)
     return response
 
 
