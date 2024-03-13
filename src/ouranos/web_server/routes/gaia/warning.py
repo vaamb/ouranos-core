@@ -8,7 +8,7 @@ from ouranos.core.database.models.gaia import GaiaWarning
 from ouranos.web_server.auth import get_current_user, is_authenticated
 from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.routes.gaia.utils import ecosystems_uid_q
-from ouranos.web_server.validate.response.base import ResultResponse, ResultStatus
+from ouranos.web_server.validate.base import ResultResponse, ResultStatus
 from ouranos.web_server.validate.warning import WarningResult
 
 

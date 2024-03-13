@@ -16,8 +16,7 @@ from ouranos.web_server.routes.gaia.utils import (
     ecosystem_or_abort, ecosystems_uid_q, hardware_level_q)
 from ouranos.web_server.validate.payload.gaia import (
     HardwareCreationPayload, HardwareUpdatePayload)
-from ouranos.web_server.validate.response.base import (
-    ResultResponse, ResultStatus)
+from ouranos.web_server.validate.base import ResultResponse, ResultStatus
 from ouranos.web_server.validate.response.gaia import (
     HardwareInfo, HardwareModelInfo)
 

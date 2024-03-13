@@ -17,7 +17,7 @@ from ouranos.web_server.auth import (
 from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.validate.auth import (
     LoginResponse, UserInfoResponse, UserCreationPayload)
-from ouranos.web_server.validate.response.base import BaseResponse
+from ouranos.web_server.validate.base import BaseResponse
 
 
 regex_email = re.compile(r"^[\-\w\.]+@([\w\-]+\.)+[\w\-]{2,4}$")  # Oversimplified but ok

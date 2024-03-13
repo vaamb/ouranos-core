@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from ouranos.core.validate.base import BaseModel
-from ouranos.web_server.validate.response.base import BaseResponse
+from ouranos.web_server.validate.base import BaseResponse
 
 
 class UserCreationPayload(BaseModel):
