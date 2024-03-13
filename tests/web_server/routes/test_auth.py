@@ -173,5 +173,20 @@ def test_registration_token_user_info(client_admin: TestClient):
 
     data = json.loads(response.text)
     payload = Tokenizer.loads(data)
-    assert payload["role"] == role
+    assert not payload.get("role")
     assert payload["username"] == username
+
+
+def test_registration_token_operator_info(client_admin: TestClient):
+    role = "Operator"
+    response = client_admin.get(
+        "/api/auth/registration_token",
+        params={
+            "role": role,
+        }
+    )
+    assert response.status_code == 200
+
+    data = json.loads(response.text)
+    payload = Tokenizer.loads(data)
+    assert payload["role"] == role

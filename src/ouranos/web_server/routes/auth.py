@@ -142,13 +142,14 @@ async def create_registration_token(
             default=None, description="The email address of the future user"),
         session: AsyncSession = Depends(get_session),
 ):
-    try:
-        role = safe_enum_from_name(RoleName, role)
-    except (TypeError, ValueError):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Invalid role"
-        )
+    if role is not None:
+        try:
+            role = safe_enum_from_name(RoleName, role)
+        except (TypeError, ValueError):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Invalid role"
+            )
     user_info: UserTokenInfoDict = {
         "username": username,
         "firstname": firstname,
