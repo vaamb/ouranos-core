@@ -87,11 +87,11 @@ async def register_new_user(
     try:
         payload_dict = payload.model_dump()
         errors = []
-        username = payload_dict.pop("username")
+        username = token_payload.pop("username", None) or payload_dict.pop("username")
         user = await User.get(session, username)
         if user is not None:
             errors.append("Username already used.")
-        email = payload_dict.pop("email")
+        email = token_payload.pop("email", None) or payload_dict.pop("email")
         if not regex_email.match(email):
             errors.append("Wrong email format.")
         user = await User.get(session, email)
