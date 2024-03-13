@@ -1,8 +1,12 @@
+from __future__ import annotations
+
 import re
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from fastapi.security import HTTPBasicCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from gaia_validators import safe_enum_from_name
 
 from ouranos.core.database.models.app import (
     RoleName, User, UserMixin, UserTokenInfoDict)
@@ -87,11 +91,15 @@ async def register_new_user(
     try:
         payload_dict = payload.model_dump()
         errors = []
-        username = token_payload.pop("username", None) or payload_dict.pop("username")
+        if token_payload.get("username"):
+            payload_dict["username"] = token_payload["username"]
+        username = payload_dict.pop("username")
         user = await User.get(session, username)
         if user is not None:
             errors.append("Username already used.")
-        email = token_payload.pop("email", None) or payload_dict.pop("email")
+        if token_payload.get("email"):
+            payload_dict["email"] = token_payload["email"]
+        email = payload_dict.pop("email")
         if not regex_email.match(email):
             errors.append("Wrong email format.")
         user = await User.get(session, email)
@@ -128,12 +136,19 @@ async def create_registration_token(
             default=None, description="The firstname of the future user"),
         lastname: str = Query(
             default=None, description="The lastname of the future user"),
-        role: RoleName = Query(
+        role: RoleName | str = Query(
             default=None, description="The role of the future user"),
         email: str = Query(
             default=None, description="The email address of the future user"),
         session: AsyncSession = Depends(get_session),
 ):
+    try:
+        role = safe_enum_from_name(RoleName, role)
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Invalid role"
+        )
     user_info: UserTokenInfoDict = {
         "username": username,
         "firstname": firstname,
