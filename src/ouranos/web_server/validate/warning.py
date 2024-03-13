@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 from datetime import datetime
-from typing import Optional
 
 from ouranos.core.database.models.common import ImportanceLevel
 from ouranos.core.validate.base import BaseModel
@@ -11,4 +12,4 @@ class WarningResult(BaseModel):
     title: str
     description: str
     created_on: datetime
-    solved_on: Optional[datetime]
+    solved_on: datetime | None
