@@ -25,7 +25,7 @@ from ouranos.core.database import ArchiveLink
 from ouranos.core.database.models.common import Base, ImportanceLevel, ToDictMixin
 from ouranos.core.database.models.types import UtcDateTime
 from ouranos.core.exceptions import DuplicatedEntry
-from ouranos.core.utils import ExpiredTokenError, InvalidTokenError, Tokenizer
+from ouranos.core.utils import Tokenizer
 
 argon2_hasher = PasswordHasher()
 
@@ -176,6 +176,7 @@ class AnonymousUser(UserMixin):
 
 anonymous_user = AnonymousUser()
 
+
 AssociationUserRecap = Table(
     "association_user_recap",
     Base.metadata,
@@ -253,7 +254,7 @@ class User(Base, UserMixin):
     async def compute_default_role(
             self,
             session: AsyncSession,
-            role_name: str | None = None,
+            role_name: RoleName | str | None = None,
     ) -> Role:
         try:
             role_name = safe_enum_from_name(RoleName, role_name)
@@ -300,8 +301,7 @@ class User(Base, UserMixin):
         kwargs["username"] = username
         role_name = kwargs.pop("role", None)
         user = cls(**kwargs)
-        if user.role is None:
-            user.role = await user.compute_default_role(session, role_name)
+        user.role = await user.compute_default_role(session, role_name)
         user.set_password(password)
         session.add(user)
         await session.commit()
