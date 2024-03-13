@@ -430,7 +430,9 @@ class User(Base, UserMixin):
             user_info: UserTokenInfoDict | None = None,
     ) -> str:
         user_info = user_info or {}
-        role_name = role_name or user_info.get("role", None)
+        if role_name:
+            user_info["role"] = role_name
+        role_name = user_info.pop("role", None)
         try:
             role_name = safe_enum_from_name(RoleName, role_name)
         except (TypeError, ValueError):
