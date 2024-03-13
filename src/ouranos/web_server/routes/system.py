@@ -7,7 +7,7 @@ from ouranos.core.database.models.system import SystemRecord
 from ouranos.core.utils import timeWindow
 from ouranos.web_server.auth import is_admin
 from ouranos.web_server.dependencies import get_session, get_time_window
-from ouranos.web_server.validate.response.system import SystemRecordResponse
+from ouranos.web_server.validate.system import SystemRecordResponse
 
 
 router = APIRouter(
