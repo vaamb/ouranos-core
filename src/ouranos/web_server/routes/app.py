@@ -3,8 +3,8 @@ from fastapi import APIRouter, Depends, Query
 from ouranos import current_app
 from ouranos.core.database.models.app import FlashMessage, Service, ServiceLevel
 from ouranos.web_server.dependencies import get_session
-from ouranos.web_server.validate.response.app import (
-    FlashMessageResponse, LoggingPeriodResponse, ServiceInfo)
+from ouranos.web_server.validate.app import (
+    FlashMessageResponse, LoggingPeriodResponse, ServiceInfoResponse)
 
 
 router = APIRouter(
@@ -28,7 +28,7 @@ async def get_logging_config():
     }
 
 
-@router.get("/services", response_model=list[ServiceInfo])
+@router.get("/services", response_model=list[ServiceInfoResponse])
 async def get_services(
         level: ServiceLevel = Query(default=ServiceLevel.all),
         session=Depends(get_session)

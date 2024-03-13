@@ -15,7 +15,7 @@ class FlashMessageResponse(BaseModel):
     description: str
 
 
-ServiceInfo = sqlalchemy_to_pydantic(
+ServiceInfoResponse = sqlalchemy_to_pydantic(
     Service,
     base=BaseModel,
     exclude=["id"]
