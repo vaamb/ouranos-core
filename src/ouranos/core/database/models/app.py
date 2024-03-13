@@ -6,7 +6,7 @@ from enum import Enum, IntFlag, StrEnum
 from hashlib import md5
 import re
 import time as ctime
-from typing import Optional, Self, Sequence
+from typing import Optional, Self, Sequence, TypedDict
 
 from argon2 import PasswordHasher
 from argon2.exceptions import VerificationError
@@ -187,6 +187,14 @@ AssociationUserRecap = Table(
               sa.ForeignKey("communication_channels.id")),
     info={"bind_key": "app"}
 )
+
+
+class UserTokenInfoDict(TypedDict):
+    username: str | None
+    firstname: str | None
+    lastname: str | None
+    role: RoleName | None
+    email: str | None
 
 
 class User(Base, UserMixin):
@@ -425,7 +433,10 @@ class User(Base, UserMixin):
     async def create_invitation_token(
             session: AsyncSession,
             role_name: RoleName | str | None = None,
+            user_info: UserTokenInfoDict | None = None,
     ) -> str:
+        user_info = user_info or {}
+        role_name = role_name or user_info.get("role", None)
         try:
             role_name = safe_enum_from_name(RoleName, role_name)
         except (TypeError, ValueError):
@@ -444,6 +455,9 @@ class User(Base, UserMixin):
             "exp": datetime.now(timezone.utc) + timedelta(
                 seconds=REGISTRATION_TOKEN_VALIDITY),
         }
+        for info, value in user_info.items():
+            if value is not None:
+                payload[info] = value
         if cor_role_name is not None:
             payload.update({"role": cor_role_name.name})
         return Tokenizer.dumps(payload)
