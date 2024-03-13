@@ -1,12 +1,19 @@
 from __future__ import annotations
 
-from datetime import datetime
-
 from ouranos.core.validate.base import BaseModel
 from ouranos.web_server.validate.response.base import BaseResponse
 
 
-class UserInfo(BaseModel):
+class UserCreationPayload(BaseModel):
+    username: str
+    password: str
+    email: str
+    firstname: str | None = None
+    lastname: str | None = None
+    telegram_id: int | None = None
+
+
+class UserInfoResponse(BaseModel):
     id: int = -1
     username: str | None = None
     firstname: str | None = None
@@ -17,5 +24,5 @@ class UserInfo(BaseModel):
 
 
 class LoginResponse(BaseResponse):
-    user: UserInfo
+    user: UserInfoResponse
     session_token: str
