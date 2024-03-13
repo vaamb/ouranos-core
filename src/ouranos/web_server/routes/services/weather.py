@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Query, Response
 
 from ouranos.core.cache import SunTimesCache, WeatherCache
-from ouranos.web_server.validate.response.weather import (
+from ouranos.web_server.validate.weather import (
     CurrentWeatherResponse, DailyWeatherResponse, HourlyWeatherResponse, SunTimesResponse)
 
 
