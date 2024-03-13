@@ -4,7 +4,8 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from fastapi.security import HTTPBasicCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ouranos.core.database.models.app import RoleName, User, UserMixin
+from ouranos.core.database.models.app import (
+    RoleName, User, UserMixin, UserTokenInfoDict)
 from ouranos.core.exceptions import DuplicatedEntry
 from ouranos.web_server.auth import (
     Authenticator, basic_auth, check_invitation_token, get_current_user,
@@ -121,8 +122,23 @@ async def register_new_user(
 
 @router.get("/registration_token", dependencies=[Depends(is_admin)])
 async def create_registration_token(
+        username: str = Query(
+            default=None, description="The name of the future user"),
+        firstname: str = Query(
+            default=None, description="The firstname of the future user"),
+        lastname: str = Query(
+            default=None, description="The lastname of the future user"),
         role: RoleName = Query(
             default=None, description="The role of the future user"),
+        email: str = Query(
+            default=None, description="The email address of the future user"),
         session: AsyncSession = Depends(get_session),
 ):
-    return await User.create_invitation_token(session, role_name=role)
+    user_info: UserTokenInfoDict = {
+        "username": username,
+        "firstname": firstname,
+        "lastname": lastname,
+        "role": role,
+        "email": email,
+    }
+    return await User.create_invitation_token(session, user_info=user_info)
