@@ -1,10 +1,15 @@
+from __future__ import annotations
+
 import re
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from fastapi.security import HTTPBasicCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ouranos.core.database.models.app import User, UserMixin
+from gaia_validators import safe_enum_from_name
+
+from ouranos.core.database.models.app import (
+    RoleName, User, UserMixin, UserTokenInfoDict)
 from ouranos.core.exceptions import DuplicatedEntry
 from ouranos.web_server.auth import (
     Authenticator, basic_auth, check_invitation_token, get_current_user,
@@ -86,10 +91,14 @@ async def register_new_user(
     try:
         payload_dict = payload.model_dump()
         errors = []
+        if token_payload.get("username"):
+            payload_dict["username"] = token_payload["username"]
         username = payload_dict.pop("username")
         user = await User.get(session, username)
         if user is not None:
             errors.append("Username already used.")
+        if token_payload.get("email"):
+            payload_dict["email"] = token_payload["email"]
         email = payload_dict.pop("email")
         if not regex_email.match(email):
             errors.append("Wrong email format.")
@@ -104,7 +113,7 @@ async def register_new_user(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=errors
             )
-        payload_dict["role"] = token_payload.pop("rle", None)
+        payload_dict["role"] = token_payload.pop("role", None)
         await User.create(
             session, username, password, email=email, **payload_dict)
     except DuplicatedEntry as e:
@@ -121,9 +130,30 @@ async def register_new_user(
 
 @router.get("/registration_token", dependencies=[Depends(is_admin)])
 async def create_registration_token(
-        role_name: str = Query(
-            default=None, description="The name (with a capital letter) of the "
-                                      "role the future user"),
+        username: str = Query(
+            default=None, description="The name of the future user"),
+        firstname: str = Query(
+            default=None, description="The firstname of the future user"),
+        lastname: str = Query(
+            default=None, description="The lastname of the future user"),
+        role: RoleName | str = Query(
+            default=None, description="The role of the future user"),
+        email: str = Query(
+            default=None, description="The email address of the future user"),
         session: AsyncSession = Depends(get_session),
 ):
-    return await User.create_invitation_token(session, role_name)
+    try:
+        role = safe_enum_from_name(RoleName, role)
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Invalid role"
+        )
+    user_info: UserTokenInfoDict = {
+        "username": username,
+        "firstname": firstname,
+        "lastname": lastname,
+        "role": role,
+        "email": email,
+    }
+    return await User.create_invitation_token(session, user_info=user_info)

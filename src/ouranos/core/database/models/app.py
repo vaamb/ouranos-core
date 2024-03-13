@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from enum import Enum, IntFlag
+import enum
+from enum import Enum, IntFlag, StrEnum
 from hashlib import md5
 import re
 import time as ctime
-from typing import Optional, Self, Sequence
+from typing import Optional, Self, Sequence, TypedDict
 
 from argon2 import PasswordHasher
 from argon2.exceptions import VerificationError
@@ -15,6 +16,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
+from gaia_validators import safe_enum_from_name
+
 from ouranos import current_app
 from ouranos.core.config.consts import (
     REGISTRATION_TOKEN_VALIDITY, TOKEN_SUBS)
@@ -22,7 +25,7 @@ from ouranos.core.database import ArchiveLink
 from ouranos.core.database.models.common import Base, ImportanceLevel, ToDictMixin
 from ouranos.core.database.models.types import UtcDateTime
 from ouranos.core.exceptions import DuplicatedEntry
-from ouranos.core.utils import ExpiredTokenError, InvalidTokenError, Tokenizer
+from ouranos.core.utils import Tokenizer
 
 argon2_hasher = PasswordHasher()
 
@@ -37,11 +40,18 @@ class Permission(IntFlag):
     ADMIN = 8
 
 
-roles_definition = {
-    "User": Permission.VIEW | Permission.EDIT,
-    "Operator": Permission.VIEW | Permission.EDIT | Permission.OPERATE,
-    "Administrator": Permission.VIEW | Permission.EDIT |
-                     Permission.OPERATE | Permission.ADMIN,
+class RoleName(StrEnum):
+    User = enum.auto()
+    Operator = enum.auto()
+    Administrator = enum.auto()
+    Default = User
+
+
+roles_definition: dict[RoleName, Permission] = {
+    RoleName.User: Permission.VIEW | Permission.EDIT,
+    RoleName.Operator: Permission.VIEW | Permission.EDIT | Permission.OPERATE,
+    RoleName.Administrator: Permission.VIEW | Permission.EDIT |
+                            Permission.OPERATE | Permission.ADMIN,
 }
 
 
@@ -50,7 +60,7 @@ class Role(Base):
     __bind_key__ = "app"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(sa.String(64), unique=True)
+    name: Mapped[RoleName] = mapped_column(unique=True)
     default: Mapped[bool] = mapped_column(default=False, index=True)
     permissions: Mapped[int] = mapped_column()
 
@@ -62,37 +72,52 @@ class Role(Base):
         if self.permissions is None:
             self.permissions = 0
 
-    @staticmethod
-    async def insert_roles(session: AsyncSession):
-        default_role = "User"
-        stmt = select(Role)
+    @classmethod
+    async def get(
+            cls,
+            session: AsyncSession,
+            role_name: RoleName,
+    ) -> Self | None:
+        stmt = select(cls).where(cls.name == role_name)
         result = await session.execute(stmt)
-        roles_in_db: list[Role] = result.scalars().all()
+        return result.scalars().one_or_none()
+
+    @classmethod
+    async def get_default(cls, session: AsyncSession) -> Self:
+        stmt = select(cls).where(cls.default == True)
+        result = await session.execute(stmt)
+        return result.scalars().one()
+
+    @classmethod
+    async def insert_roles(cls, session: AsyncSession) -> None:
+        stmt = select(cls)
+        result = await session.execute(stmt)
+        roles_in_db: list[Self] = result.scalars().all()
         roles = {role.name: role for role in roles_in_db}
         for name, permission in roles_definition.items():
             role = roles.get(name)
             if role is None:
-                role = Role(name=name)
+                role = cls(name=name)
             role.reset_permissions()
             role.add_permission(permission)
-            role.default = (role.name == default_role)
+            role.default = (role.name == RoleName.Default)
             session.add(role)
 
-    def has_permission(self, perm: Permission):
+    def has_permission(self, perm: Permission) -> bool:
         return self.permissions & perm.value == perm.value
 
-    def add_permission(self, perm: Permission):
+    def add_permission(self, perm: Permission) -> None:
         if not self.has_permission(perm):
             self.permissions += perm.value
 
-    def remove_permission(self, perm: Permission):
+    def remove_permission(self, perm: Permission) -> None:
         if self.has_permission(perm):
             self.permissions -= perm.value
 
-    def reset_permissions(self):
+    def reset_permissions(self) -> None:
         self.permissions = 0
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Role({self.name})>"
 
 
@@ -165,6 +190,14 @@ AssociationUserRecap = Table(
 )
 
 
+class UserTokenInfoDict(TypedDict):
+    username: str | None
+    firstname: str | None
+    lastname: str | None
+    role: RoleName | None
+    email: str | None
+
+
 class User(Base, UserMixin):
     __tablename__ = "users"
     __bind_key__ = "app"
@@ -218,6 +251,27 @@ class User(Base, UserMixin):
     def permissions(self) -> int:
         return self.role.permissions
 
+    async def compute_default_role(
+            self,
+            session: AsyncSession,
+            role_name: RoleName | str | None = None,
+    ) -> Role:
+        try:
+            role_name = safe_enum_from_name(RoleName, role_name)
+        except (TypeError, ValueError):
+            role_name = None
+        if role_name is not None:
+            role = await Role.get(session, role_name)
+            if role:
+                return role
+        admins: str | list = current_app.config.get("ADMINS", [])
+        if isinstance(admins, str):
+            admins = admins.split(",")
+        if self.email in admins:
+            return await Role.get(session, role_name=RoleName.Administrator)
+        else:
+            return await Role.get_default(session)
+
     @classmethod
     async def create(
             cls,
@@ -246,26 +300,8 @@ class User(Base, UserMixin):
         # Create user
         kwargs["username"] = username
         role_name = kwargs.pop("role", None)
-        user = User(**kwargs)
-
-        async def get_role(role_name: str | None = None) -> Role:
-            if role_name is not None:
-                stmt = select(Role).where(Role.name == role_name)
-                result = await session.execute(stmt)
-                role = result.scalars().first()
-                if role:
-                    return role
-            admins: str | list = current_app.config.get("ADMINS", [])
-            if isinstance(admins, str):
-                admins = admins.split(",")
-            if user.email in admins:
-                stmt = select(Role).where(Role.name == "Administrator")
-            else:
-                stmt = select(Role).where(Role.default == True)  # noqa
-            result = await session.execute(stmt)
-            return result.scalars().first()
-        if user.role is None:
-            user.role = await get_role(role_name)
+        user = cls(**kwargs)
+        user.role = await user.compute_default_role(session, role_name)
         user.set_password(password)
         session.add(user)
         await session.commit()
@@ -339,44 +375,38 @@ class User(Base, UserMixin):
         result = await session.execute(stmt)
         return result.scalars().one_or_none()
 
-    @staticmethod
-    async def insert_gaia(session: AsyncSession):
+    @classmethod
+    async def insert_gaia(cls, session: AsyncSession) -> None:
         stmt = select(User).where(User.username == "Ouranos")
         result = await session.execute(stmt)
         gaia = result.scalars().first()
         if not gaia:
-            stmt = select(Role).where(Role.name == "Administrator")
+            stmt = select(Role).where(Role.name == RoleName.Administrator)
             result = await session.execute(stmt)
-            admin = result.scalars().first()
-            gaia = User(
+            admin: Role = result.scalars().one()
+            gaia = cls(
                 username="Ouranos",
                 email="None",
                 confirmed=True,
-                role=admin
+                role_id=admin.id,
             )
             session.add(gaia)
 
-    def set_password(self, password: str):
+    def set_password(self, password: str) -> None:
         self.password_hash = argon2_hasher.hash(password)
 
-    def check_password(self, password):
+    def check_password(self, password) -> bool:
         try:
             return argon2_hasher.verify(self.password_hash, password)
         except VerificationError:
             return False
 
-    def validate_email(self, email_address: str):
+    def validate_email(self, email_address: str) -> None:
         if re.match(r"^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$", email_address) is not None:
             self.email = email_address
 
-    def can(self, perm: Permission):
+    def can(self, perm: Permission) -> bool:
         return self.role is not None and self.role.has_permission(perm)
-
-    def avatar(self, size):
-        digest = md5(
-            self.email.lower().encode("utf-8"), usedforsecurity=False
-        ).hexdigest()
-        return f"https://www.gravatar.com/avatar/{digest}?d=identicon&s={size}"
 
     def create_token(
             self,
@@ -396,50 +426,35 @@ class User(Base, UserMixin):
     @staticmethod
     async def create_invitation_token(
             session: AsyncSession,
-            role_name: str | None = None,
+            role_name: RoleName | str | None = None,
+            user_info: UserTokenInfoDict | None = None,
     ) -> str:
+        user_info = user_info or {}
+        role_name = role_name or user_info.get("role", None)
+        try:
+            role_name = safe_enum_from_name(RoleName, role_name)
+        except (TypeError, ValueError):
+            role_name = None
+        cor_role_name: RoleName | None = None
         if role_name is not None:
-            if role_name != "default":
-                stmt = select(Role).where(Role.name == role_name)
-                result = await session.execute(stmt)
-                role = result.scalars().first()
-                if role is None:
-                    role_name = None
-                else:
-                    stmt = select(Role).where(Role.default == True)  # noqa
-                    result = await session.execute(stmt)
-                    default_role = result.scalars().one()
-                    if role.name == default_role.name:
-                        role_name = role.name
+            default_role = await Role.get_default(session)
+            role = await Role.get(session, role_name)
+            if role is None:
+                cor_role_name = None
             else:
-                role_name = None
+                if role.name != default_role.name:
+                    cor_role_name = role.name
         payload = {
             "sub": TOKEN_SUBS.REGISTRATION.value,
             "exp": datetime.now(timezone.utc) + timedelta(
                 seconds=REGISTRATION_TOKEN_VALIDITY),
         }
-        if role_name is not None:
-            payload.update({"rle": role_name})
+        for info, value in user_info.items():
+            if value is not None:
+                payload[info] = value
+        if cor_role_name is not None:
+            payload.update({"role": cor_role_name.name})
         return Tokenizer.dumps(payload)
-
-    @staticmethod
-    def load_from_token(token: str, token_use: str):
-        # TODO: be explicit and use session
-        try:
-            payload = Tokenizer.loads(token)
-        except (ExpiredTokenError, InvalidTokenError):
-            return None
-        if payload.get("use") != token_use:
-            return
-        user_id = payload.get("user_id", 0)
-        return User.query.get(user_id)
-
-    @staticmethod
-    def token_can(token: str, perm: int, usage: str = None) -> bool:
-        user = User.load_from_token(token, usage)
-        if user:
-            return user.can(perm)
-        return False
 
 
 class ServiceLevel(Enum):
@@ -503,7 +518,7 @@ class Service(Base):
 
 
 channels_definition = [
-    "telegram"
+    "telegram",
 ]
 
 

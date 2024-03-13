@@ -124,6 +124,26 @@ async def test_register_success(db: AsyncSQLAlchemyWrapper, client: TestClient):
     assert data["username"] == registration_payload["username"]
 
 
+@pytest.mark.asyncio
+async def test_register_success_override(db: AsyncSQLAlchemyWrapper, client: TestClient):
+    username = "Someone"
+    email = "test@test.com"
+    async with db.scoped_session() as session:
+        invitation_token = await User.create_invitation_token(
+            session, user_info={"username": username, "email": email})
+
+    response = client.post(
+        "/api/auth/register",
+        params={"invitation_token": invitation_token},
+        json=registration_payload,
+    )
+    assert response.status_code == 201
+
+    data = json.loads(response.text)
+    assert data["username"] == username
+    # assert data["email"] == email
+
+
 def test_registration_token_failure(client: TestClient):
     response = client.get("/api/auth/registration_token")
     assert response.status_code == 403
@@ -132,6 +152,26 @@ def test_registration_token_failure(client: TestClient):
 def test_registration_token_success(client_admin: TestClient):
     response = client_admin.get("/api/auth/registration_token")
     assert response.status_code == 200
+
     data = json.loads(response.text)
     payload = Tokenizer.loads(data)
     assert payload["sub"] == TOKEN_SUBS.REGISTRATION.value
+    assert not payload.get("role", None)
+
+
+def test_registration_token_user_info(client_admin: TestClient):
+    username = "BoringTest"
+    role = "User"
+    response = client_admin.get(
+        "/api/auth/registration_token",
+        params={
+            "username": username,
+            "role": role,
+        }
+    )
+    assert response.status_code == 200
+
+    data = json.loads(response.text)
+    payload = Tokenizer.loads(data)
+    assert payload["role"] == role
+    assert payload["username"] == username
