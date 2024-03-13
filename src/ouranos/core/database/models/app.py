@@ -88,36 +88,36 @@ class Role(Base):
         result = await session.execute(stmt)
         return result.scalars().one()
 
-    @staticmethod
-    async def insert_roles(session: AsyncSession):
-        stmt = select(Role)
+    @classmethod
+    async def insert_roles(cls, session: AsyncSession) -> None:
+        stmt = select(cls)
         result = await session.execute(stmt)
-        roles_in_db: list[Role] = result.scalars().all()
+        roles_in_db: list[Self] = result.scalars().all()
         roles = {role.name: role for role in roles_in_db}
         for name, permission in roles_definition.items():
             role = roles.get(name)
             if role is None:
-                role = Role(name=name)
+                role = cls(name=name)
             role.reset_permissions()
             role.add_permission(permission)
             role.default = (role.name == RoleName.Default)
             session.add(role)
 
-    def has_permission(self, perm: Permission):
+    def has_permission(self, perm: Permission) -> bool:
         return self.permissions & perm.value == perm.value
 
-    def add_permission(self, perm: Permission):
+    def add_permission(self, perm: Permission) -> None:
         if not self.has_permission(perm):
             self.permissions += perm.value
 
-    def remove_permission(self, perm: Permission):
+    def remove_permission(self, perm: Permission) -> None:
         if self.has_permission(perm):
             self.permissions -= perm.value
 
-    def reset_permissions(self):
+    def reset_permissions(self) -> None:
         self.permissions = 0
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Role({self.name})>"
 
 
@@ -376,7 +376,7 @@ class User(Base, UserMixin):
         return result.scalars().one_or_none()
 
     @classmethod
-    async def insert_gaia(cls, session: AsyncSession):
+    async def insert_gaia(cls, session: AsyncSession) -> None:
         stmt = select(User).where(User.username == "Ouranos")
         result = await session.execute(stmt)
         gaia = result.scalars().first()
@@ -392,27 +392,21 @@ class User(Base, UserMixin):
             )
             session.add(gaia)
 
-    def set_password(self, password: str):
+    def set_password(self, password: str) -> None:
         self.password_hash = argon2_hasher.hash(password)
 
-    def check_password(self, password):
+    def check_password(self, password) -> bool:
         try:
             return argon2_hasher.verify(self.password_hash, password)
         except VerificationError:
             return False
 
-    def validate_email(self, email_address: str):
+    def validate_email(self, email_address: str) -> None:
         if re.match(r"^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$", email_address) is not None:
             self.email = email_address
 
-    def can(self, perm: Permission):
+    def can(self, perm: Permission) -> bool:
         return self.role is not None and self.role.has_permission(perm)
-
-    def avatar(self, size):
-        digest = md5(
-            self.email.lower().encode("utf-8"), usedforsecurity=False
-        ).hexdigest()
-        return f"https://www.gravatar.com/avatar/{digest}?d=identicon&s={size}"
 
     def create_token(
             self,
@@ -461,25 +455,6 @@ class User(Base, UserMixin):
         if cor_role_name is not None:
             payload.update({"role": cor_role_name.name})
         return Tokenizer.dumps(payload)
-
-    @staticmethod
-    def load_from_token(token: str, token_use: str):
-        # TODO: be explicit and use session
-        try:
-            payload = Tokenizer.loads(token)
-        except (ExpiredTokenError, InvalidTokenError):
-            return None
-        if payload.get("use") != token_use:
-            return
-        user_id = payload.get("user_id", 0)
-        return User.query.get(user_id)
-
-    @staticmethod
-    def token_can(token: str, perm: int, usage: str = None) -> bool:
-        user = User.load_from_token(token, usage)
-        if user:
-            return user.can(perm)
-        return False
 
 
 class ServiceLevel(Enum):
@@ -543,7 +518,7 @@ class Service(Base):
 
 
 channels_definition = [
-    "telegram"
+    "telegram",
 ]
 
 
