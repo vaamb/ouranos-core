@@ -22,61 +22,6 @@ def safe_enum_or_none_from_name(
     return None
 
 
-class EcosystemCreationPayload(BaseModel):
-    engine_uid: str
-    name: str
-    status: bool = False
-    management: int = 0
-    day_start: time = time(8, 00)
-    night_start: time = time(20, 00)
-    engine_uid: str
-
-
-class EcosystemUpdatePayload(BaseModel):
-    name: Optional[str] = None
-    status: Optional[bool] = None
-    management: Optional[int] = None
-    day_start: Optional[time] = None
-    night_start: Optional[time] = None
-    engine_uid: Optional[str] = None
-
-
-class EcosystemManagementUpdatePayload(BaseModel):
-    sensors: Optional[bool] = None
-    light: Optional[bool] = None
-    climate: Optional[bool] = None
-    watering: Optional[bool] = None
-    health: Optional[bool] = None
-    alarms: Optional[bool] = None
-    pictures: Optional[bool] = None
-    database: Optional[bool] = None
-
-
-class EcosystemLightingUpdatePayload(BaseModel):
-    method: gv.LightMethod
-
-    @field_validator("method", mode="before")
-    def parse_method(cls, value):
-        return safe_enum_from_name(gv.LightMethod, value)
-
-
-class EnvironmentParameterCreationPayload(BaseModel):
-    parameter: gv.ClimateParameter
-    day: float
-    night: float
-    hysteresis: float = 0.0
-
-    @field_validator("parameter", mode="before")
-    def parse_parameter(cls, value):
-        return safe_enum_from_name(gv.ClimateParameter, value)
-
-
-class EnvironmentParameterUpdatePayload(BaseModel):
-    day: Optional[float] = None
-    night: Optional[float] = None
-    hysteresis: Optional[float] = None
-
-
 class HardwareCreationPayload_NoEcoUid(BaseModel):
     name: str
     level: gv.HardwareLevel
