@@ -25,10 +25,10 @@ from ouranos.web_server.validate.gaia.ecosystem import (
     EnvironmentParameterCreationPayload, EnvironmentParameterUpdatePayload,
     EnvironmentParameterInfo,
     EcosystemActuatorStatus)
-from ouranos.web_server.validate.payload.gaia import (
-    HardwareCreationPayload_NoEcoUid)
+from ouranos.web_server.validate.gaia.hardware import (
+    HardwareCreationPayload_NoEcoUid, HardwareInfo)
 from ouranos.web_server.validate.response.gaia import (
-    EcosystemSensorData, HardwareInfo, SensorSkeletonInfo)
+    EcosystemSensorData, SensorSkeletonInfo)
 
 
 dispatcher: AsyncDispatcher = DispatcherFactory.get("application-internal")

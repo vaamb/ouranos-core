@@ -5,37 +5,10 @@ from pydantic import Field, field_serializer
 
 import gaia_validators as gv
 
-from ouranos.core.database.models.gaia import Plant, SensorRecord
+from ouranos.core.database.models.gaia import SensorRecord
 from ouranos.core.validate.base import BaseModel
 from ouranos.core.validate.utils import sqlalchemy_to_pydantic
-
-
-class MeasureInfo(BaseModel):
-    name: str
-    unit: Optional[str]
-
-
-PlantInfo = sqlalchemy_to_pydantic(
-    Plant,
-    base=BaseModel
-)
-
-
-class HardwareInfo(BaseModel):
-    uid: str
-    ecosystem_uid: str
-    name: str
-    level: gv.HardwareLevel
-    address: str
-    type: gv.HardwareType
-    model: str
-    last_log: Optional[datetime] = None
-    measures: list[MeasureInfo]
-    plants: list[PlantInfo]
-
-    @field_serializer("type")
-    def serialize_group(self, type: gv.HardwareType, _info):
-        return type.name
+from ouranos.web_server.validate.gaia.hardware import MeasureInfo, PlantInfo
 
 
 EcosystemSensorDataUnit = sqlalchemy_to_pydantic(
@@ -48,24 +21,6 @@ EcosystemSensorDataUnit = sqlalchemy_to_pydantic(
 class EcosystemSensorData(BaseModel):
     ecosystem_uid: str
     data: list[EcosystemSensorDataUnit]
-
-
-class EcosystemActuatorStatus(BaseModel):
-    ecosystem_uid: str
-    light: gv.ActuatorState = gv.ActuatorState()
-    cooler: gv.ActuatorState = gv.ActuatorState()
-    heater: gv.ActuatorState = gv.ActuatorState()
-    humidifier: gv.ActuatorState = gv.ActuatorState()
-    dehumidifier: gv.ActuatorState = gv.ActuatorState()
-
-
-class HardwareModelInfo(BaseModel):
-    model: str
-    type: gv.HardwareType
-
-    @field_serializer("type")
-    def serialize_group(self, type: gv.HardwareType, _info):
-        return type.name
 
 
 class SkSensorBaseInfo(BaseModel):
