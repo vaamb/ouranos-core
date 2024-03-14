@@ -16,10 +16,14 @@ from ouranos.web_server.routes.gaia.utils import (
     ecosystem_or_abort, ecosystems_uid_q, hardware_level_q)
 from ouranos.web_server.validate.base import ResultResponse, ResultStatus
 from ouranos.web_server.validate.gaia.hardware import (
-    HardwareCreationPayload, HardwareInfo, HardwareModelInfo, HardwareUpdatePayload)
+    HardwareInfo, HardwareModelInfo, HardwareUpdatePayload)
 
 
 dispatcher: AsyncDispatcher = DispatcherFactory.get("application-internal")
+
+
+class HardwareCreationPayload(gv.AnonymousHardwareConfig):
+    ecosystem_uid: str
 
 
 router = APIRouter(

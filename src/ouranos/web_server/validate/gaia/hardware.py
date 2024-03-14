@@ -26,29 +26,6 @@ def safe_enum_or_none_from_name(
     return None
 
 
-class HardwareCreationPayload_NoEcoUid(BaseModel):
-    name: str
-    level: gv.HardwareLevel
-    address: str
-    type: gv.HardwareType
-    model: str
-    measures: list[str] | None = None
-    plants: list[str] | None = None
-    multiplexer_model: str | None = None
-
-    @field_validator("level", mode="before")
-    def parse_level(cls, value):
-        return safe_enum_from_name(gv.HardwareLevel, value)
-
-    @field_validator("type", mode="before")
-    def parse_type(cls, value):
-        return safe_enum_from_name(gv.HardwareType, value)
-
-
-class HardwareCreationPayload(HardwareCreationPayload_NoEcoUid):
-    ecosystem_uid: str
-
-
 class HardwareUpdatePayload(BaseModel):
     ecosystem_uid: str | None = None
     name: str | None = None
@@ -69,28 +46,11 @@ class HardwareUpdatePayload(BaseModel):
         return safe_enum_or_none_from_name(gv.HardwareType, value)
 
 
-class MeasureInfo(BaseModel):
-    name: str
-    unit: str | None
-
-
-PlantInfo = sqlalchemy_to_pydantic(
-    Plant,
-    base=BaseModel
-)
-
-
-class HardwareInfo(BaseModel):
-    uid: str
+class HardwareInfo(gv.HardwareConfig):
     ecosystem_uid: str
-    name: str
-    level: gv.HardwareLevel
-    address: str
-    type: gv.HardwareType
-    model: str
     last_log: datetime | None = None
-    measures: list[MeasureInfo]
-    plants: list[PlantInfo]
+    measures: list[gv.Measure]
+    plants: list[str]
 
     @field_serializer("type")
     def serialize_group(self, type: gv.HardwareType, _info):

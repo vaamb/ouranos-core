@@ -2,28 +2,19 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import Field, field_serializer
+from pydantic import ConfigDict, Field
 
 import gaia_validators as gv
 
 from ouranos.core.database.models.gaia import SensorRecord
 from ouranos.core.validate.base import BaseModel
 from ouranos.core.validate.utils import sqlalchemy_to_pydantic
-from ouranos.web_server.validate.gaia.hardware import MeasureInfo, PlantInfo
+from ouranos.web_server.validate.gaia.hardware import HardwareInfo
 
 
-EcosystemSensorDataUnit = sqlalchemy_to_pydantic(
-    SensorRecord,
-    base=BaseModel,
-    exclude=["id"]
-)
-
-
-class EcosystemSensorData(BaseModel):
-    ecosystem_uid: str
-    data: list[EcosystemSensorDataUnit]
-
-
+# ---------------------------------------------------------------------------
+#   Sensors skeleton
+# ---------------------------------------------------------------------------
 class SkSensorBaseInfo(BaseModel):
     uid: str
     name: str
@@ -41,6 +32,21 @@ class SensorSkeletonInfo(BaseModel):
     name: str
     level: list[gv.HardwareLevel]
     sensors_skeleton: list[SkMeasureBaseInfo]
+
+
+# ---------------------------------------------------------------------------
+#   Current sensor data
+# ---------------------------------------------------------------------------
+_SensorRecordModel = sqlalchemy_to_pydantic(
+    SensorRecord,
+    base=BaseModel,
+    exclude=["id"]
+)
+
+
+class EcosystemSensorData(BaseModel):
+    ecosystem_uid: str
+    data: list[_SensorRecordModel]
 
 
 class SensorCurrentTimedValue(BaseModel):
@@ -61,19 +67,9 @@ class SensorOverviewData(BaseModel):
     historic: list[SensorHistoricTimedValue] | None = None
 
 
-class SensorOverview(BaseModel):
-    uid: str
-    ecosystem_uid: str
-    name: str
-    level: gv.HardwareLevel
-    address: str
-    type: gv.HardwareType
-    model: str
-    last_log: datetime | None
-    measures: list[MeasureInfo]
-    plants: list[PlantInfo]
+class SensorOverview(HardwareInfo):
     data: SensorOverviewData | None
 
-    @field_serializer("type")
-    def serialize_group(self, type: gv.HardwareType, _info):
-        return type.name
+    model_config = ConfigDict(
+        extra="allow",
+    )

@@ -11,7 +11,6 @@ from ouranos.web_server.dependencies import get_session, get_time_window
 from ouranos.web_server.routes.gaia.utils import (
     ecosystems_uid_q, hardware_level_q)
 from ouranos.web_server.routes.utils import assert_single_uid
-from ouranos.web_server.validate.gaia.hardware import MeasureInfo
 from ouranos.web_server.validate.gaia.sensor import (
     SensorCurrentTimedValue, SensorHistoricTimedValue, SensorOverview)
 
@@ -75,7 +74,7 @@ async def get_sensors(
     ]
 
 
-@router.get("/measures_available", response_model=list[MeasureInfo])
+@router.get("/measures_available", response_model=list[gv.Measure])
 async def get_measures_available(session: AsyncSession = Depends(get_session)):
     measures = await Measure.get_multiple(session)
     return measures

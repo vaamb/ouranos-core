@@ -25,8 +25,7 @@ from ouranos.web_server.validate.gaia.ecosystem import (
     EnvironmentParameterCreationPayload, EnvironmentParameterUpdatePayload,
     EnvironmentParameterInfo,
     EcosystemActuatorStatus)
-from ouranos.web_server.validate.gaia.hardware import (
-    HardwareCreationPayload_NoEcoUid, HardwareInfo)
+from ouranos.web_server.validate.gaia.hardware import HardwareInfo
 from ouranos.web_server.validate.gaia.sensor import (
     EcosystemSensorData, SensorSkeletonInfo)
 
@@ -565,7 +564,7 @@ async def delete_environment_parameters(
 async def create_ecosystem_hardware(
         response: Response,
         id: str = id_param,
-        payload: HardwareCreationPayload_NoEcoUid = Body(
+        payload: gv.AnonymousHardwareConfig = Body(
             description="Information about the new hardware"),
         session: AsyncSession = Depends(get_session)
 ):
