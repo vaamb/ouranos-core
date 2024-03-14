@@ -27,7 +27,7 @@ from ouranos.web_server.validate.gaia.ecosystem import (
     EcosystemActuatorStatus)
 from ouranos.web_server.validate.gaia.hardware import (
     HardwareCreationPayload_NoEcoUid, HardwareInfo)
-from ouranos.web_server.validate.response.gaia import (
+from ouranos.web_server.validate.gaia.sensor import (
     EcosystemSensorData, SensorSkeletonInfo)
 
 

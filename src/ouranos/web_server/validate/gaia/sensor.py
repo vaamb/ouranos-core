@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 from datetime import datetime
 
-from typing import Optional
 from pydantic import Field, field_serializer
 
 import gaia_validators as gv
@@ -26,12 +27,12 @@ class EcosystemSensorData(BaseModel):
 class SkSensorBaseInfo(BaseModel):
     uid: str
     name: str
-    unit: Optional[str]
+    unit: str | None = None
 
 
 class SkMeasureBaseInfo(BaseModel):
     measure: str
-    units: list[Optional[str]]
+    units: list[str]
     sensors: list[SkSensorBaseInfo]
 
 
@@ -56,8 +57,8 @@ class SensorHistoricTimedValue(BaseModel):
 
 
 class SensorOverviewData(BaseModel):
-    current: Optional[list[SensorCurrentTimedValue]] = None
-    historic: Optional[list[SensorHistoricTimedValue]] = None
+    current: list[SensorCurrentTimedValue] | None = None
+    historic: list[SensorHistoricTimedValue] | None = None
 
 
 class SensorOverview(BaseModel):
@@ -68,10 +69,10 @@ class SensorOverview(BaseModel):
     address: str
     type: gv.HardwareType
     model: str
-    last_log: Optional[datetime]
+    last_log: datetime | None
     measures: list[MeasureInfo]
     plants: list[PlantInfo]
-    data: Optional[SensorOverviewData]
+    data: SensorOverviewData | None
 
     @field_serializer("type")
     def serialize_group(self, type: gv.HardwareType, _info):

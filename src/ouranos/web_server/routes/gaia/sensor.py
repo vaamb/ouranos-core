@@ -11,9 +11,9 @@ from ouranos.web_server.dependencies import get_session, get_time_window
 from ouranos.web_server.routes.gaia.utils import (
     ecosystems_uid_q, hardware_level_q)
 from ouranos.web_server.routes.utils import assert_single_uid
-from ouranos.web_server.validate.response.gaia import (
-    MeasureInfo, SensorCurrentTimedValue, SensorHistoricTimedValue,
-    SensorOverview)
+from ouranos.web_server.validate.gaia.hardware import MeasureInfo
+from ouranos.web_server.validate.gaia.sensor import (
+    SensorCurrentTimedValue, SensorHistoricTimedValue, SensorOverview)
 
 
 router = APIRouter(
