@@ -8,8 +8,7 @@ from ouranos.web_server.auth import is_operator
 from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.routes.utils import assert_single_uid
 from ouranos.web_server.validate.base import ResultResponse, ResultStatus
-from ouranos.web_server.validate.response.gaia import (
-    CrudRequestInfo, EngineInfo)
+from ouranos.web_server.validate.gaia.engine import CrudRequestInfo, EngineInfo
 
 
 router = APIRouter(

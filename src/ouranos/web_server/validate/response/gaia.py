@@ -5,25 +5,9 @@ from pydantic import Field, field_serializer
 
 import gaia_validators as gv
 
-from ouranos.core.database.models.gaia import (
-    CrudRequest, Engine, Plant, SensorRecord)
+from ouranos.core.database.models.gaia import Plant, SensorRecord
 from ouranos.core.validate.base import BaseModel
 from ouranos.core.validate.utils import sqlalchemy_to_pydantic
-
-
-class EcosystemSummary(BaseModel):
-    uid: str
-    name: str
-
-
-EngineInfo = sqlalchemy_to_pydantic(
-    Engine,
-    base=BaseModel,
-    extra_fields={
-        "connected": (bool, ...),
-        "ecosystems": (list[EcosystemSummary], ...)
-    }
-)
 
 
 class MeasureInfo(BaseModel):
@@ -137,12 +121,3 @@ class SensorOverview(BaseModel):
     @field_serializer("type")
     def serialize_group(self, type: gv.HardwareType, _info):
         return type.name
-
-
-CrudRequestInfo = sqlalchemy_to_pydantic(
-    CrudRequest,
-    base=BaseModel,
-    extra_fields={
-        "completed": (bool, ...),
-    }
-)
