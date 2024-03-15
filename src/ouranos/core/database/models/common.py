@@ -69,9 +69,14 @@ class BaseSensorData(Base):
     __abstract__ = True
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    measure: Mapped[str] = mapped_column(sa.String(32))
     timestamp: Mapped[datetime] = mapped_column(UtcDateTime)
     value: Mapped[float] = mapped_column(sa.Float(precision=2))
+
+    @declared_attr
+    def measure(cls) -> Mapped[str]:
+        return mapped_column(
+            sa.String(length=32), sa.ForeignKey("measures.name"), index=True
+        )
 
     @declared_attr
     def ecosystem_uid(cls) -> Mapped[str]:
