@@ -7,7 +7,7 @@ from ouranos.core.database.models.system import SystemRecord
 from ouranos.core.utils import timeWindow
 from ouranos.web_server.auth import is_admin
 from ouranos.web_server.dependencies import get_session, get_time_window
-from ouranos.web_server.validate.response.system import SystemRecordResponse
+from ouranos.web_server.validate.system import SystemData
 
 
 router = APIRouter(
@@ -23,7 +23,7 @@ async def get_current_system_data():
     return consts.START_TIME
 
 
-@router.get("/data/current", response_model=SystemRecordResponse)
+@router.get("/data/current", response_model=SystemData)
 async def get_current_system_data(
         session: AsyncSession = Depends(get_session),
 ):
@@ -35,7 +35,7 @@ async def get_current_system_data(
     }
 
 
-@router.get("/data/historic", response_model=SystemRecordResponse)
+@router.get("/data/historic", response_model=SystemData)
 async def get_historic_system_data(
         time_window: timeWindow = Depends(get_time_window),
         session: AsyncSession = Depends(get_session),

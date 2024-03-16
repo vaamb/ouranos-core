@@ -3,13 +3,13 @@ from ouranos.core.validate.base import BaseModel
 from ouranos.core.validate.utils import sqlalchemy_to_pydantic
 
 
-class LoggingPeriodResponse(BaseModel):
+class LoggingPeriodInfo(BaseModel):
     weather: int
     system: int
     sensors: int
 
 
-class FlashMessageResponse(BaseModel):
+class FlashMessageInfo(BaseModel):
     level: int
     title: str
     description: str

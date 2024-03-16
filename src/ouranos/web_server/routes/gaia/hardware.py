@@ -14,12 +14,9 @@ from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.routes.utils import assert_single_uid
 from ouranos.web_server.routes.gaia.utils import (
     ecosystem_or_abort, ecosystems_uid_q, hardware_level_q)
-from ouranos.web_server.validate.payload.gaia import (
-    HardwareCreationPayload, HardwareUpdatePayload)
-from ouranos.web_server.validate.response.base import (
-    ResultResponse, ResultStatus)
-from ouranos.web_server.validate.response.gaia import (
-    HardwareInfo, HardwareModelInfo)
+from ouranos.web_server.validate.base import ResultResponse, ResultStatus
+from ouranos.web_server.validate.gaia.hardware import (
+    HardwareCreationPayload, HardwareInfo, HardwareModelInfo, HardwareUpdatePayload)
 
 
 dispatcher: AsyncDispatcher = DispatcherFactory.get("application-internal")

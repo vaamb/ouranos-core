@@ -5,11 +5,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ouranos.core.database.models.app import CalendarEvent, UserMixin
 from ouranos.web_server.auth import get_current_user, is_authenticated
 from ouranos.web_server.dependencies import get_session
-from ouranos.web_server.validate.payload.calendar import (
-    EventCreationPayload, EventUpdatePayload)
-from ouranos.web_server.validate.response.base import (
-    ResultResponse, ResultStatus)
-from ouranos.web_server.validate.response.calendar import EventResult
+from ouranos.web_server.validate.base import ResultResponse, ResultStatus
+from ouranos.web_server.validate.calendar import (
+    EventCreationPayload, EventUpdatePayload, EventInfo)
 
 
 router = APIRouter(
@@ -23,7 +21,7 @@ router = APIRouter(
 
 
 @router.get("",
-            response_model=list[EventResult],
+            response_model=list[EventInfo],
             dependencies=[Depends(is_authenticated)])
 async def get_events(
         limit: int = Query(default=8, description="The number of events to fetch"),

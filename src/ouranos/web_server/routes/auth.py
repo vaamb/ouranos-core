@@ -15,9 +15,9 @@ from ouranos.web_server.auth import (
     Authenticator, basic_auth, check_invitation_token, get_current_user,
     login_manager, is_admin)
 from ouranos.web_server.dependencies import get_session
-from ouranos.web_server.validate.payload.auth import UserPayload
-from ouranos.web_server.validate.response.auth import LoginResponse, UserInfo
-from ouranos.web_server.validate.response.base import BaseResponse
+from ouranos.web_server.validate.auth import (
+    LoginInfo, UserCreationPayload, UserInfo)
+from ouranos.web_server.validate.base import BaseResponse
 
 
 regex_email = re.compile(r"^[\-\w\.]+@([\w\-]+\.)+[\w\-]{2,4}$")  # Oversimplified but ok
@@ -35,7 +35,7 @@ router = APIRouter(
 )
 
 
-@router.get("/login", response_model=LoginResponse)
+@router.get("/login", response_model=LoginInfo)
 async def login(
         remember: bool = False,
         authenticator: Authenticator = Depends(login_manager),
@@ -76,7 +76,7 @@ def get_current_user(
              response_model=UserInfo)
 async def register_new_user(
         invitation_token: str = Query(description="The invitation token received"),
-        payload: UserPayload = Body(
+        payload: UserCreationPayload = Body(
             description="Information about the new user"),
         authenticator: Authenticator = Depends(login_manager),
         current_user: UserMixin = Depends(get_current_user),

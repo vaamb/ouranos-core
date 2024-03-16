@@ -17,17 +17,17 @@ from ouranos.web_server.dependencies import get_session, get_time_window
 from ouranos.web_server.routes.utils import assert_single_uid
 from ouranos.web_server.routes.gaia.utils import (
     ecosystem_or_abort, ecosystems_uid_q, hardware_level_q)
-from ouranos.web_server.validate.payload.gaia import (
-    EcosystemCreationPayload, EcosystemManagementUpdatePayload,
-    EcosystemLightingUpdatePayload, EcosystemUpdatePayload,
+from ouranos.web_server.validate.base import ResultResponse, ResultStatus
+from ouranos.web_server.validate.gaia.ecosystem import (
+    EcosystemCreationPayload, EcosystemUpdatePayload, EcosystemInfo,
+    EcosystemManagementUpdatePayload, EcosystemManagementInfo, ManagementInfo,
+    EcosystemLightMethodUpdatePayload, EcosystemLightInfo,
     EnvironmentParameterCreationPayload, EnvironmentParameterUpdatePayload,
-    HardwareCreationPayload_NoEcoUid)
-from ouranos.web_server.validate.response.base import (
-    ResultResponse, ResultStatus)
-from ouranos.web_server.validate.response.gaia import (
-    EcosystemActuatorStatus, EcosystemInfo, EcosystemLightInfo,
-    EcosystemManagementInfo, EnvironmentParameterInfo, ManagementInfo,
-    EcosystemSensorData, HardwareInfo, SensorSkeletonInfo)
+    EnvironmentParameterInfo,
+    EcosystemActuatorInfo)
+from ouranos.web_server.validate.gaia.hardware import HardwareInfo
+from ouranos.web_server.validate.gaia.sensor import (
+    EcosystemSensorData, SensorSkeletonInfo)
 
 
 dispatcher: AsyncDispatcher = DispatcherFactory.get("application-internal")
@@ -360,7 +360,7 @@ async def get_ecosystem_lighting(
 async def update_ecosystem_lighting(
         response: Response,
         id: str = id_param,
-        payload: EcosystemLightingUpdatePayload = Body(
+        payload: EcosystemLightMethodUpdatePayload = Body(
             description="Updated information about the ecosystem management"),
         session: AsyncSession = Depends(get_session)
 ):
@@ -564,7 +564,7 @@ async def delete_environment_parameters(
 async def create_ecosystem_hardware(
         response: Response,
         id: str = id_param,
-        payload: HardwareCreationPayload_NoEcoUid = Body(
+        payload: gv.AnonymousHardwareConfig = Body(
             description="Information about the new hardware"),
         session: AsyncSession = Depends(get_session)
 ):
@@ -647,7 +647,7 @@ async def get_ecosystem_current_data(
 # ------------------------------------------------------------------------------
 #   Ecosystem actuators state
 # ------------------------------------------------------------------------------
-@router.get("/actuators_status", response_model=list[EcosystemActuatorStatus])
+@router.get("/actuators_status", response_model=list[EcosystemActuatorInfo])
 async def get_ecosystems_actuators_status(
         ecosystems_id: list[str] | None = ecosystems_uid_q,
         in_config: bool | None = in_config_query,
@@ -664,7 +664,7 @@ async def get_ecosystems_actuators_status(
     return response
 
 
-@router.get("/u/{id}/actuators_status", response_model=EcosystemActuatorStatus)
+@router.get("/u/{id}/actuators_status", response_model=EcosystemActuatorInfo)
 async def get_ecosystem_actuator_types_managed(
         id: str = id_param,
         session: AsyncSession = Depends(get_session)
