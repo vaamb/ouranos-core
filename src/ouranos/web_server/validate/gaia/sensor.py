@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import ConfigDict, Field
+from pydantic import Field
 
 import gaia_validators as gv
 
@@ -15,23 +15,23 @@ from ouranos.web_server.validate.gaia.hardware import HardwareInfo
 # ---------------------------------------------------------------------------
 #   Sensors skeleton
 # ---------------------------------------------------------------------------
-class SkSensorBaseInfo(BaseModel):
+class _SkSensorBaseInfo(BaseModel):
     uid: str
     name: str
     unit: str | None = None
 
 
-class SkMeasureBaseInfo(BaseModel):
+class _SkMeasureBaseInfo(BaseModel):
     measure: str
-    units: list[str]
-    sensors: list[SkSensorBaseInfo]
+    units: list[str] = Field(default_factory=list)
+    sensors: list[_SkSensorBaseInfo]
 
 
 class SensorSkeletonInfo(BaseModel):
     ecosystem_uid: str = Field(alias="uid")
     name: str
     level: list[gv.HardwareLevel]
-    sensors_skeleton: list[SkMeasureBaseInfo]
+    sensors_skeleton: list[_SkMeasureBaseInfo]
 
 
 # ---------------------------------------------------------------------------
@@ -68,8 +68,4 @@ class SensorOverviewData(BaseModel):
 
 
 class SensorOverview(HardwareInfo):
-    data: SensorOverviewData | None
-
-    model_config = ConfigDict(
-        extra="allow",
-    )
+    data: SensorOverviewData | None = None

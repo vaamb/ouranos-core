@@ -4,14 +4,12 @@ from datetime import datetime
 from enum import Enum
 from typing import Type, TypeVar
 
-from pydantic import field_validator, field_serializer
+from pydantic import ConfigDict, field_serializer
 
 import gaia_validators as gv
 from gaia_validators import safe_enum_from_name
 
-from ouranos.core.database.models.gaia import Plant
 from ouranos.core.validate.base import BaseModel
-from ouranos.core.validate.utils import sqlalchemy_to_pydantic
 
 
 T = TypeVar("T", bound=Enum)
@@ -26,7 +24,11 @@ def safe_enum_or_none_from_name(
     return None
 
 
-class HardwareUpdatePayload(BaseModel):
+class HardwareCreationPayload(gv.AnonymousHardwareConfig):
+    ecosystem_uid: str
+
+
+class HardwareUpdatePayload(HardwareCreationPayload):
     ecosystem_uid: str | None = None
     name: str | None = None
     level: gv.HardwareLevel | None = None
@@ -34,26 +36,20 @@ class HardwareUpdatePayload(BaseModel):
     type: gv.HardwareType | None = None
     model: str | None = None
     status: bool | None = None
-    measure: list[str] | None = None
+    measures: list[str] | None = None
     plant_uid: list[str] | None = None
-
-    @field_validator("level", mode="before")
-    def parse_level(cls, value):
-        return safe_enum_or_none_from_name(gv.HardwareLevel, value)
-
-    @field_validator("type", mode="before")
-    def parse_type(cls, value):
-        return safe_enum_or_none_from_name(gv.HardwareType, value)
 
 
 class HardwareInfo(gv.HardwareConfig):
     ecosystem_uid: str
     last_log: datetime | None = None
-    measures: list[gv.Measure]
-    plants: list[str]
+
+    model_config = ConfigDict(
+        extra="ignore",
+    )
 
     @field_serializer("type")
-    def serialize_group(self, type: gv.HardwareType, _info):
+    def serialize_group(self, type: gv.HardwareType, _info) -> str:
         return type.name
 
 
