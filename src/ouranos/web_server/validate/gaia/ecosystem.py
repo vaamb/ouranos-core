@@ -3,12 +3,12 @@ from __future__ import annotations
 from datetime import time
 from typing import Optional
 
-from pydantic import Field, field_validator
+from pydantic import ConfigDict, Field, field_validator
 
 import gaia_validators as gv
 from gaia_validators import safe_enum_from_name
 
-from ouranos.core.database.models.gaia import Ecosystem, EnvironmentParameter
+from ouranos.core.database.models.gaia import Ecosystem
 from ouranos.core.validate.base import BaseModel
 from ouranos.core.validate.utils import sqlalchemy_to_pydantic
 
@@ -64,16 +64,8 @@ class ManagementInfo(BaseModel):
     value: int
 
 
-class EcosystemManagementInfo(BaseModel):
+class EcosystemManagementConfig(gv.ManagementConfig):
     ecosystem_uid: str = Field(alias="uid")
-    sensors: bool = False
-    light: bool = False
-    climate: bool = False
-    watering: bool = False
-    health: bool = False
-    alarms: bool = False
-    pictures: bool = False
-    database: bool = False
     switches: bool = False
     environment_data: bool = False
     plants_data: bool = False
@@ -82,7 +74,7 @@ class EcosystemManagementInfo(BaseModel):
 # ---------------------------------------------------------------------------
 #   Ecosystem lighting
 # ---------------------------------------------------------------------------
-class EcosystemLightingUpdatePayload(BaseModel):
+class EcosystemLightMethodUpdatePayload(BaseModel):
     method: gv.LightMethod
 
     @field_validator("method", mode="before")
@@ -90,27 +82,17 @@ class EcosystemLightingUpdatePayload(BaseModel):
         return safe_enum_from_name(gv.LightMethod, value)
 
 
-class EcosystemLightInfo(BaseModel):
+class EcosystemLightData(gv.LightData):
     ecosystem_uid: str
-    method: gv.LightMethod = gv.LightMethod.fixed
-    morning_start: time | None = None
-    morning_end: time | None = None
-    evening_start: time | None = None
-    evening_end: time | None = None
 
 
 # ---------------------------------------------------------------------------
 #   Ecosystem climate parameter
 # ---------------------------------------------------------------------------
-class EnvironmentParameterCreationPayload(BaseModel):
-    parameter: gv.ClimateParameter
-    day: float
-    night: float
-    hysteresis: float = 0.0
-
-    @field_validator("parameter", mode="before")
-    def parse_parameter(cls, value):
-        return safe_enum_from_name(gv.ClimateParameter, value)
+class EnvironmentParameterCreationPayload(gv.ClimateConfig):
+    model_config = ConfigDict(
+        extra="ignore",
+    )
 
 
 class EnvironmentParameterUpdatePayload(BaseModel):
@@ -119,20 +101,11 @@ class EnvironmentParameterUpdatePayload(BaseModel):
     hysteresis: float | None = None
 
 
-EnvironmentParameterInfo = sqlalchemy_to_pydantic(
-    EnvironmentParameter,
-    base=BaseModel,
-    exclude=["id"],
-)
+EnvironmentParameterInfo = EnvironmentParameterCreationPayload
 
 
 # ---------------------------------------------------------------------------
 #   Ecosystem actuators
 # ---------------------------------------------------------------------------
-class EcosystemActuatorStatus(BaseModel):
+class EcosystemActuatorData(gv.ActuatorsData):
     ecosystem_uid: str
-    light: gv.ActuatorState = gv.ActuatorState()
-    cooler: gv.ActuatorState = gv.ActuatorState()
-    heater: gv.ActuatorState = gv.ActuatorState()
-    humidifier: gv.ActuatorState = gv.ActuatorState()
-    dehumidifier: gv.ActuatorState = gv.ActuatorState()
