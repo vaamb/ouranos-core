@@ -9,7 +9,7 @@ from ouranos.web_server.auth import get_current_user, is_authenticated
 from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.routes.gaia.utils import ecosystems_uid_q
 from ouranos.web_server.validate.base import ResultResponse, ResultStatus
-from ouranos.web_server.validate.warning import WarningResult
+from ouranos.web_server.validate.warning import WarningInfo
 
 
 router = APIRouter(
@@ -19,7 +19,7 @@ router = APIRouter(
 )
 
 
-@router.get("", response_model=list[WarningResult], dependencies=[Depends(is_authenticated)])
+@router.get("", response_model=list[WarningInfo], dependencies=[Depends(is_authenticated)])
 async def get_warnings(
         ecosystems_uid: list[str] | None = ecosystems_uid_q,
         solved: bool = Query(default=False, description="Whether to retrieve solved warnings"),

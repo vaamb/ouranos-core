@@ -13,7 +13,7 @@ class UserCreationPayload(BaseModel):
     telegram_id: int | None = None
 
 
-class UserInfoResponse(BaseModel):
+class UserInfo(BaseModel):
     id: int = -1
     username: str | None = None
     firstname: str | None = None
@@ -23,6 +23,6 @@ class UserInfoResponse(BaseModel):
     is_confirmed: bool = False
 
 
-class LoginResponse(BaseResponse):
-    user: UserInfoResponse
+class LoginInfo(BaseResponse):
+    user: UserInfo
     session_token: str

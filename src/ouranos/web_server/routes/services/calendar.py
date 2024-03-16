@@ -7,7 +7,7 @@ from ouranos.web_server.auth import get_current_user, is_authenticated
 from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.validate.base import ResultResponse, ResultStatus
 from ouranos.web_server.validate.calendar import (
-    EventCreationPayload, EventUpdatePayload, EventResult)
+    EventCreationPayload, EventUpdatePayload, EventInfo)
 
 
 router = APIRouter(
@@ -21,7 +21,7 @@ router = APIRouter(
 
 
 @router.get("",
-            response_model=list[EventResult],
+            response_model=list[EventInfo],
             dependencies=[Depends(is_authenticated)])
 async def get_events(
         limit: int = Query(default=8, description="The number of events to fetch"),

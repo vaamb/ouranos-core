@@ -22,7 +22,7 @@ class EventUpdatePayload(BaseModel):
     end_time: datetime | None = None
 
 
-class EventResult(BaseModel):
+class EventInfo(BaseModel):
     id: int
     level: ImportanceLevel
     title: str

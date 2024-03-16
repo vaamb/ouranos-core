@@ -16,7 +16,7 @@ from ouranos.web_server.auth import (
     login_manager, is_admin)
 from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.validate.auth import (
-    LoginResponse, UserInfoResponse, UserCreationPayload)
+    LoginInfo, UserCreationPayload, UserInfo)
 from ouranos.web_server.validate.base import BaseResponse
 
 
@@ -35,7 +35,7 @@ router = APIRouter(
 )
 
 
-@router.get("/login", response_model=LoginResponse)
+@router.get("/login", response_model=LoginInfo)
 async def login(
         remember: bool = False,
         authenticator: Authenticator = Depends(login_manager),
@@ -64,7 +64,7 @@ async def logout(
     return BaseResponse(msg="Logged out")
 
 
-@router.get("/current_user", response_model=UserInfoResponse)
+@router.get("/current_user", response_model=UserInfo)
 def get_current_user(
         current_user: UserMixin = Depends(get_current_user)
 ):
@@ -73,7 +73,7 @@ def get_current_user(
 
 @router.post("/register",
              status_code=status.HTTP_201_CREATED,
-             response_model=UserInfoResponse)
+             response_model=UserInfo)
 async def register_new_user(
         invitation_token: str = Query(description="The invitation token received"),
         payload: UserCreationPayload = Body(

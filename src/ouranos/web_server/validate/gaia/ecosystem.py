@@ -64,7 +64,7 @@ class ManagementInfo(BaseModel):
     value: int
 
 
-class EcosystemManagementConfig(gv.ManagementConfig):
+class EcosystemManagementInfo(gv.ManagementConfig):
     ecosystem_uid: str = Field(alias="uid")
     switches: bool = False
     environment_data: bool = False
@@ -82,7 +82,7 @@ class EcosystemLightMethodUpdatePayload(BaseModel):
         return safe_enum_from_name(gv.LightMethod, value)
 
 
-class EcosystemLightData(gv.LightData):
+class EcosystemLightInfo(gv.LightData):
     ecosystem_uid: str
 
 
@@ -107,5 +107,5 @@ EnvironmentParameterInfo = EnvironmentParameterCreationPayload
 # ---------------------------------------------------------------------------
 #   Ecosystem actuators
 # ---------------------------------------------------------------------------
-class EcosystemActuatorData(gv.ActuatorsData):
+class EcosystemActuatorInfo(gv.ActuatorsData):
     ecosystem_uid: str

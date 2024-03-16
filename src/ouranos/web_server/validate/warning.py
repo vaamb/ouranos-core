@@ -6,7 +6,7 @@ from ouranos.core.database.models.common import ImportanceLevel
 from ouranos.core.validate.base import BaseModel
 
 
-class WarningResult(BaseModel):
+class WarningInfo(BaseModel):
     id: int
     level: ImportanceLevel
     title: str

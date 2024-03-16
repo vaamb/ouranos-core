@@ -20,11 +20,11 @@ from ouranos.web_server.routes.gaia.utils import (
 from ouranos.web_server.validate.base import ResultResponse, ResultStatus
 from ouranos.web_server.validate.gaia.ecosystem import (
     EcosystemCreationPayload, EcosystemUpdatePayload, EcosystemInfo,
-    EcosystemManagementUpdatePayload, EcosystemManagementConfig, ManagementInfo,
-    EcosystemLightMethodUpdatePayload, EcosystemLightData,
+    EcosystemManagementUpdatePayload, EcosystemManagementInfo, ManagementInfo,
+    EcosystemLightMethodUpdatePayload, EcosystemLightInfo,
     EnvironmentParameterCreationPayload, EnvironmentParameterUpdatePayload,
     EnvironmentParameterInfo,
-    EcosystemActuatorData)
+    EcosystemActuatorInfo)
 from ouranos.web_server.validate.gaia.hardware import HardwareInfo
 from ouranos.web_server.validate.gaia.sensor import (
     EcosystemSensorData, SensorSkeletonInfo)
@@ -225,7 +225,7 @@ async def get_managements_available():
     ]
 
 
-@router.get("/management", response_model=list[EcosystemManagementConfig])
+@router.get("/management", response_model=list[EcosystemManagementInfo])
 async def get_ecosystems_management(
         ecosystems_id: list[str] | None = ecosystems_uid_q,
         in_config: bool | None = in_config_query,
@@ -240,7 +240,7 @@ async def get_ecosystems_management(
     return response
 
 
-@router.get("/u/{id}/management", response_model=EcosystemManagementConfig)
+@router.get("/u/{id}/management", response_model=EcosystemManagementInfo)
 async def get_ecosystem_management(
         id: str = id_param,
         session: AsyncSession = Depends(get_session)
@@ -333,7 +333,7 @@ async def get_ecosystem_sensors_skeleton(
 #   Rem: there is no 'post' method as light info dict is automatically created
 #        upon ecosystem creation
 # ------------------------------------------------------------------------------
-@router.get("/light", response_model=list[EcosystemLightData])
+@router.get("/light", response_model=list[EcosystemLightInfo])
 async def get_ecosystems_light(
         ecosystems_id: list[str] | None = ecosystems_uid_q,
         session: AsyncSession = Depends(get_session)
@@ -342,7 +342,7 @@ async def get_ecosystems_light(
     return response
 
 
-@router.get("/u/{id}/light", response_model=EcosystemLightData)
+@router.get("/u/{id}/light", response_model=EcosystemLightInfo)
 async def get_ecosystem_lighting(
         id: str = id_param,
         session: AsyncSession = Depends(get_session)
@@ -647,7 +647,7 @@ async def get_ecosystem_current_data(
 # ------------------------------------------------------------------------------
 #   Ecosystem actuators state
 # ------------------------------------------------------------------------------
-@router.get("/actuators_status", response_model=list[EcosystemActuatorData])
+@router.get("/actuators_status", response_model=list[EcosystemActuatorInfo])
 async def get_ecosystems_actuators_status(
         ecosystems_id: list[str] | None = ecosystems_uid_q,
         in_config: bool | None = in_config_query,
@@ -664,7 +664,7 @@ async def get_ecosystems_actuators_status(
     return response
 
 
-@router.get("/u/{id}/actuators_status", response_model=EcosystemActuatorData)
+@router.get("/u/{id}/actuators_status", response_model=EcosystemActuatorInfo)
 async def get_ecosystem_actuator_types_managed(
         id: str = id_param,
         session: AsyncSession = Depends(get_session)
