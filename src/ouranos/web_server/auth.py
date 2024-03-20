@@ -194,7 +194,7 @@ async def load_user(
     if user_id is None:
         return anonymous_user
     user = await User.get(session, user_id)
-    if user is None:
+    if user is None or not user.active:
         return anonymous_user
     return user
 
