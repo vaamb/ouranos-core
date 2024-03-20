@@ -413,6 +413,7 @@ class User(Base, UserMixin):
             session: AsyncSession,
             role_name: RoleName | str | None = None,
             user_info: UserTokenInfoDict | None = None,
+            expiration_delay: int = REGISTRATION_TOKEN_VALIDITY,
     ) -> str:
         user_info = user_info or {}
         if role_name:
@@ -433,9 +434,11 @@ class User(Base, UserMixin):
                     cor_role_name = role.name
         if cor_role_name is not None:
             user_info["role"] = cor_role_name.name
+        if expiration_delay is None:
+            expiration_delay = REGISTRATION_TOKEN_VALIDITY
         token = Tokenizer.create_token(
             subject=TOKEN_SUBS.REGISTRATION.value,
-            expiration_delay=REGISTRATION_TOKEN_VALIDITY,
+            expiration_delay=expiration_delay,
         )
         return token
 

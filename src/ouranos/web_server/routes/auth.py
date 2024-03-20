@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from gaia_validators import safe_enum_from_name
 
+from ouranos.core.config.consts import REGISTRATION_TOKEN_VALIDITY
 from ouranos.core.database.models.app import (
     RoleName, User, UserMixin, UserTokenInfoDict)
 from ouranos.core.exceptions import DuplicatedEntry
@@ -131,7 +132,7 @@ async def register_new_user(
 @router.get("/registration_token", dependencies=[Depends(is_admin)])
 async def create_registration_token(
         username: str = Query(
-            default=None, description="The name of the future user"),
+            default=None, description="The user name of the future user"),
         firstname: str = Query(
             default=None, description="The firstname of the future user"),
         lastname: str = Query(
@@ -140,6 +141,11 @@ async def create_registration_token(
             default=None, description="The role of the future user"),
         email: str = Query(
             default=None, description="The email address of the future user"),
+        expires_in: int = Query(
+            default=REGISTRATION_TOKEN_VALIDITY,
+            description="The number of seconds before the token expires. "
+                        "Default to one day."
+        ),
         session: AsyncSession = Depends(get_session),
 ):
     if role is not None:
@@ -157,4 +163,5 @@ async def create_registration_token(
         "role": role,
         "email": email,
     }
-    return await User.create_invitation_token(session, user_info=user_info)
+    return await User.create_invitation_token(
+        session, user_info=user_info, expiration_delay=expires_in)
