@@ -201,6 +201,22 @@ class Tokenizer:
         except jwt.PyJWTError:
             raise TokenError
 
+    @staticmethod
+    def create_token(
+            subject: str,
+            expiration_delay: int = 60 * 60 * 24,
+            other_claims: dict | None = None,
+    ) -> str:
+        payload = {
+            "sub": subject,
+            "exp": datetime.now(timezone.utc) + timedelta(seconds=expiration_delay),
+        }
+        other_claims = other_claims or {}
+        for key, value in other_claims.items():
+            if value is not None:
+                payload[key] = value
+        return Tokenizer.dumps(payload)
+
 
 def time_to_datetime(_time: time | None) -> datetime | None:
     # return _time in case it is None

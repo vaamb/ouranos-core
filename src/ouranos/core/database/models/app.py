@@ -408,26 +408,12 @@ class User(Base, UserMixin):
     def can(self, perm: Permission) -> bool:
         return self.role is not None and self.role.has_permission(perm)
 
-    def create_token(
-            self,
-            payload: dict,
-            secret_key: str = None,
-            expires_in: int = 1800,
-            **kwargs
-    ) -> str:
-        payload.update({"user_id": self.id})
-        if expires_in:
-            payload.update({"exp": ctime.time() + expires_in})
-        for key, value in kwargs.items():
-            if value:
-                payload.update(**kwargs)
-        return Tokenizer.dumps(payload, secret_key)
-
     @staticmethod
     async def create_invitation_token(
             session: AsyncSession,
             role_name: RoleName | str | None = None,
             user_info: UserTokenInfoDict | None = None,
+            expiration_delay: int = REGISTRATION_TOKEN_VALIDITY,
     ) -> str:
         user_info = user_info or {}
         if role_name:
@@ -446,17 +432,15 @@ class User(Base, UserMixin):
             else:
                 if role.name != default_role.name:
                     cor_role_name = role.name
-        payload = {
-            "sub": TOKEN_SUBS.REGISTRATION.value,
-            "exp": datetime.now(timezone.utc) + timedelta(
-                seconds=REGISTRATION_TOKEN_VALIDITY),
-        }
-        for info, value in user_info.items():
-            if value is not None:
-                payload[info] = value
         if cor_role_name is not None:
-            payload.update({"role": cor_role_name.name})
-        return Tokenizer.dumps(payload)
+            user_info["role"] = cor_role_name.name
+        if expiration_delay is None:
+            expiration_delay = REGISTRATION_TOKEN_VALIDITY
+        token = Tokenizer.create_token(
+            subject=TOKEN_SUBS.REGISTRATION.value,
+            expiration_delay=expiration_delay,
+        )
+        return token
 
 
 class ServiceLevel(Enum):
