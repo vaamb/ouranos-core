@@ -39,7 +39,7 @@ router = APIRouter(
 @router.get("/login", response_model=LoginInfo)
 async def login(
         remember: bool = False,
-        authenticator: Authenticator = Depends(login_manager),
+        authenticator: Authenticator = Depends(login_manager.get_authenticator),
         credentials: HTTPBasicCredentials = Depends(basic_auth),
         session: AsyncSession = Depends(get_session),
 ):
@@ -56,7 +56,7 @@ async def login(
 
 @router.get("/logout", response_model=BaseResponse)
 async def logout(
-        authenticator: Authenticator = Depends(login_manager),
+        authenticator: Authenticator = Depends(login_manager.get_authenticator),
         current_user: UserMixin = Depends(get_current_user),
 ):
     if current_user.is_anonymous:
@@ -79,7 +79,7 @@ async def register_new_user(
         invitation_token: str = Query(description="The invitation token received"),
         payload: UserCreationPayload = Body(
             description="Information about the new user"),
-        authenticator: Authenticator = Depends(login_manager),
+        authenticator: Authenticator = Depends(login_manager.get_authenticator),
         current_user: UserMixin = Depends(get_current_user),
         session: AsyncSession = Depends(get_session),
 ):

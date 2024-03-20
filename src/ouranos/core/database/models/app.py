@@ -126,6 +126,7 @@ class UserMixin(ToDictMixin):
     username: str | None
     firstname: str | None
     lastname: str | None
+    active: bool
 
     @property
     def is_confirmed(self) -> bool:
@@ -148,12 +149,16 @@ class UserMixin(ToDictMixin):
     def can(self, perm: int) -> bool:
         raise NotImplementedError
 
+    def check_password(self, password: str) -> bool:
+        raise NotImplementedError
+
 
 class AnonymousUser(UserMixin):
     id: int = -1
     username: str | None = None
     firstname: str | None = None
     lastname: str | None = None
+    active = False
 
     @property
     def is_confirmed(self) -> bool:
@@ -171,6 +176,9 @@ class AnonymousUser(UserMixin):
         return
 
     def can(self, perm) -> bool:
+        return False
+
+    def check_password(self, password: str) -> bool:
         return False
 
 
@@ -205,14 +213,12 @@ class User(Base, UserMixin):
     id: Mapped[int] = mapped_column(primary_key=True)
     username: Mapped[str] = mapped_column(sa.String(64), index=True, unique=True)
     email: Mapped[str] = mapped_column(sa.String(64), index=True, unique=True)
-
-    # User authentication fields
     password_hash: Mapped[Optional[str]] = mapped_column(sa.String(128))
-    confirmed: Mapped[bool] = mapped_column(default=False)
     role_id: Mapped[int] = mapped_column(sa.ForeignKey("roles.id"))
 
-    # User registration fields
-    token: Mapped[Optional[str]] = mapped_column(sa.String(32))
+    # User account info fields
+    active: Mapped[bool] = mapped_column(default=True)
+    confirmed: Mapped[bool] = mapped_column(default=False)
     registration_datetime: Mapped[datetime] = mapped_column(
         UtcDateTime, default=func.current_timestamp())
 
@@ -395,7 +401,7 @@ class User(Base, UserMixin):
     def set_password(self, password: str) -> None:
         self.password_hash = argon2_hasher.hash(password)
 
-    def check_password(self, password) -> bool:
+    def check_password(self, password: str) -> bool:
         try:
             return argon2_hasher.verify(self.password_hash, password)
         except VerificationError:
