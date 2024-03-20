@@ -2,7 +2,7 @@
 #  FastAPI (via pydantic ?)
 from datetime import datetime, timedelta, timezone
 from hashlib import sha512
-from typing import Optional, Self
+from typing import Awaitable, Callable, cast, Optional, Self, Union
 
 from fastapi import Depends, HTTPException, Request, Response, status
 from fastapi.security.http import HTTPBasic, HTTPBearer
@@ -117,15 +117,15 @@ class SessionInfo(BaseModel):
 
 
 class Authenticator:
-    __slots__ = "_session", "request", "response"
+    __slots__ = "login_manager", "request", "response"
 
     def __init__(
             self,
-            session: AsyncSession,
+            login_manager: "LoginManager",
             request: Request,
             response: Response
     ):
-        self._session: AsyncSession = session
+        self.login_manager = login_manager
         self.request: Request = request
         self.response: Response = response
 
@@ -135,17 +135,14 @@ class Authenticator:
             username: str,
             password: str,
     ) -> User:
-        user = await User.get(session, username)
-        try:
-            password_correct = user.check_password(password)
-        except AttributeError:  # empty password
-            password_correct = False
-        if user is None or not password_correct:
+        user = await self.login_manager.get_user(session, user_id=username)
+        if not user.check_password(password):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect email or password",
                 headers={"WWW-Authenticate": "Basic"},
             )
+        user = cast(User, user)
         return user
 
     def login(self, user: User, remember: bool) -> str:
@@ -165,20 +162,22 @@ class LoginManager:
     def __init__(self):
         self._user_callback = None
 
-    def __call__(
+    def get_authenticator(
             self,
             request: Request,
             response: Response,
-            session: AsyncSession = Depends(get_session)
     ) -> Authenticator:
-        return Authenticator(session, request, response)
+        return Authenticator(self, request, response)
 
-    def user_loader(self, callback) -> None:
+    def user_loader(
+            self,
+            callback: Callable[[AsyncSession, Union[int, str]], Awaitable[UserMixin]]
+    ) -> None:
         self._user_callback = callback
 
-    def get_user(self, user_id: int, session) -> UserMixin:
+    def get_user(self, session: AsyncSession, user_id: Union[int, str]) -> Awaitable[UserMixin]:
         if self._user_callback:
-            return self._user_callback(user_id, session)
+            return self._user_callback(session, user_id)
         raise NotImplementedError(
             "Set your user_loader call back using `@login_manager.user_loader`"
         )
@@ -188,7 +187,12 @@ login_manager = LoginManager()
 
 
 @login_manager.user_loader
-async def load_user(user_id: Optional[int], session: AsyncSession) -> UserMixin:
+async def load_user(
+        session: AsyncSession,
+        user_id: Optional[Union[int, str]]
+) -> UserMixin:
+    if user_id is None:
+        return anonymous_user
     user = await User.get(session, user_id)
     if user is None:
         return anonymous_user
@@ -226,7 +230,7 @@ async def get_current_user(
     if session_info is None:
         return anonymous_user
     user_id = session_info.user_id
-    user = await login_manager.get_user(user_id, session)
+    user = await login_manager.get_user(session, user_id=user_id)
     return user
 
 

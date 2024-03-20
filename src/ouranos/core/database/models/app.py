@@ -149,6 +149,9 @@ class UserMixin(ToDictMixin):
     def can(self, perm: int) -> bool:
         raise NotImplementedError
 
+    def check_password(self, password: str) -> bool:
+        raise NotImplementedError
+
 
 class AnonymousUser(UserMixin):
     id: int = -1
@@ -173,6 +176,9 @@ class AnonymousUser(UserMixin):
         return
 
     def can(self, perm) -> bool:
+        return False
+
+    def check_password(self, password: str) -> bool:
         return False
 
 
@@ -395,7 +401,7 @@ class User(Base, UserMixin):
     def set_password(self, password: str) -> None:
         self.password_hash = argon2_hasher.hash(password)
 
-    def check_password(self, password) -> bool:
+    def check_password(self, password: str) -> bool:
         try:
             return argon2_hasher.verify(self.password_hash, password)
         except VerificationError:
