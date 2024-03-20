@@ -126,6 +126,7 @@ class UserMixin(ToDictMixin):
     username: str | None
     firstname: str | None
     lastname: str | None
+    active: bool
 
     @property
     def is_confirmed(self) -> bool:
@@ -154,6 +155,7 @@ class AnonymousUser(UserMixin):
     username: str | None = None
     firstname: str | None = None
     lastname: str | None = None
+    active = False
 
     @property
     def is_confirmed(self) -> bool:
@@ -205,14 +207,12 @@ class User(Base, UserMixin):
     id: Mapped[int] = mapped_column(primary_key=True)
     username: Mapped[str] = mapped_column(sa.String(64), index=True, unique=True)
     email: Mapped[str] = mapped_column(sa.String(64), index=True, unique=True)
-
-    # User authentication fields
     password_hash: Mapped[Optional[str]] = mapped_column(sa.String(128))
-    confirmed: Mapped[bool] = mapped_column(default=False)
     role_id: Mapped[int] = mapped_column(sa.ForeignKey("roles.id"))
 
-    # User registration fields
-    token: Mapped[Optional[str]] = mapped_column(sa.String(32))
+    # User account info fields
+    active: Mapped[bool] = mapped_column(default=True)
+    confirmed: Mapped[bool] = mapped_column(default=False)
     registration_datetime: Mapped[datetime] = mapped_column(
         UtcDateTime, default=func.current_timestamp())
 
