@@ -445,6 +445,7 @@ class User(Base, UserMixin):
         token = Tokenizer.create_token(
             subject=TOKEN_SUBS.REGISTRATION.value,
             expiration_delay=expiration_delay,
+            other_claims=user_info,
         )
         return token
 
