@@ -74,7 +74,7 @@ def get_current_user(
 
 @router.post("/register",
              status_code=status.HTTP_201_CREATED,
-             response_model=UserInfo)
+             response_model=LoginInfo)
 async def register_new_user(
         invitation_token: str = Query(description="The invitation token received"),
         payload: UserCreationPayload = Body(
@@ -125,8 +125,12 @@ async def register_new_user(
         )
     else:
         user = await User.get(session, username)
-        authenticator.login(user, False)
-        return user
+        token = authenticator.login(user, False)
+        return {
+            "msg": "You are registered.",
+            "user": user,
+            "session_token": token,
+        }
 
 
 @router.get("/registration_token", dependencies=[Depends(is_admin)])
