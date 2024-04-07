@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 import enum
 from enum import Enum, IntFlag, StrEnum
-from hashlib import md5
 import re
-import time as ctime
 from typing import Optional, Self, Sequence, TypedDict
 
 from argon2 import PasswordHasher
@@ -371,15 +369,7 @@ class User(Base, UserMixin):
         result = await session.execute(stmt)
         return result.scalar_one_or_none()
 
-    @classmethod
-    async def get_by_telegram_id(
-            cls,
-            session: AsyncSession,
-            telegram_id: int
-    ) -> Self:
-        stmt = select(cls).where(cls.telegram_id == telegram_id)
-        result = await session.execute(stmt)
-        return result.scalars().one_or_none()
+
 
     @classmethod
     async def insert_gaia(cls, session: AsyncSession) -> None:

@@ -1,3 +1,5 @@
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from fastapi import APIRouter, Depends, Query
 
 from ouranos import current_app
@@ -31,7 +33,7 @@ async def get_logging_config():
 @router.get("/services", response_model=list[ServiceInfo])
 async def get_services(
         level: ServiceLevel = Query(default=ServiceLevel.all),
-        session=Depends(get_session)
+        session: AsyncSession = Depends(get_session)
 ):
     services = await Service.get_multiple(session=session, level=level)
     return services
@@ -40,7 +42,7 @@ async def get_services(
 @router.get("/flash_messages", response_model=list[FlashMessageInfo])
 async def get_flash_messages(
         last: int = Query(default=10),
-        session=Depends(get_session)
+        session: AsyncSession = Depends(get_session)
 ):
     msgs = await FlashMessage.get_multiple(session=session, limit=last)
     return [msg.description for msg in msgs]
