@@ -17,10 +17,10 @@ from ouranos.core.validate.utils import sqlalchemy_to_pydantic
 #   Base ecosystem
 # ---------------------------------------------------------------------------
 class EcosystemCreationPayload(BaseModel):
-    engine_uid: str
     name: str
     status: bool = False
     management: int = 0
+    lighting_method: gv.LightMethod = gv.LightMethod.fixed
     day_start: time = time(8, 00)
     night_start: time = time(20, 00)
     engine_uid: str
@@ -30,6 +30,7 @@ class EcosystemUpdatePayload(BaseModel):
     name: str | None = None
     status: bool | None = None
     management: int | None = None
+    lighting_method: gv.LightMethod | None = None
     day_start: time | None = None
     night_start: time | None = None
     engine_uid: str | None = None
