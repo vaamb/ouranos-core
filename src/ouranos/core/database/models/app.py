@@ -23,7 +23,7 @@ from ouranos.core.database import ArchiveLink
 from ouranos.core.database.models.common import Base, ImportanceLevel, ToDictMixin
 from ouranos.core.database.models.types import UtcDateTime
 from ouranos.core.exceptions import DuplicatedEntry
-from ouranos.core.utils import Tokenizer
+from ouranos.core.utils import timeWindow, Tokenizer
 
 argon2_hasher = PasswordHasher()
 
@@ -255,6 +255,10 @@ class User(Base, UserMixin):
     def permissions(self) -> int:
         return self.role.permissions
 
+    @property
+    def role_name(self) -> RoleName:
+        return self.role.name
+
     async def compute_default_role(
             self,
             session: AsyncSession,
@@ -323,7 +327,7 @@ class User(Base, UserMixin):
             raise ValueError(
                 "Provide user_id either as a parameter or as a key in the updated info"
             )
-        password = values.pop("password")
+        password = values.pop("password", None)
         stmt = (
             update(cls)
             .where(
@@ -369,7 +373,29 @@ class User(Base, UserMixin):
         result = await session.execute(stmt)
         return result.scalar_one_or_none()
 
-
+    @classmethod
+    async def get_multiple(
+            cls,
+            session: AsyncSession,
+            registration_start_time: datetime | None = None,
+            registration_end_time: datetime | None = None,
+            confirmed: bool = False,
+            active: bool = False,
+            page: int = 0,
+            per_page: int = 20,
+    ) -> Sequence[Self]:
+        start_page: int = page * per_page
+        stmt = select(cls).offset(start_page).limit(per_page)
+        if registration_start_time is not None:
+            stmt = stmt.where(cls.registration_datetime >= registration_start_time)
+        if registration_end_time is not None:
+            stmt = stmt.where(registration_end_time >= cls.registration_datetime)
+        if confirmed:
+            stmt = stmt.where(cls.confirmed == True)
+        if active:
+            stmt = stmt.where(cls.active == True)
+        result = await session.execute(stmt)
+        return result.scalars().all()
 
     @classmethod
     async def insert_gaia(cls, session: AsyncSession) -> None:

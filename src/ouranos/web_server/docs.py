@@ -8,9 +8,13 @@ The following options are available
 Get information about the current app (such as its version, the services
 available ...)
 
-### Auth 🧑
+### Auth 🔒
 
 Register, login and get information about the current user
+
+### User 🧑
+
+Get and update information about the users
 
 ### Gaia 🌿
 
@@ -45,14 +49,18 @@ tags_metadata = [
         "description": "Authenticate and log user to access protected paths",
     },
     {
+        "name": "user",
+        "description": "Get information about the users and update them",
+    },
+    {
         "name": "gaia/engine",
         "description": "Consult the info about Gaia's registered engine"
     },
     {
         "name": "gaia/ecosystem",
         "description": "Manage Gaia's registered ecosystems. Rem creating, "
-                       "updating and deleting ecosystems to be logged in as "
-                       "an operator",
+                       "updating and deleting ecosystems require to be logged "
+                       "in as an operator",
     },
     {
         "name": "gaia/hardware",
