@@ -1,6 +1,10 @@
 from fastapi.testclient import TestClient
+import pytest
+
+from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
 from ouranos import json
+from ouranos.core.database.models.app import User
 
 
 def test_get_users_fail_not_admin(client_operator: TestClient):
@@ -49,24 +53,44 @@ def test_update_user_failure_different_user(client_user: TestClient):
     assert response.status_code == 403
 
 
-def test_update_user_success_same_user(client_user: TestClient):
-    payload = {"firstname": "Frank"}
+@pytest.mark.asyncio
+async def test_update_user_success_same_user(
+        client_user: TestClient,
+        db: AsyncSQLAlchemyWrapper,
+):
+    username = "Who"
+    firstname = "Alice"
+    payload = {"firstname": firstname}
 
     response = client_user.put(
-        "/api/user/u/Who",
+        f"/api/user/u/{username}",
         json=payload,
     )
     assert response.status_code == 202
 
+    async with db.scoped_session() as session:
+        user = await User.get(session, user_id=username)
+        assert user.firstname == firstname
 
-def test_update_user_success_admin(client_admin: TestClient):
-    payload = {"firstname": "Frank"}
+
+@pytest.mark.asyncio
+async def test_update_user_success_admin(
+        client_admin: TestClient,
+        db: AsyncSQLAlchemyWrapper,
+):
+    username = "Who"
+    firstname = "Bob"
+    payload = {"firstname": firstname}
 
     response = client_admin.put(
-        "/api/user/u/Who",
+        f"/api/user/u/{username}",
         json=payload,
     )
     assert response.status_code == 202
+
+    async with db.scoped_session() as session:
+        user = await User.get(session, user_id=username)
+        assert user.firstname == firstname
 
 
 def test_update_user_failure_other_admin(client_admin: TestClient):
