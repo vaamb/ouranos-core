@@ -121,7 +121,7 @@ async def test_register_success(db: AsyncSQLAlchemyWrapper, client: TestClient):
     )
     assert response.status_code == 201
     data = json.loads(response.text)
-    assert data["username"] == registration_payload["username"]
+    assert data["user"]["username"] == registration_payload["username"]
 
 
 @pytest.mark.asyncio
@@ -140,8 +140,7 @@ async def test_register_success_override(db: AsyncSQLAlchemyWrapper, client: Tes
     assert response.status_code == 201
 
     data = json.loads(response.text)
-    assert data["username"] == username
-    # assert data["email"] == email
+    assert data["user"]["username"] == username
 
 
 def test_registration_token_failure(client: TestClient):
