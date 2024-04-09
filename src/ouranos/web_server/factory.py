@@ -140,6 +140,11 @@ def create_app(config: dict | None = None) -> FastAPI:
     auth_router.default_response_class = JSONResponse
     prefix.include_router(auth_router)
 
+    logger.debug("Loading user-related routes")
+    from ouranos.web_server.routes.user import router as user_router
+    user_router.default_response_class = JSONResponse
+    prefix.include_router(user_router)
+
     logger.debug("Loading gaia-related routes")
     from ouranos.web_server.routes.gaia import router as gaia_router
     gaia_router.default_response_class = JSONResponse
