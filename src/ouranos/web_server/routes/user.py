@@ -129,3 +129,63 @@ async def update_user(
                 f"msg: `{e.__class__.__name__}: {e}`",
             status=ResultStatus.failure,
         )
+
+
+@router.delete("/u/{username}",
+               status_code=status.HTTP_202_ACCEPTED,
+               response_model=ResultResponse)
+async def update_user(
+        username: str = Path(description="The username of the user"),
+        current_user: UserMixin = Depends(get_current_user),
+        session: AsyncSession = Depends(get_session),
+):
+    if current_user.username != username and not current_user.can(Permission.ADMIN):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only delete your own profile",
+        )
+
+    user = await get_user_or_abort(session, username)
+    if (
+            current_user.username != user.username
+            and user.role.permissions >= current_user.role.permissions
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only delete profiles with permissions lower than yours.",
+        )
+    await User.delete(session, user_id=username)
+    return ResultResponse(
+        msg=f"User account of {username} has been deleted",
+        status=ResultStatus.success,
+    )
+
+
+@router.post("/u/{username}/confirm",
+             status_code=status.HTTP_202_ACCEPTED,
+             response_model=ResultResponse)
+async def update_user(
+        username: str = Path(description="The username of the user"),
+        current_user: UserMixin = Depends(get_current_user),
+        session: AsyncSession = Depends(get_session),
+):
+    if current_user.username != username and not current_user.can(Permission.ADMIN):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only confirm your own profile",
+        )
+
+    user = await get_user_or_abort(session, username)
+    if (
+            current_user.username != user.username
+            and user.role.permissions >= current_user.role.permissions
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only confirm profiles with permissions lower than yours.",
+        )
+    await User.update(session, user_id=username, values={"confirm": True})
+    return ResultResponse(
+        msg=f"User account of {username} has been deleted",
+        status=ResultStatus.success,
+    )

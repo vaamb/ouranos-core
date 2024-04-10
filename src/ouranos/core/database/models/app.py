@@ -347,12 +347,13 @@ class User(Base, UserMixin):
     @classmethod
     async def delete(cls, session: AsyncSession, user_id: int | str) -> None:
         stmt = (
-            delete(cls)
+            update(cls)
             .where(
                 (cls.id == user_id)
                 | (cls.username == user_id)
                 | (cls.email == user_id)
             )
+            .values({"active": False})
         )
         await session.execute(stmt)
 
