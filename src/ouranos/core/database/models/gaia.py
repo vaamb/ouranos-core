@@ -813,6 +813,7 @@ class EnvironmentParameter(GaiaBase):
     day: Mapped[float] = mapped_column(sa.Float(precision=2))
     night: Mapped[float] = mapped_column(sa.Float(precision=2))
     hysteresis: Mapped[float] = mapped_column(sa.Float(precision=2), default=0.0)
+    alarm: Mapped[float] = mapped_column(sa.Float(precision=2), default=0.0)
 
     # relationships
     ecosystem: Mapped["Ecosystem"] = relationship(
