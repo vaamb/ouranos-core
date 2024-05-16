@@ -9,7 +9,7 @@ import sqlalchemy as sa
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.sql.functions import max as sa_max
+from sqlalchemy.sql.functions import func, max as sa_max
 
 from ouranos.core.database.models.abc import (
     Base, CacheMixin, CRUDMixin, RecordMixin)
@@ -19,6 +19,10 @@ from ouranos.core.utils import timeWindow
 
 
 _cache_system_history = TTLCache(maxsize=1, ttl=10)
+
+timed_value = list[
+        tuple[datetime, str, float, Optional[float], float, float, float]
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -30,8 +34,55 @@ class System(Base, CRUDMixin):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     uid: Mapped[str] = mapped_column(sa.String(32))
+    start_time: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
     RAM_total: Mapped[float] = mapped_column(sa.Float(precision=2))
     DISK_total: Mapped[float] = mapped_column(sa.Float(precision=2))
+
+    @classmethod
+    async def get(cls, session: AsyncSession, uid: str) -> Self | None:
+        stmt = select(cls).where(cls.uid == uid)
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    @classmethod
+    async def get_multiple(
+            cls,
+            session: AsyncSession,
+            uid: str | list | None = None,
+    ) -> Sequence[Self]:
+        if uid is None:
+            stmt = (
+                select(cls)
+                .order_by(cls.uid.asc(),
+                          cls.start_time.desc())
+            )
+            result = await session.execute(stmt)
+            return result.scalars().all()
+
+        if isinstance(uid, str):
+            uid = [uid, ]
+        stmt = (
+            select(cls)
+            .where(cls.uid.in_(uid))
+            .order_by(cls.start_time.desc())
+        )
+        result = await session.execute(stmt)
+        return result.scalars().all()
+
+    async def get_recent_timed_values(
+            self,
+            session: AsyncSession,
+    ) -> list[timed_value]:
+        return await SystemDataCache.get_recent_timed_values(
+            session, system_uid=self.uid)
+
+    async def get_timed_values(
+            self,
+            session: AsyncSession,
+            time_window: timeWindow,
+    ) -> list[timed_value]:
+        return await SystemDataRecord.get_timed_values(
+            session, time_window=time_window, system_uid=self.uid)
 
 
 # ---------------------------------------------------------------------------
@@ -42,13 +93,11 @@ class BaseSystemData(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     system_uid: Mapped[str] = mapped_column(sa.String(32), default="NA")
-    timestamp: Mapped[datetime] = mapped_column(UtcDateTime)
+    timestamp: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
     CPU_used: Mapped[float] = mapped_column(sa.Float(precision=1))
     CPU_temp: Mapped[Optional[float]] = mapped_column(sa.Float(precision=1))
-    RAM_total: Mapped[float] = mapped_column(sa.Float(precision=2))
     RAM_used: Mapped[float] = mapped_column(sa.Float(precision=2))
     RAM_process: Mapped[float] = mapped_column(sa.Float(precision=2))
-    DISK_total: Mapped[float] = mapped_column(sa.Float(precision=2))
     DISK_used: Mapped[float] = mapped_column(sa.Float(precision=2))
 
 
@@ -60,7 +109,8 @@ class SystemDataRecord(BaseSystemData, RecordMixin):
     async def get_records(
             cls,
             session: AsyncSession,
-            time_window: timeWindow
+            time_window: timeWindow,
+            system_uid: str | list | None = None,
     ) -> Sequence[Self]:
         stmt = (
             select(cls)
@@ -69,6 +119,10 @@ class SystemDataRecord(BaseSystemData, RecordMixin):
                 (cls.timestamp <= time_window.end)
             )
         )
+        if system_uid:
+            if isinstance(system_uid, str):
+                system_uid = [system_uid, ]
+            stmt = stmt.where(cls.system_uid.in_(system_uid))
         result = await session.execute(stmt)
         return result.scalars().all()
 
@@ -77,20 +131,23 @@ class SystemDataRecord(BaseSystemData, RecordMixin):
     async def get_timed_values(
             cls,
             session: AsyncSession,
-            time_window: timeWindow
-    ) -> list[tuple[datetime, str, float, Optional[float], float, float, float,
-                    float, float]]:
+            time_window: timeWindow,
+            system_uid: str | list | None = None,
+    ) -> list[timed_value]:
         stmt = (
             select(
                 cls.timestamp, cls.system_uid, cls.CPU_used, cls.CPU_temp,
-                cls.RAM_process, cls.RAM_used, cls.RAM_total, cls.DISK_used,
-                cls.DISK_total
+                cls.RAM_process, cls.RAM_used, cls.DISK_used,
             )
             .where(
                 (cls.timestamp > time_window.start) &
                 (cls.timestamp <= time_window.end)
             )
         )
+        if system_uid:
+            if isinstance(system_uid, str):
+                system_uid = [system_uid, ]
+            stmt = stmt.where(cls.system_uid.in_(system_uid))
         result = await session.execute(stmt)
         return [r._data for r in result.all()]
 
@@ -128,10 +185,7 @@ class SystemDataCache(BaseSystemData, CacheMixin):
             cls,
             session: AsyncSession,
             system_uid: str | list | None = None
-    ) -> list[
-        tuple[datetime, str, float, Optional[float], float, float, float,
-              float, float]
-    ]:
+    ) -> list[timed_value]:
         await cls.remove_expired(session)
         sub_stmt = (
             select(cls.id, sa_max(cls.timestamp))
@@ -140,8 +194,7 @@ class SystemDataCache(BaseSystemData, CacheMixin):
         )
         stmt = select(
             cls.timestamp, cls.system_uid, cls.CPU_used, cls.CPU_temp,
-            cls.RAM_process, cls.RAM_used, cls.RAM_total, cls.DISK_used,
-            cls.DISK_total
+            cls.RAM_process, cls.RAM_used, cls.DISK_used,
         ).join(sub_stmt, cls.id == sub_stmt.c.id)
         if system_uid:
             if isinstance(system_uid, str):
