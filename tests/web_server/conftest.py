@@ -15,14 +15,15 @@ from ouranos.core.database.models.app import CalendarEvent, User
 from ouranos.core.database.models.gaia import (
     Ecosystem, Engine, EnvironmentParameter, GaiaWarning, Hardware,
     HealthRecord, Lighting, SensorDataCache, SensorDataRecord)
-from ouranos.core.database.models.system import SystemDataCache, SystemDataRecord
+from ouranos.core.database.models.system import (
+    System, SystemDataCache, SystemDataRecord)
 from ouranos.web_server.auth import SessionInfo
 from ouranos.web_server.factory import create_app
 
 import tests.data.gaia as g_data
 from tests.data.app import calendar_event
 from tests.data.auth import admin, operator, user
-from tests.data.system import system_dict
+from tests.data.system import system_dict, system_data_dict
 
 
 @pytest_asyncio.fixture(scope="module", autouse=True)
@@ -81,11 +82,13 @@ async def add_ecosystems(db: AsyncSQLAlchemyWrapper):
 @pytest_asyncio.fixture(scope="module", autouse=True)
 async def add_system(db: AsyncSQLAlchemyWrapper):
     async with db.scoped_session() as session:
-        adapted_system_record = system_dict.copy()
+        await System.create(session, system_dict)
+
+        adapted_system_record = system_data_dict.copy()
         await SystemDataCache.insert_data(session, adapted_system_record)
 
         adapted_system_record["timestamp"] = (
-                system_dict["timestamp"] - timedelta(hours=1))
+                system_data_dict["timestamp"] - timedelta(hours=1))
         await SystemDataRecord.create_records(session, adapted_system_record)
 
 

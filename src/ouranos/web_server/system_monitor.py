@@ -10,7 +10,8 @@ import time as ctime
 
 from ouranos import current_app, db
 from ouranos.core.config.consts import START_TIME
-from ouranos.core.database.models.system import SystemDataCache, SystemDataRecord
+from ouranos.core.database.models.system import (
+    System, SystemDataCache, SystemDataRecord)
 from ouranos.core.dispatchers import DispatcherFactory
 
 
@@ -58,18 +59,16 @@ class SystemMonitor:
             mem_proc = current_process.memory_info()
             disk = psutil.disk_usage("/")
             data = {
+                "uid": "base_server",
                 "timestamp": datetime.now(timezone.utc),
                 "CPU_used": psutil.cpu_percent(),
-                "RAM_total": round(mem[0]/(1024*1024*1024), 2),
                 "RAM_used": round(mem[3]/(1024*1024*1024), 2),
                 "RAM_process": round(mem_proc.rss/(1024*1024*1024), 2),
-                "DISK_total": round(disk[0]/(1024*1024*1024), 2),
                 "DISK_used": round(disk[1]/(1024*1024*1024), 2),
                 "CPU_temp": get_temp(),
             }
             await self.dispatcher.emit(
-                "current_server_data", data={**data, "start_time": START_TIME},
-                namespace="application-internal")
+                "current_server_data", data=data, namespace="application-internal")
             async with db.scoped_session() as session:
                 await SystemDataCache.insert_data(session, data)
             if logging_period and datetime.now().minute % logging_period == 0:
@@ -84,6 +83,16 @@ class SystemMonitor:
             await asyncio.sleep(update_period-time_for_loop)
 
     async def start(self) -> None:
+        async with db.scoped_session() as session:
+            mem = psutil.virtual_memory()
+            disk = psutil.disk_usage("/")
+            data = {
+                "start_time": START_TIME,
+                "RAM_total": round(mem[0]/(1024*1024*1024), 2),
+                "DISK_total": round(disk[0]/(1024*1024*1024), 2),
+            }
+            await System.update_or_create(session, uid="base_server", values=data)
+
         update_period = current_app.config.get("SYSTEM_UPDATE_PERIOD")
         if update_period is not None:
             self._stop_event.clear()
