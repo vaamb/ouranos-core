@@ -10,8 +10,7 @@ import time as ctime
 
 from ouranos import current_app, db
 from ouranos.core.config.consts import START_TIME
-from ouranos.core.database.models.memory import SystemDbCache
-from ouranos.core.database.models.system import SystemRecord
+from ouranos.core.database.models.system import SystemDataCache, SystemDataRecord
 from ouranos.core.dispatchers import DispatcherFactory
 
 
@@ -72,12 +71,12 @@ class SystemMonitor:
                 "current_server_data", data={**data, "start_time": START_TIME},
                 namespace="application-internal")
             async with db.scoped_session() as session:
-                await SystemDbCache.insert_data(session, data)
+                await SystemDataCache.insert_data(session, data)
             if logging_period and datetime.now().minute % logging_period == 0:
                 if not logged:
                     async with db.scoped_session() as session:
                         self.logger.debug("Logging system resources")
-                        await SystemRecord.create_records(session, data)
+                        await SystemDataRecord.create_records(session, data)
                 logged = True
             else:
                 logged = False
@@ -95,4 +94,4 @@ class SystemMonitor:
         self.task.cancel()
         self.task = None
         async with db.scoped_session() as session:
-            await SystemDbCache.clear(session)
+            await SystemDataCache.clear(session)

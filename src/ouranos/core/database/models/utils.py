@@ -8,7 +8,7 @@ from cachetools.keys import hashkey
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.selectable import Select
 
-from ouranos.core.database.models.common import Base
+from ouranos.core.database.models.abc import Base
 
 
 _timelimit_cache = TTLCache(maxsize=1, ttl=5)

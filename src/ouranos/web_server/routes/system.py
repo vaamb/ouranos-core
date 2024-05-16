@@ -2,8 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos.core.config import consts
-from ouranos.core.database.models.memory import SystemDbCache
-from ouranos.core.database.models.system import SystemRecord
+from ouranos.core.database.models.system import SystemDataCache, SystemDataRecord
 from ouranos.core.utils import timeWindow
 from ouranos.web_server.auth import is_admin
 from ouranos.web_server.dependencies import get_session, get_time_window
@@ -28,7 +27,7 @@ async def get_current_system_data(
         session: AsyncSession = Depends(get_session),
 ):
     return {
-        "values": await SystemDbCache.get_recent_timed_values(session),
+        "values": await SystemDataCache.get_recent_timed_values(session),
         "order": ["timestamp", "system_uid", "CPU_used", "CPU_temp",
                   "RAM_process", "RAM_used", "RAM_total", "DISK_used",
                   "DISK_total"]
@@ -41,7 +40,7 @@ async def get_historic_system_data(
         session: AsyncSession = Depends(get_session),
 ):
     return {
-        "values": await SystemRecord.get_timed_values(
+        "values": await SystemDataRecord.get_timed_values(
             session, time_window),
         "order": ["timestamp", "system_uid", "CPU_used", "CPU_temp",
                   "RAM_process", "RAM_used", "RAM_total", "DISK_used",

@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from ouranos.core.database.models.common import ImportanceLevel
+import gaia_validators as gv
+
 from ouranos.core.validate.base import BaseModel
 
 
 class EventCreationPayload(BaseModel):
-    level: ImportanceLevel = ImportanceLevel.low
+    level: gv.WarningLevel = gv.WarningLevel.low
     title: str
     description: str | None = None
     start_time: datetime
@@ -15,7 +16,7 @@ class EventCreationPayload(BaseModel):
 
 
 class EventUpdatePayload(BaseModel):
-    level: ImportanceLevel | None = None
+    level: gv.WarningLevel | None = None
     title: str | None = None
     description: str | None = None
     start_time: datetime | None = None
@@ -24,7 +25,7 @@ class EventUpdatePayload(BaseModel):
 
 class EventInfo(BaseModel):
     id: int
-    level: ImportanceLevel
+    level: gv.WarningLevel
     title: str
     description: str | None
     start_time: datetime

@@ -14,9 +14,8 @@ from ouranos.core.config.consts import LOGIN_NAME
 from ouranos.core.database.models.app import CalendarEvent, User
 from ouranos.core.database.models.gaia import (
     Ecosystem, Engine, EnvironmentParameter, GaiaWarning, Hardware,
-    HealthRecord, Lighting, SensorRecord)
-from ouranos.core.database.models.memory import SensorDbCache, SystemDbCache
-from ouranos.core.database.models.system import SystemRecord
+    HealthRecord, Lighting, SensorDataCache, SensorDataRecord)
+from ouranos.core.database.models.system import SystemDataCache, SystemDataRecord
 from ouranos.web_server.auth import SessionInfo
 from ouranos.web_server.factory import create_app
 
@@ -60,11 +59,11 @@ async def add_ecosystems(db: AsyncSQLAlchemyWrapper):
             "timestamp": g_data.timestamp_now,
             "value": g_data.sensor_record.value,
         }
-        await SensorDbCache.insert_data(session, adapted_sensor_record)
+        await SensorDataCache.insert_data(session, adapted_sensor_record)
 
         adapted_sensor_record["timestamp"] = (
                 g_data.sensors_data["timestamp"] - timedelta(hours=1))
-        await SensorRecord.create_records(session, adapted_sensor_record)
+        await SensorDataRecord.create_records(session, adapted_sensor_record)
 
         adapted_health_data = {
             "ecosystem_uid": g_data.ecosystem_uid,
@@ -83,11 +82,11 @@ async def add_ecosystems(db: AsyncSQLAlchemyWrapper):
 async def add_system(db: AsyncSQLAlchemyWrapper):
     async with db.scoped_session() as session:
         adapted_system_record = system_dict.copy()
-        await SystemDbCache.insert_data(session, adapted_system_record)
+        await SystemDataCache.insert_data(session, adapted_system_record)
 
         adapted_system_record["timestamp"] = (
                 system_dict["timestamp"] - timedelta(hours=1))
-        await SystemRecord.create_records(session, adapted_system_record)
+        await SystemDataRecord.create_records(session, adapted_system_record)
 
 
 @pytest_asyncio.fixture(scope="module", autouse=True)

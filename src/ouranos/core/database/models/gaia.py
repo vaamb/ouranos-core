@@ -9,18 +9,20 @@ from asyncache import cached
 from cachetools import LRUCache, TTLCache
 from dispatcher import AsyncDispatcher
 import sqlalchemy as sa
-from sqlalchemy import delete, insert, select, update
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import delete, insert, select, UniqueConstraint, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.declarative import declared_attr
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.schema import Table
 from sqlalchemy.sql import func
+from sqlalchemy.sql.functions import max as sa_max
 
 import gaia_validators as gv
 
+from ouranos import current_app
 from ouranos.core.database import ArchiveLink
-from ouranos.core.database.models.common import (
-    Base, BaseActuatorRecord, BaseHealthRecord, BaseSensorRecord, ImportanceLevel)
-from ouranos.core.database.models.memory import SensorDbCache
+from ouranos.core.database.models.abc import (
+    Base, CacheMixin, CRUDMixin, RecordMixin)
 from ouranos.core.database.models.types import UtcDateTime
 from ouranos.core.database.models.utils import sessionless_hashkey, time_limits
 from ouranos.core.utils import create_time_window, timeWindow
@@ -40,99 +42,12 @@ _cache_warnings = TTLCache(maxsize=5, ttl=60)
 _cache_measures = LRUCache(maxsize=16)
 
 
-class EcosystemCurrentData(TypedDict):
-    sensors: dict[str, dict[str, float]]
-    timestamp: datetime
-
-
 class EcosystemActuatorTypesManagedDict(TypedDict):
     light: bool
     cooler: bool
     heater: bool
     humidifier: bool
     dehumidifier: bool
-
-
-class GaiaBase(Base):
-    __abstract__ = True
-
-    uid: str | int
-
-    @classmethod
-    async def create(
-            cls,
-            session: AsyncSession,
-            values: dict | list[dict],
-    ) -> None:
-        stmt = insert(cls).values(values)
-        await session.execute(stmt)
-
-    @classmethod
-    async def update(
-            cls,
-            session: AsyncSession,
-            values: dict,
-            uid: str | None = None,
-    ) -> None:
-        uid = uid or values.pop("uid", None)
-        if not uid:
-            raise ValueError(
-                "Provide uid either as a parameter or as a key in the updated info"
-            )
-        stmt = (
-            update(cls)
-            .where(cls.uid == uid)
-            .values(**values)
-        )
-        await session.execute(stmt)
-
-    @classmethod
-    async def delete(
-            cls,
-            session: AsyncSession,
-            uid: str,
-    ) -> None:
-        stmt = delete(cls).where(cls.uid == uid)
-        await session.execute(stmt)
-
-    @classmethod
-    async def update_or_create(
-            cls,
-            session: AsyncSession,
-            values: dict,
-            uid: str | None = None,
-    ) -> None:
-        uid = uid or values.pop("uid", None)
-        if not uid:
-            raise ValueError(
-                "Provide uid either as an argument or as a key in the values"
-            )
-        obj = await cls.get(session, uid)
-        if not obj:
-            values["uid"] = uid
-            await cls.create(session, values)
-        elif values:
-            await cls.update(session, values, uid)
-        else:
-            raise ValueError
-
-    @classmethod
-    @abstractmethod
-    async def get(
-            cls,
-            session: AsyncSession,
-            uid: str,
-    ) -> Self | None:
-        raise NotImplementedError
-
-    @classmethod
-    @abstractmethod
-    async def get_multiple(
-            cls,
-            session: AsyncSession,
-            uid: str | list | None = None,
-    ) -> Sequence[Self]:
-        raise NotImplementedError
 
 
 class InConfigMixin:
@@ -152,7 +67,7 @@ class InConfigMixin:
 # ---------------------------------------------------------------------------
 #   Ecosystems-related models, located in db_main and db_archive
 # ---------------------------------------------------------------------------
-class Engine(GaiaBase):
+class Engine(Base, CRUDMixin):
     __tablename__ = "engines"
 
     uid: Mapped[str] = mapped_column(sa.String(length=32), primary_key=True)
@@ -177,13 +92,13 @@ class Engine(GaiaBase):
             cls,
             session: AsyncSession,
             engine_id: str | UUID,
-    ) -> Engine | None:
+    ) -> Self | None:
         if isinstance(engine_id, UUID):
             # Received an engine sid
-            stmt = select(Engine).where(Engine.sid == engine_id)
+            stmt = select(cls).where(cls.sid == engine_id)
         else:
             # Received an engine uid
-            stmt = select(Engine).where(Engine.uid == engine_id)
+            stmt = select(cls).where(cls.uid == engine_id)
         result = await session.execute(stmt)
         return result.scalar_one_or_none()
 
@@ -192,7 +107,7 @@ class Engine(GaiaBase):
             cls,
             session: AsyncSession,
             engines: str | list | None = None,
-    ) -> Sequence[Engine]:
+    ) -> Sequence[Self]:
         if engines is None:
             stmt = (
                 select(cls)
@@ -232,7 +147,7 @@ class Engine(GaiaBase):
         return response
 
 
-class Ecosystem(InConfigMixin, GaiaBase):
+class Ecosystem(Base, CRUDMixin, InConfigMixin):
     __tablename__ = "ecosystems"
 
     uid: Mapped[str] = mapped_column(sa.String(length=8), primary_key=True)
@@ -251,7 +166,7 @@ class Ecosystem(InConfigMixin, GaiaBase):
     environment_parameters: Mapped[list["EnvironmentParameter"]] = relationship(back_populates="ecosystem")
     plants: Mapped[list["Plant"]] = relationship(back_populates="ecosystem")
     hardware: Mapped[list["Hardware"]] = relationship(back_populates="ecosystem")
-    sensor_records: Mapped[list["SensorRecord"]] = relationship(back_populates="ecosystem")
+    sensor_records: Mapped[list["SensorDataRecord"]] = relationship(back_populates="ecosystem")
     actuator_records: Mapped[list["ActuatorRecord"]] = relationship(back_populates="ecosystem")
     health_records: Mapped[list["HealthRecord"]] = relationship(back_populates="ecosystem")
 
@@ -301,12 +216,12 @@ class Ecosystem(InConfigMixin, GaiaBase):
             session: AsyncSession,
             ecosystems: str | list[str] | None = None,
             in_config: bool | None = None,
-    ) -> Sequence[Ecosystem]:
+    ) -> Sequence[Self]:
         if ecosystems is None:
             stmt = (
-                select(Ecosystem)
-                .order_by(Ecosystem.name.asc(),
-                          Ecosystem.last_seen.desc())
+                select(cls)
+                .order_by(cls.name.asc(),
+                          cls.last_seen.desc())
             )
             if in_config is not None:
                 stmt = stmt.where(cls.in_config == in_config)
@@ -318,22 +233,22 @@ class Ecosystem(InConfigMixin, GaiaBase):
         if "recent" in ecosystems:
             time_limit = time_limits("recent")
             stmt = (
-                select(Ecosystem)
-                .where(Ecosystem.last_seen >= time_limit)
-                .order_by(Ecosystem.status.desc(), Ecosystem.name.asc())
+                select(cls)
+                .where(cls.last_seen >= time_limit)
+                .order_by(cls.status.desc(), cls.name.asc())
             )
         elif "connected" in ecosystems:
             stmt = (
-                select(Ecosystem).join(Engine.ecosystems)
+                select(cls).join(Engine.ecosystems)
                 .where(Engine.connected == True)  # noqa
-                .order_by(Ecosystem.name.asc())
+                .order_by(cls.name.asc())
             )
         else:
             stmt = (
-                select(Ecosystem)
-                .where(Ecosystem.uid.in_(ecosystems) |
-                       Ecosystem.name.in_(ecosystems))
-                .order_by(Ecosystem.last_seen.desc(), Ecosystem.name.asc())
+                select(cls)
+                .where(cls.uid.in_(ecosystems) |
+                       cls.name.in_(ecosystems))
+                .order_by(cls.last_seen.desc(), cls.name.asc())
             )
         if in_config is not None:
             stmt = stmt.where(cls.in_config == in_config)
@@ -393,11 +308,11 @@ class Ecosystem(InConfigMixin, GaiaBase):
             level: gv.HardwareLevel | list[gv.HardwareLevel] | None = None,
     ) -> dict:
         stmt = (
-            select(Hardware).join(SensorRecord.sensor)
+            select(Hardware).join(SensorDataRecord.sensor)
             .where(Hardware.ecosystem_uid == self.uid)
             .where(
-                (SensorRecord.timestamp > time_window.start)
-                & (SensorRecord.timestamp <= time_window.end)
+                (SensorDataRecord.timestamp > time_window.start)
+                & (SensorDataRecord.timestamp <= time_window.end)
             )
         )
         if level:
@@ -444,8 +359,8 @@ class Ecosystem(InConfigMixin, GaiaBase):
             "sensors_skeleton": skeleton,
         }
 
-    async def current_data(self, session: AsyncSession) -> Sequence[SensorDbCache]:
-        return await SensorDbCache.get_recent(session, self.uid)
+    async def current_data(self, session: AsyncSession) -> Sequence[SensorDataCache]:
+        return await SensorDataCache.get_recent(session, self.uid)
 
     async def actuators_status(
             self,
@@ -490,7 +405,7 @@ class Ecosystem(InConfigMixin, GaiaBase):
             countdown=countdown)
 
 
-class ActuatorStatus(GaiaBase):
+class ActuatorStatus(Base, CRUDMixin):
     __tablename__ = "actuators_status"
 
     ecosystem_uid: Mapped[str] = mapped_column(sa.ForeignKey("ecosystems.uid"), primary_key=True)
@@ -597,7 +512,7 @@ class ActuatorStatus(GaiaBase):
         return result.scalars().all()
 
 
-class Place(GaiaBase):
+class Place(Base, CRUDMixin):
     __tablename__ = "places"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -720,7 +635,7 @@ class Place(GaiaBase):
         return result.scalars().all()
 
 
-class Lighting(GaiaBase):
+class Lighting(Base, CRUDMixin):
     __tablename__ = "lightings"
 
     ecosystem_uid: Mapped[str] = mapped_column(sa.ForeignKey("ecosystems.uid"), primary_key=True)
@@ -804,7 +719,7 @@ class Lighting(GaiaBase):
             raise ValueError
 
 
-class EnvironmentParameter(GaiaBase):
+class EnvironmentParameter(Base, CRUDMixin):
     __tablename__ = "environment_parameters"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -813,7 +728,7 @@ class EnvironmentParameter(GaiaBase):
     day: Mapped[float] = mapped_column(sa.Float(precision=2))
     night: Mapped[float] = mapped_column(sa.Float(precision=2))
     hysteresis: Mapped[float] = mapped_column(sa.Float(precision=2), default=0.0)
-    alarm: Mapped[float] = mapped_column(sa.Float(precision=2), default=0.0)
+    alarm: Mapped[Optional[float]] = mapped_column(sa.Float(precision=2), default=None)
 
     # relationships
     ecosystem: Mapped["Ecosystem"] = relationship(
@@ -939,7 +854,7 @@ AssociationActuatorPlant = Table(
 )
 
 
-class Hardware(InConfigMixin, GaiaBase):
+class Hardware(Base, CRUDMixin, InConfigMixin):
     __tablename__ = "hardware"
 
     uid: Mapped[str] = mapped_column(sa.String(length=16), primary_key=True)
@@ -960,7 +875,7 @@ class Hardware(InConfigMixin, GaiaBase):
     plants: Mapped[list["Plant"]] = relationship(
         back_populates="sensors", secondary=AssociationActuatorPlant,
         lazy="selectin")
-    sensor_records: Mapped[list["SensorRecord"]] = relationship(
+    sensor_records: Mapped[list["SensorDataRecord"]] = relationship(
         back_populates="sensor")
     actuator_records: Mapped[list["ActuatorRecord"]] = relationship(
         back_populates="actuator")
@@ -1041,8 +956,8 @@ class Hardware(InConfigMixin, GaiaBase):
             cls,
             session: AsyncSession,
             hardware_uid: str,
-    ) -> Hardware | None:
-        stmt = select(Hardware).where(Hardware.uid == hardware_uid)
+    ) -> Self | None:
+        stmt = select(cls).where(cls.uid == hardware_uid)
         result = await session.execute(stmt)
         return result.unique().scalars().one_or_none()
 
@@ -1078,7 +993,7 @@ class Hardware(InConfigMixin, GaiaBase):
             types: gv.HardwareType | list[gv.HardwareType] | None = None,
             models: str | list | None = None,
             in_config: bool | None = None,
-    ) -> Sequence[Hardware]:
+    ) -> Sequence[Self]:
         stmt = cls.generate_query(
             hardware_uids, ecosystem_uids, levels, types, models
         )
@@ -1105,10 +1020,10 @@ class Sensor(Hardware):
     @staticmethod
     def _add_time_window_to_stmt(stmt, time_window: timeWindow):
         return (
-            stmt.join(SensorRecord.sensor)
+            stmt.join(SensorDataRecord.sensor)
             .where(
-                (SensorRecord.timestamp > time_window.start) &
-                (SensorRecord.timestamp <= time_window.end)
+                (SensorDataRecord.timestamp > time_window.start) &
+                (SensorDataRecord.timestamp <= time_window.end)
             )
             .distinct()
         )
@@ -1170,7 +1085,7 @@ class Sensor(Hardware):
             rv.append({
                 "measure": measure_obj.name,
                 "unit": measure_obj.unit,
-                "values": await SensorDbCache.get_recent_timed_values(
+                "values": await SensorDataCache.get_recent_timed_values(
                     session, self.uid, measure_obj.name),
             })
         return rv
@@ -1199,7 +1114,7 @@ class Sensor(Hardware):
                 "measure": measure_obj.name,
                 "unit": measure_obj.unit,
                 "span": (time_window.start, time_window.end),
-                "values": await SensorRecord.get_timed_values(
+                "values": await SensorDataRecord.get_timed_values(
                     session, self.uid, measure_obj.name, time_window),
             })
         return rv
@@ -1238,7 +1153,7 @@ class Sensor(Hardware):
             session: AsyncSession,
             values: dict | list[dict],
     ) -> None:
-        await SensorRecord.create_records(session, values)
+        await SensorDataRecord.create_records(session, values)
 
 
 class Actuator(Hardware):
@@ -1304,7 +1219,7 @@ class Actuator(Hardware):
         return [h for h in hardware if h.type != gv.HardwareType.sensor]
 
 
-class Measure(GaiaBase):
+class Measure(Base, CRUDMixin):
     __tablename__ = "measures"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -1359,7 +1274,7 @@ class Measure(GaiaBase):
         return result.scalars().all()
 
 
-class Plant(InConfigMixin, GaiaBase):
+class Plant(Base, CRUDMixin, InConfigMixin):
     __tablename__ = "plants"
 
     uid: Mapped[str] = mapped_column(sa.String(length=16), primary_key=True)
@@ -1406,7 +1321,130 @@ class Plant(InConfigMixin, GaiaBase):
         return result.scalars().all()
 
 
-class SensorRecord(BaseSensorRecord):
+# ---------------------------------------------------------------------------
+#   Sensors data
+# ---------------------------------------------------------------------------
+class BaseSensorData(Base):
+    __abstract__ = True
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    timestamp: Mapped[datetime] = mapped_column(UtcDateTime)
+    value: Mapped[float] = mapped_column(sa.Float(precision=2))
+
+    @declared_attr
+    def measure(cls) -> Mapped[str]:
+        return mapped_column(
+            sa.String(length=32), sa.ForeignKey("measures.name"), index=True
+        )
+
+    @declared_attr
+    def ecosystem_uid(cls) -> Mapped[str]:
+        return mapped_column(
+            sa.String(length=8), sa.ForeignKey("ecosystems.uid"), index=True
+        )
+
+    @declared_attr
+    def sensor_uid(cls) -> Mapped[str]:
+        return mapped_column(
+            sa.String(length=16), sa.ForeignKey("hardware.uid"), index=True
+        )
+
+    __table_args__ = (
+        UniqueConstraint("measure", "timestamp", "value", "ecosystem_uid",
+                         "sensor_uid", name="_no_repost_constraint"),
+    )
+
+
+class SensorDataCache(BaseSensorData, CacheMixin):
+    __tablename__ = "sensor_temp"
+    __bind_key__ = "memory"
+
+    logged: Mapped[bool] = mapped_column(default=False)
+
+    @classmethod
+    def get_ttl(cls) -> int:
+        return current_app.config["ECOSYSTEM_TIMEOUT"]
+
+    @classmethod
+    async def get_recent(
+            cls,
+            session: AsyncSession,
+            ecosystem_uid: str | list | None = None,
+            sensor_uid: str | list | None = None,
+            measure: str | list | None = None,
+            discard_logged: bool = False,
+    ) -> Sequence[Self]:
+        await cls.remove_expired(session)
+        sub_stmt = (
+            select(cls.id, sa_max(cls.timestamp))
+            .group_by(cls.sensor_uid, cls.measure)
+            .subquery()
+        )
+        stmt = select(cls).join(sub_stmt, cls.id == sub_stmt.c.id)
+
+        local_vars = locals()
+        args = "ecosystem_uid", "sensor_uid", "measure"
+        for arg in args:
+            value = local_vars.get(arg)
+            if value:
+                if isinstance(value, str):
+                    value = value.split(",")
+                hardware_attr = getattr(cls, arg)
+                stmt = stmt.where(hardware_attr.in_(value))
+        if discard_logged:
+            stmt = stmt.where(cls.logged == False)
+        result = await session.execute(stmt)
+        return result.scalars().all()
+
+    @classmethod
+    async def get_recent_timed_values(
+            cls,
+            session: AsyncSession,
+            sensor_uid: str,
+            measure: str,
+    ) -> list[tuple[datetime, float]]:
+        await cls.remove_expired(session)
+        sub_stmt = (
+            select(cls.id, sa_max(cls.timestamp))
+            .group_by(cls.sensor_uid, cls.measure)
+            .subquery()
+        )
+        stmt = (
+            select(cls.timestamp, cls.value)
+            .join(sub_stmt, cls.id == sub_stmt.c.id)
+            .where(cls.sensor_uid == sensor_uid)
+            .where(cls.measure == measure)
+        )
+        result = await session.execute(stmt)
+        #
+        return [r._data for r in result.all()]
+
+
+class BaseSensorDataRecord(BaseSensorData, RecordMixin):
+    __abstract__ = True
+
+    @classmethod
+    async def get_records(
+            cls,
+            session: AsyncSession,
+            sensor_uid: str,
+            measure_name: str,
+            time_window: timeWindow
+    ) -> Sequence[Self]:
+        stmt = (
+            select(cls)
+            .where(cls.measure == measure_name)
+            .where(cls.sensor_uid == sensor_uid)
+            .where(
+                (cls.timestamp > time_window.start)
+                & (cls.timestamp <= time_window.end)
+            )
+        )
+        result = await session.execute(stmt)
+        return result.scalars().all()
+
+
+class SensorDataRecord(BaseSensorDataRecord):
     __tablename__ = "sensor_records"
     __archive_link__ = ArchiveLink("sensor", "recent")
 
@@ -1447,6 +1485,31 @@ class SensorRecord(BaseSensorRecord):
         return [r._data for r in result.all()]
 
 
+# ---------------------------------------------------------------------------
+#   Actuators data
+# ---------------------------------------------------------------------------
+class BaseActuatorRecord(Base, RecordMixin):
+    __abstract__ = True
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    type: Mapped[str] = mapped_column(sa.String(length=16))
+    timestamp: Mapped[datetime] = mapped_column(UtcDateTime)
+    mode: Mapped[gv.ActuatorMode] = mapped_column(default=gv.ActuatorMode.automatic)
+    status: Mapped[bool] = mapped_column(default=False)
+
+    @declared_attr
+    def ecosystem_uid(cls) -> Mapped[str]:
+        return mapped_column(
+            sa.String(length=8), sa.ForeignKey("ecosystems.uid"), index=True
+        )
+
+    @declared_attr
+    def actuator_uid(cls) -> Mapped[str]:
+        return mapped_column(
+            sa.String(length=16), sa.ForeignKey("hardware.uid"), index=True
+        )
+
+
 class ActuatorRecord(BaseActuatorRecord):
     __tablename__ = "actuator_records"
     __archive_link__ = ArchiveLink("actuator", "recent")
@@ -1454,6 +1517,25 @@ class ActuatorRecord(BaseActuatorRecord):
     # relationships
     ecosystem: Mapped["Ecosystem"] = relationship(back_populates="actuator_records")
     actuator: Mapped["Hardware"] = relationship(back_populates="actuator_records")
+
+
+# ---------------------------------------------------------------------------
+#   Health data
+# ---------------------------------------------------------------------------
+class BaseHealthRecord(Base, RecordMixin):
+    __abstract__ = True
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    timestamp: Mapped[datetime] = mapped_column(UtcDateTime)
+    green: Mapped[int] = mapped_column()
+    necrosis: Mapped[int] = mapped_column()
+    health_index: Mapped[int] = mapped_column()
+
+    @declared_attr
+    def ecosystem_uid(cls) -> Mapped[str]:
+        return mapped_column(
+            sa.String(length=8), sa.ForeignKey("ecosystems.uid"), index=True
+        )
 
 
 class HealthRecord(BaseHealthRecord):
@@ -1482,12 +1564,15 @@ class HealthRecord(BaseHealthRecord):
         return result.scalars().all()
 
 
+# ---------------------------------------------------------------------------
+#   Gaia warnings
+# ---------------------------------------------------------------------------
 class GaiaWarning(Base):
     __tablename__ = "warnings"
     __archive_link__ = ArchiveLink("warnings", "recent")
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    level: Mapped[ImportanceLevel] = mapped_column(default=ImportanceLevel.low)
+    level: Mapped[gv.WarningLevel] = mapped_column(default=gv.WarningLevel.low)
     title: Mapped[str] = mapped_column(sa.String(length=256))
     description: Mapped[str] = mapped_column(sa.String(length=2048))
     created_on: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
@@ -1605,7 +1690,10 @@ class GaiaWarning(Base):
         _cache_warnings.clear()
 
 
-class CrudRequest(GaiaBase):
+# ---------------------------------------------------------------------------
+#   CRUD requests
+# ---------------------------------------------------------------------------
+class CrudRequest(Base, CRUDMixin):
     __tablename__ = "crud_requests"
 
     uuid: Mapped[UUID] = mapped_column(primary_key=True)

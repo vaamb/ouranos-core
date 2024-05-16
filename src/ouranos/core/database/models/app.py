@@ -14,16 +14,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
+import gaia_validators as gv
 from gaia_validators import safe_enum_from_name
 
 from ouranos import current_app
 from ouranos.core.config.consts import (
     REGISTRATION_TOKEN_VALIDITY, TOKEN_SUBS)
 from ouranos.core.database import ArchiveLink
-from ouranos.core.database.models.common import Base, ImportanceLevel, ToDictMixin
+from ouranos.core.database.models.abc import Base, ToDictMixin
 from ouranos.core.database.models.types import UtcDateTime
 from ouranos.core.exceptions import DuplicatedEntry
-from ouranos.core.utils import timeWindow, Tokenizer
+from ouranos.core.utils import Tokenizer
 
 argon2_hasher = PasswordHasher()
 
@@ -566,7 +567,7 @@ class FlashMessage(Base):
     __archive_link__ = ArchiveLink("warnings", "recent")
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    level: Mapped[ImportanceLevel] = mapped_column(default=ImportanceLevel.low)
+    level: Mapped[gv.WarningLevel] = mapped_column(default=gv.WarningLevel.low)
     title: Mapped[str] = mapped_column(sa.String(length=256))
     description: Mapped[Optional[str]] = mapped_column(sa.String(length=2048))
     created_on: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
@@ -615,7 +616,7 @@ class CalendarEvent(Base):
     __bind_key__ = "app"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    level: Mapped[ImportanceLevel] = mapped_column(default=ImportanceLevel.low)
+    level: Mapped[gv.WarningLevel] = mapped_column(default=gv.WarningLevel.low)
     title: Mapped[str] = mapped_column(sa.String(length=256))
     description: Mapped[Optional[str]] = mapped_column(sa.String(length=2048))
     created_on: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
