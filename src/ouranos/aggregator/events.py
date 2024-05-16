@@ -21,8 +21,7 @@ from ouranos.aggregator.decorators import (
     dispatch_to_application, registration_required)
 from ouranos.core.database.models.gaia import (
     ActuatorStatus, CrudRequest, Ecosystem, Engine, EnvironmentParameter,
-    Hardware, HealthRecord, Lighting, Measure, Place, SensorRecord)
-from ouranos.core.database.models.memory import SensorDbCache
+    Hardware, HealthRecord, Lighting, Place, SensorDataRecord, SensorDataCache)
 from ouranos.core.utils import humanize_list
 
 
@@ -30,7 +29,7 @@ _ecosystem_name_cache = LRUCache(maxsize=32)
 _ecosystem_sid_cache = LRUCache(maxsize=32)
 
 
-class SensorDataRecord(TypedDict):
+class SensorDataRecordDict(TypedDict):
     ecosystem_uid: str
     sensor_uid: str
     measure: str
@@ -480,14 +479,14 @@ class GaiaEvents(BaseEvents):
             f"Received 'sensors_data' from engine: {engine_uid}")
         data: list[gv.SensorsDataPayloadDict] = self.validate_payload(
             data, gv.SensorsDataPayload, list)
-        sensors_data: list[SensorDataRecord] = []
+        sensors_data: list[SensorDataRecordDict] = []
         for ecosystem in data:
             ecosystem_data = ecosystem["data"]
             timestamp = ecosystem_data["timestamp"]
             for raw_record in ecosystem_data["records"]:
                 record = gv.SensorRecord(*raw_record)
                 record_timestamp = record.timestamp if record.timestamp else timestamp
-                sensors_data.append(cast(SensorDataRecord, {
+                sensors_data.append(cast(SensorDataRecordDict, {
                     "ecosystem_uid": ecosystem["uid"],
                     "sensor_uid": record.sensor_uid,
                     "measure": record.measure,
@@ -505,7 +504,7 @@ class GaiaEvents(BaseEvents):
         self.logger.debug(f"Sent `current_sensors_data` to the web API")
         # Log current data in memory DB
         async with db.scoped_session() as session:
-            await SensorDbCache.insert_data(session, sensors_data)
+            await SensorDataCache.insert_data(session, sensors_data)
             hardware_uids = [*{s["sensor_uid"] for s in sensors_data}]
             try:
                 await session.commit()
@@ -524,10 +523,10 @@ class GaiaEvents(BaseEvents):
         last_log: dict[str, datetime] = {}
         hardware_uids: set[str] = set()
         ecosystem_uids: set[str] = set()
-        records_to_log: list[SensorDataRecord] = []
+        records_to_log: list[SensorDataRecordDict] = []
 
         async with db.scoped_session() as session:
-            recent_sensors_record = await SensorDbCache.get_recent(
+            recent_sensors_record = await SensorDataCache.get_recent(
                 session, discard_logged=True)
             # Filter data that needs to be logged into db
             for record in recent_sensors_record:
@@ -535,7 +534,7 @@ class GaiaEvents(BaseEvents):
                     last_log[record.sensor_uid] = record.timestamp
                     hardware_uids.add(record.sensor_uid)
                     ecosystem_uids.add(record.ecosystem_uid)
-                    records_to_log.append(cast(SensorDataRecord, {
+                    records_to_log.append(cast(SensorDataRecordDict, {
                         "ecosystem_uid": record.ecosystem_uid,
                         "sensor_uid": record.sensor_uid,
                         "measure": record.measure,
@@ -554,7 +553,7 @@ class GaiaEvents(BaseEvents):
             f"Sent `historic_sensors_data_update` to the web API")
         # Log historic data in db
         async with db.scoped_session() as session:
-            await SensorRecord.create_records(session, records_to_log)
+            await SensorDataRecord.create_records(session, records_to_log)
             # Update the last_log column for hardware
             for hardware in await Hardware.get_multiple(session, [*hardware_uids]):
                 hardware.last_log = last_log.get(hardware.uid)
@@ -602,7 +601,7 @@ class GaiaEvents(BaseEvents):
             uuid: UUID = data["uuid"]
             try:
                 records = [
-                    cast(SensorDataRecord, {
+                    cast(SensorDataRecordDict, {
                         "ecosystem_uid": record[0],
                         "sensor_uid": record[1],
                         "measure": record[2],
@@ -611,7 +610,7 @@ class GaiaEvents(BaseEvents):
                     })
                     for record in data["data"]
                 ]
-                await SensorRecord.create_records(session, records)
+                await SensorDataRecord.create_records(session, records)
             except Exception as e:
                 await self.emit(
                     "buffered_data_ack",

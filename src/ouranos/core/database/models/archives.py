@@ -2,9 +2,8 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ouranos.core.database import ArchiveLink
-from ouranos.core.database.models.common import (
-    BaseActuatorRecord, BaseHealthRecord, BaseSensorRecord
-)
+from ouranos.core.database.models.gaia import (
+    BaseActuatorRecord, BaseHealthRecord, BaseSensorDataRecord)
 
 
 # ---------------------------------------------------------------------------
@@ -20,7 +19,7 @@ class ActuatorRecordArchive(BaseActuatorRecord):
     ecosystem_uid: Mapped[str] = mapped_column(sa.String(length=8), primary_key=True)
 
 
-class SensorRecordArchive(BaseSensorRecord):
+class SensorDataRecordArchive(BaseSensorDataRecord):
     __tablename__ = "sensor_records_archive"
     __bind_key__ = "archive"
     __archive_link__ = ArchiveLink(

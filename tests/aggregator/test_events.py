@@ -13,8 +13,7 @@ from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 from ouranos.aggregator.events import GaiaEvents
 from ouranos.core.database.models.gaia import (
     ActuatorStatus, Ecosystem, Engine, EnvironmentParameter,
-    Hardware, HealthRecord, Lighting, Place, SensorRecord)
-from ouranos.core.database.models.memory import SensorDbCache
+    Hardware, HealthRecord, Lighting, Place, SensorDataCache, SensorDataRecord)
 from ouranos.core.exceptions import NotRegisteredError
 from ouranos.core.utils import create_time_window
 
@@ -245,7 +244,7 @@ async def test_on_sensors_data(
     assert emitted["namespace"] == "application-internal"
 
     async with ecosystem_aware_db.scoped_session() as session:
-        sensor_data = (await SensorDbCache.get_recent(session))[0]
+        sensor_data = (await SensorDataCache.get_recent(session))[0]
         assert sensor_data.measure == g_data.sensor_record.measure
         assert sensor_data.value == g_data.sensor_record.value
         assert sensor_data.timestamp == g_data.sensors_data["timestamp"]
@@ -292,7 +291,7 @@ async def test_on_buffered_sensors_data(
 
     async with ecosystem_aware_db.scoped_session() as session:
         temperature_data = (
-            await SensorRecord.get_records(
+            await SensorDataRecord.get_records(
                 session,
                 sensor_uid=g_data.hardware_uid,
                 measure_name="temperature",
