@@ -92,7 +92,7 @@ class BaseSystemData(Base):
     __abstract__ = True
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    system_uid: Mapped[str] = mapped_column(sa.String(32), default="NA")
+    system_uid: Mapped[str] = mapped_column(sa.ForeignKey("systems.uid"))
     timestamp: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
     CPU_used: Mapped[float] = mapped_column(sa.Float(precision=1))
     CPU_temp: Mapped[Optional[float]] = mapped_column(sa.Float(precision=1))

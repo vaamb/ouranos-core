@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Path
+from fastapi import APIRouter, Depends, HTTPException, Path, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos.core.database.models.system import System
@@ -16,6 +16,19 @@ router = APIRouter(
 )
 
 
+async def system_or_abort(
+        session: AsyncSession,
+        uid: str,
+) -> System:
+    system = await System.get(session=session, uid=uid)
+    if system:
+        return system
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="No system(s) found"
+    )
+
+
 @router.get("", response_model=list[SystemInfo])
 async def get_systems(
         session: AsyncSession = Depends(get_session),
@@ -29,7 +42,7 @@ async def get_system(
         server_uid: str = Path(description="A server uid"),
         session: AsyncSession = Depends(get_session),
 ):
-    system = await System.get(session, uid=server_uid)
+    system = await system_or_abort(session, uid=server_uid)
     return system
 
 
@@ -38,7 +51,7 @@ async def get_current_system_data(
         server_uid: str = Path(description="A server uid"),
         session: AsyncSession = Depends(get_session),
 ):
-    system = await System.get(session, uid=server_uid)
+    system = await system_or_abort(session, uid=server_uid)
     return {
         "values": await system.get_recent_timed_values(session),
         "totals": {
@@ -54,7 +67,7 @@ async def get_historic_system_data(
         time_window: timeWindow = Depends(get_time_window),
         session: AsyncSession = Depends(get_session),
 ):
-    system = await System.get(session, uid=server_uid)
+    system = await system_or_abort(session, uid=server_uid)
     return {
         "values": await system.get_timed_values(session, time_window),
         "totals": {

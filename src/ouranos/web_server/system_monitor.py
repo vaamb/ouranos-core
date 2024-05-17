@@ -59,7 +59,7 @@ class SystemMonitor:
             mem_proc = current_process.memory_info()
             disk = psutil.disk_usage("/")
             data = {
-                "uid": "base_server",
+                "system_uid": "base_server",
                 "timestamp": datetime.now(timezone.utc),
                 "CPU_used": psutil.cpu_percent(),
                 "RAM_used": round(mem[3]/(1024*1024*1024), 2),
