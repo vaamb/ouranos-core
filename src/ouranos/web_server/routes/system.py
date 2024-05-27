@@ -37,22 +37,23 @@ async def get_systems(
     return system
 
 
-@router.get("/{server_uid}", response_model=SystemInfo)
+@router.get("/{system_uid}", response_model=SystemInfo)
 async def get_system(
-        server_uid: str = Path(description="A server uid"),
+        system_uid: str = Path(description="A server uid"),
         session: AsyncSession = Depends(get_session),
 ):
-    system = await system_or_abort(session, uid=server_uid)
+    system = await system_or_abort(session, uid=system_uid)
     return system
 
 
-@router.get("/{server_uid}/data/current", response_model=SystemData)
+@router.get("/{system_uid}/data/current", response_model=SystemData)
 async def get_current_system_data(
-        server_uid: str = Path(description="A server uid"),
+        system_uid: str = Path(description="A server uid"),
         session: AsyncSession = Depends(get_session),
 ):
-    system = await system_or_abort(session, uid=server_uid)
+    system = await system_or_abort(session, uid=system_uid)
     return {
+        "system_uid": system.uid,
         "values": await system.get_recent_timed_values(session),
         "totals": {
             "DISK_TOTAL": system.DISK_total,
@@ -61,14 +62,15 @@ async def get_current_system_data(
     }
 
 
-@router.get("/{server_uid}/data/historic", response_model=SystemData)
+@router.get("/{system_uid}/data/historic", response_model=SystemData)
 async def get_historic_system_data(
-        server_uid: str = Path(description="A server uid"),
+        system_uid: str = Path(description="A server uid"),
         time_window: timeWindow = Depends(get_time_window),
         session: AsyncSession = Depends(get_session),
 ):
-    system = await system_or_abort(session, uid=server_uid)
+    system = await system_or_abort(session, uid=system_uid)
     return {
+        "system_uid": system.uid,
         "values": await system.get_timed_values(session, time_window),
         "totals": {
             "DISK_TOTAL": system.DISK_total,

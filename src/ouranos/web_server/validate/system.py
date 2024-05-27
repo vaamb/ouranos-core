@@ -12,13 +12,14 @@ class SystemInfo(BaseModel):
 
 
 class SystemData(BaseModel):
+    system_uid: str
     values: list[
-        tuple[datetime, str, float, Optional[float], float, float, float]
+        tuple[datetime, float, Optional[float], float, float, float]
     ]
     order: tuple[
-        str, str, str, str, str, str, str, str, str,
+        str, str, str, str, str, str, str, str,
     ] = (
-        "timestamp", "system_uid", "CPU_used", "CPU_temp", "RAM_process",
-        "RAM_used", "DISK_used",
+        "timestamp", "CPU_used", "CPU_temp", "RAM_process", "RAM_used",
+        "DISK_used",
     )
     totals: dict
