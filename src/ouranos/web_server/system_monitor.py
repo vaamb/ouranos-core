@@ -62,10 +62,10 @@ class SystemMonitor:
                 "system_uid": "base_server",
                 "timestamp": datetime.now(timezone.utc),
                 "CPU_used": psutil.cpu_percent(),
+                "CPU_temp": get_temp(),
                 "RAM_used": round(mem[3]/(1024*1024*1024), 2),
                 "RAM_process": round(mem_proc.rss/(1024*1024*1024), 2),
                 "DISK_used": round(disk[1]/(1024*1024*1024), 2),
-                "CPU_temp": get_temp(),
             }
             await self.dispatcher.emit(
                 "current_server_data", data=data, namespace="application-internal")
