@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from asyncio import sleep
 from datetime import datetime, timezone
+from threading import Lock
 import inspect
 import logging
 from typing import cast, overload, Type, TypedDict
@@ -21,7 +22,8 @@ from ouranos.aggregator.decorators import (
     dispatch_to_application, registration_required)
 from ouranos.core.database.models.gaia import (
     ActuatorStatus, CrudRequest, Ecosystem, Engine, EnvironmentParameter,
-    Hardware, HealthRecord, Lighting, Place, SensorDataRecord, SensorDataCache)
+    Hardware, HealthRecord, Lighting, Place, SensorAlarm, SensorDataRecord,
+    SensorDataCache)
 from ouranos.core.utils import humanize_list
 
 
@@ -34,6 +36,15 @@ class SensorDataRecordDict(TypedDict):
     sensor_uid: str
     measure: str
     value: float
+    timestamp: datetime
+
+
+class SensorAlarmDict(TypedDict):
+    sensor_uid: str
+    measure: str
+    position: gv.Position
+    delta: float
+    level: gv.WarningLevel
     timestamp: datetime
 
 
@@ -153,6 +164,8 @@ class GaiaEvents(BaseEvents):
         super().__init__(*args, **kwargs)
         self.logger = logging.getLogger("ouranos.aggregator")
         self._ouranos_dispatcher: AsyncDispatcher | None = None
+        self._alarms_data: list[SensorAlarmDict] = []
+        self._alarms_data_lock: Lock = Lock()
 
     @property
     def ouranos_dispatcher(self) -> AsyncDispatcher:
@@ -169,6 +182,16 @@ class GaiaEvents(BaseEvents):
         self.ouranos_dispatcher.on("turn_light", self.turn_light)
         self.ouranos_dispatcher.on("turn_actuator", self.turn_actuator)
         self.ouranos_dispatcher.on("crud", self.crud)
+
+    @property
+    def alarms_data(self) -> list[SensorAlarmDict]:
+        with self._alarms_data_lock:
+            return self._alarms_data
+
+    @alarms_data.setter
+    def alarms_data(self, value: list[SensorAlarmDict]) -> None:
+        with self._alarms_data_lock:
+            self._alarms_data = value
 
     # ---------------------------------------------------------------------------
     #   Events Gaia <-> Aggregator
@@ -480,6 +503,7 @@ class GaiaEvents(BaseEvents):
         data: list[gv.SensorsDataPayloadDict] = self.validate_payload(
             data, gv.SensorsDataPayload, list)
         sensors_data: list[SensorDataRecordDict] = []
+        alarms_data: list[SensorAlarmDict] = []
         for ecosystem in data:
             ecosystem_data = ecosystem["data"]
             timestamp = ecosystem_data["timestamp"]
@@ -493,7 +517,17 @@ class GaiaEvents(BaseEvents):
                     "value": float(record.value),
                     "timestamp": record_timestamp,
                 }))
-                await sleep(0)
+            for raw_alarm in ecosystem_data["alarms"]:
+                alarm = gv.SensorAlarm(*raw_alarm)
+                alarms_data.append(cast(SensorAlarmDict, {
+                    "ecosystem_uid": ecosystem["uid"],
+                    "sensor_uid": alarm.sensor_uid,
+                    "measure": alarm.measure,
+                    "position": alarm.position,
+                    "delta": alarm.delta,
+                    "level": alarm.level,
+                    "timestamp": timestamp,
+                }))
         if not sensors_data:
             return
 
@@ -514,6 +548,8 @@ class GaiaEvents(BaseEvents):
                 self.logger.debug(
                     f"Updated `sensors_data` cache with data from sensors "
                     f"{humanize_list(hardware_uids)}")
+        # Memorise alarms
+        self.alarms_data = alarms_data
 
     async def log_sensors_data(self) -> None:
         logging_period = current_app.config["SENSOR_LOGGING_PERIOD"]
@@ -543,6 +579,12 @@ class GaiaEvents(BaseEvents):
                     }))
                     record.logged = True
 
+            alarms = self.alarms_data  # Use the lock a single time
+            alarms_to_log: list[SensorAlarmDict] = [
+                alarm for alarm in alarms
+                if alarm["timestamp"].minute % logging_period == 0
+            ]
+
         if not records_to_log:
             return
         # Dispatch the data that will become historic data
@@ -557,6 +599,8 @@ class GaiaEvents(BaseEvents):
             # Update the last_log column for hardware
             for hardware in await Hardware.get_multiple(session, [*hardware_uids]):
                 hardware.last_log = last_log.get(hardware.uid)
+            for alarm in alarms_to_log:
+                await SensorAlarm.create_or_lengthen(session, alarm)
             await session.commit()
             # Get ecosystem IDs
             ecosystems = await Ecosystem.get_multiple(
