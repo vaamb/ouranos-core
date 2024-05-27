@@ -1,18 +1,20 @@
 from datetime import datetime
 from typing import Optional
 
+from pydantic import Field
+
 from ouranos.core.validate.base import BaseModel
 
 
 class SystemInfo(BaseModel):
-    uid: str
+    system_uid: str = Field(validation_alias="uid")
     start_time: datetime
     RAM_total: float
     DISK_total: float
 
 
 class SystemData(BaseModel):
-    system_uid: str
+    system_uid: str = Field(validation_alias="uid")
     values: list[
         tuple[datetime, float, Optional[float], float, float, float]
     ]
