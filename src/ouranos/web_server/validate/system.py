@@ -18,9 +18,7 @@ class SystemData(BaseModel):
     values: list[
         tuple[datetime, float, Optional[float], float, float, float]
     ]
-    order: tuple[
-        str, str, str, str, str, str, str, str,
-    ] = (
+    order: tuple[str, str, str, str, str, str] = (
         "timestamp", "CPU_used", "CPU_temp", "RAM_process", "RAM_used",
         "DISK_used",
     )
