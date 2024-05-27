@@ -21,7 +21,7 @@ from ouranos.core.utils import timeWindow
 _cache_system_history = TTLCache(maxsize=1, ttl=10)
 
 timed_value = list[
-        tuple[datetime, str, float, Optional[float], float, float, float]
+        tuple[datetime, float, Optional[float], float, float, float]
     ]
 
 
@@ -136,8 +136,8 @@ class SystemDataRecord(BaseSystemData, RecordMixin):
     ) -> list[timed_value]:
         stmt = (
             select(
-                cls.timestamp, cls.system_uid, cls.CPU_used, cls.CPU_temp,
-                cls.RAM_process, cls.RAM_used, cls.DISK_used,
+                cls.timestamp, cls.CPU_used, cls.CPU_temp, cls.RAM_process,
+                cls.RAM_used, cls.DISK_used,
             )
             .where(
                 (cls.timestamp > time_window.start) &
@@ -193,8 +193,8 @@ class SystemDataCache(BaseSystemData, CacheMixin):
             .subquery()
         )
         stmt = select(
-            cls.timestamp, cls.system_uid, cls.CPU_used, cls.CPU_temp,
-            cls.RAM_process, cls.RAM_used, cls.DISK_used,
+            cls.timestamp, cls.CPU_used, cls.CPU_temp, cls.RAM_process,
+            cls.RAM_used, cls.DISK_used,
         ).join(sub_stmt, cls.id == sub_stmt.c.id)
         if system_uid:
             if isinstance(system_uid, str):
