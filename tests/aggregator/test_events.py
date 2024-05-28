@@ -13,7 +13,8 @@ from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 from ouranos.aggregator.events import GaiaEvents
 from ouranos.core.database.models.gaia import (
     ActuatorStatus, Ecosystem, Engine, EnvironmentParameter,
-    Hardware, HealthRecord, Lighting, Place, SensorDataCache, SensorDataRecord)
+    Hardware, HealthRecord, Lighting, Place, SensorAlarm, SensorDataCache,
+    SensorDataRecord)
 from ouranos.core.exceptions import NotRegisteredError
 from ouranos.core.utils import create_time_window
 
@@ -249,9 +250,56 @@ async def test_on_sensors_data(
         assert sensor_data.value == g_data.sensor_record.value
         assert sensor_data.timestamp == g_data.sensors_data["timestamp"]
 
+    alarm_data = events_handler.alarms_data[0]
+    assert alarm_data["sensor_uid"] == g_data.alarm_record.sensor_uid
+    assert alarm_data["measure"] == g_data.alarm_record.measure
+    assert alarm_data["position"] == g_data.alarm_record.position
+    assert alarm_data["delta"] == g_data.alarm_record.delta
+    assert alarm_data["level"] == g_data.alarm_record.level
+
     wrong_payload = {}
     with pytest.raises(Exception):
         await events_handler.on_sensors_data(g_data.engine_sid, [wrong_payload])
+
+
+@pytest.mark.asyncio
+async def test_log_sensors_data(
+        mock_dispatcher: MockAsyncDispatcher,
+        events_handler: GaiaEvents,
+        ecosystem_aware_db: AsyncSQLAlchemyWrapper,
+):
+    # Cache new data (rely on `test_on_sensors_data`)
+    await events_handler.on_sensors_data(g_data.engine_sid, [g_data.sensors_data_payload])
+    await events_handler.log_sensors_data()
+
+    async with ecosystem_aware_db.scoped_session() as session:
+        sensor_data = (
+            await SensorDataRecord.get_records(
+                session,
+                sensor_uid=g_data.hardware_uid,
+                measure_name=g_data.measure_name,
+                time_window=create_time_window(
+                    start=datetime.now(timezone.utc) - timedelta(hours=1),
+                    end=datetime.now(timezone.utc) + timedelta(hours=1),
+                ),
+            )
+        )[0]
+        assert sensor_data.ecosystem_uid == g_data.sensors_data_payload["uid"]
+        assert sensor_data.sensor_uid == g_data.sensor_record.sensor_uid
+        assert sensor_data.measure == g_data.sensor_record.measure
+        assert sensor_data.value == g_data.sensor_record.value
+        assert sensor_data.timestamp == g_data.sensors_data["timestamp"]
+
+        alarm_data = await SensorAlarm.get_recent(
+            session, sensor_uid=g_data.hardware_uid, measure=g_data.measure_name)
+        assert alarm_data.ecosystem_uid == g_data.sensors_data_payload["uid"]
+        assert alarm_data.sensor_uid == g_data.alarm_record.sensor_uid
+        assert alarm_data.measure == g_data.alarm_record.measure
+        assert alarm_data.position == g_data.alarm_record.position
+        assert alarm_data.delta == g_data.alarm_record.delta
+        assert alarm_data.level == g_data.alarm_record.level
+        assert alarm_data.timestamp_from == g_data.sensors_data["timestamp"]
+        assert alarm_data.timestamp_to == g_data.sensors_data["timestamp"]
 
 
 @pytest.mark.asyncio

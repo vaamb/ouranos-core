@@ -1486,6 +1486,139 @@ class SensorDataRecord(BaseSensorDataRecord):
 
 
 # ---------------------------------------------------------------------------
+#   Sensor alarms
+# ---------------------------------------------------------------------------
+class SensorAlarm(Base):
+    __tablename__ = "sensor_alarms"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    sensor_uid: Mapped[str] = mapped_column(sa.String(length=16), sa.ForeignKey("hardware.uid"))
+    ecosystem_uid: Mapped[str] = mapped_column(sa.ForeignKey("ecosystems.uid"))
+    measure: Mapped[str] = mapped_column(sa.String(length=32), sa.ForeignKey("measures.name"))
+    position: Mapped[gv.Position] = mapped_column()
+    delta: Mapped[float] = mapped_column()
+    level: Mapped[gv.WarningLevel] = mapped_column()
+    timestamp_from: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
+    timestamp_to: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp(), onupdate=func.current_timestamp())
+    timestamp_max: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
+    seen_on: Mapped[Optional[datetime]] = mapped_column(UtcDateTime)
+    seen_by: Mapped[Optional[int]] = mapped_column()
+
+    @classmethod
+    async def create(
+            cls,
+            session: AsyncSession,
+            values: dict,
+    ) -> Self:
+        values = {**values}  # Don't mutate original values
+        timestamp = values.pop("timestamp")
+        alarm = cls(
+            **values, timestamp_from=timestamp, timestamp_to=timestamp,
+            timestamp_max=timestamp)
+        session.add(alarm)
+        return alarm
+
+    @classmethod
+    async def get(
+            cls,
+            session: AsyncSession,
+            sensor_uid: str,
+            measure: str,
+            time_limit: timedelta,
+    ) -> Self | None:
+        time_limit = datetime.now(timezone.utc) - time_limit
+        stmt = (
+            select(cls)
+            .where(
+                (cls.sensor_uid == sensor_uid)
+                & (cls.measure == measure)
+                & (cls.timestamp_to > time_limit)
+            )
+            .order_by(cls.timestamp_to.desc())
+        )
+        result = await session.execute(stmt)
+        return result.scalars().first()
+
+    @classmethod
+    async def get_multiple(
+            cls,
+            session: AsyncSession,
+            ecosystem_uid: str | list[str] | None = None,
+            sensor_uid: str | list[str] | None = None,
+            measure: str | list[str] | None = None,
+            time_limit: timedelta = timedelta(days=7),
+    ) -> Sequence[Self]:
+        time_limit = datetime.now(timezone.utc) - time_limit
+        stmt = (
+            select(cls)
+            .where(cls.timestamp_to > time_limit)
+        )
+        if ecosystem_uid is not None:
+            if isinstance(ecosystem_uid, str):
+                ecosystem_uid = [ecosystem_uid, ]
+                stmt = stmt.where(cls.ecosystem_uid.in_(ecosystem_uid))
+        if sensor_uid is not None:
+            if isinstance(sensor_uid, str):
+                sensor_uid = [sensor_uid, ]
+                stmt = stmt.where(cls.sensor_uid.in_(sensor_uid))
+        if measure is not None:
+            if isinstance(measure, str):
+                measure = [measure, ]
+                stmt = stmt.where(cls.measure.in_(measure))
+        result = await session.execute(stmt)
+        return result.scalars().all()
+
+    @classmethod
+    async def get_recent(
+            cls,
+            session: AsyncSession,
+            sensor_uid: str,
+            measure: str,
+            time_limit: timedelta = timedelta(minutes=35),
+    ) -> Self | None:
+        return await cls.get(
+            session, sensor_uid=sensor_uid, measure=measure, time_limit=time_limit)
+
+    @classmethod
+    async def create_or_lengthen(
+            cls,
+            session: AsyncSession,
+            values: dict,
+    ) -> None:
+        alarm = await cls.get_recent(
+            session, sensor_uid=values["sensor_uid"], measure=values["measure"])
+        if alarm is None:
+            alarm = await cls.create(session, values=values)
+        else:
+            # Update delta and level if it changes
+            if values["delta"] > alarm.delta:
+                alarm.delta = values["delta"]
+                alarm.level = values["level"]
+                alarm.timestamp_max = values["timestamp"]
+        alarm.timestamp_to = values["timestamp"]
+
+    @classmethod
+    async def mark_as_seen(
+            cls,
+            session: AsyncSession,
+            alarm_id: int,
+            user_id: int,
+    ) -> None:
+        stmt = (
+            update(cls)
+            .where(
+                (cls.id == alarm_id)
+                & (cls.seen_on == None)  # Make sure we don't mark twice
+            )
+            .values({
+                "seen_on": datetime.now(timezone.utc),
+                "seen_by": user_id,
+            })
+        )
+        await session.execute(stmt)
+
+
+# ---------------------------------------------------------------------------
 #   Actuators data
 # ---------------------------------------------------------------------------
 class BaseActuatorRecord(Base, RecordMixin):
