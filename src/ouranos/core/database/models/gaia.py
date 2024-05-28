@@ -1492,7 +1492,8 @@ class SensorAlarm(Base):
     __tablename__ = "sensor_alarms"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    sensor_uid: Mapped[str] = mapped_column()
+    sensor_uid: Mapped[str] = mapped_column(sa.String(length=16), sa.ForeignKey("hardware.uid"))
+    ecosystem_uid: Mapped[str] = mapped_column(sa.ForeignKey("ecosystems.uid"))
     measure: Mapped[str] = mapped_column(sa.String(length=32), sa.ForeignKey("measures.name"))
     position: Mapped[gv.Position] = mapped_column()
     delta: Mapped[float] = mapped_column()
@@ -1511,6 +1512,7 @@ class SensorAlarm(Base):
         timestamp = values.pop("timestamp")
         alarm = cls(**values, timestamp_from=timestamp, timestamp_to=timestamp)
         session.add(alarm)
+        values["timestamp"] = timestamp
         return alarm
 
     @classmethod
