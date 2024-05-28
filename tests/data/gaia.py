@@ -132,10 +132,19 @@ measure_record = gv.MeasureAverage(
 
 
 sensor_record = gv.SensorRecord(
-    "hardware_uid",
+    hardware_uid,
     "temperature",
     42,
     None,
+)
+
+
+alarm_record = gv.SensorAlarm(
+    sensor_uid=hardware_uid,
+    measure="temperature",
+    position=gv.Position.above,
+    delta=20.0,
+    level=gv.WarningLevel.critical,
 )
 
 
@@ -143,6 +152,7 @@ sensors_data: gv.SensorsDataDict = {
     "timestamp": timestamp_now,
     "records": [sensor_record],
     "average": [measure_record],
+    "alarms": [alarm_record],
 }
 
 

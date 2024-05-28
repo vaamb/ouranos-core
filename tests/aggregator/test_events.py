@@ -249,6 +249,13 @@ async def test_on_sensors_data(
         assert sensor_data.value == g_data.sensor_record.value
         assert sensor_data.timestamp == g_data.sensors_data["timestamp"]
 
+    alarm_data = events_handler.alarms_data[0]
+    assert alarm_data["sensor_uid"] == g_data.alarm_record.sensor_uid
+    assert alarm_data["measure"] == g_data.alarm_record.measure
+    assert alarm_data["position"] == g_data.alarm_record.position
+    assert alarm_data["delta"] == g_data.alarm_record.delta
+    assert alarm_data["level"] == g_data.alarm_record.level
+
     wrong_payload = {}
     with pytest.raises(Exception):
         await events_handler.on_sensors_data(g_data.engine_sid, [wrong_payload])
