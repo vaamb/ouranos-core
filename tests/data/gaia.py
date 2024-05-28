@@ -15,6 +15,7 @@ engine_uid = "engine_uid"
 ecosystem_uid = "zutqsCKn"
 ecosystem_name = "TestingEcosystem"
 hardware_uid = "hardware_uid"
+measure_name = "temperature"
 request_uuid = uuid.uuid4()
 
 
@@ -125,7 +126,7 @@ hardware_payload: gv.HardwareConfigPayloadDict = \
 
 
 measure_record = gv.MeasureAverage(
-    "temperature",
+    measure_name,
     42,
     None
 )
@@ -133,7 +134,7 @@ measure_record = gv.MeasureAverage(
 
 sensor_record = gv.SensorRecord(
     hardware_uid,
-    "temperature",
+    measure_name,
     42,
     None,
 )
@@ -141,7 +142,7 @@ sensor_record = gv.SensorRecord(
 
 alarm_record = gv.SensorAlarm(
     sensor_uid=hardware_uid,
-    measure="temperature",
+    measure=measure_name,
     position=gv.Position.above,
     delta=20.0,
     level=gv.WarningLevel.critical,
@@ -213,7 +214,7 @@ buffered_data_humidity = gv.BufferedSensorRecord(
 buffered_data_temperature = gv.BufferedSensorRecord(
     ecosystem_uid=ecosystem_uid,
     sensor_uid=hardware_uid,
-    measure="temperature",
+    measure=measure_name,
     value=25.0,
     timestamp=timestamp_now,
 )

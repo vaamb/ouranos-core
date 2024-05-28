@@ -30,6 +30,8 @@ def config(tmp_path_factory):
     if not db_dir.exists():
         db_dir.mkdir()
     Config.TESTING = True
+    Config.SENSOR_LOGGING_PERIOD = 1
+    Config.SYSTEM_LOGGING_PERIOD = 1
     config = setup_config(Config)
     _db.init(config)
     yield config
