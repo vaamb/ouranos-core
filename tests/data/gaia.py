@@ -83,10 +83,12 @@ chaos: gv.ChaosConfigDict = {
 }
 
 
-sky: gv.SkyConfigDict = {
+sky: gv.NycthemeralCycleConfigDict = {
     "day": time(6, 0),
     "night": time(22, 0),
-    "lighting": gv.LightMethod.elongate,
+    "lighting": gv.LightingMethod.elongate,
+    "span": gv.NycthemeralSpanMethod.fixed,
+    "target": ""
 }
 
 
@@ -95,6 +97,7 @@ climate: gv.ClimateConfigDict = {
     "day": 42,
     "night": 21,
     "hysteresis": 5,
+    "alarm": None,
 }
 
 
@@ -178,7 +181,7 @@ light_data: gv.LightDataDict = {
     "morning_end": timestamp_now.time(),
     "evening_start": timestamp_now.time(),
     "evening_end": timestamp_now.time(),
-    "method": gv.LightMethod.elongate,
+    "method": gv.LightingMethod.elongate,
 }
 
 
@@ -229,16 +232,19 @@ buffered_data_payload = gv.BufferedSensorsDataPayloadDict(
 )
 
 
-light_state: gv.ActuatorStateDict = \
-    {"active": True, "status": True, "mode": gv.ActuatorMode.automatic}
-cooler_state: gv.ActuatorStateDict = \
-    {"active": True, "status": False, "mode": gv.ActuatorMode.manual}
-heater_state: gv.ActuatorStateDict = \
-    {"active": False, "status": False, "mode": gv.ActuatorMode.automatic}
-humidifier_state: gv.ActuatorStateDict = \
-    {"active": False, "status": False, "mode": gv.ActuatorMode.automatic}
-dehumidifier_state: gv.ActuatorStateDict = \
-    {"active": False, "status": False, "mode": gv.ActuatorMode.automatic}
+actuator_state: gv.ActuatorStateDict = {
+    "active": True,
+    "status": True,
+    "level": 0.0,
+    "mode": gv.ActuatorMode.automatic,
+}
+
+light_state: gv.ActuatorStateDict = {**actuator_state}
+cooler_state: gv.ActuatorStateDict = {**actuator_state}
+heater_state: gv.ActuatorStateDict = {**actuator_state}
+humidifier_state: gv.ActuatorStateDict = {**actuator_state}
+dehumidifier_state: gv.ActuatorStateDict = {**actuator_state}
+fan_state: gv.ActuatorStateDict = {**actuator_state}
 
 
 actuator_state_payload = gv.ActuatorsDataPayloadDict(
@@ -249,6 +255,7 @@ actuator_state_payload = gv.ActuatorsDataPayloadDict(
         heater = heater_state,
         humidifier = humidifier_state,
         dehumidifier = dehumidifier_state,
+        fan = fan_state,
     )
 )
 

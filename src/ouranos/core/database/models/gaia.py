@@ -191,7 +191,7 @@ class Ecosystem(Base, CRUDMixin, InConfigMixin):
         }
 
     @property
-    def lighting_method(self) -> gv.LightMethod | None:
+    def lighting_method(self) -> gv.LightingMethod | None:
         try:
             return self.lighting.method
         except AttributeError:
@@ -639,7 +639,7 @@ class Lighting(Base, CRUDMixin):
     __tablename__ = "lightings"
 
     ecosystem_uid: Mapped[str] = mapped_column(sa.ForeignKey("ecosystems.uid"), primary_key=True)
-    method: Mapped[gv.LightMethod] = mapped_column(default=gv.LightMethod.fixed)
+    method: Mapped[gv.LightingMethod] = mapped_column(default=gv.LightingMethod.fixed)
     morning_start: Mapped[Optional[time]] = mapped_column()
     morning_end: Mapped[Optional[time]] = mapped_column()
     evening_start: Mapped[Optional[time]] = mapped_column()

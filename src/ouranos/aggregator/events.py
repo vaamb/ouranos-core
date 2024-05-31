@@ -377,15 +377,15 @@ class GaiaEvents(BaseEvents):
                     await get_ecosystem_name(uid, session=session)
                 )
                 ecosystem = payload["data"]
-                sky = ecosystem["sky"]
+                nycthemeral_cycle = ecosystem["nycthemeral_cycle"]
                 ecosystem_info = {
                     "uid": uid,
-                    "day_start": sky["day"],
-                    "night_start": sky["night"],
+                    "day_start": nycthemeral_cycle["day"],
+                    "night_start": nycthemeral_cycle["night"],
                 }
                 await Ecosystem.update_or_create(session, ecosystem_info)
                 await Lighting.update_or_create(
-                    session, {"method": sky["lighting"]}, uid)
+                    session, {"method": nycthemeral_cycle["lighting"]}, uid)
                 environment_parameters_in_config: list[str] = []
                 for param in ecosystem["climate"]:
                     environment_parameters_in_config.append(param["parameter"])

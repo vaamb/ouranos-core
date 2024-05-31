@@ -20,7 +20,7 @@ class EcosystemCreationPayload(BaseModel):
     name: str
     status: bool = False
     management: int = 0
-    lighting_method: gv.LightMethod = gv.LightMethod.fixed
+    lighting_method: gv.LightingMethod = gv.LightingMethod.fixed
     day_start: time = time(8, 00)
     night_start: time = time(20, 00)
     engine_uid: str
@@ -30,7 +30,7 @@ class EcosystemUpdatePayload(BaseModel):
     name: str | None = None
     status: bool | None = None
     management: int | None = None
-    lighting_method: gv.LightMethod | None = None
+    lighting_method: gv.LightingMethod | None = None
     day_start: time | None = None
     night_start: time | None = None
     engine_uid: str | None = None
@@ -41,7 +41,7 @@ EcosystemInfo = sqlalchemy_to_pydantic(
     base=BaseModel,
     extra_fields={
         "connected": (bool, ...),
-        "lighting_method": (Optional[gv.LightMethod], ...),
+        "lighting_method": (Optional[gv.LightingMethod], ...),
     },
 )
 
@@ -76,11 +76,11 @@ class EcosystemManagementInfo(gv.ManagementConfig):
 #   Ecosystem lighting
 # ---------------------------------------------------------------------------
 class EcosystemLightMethodUpdatePayload(BaseModel):
-    method: gv.LightMethod
+    method: gv.LightingMethod
 
     @field_validator("method", mode="before")
     def parse_method(cls, value):
-        return safe_enum_from_name(gv.LightMethod, value)
+        return safe_enum_from_name(gv.LightingMethod, value)
 
 
 class EcosystemLightInfo(gv.LightData):
