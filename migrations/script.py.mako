@@ -14,6 +14,9 @@ from alembic import op
 import sqlalchemy as sa
 ${imports if imports else ""}
 
+import ouranos
+from ouranos.core.database import ArchiveLink
+
 # revision identifiers, used by Alembic.
 revision: str = ${repr(up_revision)}
 down_revision: Union[str, None] = ${repr(down_revision)}
