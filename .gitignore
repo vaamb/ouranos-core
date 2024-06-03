@@ -5,7 +5,6 @@ __pycache__/
 .cache/
 logs/
 *venv/
-migrations/
 
 config.py
 *.db
