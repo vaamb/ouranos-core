@@ -16,15 +16,17 @@ async def create_base_data(logger: Logger = getLogger()):
             break
     if create_db_dir:
         get_db_dir()
-    from ouranos.core.database.models import (
-        CommunicationChannel, Measure, Role, Service, User)
+    from ouranos.core.database.models import app
+    from ouranos.core.database.models import archives
+    from ouranos.core.database.models import gaia
+    from ouranos.core.database.models import system
     await db.create_all()
     async with db.scoped_session() as session:
         try:
-            await CommunicationChannel.insert_channels(session)
-            await Role.insert_roles(session)
-            await Service.insert_services(session)
-            await User.insert_gaia(session)
+            await app.CommunicationChannel.insert_channels(session)
+            await app.Role.insert_roles(session)
+            await app.Service.insert_services(session)
+            await app.User.insert_gaia(session)
         except Exception as e:
             logger.error(e)
             raise e

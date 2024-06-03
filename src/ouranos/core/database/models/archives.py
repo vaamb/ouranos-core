@@ -1,9 +1,9 @@
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column
 
-from ouranos.core.database import ArchiveLink
 from ouranos.core.database.models.gaia import (
     BaseActuatorRecord, BaseHealthRecord, BaseSensorDataRecord)
+from ouranos.core.database.utils import ArchiveLink
 
 
 # ---------------------------------------------------------------------------
