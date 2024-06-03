@@ -7,7 +7,7 @@ from dataclasses import dataclass
 class ArchiveLink:
     name: str
     status: str
-    _limit_key: str | None
+    limit_key: str | None
 
     def __init__(self, name, status, limit_key=None) -> None:
         if status not in ("archive", "recent"):
@@ -19,6 +19,6 @@ class ArchiveLink:
     @property
     def limit(self) -> int | None:
         from ouranos import current_app
-        if self._limit_key is not None:
-            return current_app.get(self._limit_key, None)
+        if self.limit_key is not None:
+            return current_app.get(self.limit_key, None)
         return None

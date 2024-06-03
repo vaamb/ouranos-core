@@ -15,7 +15,7 @@ import sqlalchemy as sa
 ${imports if imports else ""}
 
 import ouranos
-from ouranos.core.database import ArchiveLink
+from ouranos.core.database.utils import ArchiveLink
 
 # revision identifiers, used by Alembic.
 revision: str = ${repr(up_revision)}

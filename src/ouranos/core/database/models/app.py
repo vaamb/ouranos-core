@@ -20,9 +20,9 @@ from gaia_validators import safe_enum_from_name
 from ouranos import current_app
 from ouranos.core.config.consts import (
     REGISTRATION_TOKEN_VALIDITY, TOKEN_SUBS)
-from ouranos.core.database import ArchiveLink
 from ouranos.core.database.models.abc import Base, ToDictMixin
 from ouranos.core.database.models.types import UtcDateTime
+from ouranos.core.database.utils import ArchiveLink
 from ouranos.core.exceptions import DuplicatedEntry
 from ouranos.core.utils import Tokenizer
 
