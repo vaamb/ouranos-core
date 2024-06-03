@@ -9,6 +9,7 @@ readme = "README.md"
 license = {file = "LICENSE"}
 dynamic = ["version"]
 dependencies = [
+    "alembic~=1.13.1",
     "APScheduler~=3.9.1",
     "aio_pika~=8.3.0",
     "aiofiles~=22.1.0",
