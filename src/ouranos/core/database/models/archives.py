@@ -16,7 +16,8 @@ class ActuatorRecordArchive(BaseActuatorRecord):
         "actuator_records", "archive", "ACTUATOR_ARCHIVING_PERIOD"
     )
 
-    ecosystem_uid: Mapped[str] = mapped_column(sa.String(length=8), primary_key=True)
+    ecosystem_uid: Mapped[str] = mapped_column(sa.String(length=8), index=True)
+    actuator_uid: Mapped[str] = mapped_column(sa.String(length=16), index=True)
 
 
 class SensorDataRecordArchive(BaseSensorDataRecord):
@@ -26,8 +27,9 @@ class SensorDataRecordArchive(BaseSensorDataRecord):
         "sensor_records", "archive", "SENSOR_ARCHIVING_PERIOD"
     )
 
-    ecosystem_uid: Mapped[str] = mapped_column(sa.String(length=8))
-    sensor_uid: Mapped[str] = mapped_column(sa.String(length=16))
+    measure: Mapped[str] = mapped_column(sa.String(length=32), index=True)
+    ecosystem_uid: Mapped[str] = mapped_column(sa.String(length=8), index=True)
+    sensor_uid: Mapped[str] = mapped_column(sa.String(length=16), index=True)
 
 
 class HealthRecordArchive(BaseHealthRecord):
@@ -37,4 +39,4 @@ class HealthRecordArchive(BaseHealthRecord):
         "health_records", "archive", "HEALTH_ARCHIVING_PERIOD"
     )
 
-    ecosystem_uid: Mapped[str] = mapped_column(sa.String(length=8))
+    ecosystem_uid: Mapped[str] = mapped_column(sa.String(length=8), index=True)
