@@ -20,6 +20,7 @@ import gaia_validators as gv
 from ouranos import current_app, db, json
 from ouranos.aggregator.decorators import (
     dispatch_to_application, registration_required)
+from ouranos.core.database.models.abc import RecordMixin
 from ouranos.core.database.models.gaia import (
     ActuatorRecord, ActuatorState, CrudRequest, Ecosystem, Engine,
     EnvironmentParameter, Hardware, HealthRecord, Lighting, Place, SensorAlarm,
@@ -645,6 +646,38 @@ class GaiaEvents(BaseEvents):
                 f"Logged sensors data from ecosystem(s) "
                 f"{humanize_list([e.name for e in ecosystems])}")
 
+    async def _handle_buffered_records(
+            self,
+            record_model: Type[RecordMixin],
+            records: list[dict],
+            exchange_uuid: UUID,
+            sender_sid: UUID,
+    ) -> None:
+        async with db.scoped_session() as session:
+            try:
+                await record_model.create_records(session, records)
+            except Exception as e:
+                await self.emit(
+                    "buffered_data_ack",
+                    data=gv.RequestResult(
+                        uuid=exchange_uuid,
+                        status=gv.Result.failure,
+                        message=str(e)
+                    ).model_dump(),
+                    namespace="/gaia",
+                    to=sender_sid
+                )
+            else:
+                await self.emit(
+                    "buffered_data_ack",
+                    data=gv.RequestResult(
+                        uuid=exchange_uuid,
+                        status=gv.Result.success,
+                    ).model_dump(),
+                    namespace="/gaia",
+                    to=sender_sid
+                )
+
     @registration_required
     async def on_buffered_sensors_data(
             self,
@@ -656,41 +689,23 @@ class GaiaEvents(BaseEvents):
             f"Received 'buffered_sensors_data' from {engine_uid}")
         data: gv.BufferedSensorsDataPayloadDict = self.validate_payload(
             data, gv.BufferedSensorsDataPayload, dict)
-        async with db.scoped_session() as session:
-            uuid: UUID = data["uuid"]
-            try:
-                records = [
-                    cast(SensorDataRecordDict, {
-                        "ecosystem_uid": record[0],
-                        "sensor_uid": record[1],
-                        "measure": record[2],
-                        "value": record[3],
-                        "timestamp": record[4],
-                    })
-                    for record in data["data"]
-                ]
-                await SensorDataRecord.create_records(session, records)
-            except Exception as e:
-                await self.emit(
-                    "buffered_data_ack",
-                    data=gv.RequestResult(
-                        uuid=uuid,
-                        status=gv.Result.failure,
-                        message=str(e)
-                    ).model_dump(),
-                    namespace="/gaia",
-                    to=sid
-                )
-            else:
-                await self.emit(
-                    "buffered_data_ack",
-                    data=gv.RequestResult(
-                        uuid=uuid,
-                        status=gv.Result.success,
-                    ).model_dump(),
-                    namespace="/gaia",
-                    to=sid
-                )
+        exchange_uuid: UUID = data["uuid"]
+        records = [
+            {
+                "ecosystem_uid": record[0],
+                "sensor_uid": record[1],
+                "measure": record[2],
+                "value": record[3],
+                "timestamp": record[4],
+            }
+            for record in data["data"]
+        ]
+        await self._handle_buffered_records(
+            record_model=SensorDataRecord,
+            records=records,
+            exchange_uuid=exchange_uuid,
+            sender_sid=sid
+        )
 
     @registration_required
     async def on_actuators_data(
@@ -742,6 +757,37 @@ class GaiaEvents(BaseEvents):
                 f"Logged actuator data from ecosystem(s): "
                 f"{humanize_list(logged)}"
             )
+
+    @registration_required
+    async def on_buffered_actuators_data(
+            self,
+            sid: UUID,
+            data: gv.BufferedActuatorsStatePayloadDict,
+            engine_uid: str
+    ) -> None:
+        self.logger.debug(
+            f"Received 'buffered_actuators_data' from {engine_uid}")
+        data: gv.BufferedActuatorsStatePayloadDict = self.validate_payload(
+            data, gv.BufferedActuatorsStatePayload, dict)
+        exchange_uuid: UUID = data["uuid"]
+        records = [
+            {
+                "ecosystem_uid": record[0],
+                "type": record[1],
+                "active": record[2],
+                "mode": record[3],
+                "status": record[4],
+                "level": record[5],
+                "timestamp": record[6],
+            }
+            for record in data["data"]
+        ]
+        await self._handle_buffered_records(
+            record_model=ActuatorRecord,
+            records=records,
+            exchange_uuid=exchange_uuid,
+            sender_sid=sid
+        )
 
     @registration_required
     @dispatch_to_application
