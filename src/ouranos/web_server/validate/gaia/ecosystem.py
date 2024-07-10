@@ -86,6 +86,10 @@ class EcosystemLightMethodUpdatePayload(BaseModel):
 class EcosystemLightInfo(gv.LightData):
     ecosystem_uid: str
 
+    @field_serializer("method")
+    def serialize_method(self, value):
+        return value.name
+
 
 # ---------------------------------------------------------------------------
 #   Ecosystem climate parameter
@@ -112,6 +116,9 @@ _ActuatorStateInfo = sqlalchemy_to_pydantic(
     ActuatorState,
     base=BaseModel,
     exclude=["ecosystem_uid"],
+    extra_fields={
+        "level": (Optional[float], ...),
+    },
 )
 
 

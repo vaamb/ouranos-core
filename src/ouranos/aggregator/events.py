@@ -308,6 +308,27 @@ class GaiaEvents(BaseEvents):
         )
 
     @registration_required
+    async def on_places_list(
+            self,
+            sid: UUID,  # noqa
+            data: gv.BufferedSensorsDataPayloadDict,
+            engine_uid: str
+    ) -> None:
+        self.logger.debug(
+            f"Received 'places_list' from {engine_uid}.")
+        payload: gv.PlacesPayloadDict = self.validate_payload(
+            data, gv.PlacesPayload, dict)
+        async with db.scoped_session() as session:
+            for place in payload["data"]:
+                coordinates = {
+                    "latitude": place["coordinates"][0],
+                    "longitude": place["coordinates"][1],
+                }
+                await Place.update_or_create(
+                    session, coordinates, engine_uid, place["name"])
+            await session.commit()
+
+    @registration_required
     async def on_base_info(
             self,
             sid: UUID,  # noqa
@@ -608,27 +629,6 @@ class GaiaEvents(BaseEvents):
             self.logger.info(
                 f"Logged sensors data from ecosystem(s) "
                 f"{humanize_list([e.name for e in ecosystems])}")
-
-    @registration_required
-    async def on_places_list(
-            self,
-            sid: UUID,  # noqa
-            data: gv.BufferedSensorsDataPayloadDict,
-            engine_uid: str
-    ) -> None:
-        self.logger.debug(
-            f"Received 'places_list' from {engine_uid}.")
-        payload: gv.PlacesPayloadDict = self.validate_payload(
-            data, gv.PlacesPayload, dict)
-        async with db.scoped_session() as session:
-            for place in payload["data"]:
-                coordinates = {
-                    "latitude": place["coordinates"][0],
-                    "longitude": place["coordinates"][1],
-                }
-                await Place.update_or_create(
-                    session, coordinates, engine_uid, place["name"])
-            await session.commit()
 
     @registration_required
     async def on_buffered_sensors_data(
