@@ -418,10 +418,10 @@ class ActuatorState(Base, CRUDMixin):
             session: AsyncSession,
             actuator_info: dict,
             ecosystem_uid: str | None = None,
-            actuator_type: str | None = None,
+            actuator_type: gv.HardwareType | None = None,
     ) -> None:
         ecosystem_uid = ecosystem_uid or actuator_info.pop("ecosystem_uid", None)
-        actuator_type = actuator_type or actuator_info.pop("actuator_type", None)
+        actuator_type = actuator_type or actuator_info.pop("type", None)
         if not (ecosystem_uid and actuator_type):
             raise ValueError(
                 "Provide uid and actuator_type either as a argument or as a key in the "
@@ -444,7 +444,7 @@ class ActuatorState(Base, CRUDMixin):
             cls,
             session: AsyncSession,
             ecosystem_uid: str,
-            actuator_type: str,
+            actuator_type: gv.HardwareType,
     ) -> None:
         stmt = (
             delete(cls)
@@ -461,10 +461,10 @@ class ActuatorState(Base, CRUDMixin):
             session: AsyncSession,
             values: dict,
             ecosystem_uid: str | None = None,
-            actuator_type: str | None = None,
+            actuator_type: gv.HardwareType | None = None,
     ) -> None:
         ecosystem_uid = ecosystem_uid or values.pop("ecosystem_uid", None)
-        actuator_type = actuator_type or values.pop("actuator_type", None)
+        actuator_type = actuator_type or values.pop("type", None)
         if not (ecosystem_uid and actuator_type):
             raise ValueError(
                 "Provide uid and actuator_type either as a argument or as a key in the "
@@ -474,7 +474,7 @@ class ActuatorState(Base, CRUDMixin):
             session, ecosystem_uid=ecosystem_uid, actuator_type=actuator_type)
         if not actuator_status:
             values["ecosystem_uid"] = ecosystem_uid
-            values["actuator_type"] = actuator_type
+            values["type"] = actuator_type
             await cls.create(session, values)
         elif values:
             await cls.update(session, values, ecosystem_uid, actuator_type)
@@ -484,7 +484,7 @@ class ActuatorState(Base, CRUDMixin):
             cls,
             session: AsyncSession,
             ecosystem_uid: str,
-            actuator_type: str,
+            actuator_type: gv.HardwareType,
     ) -> Self | None:
         stmt = (
             select(cls)
@@ -498,8 +498,8 @@ class ActuatorState(Base, CRUDMixin):
     async def get_multiple(
             cls,
             session: AsyncSession,
-            ecosystem_uids: list | None = None,
-            actuator_types: list | None = None,
+            ecosystem_uids: list[str] | None = None,
+            actuator_types: list[gv.HardwareType] | None = None,
     ) -> Sequence[Self]:
         stmt = select(cls)
         if ecosystem_uids:

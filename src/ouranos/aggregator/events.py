@@ -10,7 +10,7 @@ from uuid import UUID
 
 from cachetools import LRUCache
 from pydantic import TypeAdapter, ValidationError
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,10 +20,11 @@ import gaia_validators as gv
 from ouranos import current_app, db, json
 from ouranos.aggregator.decorators import (
     dispatch_to_application, registration_required)
+from ouranos.core.database.models.abc import RecordMixin
 from ouranos.core.database.models.gaia import (
-    ActuatorState, CrudRequest, Ecosystem, Engine, EnvironmentParameter,
-    Hardware, HealthRecord, Lighting, Place, SensorAlarm, SensorDataRecord,
-    SensorDataCache)
+    ActuatorRecord, ActuatorState, CrudRequest, Ecosystem, Engine,
+    EnvironmentParameter, Hardware, HealthRecord, Lighting, Place, SensorAlarm,
+    SensorDataRecord, SensorDataCache)
 from ouranos.core.utils import humanize_list
 
 
@@ -37,6 +38,21 @@ class SensorDataRecordDict(TypedDict):
     measure: str
     value: float
     timestamp: datetime
+
+
+class AwareActuatorStateDict(gv.ActuatorStateDict):
+    ecosystem_uid: str
+    type: gv.HardwareType
+
+
+class AwareActuatorStateRecordDict(TypedDict):
+    ecosystem_uid: str
+    type: gv.HardwareType
+    active: bool
+    mode: gv.ActuatorMode
+    status: bool
+    level: float | None
+    timestamp: datetime | None
 
 
 class SensorAlarmDict(TypedDict):
@@ -308,6 +324,27 @@ class GaiaEvents(BaseEvents):
         )
 
     @registration_required
+    async def on_places_list(
+            self,
+            sid: UUID,  # noqa
+            data: gv.BufferedSensorsDataPayloadDict,
+            engine_uid: str
+    ) -> None:
+        self.logger.debug(
+            f"Received 'places_list' from {engine_uid}.")
+        payload: gv.PlacesPayloadDict = self.validate_payload(
+            data, gv.PlacesPayload, dict)
+        async with db.scoped_session() as session:
+            for place in payload["data"]:
+                coordinates = {
+                    "latitude": place["coordinates"][0],
+                    "longitude": place["coordinates"][1],
+                }
+                await Place.update_or_create(
+                    session, coordinates, engine_uid, place["name"])
+            await session.commit()
+
+    @registration_required
     async def on_base_info(
             self,
             sid: UUID,  # noqa
@@ -319,13 +356,13 @@ class GaiaEvents(BaseEvents):
             session["init_data"].discard("base_info")
         data: list[gv.BaseInfoConfigPayloadDict] = self.validate_payload(
             data, gv.BaseInfoConfigPayload, list)
-        engines_in_config: list[str] = []
+        ecosystems_in_config: list[str] = []
         ecosystems_status: list[dict[str, str]] = []
         ecosystems_to_log: list[str] = []
         async with db.scoped_session() as session:
             for payload in data:
                 ecosystem = payload["data"]
-                engines_in_config.append(ecosystem["uid"])
+                ecosystems_in_config.append(ecosystem["uid"])
                 ecosystems_status.append({"uid": payload["uid"], "status": ecosystem["status"]})
                 ecosystems_to_log.append(ecosystem["name"])
                 await Ecosystem.update_or_create(
@@ -336,16 +373,32 @@ class GaiaEvents(BaseEvents):
                     }
                 )
 
+                # Add the possible actuator types if missing
+                actuator_types = {i for i in gv.HardwareType.actuator}
+                actuator_states = await ActuatorState.get_multiple(
+                    session, ecosystem_uids=[ecosystem["uid"]],
+                    actuator_types=[*actuator_types])
+                present = {actuator_state.type for actuator_state in actuator_states}
+                missing = actuator_types - present
+                for actuator_state in actuator_states:
+                    actuator_types.discard(actuator_state.type)
+                for actuator_type in missing:
+                    await ActuatorState.create(
+                        session,
+                        {
+                            "ecosystem_uid": ecosystem["uid"],
+                            "type": actuator_type,
+                        },
+                    )
+
             # Remove ecosystems not in `ecosystems.cfg` anymore
             stmt = (
-                select(Ecosystem)
+                update(Ecosystem)
                 .where(Ecosystem.engine_uid == engine_uid)
-                .where(Ecosystem.uid.not_in(engines_in_config))
+                .where(Ecosystem.uid.not_in(ecosystems_in_config))
+                .values({"in_config": False})
             )
-            result = await session.execute(stmt)
-            not_used = result.scalars().all()
-            for ecosystem in not_used:
-                ecosystem.in_config = False
+            await session.execute(stmt)
 
         self.logger.debug(
             f"Logged base info from ecosystem(s): {humanize_list(ecosystems_to_log)}"
@@ -609,26 +662,37 @@ class GaiaEvents(BaseEvents):
                 f"Logged sensors data from ecosystem(s) "
                 f"{humanize_list([e.name for e in ecosystems])}")
 
-    @registration_required
-    async def on_places_list(
+    async def _handle_buffered_records(
             self,
-            sid: UUID,  # noqa
-            data: gv.BufferedSensorsDataPayloadDict,
-            engine_uid: str
+            record_model: Type[RecordMixin],
+            records: list[dict],
+            exchange_uuid: UUID,
+            sender_sid: UUID,
     ) -> None:
-        self.logger.debug(
-            f"Received 'places_list' from {engine_uid}.")
-        payload: gv.PlacesPayloadDict = self.validate_payload(
-            data, gv.PlacesPayload, dict)
         async with db.scoped_session() as session:
-            for place in payload["data"]:
-                coordinates = {
-                    "latitude": place["coordinates"][0],
-                    "longitude": place["coordinates"][1],
-                }
-                await Place.update_or_create(
-                    session, coordinates, engine_uid, place["name"])
-            await session.commit()
+            try:
+                await record_model.create_records(session, records)
+            except Exception as e:
+                await self.emit(
+                    "buffered_data_ack",
+                    data=gv.RequestResult(
+                        uuid=exchange_uuid,
+                        status=gv.Result.failure,
+                        message=str(e)
+                    ).model_dump(),
+                    namespace="/gaia",
+                    to=sender_sid
+                )
+            else:
+                await self.emit(
+                    "buffered_data_ack",
+                    data=gv.RequestResult(
+                        uuid=exchange_uuid,
+                        status=gv.Result.success,
+                    ).model_dump(),
+                    namespace="/gaia",
+                    to=sender_sid
+                )
 
     @registration_required
     async def on_buffered_sensors_data(
@@ -641,44 +705,25 @@ class GaiaEvents(BaseEvents):
             f"Received 'buffered_sensors_data' from {engine_uid}")
         data: gv.BufferedSensorsDataPayloadDict = self.validate_payload(
             data, gv.BufferedSensorsDataPayload, dict)
-        async with db.scoped_session() as session:
-            uuid: UUID = data["uuid"]
-            try:
-                records = [
-                    cast(SensorDataRecordDict, {
-                        "ecosystem_uid": record[0],
-                        "sensor_uid": record[1],
-                        "measure": record[2],
-                        "value": record[3],
-                        "timestamp": record[4],
-                    })
-                    for record in data["data"]
-                ]
-                await SensorDataRecord.create_records(session, records)
-            except Exception as e:
-                await self.emit(
-                    "buffered_data_ack",
-                    data=gv.RequestResult(
-                        uuid=uuid,
-                        status=gv.Result.failure,
-                        message=str(e)
-                    ).model_dump(),
-                    namespace="/gaia",
-                    to=sid
-                )
-            else:
-                await self.emit(
-                    "buffered_data_ack",
-                    data=gv.RequestResult(
-                        uuid=uuid,
-                        status=gv.Result.success,
-                    ).model_dump(),
-                    namespace="/gaia",
-                    to=sid
-                )
+        exchange_uuid: UUID = data["uuid"]
+        records = [
+            {
+                "ecosystem_uid": record[0],
+                "sensor_uid": record[1],
+                "measure": record[2],
+                "value": record[3],
+                "timestamp": record[4],
+            }
+            for record in data["data"]
+        ]
+        await self._handle_buffered_records(
+            record_model=SensorDataRecord,
+            records=records,
+            exchange_uuid=exchange_uuid,
+            sender_sid=sid
+        )
 
     @registration_required
-    @dispatch_to_application
     async def on_actuators_data(
             self,
             sid: UUID,  # noqa
@@ -691,28 +736,74 @@ class GaiaEvents(BaseEvents):
         data: list[gv.ActuatorsDataPayloadDict] = self.validate_payload(
             data, gv.ActuatorsDataPayload, list)
         logged: list[str] = []
+        data_to_dispatch: list[AwareActuatorStateDict] = []
+        records_to_log: list[AwareActuatorStateRecordDict] = []
         async with db.scoped_session() as session:
             for payload in data:
                 records = payload["data"]
-                logged.append(
-                    await get_ecosystem_name(payload["uid"], session=None)
-                )
                 for record in records:
-                    await session.merge(
-                        ActuatorState(
-                            ecosystem_uid=payload["uid"],
-                            type=record[0],
-                            active=record[1],
-                            mode=record[2],
-                            status=record[3],
-                            level=record[4],
+                    record: gv.ActuatorStateRecord
+                    common_data: AwareActuatorStateDict = {
+                        "ecosystem_uid": payload["uid"],
+                        "type": record[0],
+                        "active": record[1],
+                        "mode": record[2],
+                        "status": record[3],
+                        "level": record[4],
+                    }
+                    await ActuatorState.update_or_create(session, common_data)
+                    data_to_dispatch.append(common_data)
+                    timestamp = record[5]
+                    if timestamp is not None:
+                        records_to_log.append(
+                            cast(
+                                AwareActuatorStateRecordDict,
+                                {**{common_data}, "timestamp": timestamp}
+                            )
                         )
-                    )
+            if records_to_log:
+                await ActuatorRecord.create_records(session, records_to_log)
+            if data_to_dispatch:
+                await self.ouranos_dispatcher.emit(
+                    "actuators_data", data=data_to_dispatch,
+                    namespace="application-internal", ttl=15)
+
         if logged:
             self.logger.debug(
                 f"Logged actuator data from ecosystem(s): "
                 f"{humanize_list(logged)}"
             )
+
+    @registration_required
+    async def on_buffered_actuators_data(
+            self,
+            sid: UUID,
+            data: gv.BufferedActuatorsStatePayloadDict,
+            engine_uid: str
+    ) -> None:
+        self.logger.debug(
+            f"Received 'buffered_actuators_data' from {engine_uid}")
+        data: gv.BufferedActuatorsStatePayloadDict = self.validate_payload(
+            data, gv.BufferedActuatorsStatePayload, dict)
+        exchange_uuid: UUID = data["uuid"]
+        records = [
+            {
+                "ecosystem_uid": record[0],
+                "type": record[1],
+                "active": record[2],
+                "mode": record[3],
+                "status": record[4],
+                "level": record[5],
+                "timestamp": record[6],
+            }
+            for record in data["data"]
+        ]
+        await self._handle_buffered_records(
+            record_model=ActuatorRecord,
+            records=records,
+            exchange_uuid=exchange_uuid,
+            sender_sid=sid
+        )
 
     @registration_required
     @dispatch_to_application
