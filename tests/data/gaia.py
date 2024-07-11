@@ -105,7 +105,7 @@ environmental_payload: gv.EnvironmentConfigPayloadDict = \
     wrap_ecosystem_data_payload(
         gv.EnvironmentConfig(
             chaos=chaos,
-            sky=sky,
+            nycthemeral_cycle=sky,
             climate=[climate]
         ).model_dump()
     )
@@ -232,31 +232,35 @@ buffered_data_payload = gv.BufferedSensorsDataPayloadDict(
 )
 
 
-actuator_state: gv.ActuatorStateDict = {
-    "active": True,
-    "status": True,
-    "level": 0.0,
-    "mode": gv.ActuatorMode.automatic,
-}
+def get_actuator_state(actuator_type: gv.HardwareType) -> gv.ActuatorStateRecord:
+    return gv.ActuatorStateRecord(
+        type=actuator_type,
+        active=False,
+        mode=gv.ActuatorMode.automatic,
+        status=False,
+        level=None,
+        timestamp=None
+    )
 
-light_state: gv.ActuatorStateDict = {**actuator_state}
-cooler_state: gv.ActuatorStateDict = {**actuator_state}
-heater_state: gv.ActuatorStateDict = {**actuator_state}
-humidifier_state: gv.ActuatorStateDict = {**actuator_state}
-dehumidifier_state: gv.ActuatorStateDict = {**actuator_state}
-fan_state: gv.ActuatorStateDict = {**actuator_state}
+
+light_state: gv.ActuatorStateRecord = get_actuator_state(gv.HardwareType.light)
+cooler_state: gv.ActuatorStateRecord = get_actuator_state(gv.HardwareType.cooler)
+heater_state: gv.ActuatorStateRecord = get_actuator_state(gv.HardwareType.heater)
+humidifier_state: gv.ActuatorStateRecord = get_actuator_state(gv.HardwareType.humidifier)
+dehumidifier_state: gv.ActuatorStateRecord = get_actuator_state(gv.HardwareType.dehumidifier)
+fan_state: gv.ActuatorStateRecord = get_actuator_state(gv.HardwareType.fan)
 
 
 actuator_state_payload = gv.ActuatorsDataPayloadDict(
     uid=ecosystem_uid,
-    data=gv.ActuatorsDataDict(
-        light = light_state,
-        cooler = cooler_state,
-        heater = heater_state,
-        humidifier = humidifier_state,
-        dehumidifier = dehumidifier_state,
-        fan = fan_state,
-    )
+    data=[
+        light_state,
+        cooler_state,
+        heater_state,
+        humidifier_state,
+        dehumidifier_state,
+        fan_state,
+    ]
 )
 
 

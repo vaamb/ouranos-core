@@ -362,20 +362,17 @@ class Ecosystem(Base, CRUDMixin, InConfigMixin):
     async def current_data(self, session: AsyncSession) -> Sequence[SensorDataCache]:
         return await SensorDataCache.get_recent(session, self.uid)
 
-    async def actuators_status(
+    async def actuators_state(
             self,
             session: AsyncSession
-    ) -> EcosystemActuatorTypesManagedDict:
+    ) -> list[ActuatorState]:
         stmt = (
-            select(ActuatorStatus)
-            .where(ActuatorStatus.ecosystem_uid == self.uid)
+            select(ActuatorState)
+            .where(ActuatorState.ecosystem_uid == self.uid)
         )
         result = await session.execute(stmt)
         actuators_status = result.scalars().all()
-        return {
-            actuator.actuator_type.name: actuator
-            for actuator in actuators_status
-        }
+        return actuators_status
 
     async def turn_actuator(
             self,
@@ -405,14 +402,15 @@ class Ecosystem(Base, CRUDMixin, InConfigMixin):
             countdown=countdown)
 
 
-class ActuatorStatus(Base, CRUDMixin):
-    __tablename__ = "actuators_status"
+class ActuatorState(Base, CRUDMixin):
+    __tablename__ = "actuator_states"
 
     ecosystem_uid: Mapped[str] = mapped_column(sa.ForeignKey("ecosystems.uid"), primary_key=True)
-    actuator_type: Mapped[gv.HardwareType] = mapped_column(primary_key=True)
-    status: Mapped[bool] = mapped_column(default=False)
-    mode: Mapped[gv.ActuatorMode] = mapped_column(default=gv.ActuatorMode.automatic)
+    type: Mapped[gv.HardwareType] = mapped_column(primary_key=True)
     active: Mapped[bool] = mapped_column(default=False)
+    mode: Mapped[gv.ActuatorMode] = mapped_column(default=gv.ActuatorMode.automatic)
+    status: Mapped[bool] = mapped_column(default=False)
+    level: Mapped[Optional[float]] = mapped_column(sa.Float(precision=2), default=None)
 
     @classmethod
     async def update(
@@ -435,7 +433,7 @@ class ActuatorStatus(Base, CRUDMixin):
             update(cls)
             .where(
                 cls.ecosystem_uid == ecosystem_uid,
-                cls.actuator_type == actuator_type
+                cls.type == actuator_type
             )
             .values(**actuator_info)
         )
@@ -452,7 +450,7 @@ class ActuatorStatus(Base, CRUDMixin):
             delete(cls)
             .where(
                 cls.ecosystem_uid == ecosystem_uid,
-                cls.actuator_type == actuator_type,
+                cls.type == actuator_type,
             )
         )
         await session.execute(stmt)
@@ -491,7 +489,7 @@ class ActuatorStatus(Base, CRUDMixin):
         stmt = (
             select(cls)
             .where(cls.ecosystem_uid == ecosystem_uid)
-            .where(cls.actuator_type == actuator_type)
+            .where(cls.type == actuator_type)
         )
         result = await session.execute(stmt)
         return result.scalar_one_or_none()
@@ -507,7 +505,7 @@ class ActuatorStatus(Base, CRUDMixin):
         if ecosystem_uids:
             stmt = stmt.where(cls.ecosystem_uid.in_(ecosystem_uids))
         if actuator_types:
-            stmt = stmt.where(cls.actuator_type.in_(actuator_types))
+            stmt = stmt.where(cls.type.in_(actuator_types))
         result = await session.execute(stmt)
         return result.scalars().all()
 
@@ -877,8 +875,6 @@ class Hardware(Base, CRUDMixin, InConfigMixin):
         lazy="selectin")
     sensor_records: Mapped[list["SensorDataRecord"]] = relationship(
         back_populates="sensor")
-    actuator_records: Mapped[list["ActuatorRecord"]] = relationship(
-        back_populates="actuator")
 
     def __repr__(self) -> str:
         return (
@@ -1625,21 +1621,17 @@ class BaseActuatorRecord(Base, RecordMixin):
     __abstract__ = True
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    type: Mapped[str] = mapped_column(sa.String(length=16))
+    type: Mapped[gv.HardwareType] = mapped_column()
     timestamp: Mapped[datetime] = mapped_column(UtcDateTime)
+    active: Mapped[bool] = mapped_column(default=False)
     mode: Mapped[gv.ActuatorMode] = mapped_column(default=gv.ActuatorMode.automatic)
     status: Mapped[bool] = mapped_column(default=False)
+    level: Mapped[Optional[float]] = mapped_column(sa.Float(precision=2), default=None)
 
     @declared_attr
     def ecosystem_uid(cls) -> Mapped[str]:
         return mapped_column(
             sa.String(length=8), sa.ForeignKey("ecosystems.uid"), index=True
-        )
-
-    @declared_attr
-    def actuator_uid(cls) -> Mapped[str]:
-        return mapped_column(
-            sa.String(length=16), sa.ForeignKey("hardware.uid"), index=True
         )
 
 
@@ -1649,7 +1641,6 @@ class ActuatorRecord(BaseActuatorRecord):
 
     # relationships
     ecosystem: Mapped["Ecosystem"] = relationship(back_populates="actuator_records")
-    actuator: Mapped["Hardware"] = relationship(back_populates="actuator_records")
 
 
 # ---------------------------------------------------------------------------

@@ -12,7 +12,7 @@ from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
 from ouranos.aggregator.events import GaiaEvents
 from ouranos.core.database.models.gaia import (
-    ActuatorStatus, Ecosystem, Engine, EnvironmentParameter,
+    ActuatorState, Ecosystem, Engine, EnvironmentParameter,
     Hardware, HealthRecord, Lighting, Place, SensorAlarm, SensorDataCache,
     SensorDataRecord)
 from ouranos.core.exceptions import NotRegisteredError
@@ -374,22 +374,22 @@ async def test_on_buffered_sensors_data(
 
 
 @pytest.mark.asyncio
-async def test_on_actuator_data(
+async def test_on_actuators_data(
         mock_dispatcher: MockAsyncDispatcher,
         events_handler: GaiaEvents,
         ecosystem_aware_db: AsyncSQLAlchemyWrapper,
 ):
-    await events_handler.on_actuator_data(
+    await events_handler.on_actuators_data(
         g_data.engine_sid, [g_data.actuator_state_payload])
     async with ecosystem_aware_db.scoped_session() as session:
         logged_light_state = (
-            await ActuatorStatus.get(
+            await ActuatorState.get(
                 session, ecosystem_uid=g_data.ecosystem_uid, actuator_type="light")
         )
-        assert logged_light_state.actuator_type == gv.HardwareType.light
-        assert logged_light_state.active == g_data.light_state["active"]
-        assert logged_light_state.mode == g_data.light_state["mode"]
-        assert logged_light_state.status == g_data.light_state["status"]
+        assert logged_light_state.type == gv.HardwareType.light
+        assert logged_light_state.active == g_data.light_state.active
+        assert logged_light_state.mode == g_data.light_state.mode
+        assert logged_light_state.status == g_data.light_state.status
 
     wrong_payload = {}
     with pytest.raises(Exception):
