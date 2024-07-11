@@ -10,7 +10,7 @@ from uuid import UUID
 
 from cachetools import LRUCache
 from pydantic import TypeAdapter, ValidationError
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -356,13 +356,13 @@ class GaiaEvents(BaseEvents):
             session["init_data"].discard("base_info")
         data: list[gv.BaseInfoConfigPayloadDict] = self.validate_payload(
             data, gv.BaseInfoConfigPayload, list)
-        engines_in_config: list[str] = []
+        ecosystems_in_config: list[str] = []
         ecosystems_status: list[dict[str, str]] = []
         ecosystems_to_log: list[str] = []
         async with db.scoped_session() as session:
             for payload in data:
                 ecosystem = payload["data"]
-                engines_in_config.append(ecosystem["uid"])
+                ecosystems_in_config.append(ecosystem["uid"])
                 ecosystems_status.append({"uid": payload["uid"], "status": ecosystem["status"]})
                 ecosystems_to_log.append(ecosystem["name"])
                 await Ecosystem.update_or_create(
@@ -373,16 +373,32 @@ class GaiaEvents(BaseEvents):
                     }
                 )
 
+                # Add the possible actuator types if missing
+                actuator_types = {i for i in gv.HardwareType.actuator}
+                actuator_states = await ActuatorState.get_multiple(
+                    session, ecosystem_uids=[ecosystem["uid"]],
+                    actuator_types=[*actuator_types])
+                present = {actuator_state.type for actuator_state in actuator_states}
+                missing = actuator_types - present
+                for actuator_state in actuator_states:
+                    actuator_types.discard(actuator_state.type)
+                for actuator_type in missing:
+                    await ActuatorState.create(
+                        session,
+                        {
+                            "ecosystem_uid": ecosystem["uid"],
+                            "type": actuator_type,
+                        },
+                    )
+
             # Remove ecosystems not in `ecosystems.cfg` anymore
             stmt = (
-                select(Ecosystem)
+                update(Ecosystem)
                 .where(Ecosystem.engine_uid == engine_uid)
-                .where(Ecosystem.uid.not_in(engines_in_config))
+                .where(Ecosystem.uid.not_in(ecosystems_in_config))
+                .values({"in_config": False})
             )
-            result = await session.execute(stmt)
-            not_used = result.scalars().all()
-            for ecosystem in not_used:
-                ecosystem.in_config = False
+            await session.execute(stmt)
 
         self.logger.debug(
             f"Logged base info from ecosystem(s): {humanize_list(ecosystems_to_log)}"
@@ -735,7 +751,7 @@ class GaiaEvents(BaseEvents):
                         "status": record[3],
                         "level": record[4],
                     }
-                    await session.merge(ActuatorState(**common_data))
+                    await ActuatorState.update_or_create(session, common_data)
                     data_to_dispatch.append(common_data)
                     timestamp = record[5]
                     if timestamp is not None:
