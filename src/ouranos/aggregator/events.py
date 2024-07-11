@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from threading import Lock
 import inspect
 import logging
-from typing import cast, overload, Type, TypedDict
+from typing import cast, Type, TypedDict, TypeVar
 from uuid import UUID
 
 from cachetools import LRUCache
@@ -26,6 +26,9 @@ from ouranos.core.database.models.gaia import (
     EnvironmentParameter, Hardware, HealthRecord, Lighting, Place, SensorAlarm,
     SensorDataRecord, SensorDataCache)
 from ouranos.core.utils import humanize_list
+
+
+PT = TypeVar("PT", dict, list[dict])
 
 
 _ecosystem_name_cache = LRUCache(maxsize=32)
@@ -116,30 +119,12 @@ class BaseEvents(AsyncEventHandler):
         super().__init__(*args, **kwargs)
         self.logger: logging.Logger = logging.getLogger("ouranos.aggregator")
 
-    @overload
     def validate_payload(
             self,
-            data: dict,
+            data: PT,
             model_cls: Type[gv.BaseModel],
-            type_=dict
-    ) -> dict:
-        ...
-
-    @overload
-    def validate_payload(
-            self,
-            data: list[dict],
-            model_cls: Type[gv.BaseModel],
-            type_=list[dict]
-    ) -> list[dict]:
-        ...
-
-    def validate_payload(
-            self,
-            data: dict | list[dict],
-            model_cls: Type[gv.BaseModel],
-            type_: Type,
-    ) -> dict | list[dict]:
+            type_: Type[dict] | Type[list],
+    ) -> PT:
         if not data:
             event = inspect.stack()[1].function.lstrip("on_")
             self.logger.error(
@@ -327,7 +312,7 @@ class GaiaEvents(BaseEvents):
     async def on_places_list(
             self,
             sid: UUID,  # noqa
-            data: gv.BufferedSensorsDataPayloadDict,
+            data: gv.PlacesPayloadDict,
             engine_uid: str
     ) -> None:
         self.logger.debug(
@@ -741,6 +726,9 @@ class GaiaEvents(BaseEvents):
         async with db.scoped_session() as session:
             for payload in data:
                 records = payload["data"]
+                logged.append(
+                    await get_ecosystem_name(payload["uid"], session=None)
+                )
                 for record in records:
                     record: gv.ActuatorStateRecord
                     common_data: AwareActuatorStateDict = {
