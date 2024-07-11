@@ -240,7 +240,7 @@ class GaiaEvents(BaseEvents):
             session["engine_uid"] = engine_uid
             session["init_data"] = {
                 "base_info", "environmental_parameters", "hardware",
-                "management", "actuator_data", "light_data",
+                "management", "actuators_data", "light_data",
             }
         now = datetime.now(timezone.utc).replace(microsecond=0)
         engine_info = {
@@ -679,32 +679,33 @@ class GaiaEvents(BaseEvents):
 
     @registration_required
     @dispatch_to_application
-    async def on_actuator_data(
+    async def on_actuators_data(
             self,
             sid: UUID,  # noqa
             data: list[gv.ActuatorsDataPayloadDict],
             engine_uid: str
     ) -> None:
-        self.logger.debug(f"Received 'actuator_data' from {engine_uid}")
+        self.logger.debug(f"Received 'actuators_data' from {engine_uid}")
         async with self.session(sid) as session:
-            session["init_data"].discard("actuator_data")
+            session["init_data"].discard("actuators_data")
         data: list[gv.ActuatorsDataPayloadDict] = self.validate_payload(
             data, gv.ActuatorsDataPayload, list)
         logged: list[str] = []
         async with db.scoped_session() as session:
             for payload in data:
-                ecosystem = payload["data"]
+                records = payload["data"]
                 logged.append(
                     await get_ecosystem_name(payload["uid"], session=None)
                 )
-                for actuator, values in ecosystem.items():
+                for record in records:
                     await session.merge(
                         ActuatorState(
                             ecosystem_uid=payload["uid"],
-                            actuator_type=actuator,
-                            active=values["active"],
-                            mode=values["mode"],
-                            status=values["status"],
+                            type=record[0],
+                            active=record[1],
+                            mode=record[2],
+                            status=record[3],
+                            level=record[4],
                         )
                     )
         if logged:
