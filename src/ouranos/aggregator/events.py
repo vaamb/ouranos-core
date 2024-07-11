@@ -21,9 +21,9 @@ from ouranos import current_app, db, json
 from ouranos.aggregator.decorators import (
     dispatch_to_application, registration_required)
 from ouranos.core.database.models.gaia import (
-    ActuatorState, CrudRequest, Ecosystem, Engine, EnvironmentParameter,
-    Hardware, HealthRecord, Lighting, Place, SensorAlarm, SensorDataRecord,
-    SensorDataCache)
+    ActuatorRecord, ActuatorState, CrudRequest, Ecosystem, Engine,
+    EnvironmentParameter, Hardware, HealthRecord, Lighting, Place, SensorAlarm,
+    SensorDataRecord, SensorDataCache)
 from ouranos.core.utils import humanize_list
 
 
@@ -37,6 +37,21 @@ class SensorDataRecordDict(TypedDict):
     measure: str
     value: float
     timestamp: datetime
+
+
+class AwareActuatorStateDict(gv.ActuatorStateDict):
+    ecosystem_uid: str
+    type: gv.HardwareType
+
+
+class AwareActuatorStateRecordDict(TypedDict):
+    ecosystem_uid: str
+    type: gv.HardwareType
+    active: bool
+    mode: gv.ActuatorMode
+    status: bool
+    level: float | None
+    timestamp: datetime | None
 
 
 class SensorAlarmDict(TypedDict):
@@ -678,7 +693,6 @@ class GaiaEvents(BaseEvents):
                 )
 
     @registration_required
-    @dispatch_to_application
     async def on_actuators_data(
             self,
             sid: UUID,  # noqa
@@ -691,23 +705,38 @@ class GaiaEvents(BaseEvents):
         data: list[gv.ActuatorsDataPayloadDict] = self.validate_payload(
             data, gv.ActuatorsDataPayload, list)
         logged: list[str] = []
+        data_to_dispatch: list[AwareActuatorStateDict] = []
+        records_to_log: list[AwareActuatorStateRecordDict] = []
         async with db.scoped_session() as session:
             for payload in data:
                 records = payload["data"]
-                logged.append(
-                    await get_ecosystem_name(payload["uid"], session=None)
-                )
                 for record in records:
-                    await session.merge(
-                        ActuatorState(
-                            ecosystem_uid=payload["uid"],
-                            type=record[0],
-                            active=record[1],
-                            mode=record[2],
-                            status=record[3],
-                            level=record[4],
+                    record: gv.ActuatorStateRecord
+                    common_data: AwareActuatorStateDict = {
+                        "ecosystem_uid": payload["uid"],
+                        "type": record[0],
+                        "active": record[1],
+                        "mode": record[2],
+                        "status": record[3],
+                        "level": record[4],
+                    }
+                    await session.merge(ActuatorState(**common_data))
+                    data_to_dispatch.append(common_data)
+                    timestamp = record[5]
+                    if timestamp is not None:
+                        records_to_log.append(
+                            cast(
+                                AwareActuatorStateRecordDict,
+                                {**{common_data}, "timestamp": timestamp}
+                            )
                         )
-                    )
+            if records_to_log:
+                await ActuatorRecord.create_records(session, records_to_log)
+            if data_to_dispatch:
+                await self.ouranos_dispatcher.emit(
+                    "actuators_data", data=data_to_dispatch,
+                    namespace="application-internal", ttl=15)
+
         if logged:
             self.logger.debug(
                 f"Logged actuator data from ecosystem(s): "
