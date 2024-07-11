@@ -21,7 +21,7 @@ from ouranos import current_app, db, json
 from ouranos.aggregator.decorators import (
     dispatch_to_application, registration_required)
 from ouranos.core.database.models.gaia import (
-    ActuatorStatus, CrudRequest, Ecosystem, Engine, EnvironmentParameter,
+    ActuatorState, CrudRequest, Ecosystem, Engine, EnvironmentParameter,
     Hardware, HealthRecord, Lighting, Place, SensorAlarm, SensorDataRecord,
     SensorDataCache)
 from ouranos.core.utils import humanize_list
@@ -699,7 +699,7 @@ class GaiaEvents(BaseEvents):
                 )
                 for actuator, values in ecosystem.items():
                     await session.merge(
-                        ActuatorStatus(
+                        ActuatorState(
                             ecosystem_uid=payload["uid"],
                             actuator_type=actuator,
                             active=values["active"],

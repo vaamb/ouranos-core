@@ -3,12 +3,12 @@ from __future__ import annotations
 from datetime import time
 from typing import Optional
 
-from pydantic import ConfigDict, Field, field_validator
+from pydantic import ConfigDict, Field, field_serializer, field_validator
 
 import gaia_validators as gv
 from gaia_validators import safe_enum_from_name
 
-from ouranos.core.database.models.gaia import Ecosystem
+from ouranos.core.database.models.gaia import Ecosystem, ActuatorState
 from ouranos.core.validate.base import BaseModel
 from ouranos.core.validate.utils import sqlalchemy_to_pydantic
 
@@ -108,5 +108,19 @@ EnvironmentParameterInfo = EnvironmentParameterCreationPayload
 # ---------------------------------------------------------------------------
 #   Ecosystem actuators
 # ---------------------------------------------------------------------------
-class EcosystemActuatorInfo(gv.ActuatorsData):
+_ActuatorStateInfo = sqlalchemy_to_pydantic(
+    ActuatorState,
+    base=BaseModel,
+    exclude=["ecosystem_uid"],
+)
+
+
+class ActuatorStateInfo(_ActuatorStateInfo):
+    @field_serializer("type")
+    def serialize_type(self, value):
+        return value.name
+
+
+class EcosystemActuatorInfo(BaseModel):
     ecosystem_uid: str
+    actuators: list[ActuatorStateInfo]

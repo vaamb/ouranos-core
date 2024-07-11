@@ -658,14 +658,14 @@ async def get_ecosystems_actuators_status(
     response = [
         {
             "ecosystem_uid": ecosystem.uid,
-            **await ecosystem.actuators_status(session)
+            "actuators": await ecosystem.actuators_state(session)
         } for ecosystem in ecosystems
     ]
     return response
 
 
 @router.get("/u/{id}/actuators_status", response_model=EcosystemActuatorInfo)
-async def get_ecosystem_actuator_types_managed(
+async def get_ecosystem_actuators_status(
         id: str = id_param,
         session: AsyncSession = Depends(get_session)
 ):
@@ -673,7 +673,7 @@ async def get_ecosystem_actuator_types_managed(
     ecosystem = await ecosystem_or_abort(session, id)
     response = {
         "ecosystem_uid": ecosystem.uid,
-        **await ecosystem.actuators_status(session)
+        "actuators": await ecosystem.actuators_state(session)
     }
     return response
 
