@@ -384,7 +384,8 @@ async def test_on_actuators_data(
     async with ecosystem_aware_db.scoped_session() as session:
         logged_light_state = (
             await ActuatorState.get(
-                session, ecosystem_uid=g_data.ecosystem_uid, actuator_type="light")
+                session, ecosystem_uid=g_data.ecosystem_uid,
+                actuator_type=gv.HardwareType.light)
         )
         assert logged_light_state.type == gv.HardwareType.light
         assert logged_light_state.active == g_data.light_state.active

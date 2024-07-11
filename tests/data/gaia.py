@@ -235,10 +235,10 @@ buffered_data_payload = gv.BufferedSensorsDataPayloadDict(
 def get_actuator_state(actuator_type: gv.HardwareType) -> gv.ActuatorStateRecord:
     return gv.ActuatorStateRecord(
         type=actuator_type,
-        active=False,
+        active=True,
         mode=gv.ActuatorMode.automatic,
         status=False,
-        level=None,
+        level=42.0,
         timestamp=None
     )
 
