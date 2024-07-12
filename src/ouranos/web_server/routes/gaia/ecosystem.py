@@ -24,7 +24,7 @@ from ouranos.web_server.validate.gaia.ecosystem import (
     EcosystemLightMethodUpdatePayload, EcosystemLightInfo,
     EnvironmentParameterCreationPayload, EnvironmentParameterUpdatePayload,
     EnvironmentParameterInfo,
-    EcosystemActuatorInfo)
+    EcosystemActuatorInfo, EcosystemTurnActuatorPayload)
 from ouranos.web_server.validate.gaia.hardware import HardwareInfo
 from ouranos.web_server.validate.gaia.sensor import (
     EcosystemSensorData, SensorSkeletonInfo)
@@ -684,13 +684,17 @@ async def get_ecosystem_actuators_status(
             dependencies=[Depends(is_operator)])
 async def turn_actuator(
         id: str = id_param,
-        payload: gv.TurnActuatorPayload = Body(
+        payload: EcosystemTurnActuatorPayload = Body(
             description="Instruction for the actuator"),
         session: AsyncSession = Depends(get_session)
 ):
     instruction_dict = payload.model_dump()
     actuator: gv.HardwareType = instruction_dict["actuator"]
-    assert actuator in gv.HardwareType.actuator
+    if not actuator & gv.HardwareType.actuator:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"{actuator} is not an actuator"
+        )
     mode: gv.ActuatorModePayload = instruction_dict["mode"]
     countdown = instruction_dict["countdown"]
     try:
