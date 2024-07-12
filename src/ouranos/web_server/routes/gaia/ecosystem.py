@@ -647,7 +647,7 @@ async def get_ecosystem_current_data(
 # ------------------------------------------------------------------------------
 #   Ecosystem actuators state
 # ------------------------------------------------------------------------------
-@router.get("/actuators_status", response_model=list[EcosystemActuatorInfo])
+@router.get("/actuators_state", response_model=list[EcosystemActuatorInfo])
 async def get_ecosystems_actuators_status(
         ecosystems_id: list[str] | None = ecosystems_uid_q,
         in_config: bool | None = in_config_query,
@@ -664,7 +664,7 @@ async def get_ecosystems_actuators_status(
     return response
 
 
-@router.get("/u/{id}/actuators_status", response_model=EcosystemActuatorInfo)
+@router.get("/u/{id}/actuators_state", response_model=EcosystemActuatorInfo)
 async def get_ecosystem_actuators_status(
         id: str = id_param,
         session: AsyncSession = Depends(get_session)
