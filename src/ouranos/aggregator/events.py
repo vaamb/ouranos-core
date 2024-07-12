@@ -739,14 +739,14 @@ class GaiaEvents(BaseEvents):
                         "status": record[3],
                         "level": record[4],
                     }
-                    await ActuatorState.update_or_create(session, common_data)
+                    await ActuatorState.update_or_create(session, {**common_data})
                     data_to_dispatch.append(common_data)
                     timestamp = record[5]
                     if timestamp is not None:
                         records_to_log.append(
                             cast(
                                 AwareActuatorStateRecordDict,
-                                {**{common_data}, "timestamp": timestamp}
+                                {**common_data, "timestamp": timestamp}
                             )
                         )
             if records_to_log:
