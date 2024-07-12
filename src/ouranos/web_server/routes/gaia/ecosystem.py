@@ -13,7 +13,8 @@ from ouranos.core.database.models.gaia import (
 from ouranos.core.dispatchers import DispatcherFactory
 from ouranos.core.utils import timeWindow
 from ouranos.web_server.auth import is_operator
-from ouranos.web_server.dependencies import get_session, get_time_window_round_600
+from ouranos.web_server.dependencies import (
+    get_session, get_time_window_round_60, get_time_window_round_600)
 from ouranos.web_server.routes.utils import assert_single_uid
 from ouranos.web_server.routes.gaia.utils import (
     ecosystem_or_abort, ecosystems_uid_q, hardware_level_q)
@@ -24,7 +25,7 @@ from ouranos.web_server.validate.gaia.ecosystem import (
     EcosystemLightMethodUpdatePayload, EcosystemLightInfo,
     EnvironmentParameterCreationPayload, EnvironmentParameterUpdatePayload,
     EnvironmentParameterInfo,
-    EcosystemActuatorInfo, EcosystemTurnActuatorPayload)
+    EcosystemActuatorInfo, EcosystemActuatorRecords, EcosystemTurnActuatorPayload)
 from ouranos.web_server.validate.gaia.hardware import HardwareInfo
 from ouranos.web_server.validate.gaia.sensor import (
     EcosystemSensorData, SensorSkeletonInfo)
@@ -674,6 +675,39 @@ async def get_ecosystem_actuators_status(
     response = {
         "ecosystem_uid": ecosystem.uid,
         "actuators": await ecosystem.actuators_state(session)
+    }
+    return response
+
+
+@router.get("/u/{id}/actuator_records/{actuator_type}",
+            response_model=EcosystemActuatorRecords)
+async def get_ecosystem_actuator_records(
+        id: str = id_param,
+        actuator_type: str = Path(description="The actuator type to search for."),
+        time_window: timeWindow = Depends(get_time_window_round_60),
+        session: AsyncSession = Depends(get_session)
+):
+    assert_single_uid(id)
+    assert_single_uid(actuator_type, "actuator_type")
+    error = False
+    try:
+        actuator_type = safe_enum_from_name(gv.HardwareType, actuator_type)
+    except ValueError:
+        error = True
+    else:
+        if not actuator_type & gv.HardwareType.actuator:
+            error = True
+    if error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid actuator type"
+        )
+    ecosystem = await ecosystem_or_abort(session, id)
+    response = {
+        "ecosystem_uid": ecosystem.uid,
+        "actuator_type": actuator_type,
+        "values": await ecosystem.get_timed_values(
+            session, actuator_type, time_window)
     }
     return response
 
