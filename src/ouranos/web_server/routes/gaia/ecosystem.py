@@ -13,7 +13,7 @@ from ouranos.core.database.models.gaia import (
 from ouranos.core.dispatchers import DispatcherFactory
 from ouranos.core.utils import timeWindow
 from ouranos.web_server.auth import is_operator
-from ouranos.web_server.dependencies import get_session, get_time_window
+from ouranos.web_server.dependencies import get_session, get_time_window_round_600
 from ouranos.web_server.routes.utils import assert_single_uid
 from ouranos.web_server.routes.gaia.utils import (
     ecosystem_or_abort, ecosystems_uid_q, hardware_level_q)
@@ -300,7 +300,7 @@ async def update_management(
 async def get_ecosystems_sensors_skeleton(
         ecosystems_id: list[str] | None = ecosystems_uid_q,
         level: list[gv.HardwareLevel] | None = hardware_level_q,
-        time_window: timeWindow = Depends(get_time_window),
+        time_window: timeWindow = Depends(get_time_window_round_600),
         in_config: bool | None = in_config_query,
         session: AsyncSession = Depends(get_session),
 ):
@@ -317,7 +317,7 @@ async def get_ecosystems_sensors_skeleton(
 async def get_ecosystem_sensors_skeleton(
         id: str = id_param,
         level: list[gv.HardwareLevel] | None = hardware_level_q,
-        time_window: timeWindow = Depends(get_time_window),
+        time_window: timeWindow = Depends(get_time_window_round_600),
         session: AsyncSession = Depends(get_session)
 ):
     assert_single_uid(id)

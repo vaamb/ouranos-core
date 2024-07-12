@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ouranos.core.database.models.system import System
 from ouranos.core.utils import timeWindow
 from ouranos.web_server.auth import is_admin
-from ouranos.web_server.dependencies import get_session, get_time_window
+from ouranos.web_server.dependencies import get_session, get_time_window_round_600
 from ouranos.web_server.validate.system import SystemData, SystemInfo
 
 
@@ -65,7 +65,7 @@ async def get_current_system_data(
 @router.get("/{system_uid}/data/historic", response_model=SystemData)
 async def get_historic_system_data(
         system_uid: str = Path(description="A server uid"),
-        time_window: timeWindow = Depends(get_time_window),
+        time_window: timeWindow = Depends(get_time_window_round_600),
         session: AsyncSession = Depends(get_session),
 ):
     system = await system_or_abort(session, uid=system_uid)
