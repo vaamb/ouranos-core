@@ -7,7 +7,7 @@ import gaia_validators as gv
 
 from ouranos.core.database.models.gaia import Measure, Sensor
 from ouranos.core.utils import timeWindow
-from ouranos.web_server.dependencies import get_session, get_time_window_round_600
+from ouranos.web_server.dependencies import get_session, get_time_window
 from ouranos.web_server.routes.gaia.utils import (
     ecosystems_uid_q, hardware_level_q)
 from ouranos.web_server.routes.utils import assert_single_uid
@@ -59,7 +59,7 @@ async def get_sensors(
             default=None, description="A list of measures taken"),
         current_data: bool = current_data_query,
         historic_data: bool = historic_data_query,
-        time_window: timeWindow = Depends(get_time_window_round_600),
+        time_window: timeWindow = Depends(get_time_window(rounding=10, grace_time=60)),
         in_config: bool | None = in_config_query,
         session: AsyncSession = Depends(get_session),
 ):
@@ -85,7 +85,7 @@ async def get_sensor(
         uid: str = uid_param,
         current_data: bool = current_data_query,
         historic_data: bool = historic_data_query,
-        time_window: timeWindow = Depends(get_time_window_round_600),
+        time_window: timeWindow = Depends(get_time_window(rounding=10, grace_time=60)),
         session: AsyncSession = Depends(get_session),
 ):
     assert_single_uid(uid)
@@ -115,7 +115,7 @@ async def get_sensor_historic_data(
         uid: str = uid_param,
         measures: list[str] | None = Query(
             default=None, description="A list of measures taken by the sensor"),
-        time_window: timeWindow = Depends(get_time_window_round_600),
+        time_window: timeWindow = Depends(get_time_window(rounding=10, grace_time=60)),
         session: AsyncSession = Depends(get_session),
 ):
     assert_single_uid(uid)
