@@ -204,7 +204,7 @@ def test_light(client: TestClient):
     assert response.status_code == 200
 
     data = json.loads(response.text)[0]
-    assert data["method"] == g_data.light_data["method"].value
+    assert data["method"] == g_data.light_data["method"].name
     assert time.fromisoformat(data["morning_start"]) == g_data.light_data["morning_start"]
     assert time.fromisoformat(data["morning_end"]) == g_data.light_data["morning_end"]
     assert time.fromisoformat(data["evening_start"]) == g_data.light_data["evening_start"]
@@ -216,7 +216,7 @@ def test_light_unique(client: TestClient):
     assert response.status_code == 200
 
     data = json.loads(response.text)
-    assert data["method"] == g_data.light_data["method"].value
+    assert data["method"] == g_data.light_data["method"].name
     assert time.fromisoformat(data["morning_start"]) == g_data.light_data["morning_start"]
     assert time.fromisoformat(data["morning_end"]) == g_data.light_data["morning_end"]
     assert time.fromisoformat(data["evening_start"]) == g_data.light_data["evening_start"]
@@ -234,7 +234,7 @@ def test_update_light_request_failure_payload(client_operator: TestClient):
 
 
 def test_update_light_request_success(client_operator: TestClient):
-    payload = {"method": "mimic"}
+    payload = {"method": "elongate"}
 
     response = client_operator.put(
         f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/light",
