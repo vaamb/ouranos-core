@@ -112,7 +112,7 @@ def create_time_window(
         else:
             raise ValueError
     if end:
-        end_ = extract_dt(start)
+        end_ = extract_dt(end)
     else:
         end_ = datetime.now(timezone.utc)
     if start:
