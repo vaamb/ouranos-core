@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Optional
+from typing_extensions import TypedDict
 
 from pydantic import Field
 
@@ -13,6 +14,11 @@ class SystemInfo(BaseModel):
     DISK_total: float
 
 
+class SystemTotals(TypedDict):
+    RAM_total: float
+    DISK_total: float
+
+
 class SystemData(BaseModel):
     system_uid: str = Field(validation_alias="uid")
     values: list[
@@ -22,4 +28,4 @@ class SystemData(BaseModel):
         "timestamp", "CPU_used", "CPU_temp", "RAM_process", "RAM_used",
         "DISK_used",
     )
-    totals: dict
+    totals: SystemTotals
