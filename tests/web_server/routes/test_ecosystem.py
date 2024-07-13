@@ -397,6 +397,23 @@ def test_current_data_unique(client: TestClient):
 # ------------------------------------------------------------------------------
 #   Ecosystem actuators state
 # ------------------------------------------------------------------------------
+def test_get_actuator_records(client: TestClient):
+    actuator = g_data.actuator_record.type.name
+    response = client.get(
+        f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/actuator_records/{actuator}")
+    assert response.status_code == 200
+
+    data = json.loads(response.text)
+    assert data["ecosystem_uid"] == g_data.ecosystem_uid
+    assert data["actuator_type"] == actuator
+    inner_data = data["values"][0]
+    assert datetime.fromisoformat(inner_data[0]) == g_data.actuator_record.timestamp
+    assert inner_data[1] == g_data.actuator_record.active
+    assert inner_data[2] == g_data.actuator_record.mode
+    assert inner_data[3] == g_data.actuator_record.status
+    assert inner_data[4] == g_data.actuator_record.level
+
+
 def test_turn_actuator_failure_user(
         client_user: TestClient,
 ):
