@@ -727,7 +727,7 @@ async def turn_actuator(
     if not actuator & gv.HardwareType.actuator:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"{actuator} is not an actuator"
+            detail=f"{actuator.name.capitalize()} is not an actuator"
         )
     mode: gv.ActuatorModePayload = instruction_dict["mode"]
     countdown = instruction_dict["countdown"]
