@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import time
+from datetime import datetime, time
 from typing import Optional
 
 from pydantic import ConfigDict, Field, field_serializer, field_validator
@@ -131,3 +131,31 @@ class ActuatorStateInfo(_ActuatorStateInfo):
 class EcosystemActuatorInfo(BaseModel):
     ecosystem_uid: str
     actuators: list[ActuatorStateInfo]
+
+
+class EcosystemActuatorRecords(BaseModel):
+    ecosystem_uid: str
+    actuator_type: gv.HardwareType
+    values: list[tuple[datetime, bool, gv.ActuatorMode, bool, float | None]]
+    order: tuple[str, str, str, str, str] = (
+        "timestamp", "active", "mode", "status", "level")
+
+    @field_serializer("actuator_type")
+    def serialize_actuator_type(self, value):
+        return value.name
+
+
+class EcosystemTurnActuatorPayload(BaseModel):
+    actuator: gv.HardwareType
+    mode: gv.ActuatorModePayload = gv.ActuatorModePayload.automatic
+    countdown: float = 0.0
+
+    @field_validator("actuator", mode="before")
+    def parse_actuator(cls, value):
+        if isinstance(value, int):
+            return gv.HardwareType(value)
+        return safe_enum_from_name(gv.HardwareType, value)
+
+    @field_validator("mode", mode="before")
+    def parse_mode(cls, value):
+        return safe_enum_from_name(gv.ActuatorModePayload, value)

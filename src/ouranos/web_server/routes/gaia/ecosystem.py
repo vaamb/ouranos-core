@@ -24,7 +24,7 @@ from ouranos.web_server.validate.gaia.ecosystem import (
     EcosystemLightMethodUpdatePayload, EcosystemLightInfo,
     EnvironmentParameterCreationPayload, EnvironmentParameterUpdatePayload,
     EnvironmentParameterInfo,
-    EcosystemActuatorInfo)
+    EcosystemActuatorInfo, EcosystemActuatorRecords, EcosystemTurnActuatorPayload)
 from ouranos.web_server.validate.gaia.hardware import HardwareInfo
 from ouranos.web_server.validate.gaia.sensor import (
     EcosystemSensorData, SensorSkeletonInfo)
@@ -300,7 +300,7 @@ async def update_management(
 async def get_ecosystems_sensors_skeleton(
         ecosystems_id: list[str] | None = ecosystems_uid_q,
         level: list[gv.HardwareLevel] | None = hardware_level_q,
-        time_window: timeWindow = Depends(get_time_window),
+        time_window: timeWindow = Depends(get_time_window(rounding=10, grace_time=60)),
         in_config: bool | None = in_config_query,
         session: AsyncSession = Depends(get_session),
 ):
@@ -317,7 +317,7 @@ async def get_ecosystems_sensors_skeleton(
 async def get_ecosystem_sensors_skeleton(
         id: str = id_param,
         level: list[gv.HardwareLevel] | None = hardware_level_q,
-        time_window: timeWindow = Depends(get_time_window),
+        time_window: timeWindow = Depends(get_time_window(rounding=10, grace_time=60)),
         session: AsyncSession = Depends(get_session)
 ):
     assert_single_uid(id)
@@ -647,7 +647,7 @@ async def get_ecosystem_current_data(
 # ------------------------------------------------------------------------------
 #   Ecosystem actuators state
 # ------------------------------------------------------------------------------
-@router.get("/actuators_status", response_model=list[EcosystemActuatorInfo])
+@router.get("/actuators_state", response_model=list[EcosystemActuatorInfo])
 async def get_ecosystems_actuators_status(
         ecosystems_id: list[str] | None = ecosystems_uid_q,
         in_config: bool | None = in_config_query,
@@ -664,7 +664,7 @@ async def get_ecosystems_actuators_status(
     return response
 
 
-@router.get("/u/{id}/actuators_status", response_model=EcosystemActuatorInfo)
+@router.get("/u/{id}/actuators_state", response_model=EcosystemActuatorInfo)
 async def get_ecosystem_actuators_status(
         id: str = id_param,
         session: AsyncSession = Depends(get_session)
@@ -678,19 +678,56 @@ async def get_ecosystem_actuators_status(
     return response
 
 
+@router.get("/u/{id}/actuator_records/{actuator_type}",
+            response_model=EcosystemActuatorRecords)
+async def get_ecosystem_actuator_records(
+        id: str = id_param,
+        actuator_type: str = Path(description="The actuator type to search for."),
+        time_window: timeWindow = Depends(get_time_window(rounding=1, grace_time=10)),
+        session: AsyncSession = Depends(get_session)
+):
+    assert_single_uid(id)
+    assert_single_uid(actuator_type, "actuator_type")
+    error = False
+    try:
+        actuator_type = safe_enum_from_name(gv.HardwareType, actuator_type)
+    except ValueError:
+        error = True
+    else:
+        if not actuator_type & gv.HardwareType.actuator:
+            error = True
+    if error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid actuator type"
+        )
+    ecosystem = await ecosystem_or_abort(session, id)
+    response = {
+        "ecosystem_uid": ecosystem.uid,
+        "actuator_type": actuator_type,
+        "values": await ecosystem.get_timed_values(
+            session, actuator_type, time_window)
+    }
+    return response
+
+
 @router.put("/u/{id}/turn_actuator",
             response_model=ResultResponse,
             status_code=status.HTTP_202_ACCEPTED,
             dependencies=[Depends(is_operator)])
 async def turn_actuator(
         id: str = id_param,
-        payload: gv.TurnActuatorPayload = Body(
+        payload: EcosystemTurnActuatorPayload = Body(
             description="Instruction for the actuator"),
         session: AsyncSession = Depends(get_session)
 ):
     instruction_dict = payload.model_dump()
     actuator: gv.HardwareType = instruction_dict["actuator"]
-    assert actuator in gv.HardwareType.actuator
+    if not actuator & gv.HardwareType.actuator:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"{actuator.name.capitalize()} is not an actuator"
+        )
     mode: gv.ActuatorModePayload = instruction_dict["mode"]
     countdown = instruction_dict["countdown"]
     try:

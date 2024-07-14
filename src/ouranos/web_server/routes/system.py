@@ -65,7 +65,7 @@ async def get_current_system_data(
 @router.get("/{system_uid}/data/historic", response_model=SystemData)
 async def get_historic_system_data(
         system_uid: str = Path(description="A server uid"),
-        time_window: timeWindow = Depends(get_time_window),
+        time_window: timeWindow = Depends(get_time_window(rounding=10, grace_time=60)),
         session: AsyncSession = Depends(get_session),
 ):
     system = await system_or_abort(session, uid=system_uid)

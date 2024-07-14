@@ -98,34 +98,32 @@ class timeWindow:
 
 
 def create_time_window(
-        start: str | datetime = None,
-        end: str | datetime = None,
+        start: str | datetime | None = None,
+        end: str | datetime | None = None,
         window_length: int = 7,
-        **kwargs
+        rounding_base: int = 10,
+        grace_time: int = 60
 ) -> timeWindow:
+    def extract_dt(dt: str | datetime) -> datetime:
+        if isinstance(dt, str):
+            return datetime.fromisoformat(dt)
+        elif isinstance(dt, datetime):
+            return dt
+        else:
+            raise ValueError
     if end:
-        if isinstance(end, str):
-            _end = datetime.fromisoformat(end)
-        elif isinstance(end, datetime):
-            _end = end
-        else:
-            raise ValueError
+        end_ = extract_dt(end)
     else:
-        _end = datetime.now(timezone.utc)
+        end_ = datetime.now(timezone.utc)
     if start:
-        if isinstance(start, str):
-            _start = datetime.fromisoformat(start)
-        elif isinstance(start, datetime):
-            _start = start
-        else:
-            raise ValueError
+        start_ = extract_dt(start)
     else:
-        _start = _end - timedelta(days=window_length)
-    if _start > _end:
-        _start, _end = _end, _start
+        start_ = end_ - timedelta(days=window_length)
+    if start_ > end_:
+        start_, end_ = end_, start_
     return timeWindow(
-        start=round_datetime(_start, **kwargs),
-        end=round_datetime(_end, **kwargs)
+        start=round_datetime(start_, rounding_base, grace_time),
+        end=round_datetime(end_, rounding_base, grace_time),
     )
 
 
@@ -134,7 +132,7 @@ def round_datetime(
         rounding_base: int = 10,
         grace_time: int = 60
 ) -> datetime:
-    """ Round the datetime to the nearest 10 minutes to allow result caching
+    """ Round `dt` to the nearest `rounding_base` minutes to ease result caching
     """
     grace_time = timedelta(seconds=grace_time)
     rounded_minute = dt.minute // rounding_base * rounding_base

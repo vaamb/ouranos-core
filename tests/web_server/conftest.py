@@ -13,8 +13,9 @@ from ouranos.core.config import ConfigDict
 from ouranos.core.config.consts import LOGIN_NAME
 from ouranos.core.database.models.app import CalendarEvent, User
 from ouranos.core.database.models.gaia import (
-    Ecosystem, Engine, EnvironmentParameter, GaiaWarning, Hardware,
-    HealthRecord, Lighting, SensorDataCache, SensorDataRecord)
+    ActuatorRecord, ActuatorState, Ecosystem, Engine, EnvironmentParameter,
+    GaiaWarning, Hardware, HealthRecord, Lighting, SensorDataCache,
+    SensorDataRecord)
 from ouranos.core.database.models.system import (
     System, SystemDataCache, SystemDataRecord)
 from ouranos.web_server.auth import SessionInfo
@@ -65,6 +66,19 @@ async def add_ecosystems(db: AsyncSQLAlchemyWrapper):
         adapted_sensor_record["timestamp"] = (
                 g_data.sensors_data["timestamp"] - timedelta(hours=1))
         await SensorDataRecord.create_records(session, adapted_sensor_record)
+
+        adapted_actuator_state = {
+            "ecosystem_uid": g_data.ecosystem_uid,
+            "type": g_data.actuator_record.type,
+            "active": g_data.actuator_record.active,
+            "mode": g_data.actuator_record.mode,
+            "status": g_data.actuator_record.status,
+            "level": g_data.actuator_record.level,
+        }
+        await ActuatorState.create(session, adapted_actuator_state)
+
+        adapted_actuator_state["timestamp"] = g_data.actuator_record.timestamp
+        await ActuatorRecord.create_records(session, adapted_actuator_state)
 
         adapted_health_data = {
             "ecosystem_uid": g_data.ecosystem_uid,

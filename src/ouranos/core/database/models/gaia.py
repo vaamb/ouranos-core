@@ -374,6 +374,16 @@ class Ecosystem(Base, CRUDMixin, InConfigMixin):
         actuators_status = result.scalars().all()
         return actuators_status
 
+    async def get_timed_values(
+            self,
+            session: AsyncSession,
+            actuator_type: gv.HardwareType,
+            time_window: timeWindow,
+    ) -> list[tuple[datetime, bool, gv.ActuatorMode, bool, float | None]]:
+        return await ActuatorRecord.get_timed_values(
+            session, ecosystem_uid=self.uid, actuator_type=actuator_type,
+            time_window=time_window)
+
     async def turn_actuator(
             self,
             dispatcher: AsyncDispatcher,
@@ -699,7 +709,7 @@ class Lighting(Base, CRUDMixin):
     async def update_or_create(
             cls,
             session: AsyncSession,
-            values,
+            values: dict,
             ecosystem_uid: str | None = None,
     ) -> None:
         ecosystem_uid = ecosystem_uid or values.pop("ecosystem_uid", None)
@@ -1412,7 +1422,6 @@ class SensorDataCache(BaseSensorData, CacheMixin):
             .where(cls.measure == measure)
         )
         result = await session.execute(stmt)
-        #
         return [r._data for r in result.all()]
 
 
@@ -1633,6 +1642,46 @@ class BaseActuatorRecord(Base, RecordMixin):
         return mapped_column(
             sa.String(length=8), sa.ForeignKey("ecosystems.uid"), index=True
         )
+
+    @classmethod
+    async def get_records(
+            cls,
+            session: AsyncSession,
+            ecosystem_uid: str,
+            actuator_type: gv.HardwareType,
+            time_window: timeWindow,
+    ) -> Sequence[Self]:
+        stmt = (
+            select(cls)
+            .where(cls.ecosystem_uid == ecosystem_uid)
+            .where(cls.type == actuator_type)
+            .where(
+                (cls.timestamp > time_window.start)
+                & (cls.timestamp <= time_window.end)
+            )
+        )
+        result = await session.execute(stmt)
+        return result.scalars().all()
+
+    @classmethod
+    async def get_timed_values(
+            cls,
+            session: AsyncSession,
+            ecosystem_uid: str,
+            actuator_type: gv.HardwareType,
+            time_window: timeWindow,
+    ) -> list[tuple[datetime, bool, gv.ActuatorMode, bool, float | None]]:
+        stmt = (
+            select(cls.timestamp, cls.active, cls.mode, cls.status, cls.level)
+            .where(cls.ecosystem_uid == ecosystem_uid)
+            .where(cls.type == actuator_type)
+            .where(
+                (cls.timestamp > time_window.start)
+                & (cls.timestamp <= time_window.end)
+            )
+        )
+        result = await session.execute(stmt)
+        return [r._data for r in result.all()]
 
 
 class ActuatorRecord(BaseActuatorRecord):

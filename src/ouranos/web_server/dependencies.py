@@ -13,18 +13,37 @@ async def get_session() -> AsyncSession:
         yield session
 
 
-def get_time_window(
-        start_time: t.Optional[str] = Query(
-            default=None, description="ISO (8601) formatted datetime from "
-                                      "which the research will be done"),
-        end_time: t.Optional[str] = Query(
-            default=None, description="ISO (8601) formatted datetime up to "
-                                      "which the research will be done")
-) -> timeWindow:
-    try:
-        return create_time_window(start_time, end_time)
-    except ValueError:
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="'start_time' and 'end_time' should be valid iso times"
-        )
+start_time_query = Query(
+    default=None, description="ISO (8601) formatted datetime from which the "
+                              "research will be done")
+
+end_time_query = Query(
+    default=None, description="ISO (8601) formatted datetime up to which the "
+                              "research will be done")
+
+
+class get_time_window:  # noqa: 801
+    def __init__(
+            self,
+            rounding: int,
+            grace_time: int,
+            window_length: int = 7
+    ) -> None:
+        self.rounding = rounding
+        self.grace_time = grace_time
+        self.window_length = window_length
+
+    def __call__(
+            self,
+            start_time: t.Optional[str] = start_time_query,
+            end_time: t.Optional[str] = end_time_query,
+    ) -> timeWindow:
+        try:
+            return create_time_window(
+                start_time, end_time, window_length=7, rounding_base=self.rounding,
+                grace_time=self.grace_time)
+        except ValueError:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="'start_time' and 'end_time' should be valid iso times"
+            )

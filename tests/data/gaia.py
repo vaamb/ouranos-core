@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import NamedTuple
 
-from datetime import datetime, time, timezone
+from datetime import datetime, time, timedelta, timezone
 
 import gaia_validators as gv
 
@@ -140,6 +140,16 @@ sensor_record = gv.SensorRecord(
     measure_name,
     42,
     None,
+)
+
+
+actuator_record = gv.ActuatorStateRecord(
+    gv.HardwareType.light,
+    True,
+    gv.ActuatorMode.manual,
+    True,
+    0.42,
+    timestamp_now - timedelta(minutes=33),
 )
 
 
