@@ -1010,7 +1010,7 @@ class Hardware(Base, CRUDMixin, InConfigMixin):
         return result.unique().scalars().all()
 
     @staticmethod
-    def get_models_available() -> list:
+    def get_models_available() -> list[str]:
         # TODO based on gaia / gaia-validators
         return []
 

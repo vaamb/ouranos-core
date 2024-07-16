@@ -40,7 +40,11 @@ class HardwareUpdatePayload(HardwareCreationPayload):
     plant_uid: list[str] | None = None
 
 
-class HardwareInfo(gv.HardwareConfig):
+class _HardwareInfo(BaseModel):
+    uid: str
+
+
+class HardwareInfo(gv.AnonymousHardwareConfig, _HardwareInfo):
     ecosystem_uid: str
     last_log: datetime | None = None
 
