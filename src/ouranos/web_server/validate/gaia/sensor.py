@@ -15,29 +15,29 @@ from ouranos.web_server.validate.gaia.hardware import HardwareInfo
 # ---------------------------------------------------------------------------
 #   Sensors skeleton
 # ---------------------------------------------------------------------------
-class _SkSensorBaseInfo(BaseModel):
+class SkSensorBaseInfo(BaseModel):
     uid: str
     name: str
     unit: str | None = None
 
 
-class _SkMeasureBaseInfo(BaseModel):
+class SkMeasureBaseInfo(BaseModel):
     measure: str
     units: list[str] = Field(default_factory=list)
-    sensors: list[_SkSensorBaseInfo]
+    sensors: list[SkSensorBaseInfo]
 
 
 class SensorSkeletonInfo(BaseModel):
-    ecosystem_uid: str = Field(alias="uid")
+    uid: str
     name: str
     level: list[gv.HardwareLevel]
-    sensors_skeleton: list[_SkMeasureBaseInfo]
+    sensors_skeleton: list[SkMeasureBaseInfo]
 
 
 # ---------------------------------------------------------------------------
 #   Current sensor data
 # ---------------------------------------------------------------------------
-_SensorRecordModel = sqlalchemy_to_pydantic(
+SensorRecordModel = sqlalchemy_to_pydantic(
     SensorDataRecord,
     base=BaseModel,
     exclude=["id"]
@@ -45,27 +45,23 @@ _SensorRecordModel = sqlalchemy_to_pydantic(
 
 
 class EcosystemSensorData(BaseModel):
-    ecosystem_uid: str
-    data: list[_SensorRecordModel]
+    uid: str
+    name: str
+    values: list[SensorRecordModel]
 
 
 class SensorCurrentTimedValue(BaseModel):
+    uid: str
     measure: str
     unit: str
+    order: tuple[str, str] = ("timestamp", "value")
     values: list[tuple[datetime, float]]
 
 
 class SensorHistoricTimedValue(BaseModel):
+    uid: str
     measure: str
     unit: str
     span: tuple[datetime, datetime]
+    order: tuple[str, str] = ("timestamp", "value")
     values: list[tuple[datetime, float]]
-
-
-class SensorOverviewData(BaseModel):
-    current: list[SensorCurrentTimedValue] | None = None
-    historic: list[SensorHistoricTimedValue] | None = None
-
-
-class SensorOverview(HardwareInfo):
-    data: SensorOverviewData | None = None

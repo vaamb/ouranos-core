@@ -49,7 +49,7 @@ class HardwareInfo(gv.HardwareConfig):
     )
 
     @field_serializer("type")
-    def serialize_group(self, type: gv.HardwareType, _info) -> str:
+    def serialize_type(self, type: gv.HardwareType, _info) -> str:
         return type.name
 
 

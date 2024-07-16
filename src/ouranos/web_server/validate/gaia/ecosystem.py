@@ -36,14 +36,22 @@ class EcosystemUpdatePayload(BaseModel):
     engine_uid: str | None = None
 
 
-EcosystemInfo = sqlalchemy_to_pydantic(
+_EcosystemInfo = sqlalchemy_to_pydantic(
     Ecosystem,
     base=BaseModel,
+    exclude=["management"],
     extra_fields={
+        "management_value": (int, Field(validation_alias="management")),
         "connected": (bool, ...),
         "lighting_method": (Optional[gv.LightingMethod], ...),
     },
 )
+
+
+class EcosystemInfo(_EcosystemInfo):
+    @field_serializer("lighting_method")
+    def serialize_lighting_method(self, value):
+        return value.name
 
 
 # ---------------------------------------------------------------------------
@@ -65,11 +73,16 @@ class ManagementInfo(BaseModel):
     value: int
 
 
-class EcosystemManagementInfo(gv.ManagementConfig):
-    ecosystem_uid: str = Field(alias="uid")
+class _EcosystemManagementInfo(BaseModel):
+    uid: str
+    name: str
     switches: bool = False
     environment_data: bool = False
     plants_data: bool = False
+
+
+class EcosystemManagementInfo(gv.ManagementConfig, _EcosystemManagementInfo):
+    pass
 
 
 # ---------------------------------------------------------------------------
@@ -83,8 +96,15 @@ class EcosystemLightMethodUpdatePayload(BaseModel):
         return safe_enum_from_name(gv.LightingMethod, value)
 
 
-class EcosystemLightInfo(gv.LightData):
-    ecosystem_uid: str
+class _EcosystemLightInfo(BaseModel):
+    uid: str
+    name: str
+
+
+class EcosystemLightInfo(gv.LightData, _EcosystemLightInfo):
+    model_config = ConfigDict(
+        extra="ignore",
+    )
 
     @field_serializer("method")
     def serialize_method(self, value):
@@ -106,7 +126,10 @@ class EnvironmentParameterUpdatePayload(BaseModel):
     hysteresis: float | None = None
 
 
-EnvironmentParameterInfo = EnvironmentParameterCreationPayload
+class EnvironmentParameterInfo(BaseModel):
+    uid: str
+    name: str
+    environment_parameters: list[EnvironmentParameterCreationPayload]
 
 
 # ---------------------------------------------------------------------------
@@ -129,12 +152,14 @@ class ActuatorStateInfo(_ActuatorStateInfo):
 
 
 class EcosystemActuatorInfo(BaseModel):
-    ecosystem_uid: str
-    actuators: list[ActuatorStateInfo]
+    uid: str
+    name: str
+    actuators_state: list[ActuatorStateInfo]
 
 
 class EcosystemActuatorRecords(BaseModel):
-    ecosystem_uid: str
+    uid: str
+    name: str
     actuator_type: gv.HardwareType
     values: list[tuple[datetime, bool, gv.ActuatorMode, bool, float | None]]
     order: tuple[str, str, str, str, str] = (
