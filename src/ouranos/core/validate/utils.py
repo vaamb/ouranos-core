@@ -12,10 +12,13 @@ def sqlalchemy_to_pydantic(
         db_model,
         exclude: list | None = None,
         base: Type[BaseModel] | None = None,
+        prior_fields: dict[str, tuple[Type, Any]] | None = None,
         extra_fields: dict[str, tuple[Type, Any]] | None = None
 ) -> Type[BaseModel]:
     exclude: list = exclude or []
     fields: dict[str, tuple[Type, Any]] = {}
+    if prior_fields:
+        fields.update(prior_fields)
     mapper: Mapper = inspect(db_model)
     for column in mapper.columns._all_columns:
         column: Column
@@ -36,6 +39,6 @@ def sqlalchemy_to_pydantic(
             else:
                 default = column.default.arg
         fields[name] = (python_type, default)
-        if extra_fields:
-            fields.update(extra_fields)
+    if extra_fields:
+        fields.update(extra_fields)
     return create_model(db_model.__name__, __base__=base, **fields)
