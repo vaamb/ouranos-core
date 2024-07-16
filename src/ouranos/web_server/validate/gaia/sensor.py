@@ -31,6 +31,7 @@ class SensorSkeletonInfo(BaseModel):
     uid: str
     name: str
     level: list[gv.HardwareLevel]
+    span: tuple[datetime, datetime]
     sensors_skeleton: list[SkMeasureBaseInfo]
 
 

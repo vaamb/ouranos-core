@@ -71,7 +71,9 @@ async def get_historic_system_data(
     system = await system_or_abort(session, uid=system_uid)
     return {
         "system_uid": system.uid,
+        "span": (time_window.start, time_window.end),
         "values": await system.get_timed_values(session, time_window),
+        # order is added by the serializer
         "totals": {
             "DISK_TOTAL": system.DISK_total,
             "RAM_TOTAL": system.RAM_total,

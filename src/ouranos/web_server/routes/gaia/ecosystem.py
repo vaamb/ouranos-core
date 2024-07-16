@@ -746,8 +746,10 @@ async def get_ecosystem_actuator_records(
         "uid": ecosystem.uid,
         "name": ecosystem.name,
         "actuator_type": actuator_type,
+        "span": (time_window.start, time_window.end),
         "values": await ecosystem.get_timed_values(
-            session, actuator_type, time_window)
+            session, actuator_type, time_window),
+        # order is added by the serializer
     }
     return response
 

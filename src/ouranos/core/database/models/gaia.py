@@ -357,6 +357,7 @@ class Ecosystem(Base, CRUDMixin, InConfigMixin):
             "uid": self.uid,
             "name": self.name,
             "level": [i.name for i in gv.HardwareLevel] if level is None else level,
+            "span": (time_window.start, time_window.end),
             "sensors_skeleton": skeleton,
         }
 

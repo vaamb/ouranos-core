@@ -161,6 +161,7 @@ class EcosystemActuatorRecords(BaseModel):
     uid: str
     name: str
     actuator_type: gv.HardwareType
+    span: tuple[datetime, datetime]
     values: list[tuple[datetime, bool, gv.ActuatorMode, bool, float | None]]
     order: tuple[str, str, str, str, str] = (
         "timestamp", "active", "mode", "status", "level")
