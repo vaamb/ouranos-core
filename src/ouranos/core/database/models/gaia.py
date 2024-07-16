@@ -1075,56 +1075,46 @@ class Sensor(Hardware):
     async def get_current_data(
             self,
             session: AsyncSession,
-            measures: str | list | None = None,
-    ) -> list:
-        measures_obj: list[Measure]
-        if measures is None:
-            measures_obj = self.measures
-        else:
-            if isinstance(measures, str):
-                measures = measures.split(",")
-            measures_obj = [
-                measure for measure in self.measures
-                if measure.name in measures
-            ]
-        rv = []
-        for measure_obj in measures_obj:
-            rv.append({
-                "measure": measure_obj.name,
-                "unit": measure_obj.unit,
-                "values": await SensorDataCache.get_recent_timed_values(
-                    session, self.uid, measure_obj.name),
-            })
-        return rv
+            measure: str,
+    ) -> dict | None:
+        measure_str = measure
+        measure_obj: Measure | None = None
+        for measure in self.measures:
+            if measure.name == measure_str:
+                measure_obj = measure
+                break
+        if measure_obj is None:
+            return None
+        return {
+            "measure": measure_obj.name,
+            "unit": measure_obj.unit,
+            "values": await SensorDataCache.get_recent_timed_values(
+                session, self.uid, measure_obj.name),
+        }
 
     async def get_historic_data(
             self,
             session: AsyncSession,
-            measures: str | list | None = None,
+            measure: str,
             time_window: timeWindow | None = None,
-    ) -> list:
-        measures_obj: list[Measure]
-        if measures is None:
-            measures_obj = self.measures
-        else:
-            if isinstance(measures, str):
-                measures = measures.split(",")
-            measures_obj = [
-                measure for measure in self.measures
-                if measure.name in measures
-            ]
+    ) -> dict | None:
+        measure_str = measure
+        measure_obj: Measure | None = None
+        for measure in self.measures:
+            if measure.name == measure_str:
+                measure_obj = measure
+                break
+        if measure_obj is None:
+            return None
         if time_window is None:
             time_window = create_time_window()
-        rv = []
-        for measure_obj in measures_obj:
-            rv.append({
-                "measure": measure_obj.name,
-                "unit": measure_obj.unit,
-                "span": (time_window.start, time_window.end),
-                "values": await SensorDataRecord.get_timed_values(
+        return {
+            "measure": measure_obj.name,
+            "unit": measure_obj.unit,
+            "span": (time_window.start, time_window.end),
+            "values": await SensorDataRecord.get_timed_values(
                     session, self.uid, measure_obj.name, time_window),
-            })
-        return rv
+        }
 
     async def get_overview(
             self,
@@ -1135,24 +1125,18 @@ class Sensor(Hardware):
             time_window: timeWindow | None = None,
     ) -> dict:
         rv = self.to_dict()
-        rv["data"] = None
-        if current_data or historic_data:
-            rv.update({"data": {}})
-            if current_data:
-                rv["data"].update({
-                    "current": await self.get_current_data(session, measures)
-                })
-            else:
-                rv["data"].update({"current": None})
-            if historic_data:
-                if time_window is None:
-                    time_window = create_time_window()
-                rv["data"].update({
-                    "historic": await self.get_historic_data(
-                        session, measures, time_window)
-                })
-            else:
-                rv["data"].update({"historic": None})
+        rv["records"] = {
+            "current": None,
+            "historic": None
+        }
+        if current_data:
+            rv["records"]["current"] = await self.get_current_data(
+                session, measures=measures)
+        if historic_data:
+            if time_window is None:
+                time_window = create_time_window()
+            rv["records"]["historic"] = await self.get_historic_data(
+                    session, measures=measures, time_window=time_window)
         return rv
 
     @staticmethod
