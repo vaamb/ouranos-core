@@ -98,32 +98,34 @@ class timeWindow:
 
 
 def create_time_window(
-        start: str | datetime | None = None,
-        end: str | datetime | None = None,
+        start_time: str | datetime | None = None,
+        end_time: str | datetime | None = None,
         window_length: int = 7,
         rounding_base: int = 10,
         grace_time: int = 60
 ) -> timeWindow:
-    def extract_dt(dt: str | datetime) -> datetime:
+    def extract_dt(dt: str | datetime, limit_name: str) -> datetime:
         if isinstance(dt, str):
             return datetime.fromisoformat(dt)
         elif isinstance(dt, datetime):
             return dt
         else:
-            raise ValueError
-    if end:
-        end_ = extract_dt(end)
+            raise ValueError(f"'{limit_name}' is not a valid ISO (8601) ")
+    if end_time:
+        end = extract_dt(end_time, "end_time")
     else:
-        end_ = datetime.now(timezone.utc)
-    if start:
-        start_ = extract_dt(start)
+        end = datetime.now(timezone.utc)
+    if start_time:
+        start = extract_dt(start_time, "start_time")
+        if end - start > timedelta(days=window_length):
+            raise ValueError(f"Max time window length is {window_length} days.")
     else:
-        start_ = end_ - timedelta(days=window_length)
-    if start_ > end_:
-        start_, end_ = end_, start_
+        start = end - timedelta(days=window_length)
+    if start > end:
+        start, end = end, start
     return timeWindow(
-        start=round_datetime(start_, rounding_base, grace_time),
-        end=round_datetime(end_, rounding_base, grace_time),
+        start=round_datetime(start, rounding_base, grace_time),
+        end=round_datetime(end, rounding_base, grace_time),
     )
 
 
