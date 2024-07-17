@@ -110,7 +110,7 @@ def create_time_window(
         elif isinstance(dt, datetime):
             return dt
         else:
-            raise ValueError(f"'{limit_name}' is not a valid ISO (8601) ")
+            raise ValueError(f"'{limit_name}' is not a valid ISO (8601) time.")
     if end_time:
         end = extract_dt(end_time, "end_time")
     else:
