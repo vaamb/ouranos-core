@@ -7,7 +7,6 @@ from ouranos.core.validate.base import BaseModel
 
 
 class UserDescription(BaseModel):
-    id: int
     username: str
     email: str
     role_name: RoleName
