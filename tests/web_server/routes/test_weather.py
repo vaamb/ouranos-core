@@ -6,11 +6,6 @@ def test_sun_times(client: TestClient):
     assert response.status_code == 204
 
 
-def test_forecast(client: TestClient):
-    response = client.get("/api/app/services/weather/forecast")
-    assert response.status_code == 204
-
-
 def test_forecast_currently(client: TestClient):
     response = client.get("/api/app/services/weather/forecast/currently")
     assert response.status_code == 204

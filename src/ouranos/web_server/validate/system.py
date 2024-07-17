@@ -19,9 +19,8 @@ class SystemTotals(TypedDict):
     DISK_total: float
 
 
-class SystemData(BaseModel):
+class CurrentSystemData(BaseModel):
     system_uid: str = Field(validation_alias="uid")
-    span: tuple[datetime, datetime]
     values: list[
         tuple[datetime, float, Optional[float], float, float, float]
     ]
@@ -30,3 +29,7 @@ class SystemData(BaseModel):
         "DISK_used",
     )
     totals: SystemTotals
+
+
+class HistoricSystemData(CurrentSystemData):
+    span: tuple[datetime, datetime]

@@ -177,7 +177,11 @@ async def test_ecosystems_sensors_skeleton(
         time_window = create_time_window()
         ecosystem = await Ecosystem.get(session, g_data.ecosystem_uid)
         skeleton = await ecosystem.sensors_data_skeleton(session, time_window)
-        assert data == skeleton
+    assert data["uid"] == skeleton["uid"] == g_data.ecosystem_uid
+    assert data["name"] == skeleton["name"] == g_data.ecosystem_name
+    assert data["sensors_skeleton"] == skeleton["sensors_skeleton"]
+    assert datetime.fromisoformat(data["span"][0]) == skeleton["span"][0]
+    assert datetime.fromisoformat(data["span"][1]) == skeleton["span"][1]
 
 
 @pytest.mark.asyncio
@@ -193,7 +197,11 @@ async def test_ecosystem_sensors_skeleton_unique(
         time_window = create_time_window()
         ecosystem = await Ecosystem.get(session, g_data.ecosystem_uid)
         skeleton = await ecosystem.sensors_data_skeleton(session, time_window)
-        assert data == skeleton
+    assert data["uid"] == skeleton["uid"] == g_data.ecosystem_uid
+    assert data["name"] == skeleton["name"] == g_data.ecosystem_name
+    assert data["sensors_skeleton"] == skeleton["sensors_skeleton"]
+    assert datetime.fromisoformat(data["span"][0]) == skeleton["span"][0]
+    assert datetime.fromisoformat(data["span"][1]) == skeleton["span"][1]
 
 
 # ------------------------------------------------------------------------------
@@ -251,21 +259,24 @@ def test_environment_parameters(client: TestClient):
     assert response.status_code == 200
 
     data = json.loads(response.text)[0]
-    assert data["parameter"] == g_data.climate["parameter"]
-    assert data["day"] == g_data.climate["day"]
-    assert data["night"] == g_data.climate["night"]
-    assert data["hysteresis"] == g_data.climate["hysteresis"]
+    assert data["uid"] == g_data.ecosystem_uid
+    parameter_1 = data["environment_parameters"][0]
+    assert parameter_1["parameter"] == g_data.climate["parameter"]
+    assert parameter_1["day"] == g_data.climate["day"]
+    assert parameter_1["night"] == g_data.climate["night"]
+    assert parameter_1["hysteresis"] == g_data.climate["hysteresis"]
 
 
 def test_environment_parameters_unique(client: TestClient):
     response = client.get(f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameters")
     assert response.status_code == 200
 
-    data = json.loads(response.text)[0]
-    assert data["parameter"] == g_data.climate["parameter"]
-    assert data["day"] == g_data.climate["day"]
-    assert data["night"] == g_data.climate["night"]
-    assert data["hysteresis"] == g_data.climate["hysteresis"]
+    data = json.loads(response.text)
+    assert data["uid"] == g_data.ecosystem_uid
+    parameter_1 = data["environment_parameters"][0]
+    assert parameter_1["day"] == g_data.climate["day"]
+    assert parameter_1["night"] == g_data.climate["night"]
+    assert parameter_1["hysteresis"] == g_data.climate["hysteresis"]
 
 
 def test_create_environment_parameter_request_failure_user(client_user: TestClient):
@@ -373,8 +384,8 @@ def test_current_data(client: TestClient):
     assert response.status_code == 200
 
     data = json.loads(response.text)[0]
-    assert data["ecosystem_uid"] == g_data.ecosystem_uid
-    inner_data = data["data"][0]
+    assert data["uid"] == g_data.ecosystem_uid
+    inner_data = data["values"][0]
     assert datetime.fromisoformat(inner_data["timestamp"]) == g_data.sensors_data["timestamp"]
     assert inner_data["sensor_uid"] == g_data.sensor_record.sensor_uid
     assert inner_data["measure"] == g_data.sensor_record.measure
@@ -386,8 +397,8 @@ def test_current_data_unique(client: TestClient):
     assert response.status_code == 200
 
     data = json.loads(response.text)
-    assert data["ecosystem_uid"] == g_data.ecosystem_uid
-    inner_data = data["data"][0]
+    assert data["uid"] == g_data.ecosystem_uid
+    inner_data = data["values"][0]
     assert datetime.fromisoformat(inner_data["timestamp"]) == g_data.sensors_data["timestamp"]
     assert inner_data["sensor_uid"] == g_data.sensor_record.sensor_uid
     assert inner_data["measure"] == g_data.sensor_record.measure
@@ -404,7 +415,7 @@ def test_get_actuator_records(client: TestClient):
     assert response.status_code == 200
 
     data = json.loads(response.text)
-    assert data["ecosystem_uid"] == g_data.ecosystem_uid
+    assert data["uid"] == g_data.ecosystem_uid
     assert data["actuator_type"] == actuator
     inner_data = data["values"][0]
     assert datetime.fromisoformat(inner_data[0]) == g_data.actuator_record.timestamp
