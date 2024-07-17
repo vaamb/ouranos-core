@@ -40,17 +40,19 @@ router = APIRouter(
 )
 
 
-id_param = Path(description="An ecosystem id, either its uid or its name")
+id_param_query = Path(description="An ecosystem id, either its uid or its name")
 
 in_config_query = Query(
     default=None, description="Only select ecosystems that are present (True) "
-                              "or have been removed (False) from the current "
-                              "gaia ecosystems config")
+                              "or also include the ones that have been removed "
+                              "(False) from the current gaia ecosystems config "
+                              "files")
 
 in_config_query_hardware = Query(
     default=None, description="Only select hardware that are present (True) "
-                              "or have been removed (False) from the current "
-                              "gaia ecosystems config")
+                              "or also include the ones that have been removed "
+                              "(False) from the current gaia ecosystems config "
+                              "files")
 
 env_parameter_query = Query(
     default=None, description="The environment parameter targeted. Leave empty "
@@ -125,7 +127,7 @@ async def create_ecosystem(
 
 @router.get("/u/{id}", response_model=EcosystemInfo)
 async def get_ecosystem(
-        id: str = id_param,
+        id: str = id_param_query,
         session: AsyncSession = Depends(get_session)
 ):
     ecosystem = await ecosystem_or_abort(session, id)
@@ -138,7 +140,7 @@ async def get_ecosystem(
             dependencies=[Depends(is_operator)])
 async def update_ecosystem(
         response: Response,
-        id: str = id_param,
+        id: str = id_param_query,
         payload: EcosystemUpdatePayload = Body(
             description="Updated information about the ecosystem"),
         session: AsyncSession = Depends(get_session)
@@ -180,7 +182,7 @@ async def update_ecosystem(
                dependencies=[Depends(is_operator)])
 async def delete_ecosystem(
         response: Response,
-        id: str = id_param,
+        id: str = id_param_query,
         session: AsyncSession = Depends(get_session)
 ):
     try:
@@ -242,7 +244,7 @@ async def get_ecosystems_management(
 
 @router.get("/u/{id}/management", response_model=EcosystemManagementInfo)
 async def get_ecosystem_management(
-        id: str = id_param,
+        id: str = id_param_query,
         session: AsyncSession = Depends(get_session)
 ):
     assert_single_uid(id)
@@ -257,7 +259,7 @@ async def get_ecosystem_management(
             dependencies=[Depends(is_operator)])
 async def update_management(
         response: Response,
-        id: str = id_param,
+        id: str = id_param_query,
         payload: EcosystemManagementUpdatePayload = Body(
             description="Updated information about the ecosystem management"),
         session: AsyncSession = Depends(get_session)
@@ -316,7 +318,7 @@ async def get_ecosystems_sensors_skeleton(
 
 @router.get("/u/{id}/sensors_skeleton", response_model=SensorSkeletonInfo)
 async def get_ecosystem_sensors_skeleton(
-        id: str = id_param,
+        id: str = id_param_query,
         level: list[gv.HardwareLevel] | None = hardware_level_q,
         time_window: timeWindow = Depends(get_time_window(rounding=10, grace_time=60)),
         session: AsyncSession = Depends(get_session)
@@ -357,7 +359,7 @@ async def get_ecosystems_light(
 
 @router.get("/u/{id}/light", response_model=EcosystemLightInfo)
 async def get_ecosystem_lighting(
-        id: str = id_param,
+        id: str = id_param_query,
         session: AsyncSession = Depends(get_session)
 ):
     assert_single_uid(id)
@@ -382,7 +384,7 @@ async def get_ecosystem_lighting(
             dependencies=[Depends(is_operator)])
 async def update_ecosystem_lighting(
         response: Response,
-        id: str = id_param,
+        id: str = id_param_query,
         payload: EcosystemLightMethodUpdatePayload = Body(
             description="Updated information about the ecosystem management"),
         session: AsyncSession = Depends(get_session)
@@ -448,7 +450,7 @@ async def get_ecosystems_environment_parameters(
              dependencies=[Depends(is_operator)])
 async def create_environment_parameters(
         response: Response,
-        id: str = id_param,
+        id: str = id_param_query,
         payload: EnvironmentParameterCreationPayload = Body(
             description="Creation information about the environment parameters"),
         session: AsyncSession = Depends(get_session)
@@ -488,7 +490,7 @@ async def create_environment_parameters(
 
 @router.get("/u/{id}/environment_parameters", response_model=EnvironmentParameterInfo)
 async def get_ecosystem_environment_parameters(
-        id: str = id_param,
+        id: str = id_param_query,
         parameters: list[str] | None = env_parameter_query,
         session: AsyncSession = Depends(get_session)
 ):
@@ -509,7 +511,7 @@ async def get_ecosystem_environment_parameters(
             dependencies=[Depends(is_operator)])
 async def update_environment_parameters(
         response: Response,
-        id: str = id_param,
+        id: str = id_param_query,
         parameter: str = Path(description="A climate parameter"),
         payload: EnvironmentParameterUpdatePayload = Body(
             description="Updated information about the environment parameters"),
@@ -554,7 +556,7 @@ async def update_environment_parameters(
                dependencies=[Depends(is_operator)])
 async def delete_environment_parameters(
         response: Response,
-        id: str = id_param,
+        id: str = id_param_query,
         parameter: str = Path(description="A climate parameter"),
         session: AsyncSession = Depends(get_session)
 ):
@@ -599,7 +601,7 @@ async def delete_environment_parameters(
              dependencies=[Depends(is_operator)])
 async def create_ecosystem_hardware(
         response: Response,
-        id: str = id_param,
+        id: str = id_param_query,
         payload: gv.AnonymousHardwareConfig = Body(
             description="Information about the new hardware"),
         session: AsyncSession = Depends(get_session)
@@ -636,7 +638,7 @@ async def create_ecosystem_hardware(
 
 @router.get("/u/{id}/hardware", response_model=list[HardwareInfo])
 async def get_ecosystem_hardware(
-        id: str = id_param,
+        id: str = id_param_query,
         in_config: bool | None = in_config_query_hardware,
         session: AsyncSession = Depends(get_session),
 ):
@@ -669,7 +671,7 @@ async def get_ecosystems_current_data(
 
 @router.get("/u/{id}/current_data", response_model=EcosystemSensorData)
 async def get_ecosystem_current_data(
-        id: str = id_param,
+        id: str = id_param_query,
         session: AsyncSession = Depends(get_session)
 ):
     assert_single_uid(id)
@@ -705,7 +707,7 @@ async def get_ecosystems_actuators_status(
 
 @router.get("/u/{id}/actuators_state", response_model=EcosystemActuatorInfo)
 async def get_ecosystem_actuators_status(
-        id: str = id_param,
+        id: str = id_param_query,
         session: AsyncSession = Depends(get_session)
 ):
     assert_single_uid(id)
@@ -721,7 +723,7 @@ async def get_ecosystem_actuators_status(
 @router.get("/u/{id}/actuator_records/{actuator_type}",
             response_model=EcosystemActuatorRecords)
 async def get_ecosystem_actuator_records(
-        id: str = id_param,
+        id: str = id_param_query,
         actuator_type: str = Path(description="The actuator type to search for."),
         time_window: timeWindow = Depends(get_time_window(rounding=1, grace_time=10)),
         session: AsyncSession = Depends(get_session)
@@ -759,7 +761,7 @@ async def get_ecosystem_actuator_records(
             status_code=status.HTTP_202_ACCEPTED,
             dependencies=[Depends(is_operator)])
 async def turn_actuator(
-        id: str = id_param,
+        id: str = id_param_query,
         payload: EcosystemTurnActuatorPayload = Body(
             description="Instruction for the actuator"),
         session: AsyncSession = Depends(get_session)
