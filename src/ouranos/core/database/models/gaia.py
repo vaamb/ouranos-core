@@ -288,7 +288,7 @@ class Ecosystem(Base, CRUDMixin, InConfigMixin):
         result = await session.execute(stmt)
         return bool(result.first())
 
-    async def functionalities(self, session: AsyncSession) -> dict:
+    async def get_functionalities(self, session: AsyncSession) -> dict:
         return {
             "uid": self.uid,
             "name": self.name,
@@ -301,8 +301,18 @@ class Ecosystem(Base, CRUDMixin, InConfigMixin):
             "plants_data": await self.has_recent_sensor_data(session, "plants"),
         }
 
+    async def get_hardware(
+            self,
+            session: AsyncSession,
+            hardware_type: gv.HardwareType | None = None,
+            in_config: bool | None = None,
+    ) -> Sequence[Hardware]:
+        return await Hardware.get_multiple(
+            session, ecosystem_uids=[self.uid], types=hardware_type,
+            in_config=in_config)
+
     @cached(_cache_sensors_data_skeleton, key=sessionless_hashkey)
-    async def sensors_data_skeleton(
+    async def get_sensors_data_skeleton(
             self,
             session: AsyncSession,
             time_window: timeWindow,
@@ -361,10 +371,10 @@ class Ecosystem(Base, CRUDMixin, InConfigMixin):
             "sensors_skeleton": skeleton,
         }
 
-    async def current_data(self, session: AsyncSession) -> Sequence[SensorDataCache]:
+    async def get_current_data(self, session: AsyncSession) -> Sequence[SensorDataCache]:
         return await SensorDataCache.get_recent(session, self.uid)
 
-    async def actuators_state(
+    async def get_actuators_state(
             self,
             session: AsyncSession
     ) -> list[ActuatorState]:

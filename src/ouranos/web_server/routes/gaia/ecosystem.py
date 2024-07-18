@@ -236,7 +236,7 @@ async def get_ecosystems_management(
     ecosystems = await Ecosystem.get_multiple(
         session=session, ecosystems=ecosystems_id, in_config=in_config)
     response = [
-        await ecosystem.functionalities(session)
+        await ecosystem.get_functionalities(session)
         for ecosystem in ecosystems
     ]
     return response
@@ -249,7 +249,7 @@ async def get_ecosystem_management(
 ):
     assert_single_uid(id)
     ecosystem = await ecosystem_or_abort(session, id)
-    response = await ecosystem.functionalities(session)
+    response = await ecosystem.get_functionalities(session)
     return response
 
 
@@ -309,7 +309,7 @@ async def get_ecosystems_sensors_skeleton(
     ecosystems = await Ecosystem.get_multiple(
         session=session, ecosystems=ecosystems_id, in_config=in_config)
     response = [
-        await ecosystem.sensors_data_skeleton(
+        await ecosystem.get_sensors_data_skeleton(
             session, time_window=time_window, level=level)
         for ecosystem in ecosystems
     ]
@@ -325,7 +325,7 @@ async def get_ecosystem_sensors_skeleton(
 ):
     assert_single_uid(id)
     ecosystem = await ecosystem_or_abort(session, id)
-    response = await ecosystem.sensors_data_skeleton(
+    response = await ecosystem.get_sensors_data_skeleton(
         session, time_window=time_window, level=level)
     return response
 
@@ -606,6 +606,7 @@ async def create_ecosystem_hardware(
             description="Information about the new hardware"),
         session: AsyncSession = Depends(get_session)
 ):
+    assert_single_uid(id)
     hardware_dict = payload.model_dump()
     try:
         ecosystem = await ecosystem_or_abort(session, id)
@@ -639,12 +640,14 @@ async def create_ecosystem_hardware(
 @router.get("/u/{id}/hardware", response_model=list[HardwareInfo])
 async def get_ecosystem_hardware(
         id: str = id_param_query,
+        hardware_type: list[gv.HardwareType] | None = Query(
+            default=None, description="A list of types of hardware"),
         in_config: bool | None = in_config_query_hardware,
         session: AsyncSession = Depends(get_session),
 ):
-    hardware = await Hardware.get_multiple(
-        session=session, hardware_uids=None, ecosystem_uids=id, levels=None,
-        types=None, models=None, in_config=in_config)
+    ecosystem = await ecosystem_or_abort(session, id)
+    hardware = await ecosystem.get_hardware(
+        session, hardware_type=hardware_type, in_config=in_config)
     return hardware
 
 
@@ -663,7 +666,7 @@ async def get_ecosystems_current_data(
         {
             "uid": ecosystem.uid,
             "name": ecosystem.name,
-            "values": await ecosystem.current_data(session)
+            "values": await ecosystem.get_current_data(session)
         } for ecosystem in ecosystems
     ]
     return response
@@ -679,7 +682,7 @@ async def get_ecosystem_current_data(
     response = {
         "uid": ecosystem.uid,
         "name": ecosystem.name,
-        "values": await ecosystem.current_data(session)
+        "values": await ecosystem.get_current_data(session)
     }
     return response
 
@@ -699,7 +702,7 @@ async def get_ecosystems_actuators_status(
         {
             "uid": ecosystem.uid,
             "name": ecosystem.name,
-            "actuators_state": await ecosystem.actuators_state(session)
+            "actuators_state": await ecosystem.get_actuators_state(session)
         } for ecosystem in ecosystems
     ]
     return response
@@ -715,7 +718,7 @@ async def get_ecosystem_actuators_status(
     response = {
         "uid": ecosystem.uid,
         "name": ecosystem.name,
-        "actuators_state": await ecosystem.actuators_state(session)
+        "actuators_state": await ecosystem.get_actuators_state(session)
     }
     return response
 
