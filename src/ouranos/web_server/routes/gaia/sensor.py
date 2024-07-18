@@ -10,7 +10,7 @@ from ouranos.core.utils import timeWindow
 from ouranos.web_server.dependencies import get_session, get_time_window
 from ouranos.web_server.routes.utils import assert_single_uid
 from ouranos.web_server.validate.gaia.sensor import (
-    SensorCurrentTimedValue, SensorHistoricTimedValue)
+    SensorMeasureCurrentTimedValue, SensorMeasureHistoricTimedValue)
 
 
 router = APIRouter(
@@ -21,15 +21,6 @@ router = APIRouter(
 
 
 uid_param = Path(description="The uid of a sensor")
-
-current_data_query = Query(default=False, description="Fetch the current data")
-
-historic_data_query = Query(default=False, description="Fetch logged data")
-
-in_config_query = Query(
-    default=None, description="Only select sensors that are present (True) "
-                              "or have been removed (False) from the current "
-                              "gaia ecosystems config")
 
 
 async def sensor_or_abort(
@@ -51,7 +42,7 @@ async def get_measures_available(session: AsyncSession = Depends(get_session)):
     return measures
 
 
-@router.get("/u/{uid}/data/{measure}/current", response_model=SensorCurrentTimedValue)
+@router.get("/u/{uid}/data/{measure}/current", response_model=SensorMeasureCurrentTimedValue)
 async def get_sensor_current_data(
         uid: str = uid_param,
         measure: str = Path(description="The measure for which to fetch current data"),
@@ -72,7 +63,7 @@ async def get_sensor_current_data(
     return response
 
 
-@router.get("/u/{uid}/data/{measure}/historic", response_model=SensorHistoricTimedValue)
+@router.get("/u/{uid}/data/{measure}/historic", response_model=SensorMeasureHistoricTimedValue)
 async def get_sensor_historic_data(
         uid: str = uid_param,
         measure: str = Path(description="The measure for which to fetch historic data"),

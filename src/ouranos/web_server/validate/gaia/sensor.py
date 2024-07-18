@@ -51,7 +51,7 @@ class EcosystemSensorData(BaseModel):
     values: list[SensorRecordModel]
 
 
-class SensorCurrentTimedValue(BaseModel):
+class SensorMeasureCurrentTimedValue(BaseModel):
     uid: str
     measure: str
     unit: str
@@ -59,7 +59,7 @@ class SensorCurrentTimedValue(BaseModel):
     values: list[tuple[datetime, float]]
 
 
-class SensorHistoricTimedValue(BaseModel):
+class SensorMeasureHistoricTimedValue(BaseModel):
     uid: str
     measure: str
     unit: str
