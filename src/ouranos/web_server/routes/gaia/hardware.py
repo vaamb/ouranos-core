@@ -16,7 +16,8 @@ from ouranos.web_server.routes.gaia.utils import (
     ecosystem_or_abort, ecosystems_uid_q, hardware_level_q)
 from ouranos.web_server.validate.base import ResultResponse, ResultStatus
 from ouranos.web_server.validate.gaia.hardware import (
-    HardwareCreationPayload, HardwareInfo, HardwareModelInfo, HardwareUpdatePayload)
+    HardwareType, HardwareCreationPayload, HardwareInfo, HardwareModelInfo,
+    HardwareUpdatePayload)
 
 
 dispatcher: AsyncDispatcher = DispatcherFactory.get("application-internal")
@@ -72,8 +73,20 @@ async def get_multiple_hardware(
     return hardware
 
 
+@router.get("/types_available", response_model=list[HardwareType])
+async def get_hardware_types_available():
+    response = [
+        {
+            "name": hardware_type.name,
+            "value": hardware_type.value
+        }
+        for hardware_type in gv.HardwareType.__members__.values()
+    ]
+    return response
+
+
 @router.get("/models_available", response_model=list[HardwareModelInfo])
-async def get_hardware_available() -> list[str]:
+async def get_hardware_available():
     response = Hardware.get_models_available()
     return response
 
