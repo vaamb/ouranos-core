@@ -1127,29 +1127,6 @@ class Sensor(Hardware):
                     session, self.uid, measure_obj.name, time_window),
         }
 
-    async def get_overview(
-            self,
-            session: AsyncSession,
-            measures: str | list | None = None,
-            current_data: bool = False,
-            historic_data: bool = False,
-            time_window: timeWindow | None = None,
-    ) -> dict:
-        rv = self.to_dict()
-        rv["records"] = {
-            "current": None,
-            "historic": None
-        }
-        if current_data:
-            rv["records"]["current"] = await self.get_current_data(
-                session, measures=measures)
-        if historic_data:
-            if time_window is None:
-                time_window = create_time_window()
-            rv["records"]["historic"] = await self.get_historic_data(
-                    session, measures=measures, time_window=time_window)
-        return rv
-
     @staticmethod
     async def create_records(
             session: AsyncSession,
