@@ -149,7 +149,7 @@ class SystemDataRecord(BaseSystemData, RecordMixin):
                 system_uid = [system_uid, ]
             stmt = stmt.where(cls.system_uid.in_(system_uid))
         result = await session.execute(stmt)
-        return [r._data for r in result.all()]
+        return result.all()
 
 
 class SystemDataCache(BaseSystemData, CacheMixin):
@@ -201,4 +201,4 @@ class SystemDataCache(BaseSystemData, CacheMixin):
                 system_uid = [system_uid, ]
             stmt = stmt.where(cls.system_uid.in_(system_uid))
         result = await session.execute(stmt)
-        return [r._data for r in result.all()]
+        return result.all()

@@ -1395,7 +1395,7 @@ class SensorDataCache(BaseSensorData, CacheMixin):
             .where(cls.measure == measure)
         )
         result = await session.execute(stmt)
-        return [r._data for r in result.all()]
+        return result.all()
 
 
 class BaseSensorDataRecord(BaseSensorData, RecordMixin):
@@ -1460,7 +1460,7 @@ class SensorDataRecord(BaseSensorDataRecord):
             )
         )
         result = await session.execute(stmt)
-        return [r._data for r in result.all()]
+        return result.all()
 
 
 # ---------------------------------------------------------------------------
@@ -1654,7 +1654,7 @@ class BaseActuatorRecord(Base, RecordMixin):
             )
         )
         result = await session.execute(stmt)
-        return [r._data for r in result.all()]
+        return result.all()
 
 
 class ActuatorRecord(BaseActuatorRecord):
