@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Query, Response
+from fastapi import APIRouter, Response
 
 from ouranos.core.cache import SunTimesCache, WeatherCache
 from ouranos.web_server.validate.weather import (
-    CurrentWeatherResponse, DailyWeatherResponse, HourlyWeatherResponse, SunTimesResponse)
+    CurrentWeatherResponse, DailyWeatherResponse, HourlyWeatherResponse,
+    SunTimesResponse)
 
 
 router = APIRouter(

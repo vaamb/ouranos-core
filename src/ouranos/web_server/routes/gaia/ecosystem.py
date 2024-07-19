@@ -9,7 +9,7 @@ import gaia_validators as gv
 from gaia_validators import safe_enum_from_name
 
 from ouranos.core.database.models.gaia import (
-    Ecosystem, EnvironmentParameter, Hardware, Lighting)
+    Ecosystem, EnvironmentParameter, Lighting)
 from ouranos.core.dispatchers import DispatcherFactory
 from ouranos.core.utils import timeWindow
 from ouranos.web_server.auth import is_operator

@@ -21,8 +21,8 @@ from ouranos.core.utils import timeWindow
 _cache_system_history = TTLCache(maxsize=1, ttl=10)
 
 timed_value = list[
-        tuple[datetime, float, Optional[float], float, float, float]
-    ]
+    tuple[datetime, float, Optional[float], float, float, float]
+]
 
 
 # ---------------------------------------------------------------------------

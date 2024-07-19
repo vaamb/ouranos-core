@@ -9,7 +9,6 @@ import gaia_validators as gv
 from ouranos.core.database.models.gaia import SensorDataRecord
 from ouranos.core.validate.base import BaseModel
 from ouranos.core.validate.utils import sqlalchemy_to_pydantic
-from ouranos.web_server.validate.gaia.hardware import HardwareInfo
 
 
 # ---------------------------------------------------------------------------
