@@ -14,9 +14,6 @@ import warnings
 from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from dispatcher import (
-    AsyncDispatcher, AsyncInMemoryDispatcher, AsyncRedisDispatcher,
-    AsyncAMQPDispatcher)
 import jwt
 from sqlalchemy import Row
 
@@ -124,7 +121,7 @@ def create_time_window(
     if start > end:
         start, end = end, start
     return timeWindow(
-        start=round_datetime(start, rounding_base, grace_time),
+        start=round_datetime(start, rounding_base, 0),
         end=round_datetime(end, rounding_base, grace_time),
     )
 
