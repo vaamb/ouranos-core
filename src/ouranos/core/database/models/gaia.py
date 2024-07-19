@@ -24,7 +24,7 @@ from ouranos.core.database import ArchiveLink
 from ouranos.core.database.models.abc import (
     Base, CacheMixin, CRUDMixin, RecordMixin)
 from ouranos.core.database.models.types import UtcDateTime
-from ouranos.core.database.models.utils import sessionless_hashkey, time_limits
+from ouranos.core.database.models.utils import sessionless_hashkey, TIME_LIMITS
 from ouranos.core.utils import create_time_window, timeWindow
 
 
@@ -118,7 +118,7 @@ class Engine(Base, CRUDMixin):
         if isinstance(engines, str):
             engines = engines.split(",")
         if "recent" in engines:
-            time_limit = time_limits("recent")
+            time_limit = datetime.now(timezone.utc) - timedelta(hours=TIME_LIMITS.RECENT)
             stmt = (
                 select(cls)
                 .where(cls.last_seen >= time_limit)
@@ -231,7 +231,7 @@ class Ecosystem(Base, CRUDMixin, InConfigMixin):
         if isinstance(ecosystems, str):
             ecosystems = ecosystems.split(",")
         if "recent" in ecosystems:
-            time_limit = time_limits("recent")
+            time_limit = datetime.now(timezone.utc) - timedelta(hours=TIME_LIMITS.RECENT)
             stmt = (
                 select(cls)
                 .where(cls.last_seen >= time_limit)
@@ -274,8 +274,8 @@ class Ecosystem(Base, CRUDMixin, InConfigMixin):
             self,
             session: AsyncSession,
             level: gv.HardwareLevel,
-            time_limit: datetime = time_limits("sensors"),
     ) -> bool:
+        time_limit = datetime.now(timezone.utc) - timedelta(hours=TIME_LIMITS.SENSORS)
         stmt = (
             select(Hardware)
             .where(Hardware.ecosystem_uid == self.uid)
