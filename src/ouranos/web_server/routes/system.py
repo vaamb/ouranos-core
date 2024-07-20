@@ -5,7 +5,8 @@ from ouranos.core.database.models.system import System
 from ouranos.core.utils import timeWindow
 from ouranos.web_server.auth import is_admin
 from ouranos.web_server.dependencies import get_session, get_time_window
-from ouranos.web_server.validate.system import SystemData, SystemInfo
+from ouranos.web_server.validate.system import (
+    CurrentSystemData, HistoricSystemData, SystemInfo)
 
 
 router = APIRouter(
@@ -46,34 +47,39 @@ async def get_system(
     return system
 
 
-@router.get("/{system_uid}/data/current", response_model=SystemData)
+@router.get("/{system_uid}/data/current", response_model=CurrentSystemData)
 async def get_current_system_data(
         system_uid: str = Path(description="A server uid"),
         session: AsyncSession = Depends(get_session),
 ):
     system = await system_or_abort(session, uid=system_uid)
-    return {
+    response = {
         "system_uid": system.uid,
         "values": await system.get_recent_timed_values(session),
+        # order is added by the serializer
         "totals": {
-            "DISK_TOTAL": system.DISK_total,
-            "RAM_TOTAL": system.RAM_total,
+            "DISK_total": system.DISK_total,
+            "RAM_total": system.RAM_total,
         }
     }
+    return response
 
 
-@router.get("/{system_uid}/data/historic", response_model=SystemData)
+@router.get("/{system_uid}/data/historic", response_model=HistoricSystemData)
 async def get_historic_system_data(
         system_uid: str = Path(description="A server uid"),
         time_window: timeWindow = Depends(get_time_window(rounding=10, grace_time=60)),
         session: AsyncSession = Depends(get_session),
 ):
     system = await system_or_abort(session, uid=system_uid)
-    return {
+    response = {
         "system_uid": system.uid,
+        "span": (time_window.start, time_window.end),
         "values": await system.get_timed_values(session, time_window),
+        # order is added by the serializer
         "totals": {
-            "DISK_TOTAL": system.DISK_total,
-            "RAM_TOTAL": system.RAM_total,
+            "DISK_total": system.DISK_total,
+            "RAM_total": system.RAM_total,
         }
     }
+    return response

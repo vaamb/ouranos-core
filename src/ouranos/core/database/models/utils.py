@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from typing import Literal, Type
+from typing import Type
 
-from cachetools import cached, TTLCache
 from cachetools.keys import hashkey
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.selectable import Select
@@ -11,10 +9,12 @@ from sqlalchemy.sql.selectable import Select
 from ouranos.core.database.models.abc import Base
 
 
-_timelimit_cache = TTLCache(maxsize=1, ttl=5)
+class TIME_LIMITS:
+    RECENT: int = 36
+    SENSORS: int = 24 * 7
+    HEALTH: int = 24 * 31
+    WARNING:int = 24 * 7
 
-
-time_limits_category: Literal["recent", "sensors", "health", "warnings"]
 
 
 def sessionless_hashkey(
@@ -50,18 +50,3 @@ def paginate(
         per_page = 20
     offset = (page - 1) * per_page
     return stmt.offset(offset).limit(per_page)
-
-
-@cached(_timelimit_cache)
-def _time_limits() -> dict[time_limits_category, datetime]:
-    now_utc = datetime.now(timezone.utc)
-    return {
-        "recent": (now_utc - timedelta(hours=36)),
-        "sensors": (now_utc - timedelta(days=7)),
-        "health": (now_utc - timedelta(days=31)),
-        "warnings": (now_utc - timedelta(days=7)),
-    }
-
-
-def time_limits(category: time_limits_category) -> datetime:
-    return _time_limits()[category]

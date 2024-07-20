@@ -1,4 +1,4 @@
-import typing as t
+from typing import Optional
 
 from fastapi import HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -35,15 +35,15 @@ class get_time_window:  # noqa: 801
 
     def __call__(
             self,
-            start_time: t.Optional[str] = start_time_query,
-            end_time: t.Optional[str] = end_time_query,
+            start_time: Optional[str] = start_time_query,
+            end_time: Optional[str] = end_time_query,
     ) -> timeWindow:
         try:
             return create_time_window(
                 start_time, end_time, window_length=7, rounding_base=self.rounding,
                 grace_time=self.grace_time)
-        except ValueError:
+        except ValueError as e:
             raise HTTPException(
                 status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="'start_time' and 'end_time' should be valid iso times"
+                detail=str(e)
             )

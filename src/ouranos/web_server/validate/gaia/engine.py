@@ -3,7 +3,7 @@ from ouranos.core.validate.base import BaseModel
 from ouranos.core.validate.utils import sqlalchemy_to_pydantic
 
 
-class _EcosystemSummary(BaseModel):
+class EcosystemSummary(BaseModel):
     uid: str
     name: str
 
@@ -13,7 +13,7 @@ EngineInfo = sqlalchemy_to_pydantic(
     base=BaseModel,
     extra_fields={
         "connected": (bool, ...),
-        "ecosystems": (list[_EcosystemSummary], ...)
+        "ecosystems": (list[EcosystemSummary], ...)
     }
 )
 

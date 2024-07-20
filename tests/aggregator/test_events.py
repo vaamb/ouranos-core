@@ -279,8 +279,8 @@ async def test_log_sensors_data(
                 sensor_uid=g_data.hardware_uid,
                 measure_name=g_data.measure_name,
                 time_window=create_time_window(
-                    start=datetime.now(timezone.utc) - timedelta(hours=1),
-                    end=datetime.now(timezone.utc) + timedelta(hours=1),
+                    start_time=datetime.now(timezone.utc) - timedelta(hours=1),
+                    end_time=datetime.now(timezone.utc) + timedelta(hours=1),
                 ),
             )
         )[0]
@@ -344,7 +344,7 @@ async def test_on_buffered_sensors_data(
                 sensor_uid=g_data.hardware_uid,
                 measure_name="temperature",
                 time_window=create_time_window(
-                    end=datetime.now(timezone.utc) + timedelta(days=1))
+                    end_time=datetime.now(timezone.utc) + timedelta(days=1))
             )
         )[0]
         assert temperature_data.ecosystem_uid == \

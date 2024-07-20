@@ -24,6 +24,11 @@ def safe_enum_or_none_from_name(
     return None
 
 
+class HardwareType(BaseModel):
+    name: str
+    value: int
+
+
 class HardwareCreationPayload(gv.AnonymousHardwareConfig):
     ecosystem_uid: str
 
@@ -40,7 +45,11 @@ class HardwareUpdatePayload(HardwareCreationPayload):
     plant_uid: list[str] | None = None
 
 
-class HardwareInfo(gv.HardwareConfig):
+class _HardwareInfo(BaseModel):
+    uid: str
+
+
+class HardwareInfo(gv.AnonymousHardwareConfig, _HardwareInfo):
     ecosystem_uid: str
     last_log: datetime | None = None
 
@@ -49,8 +58,8 @@ class HardwareInfo(gv.HardwareConfig):
     )
 
     @field_serializer("type")
-    def serialize_group(self, type: gv.HardwareType, _info) -> str:
-        return type.name
+    def serialize_type(self, value: gv.HardwareType, _info) -> str:
+        return value.name
 
 
 class HardwareModelInfo(BaseModel):
@@ -58,5 +67,5 @@ class HardwareModelInfo(BaseModel):
     type: gv.HardwareType
 
     @field_serializer("type")
-    def serialize_group(self, type: gv.HardwareType, _info):
-        return type.name
+    def serialize_type(self, value: gv.HardwareType, _info):
+        return value.name

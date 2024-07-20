@@ -24,7 +24,7 @@ from ouranos.core.database import ArchiveLink
 from ouranos.core.database.models.abc import (
     Base, CacheMixin, CRUDMixin, RecordMixin)
 from ouranos.core.database.models.types import UtcDateTime
-from ouranos.core.database.models.utils import sessionless_hashkey, time_limits
+from ouranos.core.database.models.utils import sessionless_hashkey, TIME_LIMITS
 from ouranos.core.utils import create_time_window, timeWindow
 
 
@@ -118,7 +118,7 @@ class Engine(Base, CRUDMixin):
         if isinstance(engines, str):
             engines = engines.split(",")
         if "recent" in engines:
-            time_limit = time_limits("recent")
+            time_limit = datetime.now(timezone.utc) - timedelta(hours=TIME_LIMITS.RECENT)
             stmt = (
                 select(cls)
                 .where(cls.last_seen >= time_limit)
@@ -231,7 +231,7 @@ class Ecosystem(Base, CRUDMixin, InConfigMixin):
         if isinstance(ecosystems, str):
             ecosystems = ecosystems.split(",")
         if "recent" in ecosystems:
-            time_limit = time_limits("recent")
+            time_limit = datetime.now(timezone.utc) - timedelta(hours=TIME_LIMITS.RECENT)
             stmt = (
                 select(cls)
                 .where(cls.last_seen >= time_limit)
@@ -274,8 +274,8 @@ class Ecosystem(Base, CRUDMixin, InConfigMixin):
             self,
             session: AsyncSession,
             level: gv.HardwareLevel,
-            time_limit: datetime = time_limits("sensors"),
     ) -> bool:
+        time_limit = datetime.now(timezone.utc) - timedelta(hours=TIME_LIMITS.SENSORS)
         stmt = (
             select(Hardware)
             .where(Hardware.ecosystem_uid == self.uid)
@@ -288,9 +288,10 @@ class Ecosystem(Base, CRUDMixin, InConfigMixin):
         result = await session.execute(stmt)
         return bool(result.first())
 
-    async def functionalities(self, session: AsyncSession) -> dict:
+    async def get_functionalities(self, session: AsyncSession) -> dict:
         return {
             "uid": self.uid,
+            "name": self.name,
             **self.management_dict,
             "switches": any((
                 self.management_dict.get("climate"),
@@ -300,8 +301,18 @@ class Ecosystem(Base, CRUDMixin, InConfigMixin):
             "plants_data": await self.has_recent_sensor_data(session, "plants"),
         }
 
+    async def get_hardware(
+            self,
+            session: AsyncSession,
+            hardware_type: gv.HardwareType | None = None,
+            in_config: bool | None = None,
+    ) -> Sequence[Hardware]:
+        return await Hardware.get_multiple(
+            session, ecosystem_uids=[self.uid], types=hardware_type,
+            in_config=in_config)
+
     @cached(_cache_sensors_data_skeleton, key=sessionless_hashkey)
-    async def sensors_data_skeleton(
+    async def get_sensors_data_skeleton(
             self,
             session: AsyncSession,
             time_window: timeWindow,
@@ -356,13 +367,14 @@ class Ecosystem(Base, CRUDMixin, InConfigMixin):
             "uid": self.uid,
             "name": self.name,
             "level": [i.name for i in gv.HardwareLevel] if level is None else level,
+            "span": (time_window.start, time_window.end),
             "sensors_skeleton": skeleton,
         }
 
-    async def current_data(self, session: AsyncSession) -> Sequence[SensorDataCache]:
+    async def get_current_data(self, session: AsyncSession) -> Sequence[SensorDataCache]:
         return await SensorDataCache.get_recent(session, self.uid)
 
-    async def actuators_state(
+    async def get_actuators_state(
             self,
             session: AsyncSession
     ) -> list[ActuatorState]:
@@ -1009,7 +1021,7 @@ class Hardware(Base, CRUDMixin, InConfigMixin):
         return result.unique().scalars().all()
 
     @staticmethod
-    def get_models_available() -> list:
+    def get_models_available() -> list[str]:
         # TODO based on gaia / gaia-validators
         return []
 
@@ -1074,85 +1086,46 @@ class Sensor(Hardware):
     async def get_current_data(
             self,
             session: AsyncSession,
-            measures: str | list | None = None,
-    ) -> list:
-        measures_obj: list[Measure]
-        if measures is None:
-            measures_obj = self.measures
-        else:
-            if isinstance(measures, str):
-                measures = measures.split(",")
-            measures_obj = [
-                measure for measure in self.measures
-                if measure.name in measures
-            ]
-        rv = []
-        for measure_obj in measures_obj:
-            rv.append({
-                "measure": measure_obj.name,
-                "unit": measure_obj.unit,
-                "values": await SensorDataCache.get_recent_timed_values(
-                    session, self.uid, measure_obj.name),
-            })
-        return rv
+            measure: str,
+    ) -> dict | None:
+        measure_str = measure
+        measure_obj: Measure | None = None
+        for measure in self.measures:
+            if measure.name == measure_str:
+                measure_obj = measure
+                break
+        if measure_obj is None:
+            return None
+        return {
+            "measure": measure_obj.name,
+            "unit": measure_obj.unit,
+            "values": await SensorDataCache.get_recent_timed_values(
+                session, self.uid, measure_obj.name),
+        }
 
     async def get_historic_data(
             self,
             session: AsyncSession,
-            measures: str | list | None = None,
+            measure: str,
             time_window: timeWindow | None = None,
-    ) -> list:
-        measures_obj: list[Measure]
-        if measures is None:
-            measures_obj = self.measures
-        else:
-            if isinstance(measures, str):
-                measures = measures.split(",")
-            measures_obj = [
-                measure for measure in self.measures
-                if measure.name in measures
-            ]
+    ) -> dict | None:
+        measure_str = measure
+        measure_obj: Measure | None = None
+        for measure in self.measures:
+            if measure.name == measure_str:
+                measure_obj = measure
+                break
+        if measure_obj is None:
+            return None
         if time_window is None:
             time_window = create_time_window()
-        rv = []
-        for measure_obj in measures_obj:
-            rv.append({
-                "measure": measure_obj.name,
-                "unit": measure_obj.unit,
-                "span": (time_window.start, time_window.end),
-                "values": await SensorDataRecord.get_timed_values(
+        return {
+            "measure": measure_obj.name,
+            "unit": measure_obj.unit,
+            "span": (time_window.start, time_window.end),
+            "values": await SensorDataRecord.get_timed_values(
                     session, self.uid, measure_obj.name, time_window),
-            })
-        return rv
-
-    async def get_overview(
-            self,
-            session: AsyncSession,
-            measures: str | list | None = None,
-            current_data: bool = False,
-            historic_data: bool = False,
-            time_window: timeWindow | None = None,
-    ) -> dict:
-        rv = self.to_dict()
-        rv["data"] = None
-        if current_data or historic_data:
-            rv.update({"data": {}})
-            if current_data:
-                rv["data"].update({
-                    "current": await self.get_current_data(session, measures)
-                })
-            else:
-                rv["data"].update({"current": None})
-            if historic_data:
-                if time_window is None:
-                    time_window = create_time_window()
-                rv["data"].update({
-                    "historic": await self.get_historic_data(
-                        session, measures, time_window)
-                })
-            else:
-                rv["data"].update({"historic": None})
-        return rv
+        }
 
     @staticmethod
     async def create_records(
@@ -1422,7 +1395,7 @@ class SensorDataCache(BaseSensorData, CacheMixin):
             .where(cls.measure == measure)
         )
         result = await session.execute(stmt)
-        return [r._data for r in result.all()]
+        return result.all()
 
 
 class BaseSensorDataRecord(BaseSensorData, RecordMixin):
@@ -1487,7 +1460,7 @@ class SensorDataRecord(BaseSensorDataRecord):
             )
         )
         result = await session.execute(stmt)
-        return [r._data for r in result.all()]
+        return result.all()
 
 
 # ---------------------------------------------------------------------------
@@ -1681,7 +1654,7 @@ class BaseActuatorRecord(Base, RecordMixin):
             )
         )
         result = await session.execute(stmt)
-        return [r._data for r in result.all()]
+        return result.all()
 
 
 class ActuatorRecord(BaseActuatorRecord):

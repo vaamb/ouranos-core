@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import (
     APIRouter, Body, Depends, HTTPException, Path, Query, Response, status)
 
-from ouranos.core.database.models.app import (Permission, User, UserMixin)
+from ouranos.core.database.models.app import Permission, User, UserMixin
 from ouranos.web_server.auth import get_current_user, is_admin
 from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.validate.base import ResultResponse, ResultStatus

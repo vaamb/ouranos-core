@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Path, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import gaia_validators as gv
@@ -8,11 +8,9 @@ import gaia_validators as gv
 from ouranos.core.database.models.gaia import Measure, Sensor
 from ouranos.core.utils import timeWindow
 from ouranos.web_server.dependencies import get_session, get_time_window
-from ouranos.web_server.routes.gaia.utils import (
-    ecosystems_uid_q, hardware_level_q)
 from ouranos.web_server.routes.utils import assert_single_uid
 from ouranos.web_server.validate.gaia.sensor import (
-    SensorCurrentTimedValue, SensorHistoricTimedValue, SensorOverview)
+    SensorMeasureCurrentTimedValue, SensorMeasureHistoricTimedValue)
 
 
 router = APIRouter(
@@ -23,15 +21,6 @@ router = APIRouter(
 
 
 uid_param = Path(description="The uid of a sensor")
-
-current_data_query = Query(default=False, description="Fetch the current data")
-
-historic_data_query = Query(default=False, description="Fetch logged data")
-
-in_config_query = Query(
-    default=None, description="Only select sensors that are present (True) "
-                              "or have been removed (False) from the current "
-                              "gaia ecosystems config")
 
 
 async def sensor_or_abort(
@@ -47,80 +36,51 @@ async def sensor_or_abort(
     return sensor
 
 
-@router.get("", response_model=list[SensorOverview])
-async def get_sensors(
-        sensors_uid: list[str] | None = Query(
-            default=None, description="A list of sensor uids"),
-        ecosystems_uid: list[str] | None = ecosystems_uid_q,
-        sensors_level: list[gv.HardwareLevel] | None = hardware_level_q,
-        sensors_model: list[str] | None = Query(
-            default=None, description="A list of precise sensor model"),
-        measures: list[str] | None = Query(
-            default=None, description="A list of measures taken"),
-        current_data: bool = current_data_query,
-        historic_data: bool = historic_data_query,
-        time_window: timeWindow = Depends(get_time_window(rounding=10, grace_time=60)),
-        in_config: bool | None = in_config_query,
-        session: AsyncSession = Depends(get_session),
-):
-    sensors = await Sensor.get_multiple(
-        session=session, hardware_uids=sensors_uid,
-        ecosystem_uids=ecosystems_uid, levels=sensors_level, 
-        models=sensors_model, time_window=time_window, in_config=in_config)
-    return [
-        await sensor.get_overview(
-            session, measures, current_data, historic_data, time_window)
-        for sensor in sensors
-    ]
-
-
 @router.get("/measures_available", response_model=list[gv.Measure])
 async def get_measures_available(session: AsyncSession = Depends(get_session)):
     measures = await Measure.get_multiple(session)
     return measures
 
 
-@router.get("/u/{uid}", response_model=SensorOverview)
-async def get_sensor(
-        uid: str = uid_param,
-        current_data: bool = current_data_query,
-        historic_data: bool = historic_data_query,
-        time_window: timeWindow = Depends(get_time_window(rounding=10, grace_time=60)),
-        session: AsyncSession = Depends(get_session),
-):
-    assert_single_uid(uid)
-    sensor = await sensor_or_abort(session, uid)
-    response = await sensor.get_overview(
-        session, None, current_data, historic_data, time_window)
-    return response
-
-
-@router.get("/u/{uid}/data/current", response_model=list[SensorCurrentTimedValue])
+@router.get("/u/{uid}/data/{measure}/current", response_model=SensorMeasureCurrentTimedValue)
 async def get_sensor_current_data(
         uid: str = uid_param,
-        measures: list[str] | None = Query(
-            default=None, description="A list of measures taken by the sensor"),
+        measure: str = Path(description="The measure for which to fetch current data"),
         session: AsyncSession = Depends(get_session),
 ):
     assert_single_uid(uid)
     sensor = await sensor_or_abort(session, uid)
-    if not measures:
-        measures = [m.name for m in sensor.measures]
-    response = await sensor.get_current_data(session, measures)
+    current_data = await sensor.get_current_data(session, measure=measure)
+    if current_data is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This measure is not available for this sensor"
+        )
+    response = {
+        "uid": sensor.uid,
+        **current_data,
+    }
     return response
 
 
-@router.get("/u/{uid}/data/historic", response_model=list[SensorHistoricTimedValue])
+@router.get("/u/{uid}/data/{measure}/historic", response_model=SensorMeasureHistoricTimedValue)
 async def get_sensor_historic_data(
         uid: str = uid_param,
-        measures: list[str] | None = Query(
-            default=None, description="A list of measures taken by the sensor"),
+        measure: str = Path(description="The measure for which to fetch historic data"),
         time_window: timeWindow = Depends(get_time_window(rounding=10, grace_time=60)),
         session: AsyncSession = Depends(get_session),
 ):
     assert_single_uid(uid)
     sensor = await sensor_or_abort(session, uid)
-    if not measures:
-        measures = [m.name for m in sensor.measures]
-    response = await sensor.get_historic_data(session, measures, time_window)
+    historic_data = await sensor.get_historic_data(
+        session, measure=measure, time_window=time_window)
+    if historic_data is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This measure is not available for this sensor"
+        )
+    response = {
+        "uid": sensor.uid,
+        **historic_data,
+    }
     return response

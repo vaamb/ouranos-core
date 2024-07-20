@@ -16,7 +16,7 @@ router = APIRouter(
 )
 
 
-@router.get("/version")
+@router.get("/version", response_model=str)
 async def get_version():
     return current_app.config["VERSION"]
 
