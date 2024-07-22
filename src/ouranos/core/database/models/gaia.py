@@ -273,6 +273,7 @@ class Ecosystem(Base, CRUDMixin, InConfigMixin):
     async def has_recent_sensor_data(
             self,
             session: AsyncSession,
+            *,
             level: gv.HardwareLevel,
     ) -> bool:
         time_limit = datetime.now(timezone.utc) - timedelta(hours=TIME_LIMITS.SENSORS)
@@ -297,8 +298,10 @@ class Ecosystem(Base, CRUDMixin, InConfigMixin):
                 self.management_dict.get("climate"),
                 self.management_dict.get("light")
             )),
-            "environment_data": await self.has_recent_sensor_data(session, "environment"),
-            "plants_data": await self.has_recent_sensor_data(session, "plants"),
+            "environment_data": await self.has_recent_sensor_data(
+                session, level=gv.HardwareLevel.environment),
+            "plants_data": await self.has_recent_sensor_data(
+                session, level=gv.HardwareLevel.plants),
         }
 
     async def get_hardware(
@@ -315,6 +318,7 @@ class Ecosystem(Base, CRUDMixin, InConfigMixin):
     async def get_sensors_data_skeleton(
             self,
             session: AsyncSession,
+            *,
             time_window: timeWindow,
             level: gv.HardwareLevel | list[gv.HardwareLevel] | None = None,
     ) -> dict:
@@ -1124,7 +1128,8 @@ class Sensor(Hardware):
             "unit": measure_obj.unit,
             "span": (time_window.start, time_window.end),
             "values": await SensorDataRecord.get_timed_values(
-                    session, self.uid, measure_obj.name, time_window),
+                session, sensor_uid=self.uid, measure_name=measure_obj.name,
+                time_window=time_window),
         }
 
     @staticmethod
@@ -1214,6 +1219,7 @@ class Measure(Base, CRUDMixin):
     async def get_unit(
             cls,
             session: AsyncSession,
+            *,
             measure_name: str
     ) -> str | None:
         stmt = (
@@ -1446,6 +1452,7 @@ class SensorDataRecord(BaseSensorDataRecord):
     async def get_timed_values(
             cls,
             session: AsyncSession,
+            *,
             sensor_uid: str,
             measure_name: str,
             time_window: timeWindow
@@ -1753,6 +1760,7 @@ class GaiaWarning(Base):
     async def get_multiple(
             cls,
             session: AsyncSession,
+            *,
             show_solved: bool = False,
             ecosystems: str | list[str] | None = None,
             limit: int = 10,

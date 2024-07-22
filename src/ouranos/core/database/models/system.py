@@ -131,6 +131,7 @@ class SystemDataRecord(BaseSystemData, RecordMixin):
     async def get_timed_values(
             cls,
             session: AsyncSession,
+            *,
             time_window: timeWindow,
             system_uid: str | list | None = None,
     ) -> list[timed_value]:
