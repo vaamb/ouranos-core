@@ -152,9 +152,9 @@ class DispatcherEvents(AsyncEventHandler):
                 ecosystem = await Ecosystem.get(session, uid)
                 data["switches"] = data["climate"] or data["light"]
                 data["environment_data"] = await ecosystem.has_recent_sensor_data(
-                    session, "environment")
+                    session, level=gv.HardwareLevel.environment)
                 data["plants_data"] = await ecosystem.has_recent_sensor_data(
-                    session, "plants")
+                    session, level=gv.HardwareLevel.plants)
                 rv.append({
                     "uid": uid,
                     "data": data,

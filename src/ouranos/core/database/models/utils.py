@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Type
+from typing import Any, Type
 
 from cachetools.keys import hashkey
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,11 +16,10 @@ class TIME_LIMITS:
     WARNING:int = 24 * 7
 
 
-
 def sessionless_hashkey(
         cls_or_self: Type | Base,
         session: AsyncSession,
-        *args,
+        /,
         **kwargs
 ) -> tuple:
     inst_ids = []
@@ -28,13 +27,13 @@ def sessionless_hashkey(
         for id_ in ("uid", "id"):
             if hasattr(cls_or_self, id_):
                 inst_ids.append(getattr(cls_or_self, id_))
-    unlisted_args = []
-    for arg in args:
-        if isinstance(arg, list):
-            unlisted_args.append(tuple(arg))
+    unlisted_kwargs: list[Any] = []
+    for key in sorted(kwargs.keys()):
+        if isinstance(kwargs[key], list):
+            unlisted_kwargs.append(tuple(kwargs[key]))
         else:
-            unlisted_args.append(arg)
-    return hashkey(*inst_ids, *unlisted_args, **kwargs)
+            unlisted_kwargs.append(kwargs[key])
+    return hashkey(*inst_ids, *unlisted_kwargs)
 
 
 def paginate(
