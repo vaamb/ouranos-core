@@ -4,7 +4,7 @@ from logging import getLogger, Logger
 
 from dispatcher import AsyncDispatcher, AsyncEventHandler
 import gaia_validators as gv
-from socketio import AsyncNamespace, BaseManager
+from socketio import AsyncNamespace, AsyncManager
 
 from ouranos import db
 from ouranos.core.database.models.app import Permission
@@ -69,7 +69,7 @@ class ClientEvents(AsyncNamespace):
         )
 
     # ---------------------------------------------------------------------------
-    #   Events Clients ->  Web server -> Aggregator
+    #   Events Web clients ->  Web server -> Aggregator
     # ---------------------------------------------------------------------------
     # @permission_required(Permission.OPERATE)
     async def on_turn_light(self, sid, data):
@@ -116,12 +116,12 @@ class ClientEvents(AsyncNamespace):
 
 
 class DispatcherEvents(AsyncEventHandler):
-    def __init__(self, sio_manager: BaseManager):
+    def __init__(self, sio_manager: AsyncManager):
         super().__init__()
         self.sio_manager = sio_manager
 
     # ---------------------------------------------------------------------------
-    #   Events Aggregator -> Web workers -> Clients
+    #   Events Aggregator -> Web workers -> Web clients
     # ---------------------------------------------------------------------------
     async def on_weather_current(self, sid, data):
         logger.debug("Dispatching 'weather_current' to clients")
@@ -202,8 +202,9 @@ class DispatcherEvents(AsyncEventHandler):
         await self.sio_manager.emit("health_data", data=data, namespace="/")
 
     # ---------------------------------------------------------------------------
-    #   Events Root Web server ->  Web workers -> Clients
+    #   Events Base web server ->  Web worker -> Admin web clients
     # ---------------------------------------------------------------------------
     async def on_current_server_data(self, sid, data):
         logger.debug("Dispatching 'current_server_data' to clients")
-        await self.sio_manager.emit("current_server_data", data=data, namespace="/")
+        await self.sio_manager.emit(
+            "current_server_data", data=data, namespace="/", room=ADMIN_ROOM)
