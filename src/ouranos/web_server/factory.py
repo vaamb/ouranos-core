@@ -9,8 +9,8 @@ from fastapi import APIRouter, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse as BaseResponse
 from fastapi.staticfiles import StaticFiles
+from socketio import AsyncManager, AsyncServer
 from socketio.asgi import ASGIApp
-from socketio.asyncio_server import AsyncServer
 
 from ouranos import current_app
 from ouranos.core.dispatchers import DispatcherFactory
@@ -192,7 +192,7 @@ def create_app(config: dict | None = None) -> FastAPI:
     # Configure Socket.IO and load the socketio
     logger.debug("Configuring Socket.IO server")
     dispatcher = DispatcherFactory.get("application-internal")
-    sio_manager = create_sio_manager()
+    sio_manager: AsyncManager = create_sio_manager()
     sio = AsyncServer(
         async_mode='asgi', cors_allowed_origins=[], client_manager=sio_manager)
     asgi_app = ASGIApp(sio)

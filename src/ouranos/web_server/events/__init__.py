@@ -4,12 +4,17 @@ from logging import getLogger, Logger
 
 from dispatcher import AsyncDispatcher, AsyncEventHandler
 import gaia_validators as gv
-from socketio import AsyncNamespace, BaseManager
+from socketio import AsyncNamespace, AsyncManager
 
 from ouranos import db
+from ouranos.core.database.models.app import Permission
 from ouranos.core.database.models.gaia import Ecosystem
+from ouranos.core.exceptions import TokenError
+from ouranos.web_server.auth import login_manager, SessionInfo
 from ouranos.web_server.events.decorators import permission_required
 
+
+ADMIN_ROOM = "administrator"
 
 logger: Logger = getLogger(f"aggregator.socketio")
 
@@ -32,8 +37,42 @@ class ClientEvents(AsyncNamespace):
     async def on_ping(self, sid):
         await self.emit("pong", namespace="/", room=sid)
 
+    async def on_login(self, sid, data):
+        try:
+            session_info = SessionInfo.from_token(data)
+        except TokenError:
+            await self.emit(
+                "login_ack",
+                data={
+                    "result": gv.Result.failure,
+                    "reason": "Invalid session token"
+                },
+                namespace="/",
+                room=sid
+            )
+        else:
+            async with db.scoped_session() as session:
+                user = await login_manager.get_user(session, session_info.user_id)
+            if user.can(Permission.ADMIN):
+                self.server.enter_room(sid, ADMIN_ROOM)
+            await self.emit(
+                "login_ack",
+                data={"result": gv.Result.success},
+                namespace="/",
+                room=sid
+            )
+
+    async def on_logout(self, sid, data):
+        self.server.leave_room(sid, ADMIN_ROOM)
+        await self.emit(
+            "logout_ack",
+            data={"result": gv.Result.success},
+            namespace="/",
+            room=sid
+        )
+
     # ---------------------------------------------------------------------------
-    #   Events Clients ->  Web server -> Aggregator
+    #   Events Web clients ->  Web server -> Aggregator
     # ---------------------------------------------------------------------------
     # @permission_required(Permission.OPERATE)
     async def on_turn_light(self, sid, data):
@@ -80,12 +119,12 @@ class ClientEvents(AsyncNamespace):
 
 
 class DispatcherEvents(AsyncEventHandler):
-    def __init__(self, sio_manager: BaseManager):
+    def __init__(self, sio_manager: AsyncManager):
         super().__init__()
         self.sio_manager = sio_manager
 
     # ---------------------------------------------------------------------------
-    #   Events Aggregator -> Web workers -> Clients
+    #   Events Aggregator -> Web workers -> Web clients
     # ---------------------------------------------------------------------------
     async def on_weather_current(self, sid, data):
         logger.debug("Dispatching 'weather_current' to clients")
@@ -166,8 +205,9 @@ class DispatcherEvents(AsyncEventHandler):
         await self.sio_manager.emit("health_data", data=data, namespace="/")
 
     # ---------------------------------------------------------------------------
-    #   Events Root Web server ->  Web workers -> Clients
+    #   Events Base web server ->  Web workers -> Admin web clients
     # ---------------------------------------------------------------------------
     async def on_current_server_data(self, sid, data):
         logger.debug("Dispatching 'current_server_data' to clients")
-        await self.sio_manager.emit("current_server_data", data=data, namespace="/")
+        await self.sio_manager.emit(
+            "current_server_data", data=data, namespace="/", room=ADMIN_ROOM)
