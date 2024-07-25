@@ -7,9 +7,14 @@ import gaia_validators as gv
 from socketio import AsyncNamespace, BaseManager
 
 from ouranos import db
+from ouranos.core.database.models.app import Permission
 from ouranos.core.database.models.gaia import Ecosystem
+from ouranos.core.exceptions import TokenError
+from ouranos.web_server.auth import login_manager, SessionInfo
 from ouranos.web_server.events.decorators import permission_required
 
+
+ADMIN_ROOM = "administrator"
 
 logger: Logger = getLogger(f"aggregator.socketio")
 
@@ -31,6 +36,37 @@ class ClientEvents(AsyncNamespace):
 
     async def on_ping(self, sid):
         await self.emit("pong", namespace="/", room=sid)
+
+    async def on_login(self, sid, data):
+        try:
+            session_info = SessionInfo.from_token(data)
+        except TokenError:
+            await self.emit(
+                "login_ack",
+                data={"result": gv.Result.failure, "reason": "Invalid session token"},
+                namespace="/",
+                room=sid
+            )
+        else:
+            async with db.scoped_session() as session:
+                user = await login_manager.get_user(session, session_info.user_id)
+            if user.can(Permission.ADMIN):
+                self.server.enter_room(sid, ADMIN_ROOM)
+            await self.emit(
+                "login_ack",
+                data={"result": gv.Result.success},
+                namespace="/",
+                room=sid
+            )
+
+    async def on_logout(self, sid, data):
+        self.server.leave_room(sid, ADMIN_ROOM)
+        await self.emit(
+            "logout_ack",
+            data={"result": gv.Result.success},
+            namespace="/",
+            room=sid
+        )
 
     # ---------------------------------------------------------------------------
     #   Events Clients ->  Web server -> Aggregator
