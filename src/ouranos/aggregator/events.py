@@ -733,7 +733,7 @@ class GaiaEvents(BaseEvents):
                     record: gv.ActuatorStateRecord
                     common_data: AwareActuatorStateDict = {
                         "ecosystem_uid": payload["uid"],
-                        "type": record[0],
+                        "type": record[0].name,
                         "active": record[1],
                         "mode": record[2],
                         "status": record[3],
