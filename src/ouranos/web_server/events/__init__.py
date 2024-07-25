@@ -43,7 +43,10 @@ class ClientEvents(AsyncNamespace):
         except TokenError:
             await self.emit(
                 "login_ack",
-                data={"result": gv.Result.failure, "reason": "Invalid session token"},
+                data={
+                    "result": gv.Result.failure,
+                    "reason": "Invalid session token"
+                },
                 namespace="/",
                 room=sid
             )
@@ -202,7 +205,7 @@ class DispatcherEvents(AsyncEventHandler):
         await self.sio_manager.emit("health_data", data=data, namespace="/")
 
     # ---------------------------------------------------------------------------
-    #   Events Base web server ->  Web worker -> Admin web clients
+    #   Events Base web server ->  Web workers -> Admin web clients
     # ---------------------------------------------------------------------------
     async def on_current_server_data(self, sid, data):
         logger.debug("Dispatching 'current_server_data' to clients")
