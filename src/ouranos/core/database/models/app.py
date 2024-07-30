@@ -123,6 +123,7 @@ class Role(Base):
 class UserMixin(ToDictMixin):
     id: int
     username: str | None
+    role: Role | None
     firstname: str | None
     lastname: str | None
     active: bool
@@ -145,8 +146,8 @@ class UserMixin(ToDictMixin):
         except AttributeError:
             raise NotImplementedError("No `id` attribute - override `get_id`")
 
-    def can(self, perm: int) -> bool:
-        raise NotImplementedError
+    def can(self, perm: Permission) -> bool:
+        return self.role is not None and self.role.has_permission(perm)
 
     def check_password(self, password: str) -> bool:
         raise NotImplementedError
@@ -155,6 +156,7 @@ class UserMixin(ToDictMixin):
 class AnonymousUser(UserMixin):
     id: int = -1
     username: str | None = None
+    role: None = None
     firstname: str | None = None
     lastname: str | None = None
     active = False
@@ -173,9 +175,6 @@ class AnonymousUser(UserMixin):
 
     def get_id(self) -> None:
         return
-
-    def can(self, perm) -> bool:
-        return False
 
     def check_password(self, password: str) -> bool:
         return False
@@ -427,9 +426,6 @@ class User(Base, UserMixin):
     def validate_email(self, email_address: str) -> None:
         if re.match(r"^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$", email_address) is not None:
             self.email = email_address
-
-    def can(self, perm: Permission) -> bool:
-        return self.role is not None and self.role.has_permission(perm)
 
     @staticmethod
     async def create_invitation_token(
