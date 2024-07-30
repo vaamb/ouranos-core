@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.declarative import DeclarativeMeta
 
 from ouranos import db, scheduler
-from ouranos.core.database import ArchiveLink
+from ouranos.core.database.utils import ArchiveLink
 from ouranos.core.database.models import gaia, archives
 
 
