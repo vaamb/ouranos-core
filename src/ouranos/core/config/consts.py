@@ -56,6 +56,7 @@ REGISTRATION_TOKEN_VALIDITY = 24 * 60 * 60
 
 class TOKEN_SUBS(Enum):
     REGISTRATION: str = "registration"
+    CONFIRMATION: str = "confirmation"
     CAMERA_UPLOAD: str = "camera_upload"
 
 

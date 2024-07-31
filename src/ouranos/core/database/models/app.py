@@ -228,9 +228,9 @@ class User(Base, UserMixin):
 
     # User account info fields
     active: Mapped[bool] = mapped_column(default=True)
-    confirmed: Mapped[bool] = mapped_column(default=False)
-    registration_datetime: Mapped[datetime] = mapped_column(
+    created_at: Mapped[datetime] = mapped_column(
         UtcDateTime, default=func.current_timestamp())
+    confirmed_at: Mapped[Optional[datetime]] = mapped_column(UtcDateTime)
 
     # User information fields
     firstname: Mapped[Optional[str]] = mapped_column(sa.String(64))
@@ -256,7 +256,7 @@ class User(Base, UserMixin):
 
     @property
     def is_confirmed(self) -> bool:
-        return self.confirmed
+        return self.confirmed_at is not None
 
     @property
     def is_authenticated(self) -> bool:
@@ -305,6 +305,18 @@ class User(Base, UserMixin):
             other_claims=user_info,
         )
         return token
+
+    async def create_confirmation_token(
+            self,
+            expiration_delay: int = REGISTRATION_TOKEN_VALIDITY,
+    ) -> str:
+        if self.confirmed_at is not None:
+            raise RuntimeError("User is already confirmed")
+        return Tokenizer.create_token(
+            subject=TOKEN_SUBS.CONFIRMATION.value,
+            expiration_delay=expiration_delay,
+            other_claims={"user_id": self.id},
+        )
 
     # ---------------------------------------------------------------------------
     #   Methods involved in the data processing of user creation and update
@@ -564,6 +576,26 @@ class User(Base, UserMixin):
                 })
             )
             await session.execute(stmt)
+
+    @classmethod
+    async def confirm(cls, session: AsyncSession, confirmation_token: str) -> None:
+        payload = Tokenizer.loads(confirmation_token)
+        if payload["sub"] != TOKEN_SUBS.CONFIRMATION.value:
+            raise ValueError("Invalid token subject")
+        user = await cls.get(session, payload["user_id"])
+        if user is None:
+            raise ValueError("Invalid token user id")
+        if user.confirmed_at is not None:
+            raise RuntimeError("User is already confirmed")
+        stmt = (
+            update(cls)
+            .where(
+                (cls.id == payload["user_id"])
+                & (cls.active == True)
+            )
+            .values(confirmed_at=func.current_timestamp())
+        )
+        await session.execute(stmt)
 
 
 class ServiceLevel(StrEnum):
