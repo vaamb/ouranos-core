@@ -259,7 +259,7 @@ class GaiaEvents(BaseEvents):
         await self.emit("registration_ack", data=sid, ttl=15, to=sid)
 
     @registration_required
-    async def on_initialized(
+    async def on_initialization_data_sent(
             self,
             sid: UUID,  # noqa
             engine_uid: str,
@@ -269,11 +269,11 @@ class GaiaEvents(BaseEvents):
         if not missing:
             self.logger.info(
                 f"Successfully received initialization data from engine {engine_uid}.")
-            await self.emit("initialized_ack", data=None)
+            await self.emit("initialization_ack", data=None)
         else:
             self.logger.warning(
                 f"Missing initialization data from engine {engine_uid}: {missing}.")
-            await self.emit("initialized_ack", data=[*missing])
+            await self.emit("initialization_ack", data=[*missing])
 
     @registration_required
     async def on_ping(
