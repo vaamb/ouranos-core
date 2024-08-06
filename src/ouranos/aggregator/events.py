@@ -824,8 +824,7 @@ class GaiaEvents(BaseEvents):
             raw_ecosystem = payload["data"]
             ecosystem = gv.HealthRecord(*raw_ecosystem)
             logged.append(
-                await get_ecosystem_name(payload["uid"], session=None)
-            )
+                await get_ecosystem_name(payload["uid"], session=None))
             health_data = {
                 "ecosystem_uid": payload["uid"],
                 "timestamp": ecosystem.timestamp,

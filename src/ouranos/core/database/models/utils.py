@@ -13,7 +13,7 @@ class TIME_LIMITS:
     RECENT: int = 36
     SENSORS: int = 24 * 7
     HEALTH: int = 24 * 31
-    WARNING:int = 24 * 7
+    WARNING: int = 24 * 7
 
 
 def sessionless_hashkey(
