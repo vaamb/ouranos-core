@@ -10,7 +10,7 @@ from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
 from ouranos.core.config import (
     ConfigDict, get_base_dir, get_cache_dir, get_config, get_log_dir)
-from ouranos.core.database.base import CustomMeta
+from ouranos.core.database.base import CustomMeta, custom_metadata
 from ouranos.core.utils import json
 
 
@@ -48,6 +48,7 @@ class _CurrentApp(_DynamicVar):
 current_app = _CurrentApp()
 db: AsyncSQLAlchemyWrapper = AsyncSQLAlchemyWrapper(
     model=CustomMeta,
+    metadata=custom_metadata,
     engine_options={
         "json_serializer": json.dumps,
         "json_deserializer": json.loads,

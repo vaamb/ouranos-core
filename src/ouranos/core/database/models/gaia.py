@@ -151,6 +151,7 @@ class Ecosystem(Base, CRUDMixin, InConfigMixin):
     __tablename__ = "ecosystems"
 
     uid: Mapped[str] = mapped_column(sa.String(length=8), primary_key=True)
+    engine_uid: Mapped[str] = mapped_column(sa.String(length=32), sa.ForeignKey("engines.uid"))
     name: Mapped[str] = mapped_column(sa.String(length=32), default="_registering")
     status: Mapped[bool] = mapped_column(default=False)
     registration_date: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
@@ -158,7 +159,6 @@ class Ecosystem(Base, CRUDMixin, InConfigMixin):
     management: Mapped[int] = mapped_column(default=0)
     day_start: Mapped[time] = mapped_column(default=time(8, 00))
     night_start: Mapped[time] = mapped_column(default=time(20, 00))
-    engine_uid: Mapped[UUID] = mapped_column(sa.ForeignKey("engines.uid"))
 
     # relationships
     engine: Mapped["Engine"] = relationship(back_populates="ecosystems", lazy="selectin")
@@ -539,7 +539,7 @@ class ActuatorState(Base, CRUDMixin):
 class Place(Base, CRUDMixin):
     __tablename__ = "places"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    id: Mapped[int] = mapped_column(primary_key=True)  # Use this as PK as the name might be changed
     engine_uid: Mapped[UUID] = mapped_column(sa.ForeignKey("engines.uid"))
     name: Mapped[str] = mapped_column(sa.String(length=32))
     longitude: Mapped[float] = mapped_column()
@@ -746,9 +746,9 @@ class Lighting(Base, CRUDMixin):
 class EnvironmentParameter(Base, CRUDMixin):
     __tablename__ = "environment_parameters"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    ecosystem_uid: Mapped[str] = mapped_column(sa.String(length=8), sa.ForeignKey("ecosystems.uid"))
-    parameter: Mapped[gv.ClimateParameter] = mapped_column()
+    ecosystem_uid: Mapped[str] = mapped_column(
+        sa.String(length=8), sa.ForeignKey("ecosystems.uid"), primary_key=True)
+    parameter: Mapped[gv.ClimateParameter] = mapped_column(primary_key=True)
     day: Mapped[float] = mapped_column(sa.Float(precision=2))
     night: Mapped[float] = mapped_column(sa.Float(precision=2))
     hysteresis: Mapped[float] = mapped_column(sa.Float(precision=2), default=0.0)
@@ -883,7 +883,7 @@ class Hardware(Base, CRUDMixin, InConfigMixin):
 
     uid: Mapped[str] = mapped_column(sa.String(length=16), primary_key=True)
     ecosystem_uid: Mapped[str] = mapped_column(
-        sa.String(length=8), sa.ForeignKey("ecosystems.uid"), primary_key=True)
+        sa.String(length=8), sa.ForeignKey("ecosystems.uid"))
     name: Mapped[str] = mapped_column(sa.String(length=32))
     level: Mapped[gv.HardwareLevel] = mapped_column()
     address: Mapped[str] = mapped_column(sa.String(length=32))
@@ -1206,7 +1206,7 @@ class Actuator(Hardware):
 class Measure(Base, CRUDMixin):
     __tablename__ = "measures"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    id: Mapped[int] = mapped_column(primary_key=True)  # Use this as PK as the name might be changed
     name: Mapped[str] = mapped_column(sa.String(length=32))
     unit: Mapped[Optional[str]] = mapped_column(sa.String(length=32))
 
@@ -1263,8 +1263,8 @@ class Plant(Base, CRUDMixin, InConfigMixin):
     __tablename__ = "plants"
 
     uid: Mapped[str] = mapped_column(sa.String(length=16), primary_key=True)
-    name: Mapped[str] = mapped_column(sa.String(length=32))
     ecosystem_uid: Mapped[str] = mapped_column(sa.ForeignKey("ecosystems.uid"))
+    name: Mapped[str] = mapped_column(sa.String(length=32))
     species: Mapped[Optional[int]] = mapped_column(sa.String(length=32), index=True)
     sowing_date: Mapped[Optional[datetime]] = mapped_column()
 
