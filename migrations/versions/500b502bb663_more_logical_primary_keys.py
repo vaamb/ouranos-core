@@ -11,9 +11,6 @@ from alembic import op
 import sqlalchemy as sa
 
 
-import ouranos
-from ouranos.core.database.utils import ArchiveLink
-
 # revision identifiers, used by Alembic.
 revision: str = '500b502bb663'
 down_revision: Union[str, None] = 'a721d18f48c6'
