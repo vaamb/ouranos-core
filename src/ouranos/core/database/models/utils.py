@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any, Type
 
-from cachetools.keys import hashkey
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.selectable import Select
 
@@ -16,24 +15,40 @@ class TIME_LIMITS:
     WARNING: int = 24 * 7
 
 
+def create_hashable_key(**kwargs: dict[str: Any]) -> tuple:
+    to_freeze = []
+    def append_if_hashable(key: str, value: Any) -> None:
+        nonlocal to_freeze
+        try:
+            hash(value)
+        except TypeError:
+            raise TypeError(f"Cannot hash {key}'s value {value}")
+        else:
+            to_freeze.append((key, value))
+
+    for key, value in sorted(kwargs.items()):
+        if isinstance(value, list):
+            frozen_value = tuple(value)
+            append_if_hashable(key, frozen_value)
+        #elif isinstance(value, dict):
+        #    to_freeze.append((key, create_hashable_key(**value)))
+        else:
+            append_if_hashable(key, value)
+    return tuple(to_freeze)
+
+
 def sessionless_hashkey(
-        cls_or_self: Type | Base,
+        cls_or_self: Type[Base] | Base,
         session: AsyncSession,
         /,
         **kwargs
 ) -> tuple:
-    inst_ids = []
     if isinstance(cls_or_self, Base):
-        for id_ in ("uid", "id"):
-            if hasattr(cls_or_self, id_):
-                inst_ids.append(getattr(cls_or_self, id_))
-    unlisted_kwargs: list[Any] = []
-    for key in sorted(kwargs.keys()):
-        if isinstance(kwargs[key], list):
-            unlisted_kwargs.append(tuple(kwargs[key]))
-        else:
-            unlisted_kwargs.append(kwargs[key])
-    return hashkey(*inst_ids, *unlisted_kwargs)
+        if hasattr(cls_or_self, "id"):
+            kwargs["id"] = cls_or_self.id
+        if hasattr(cls_or_self, "uid"):
+            kwargs["uid"] = cls_or_self.uid
+    return create_hashable_key(**kwargs)
 
 
 def paginate(
