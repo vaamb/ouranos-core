@@ -13,8 +13,8 @@ from sqlalchemy.sql.functions import func, max as sa_max
 
 from ouranos.core.database.models.abc import (
     Base, CacheMixin, CRUDMixin, RecordMixin)
+from ouranos.core.database.models.caching import sessionless_hashkey
 from ouranos.core.database.models.types import UtcDateTime
-from ouranos.core.database.models.utils import sessionless_hashkey
 from ouranos.core.utils import timeWindow
 
 
