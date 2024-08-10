@@ -87,11 +87,12 @@ class SystemMonitor:
             mem = psutil.virtual_memory()
             disk = psutil.disk_usage("/")
             data = {
+                "hostname": current_app.config.get("HOSTNAME", "_default"),
                 "start_time": START_TIME,
                 "RAM_total": round(mem[0]/(1024*1024*1024), 2),
                 "DISK_total": round(disk[0]/(1024*1024*1024), 2),
             }
-            await System.update_or_create(session, uid="base_server", values=data)
+            await System.update_or_create(session, values=data, uid="base_server")
 
         update_period = current_app.config.get("SYSTEM_UPDATE_PERIOD")
         if update_period is not None:
