@@ -4,7 +4,8 @@ from abc import abstractmethod
 from datetime import datetime, timedelta, timezone
 from typing import NamedTuple, Self, Sequence
 
-from sqlalchemy import delete, insert, update
+from sqlalchemy import and_, delete, insert, inspect, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos import db
@@ -27,32 +28,88 @@ class Base(db.Model, ToDictMixin):
 
 
 class CRUDMixin:
-    uid: str | int
+    __primary_keys: list[str] | None = None
+
+    @classmethod
+    def _get_primary_keys(cls) -> list[str]:
+        if cls.__primary_keys is None:
+            cls.__primary_keys = [column.name for column in inspect(cls).primary_key]
+        return cls.__primary_keys
 
     @classmethod
     async def create(
             cls,
             session: AsyncSession,
+            /,
             values: dict | list[dict],
     ) -> None:
         stmt = insert(cls).values(values)
         await session.execute(stmt)
 
     @classmethod
+    async def get(
+            cls,
+            session: AsyncSession,
+            /,
+            **primary_keys: str,
+    ) -> Self | None:
+        stmt = (
+            select(cls)
+            .where(
+                and_(
+                    cls.__table__.c[key] == value
+                    for key, value in primary_keys.items()
+                )
+            )
+        )
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    @classmethod
+    async def get_multiple(
+            cls,
+            session: AsyncSession,
+            /,
+            **primary_keys: list[str] | str,
+    ) -> Sequence[Self]:
+        for key in [*primary_keys.keys()]:
+            if isinstance(primary_keys[key], str):
+                primary_keys[key] = [primary_keys[key]]
+        stmt = (
+            select(cls)
+            .where(
+                and_(
+                    cls.__table__.c[key].in_(value)
+                    for key, value in primary_keys.items()
+                )
+            )
+        )
+        result = await session.execute(stmt)
+        return result.scalars().all()
+
+    @classmethod
     async def update(
             cls,
             session: AsyncSession,
+            /,
             values: dict,
-            uid: str | None = None,
+            **primary_keys: str,
     ) -> None:
-        uid = uid or values.pop("uid", None)
-        if not uid:
-            raise ValueError(
-                "Provide uid either as a parameter or as a key in the updated info"
-            )
+        for key in cls._get_primary_keys():
+            value = primary_keys.get(key) or values.pop(key, None)
+            if value is None:
+                raise ValueError(
+                    f"Provide '{key}' either as a parameter or as a key in the "
+                    f"updated info")
+            primary_keys[key] = value
         stmt = (
             update(cls)
-            .where(cls.uid == uid)
+            .where(
+                and_(
+                    cls.__table__.c[key] == value
+                    for key, value in primary_keys.items()
+                )
+            )
             .values(**values)
         )
         await session.execute(stmt)
@@ -61,50 +118,42 @@ class CRUDMixin:
     async def delete(
             cls,
             session: AsyncSession,
-            uid: str,
+            /,
+            **primary_keys: str,
     ) -> None:
-        stmt = delete(cls).where(cls.uid == uid)
+        stmt = (
+            delete(cls)
+            .where(
+                and_(
+                    cls.__table__.c[key] == value
+                    for key, value in primary_keys.items()
+                )
+            )
+        )
         await session.execute(stmt)
 
     @classmethod
     async def update_or_create(
             cls,
             session: AsyncSession,
+            /,
             values: dict,
-            uid: str | None = None,
+            **primary_keys: str,
     ) -> None:
-        uid = uid or values.pop("uid", None)
-        if not uid:
-            raise ValueError(
-                "Provide uid either as an argument or as a key in the values"
-            )
-        obj = await cls.get(session, uid)
-        if not obj:
-            values["uid"] = uid
-            await cls.create(session, values)
-        elif values:
-            await cls.update(session, values, uid)
-        else:
-            raise ValueError
-
-    @classmethod
-    @abstractmethod
-    async def get(
-            cls,
-            session: AsyncSession,
-            uid: str,
-    ) -> Self | None:
-        raise NotImplementedError
-
-    @classmethod
-    @abstractmethod
-    async def get_multiple(
-            cls,
-            session: AsyncSession,
-            uid: str | list | None = None,
-    ) -> Sequence[Self]:
-        raise NotImplementedError
-
+        # Create a copy of
+        creation_values = {**values}
+        for key in cls._get_primary_keys():
+            value = primary_keys.get(key) or values.pop(key, None)
+            if value is None:
+                raise ValueError(
+                    f"Provide '{key}' either as a parameter or as a key in the "
+                    f"updated info")
+            creation_values[key] = value
+        values.update(primary_keys)
+        try:
+            await cls.create(session, values=creation_values)
+        except IntegrityError:
+            await cls.update(session, values=values, **primary_keys)
 
 class RecordMixin:
     @classmethod
