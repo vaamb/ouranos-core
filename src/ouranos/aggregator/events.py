@@ -500,28 +500,40 @@ class GaiaEvents(BaseEvents):
             session["init_data"].discard("management")
         data: list[gv.ManagementConfigPayloadDict] = self.validate_payload(
             data, gv.ManagementConfigPayload, list)
+
+        class EcosystemUpdateData(TypedDict):
+            uid: str
+            management: str
+
+        ecosystems_to_update: dict[str, EcosystemUpdateData] = {}
         ecosystems_to_log: list[str] = []
-        async with db.scoped_session() as session:
-            for payload in data:
-                ecosystem = payload["data"]
-                uid: str = payload["uid"]
-                ecosystems_to_log.append(
-                    await get_ecosystem_name(uid, session=session))
-                ecosystem_obj = await Ecosystem.get(session, uid=uid)
-                ecosystem_obj.reset_managements()
-                for management in gv.ManagementFlags:
-                    try:
-                        if ecosystem[management.name]:
-                            ecosystem_obj.add_management(management)
-                    except KeyError:
-                        # Not implemented in gaia yet
-                        pass
-                session.add(ecosystem_obj)
-                await sleep(0)
-        self.logger.debug(
-            f"Logged management info from ecosystem(s): "
-            f"{humanize_list(ecosystems_to_log)}"
-        )
+
+        for payload in data:
+            uid: str = payload["uid"]
+            ecosystem_management = payload["data"]
+            management_value: int = 0
+            for management in gv.ManagementFlags:
+                try:
+                    if ecosystem_management[management.name]:
+                        management_value |= management.value
+                except KeyError:
+                    # Not implemented in gaia yet
+                    pass
+
+            ecosystems_to_update[uid] = {
+                "uid": uid,
+                "management": management_value
+            }
+            ecosystems_to_log.append(
+                await get_ecosystem_name(uid, session=None))
+
+        if ecosystems_to_update:
+            async with db.scoped_session() as session:
+                await Ecosystem.update_multiple(
+                    session, values=[*ecosystems_to_update.values()])
+            self.logger.debug(
+                f"Logged management info from ecosystem(s): "
+                f"{humanize_list(ecosystems_to_log)}")
 
     @registration_required
     async def on_sensors_data(
