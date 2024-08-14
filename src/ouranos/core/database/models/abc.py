@@ -53,6 +53,10 @@ class CRUDMixin:
             /,
             **primary_keys: str,
     ) -> Self | None:
+        for key in cls._get_primary_keys():
+            value = primary_keys.get(key)
+            if value is None:
+                raise ValueError(f"You need to provide '{key}'")
         stmt = (
             select(cls)
             .where(
@@ -72,9 +76,17 @@ class CRUDMixin:
             /,
             **primary_keys: list[str] | str,
     ) -> Sequence[Self]:
-        for key in [*primary_keys.keys()]:
-            if isinstance(primary_keys[key], str):
-                primary_keys[key] = [primary_keys[key]]
+        if not primary_keys:
+            stmt = select(cls)
+            result = await session.execute(stmt)
+            return result.scalars().all()
+
+        for key in cls._get_primary_keys():
+            value = primary_keys.get(key)
+            if value is None:
+                raise ValueError(f"You need to provide '{key}'")
+            if isinstance(value, str):
+                primary_keys[key] = [value]
         stmt = (
             select(cls)
             .where(
