@@ -54,7 +54,8 @@ async def get_current_system_data(
 ):
     system = await system_or_abort(session, uid=system_uid)
     response = {
-        "system_uid": system.uid,
+        "uid": system.uid,
+        "hostname": system.hostname,
         "values": await system.get_recent_timed_values(session),
         # order is added by the serializer
         "totals": {
@@ -73,7 +74,8 @@ async def get_historic_system_data(
 ):
     system = await system_or_abort(session, uid=system_uid)
     response = {
-        "system_uid": system.uid,
+        "uid": system.uid,
+        "hostname": system.hostname,
         "span": (time_window.start, time_window.end),
         "values": await system.get_timed_values(session, time_window),
         # order is added by the serializer
