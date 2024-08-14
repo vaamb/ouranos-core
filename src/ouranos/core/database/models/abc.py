@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from datetime import datetime, timedelta, timezone
+from enum import Enum
 from typing import NamedTuple, Self, Sequence
 
 from sqlalchemy import and_, delete, insert, inspect, select, update
@@ -51,7 +52,7 @@ class CRUDMixin:
             cls,
             session: AsyncSession,
             /,
-            **primary_keys: str,
+            **primary_keys: str | Enum,
     ) -> Self | None:
         for key in cls._get_primary_keys():
             value = primary_keys.get(key)
@@ -74,7 +75,7 @@ class CRUDMixin:
             cls,
             session: AsyncSession,
             /,
-            **primary_keys: list[str] | str,
+            **primary_keys: list[str | Enum] | str,
     ) -> Sequence[Self]:
         if not primary_keys:
             stmt = select(cls)
@@ -105,7 +106,7 @@ class CRUDMixin:
             session: AsyncSession,
             /,
             values: dict,
-            **primary_keys: str,
+            **primary_keys: str | Enum,
     ) -> None:
         for key in cls._get_primary_keys():
             value = primary_keys.get(key) or values.pop(key, None)
@@ -131,7 +132,7 @@ class CRUDMixin:
             cls,
             session: AsyncSession,
             /,
-            **primary_keys: str,
+            **primary_keys: str | Enum,
     ) -> None:
         stmt = (
             delete(cls)
@@ -150,7 +151,7 @@ class CRUDMixin:
             session: AsyncSession,
             /,
             values: dict,
-            **primary_keys: str,
+            **primary_keys: str | Enum,
     ) -> None:
         # Create a copy of
         creation_values = {**values}
