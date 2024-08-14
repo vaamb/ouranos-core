@@ -8,7 +8,8 @@ from ouranos.core.validate.base import BaseModel
 
 
 class SystemInfo(BaseModel):
-    system_uid: str = Field(validation_alias="uid")
+    uid: str
+    hostname: str
     start_time: datetime
     RAM_total: float
     DISK_total: float
@@ -20,7 +21,8 @@ class SystemTotals(TypedDict):
 
 
 class CurrentSystemData(BaseModel):
-    system_uid: str = Field(validation_alias="uid")
+    uid: str
+    hostname: str
     values: list[
         tuple[datetime, float, Optional[float], float, float, float]
     ]

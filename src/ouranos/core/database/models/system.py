@@ -32,8 +32,8 @@ class System(Base, CRUDMixin):
     __tablename__ = "systems"
     __bind_key__ = "system"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    uid: Mapped[str] = mapped_column(sa.String(32))
+    uid: Mapped[str] = mapped_column(sa.String(32), primary_key=True)
+    hostname: Mapped[str] = mapped_column(sa.String(32), default="_default")
     start_time: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
     RAM_total: Mapped[float] = mapped_column(sa.Float(precision=2))
     DISK_total: Mapped[float] = mapped_column(sa.Float(precision=2))
