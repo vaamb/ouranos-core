@@ -214,58 +214,74 @@ class Ecosystem(Base, CRUDMixin, InConfigMixin):
             return None
 
     @classmethod
-    async def get(
+    async def get_by_id(
             cls,
             session: AsyncSession,
+            /,
             ecosystem_id: str,
     ) -> Self | None:
         stmt = (
             select(cls)
-            .where((cls.uid == ecosystem_id) | (cls.name == ecosystem_id))
+            .where(
+                (cls.uid == ecosystem_id)
+                | (cls.name == ecosystem_id)
+            )
         )
         result = await session.execute(stmt)
         return result.unique().scalar_one_or_none()
 
     @classmethod
-    async def get_multiple(
+    async def get_multiple_by_id(
             cls,
             session: AsyncSession,
-            ecosystems: str | list[str] | None = None,
+            /,
+            ecosystems_id: RecentOrConnected | list[str] | None = None,
             in_config: bool | None = None,
     ) -> Sequence[Self]:
-        if ecosystems is None:
+        if ecosystems_id is None or ecosystems_id == "all":
             stmt = (
                 select(cls)
-                .order_by(cls.name.asc(),
-                          cls.last_seen.desc())
+                .order_by(
+                    cls.name.asc(),
+                    cls.last_seen.desc()
+                )
             )
             if in_config is not None:
                 stmt = stmt.where(cls.in_config == in_config)
             result = await session.execute(stmt)
             return result.scalars().all()
-
-        if isinstance(ecosystems, str):
-            ecosystems = ecosystems.split(",")
-        if "recent" in ecosystems:
+        if ecosystems_id == "recent":
             time_limit = datetime.now(timezone.utc) - timedelta(hours=TIME_LIMITS.RECENT)
             stmt = (
                 select(cls)
                 .where(cls.last_seen >= time_limit)
                 .order_by(cls.status.desc(), cls.name.asc())
             )
-        elif "connected" in ecosystems:
+            if in_config is not None:
+                stmt = stmt.where(cls.in_config == in_config)
+            result = await session.execute(stmt)
+            return result.scalars().all()
+        elif ecosystems_id == "connected":
             stmt = (
                 select(cls).join(Engine.ecosystems)
                 .where(Engine.connected == True)  # noqa
                 .order_by(cls.name.asc())
             )
-        else:
-            stmt = (
-                select(cls)
-                .where(cls.uid.in_(ecosystems) |
-                       cls.name.in_(ecosystems))
-                .order_by(cls.last_seen.desc(), cls.name.asc())
+            if in_config is not None:
+                stmt = stmt.where(cls.in_config == in_config)
+            result = await session.execute(stmt)
+            return result.scalars().all()
+        if isinstance(ecosystems_id, str):
+            # Should not happen
+            ecosystems_id = ecosystems_id.split(",")
+        stmt = (
+            select(cls)
+            .where(
+                (cls.uid.in_(ecosystems_id))
+                | (cls.name.in_(ecosystems_id))
             )
+            .order_by(cls.last_seen.desc(), cls.name.asc())
+        )
         if in_config is not None:
             stmt = stmt.where(cls.in_config == in_config)
         result = await session.execute(stmt)

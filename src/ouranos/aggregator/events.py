@@ -78,10 +78,10 @@ async def get_ecosystem_name(
         return _ecosystem_name_cache[ecosystem_uid]
     except KeyError:
         async def inner_func(session: AsyncSession, ecosystem_uid: str) -> str:
-            ecosystem_obj = await Ecosystem.get(session, ecosystem_uid)
-            if ecosystem_obj is not None:
-                _ecosystem_name_cache[ecosystem_uid] = ecosystem_obj.name
-                return ecosystem_obj.name
+            ecosystem = await Ecosystem.get(session, uid=ecosystem_uid)
+            if ecosystem is not None:
+                _ecosystem_name_cache[ecosystem_uid] = ecosystem.name
+                return ecosystem.name
 
         if session is not None:
             return await inner_func(session, ecosystem_uid)
@@ -299,7 +299,7 @@ class GaiaEvents(BaseEvents):
             if engine:
                 engine.last_seen = now
             ecosystems = await Ecosystem.get_multiple(
-                session, [ecosystem["uid"] for ecosystem in data])
+                session, uid=[ecosystem["uid"] for ecosystem in data])
             for ecosystem in ecosystems:
                 ecosystems_seen.append(ecosystem.name)
                 ecosystem.last_seen = now
@@ -421,7 +421,7 @@ class GaiaEvents(BaseEvents):
                     "day_start": nycthemeral_cycle["day"],
                     "night_start": nycthemeral_cycle["night"],
                 }
-                await Ecosystem.update_or_create(session, ecosystem_info)
+                await Ecosystem.update_or_create(session, values=ecosystem_info)
                 await Lighting.update_or_create(
                     session, {"method": nycthemeral_cycle["lighting"]}, uid)
                 environment_parameters_in_config: list[str] = []
@@ -513,7 +513,7 @@ class GaiaEvents(BaseEvents):
                 ecosystems_to_log.append(
                     await get_ecosystem_name(uid, session=session)
                 )
-                ecosystem_obj = await Ecosystem.get(session, uid)
+                ecosystem_obj = await Ecosystem.get(session, uid=uid)
                 ecosystem_obj.reset_managements()
                 for management in gv.ManagementFlags:
                     try:
@@ -642,7 +642,7 @@ class GaiaEvents(BaseEvents):
             await session.commit()
             # Get ecosystem IDs
             ecosystems = await Ecosystem.get_multiple(
-                session, ecosystems=[*ecosystem_uids])
+                session, uid=[*ecosystem_uids])
             self.logger.info(
                 f"Logged sensors data from ecosystem(s) "
                 f"{humanize_list([e.name for e in ecosystems])}")
@@ -875,7 +875,7 @@ class GaiaEvents(BaseEvents):
             data, gv.TurnActuatorPayload, dict)
         async with db.scoped_session() as session:
             ecosystem_uid = data["ecosystem_uid"]
-            ecosystem = await Ecosystem.get(session, ecosystem_uid)
+            ecosystem = await Ecosystem.get(session, uid=ecosystem_uid)
             try:
                 engine_sid = ecosystem.engine.sid
             except (AttributeError, Exception):

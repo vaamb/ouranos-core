@@ -175,7 +175,7 @@ async def test_ecosystems_sensors_skeleton(
     data = json.loads(response.text)[0]
     async with db.scoped_session() as session:
         time_window = create_time_window()
-        ecosystem = await Ecosystem.get(session, g_data.ecosystem_uid)
+        ecosystem = await Ecosystem.get(session, uid=g_data.ecosystem_uid)
         skeleton = await ecosystem.get_sensors_data_skeleton(
             session, time_window=time_window)
     assert data["uid"] == skeleton["uid"] == g_data.ecosystem_uid
@@ -196,7 +196,7 @@ async def test_ecosystem_sensors_skeleton_unique(
     data = json.loads(response.text)
     async with db.scoped_session() as session:
         time_window = create_time_window()
-        ecosystem = await Ecosystem.get(session, g_data.ecosystem_uid)
+        ecosystem = await Ecosystem.get(session, uid=g_data.ecosystem_uid)
         skeleton = await ecosystem.get_sensors_data_skeleton(
             session, time_window=time_window)
     assert data["uid"] == skeleton["uid"] == g_data.ecosystem_uid

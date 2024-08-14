@@ -137,7 +137,7 @@ async def test_on_base_info(
     assert emitted["namespace"] == "application-internal"
 
     async with naive_db.scoped_session() as session:
-        ecosystem = await Ecosystem.get(session, ecosystem_id=g_data.ecosystem_uid)
+        ecosystem = await Ecosystem.get(session, uid=g_data.ecosystem_uid)
         assert ecosystem.engine_uid == g_data.base_info["engine_uid"]
         assert ecosystem.name == g_data.base_info["name"]
         assert ecosystem.status == g_data.base_info["status"]
@@ -164,7 +164,7 @@ async def test_on_management(
             pass
 
     async with ecosystem_aware_db.scoped_session() as session:
-        ecosystem = await Ecosystem.get(session, ecosystem_id=g_data.ecosystem_uid)
+        ecosystem = await Ecosystem.get(session, uid=g_data.ecosystem_uid)
         assert ecosystem.management == management_value
 
     wrong_payload = {}
@@ -182,7 +182,7 @@ async def test_on_environmental_parameters(
         g_data.engine_sid, [g_data.environmental_payload])
 
     async with ecosystem_aware_db.scoped_session() as session:
-        ecosystem = await Ecosystem.get(session, ecosystem_id=g_data.ecosystem_uid)
+        ecosystem = await Ecosystem.get(session, uid=g_data.ecosystem_uid)
         assert ecosystem.day_start == g_data.sky["day"]
         assert ecosystem.night_start == g_data.sky["night"]
 

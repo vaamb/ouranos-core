@@ -158,7 +158,7 @@ async def update_hardware(
     hardware_dict = payload.model_dump()
     try:
         hardware = await hardware_or_abort(session, uid)
-        ecosystem = await Ecosystem.get(session, hardware.ecosystem_uid)
+        ecosystem = await Ecosystem.get(session, uid=hardware.ecosystem_uid)
         await dispatcher.emit(
             event="crud",
             data=gv.CrudPayload(
@@ -198,7 +198,7 @@ async def delete_hardware(
 ):
     try:
         hardware = await hardware_or_abort(session, uid)
-        ecosystem = await Ecosystem.get(session, hardware.ecosystem_uid)
+        ecosystem = await Ecosystem.get(session, uid=hardware.ecosystem_uid)
         await dispatcher.emit(
             event="crud",
             data=gv.CrudPayload(
