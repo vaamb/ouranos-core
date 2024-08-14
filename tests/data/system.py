@@ -5,6 +5,7 @@ from ouranos.core.config.consts import START_TIME
 
 system_dict = {
     "uid": "system_uid",
+    "hostname": "hostname",
     "start_time": START_TIME,
     "RAM_total": 1.00,
     "DISK_total": 16.00,

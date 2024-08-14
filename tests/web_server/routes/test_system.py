@@ -14,13 +14,15 @@ def test_route_anonymous(client: TestClient):
     assert response.status_code == 403
 
 
-def test_start_time(client_admin: TestClient):
+def test_unique_system(client_admin: TestClient):
     server_uid = "system_uid"
     response = client_admin.get(f"/api/system/{server_uid}")
     assert response.status_code == 200
 
     data = json.loads(response.text)
     assert datetime.fromisoformat(data["start_time"]) == START_TIME
+    assert data["uid"] == g_data.system_dict["uid"]
+    assert data["hostname"] == g_data.system_dict["hostname"]
     assert data["RAM_total"] == g_data.system_dict["RAM_total"]
     assert data["DISK_total"] == g_data.system_dict["DISK_total"]
 
