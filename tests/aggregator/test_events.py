@@ -93,7 +93,7 @@ async def test_on_register_engine(
     assert mock_dispatcher._sessions[g_data.engine_sid]["engine_uid"] == g_data.engine_uid
 
     async with naive_db.scoped_session() as session:
-        engine = await Engine.get(session, engine_id=g_data.engine_uid)
+        engine = await Engine.get(session, uid=g_data.engine_uid)
         assert engine.uid == g_data.engine_uid
         assert engine.address == g_data.ip_address
 
@@ -109,7 +109,7 @@ async def test_on_ping(
         engine_aware_db: AsyncSQLAlchemyWrapper,
 ):
     async with engine_aware_db.scoped_session() as session:
-        engine = await Engine.get(session, engine_id=g_data.engine_uid)
+        engine = await Engine.get(session, uid=g_data.engine_uid)
         start = copy(engine.last_seen)
     await sleep(0.1)
 
@@ -118,7 +118,7 @@ async def test_on_ping(
     ])
 
     async with engine_aware_db.scoped_session() as session:
-        engine = await Engine.get(session, engine_id=g_data.engine_uid)
+        engine = await Engine.get_by_id(session, engine_id=g_data.engine_uid)
         assert engine.last_seen > start
 
 

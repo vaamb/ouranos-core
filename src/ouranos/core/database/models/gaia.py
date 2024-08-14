@@ -28,6 +28,8 @@ from ouranos.core.database.utils import ArchiveLink
 from ouranos.core.utils import create_time_window, timeWindow
 
 
+RecentOrConnected = Literal["recent", "connected", "all"]
+
 measure_order = (
     "temperature", "humidity", "lux", "dew_point", "absolute_moisture",
     "moisture"
@@ -88,9 +90,10 @@ class Engine(Base, CRUDMixin):
         return datetime.now(timezone.utc) - self.last_seen <= timedelta(seconds=30.0)
 
     @classmethod
-    async def get(
+    async def get_by_id(
             cls,
             session: AsyncSession,
+            /,
             engine_id: str | UUID,
     ) -> Self | None:
         if isinstance(engine_id, UUID):
@@ -103,42 +106,55 @@ class Engine(Base, CRUDMixin):
         return result.scalar_one_or_none()
 
     @classmethod
-    async def get_multiple(
+    async def get_multiple_by_id(
             cls,
             session: AsyncSession,
-            engines: str | list | None = None,
+            /,
+            engines_id: RecentOrConnected | list[str] | list[UUID] | None = None,
     ) -> Sequence[Self]:
-        if engines is None:
+        if engines_id is None or engines_id == "all":
             stmt = (
                 select(cls)
                 .order_by(cls.last_seen.desc())
             )
             result = await session.execute(stmt)
             return result.scalars().all()
-        if isinstance(engines, str):
-            engines = engines.split(",")
-        if "recent" in engines:
+        elif engines_id == "recent":
             time_limit = datetime.now(timezone.utc) - timedelta(hours=TIME_LIMITS.RECENT)
             stmt = (
                 select(cls)
                 .where(cls.last_seen >= time_limit)
                 .order_by(cls.last_seen.desc())
             )
-        elif "connected" in engines:
+            result = await session.execute(stmt)
+            return result.scalars().all()
+        elif engines_id == "connected":
             stmt = (
                 select(cls)
                 .where(cls.connected == True)  # noqa
                 .order_by(cls.uid.asc())
             )
-        else:
-            stmt = (
-                select(cls)
-                .where(
-                    (cls.uid.in_(engines))
-                    | (cls.sid.in_(engines))
+            result = await session.execute(stmt)
+            return result.scalars().all()
+        if isinstance(engines_id, str):
+            # Should not happen
+            engines_id = engines_id.split(",")
+        # Check that all the list elements are of the same types as it can lead
+        #  to issues on some backend
+        lst_type = type(engines_id[0])
+        if len(engines_id) > 0:
+            if not all(isinstance(id_, lst_type) for id_ in engines_id[1:]):
+                raise ValueError(
+                    "All the elements should either be engines 'uid' or 'name'"
                 )
-                .order_by(cls.uid.asc())
-            )
+        if lst_type == str:
+            # Received an engine uid
+            stmt = select(cls).where(cls.uid.in_(engines_id))
+        else:
+            # Received an engine sid
+            # Received an engine sid
+            stmt = select(cls).where(cls.sid.in_(engines_id))
+        stmt = stmt.order_by(cls.uid.asc())
         result = await session.execute(stmt)
         return result.scalars().all()
 

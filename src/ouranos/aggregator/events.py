@@ -98,9 +98,9 @@ async def get_engine_sid(
         return _ecosystem_sid_cache[engine_uid]
     except KeyError:
         async def inner_func(session: AsyncSession, engine_uid: str) -> str:
-            engine_obj = await Engine.get(session, engine_uid)
-            if engine_obj is not None:
-                sid = engine_obj.sid
+            engine = await Engine.get(session, uid=engine_uid)
+            if engine is not None:
+                sid = engine.sid
                 _ecosystem_sid_cache[engine_uid] = sid
                 return sid
 
@@ -215,7 +215,7 @@ class GaiaEvents(BaseEvents):
         async with self.session(sid) as session:
             session.clear()
         async with db.scoped_session() as session:
-            engine = await Engine.get(session, engine_id=sid)
+            engine = await Engine.get_by_id(session, engine_id=sid)
             if engine is None:
                 return
             await self.ouranos_dispatcher.emit(
@@ -295,7 +295,7 @@ class GaiaEvents(BaseEvents):
             namespace="application-internal"
         )
         async with db.scoped_session() as session:
-            engine = await Engine.get(session, sid)
+            engine = await Engine.get(session, uid=engine_uid)
             if engine:
                 engine.last_seen = now
             ecosystems = await Ecosystem.get_multiple(

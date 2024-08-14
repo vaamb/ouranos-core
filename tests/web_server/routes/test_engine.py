@@ -19,7 +19,7 @@ async def test_engines(
     data = json.loads(response.text)
 
     async with db.scoped_session() as session:
-        engines = await Engine.get_multiple(session)
+        engines = await Engine.get_multiple_by_id(session, engines_id=None)
         assert data[0]["uid"] == engines[0].uid
         assert data[0]["address"] == engines[0].address
         assert data[0]["ecosystems"][0]["uid"] == engines[0].ecosystems[0].uid
@@ -35,7 +35,7 @@ async def test_engine_unique(
     data = json.loads(response.text)
 
     async with db.scoped_session() as session:
-        engine = await Engine.get(session, g_data.engine_uid)
+        engine = await Engine.get(session, uid=g_data.engine_uid)
         assert data["uid"] == engine.uid
         assert data["address"] == engine.address
         assert data["ecosystems"][0]["uid"] == engine.ecosystems[0].uid

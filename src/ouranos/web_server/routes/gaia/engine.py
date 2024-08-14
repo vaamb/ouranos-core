@@ -19,8 +19,7 @@ router = APIRouter(
 
 
 async def engine_or_abort(session: AsyncSession, engine_id: str) -> "Engine":
-    engine = await Engine.get(
-        session=session, engine_id=engine_id)
+    engine = await Engine.get_by_id(session, engine_id=engine_id)
     if engine:
         return engine
     raise HTTPException(
@@ -36,7 +35,7 @@ async def get_engines(
                                       "'recent' or 'connected'"),
         session: AsyncSession = Depends(get_session)
 ):
-    engines = await Engine.get_multiple(session, engines_id)
+    engines = await Engine.get_multiple_by_id(session, engines_id=engines_id)
     return engines
 
 
