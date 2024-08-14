@@ -1,4 +1,4 @@
-"""Improve CRUD
+"""Use system UID as primary key
 
 Revision ID: e932af6045f2
 Revises: 500b502bb663
