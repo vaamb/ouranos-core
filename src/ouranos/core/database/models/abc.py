@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import NamedTuple, Self, Sequence
 
-from sqlalchemy import and_, delete, insert, inspect, select, update
+from sqlalchemy import and_, delete, insert, inspect, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -91,7 +91,7 @@ class CRUDMixin:
         stmt = (
             select(cls)
             .where(
-                and_(
+                or_(
                     cls.__table__.c[key].in_(value)
                     for key, value in primary_keys.items()
                 )
