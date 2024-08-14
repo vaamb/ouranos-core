@@ -361,20 +361,20 @@ class GaiaEvents(BaseEvents):
                 # Add the possible actuator types if missing
                 actuator_types = {i for i in gv.HardwareType.actuator}
                 actuator_states = await ActuatorState.get_multiple(
-                    session, ecosystem_uids=[ecosystem["uid"]],
-                    actuator_types=[*actuator_types])
+                    session, ecosystem_uid=[ecosystem["uid"]], type=[*actuator_types])
                 present = {actuator_state.type for actuator_state in actuator_states}
                 missing = actuator_types - present
                 for actuator_state in actuator_states:
                     actuator_types.discard(actuator_state.type)
-                for actuator_type in missing:
-                    await ActuatorState.create(
-                        session,
+                await ActuatorState.create(
+                    session,
+                    values=[
                         {
                             "ecosystem_uid": ecosystem["uid"],
                             "type": actuator_type,
-                        },
-                    )
+                        } for actuator_type in actuator_types
+                    ],
+                )
 
             # Remove ecosystems not in `ecosystems.cfg` anymore
             stmt = (
@@ -739,7 +739,7 @@ class GaiaEvents(BaseEvents):
                         "status": record[3],
                         "level": record[4],
                     }
-                    await ActuatorState.update_or_create(session, {**common_data})
+                    await ActuatorState.update_or_create(session, values={**common_data})
                     data_to_dispatch.append(common_data)
                     timestamp = record[5]
                     if timestamp is not None:

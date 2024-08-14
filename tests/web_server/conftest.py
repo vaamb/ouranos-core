@@ -75,7 +75,7 @@ async def add_ecosystems(db: AsyncSQLAlchemyWrapper):
             "status": g_data.actuator_record.status,
             "level": g_data.actuator_record.level,
         }
-        await ActuatorState.create(session, adapted_actuator_state)
+        await ActuatorState.create(session, values=adapted_actuator_state)
 
         adapted_actuator_state["timestamp"] = g_data.actuator_record.timestamp
         await ActuatorRecord.create_records(session, adapted_actuator_state)
