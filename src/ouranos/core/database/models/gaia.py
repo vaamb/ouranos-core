@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from datetime import datetime, time, timedelta, timezone
-from typing import Optional, Sequence, Self, TypedDict
+from typing import Literal, Optional, Sequence, Self, TypedDict
 from uuid import UUID
 
 from asyncache import cached
