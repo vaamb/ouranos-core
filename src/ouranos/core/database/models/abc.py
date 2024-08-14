@@ -155,7 +155,7 @@ class CRUDMixin:
         # Create a copy of
         creation_values = {**values}
         for key in cls._get_primary_keys():
-            value = primary_keys.get(key) or values.pop(key, None)
+            value = primary_keys.get(key) or values.get(key)
             if value is None:
                 raise ValueError(
                     f"Provide '{key}' either as a parameter or as a key in the "
