@@ -539,9 +539,9 @@ class ActuatorState(Base, CRUDMixin):
 class Place(Base, CRUDMixin):
     __tablename__ = "places"
 
-    id: Mapped[int] = mapped_column(primary_key=True)  # Use this as PK as the name might be changed
-    engine_uid: Mapped[UUID] = mapped_column(sa.ForeignKey("engines.uid"))
-    name: Mapped[str] = mapped_column(sa.String(length=32))
+    id: Mapped[int] = mapped_column(autoincrement=True)
+    engine_uid: Mapped[UUID] = mapped_column(sa.ForeignKey("engines.uid"), primary_key=True)
+    name: Mapped[str] = mapped_column(sa.String(length=32), primary_key=True)
     longitude: Mapped[float] = mapped_column()
     latitude: Mapped[float] = mapped_column()
 
