@@ -159,7 +159,7 @@ class Engine(Base, CRUDMixin):
         return result.scalars().all()
 
     async def get_crud_requests(self, session: AsyncSession) -> Sequence[CrudRequest]:
-        response = await CrudRequest.get_for_engine(session, self.uid)
+        response = await CrudRequest.get_for_engine(session, engine_uid=self.uid)
         return response
 
 
@@ -1515,33 +1515,10 @@ class CrudRequest(Base, CRUDMixin):
         return self.result is not None
 
     @classmethod
-    async def get(cls, session: AsyncSession, uuid: UUID) -> Self | None:
-        stmt = select(cls).where(cls.uuid == uuid)
-        result = await session.execute(stmt)
-        return result.scalars().one_or_none()
-
-    @classmethod
-    async def get_multiple(
-            cls,
-            session: AsyncSession,
-            uuid: list[UUID] | None = None,
-            limit: int = 15,
-    ) -> Sequence[Self]:
-        stmt = select(cls)
-        if uuid is not None:
-            stmt = stmt.where(cls.uuid.in_(uuid))
-        stmt = (
-            stmt
-            .order_by(cls.created_on.desc())
-            .limit(limit)
-        )
-        result = await session.execute(stmt)
-        return result.scalars().all()
-
-    @classmethod
     async def get_for_engine(
             cls,
             session: AsyncSession,
+            /,
             engine_uid: str,
             limit: int = 10,
     ) -> Sequence[Self]:

@@ -913,7 +913,7 @@ class GaiaEvents(BaseEvents):
         )
         async with db.scoped_session() as session:
             engine_sid = await get_engine_sid(engine_uid)
-            await CrudRequest.create(session, {
+            await CrudRequest.create(session, values={
                 "uuid": UUID(data["uuid"]),
                 "engine_uid": engine_uid,
                 "ecosystem_uid": data["routing"]["ecosystem_uid"],
@@ -932,7 +932,7 @@ class GaiaEvents(BaseEvents):
     ) -> None:
         self.logger.debug(f"Received crud result for request {data['uuid']}")
         async with db.scoped_session() as session:
-            crud_request = await CrudRequest.get(session, UUID(data["uuid"]))
+            crud_request = await CrudRequest.get(session, uuid=UUID(data["uuid"]))
             crud_request.result = data["status"]
             crud_request.message = data["message"]
 
