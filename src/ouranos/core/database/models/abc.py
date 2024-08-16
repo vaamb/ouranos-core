@@ -139,6 +139,18 @@ class CRUDMixin:
         await session.execute(stmt)
 
     @classmethod
+    async def update_multiple(
+            cls,
+            session: AsyncSession,
+            /,
+            values: list[dict],
+    ) -> None:
+        await session.execute(
+            update(cls),
+            values
+        )
+
+    @classmethod
     async def delete(
             cls,
             session: AsyncSession,
@@ -177,6 +189,7 @@ class CRUDMixin:
             await cls.create(session, values=values)
         elif values:
             await cls.update(session, values=values, **lookup_keys)
+
 
 class RecordMixin:
     @classmethod
