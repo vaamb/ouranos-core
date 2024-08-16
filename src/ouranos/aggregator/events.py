@@ -322,11 +322,12 @@ class GaiaEvents(BaseEvents):
         async with db.scoped_session() as session:
             for place in payload["data"]:
                 coordinates = {
+                    "engine_uid": engine_uid,
+                    "name": place["name"],
                     "latitude": place["coordinates"][0],
                     "longitude": place["coordinates"][1],
                 }
-                await Place.update_or_create(
-                    session, coordinates, engine_uid, place["name"])
+                await Place.update_or_create(session, values=coordinates)
             await session.commit()
 
     @registration_required

@@ -472,6 +472,7 @@ class ActuatorState(Base, CRUDMixin):
 
 
 class Place(Base, CRUDMixin):
+    _lookup_keys = ["engine_uid", "name"]
     __tablename__ = "places"
     __table_args__ = (
         UniqueConstraint(
@@ -494,110 +495,6 @@ class Place(Base, CRUDMixin):
         return (
             f"<Place({self.name}, coordinates=({self.longitude}, {self.latitude}))>"
         )
-
-    @classmethod
-    async def update(
-            cls,
-            session: AsyncSession,
-            values: dict,
-            engine_uid: str | None = None,
-            name: str | None = None,
-    ) -> None:
-        engine_uid = engine_uid or values.pop("uid", None)
-        if not engine_uid:
-            raise ValueError(
-                "Provide 'uid' either as a parameter or as a key in the updated info."
-            )
-        name = name or values.pop("uid", None)
-        if not name:
-            raise ValueError(
-                "Provide 'name' either as a parameter or as a key in the updated info."
-            )
-        stmt = (
-            update(cls)
-            .where(
-                cls.engine_uid == engine_uid,
-                cls.name == name,
-            )
-            .values(**values)
-        )
-        await session.execute(stmt)
-
-    @classmethod
-    async def delete(
-            cls,
-            session: AsyncSession,
-            engine_uid: str,
-            name: str,
-    ) -> None:
-        stmt = (
-            delete(cls)
-            .where(
-                cls.engine_uid == engine_uid,
-                cls.name == name,
-            )
-        )
-        await session.execute(stmt)
-
-    @classmethod
-    async def update_or_create(
-            cls,
-            session: AsyncSession,
-            values: dict,
-            engine_uid: str | None = None,
-            name: str | None = None,
-    ) -> None:
-        engine_uid = engine_uid or values.pop("engine_uid", None)
-        if not engine_uid:
-            raise ValueError(
-                "Provide 'uid' either as a parameter or as a key in the updated info."
-            )
-        name = name or values.pop("name", None)
-        if not name:
-            raise ValueError(
-                "Provide 'name' either as a parameter or as a key in the updated info."
-            )
-        obj = await cls.get(session, engine_uid, name)
-        if not obj:
-            values["engine_uid"] = engine_uid
-            values["name"] = name
-            await cls.create(session, values)
-        elif values:
-            await cls.update(session, values, engine_uid, name)
-        else:
-            raise ValueError
-
-    @classmethod
-    async def get(
-            cls,
-            session: AsyncSession,
-            engine_uid: str,
-            name: str,
-    ) -> Self | None:
-        stmt = (
-            select(cls)
-            .where(
-                cls.engine_uid == engine_uid,
-                cls.name == name,
-            )
-        )
-        result = await session.execute(stmt)
-        return result.scalar_one_or_none()
-
-    @classmethod
-    async def get_multiple(
-            cls,
-            session: AsyncSession,
-            engine_uid: list[str] | None = None,
-            name: list[str] | None = None,
-    ) -> Sequence[Self]:
-        stmt = select(cls)
-        if engine_uid:
-            stmt = stmt.where(cls.ecosystem_uid.in_(engine_uid))
-        if name:
-            stmt = stmt.where(cls.ecosystem_uid.in_(name))
-        result = await session.execute(stmt)
-        return result.scalars().all()
 
 
 class Lighting(Base, CRUDMixin):
