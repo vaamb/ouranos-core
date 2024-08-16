@@ -3,10 +3,9 @@ from __future__ import annotations
 from abc import abstractmethod
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import NamedTuple, Self, Sequence
+from typing import Any, NamedTuple, Self, Sequence
 
 from sqlalchemy import and_, delete, insert, inspect, or_, select, update
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos import db
@@ -77,6 +76,7 @@ class CRUDMixin:
             /,
             offset: int | None = None,
             limit: int | None = None,
+            order_by: str | None = None,
             **lookup_keys: list[str | Enum] | str,
     ) -> Sequence[Self]:
         valid_lookup_keys = {}
@@ -106,6 +106,8 @@ class CRUDMixin:
             stmt = stmt.offset(offset)
         if limit is not None:
             stmt = stmt.limit(limit)
+        if order_by is not None:
+            stmt = stmt.order_by(order_by)
         result = await session.execute(stmt)
         return result.scalars().all()
 
