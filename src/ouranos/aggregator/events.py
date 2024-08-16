@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from asyncio import sleep
 from datetime import datetime, timezone
 from threading import Lock
 import inspect
@@ -464,11 +463,10 @@ class GaiaEvents(BaseEvents):
                 for hardware in payload["data"]:
                     hardware_in_config.append(hardware["uid"])
                     hardware["ecosystem_uid"] = uid  # noqa
+                    hardware["in_config"] = True  # noqa
                     # TODO: register multiplexer ?
                     del hardware["multiplexer_model"]  # noqa
-                    await Hardware.update_or_create(
-                        session, values={**hardware, "in_config": True})
-                    await sleep(0)
+                    await Hardware.update_or_create(session, values=hardware)
 
                 # Remove hardware not in `ecosystems.cfg` anymore
                 stmt = (
@@ -748,12 +746,10 @@ class GaiaEvents(BaseEvents):
                     data_to_dispatch.append(common_data)
                     timestamp = record[5]
                     if timestamp is not None:
-                        records_to_log.append(
-                            cast(
-                                AwareActuatorStateRecordDict,
-                                {**common_data, "timestamp": timestamp}
-                            )
-                        )
+                        records_to_log.append(cast(AwareActuatorStateRecordDict, {
+                            **common_data,
+                            "timestamp": timestamp
+                        }))
             if records_to_log:
                 await ActuatorRecord.create_records(session, records_to_log)
             if data_to_dispatch:
