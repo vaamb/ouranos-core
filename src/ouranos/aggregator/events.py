@@ -428,8 +428,8 @@ class GaiaEvents(BaseEvents):
                 environment_parameters_in_config: list[str] = []
                 for param in ecosystem["climate"]:
                     environment_parameters_in_config.append(param["parameter"])
-                    await EnvironmentParameter.update_or_create(
-                        session, param, uid)
+                    param["ecosystem_uid"] = uid  # noqa
+                    await EnvironmentParameter.update_or_create(session, values=param)
 
                 # Remove environmental parameters not used anymore
                 stmt = (

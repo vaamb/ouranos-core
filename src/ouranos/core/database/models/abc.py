@@ -77,23 +77,26 @@ class CRUDMixin:
             /,
             **lookup_keys: list[str | Enum] | str,
     ) -> Sequence[Self]:
-        if not lookup_keys:
+        valid_lookup_keys = {}
+        for key in cls._get_lookup_keys():
+            value = lookup_keys.get(key, None)
+            if value is None:
+                continue
+            if isinstance(value, str):
+                value = [value]
+            valid_lookup_keys[key] = value
+
+        if not valid_lookup_keys:
             stmt = select(cls)
             result = await session.execute(stmt)
             return result.scalars().all()
 
-        for key in cls._get_lookup_keys():
-            value = lookup_keys.get(key)
-            if value is None:
-                raise ValueError(f"You need to provide '{key}'")
-            if isinstance(value, str):
-                lookup_keys[key] = [value]
         stmt = (
             select(cls)
             .where(
                 or_(
                     cls.__table__.c[key].in_(value)
-                    for key, value in lookup_keys.items()
+                    for key, value in valid_lookup_keys.items()
                 )
             )
         )

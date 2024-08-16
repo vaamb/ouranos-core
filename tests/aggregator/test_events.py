@@ -190,7 +190,7 @@ async def test_on_environmental_parameters(
         assert light.method == g_data.sky["lighting"]
 
         environment_parameter = await EnvironmentParameter.get(
-            session, uid=g_data.ecosystem_uid, parameter=g_data.climate["parameter"])
+            session, ecosystem_uid=g_data.ecosystem_uid, parameter=g_data.climate["parameter"])
         assert environment_parameter.day == g_data.climate["day"]
         assert environment_parameter.night == g_data.climate["night"]
         assert environment_parameter.hysteresis == g_data.climate["hysteresis"]

@@ -534,102 +534,11 @@ class EnvironmentParameter(Base, CRUDMixin):
     ecosystem: Mapped["Ecosystem"] = relationship(
         back_populates="environment_parameters", lazy="selectin")
 
-    @classmethod
-    async def update(
-            cls,
-            session: AsyncSession,
-            parameter_info: dict,
-            uid: str | None = None,
-            parameter: str | None = None,
-    ) -> None:
-        uid = uid or parameter_info.pop("uid", None)
-        parameter = parameter or parameter_info.pop("parameter", None)
-        if not (uid and parameter):
-            raise ValueError(
-                "Provide uid and parameter either as a argument or as a key in the "
-                "updated info"
-            )
-        stmt = (
-            update(cls)
-            .where(
-                cls.ecosystem_uid == uid,
-                cls.parameter == parameter
-            )
-            .values(**parameter_info)
+    def __repr__(self) -> str:
+        return (
+            f"<EnvironmentParameter({self.ecosystem_uid}, parameter={self.parameter}, "
+            f"day={self.day}, night={self.night}, hysteresis={self.hysteresis})>"
         )
-        await session.execute(stmt)
-
-    @classmethod
-    async def delete(
-            cls,
-            session: AsyncSession,
-            uid: str,
-            parameter: str,
-    ) -> None:
-        stmt = (
-            delete(cls)
-            .where(
-                cls.ecosystem_uid == uid,
-                cls.parameter == parameter
-            )
-        )
-        await session.execute(stmt)
-
-    @classmethod
-    async def update_or_create(
-            cls,
-            session: AsyncSession,
-            values: dict,
-            uid: str | None = None,
-            parameter: str | None = None,
-    ) -> None:
-        uid = uid or values.pop("uid", None)
-        parameter = parameter or values.pop("parameter", None)
-        if not (uid and parameter):
-            raise ValueError(
-                "Provide uid and parameter either as a argument or as a key in the "
-                "updated info"
-            )
-        environment_parameter = await cls.get(
-            session, uid=uid, parameter=parameter)
-        if not environment_parameter:
-            values["ecosystem_uid"] = uid
-            values["parameter"] = parameter
-            await cls.create(session, values)
-        elif values:
-            await cls.update(session, values, uid, parameter)
-        else:
-            raise ValueError
-
-    @classmethod
-    async def get(
-            cls,
-            session: AsyncSession,
-            uid: str,
-            parameter: str,
-    ) -> Self | None:
-        stmt = (
-            select(cls)
-            .where(cls.ecosystem_uid == uid)
-            .where(cls.parameter == parameter)
-        )
-        result = await session.execute(stmt)
-        return result.scalar_one_or_none()
-
-    @classmethod
-    async def get_multiple(
-            cls,
-            session: AsyncSession,
-            uids: list | None = None,
-            parameters: list | None = None,
-    ) -> Sequence[Self]:
-        stmt = select(cls)
-        if uids:
-            stmt = stmt.where(cls.ecosystem_uid.in_(uids))
-        if parameters:
-            stmt = stmt.where(cls.parameter.in_(parameters))
-        result = await session.execute(stmt)
-        return result.scalars().all()
 
 
 AssociationHardwareMeasure = Table(

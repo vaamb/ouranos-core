@@ -65,7 +65,7 @@ async def environment_parameter_or_abort(
         parameter: str
 ) -> None:
     environment_parameter = await EnvironmentParameter.get(
-        session=session, uid=ecosystem_uid, parameter=parameter)
+        session, ecosystem_uid=ecosystem_uid, parameter=parameter)
     if not environment_parameter:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -438,7 +438,7 @@ async def get_ecosystems_environment_parameters(
             "uid": ecosystem.uid,
             "name": ecosystem.name,
             "environment_parameters": await EnvironmentParameter.get_multiple(
-                session, [ecosystem.uid, ], parameters)
+            session, ecosystem_uid=[ecosystem.uid, ], parameter=parameters)
         } for ecosystem in ecosystems
     ]
     return response
@@ -500,7 +500,7 @@ async def get_ecosystem_environment_parameters(
         "uid": ecosystem.uid,
         "name": ecosystem.name,
         "environment_parameters": await EnvironmentParameter.get_multiple(
-            session, [ecosystem.uid, ], parameters)
+            session, ecosystem_uid=[ecosystem.uid, ], parameter=parameters)
     }
     return response
 
