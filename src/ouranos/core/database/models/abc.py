@@ -76,8 +76,13 @@ class CRUDMixin:
             cls,
             session: AsyncSession,
             /,
-            **lookup_keys: str | Enum,
+            **lookup_keys: str | Enum | bool | None,
     ) -> Self | None:
+        """
+        :param session: an AsyncSession instance
+        :param lookup_keys: a dict with table column names as keys and values
+                            depending on the related column data type
+        """
         stmt = cls._generate_get_query(**lookup_keys)
         result = await session.execute(stmt)
         return result.scalar_one_or_none()
@@ -90,8 +95,16 @@ class CRUDMixin:
             offset: int | None = None,
             limit: int | None = None,
             order_by: str | None = None,
-            **lookup_keys: list[str | Enum] | str,
+            **lookup_keys: list[str | Enum] | str | Enum | bool | None,
     ) -> Sequence[Self]:
+        """
+        :param session: an AsyncSession instance
+        :param offset: the offset from which to start looking
+        :param limit: the maximum number of rows to query
+        :param order_by: how to order the results
+        :param lookup_keys: a dict with table column names as keys and values
+                            depending on the related column data type
+        """
         stmt = cls._generate_get_query(**lookup_keys)
         result = await session.execute(stmt)
         return result.scalars().all()
