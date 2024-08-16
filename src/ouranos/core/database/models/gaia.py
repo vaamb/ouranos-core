@@ -658,57 +658,6 @@ class Hardware(Base, CRUDMixin, InConfigMixin):
                 await hardware_obj.attach_plants(session, plants)
             await session.commit()
 
-    @classmethod
-    async def get(
-            cls,
-            session: AsyncSession,
-            hardware_uid: str,
-    ) -> Self | None:
-        stmt = select(cls).where(cls.uid == hardware_uid)
-        result = await session.execute(stmt)
-        return result.unique().scalars().one_or_none()
-
-    @classmethod
-    def generate_query(
-            cls,
-            hardware_uid: str | list | None = None,
-            ecosystem_uid: str | list | None = None,
-            level: gv.HardwareLevel | list[gv.HardwareLevel] | None = None,
-            type: gv.HardwareType | list[gv.HardwareType] | None = None,
-            model: str | list | None = None,
-    ):
-        uid = hardware_uid
-        query = select(cls)
-        local_vars = locals()
-        args = "uid", "ecosystem_uid", "level", "type", "model"
-        for arg in args:
-            value = local_vars.get(arg)
-            if value:
-                if isinstance(value, str):
-                    value = value.split(",")
-                hardware_attr = getattr(cls, arg)
-                query = query.where(hardware_attr.in_(value))
-        return query
-
-    @classmethod
-    async def get_multiple(
-            cls,
-            session: AsyncSession,
-            hardware_uids: str | list | None = None,
-            ecosystem_uids: str | list | None = None,
-            levels: gv.HardwareLevel | list[gv.HardwareLevel] | None = None,
-            types: gv.HardwareType | list[gv.HardwareType] | None = None,
-            models: str | list | None = None,
-            in_config: bool | None = None,
-    ) -> Sequence[Self]:
-        stmt = cls.generate_query(
-            hardware_uids, ecosystem_uids, levels, types, models
-        )
-        if in_config is not None:
-            stmt = stmt.where(cls.in_config == in_config)
-        result = await session.execute(stmt)
-        return result.unique().scalars().all()
-
     @staticmethod
     def get_models_available() -> list[str]:
         # TODO based on gaia / gaia-validators
@@ -742,7 +691,7 @@ class Sensor(Hardware):
             uid: str,
             time_window: timeWindow | None = None,
     ) -> Self | None:
-        stmt = cls.generate_query(hardware_uid=uid)
+        stmt = cls._generate_get_query(uid=uid)
         if time_window:
             stmt = cls._add_time_window_to_stmt(stmt, time_window)
         result = await session.execute(stmt)
@@ -763,8 +712,9 @@ class Sensor(Hardware):
             time_window: timeWindow = None,
             in_config: bool | None = None,
     ) -> Sequence[Self]:
-        stmt = cls.generate_query(
-            hardware_uids, ecosystem_uids, levels, gv.HardwareType.sensor, models)
+        stmt = cls._generate_get_query(
+            uid=hardware_uids, ecosystem_uid=ecosystem_uids, level=levels,
+            type=gv.HardwareType.sensor, model=models, in_config=in_config)
         if time_window:
             stmt = cls._add_time_window_to_stmt(stmt, time_window)
         if in_config is not None:
@@ -849,7 +799,7 @@ class Actuator(Hardware):
             uid: str,
             time_window: timeWindow | None = None,
     ) -> Self | None:
-        stmt = cls.generate_query(hardware_uid=uid)
+        stmt = cls._generate_get_query(uid=uid)
         if time_window:
             stmt = cls._add_time_window_to_stmt(stmt, time_window)
         result = await session.execute(stmt)
@@ -877,8 +827,9 @@ class Actuator(Hardware):
                     assert t in gv.HardwareType.actuator
             else:
                 assert type in gv.HardwareType.actuator
-        stmt = cls.generate_query(
-            hardware_uids, ecosystem_uids, levels, type, models)
+        stmt = cls._generate_get_query(
+            uid=hardware_uids, ecosystem_uid=ecosystem_uids, level=levels,
+            type=type, model=models, in_config=in_config)
         if time_window:
             stmt = cls._add_time_window_to_stmt(stmt, time_window)
         if in_config is not None:

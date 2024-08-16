@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, NamedTuple, Self, Sequence
 
-from sqlalchemy import and_, delete, insert, inspect, or_, select, update
+from sqlalchemy import and_, delete, insert, inspect, or_, Select, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos import db
@@ -47,25 +47,38 @@ class CRUDMixin:
         await session.execute(stmt)
 
     @classmethod
+    def _generate_get_query(
+            cls,
+            offset: int | None = None,
+            limit: int | None = None,
+            order_by: str | None = None,
+            **lookup_keys: list[str | Enum] | str | Enum | None,
+    ) -> Select:
+        stmt = select(cls)
+        for key in lookup_keys:
+            value = lookup_keys[key]
+            if value is None:
+                continue
+            if isinstance(value, list):
+                stmt = stmt.where(cls.__table__.c[key].in_(value))
+            else:
+                stmt = stmt.where(cls.__table__.c[key] == value)
+        if offset is not None:
+            stmt = stmt.offset(offset)
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        if order_by is not None:
+            stmt = stmt.order_by(order_by)
+        return stmt
+
+    @classmethod
     async def get(
             cls,
             session: AsyncSession,
             /,
             **lookup_keys: str | Enum,
     ) -> Self | None:
-        for key in cls._get_lookup_keys():
-            value = lookup_keys.get(key)
-            if value is None:
-                raise ValueError(f"You need to provide '{key}'")
-        stmt = (
-            select(cls)
-            .where(
-                and_(
-                    cls.__table__.c[key] == value
-                    for key, value in lookup_keys.items()
-                )
-            )
-        )
+        stmt = cls._generate_get_query(**lookup_keys)
         result = await session.execute(stmt)
         return result.scalar_one_or_none()
 
@@ -79,19 +92,7 @@ class CRUDMixin:
             order_by: str | None = None,
             **lookup_keys: list[str | Enum] | str,
     ) -> Sequence[Self]:
-        stmt = select(cls)
-        for key in lookup_keys:
-            values = lookup_keys[key]
-            if isinstance(values, list):
-                stmt = stmt.where(cls.__table__.c[key].in_(values))
-            else:
-                stmt = stmt.where(cls.__table__.c[key] == values)
-        if offset is not None:
-            stmt = stmt.offset(offset)
-        if limit is not None:
-            stmt = stmt.limit(limit)
-        if order_by is not None:
-            stmt = stmt.order_by(order_by)
+        stmt = cls._generate_get_query(**lookup_keys)
         result = await session.execute(stmt)
         return result.scalars().all()
 
