@@ -153,19 +153,18 @@ class CRUDMixin:
             values: dict,
             **primary_keys: str | Enum,
     ) -> None:
-        # Create a copy of
-        creation_values = {**values}
         for key in cls._get_primary_keys():
-            value = primary_keys.get(key) or values.get(key)
+            value = primary_keys.get(key) or values.pop(key, None)
             if value is None:
                 raise ValueError(
                     f"Provide '{key}' either as a parameter or as a key in the "
                     f"updated info")
-            creation_values[key] = value
-        values.update(primary_keys)
-        try:
-            await cls.create(session, values=creation_values)
-        except IntegrityError:
+            primary_keys[key] = value
+        obj = await cls.get(session, **primary_keys)
+        if not obj:
+            values.update(primary_keys)
+            await cls.create(session, values=values)
+        elif values:
             await cls.update(session, values=values, **primary_keys)
 
 class RecordMixin:
