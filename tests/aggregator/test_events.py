@@ -209,7 +209,7 @@ async def test_on_hardware(
     await events_handler.on_hardware(g_data.engine_sid, [g_data.hardware_payload])
 
     async with ecosystem_aware_db.scoped_session() as session:
-        hardware = await Hardware.get(session, hardware_uid=g_data.hardware_data["uid"])
+        hardware = await Hardware.get(session, uid=g_data.hardware_data["uid"])
         assert hardware.name == g_data.hardware_data["name"]
         assert hardware.level.name == g_data.hardware_data["level"]
         assert hardware.address == g_data.hardware_data["address"]

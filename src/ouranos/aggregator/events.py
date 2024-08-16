@@ -462,18 +462,14 @@ class GaiaEvents(BaseEvents):
                 hardware_in_config = []
                 uid = payload["uid"]
                 ecosystems_to_log.append(
-                    await get_ecosystem_name(uid, session=session)
-                )
+                    await get_ecosystem_name(uid, session=session))
                 for hardware in payload["data"]:
-                    hardware: dict  # Treat hardware as regular dict
-                    hardware_uid = hardware.pop("uid")
-                    hardware_in_config.append(hardware_uid)
-                    hardware["ecosystem_uid"] = uid
+                    hardware_in_config.append(hardware["uid"])
+                    hardware["ecosystem_uid"] = uid  # noqa
                     # TODO: register multiplexer ?
-                    del hardware["multiplexer_model"]
+                    del hardware["multiplexer_model"]  # noqa
                     await Hardware.update_or_create(
-                        session, values={**hardware, "in_config": True},
-                        uid=hardware_uid)
+                        session, values={**hardware, "in_config": True})
                     await sleep(0)
 
                 # Remove hardware not in `ecosystems.cfg` anymore
@@ -636,7 +632,7 @@ class GaiaEvents(BaseEvents):
         async with db.scoped_session() as session:
             await SensorDataRecord.create_records(session, records_to_log)
             # Update the last_log column for hardware
-            for hardware in await Hardware.get_multiple(session, [*hardware_uids]):
+            for hardware in await Hardware.get_multiple(session, uid=[*hardware_uids]):
                 hardware.last_log = last_log.get(hardware.uid)
             for alarm in alarms_to_log:
                 await SensorAlarm.create_or_lengthen(session, alarm)

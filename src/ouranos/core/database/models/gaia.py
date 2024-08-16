@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from datetime import datetime, time, timedelta, timezone
+from enum import Enum
 from typing import Literal, Optional, Sequence, Self, TypedDict
 from uuid import UUID
 
@@ -339,11 +340,12 @@ class Ecosystem(Base, CRUDMixin, InConfigMixin):
     async def get_hardware(
             self,
             session: AsyncSession,
+            /,
             hardware_type: gv.HardwareType | None = None,
             in_config: bool | None = None,
     ) -> Sequence[Hardware]:
         return await Hardware.get_multiple(
-            session, ecosystem_uids=[self.uid], types=hardware_type,
+            session, ecosystem_uid=self.uid, type=hardware_type,
             in_config=in_config)
 
     @cached(_cache_sensors_data_skeleton, key=sessionless_hashkey)
@@ -625,6 +627,7 @@ class Hardware(Base, CRUDMixin, InConfigMixin):
     async def create(
             cls,
             session: AsyncSession,
+            /,
             values: gv.HardwareConfigDict,
     ) -> None:
         measures: list[gv.Measure | gv.MeasureDict] = values.pop("measures", [])
@@ -632,7 +635,7 @@ class Hardware(Base, CRUDMixin, InConfigMixin):
         stmt = insert(cls).values(values)
         await session.execute(stmt)
         if any((measures, plants)):
-            hardware_obj = await cls.get(session, values["uid"])
+            hardware_obj = await cls.get(session, uid=values["uid"])
             if measures:
                 await hardware_obj.attach_measures(session, measures)
             if plants:
@@ -643,15 +646,20 @@ class Hardware(Base, CRUDMixin, InConfigMixin):
     async def update(
             cls,
             session: AsyncSession,
+            /,
             values: dict,
-            uid: str | None = None,
+            **lookup_keys: str | Enum,
     ) -> None:
-        uid = uid or values.get("uid")
+        uid = lookup_keys.get("uid") or values.get("uid", None)
+        if uid is None:
+            raise ValueError(
+                f"Provide 'uid' either as a parameter or as a key in the "
+                f"updated info")
         measures = values.pop("measures", [])
         plants = values.pop("plants", [])
-        await super().update(session, values, uid)
+        await super().update(session, uid=uid, values=values)
         if any((measures, plants)):
-            hardware_obj = await cls.get(session, uid)
+            hardware_obj = await cls.get(session, uid=uid)
             if measures:
                 await hardware_obj.attach_measures(session, measures)
             if plants:
@@ -688,37 +696,29 @@ class Sensor(Hardware):
     async def get(
             cls,
             session: AsyncSession,
-            uid: str,
+            /,
             time_window: timeWindow | None = None,
+            **lookup_keys: str | Enum,
     ) -> Self | None:
-        stmt = cls._generate_get_query(uid=uid)
+        lookup_keys["type"] = gv.HardwareType.sensor
+        stmt = cls._generate_get_query(**lookup_keys)
         if time_window:
             stmt = cls._add_time_window_to_stmt(stmt, time_window)
         result = await session.execute(stmt)
-        hardware: Hardware | None = result.unique().scalar_one_or_none()
-        if hardware:
-            if hardware.type != gv.HardwareType.sensor:
-                hardware = None
-        return hardware
+        return result.unique().scalar_one_or_none()
 
     @classmethod
     async def get_multiple(
             cls,
             session: AsyncSession,
-            hardware_uids: str | list | None = None,
-            ecosystem_uids: str | list | None = None,
-            levels: gv.HardwareLevel | list[gv.HardwareLevel] | None = None,
-            models: str | list | None = None,
-            time_window: timeWindow = None,
-            in_config: bool | None = None,
+            /,
+            time_window: timeWindow | None = None,
+            **lookup_keys: str | Enum,
     ) -> Sequence[Self]:
-        stmt = cls._generate_get_query(
-            uid=hardware_uids, ecosystem_uid=ecosystem_uids, level=levels,
-            type=gv.HardwareType.sensor, model=models, in_config=in_config)
+        lookup_keys["type"] = gv.HardwareType.sensor
+        stmt = cls._generate_get_query(**lookup_keys)
         if time_window:
             stmt = cls._add_time_window_to_stmt(stmt, time_window)
-        if in_config is not None:
-            stmt = stmt.where(cls.in_config == in_config)
         result = await session.execute(stmt)
         return result.unique().scalars().all()
 
@@ -796,47 +796,38 @@ class Actuator(Hardware):
     async def get(
             cls,
             session: AsyncSession,
-            uid: str,
+            /,
             time_window: timeWindow | None = None,
+            **lookup_keys,
     ) -> Self | None:
-        stmt = cls._generate_get_query(uid=uid)
+        type_: Enum | None = lookup_keys.get("type", None)
+        if type_ is not None:
+            assert not type_ & gv.HardwareType.sensor
+        stmt = cls._generate_get_query(**lookup_keys)
         if time_window:
             stmt = cls._add_time_window_to_stmt(stmt, time_window)
         result = await session.execute(stmt)
-        hardware: Hardware | None = result.unique().scalar_one_or_none()
-        if hardware:
-            if hardware.type == gv.HardwareType.sensor:
-                hardware = None
-        return hardware
+        return result.unique().scalar_one_or_none()
 
     @classmethod
     async def get_multiple(
             cls,
             session: AsyncSession,
-            hardware_uids: str | list | None = None,
-            ecosystem_uids: str | list | None = None,
-            type: gv.HardwareType | list[gv.HardwareType] | None = None,
-            levels: gv.HardwareLevel | list[gv.HardwareLevel] | None = None,
-            models: str | list | None = None,
-            time_window: timeWindow = None,
-            in_config: bool | None = None,
+            /,
+            time_window: timeWindow | None = None,
+            **lookup_keys,
     ) -> Sequence[Self]:
-        if type is not None:
-            if isinstance(type, list):
-                for t in type:
-                    assert t in gv.HardwareType.actuator
-            else:
-                assert type in gv.HardwareType.actuator
-        stmt = cls._generate_get_query(
-            uid=hardware_uids, ecosystem_uid=ecosystem_uids, level=levels,
-            type=type, model=models, in_config=in_config)
+        type_: Enum | list[Enum] | None = lookup_keys.get("type", None)
+        if type_ is not None:
+            if not isinstance(type_, list):
+                type_ = [type_]
+            for t in type_:
+                assert t & gv.HardwareType.actuator
+        stmt = cls._generate_get_query(**lookup_keys)
         if time_window:
             stmt = cls._add_time_window_to_stmt(stmt, time_window)
-        if in_config is not None:
-            stmt = stmt.where(cls.in_config == in_config)
         result = await session.execute(stmt)
-        hardware: Sequence[Hardware] = result.unique().scalars().all()
-        return [h for h in hardware if h.type != gv.HardwareType.sensor]
+        return result.unique().scalars().all()
 
 
 class Measure(Base, CRUDMixin):

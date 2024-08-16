@@ -27,7 +27,7 @@ async def sensor_or_abort(
         session: AsyncSession,
         sensor_uid: str
 ) -> Sensor:
-    sensor = await Sensor.get(session=session, uid=sensor_uid)
+    sensor = await Sensor.get(session, uid=sensor_uid)
     if sensor is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
