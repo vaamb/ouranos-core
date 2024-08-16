@@ -55,8 +55,7 @@ class CRUDMixin:
             **lookup_keys: list[str | Enum] | str | Enum | None,
     ) -> Select:
         stmt = select(cls)
-        for key in lookup_keys:
-            value = lookup_keys[key]
+        for key, value in lookup_keys.items():
             if value is None:
                 continue
             if isinstance(value, list):

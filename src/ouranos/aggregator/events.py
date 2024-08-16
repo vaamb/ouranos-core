@@ -364,15 +364,15 @@ class GaiaEvents(BaseEvents):
                 actuator_states = await ActuatorState.get_multiple(
                     session, ecosystem_uid=ecosystem["uid"], type=[*actuator_types])
                 actuator_types_present = {actuator_state.type for actuator_state in actuator_states}
-                missing_actuator_types = actuator_types - actuator_types_present
-                if missing_actuator_types:
+                actuator_types_missing = actuator_types - actuator_types_present
+                if actuator_types_missing:
                     await ActuatorState.create(
                         session,
                         values=[
                             {
                                 "ecosystem_uid": ecosystem["uid"],
                                 "type": actuator_type,
-                            } for actuator_type in missing_actuator_types
+                            } for actuator_type in actuator_types_missing
                         ],
                     )
 
@@ -412,8 +412,7 @@ class GaiaEvents(BaseEvents):
             for payload in data:
                 uid: str = payload["uid"]
                 ecosystems_to_log.append(
-                    await get_ecosystem_name(uid, session=session)
-                )
+                    await get_ecosystem_name(uid, session=session))
                 ecosystem = payload["data"]
                 nycthemeral_cycle = ecosystem["nycthemeral_cycle"]
                 ecosystem_info = {
@@ -507,8 +506,7 @@ class GaiaEvents(BaseEvents):
                 ecosystem = payload["data"]
                 uid: str = payload["uid"]
                 ecosystems_to_log.append(
-                    await get_ecosystem_name(uid, session=session)
-                )
+                    await get_ecosystem_name(uid, session=session))
                 ecosystem_obj = await Ecosystem.get(session, uid=uid)
                 ecosystem_obj.reset_managements()
                 for management in gv.ManagementFlags:
@@ -723,8 +721,7 @@ class GaiaEvents(BaseEvents):
             for payload in data:
                 records = payload["data"]
                 logged.append(
-                    await get_ecosystem_name(payload["uid"], session=None)
-                )
+                    await get_ecosystem_name(payload["uid"], session=session))
                 for record in records:
                     record: gv.ActuatorStateRecord
                     common_data: AwareActuatorStateDict = {
@@ -843,8 +840,7 @@ class GaiaEvents(BaseEvents):
         async with db.scoped_session() as session:
             for payload in data:
                 ecosystems_to_log.append(
-                    await get_ecosystem_name(payload["uid"], session)
-                )
+                    await get_ecosystem_name(payload["uid"], session=session))
                 ecosystem = payload["data"]
                 light_info = {
                     "ecosystem_uid": payload["uid"],

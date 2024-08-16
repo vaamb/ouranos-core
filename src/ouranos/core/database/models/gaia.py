@@ -312,12 +312,12 @@ class Ecosystem(Base, CRUDMixin, InConfigMixin):
         time_limit = datetime.now(timezone.utc) - timedelta(hours=TIME_LIMITS.SENSORS)
         stmt = (
             select(Hardware)
-            .where(Hardware.ecosystem_uid == self.uid)
             .where(
+                Hardware.ecosystem_uid == self.uid,
                 Hardware.type == gv.HardwareType.sensor,
-                Hardware.level == level
+                Hardware.level == level,
+                Hardware.last_log >= time_limit,
             )
-            .filter(Hardware.last_log >= time_limit)
         )
         result = await session.execute(stmt)
         return bool(result.first())
