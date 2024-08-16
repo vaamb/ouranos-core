@@ -1394,6 +1394,7 @@ class GaiaWarning(Base):
     async def create(
             cls,
             session: AsyncSession,
+            /,
             ecosystem_uid: str,
             values: dict,
     ) -> None:
@@ -1406,7 +1407,7 @@ class GaiaWarning(Base):
     async def get_multiple(
             cls,
             session: AsyncSession,
-            *,
+            /,
             show_solved: bool = False,
             ecosystems: str | list[str] | None = None,
             limit: int = 10,
@@ -1429,6 +1430,7 @@ class GaiaWarning(Base):
     async def update(
             cls,
             session: AsyncSession,
+            /,
             warning_id: int,
             ecosystem_uid: str,
             values: dict,
@@ -1450,6 +1452,7 @@ class GaiaWarning(Base):
     async def mark_as_seen(
             cls,
             session: AsyncSession,
+            /,
             warning_id: int,
             user_id: int,
     ) -> None:
@@ -1471,6 +1474,7 @@ class GaiaWarning(Base):
     async def mark_as_solved(
             cls,
             session: AsyncSession,
+            /,
             warning_id: int,
             user_id: int,
     ) -> None:
