@@ -538,10 +538,16 @@ class ActuatorState(Base, CRUDMixin):
 
 class Place(Base, CRUDMixin):
     __tablename__ = "places"
+    __table_args__ = (
+        UniqueConstraint(
+            "engine_uid", "name",
+            name="uq_places_engine_uid"
+        ),
+    )
 
-    id: Mapped[int] = mapped_column(autoincrement=True)
-    engine_uid: Mapped[UUID] = mapped_column(sa.ForeignKey("engines.uid"), primary_key=True)
-    name: Mapped[str] = mapped_column(sa.String(length=32), primary_key=True)
+    id: Mapped[int] = mapped_column(primary_key=True)  # Use this as PK as it eases linking with Lighting
+    engine_uid: Mapped[UUID] = mapped_column(sa.ForeignKey("engines.uid"))
+    name: Mapped[str] = mapped_column(sa.String(length=32))
     longitude: Mapped[float] = mapped_column()
     latitude: Mapped[float] = mapped_column()
 
@@ -606,12 +612,12 @@ class Place(Base, CRUDMixin):
             engine_uid: str | None = None,
             name: str | None = None,
     ) -> None:
-        engine_uid = engine_uid or values.pop("uid", None)
+        engine_uid = engine_uid or values.pop("engine_uid", None)
         if not engine_uid:
             raise ValueError(
                 "Provide 'uid' either as a parameter or as a key in the updated info."
             )
-        name = name or values.pop("uid", None)
+        name = name or values.pop("name", None)
         if not name:
             raise ValueError(
                 "Provide 'name' either as a parameter or as a key in the updated info."
@@ -1311,6 +1317,12 @@ class Plant(Base, CRUDMixin, InConfigMixin):
 # ---------------------------------------------------------------------------
 class BaseSensorData(Base):
     __abstract__ = True
+    __table_args__ = (
+        UniqueConstraint(
+            "measure", "timestamp", "value", "ecosystem_uid", "sensor_uid",
+            name="_no_repost_constraint"
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     timestamp: Mapped[datetime] = mapped_column(UtcDateTime)
@@ -1333,11 +1345,6 @@ class BaseSensorData(Base):
         return mapped_column(
             sa.String(length=16), sa.ForeignKey("hardware.uid"), index=True
         )
-
-    __table_args__ = (
-        UniqueConstraint("measure", "timestamp", "value", "ecosystem_uid",
-                         "sensor_uid", name="_no_repost_constraint"),
-    )
 
 
 class SensorDataCache(BaseSensorData, CacheMixin):
