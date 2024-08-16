@@ -518,68 +518,6 @@ class Lighting(Base, CRUDMixin):
             f"mode={self.mode})>"
         )
 
-    @classmethod
-    async def update(
-            cls,
-            session: AsyncSession,
-            values: dict,
-            ecosystem_uid: str | None = None,
-    ) -> None:
-        ecosystem_uid = ecosystem_uid or values.pop("ecosystem_uid", None)
-        if not ecosystem_uid:
-            raise ValueError(
-                "Provide uid either as a parameter or as a key in the updated info"
-            )
-        stmt = (
-            update(cls)
-            .where(cls.ecosystem_uid == ecosystem_uid)
-            .values(**values)
-        )
-        await session.execute(stmt)
-
-    @classmethod
-    async def get(
-            cls,
-            session: AsyncSession,
-            ecosystem_uid: str,
-    ) -> Self | None:
-        stmt = select(cls).where(cls.ecosystem_uid == ecosystem_uid)
-        result = await session.execute(stmt)
-        return result.scalar_one_or_none()
-
-    @classmethod
-    async def get_multiple(
-            cls,
-            session: AsyncSession,
-            ecosystem_uids: list[str] | None = None,
-    ) -> Sequence[Self]:
-        stmt = select(cls)
-        if ecosystem_uids:
-            stmt = stmt.where(cls.ecosystem_uid.in_(ecosystem_uids))
-        result = await session.execute(stmt)
-        return result.scalars().all()
-
-    @classmethod
-    async def update_or_create(
-            cls,
-            session: AsyncSession,
-            values: dict,
-            ecosystem_uid: str | None = None,
-    ) -> None:
-        ecosystem_uid = ecosystem_uid or values.pop("ecosystem_uid", None)
-        if not ecosystem_uid:
-            raise ValueError(
-                "Provide ecosystem_uid either as an argument or as a key in the values"
-            )
-        obj = await cls.get(session, ecosystem_uid)
-        if not obj:
-            values["ecosystem_uid"] = ecosystem_uid
-            await cls.create(session, values)
-        elif values:
-            await cls.update(session, values, ecosystem_uid)
-        else:
-            raise ValueError
-
 
 class EnvironmentParameter(Base, CRUDMixin):
     __tablename__ = "environment_parameters"

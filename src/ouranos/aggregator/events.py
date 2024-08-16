@@ -424,7 +424,7 @@ class GaiaEvents(BaseEvents):
                 }
                 await Ecosystem.update_or_create(session, values=ecosystem_info)
                 await Lighting.update_or_create(
-                    session, {"method": nycthemeral_cycle["lighting"]}, uid)
+                    session, ecosystem_uid=uid, values={"method": nycthemeral_cycle["lighting"]})
                 environment_parameters_in_config: list[str] = []
                 for param in ecosystem["climate"]:
                     environment_parameters_in_config.append(param["parameter"])
@@ -859,7 +859,7 @@ class GaiaEvents(BaseEvents):
                     "evening_start": ecosystem["evening_start"],
                     "evening_end": ecosystem["evening_end"]
                 }
-                await Lighting.update_or_create(session, light_info)
+                await Lighting.update_or_create(session, values=light_info)
         self.logger.debug(
             f"Logged light data from ecosystem(s): {humanize_list(ecosystems_to_log)}"
         )

@@ -425,7 +425,7 @@ async def test_on_light_data(
     await events_handler.on_light_data(g_data.engine_sid, [g_data.light_data_payload])
 
     async with ecosystem_aware_db.scoped_session() as session:
-        light = await Lighting.get(session, g_data.ecosystem_uid)
+        light = await Lighting.get(session, ecosystem_uid=g_data.ecosystem_uid)
         assert light.method == g_data.light_data["method"]
         assert light.morning_start == g_data.light_data["morning_start"]
         assert light.morning_end == g_data.light_data["morning_end"]

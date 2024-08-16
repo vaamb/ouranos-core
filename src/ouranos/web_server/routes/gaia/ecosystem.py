@@ -345,7 +345,7 @@ async def get_ecosystems_light(
         session, ecosystems_id=ecosystems_id, in_config=in_config)
     response = []
     for ecosystem in ecosystems:
-        lighting = await Lighting.get(session, ecosystem.uid)
+        lighting = await Lighting.get(session, ecosystem_uid=ecosystem.uid)
         if lighting is not None:
             response.append(
                 {
@@ -364,7 +364,7 @@ async def get_ecosystem_lighting(
 ):
     assert_single_uid(id)
     ecosystem = await ecosystem_or_abort(session, id)
-    lighting = await Lighting.get(session, ecosystem.uid)
+    lighting = await Lighting.get(session, ecosystem_uid=ecosystem.uid)
     if lighting is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

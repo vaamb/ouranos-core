@@ -47,7 +47,7 @@ async def add_ecosystems(db: AsyncSQLAlchemyWrapper):
 
         adapted_light_data = g_data.light_data.copy()
         adapted_light_data["ecosystem_uid"] = g_data.ecosystem_uid
-        await Lighting.create(session, adapted_light_data)
+        await Lighting.create(session, values=adapted_light_data)
 
         adapted_hardware_data = gv.HardwareConfig(**g_data.hardware_data).model_dump()
         adapted_hardware_data.pop("multiplexer_model")
