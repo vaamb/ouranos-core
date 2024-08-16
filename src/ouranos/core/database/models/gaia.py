@@ -41,7 +41,7 @@ _cache_ecosystem_has_recent_data = TTLCache(maxsize=_ecosystem_caches_size * 2, 
 _cache_sensors_data_skeleton = TTLCache(maxsize=_ecosystem_caches_size, ttl=900)
 _cache_sensor_values = TTLCache(maxsize=_ecosystem_caches_size * 32, ttl=600)
 _cache_warnings = TTLCache(maxsize=5, ttl=60)
-_cache_measures = LRUCache(maxsize=16)
+_cache_measures = LRUCache(maxsize=16)  # TODO: re use
 
 
 class EcosystemActuatorTypesManagedDict(TypedDict):
@@ -615,10 +615,10 @@ class Hardware(Base, CRUDMixin, InConfigMixin):
             if hasattr(m, "model_dump"):
                 m = m.model_dump()
             m: gv.MeasureDict
-            measure = await Measure.get(session, m["name"], m["unit"])
+            measure = await Measure.get(session, name=m["name"])
             if measure is None:
-                await Measure.create(session, {"name": m["name"], "unit": m["unit"]})
-                measure = await Measure.get(session, m["name"], m["unit"])
+                await Measure.create(session, values={"name": m["name"], "unit": m["unit"]})
+                measure = await Measure.get(session, name=m["name"])
             self.measures.append(measure)
 
     @classmethod
@@ -889,6 +889,7 @@ class Actuator(Hardware):
 
 
 class Measure(Base, CRUDMixin):
+    _lookup_keys = ["name"]
     __tablename__ = "measures"
 
     id: Mapped[int] = mapped_column(primary_key=True)  # Use this as PK as the name might be changed
@@ -899,49 +900,8 @@ class Measure(Base, CRUDMixin):
     hardware: Mapped[list["Hardware"]] = relationship(
         back_populates="measures", secondary=AssociationHardwareMeasure)
 
-    @classmethod
-    @cached(_cache_measures, key=sessionless_hashkey)
-    async def get_unit(
-            cls,
-            session: AsyncSession,
-            *,
-            measure_name: str
-    ) -> str | None:
-        stmt = (
-            select(cls)
-            .filter(cls.name == measure_name)
-        )
-        result = await session.execute(stmt)
-        measure_obj = result.scalars().one_or_none()
-        if measure_obj is not None:
-            return measure_obj.unit
-        return None
-
-    @classmethod
-    async def get(
-            cls,
-            session: AsyncSession,
-            name: str,
-            unit: str | None = None,
-    ) -> Self | None:
-        stmt = select(cls).where(
-            (cls.name == name)
-            & (cls.unit == unit)
-        )
-        result = await session.execute(stmt)
-        return result.scalars().one_or_none()
-
-    @classmethod
-    async def get_multiple(
-            cls,
-            session: AsyncSession,
-            names: list[str] | None = None
-    ) -> Sequence[Self]:
-        stmt = select(cls)
-        if names:
-            stmt = stmt.where(cls.name.in_(names))
-        result = await session.execute(stmt)
-        return result.scalars().all()
+    def __repr__(self) -> str:
+        return f"<Measure({self.name}, unit={self.unit})>"
 
 
 class Plant(Base, CRUDMixin, InConfigMixin):
