@@ -65,7 +65,7 @@ async def environment_parameter_or_abort(
         parameter: str
 ) -> None:
     environment_parameter = await EnvironmentParameter.get(
-        session=session, uid=ecosystem_uid, parameter=parameter)
+        session, ecosystem_uid=ecosystem_uid, parameter=parameter)
     if not environment_parameter:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -82,8 +82,8 @@ async def get_ecosystems(
         in_config: bool | None = in_config_query,
         session: AsyncSession = Depends(get_session),
 ):
-    ecosystems = await Ecosystem.get_multiple(
-        session=session, ecosystems=ecosystems_id, in_config=in_config)
+    ecosystems = await Ecosystem.get_multiple_by_id(
+        session, ecosystems_id=ecosystems_id, in_config=in_config)
     return ecosystems
 
 
@@ -233,8 +233,8 @@ async def get_ecosystems_management(
         in_config: bool | None = in_config_query,
         session: AsyncSession = Depends(get_session),
 ):
-    ecosystems = await Ecosystem.get_multiple(
-        session=session, ecosystems=ecosystems_id, in_config=in_config)
+    ecosystems = await Ecosystem.get_multiple_by_id(
+        session, ecosystems_id=ecosystems_id, in_config=in_config)
     response = [
         await ecosystem.get_functionalities(session)
         for ecosystem in ecosystems
@@ -306,8 +306,8 @@ async def get_ecosystems_sensors_skeleton(
         in_config: bool | None = in_config_query,
         session: AsyncSession = Depends(get_session),
 ):
-    ecosystems = await Ecosystem.get_multiple(
-        session=session, ecosystems=ecosystems_id, in_config=in_config)
+    ecosystems = await Ecosystem.get_multiple_by_id(
+        session, ecosystems_id=ecosystems_id, in_config=in_config)
     response = [
         await ecosystem.get_sensors_data_skeleton(
             session, time_window=time_window, level=level)
@@ -341,11 +341,11 @@ async def get_ecosystems_light(
         in_config: bool | None = in_config_query,
         session: AsyncSession = Depends(get_session),
 ):
-    ecosystems = await Ecosystem.get_multiple(
-        session=session, ecosystems=ecosystems_id, in_config=in_config)
+    ecosystems = await Ecosystem.get_multiple_by_id(
+        session, ecosystems_id=ecosystems_id, in_config=in_config)
     response = []
     for ecosystem in ecosystems:
-        lighting = await Lighting.get(session, ecosystem.uid)
+        lighting = await Lighting.get(session, ecosystem_uid=ecosystem.uid)
         if lighting is not None:
             response.append(
                 {
@@ -364,7 +364,7 @@ async def get_ecosystem_lighting(
 ):
     assert_single_uid(id)
     ecosystem = await ecosystem_or_abort(session, id)
-    lighting = await Lighting.get(session, ecosystem.uid)
+    lighting = await Lighting.get(session, ecosystem_uid=ecosystem.uid)
     if lighting is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -431,14 +431,14 @@ async def get_ecosystems_environment_parameters(
         in_config: bool | None = in_config_query,
         session: AsyncSession = Depends(get_session)
 ):
-    ecosystems = await Ecosystem.get_multiple(
-        session=session, ecosystems=ecosystems_id, in_config=in_config)
+    ecosystems = await Ecosystem.get_multiple_by_id(
+        session, ecosystems_id=ecosystems_id, in_config=in_config)
     response = [
         {
             "uid": ecosystem.uid,
             "name": ecosystem.name,
             "environment_parameters": await EnvironmentParameter.get_multiple(
-                session, [ecosystem.uid, ], parameters)
+            session, ecosystem_uid=[ecosystem.uid, ], parameter=parameters)
         } for ecosystem in ecosystems
     ]
     return response
@@ -500,7 +500,7 @@ async def get_ecosystem_environment_parameters(
         "uid": ecosystem.uid,
         "name": ecosystem.name,
         "environment_parameters": await EnvironmentParameter.get_multiple(
-            session, [ecosystem.uid, ], parameters)
+            session, ecosystem_uid=[ecosystem.uid, ], parameter=parameters)
     }
     return response
 
@@ -660,8 +660,8 @@ async def get_ecosystems_current_data(
         in_config: bool | None = in_config_query,
         session: AsyncSession = Depends(get_session),
 ):
-    ecosystems = await Ecosystem.get_multiple(
-        session=session, ecosystems=ecosystems_id, in_config=in_config)
+    ecosystems = await Ecosystem.get_multiple_by_id(
+        session, ecosystems_id=ecosystems_id, in_config=in_config)
     response = [
         {
             "uid": ecosystem.uid,
@@ -696,8 +696,8 @@ async def get_ecosystems_actuators_status(
         in_config: bool | None = in_config_query,
         session: AsyncSession = Depends(get_session),
 ):
-    ecosystems = await Ecosystem.get_multiple(
-        session=session, ecosystems=ecosystems_id, in_config=in_config)
+    ecosystems = await Ecosystem.get_multiple_by_id(
+        session, ecosystems_id=ecosystems_id, in_config=in_config)
     response = [
         {
             "uid": ecosystem.uid,

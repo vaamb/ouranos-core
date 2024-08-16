@@ -93,7 +93,7 @@ async def test_on_register_engine(
     assert mock_dispatcher._sessions[g_data.engine_sid]["engine_uid"] == g_data.engine_uid
 
     async with naive_db.scoped_session() as session:
-        engine = await Engine.get(session, engine_id=g_data.engine_uid)
+        engine = await Engine.get(session, uid=g_data.engine_uid)
         assert engine.uid == g_data.engine_uid
         assert engine.address == g_data.ip_address
 
@@ -109,7 +109,7 @@ async def test_on_ping(
         engine_aware_db: AsyncSQLAlchemyWrapper,
 ):
     async with engine_aware_db.scoped_session() as session:
-        engine = await Engine.get(session, engine_id=g_data.engine_uid)
+        engine = await Engine.get(session, uid=g_data.engine_uid)
         start = copy(engine.last_seen)
     await sleep(0.1)
 
@@ -118,7 +118,7 @@ async def test_on_ping(
     ])
 
     async with engine_aware_db.scoped_session() as session:
-        engine = await Engine.get(session, engine_id=g_data.engine_uid)
+        engine = await Engine.get_by_id(session, engine_id=g_data.engine_uid)
         assert engine.last_seen > start
 
 
@@ -137,7 +137,7 @@ async def test_on_base_info(
     assert emitted["namespace"] == "application-internal"
 
     async with naive_db.scoped_session() as session:
-        ecosystem = await Ecosystem.get(session, ecosystem_id=g_data.ecosystem_uid)
+        ecosystem = await Ecosystem.get(session, uid=g_data.ecosystem_uid)
         assert ecosystem.engine_uid == g_data.base_info["engine_uid"]
         assert ecosystem.name == g_data.base_info["name"]
         assert ecosystem.status == g_data.base_info["status"]
@@ -164,7 +164,7 @@ async def test_on_management(
             pass
 
     async with ecosystem_aware_db.scoped_session() as session:
-        ecosystem = await Ecosystem.get(session, ecosystem_id=g_data.ecosystem_uid)
+        ecosystem = await Ecosystem.get(session, uid=g_data.ecosystem_uid)
         assert ecosystem.management == management_value
 
     wrong_payload = {}
@@ -182,7 +182,7 @@ async def test_on_environmental_parameters(
         g_data.engine_sid, [g_data.environmental_payload])
 
     async with ecosystem_aware_db.scoped_session() as session:
-        ecosystem = await Ecosystem.get(session, ecosystem_id=g_data.ecosystem_uid)
+        ecosystem = await Ecosystem.get(session, uid=g_data.ecosystem_uid)
         assert ecosystem.day_start == g_data.sky["day"]
         assert ecosystem.night_start == g_data.sky["night"]
 
@@ -190,7 +190,7 @@ async def test_on_environmental_parameters(
         assert light.method == g_data.sky["lighting"]
 
         environment_parameter = await EnvironmentParameter.get(
-            session, uid=g_data.ecosystem_uid, parameter=g_data.climate["parameter"])
+            session, ecosystem_uid=g_data.ecosystem_uid, parameter=g_data.climate["parameter"])
         assert environment_parameter.day == g_data.climate["day"]
         assert environment_parameter.night == g_data.climate["night"]
         assert environment_parameter.hysteresis == g_data.climate["hysteresis"]
@@ -209,7 +209,7 @@ async def test_on_hardware(
     await events_handler.on_hardware(g_data.engine_sid, [g_data.hardware_payload])
 
     async with ecosystem_aware_db.scoped_session() as session:
-        hardware = await Hardware.get(session, hardware_uid=g_data.hardware_data["uid"])
+        hardware = await Hardware.get(session, uid=g_data.hardware_data["uid"])
         assert hardware.name == g_data.hardware_data["name"]
         assert hardware.level.name == g_data.hardware_data["level"]
         assert hardware.address == g_data.hardware_data["address"]
@@ -384,8 +384,7 @@ async def test_on_actuators_data(
     async with ecosystem_aware_db.scoped_session() as session:
         logged_light_state = (
             await ActuatorState.get(
-                session, ecosystem_uid=g_data.ecosystem_uid,
-                actuator_type=gv.HardwareType.light)
+                session, ecosystem_uid=g_data.ecosystem_uid, type=gv.HardwareType.light)
         )
         assert logged_light_state.type == gv.HardwareType.light
         assert logged_light_state.active == g_data.light_state.active
@@ -426,7 +425,7 @@ async def test_on_light_data(
     await events_handler.on_light_data(g_data.engine_sid, [g_data.light_data_payload])
 
     async with ecosystem_aware_db.scoped_session() as session:
-        light = await Lighting.get(session, g_data.ecosystem_uid)
+        light = await Lighting.get(session, ecosystem_uid=g_data.ecosystem_uid)
         assert light.method == g_data.light_data["method"]
         assert light.morning_start == g_data.light_data["morning_start"]
         assert light.morning_end == g_data.light_data["morning_end"]

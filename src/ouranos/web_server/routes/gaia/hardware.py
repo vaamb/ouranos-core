@@ -42,9 +42,7 @@ async def hardware_or_abort(
         session: AsyncSession,
         hardware_uid: str
 ) -> Hardware:
-    hardware = await Hardware.get(
-        session=session, hardware_uid=hardware_uid
-    )
+    hardware = await Hardware.get(session, uid=hardware_uid)
     if hardware:
         return hardware
     raise HTTPException(
@@ -67,7 +65,7 @@ async def get_multiple_hardware(
         session: AsyncSession = Depends(get_session),
 ):
     hardware = await Hardware.get_multiple(
-        session=session, hardware_uids=hardware_uid,
+        session, hardware_uids=hardware_uid,
         ecosystem_uids=ecosystems_uid, levels=hardware_level,
         types=hardware_type, models=hardware_model, in_config=in_config)
     return hardware
@@ -158,7 +156,7 @@ async def update_hardware(
     hardware_dict = payload.model_dump()
     try:
         hardware = await hardware_or_abort(session, uid)
-        ecosystem = await Ecosystem.get(session, hardware.ecosystem_uid)
+        ecosystem = await Ecosystem.get(session, uid=hardware.ecosystem_uid)
         await dispatcher.emit(
             event="crud",
             data=gv.CrudPayload(
@@ -198,7 +196,7 @@ async def delete_hardware(
 ):
     try:
         hardware = await hardware_or_abort(session, uid)
-        ecosystem = await Ecosystem.get(session, hardware.ecosystem_uid)
+        ecosystem = await Ecosystem.get(session, uid=hardware.ecosystem_uid)
         await dispatcher.emit(
             event="crud",
             data=gv.CrudPayload(

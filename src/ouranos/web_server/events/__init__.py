@@ -78,7 +78,7 @@ class ClientEvents(AsyncNamespace):
     async def on_turn_light(self, sid, data):
         ecosystem_uid = data["ecosystem"]
         with db.scoped_session() as session:
-            ecosystem = await Ecosystem.get(session, ecosystem_uid)
+            ecosystem = await Ecosystem.get(session, uid=ecosystem_uid)
         if not ecosystem:
             return
         ecosystem_sid = ecosystem.engine.sid
@@ -98,7 +98,7 @@ class ClientEvents(AsyncNamespace):
     async def on_manage_ecosystem(self, sid, data):
         ecosystem_uid = data["ecosystem"]
         with db.scoped_session() as session:
-            ecosystem = await Ecosystem.get(session, ecosystem_uid)
+            ecosystem = await Ecosystem.get(session, uid=ecosystem_uid)
         if not ecosystem:
             return
         ecosystem_sid = ecosystem.engine.sid
@@ -188,7 +188,7 @@ class DispatcherEvents(AsyncEventHandler):
                 data = payload["data"]
                 uid: str = payload["uid"]
                 # Add extra functionalities required
-                ecosystem = await Ecosystem.get(session, uid)
+                ecosystem = await Ecosystem.get(session, uid=uid)
                 data["switches"] = data["climate"] or data["light"]
                 data["environment_data"] = await ecosystem.has_recent_sensor_data(
                     session, level=gv.HardwareLevel.environment)

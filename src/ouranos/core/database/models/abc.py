@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from datetime import datetime, timedelta, timezone
-from typing import NamedTuple, Self, Sequence
+from enum import Enum
+from typing import Any, NamedTuple, Self, Sequence
 
-from sqlalchemy import delete, insert, update
+from sqlalchemy import and_, delete, insert, inspect, or_, Select, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos import db
@@ -27,83 +28,164 @@ class Base(db.Model, ToDictMixin):
 
 
 class CRUDMixin:
-    uid: str | int
+    _lookup_keys: list[str] | None = None
+
+    @classmethod
+    def _get_lookup_keys(cls) -> list[str]:
+        if cls._lookup_keys is None:
+            cls._lookup_keys = [column.name for column in inspect(cls).primary_key]
+        return cls._lookup_keys
 
     @classmethod
     async def create(
             cls,
             session: AsyncSession,
+            /,
             values: dict | list[dict],
     ) -> None:
         stmt = insert(cls).values(values)
         await session.execute(stmt)
 
     @classmethod
+    def _generate_get_query(
+            cls,
+            offset: int | None = None,
+            limit: int | None = None,
+            order_by: str | None = None,
+            **lookup_keys: list[str | Enum] | str | Enum | None,
+    ) -> Select:
+        stmt = select(cls)
+        for key, value in lookup_keys.items():
+            if value is None:
+                continue
+            if isinstance(value, list):
+                stmt = stmt.where(cls.__table__.c[key].in_(value))
+            else:
+                stmt = stmt.where(cls.__table__.c[key] == value)
+        if offset is not None:
+            stmt = stmt.offset(offset)
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        if order_by is not None:
+            stmt = stmt.order_by(order_by)
+        return stmt
+
+    @classmethod
+    async def get(
+            cls,
+            session: AsyncSession,
+            /,
+            **lookup_keys: str | Enum | bool | None,
+    ) -> Self | None:
+        """
+        :param session: an AsyncSession instance
+        :param lookup_keys: a dict with table column names as keys and values
+                            depending on the related column data type
+        """
+        stmt = cls._generate_get_query(**lookup_keys)
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    @classmethod
+    async def get_multiple(
+            cls,
+            session: AsyncSession,
+            /,
+            offset: int | None = None,
+            limit: int | None = None,
+            order_by: str | None = None,
+            **lookup_keys: list[str | Enum] | str | Enum | bool | None,
+    ) -> Sequence[Self]:
+        """
+        :param session: an AsyncSession instance
+        :param offset: the offset from which to start looking
+        :param limit: the maximum number of rows to query
+        :param order_by: how to order the results
+        :param lookup_keys: a dict with table column names as keys and values
+                            depending on the related column data type
+        """
+        stmt = cls._generate_get_query(**lookup_keys)
+        result = await session.execute(stmt)
+        return result.scalars().all()
+
+    @classmethod
     async def update(
             cls,
             session: AsyncSession,
+            /,
             values: dict,
-            uid: str | None = None,
+            **lookup_keys: str | Enum,
     ) -> None:
-        uid = uid or values.pop("uid", None)
-        if not uid:
-            raise ValueError(
-                "Provide uid either as a parameter or as a key in the updated info"
-            )
+        for key in cls._get_lookup_keys():
+            value = lookup_keys.get(key) or values.pop(key, None)
+            if value is None:
+                raise ValueError(
+                    f"Provide '{key}' either as a parameter or as a key in the "
+                    f"updated info")
+            lookup_keys[key] = value
         stmt = (
             update(cls)
-            .where(cls.uid == uid)
+            .where(
+                and_(
+                    cls.__table__.c[key] == value
+                    for key, value in lookup_keys.items()
+                )
+            )
             .values(**values)
         )
         await session.execute(stmt)
 
     @classmethod
+    async def update_multiple(
+            cls,
+            session: AsyncSession,
+            /,
+            values: list[dict],
+    ) -> None:
+        await session.execute(
+            update(cls),
+            values
+        )
+
+    @classmethod
     async def delete(
             cls,
             session: AsyncSession,
-            uid: str,
+            /,
+            **lookup_keys: str | Enum,
     ) -> None:
-        stmt = delete(cls).where(cls.uid == uid)
+        stmt = (
+            delete(cls)
+            .where(
+                and_(
+                    cls.__table__.c[key] == value
+                    for key, value in lookup_keys.items()
+                )
+            )
+        )
         await session.execute(stmt)
 
     @classmethod
     async def update_or_create(
             cls,
             session: AsyncSession,
+            /,
             values: dict,
-            uid: str | None = None,
+            **lookup_keys: str | Enum,
     ) -> None:
-        uid = uid or values.pop("uid", None)
-        if not uid:
-            raise ValueError(
-                "Provide uid either as an argument or as a key in the values"
-            )
-        obj = await cls.get(session, uid)
+        for key in cls._get_lookup_keys():
+            value = lookup_keys.get(key) or values.pop(key, None)
+            if value is None:
+                raise ValueError(
+                    f"Provide '{key}' either as a parameter or as a key in the "
+                    f"updated info")
+            lookup_keys[key] = value
+        obj = await cls.get(session, **lookup_keys)
         if not obj:
-            values["uid"] = uid
-            await cls.create(session, values)
+            values.update(lookup_keys)
+            await cls.create(session, values=values)
         elif values:
-            await cls.update(session, values, uid)
-        else:
-            raise ValueError
-
-    @classmethod
-    @abstractmethod
-    async def get(
-            cls,
-            session: AsyncSession,
-            uid: str,
-    ) -> Self | None:
-        raise NotImplementedError
-
-    @classmethod
-    @abstractmethod
-    async def get_multiple(
-            cls,
-            session: AsyncSession,
-            uid: str | list | None = None,
-    ) -> Sequence[Self]:
-        raise NotImplementedError
+            await cls.update(session, values=values, **lookup_keys)
 
 
 class RecordMixin:

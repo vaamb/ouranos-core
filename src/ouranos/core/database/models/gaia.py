@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from datetime import datetime, time, timedelta, timezone
-from typing import Optional, Sequence, Self, TypedDict
+from enum import Enum
+from typing import Literal, Optional, Sequence, Self, TypedDict
 from uuid import UUID
 
 from asyncache import cached
@@ -28,6 +29,8 @@ from ouranos.core.database.utils import ArchiveLink
 from ouranos.core.utils import create_time_window, timeWindow
 
 
+RecentOrConnected = Literal["recent", "connected", "all"]
+
 measure_order = (
     "temperature", "humidity", "lux", "dew_point", "absolute_moisture",
     "moisture"
@@ -39,7 +42,7 @@ _cache_ecosystem_has_recent_data = TTLCache(maxsize=_ecosystem_caches_size * 2, 
 _cache_sensors_data_skeleton = TTLCache(maxsize=_ecosystem_caches_size, ttl=900)
 _cache_sensor_values = TTLCache(maxsize=_ecosystem_caches_size * 32, ttl=600)
 _cache_warnings = TTLCache(maxsize=5, ttl=60)
-_cache_measures = LRUCache(maxsize=16)
+_cache_measures = LRUCache(maxsize=16)  # TODO: re use
 
 
 class EcosystemActuatorTypesManagedDict(TypedDict):
@@ -88,9 +91,10 @@ class Engine(Base, CRUDMixin):
         return datetime.now(timezone.utc) - self.last_seen <= timedelta(seconds=30.0)
 
     @classmethod
-    async def get(
+    async def get_by_id(
             cls,
             session: AsyncSession,
+            /,
             engine_id: str | UUID,
     ) -> Self | None:
         if isinstance(engine_id, UUID):
@@ -103,47 +107,60 @@ class Engine(Base, CRUDMixin):
         return result.scalar_one_or_none()
 
     @classmethod
-    async def get_multiple(
+    async def get_multiple_by_id(
             cls,
             session: AsyncSession,
-            engines: str | list | None = None,
+            /,
+            engines_id: RecentOrConnected | list[str] | list[UUID] | None = None,
     ) -> Sequence[Self]:
-        if engines is None:
+        if engines_id is None or engines_id == "all":
             stmt = (
                 select(cls)
                 .order_by(cls.last_seen.desc())
             )
             result = await session.execute(stmt)
             return result.scalars().all()
-        if isinstance(engines, str):
-            engines = engines.split(",")
-        if "recent" in engines:
+        elif engines_id == "recent":
             time_limit = datetime.now(timezone.utc) - timedelta(hours=TIME_LIMITS.RECENT)
             stmt = (
                 select(cls)
                 .where(cls.last_seen >= time_limit)
                 .order_by(cls.last_seen.desc())
             )
-        elif "connected" in engines:
+            result = await session.execute(stmt)
+            return result.scalars().all()
+        elif engines_id == "connected":
             stmt = (
                 select(cls)
                 .where(cls.connected == True)  # noqa
                 .order_by(cls.uid.asc())
             )
-        else:
-            stmt = (
-                select(cls)
-                .where(
-                    (cls.uid.in_(engines))
-                    | (cls.sid.in_(engines))
+            result = await session.execute(stmt)
+            return result.scalars().all()
+        if isinstance(engines_id, str):
+            # Should not happen
+            engines_id = engines_id.split(",")
+        # Check that all the list elements are of the same types as it can lead
+        #  to issues on some backend
+        lst_type = type(engines_id[0])
+        if len(engines_id) > 0:
+            if not all(isinstance(id_, lst_type) for id_ in engines_id[1:]):
+                raise ValueError(
+                    "All the elements should either be engines 'uid' or 'name'"
                 )
-                .order_by(cls.uid.asc())
-            )
+        if lst_type == str:
+            # Received an engine uid
+            stmt = select(cls).where(cls.uid.in_(engines_id))
+        else:
+            # Received an engine sid
+            # Received an engine sid
+            stmt = select(cls).where(cls.sid.in_(engines_id))
+        stmt = stmt.order_by(cls.uid.asc())
         result = await session.execute(stmt)
         return result.scalars().all()
 
     async def get_crud_requests(self, session: AsyncSession) -> Sequence[CrudRequest]:
-        response = await CrudRequest.get_for_engine(session, self.uid)
+        response = await CrudRequest.get_for_engine(session, engine_uid=self.uid)
         return response
 
 
@@ -198,58 +215,74 @@ class Ecosystem(Base, CRUDMixin, InConfigMixin):
             return None
 
     @classmethod
-    async def get(
+    async def get_by_id(
             cls,
             session: AsyncSession,
+            /,
             ecosystem_id: str,
     ) -> Self | None:
         stmt = (
             select(cls)
-            .where((cls.uid == ecosystem_id) | (cls.name == ecosystem_id))
+            .where(
+                (cls.uid == ecosystem_id)
+                | (cls.name == ecosystem_id)
+            )
         )
         result = await session.execute(stmt)
         return result.unique().scalar_one_or_none()
 
     @classmethod
-    async def get_multiple(
+    async def get_multiple_by_id(
             cls,
             session: AsyncSession,
-            ecosystems: str | list[str] | None = None,
+            /,
+            ecosystems_id: RecentOrConnected | list[str] | None = None,
             in_config: bool | None = None,
     ) -> Sequence[Self]:
-        if ecosystems is None:
+        if ecosystems_id is None or ecosystems_id == "all":
             stmt = (
                 select(cls)
-                .order_by(cls.name.asc(),
-                          cls.last_seen.desc())
+                .order_by(
+                    cls.name.asc(),
+                    cls.last_seen.desc()
+                )
             )
             if in_config is not None:
                 stmt = stmt.where(cls.in_config == in_config)
             result = await session.execute(stmt)
             return result.scalars().all()
-
-        if isinstance(ecosystems, str):
-            ecosystems = ecosystems.split(",")
-        if "recent" in ecosystems:
+        if ecosystems_id == "recent":
             time_limit = datetime.now(timezone.utc) - timedelta(hours=TIME_LIMITS.RECENT)
             stmt = (
                 select(cls)
                 .where(cls.last_seen >= time_limit)
                 .order_by(cls.status.desc(), cls.name.asc())
             )
-        elif "connected" in ecosystems:
+            if in_config is not None:
+                stmt = stmt.where(cls.in_config == in_config)
+            result = await session.execute(stmt)
+            return result.scalars().all()
+        elif ecosystems_id == "connected":
             stmt = (
                 select(cls).join(Engine.ecosystems)
                 .where(Engine.connected == True)  # noqa
                 .order_by(cls.name.asc())
             )
-        else:
-            stmt = (
-                select(cls)
-                .where(cls.uid.in_(ecosystems) |
-                       cls.name.in_(ecosystems))
-                .order_by(cls.last_seen.desc(), cls.name.asc())
+            if in_config is not None:
+                stmt = stmt.where(cls.in_config == in_config)
+            result = await session.execute(stmt)
+            return result.scalars().all()
+        if isinstance(ecosystems_id, str):
+            # Should not happen
+            ecosystems_id = ecosystems_id.split(",")
+        stmt = (
+            select(cls)
+            .where(
+                (cls.uid.in_(ecosystems_id))
+                | (cls.name.in_(ecosystems_id))
             )
+            .order_by(cls.last_seen.desc(), cls.name.asc())
+        )
         if in_config is not None:
             stmt = stmt.where(cls.in_config == in_config)
         result = await session.execute(stmt)
@@ -279,12 +312,12 @@ class Ecosystem(Base, CRUDMixin, InConfigMixin):
         time_limit = datetime.now(timezone.utc) - timedelta(hours=TIME_LIMITS.SENSORS)
         stmt = (
             select(Hardware)
-            .where(Hardware.ecosystem_uid == self.uid)
             .where(
+                Hardware.ecosystem_uid == self.uid,
                 Hardware.type == gv.HardwareType.sensor,
-                Hardware.level == level
+                Hardware.level == level,
+                Hardware.last_log >= time_limit,
             )
-            .filter(Hardware.last_log >= time_limit)
         )
         result = await session.execute(stmt)
         return bool(result.first())
@@ -307,11 +340,12 @@ class Ecosystem(Base, CRUDMixin, InConfigMixin):
     async def get_hardware(
             self,
             session: AsyncSession,
+            /,
             hardware_type: gv.HardwareType | None = None,
             in_config: bool | None = None,
     ) -> Sequence[Hardware]:
         return await Hardware.get_multiple(
-            session, ecosystem_uids=[self.uid], types=hardware_type,
+            session, ecosystem_uid=self.uid, type=hardware_type,
             in_config=in_config)
 
     @cached(_cache_sensors_data_skeleton, key=sessionless_hashkey)
@@ -438,105 +472,9 @@ class ActuatorState(Base, CRUDMixin):
     status: Mapped[bool] = mapped_column(default=False)
     level: Mapped[Optional[float]] = mapped_column(sa.Float(precision=2), default=None)
 
-    @classmethod
-    async def update(
-            cls,
-            session: AsyncSession,
-            actuator_info: dict,
-            ecosystem_uid: str | None = None,
-            actuator_type: gv.HardwareType | None = None,
-    ) -> None:
-        ecosystem_uid = ecosystem_uid or actuator_info.pop("ecosystem_uid", None)
-        actuator_type = actuator_type or actuator_info.pop("type", None)
-        if not (ecosystem_uid and actuator_type):
-            raise ValueError(
-                "Provide uid and actuator_type either as a argument or as a key in the "
-                "updated info"
-            )
-        if not actuator_info:
-            return
-        stmt = (
-            update(cls)
-            .where(
-                cls.ecosystem_uid == ecosystem_uid,
-                cls.type == actuator_type
-            )
-            .values(**actuator_info)
-        )
-        await session.execute(stmt)
-
-    @classmethod
-    async def delete(
-            cls,
-            session: AsyncSession,
-            ecosystem_uid: str,
-            actuator_type: gv.HardwareType,
-    ) -> None:
-        stmt = (
-            delete(cls)
-            .where(
-                cls.ecosystem_uid == ecosystem_uid,
-                cls.type == actuator_type,
-            )
-        )
-        await session.execute(stmt)
-
-    @classmethod
-    async def update_or_create(
-            cls,
-            session: AsyncSession,
-            values: dict,
-            ecosystem_uid: str | None = None,
-            actuator_type: gv.HardwareType | None = None,
-    ) -> None:
-        ecosystem_uid = ecosystem_uid or values.pop("ecosystem_uid", None)
-        actuator_type = actuator_type or values.pop("type", None)
-        if not (ecosystem_uid and actuator_type):
-            raise ValueError(
-                "Provide uid and actuator_type either as a argument or as a key in the "
-                "updated info"
-            )
-        actuator_status = await cls.get(
-            session, ecosystem_uid=ecosystem_uid, actuator_type=actuator_type)
-        if not actuator_status:
-            values["ecosystem_uid"] = ecosystem_uid
-            values["type"] = actuator_type
-            await cls.create(session, values)
-        elif values:
-            await cls.update(session, values, ecosystem_uid, actuator_type)
-
-    @classmethod
-    async def get(
-            cls,
-            session: AsyncSession,
-            ecosystem_uid: str,
-            actuator_type: gv.HardwareType,
-    ) -> Self | None:
-        stmt = (
-            select(cls)
-            .where(cls.ecosystem_uid == ecosystem_uid)
-            .where(cls.type == actuator_type)
-        )
-        result = await session.execute(stmt)
-        return result.scalar_one_or_none()
-
-    @classmethod
-    async def get_multiple(
-            cls,
-            session: AsyncSession,
-            ecosystem_uids: list[str] | None = None,
-            actuator_types: list[gv.HardwareType] | None = None,
-    ) -> Sequence[Self]:
-        stmt = select(cls)
-        if ecosystem_uids:
-            stmt = stmt.where(cls.ecosystem_uid.in_(ecosystem_uids))
-        if actuator_types:
-            stmt = stmt.where(cls.type.in_(actuator_types))
-        result = await session.execute(stmt)
-        return result.scalars().all()
-
 
 class Place(Base, CRUDMixin):
+    _lookup_keys = ["engine_uid", "name"]
     __tablename__ = "places"
     __table_args__ = (
         UniqueConstraint(
@@ -560,110 +498,6 @@ class Place(Base, CRUDMixin):
             f"<Place({self.name}, coordinates=({self.longitude}, {self.latitude}))>"
         )
 
-    @classmethod
-    async def update(
-            cls,
-            session: AsyncSession,
-            values: dict,
-            engine_uid: str | None = None,
-            name: str | None = None,
-    ) -> None:
-        engine_uid = engine_uid or values.pop("uid", None)
-        if not engine_uid:
-            raise ValueError(
-                "Provide 'uid' either as a parameter or as a key in the updated info."
-            )
-        name = name or values.pop("uid", None)
-        if not name:
-            raise ValueError(
-                "Provide 'name' either as a parameter or as a key in the updated info."
-            )
-        stmt = (
-            update(cls)
-            .where(
-                cls.engine_uid == engine_uid,
-                cls.name == name,
-            )
-            .values(**values)
-        )
-        await session.execute(stmt)
-
-    @classmethod
-    async def delete(
-            cls,
-            session: AsyncSession,
-            engine_uid: str,
-            name: str,
-    ) -> None:
-        stmt = (
-            delete(cls)
-            .where(
-                cls.engine_uid == engine_uid,
-                cls.name == name,
-            )
-        )
-        await session.execute(stmt)
-
-    @classmethod
-    async def update_or_create(
-            cls,
-            session: AsyncSession,
-            values: dict,
-            engine_uid: str | None = None,
-            name: str | None = None,
-    ) -> None:
-        engine_uid = engine_uid or values.pop("engine_uid", None)
-        if not engine_uid:
-            raise ValueError(
-                "Provide 'uid' either as a parameter or as a key in the updated info."
-            )
-        name = name or values.pop("name", None)
-        if not name:
-            raise ValueError(
-                "Provide 'name' either as a parameter or as a key in the updated info."
-            )
-        obj = await cls.get(session, engine_uid, name)
-        if not obj:
-            values["engine_uid"] = engine_uid
-            values["name"] = name
-            await cls.create(session, values)
-        elif values:
-            await cls.update(session, values, engine_uid, name)
-        else:
-            raise ValueError
-
-    @classmethod
-    async def get(
-            cls,
-            session: AsyncSession,
-            engine_uid: str,
-            name: str,
-    ) -> Self | None:
-        stmt = (
-            select(cls)
-            .where(
-                cls.engine_uid == engine_uid,
-                cls.name == name,
-            )
-        )
-        result = await session.execute(stmt)
-        return result.scalar_one_or_none()
-
-    @classmethod
-    async def get_multiple(
-            cls,
-            session: AsyncSession,
-            engine_uid: list[str] | None = None,
-            name: list[str] | None = None,
-    ) -> Sequence[Self]:
-        stmt = select(cls)
-        if engine_uid:
-            stmt = stmt.where(cls.ecosystem_uid.in_(engine_uid))
-        if name:
-            stmt = stmt.where(cls.ecosystem_uid.in_(name))
-        result = await session.execute(stmt)
-        return result.scalars().all()
-
 
 class Lighting(Base, CRUDMixin):
     __tablename__ = "lightings"
@@ -686,68 +520,6 @@ class Lighting(Base, CRUDMixin):
             f"mode={self.mode})>"
         )
 
-    @classmethod
-    async def update(
-            cls,
-            session: AsyncSession,
-            values: dict,
-            ecosystem_uid: str | None = None,
-    ) -> None:
-        ecosystem_uid = ecosystem_uid or values.pop("ecosystem_uid", None)
-        if not ecosystem_uid:
-            raise ValueError(
-                "Provide uid either as a parameter or as a key in the updated info"
-            )
-        stmt = (
-            update(cls)
-            .where(cls.ecosystem_uid == ecosystem_uid)
-            .values(**values)
-        )
-        await session.execute(stmt)
-
-    @classmethod
-    async def get(
-            cls,
-            session: AsyncSession,
-            ecosystem_uid: str,
-    ) -> Self | None:
-        stmt = select(cls).where(cls.ecosystem_uid == ecosystem_uid)
-        result = await session.execute(stmt)
-        return result.scalar_one_or_none()
-
-    @classmethod
-    async def get_multiple(
-            cls,
-            session: AsyncSession,
-            ecosystem_uids: list[str] | None = None,
-    ) -> Sequence[Self]:
-        stmt = select(cls)
-        if ecosystem_uids:
-            stmt = stmt.where(cls.ecosystem_uid.in_(ecosystem_uids))
-        result = await session.execute(stmt)
-        return result.scalars().all()
-
-    @classmethod
-    async def update_or_create(
-            cls,
-            session: AsyncSession,
-            values: dict,
-            ecosystem_uid: str | None = None,
-    ) -> None:
-        ecosystem_uid = ecosystem_uid or values.pop("ecosystem_uid", None)
-        if not ecosystem_uid:
-            raise ValueError(
-                "Provide ecosystem_uid either as an argument or as a key in the values"
-            )
-        obj = await cls.get(session, ecosystem_uid)
-        if not obj:
-            values["ecosystem_uid"] = ecosystem_uid
-            await cls.create(session, values)
-        elif values:
-            await cls.update(session, values, ecosystem_uid)
-        else:
-            raise ValueError
-
 
 class EnvironmentParameter(Base, CRUDMixin):
     __tablename__ = "environment_parameters"
@@ -764,102 +536,11 @@ class EnvironmentParameter(Base, CRUDMixin):
     ecosystem: Mapped["Ecosystem"] = relationship(
         back_populates="environment_parameters", lazy="selectin")
 
-    @classmethod
-    async def update(
-            cls,
-            session: AsyncSession,
-            parameter_info: dict,
-            uid: str | None = None,
-            parameter: str | None = None,
-    ) -> None:
-        uid = uid or parameter_info.pop("uid", None)
-        parameter = parameter or parameter_info.pop("parameter", None)
-        if not (uid and parameter):
-            raise ValueError(
-                "Provide uid and parameter either as a argument or as a key in the "
-                "updated info"
-            )
-        stmt = (
-            update(cls)
-            .where(
-                cls.ecosystem_uid == uid,
-                cls.parameter == parameter
-            )
-            .values(**parameter_info)
+    def __repr__(self) -> str:
+        return (
+            f"<EnvironmentParameter({self.ecosystem_uid}, parameter={self.parameter}, "
+            f"day={self.day}, night={self.night}, hysteresis={self.hysteresis})>"
         )
-        await session.execute(stmt)
-
-    @classmethod
-    async def delete(
-            cls,
-            session: AsyncSession,
-            uid: str,
-            parameter: str,
-    ) -> None:
-        stmt = (
-            delete(cls)
-            .where(
-                cls.ecosystem_uid == uid,
-                cls.parameter == parameter
-            )
-        )
-        await session.execute(stmt)
-
-    @classmethod
-    async def update_or_create(
-            cls,
-            session: AsyncSession,
-            values: dict,
-            uid: str | None = None,
-            parameter: str | None = None,
-    ) -> None:
-        uid = uid or values.pop("uid", None)
-        parameter = parameter or values.pop("parameter", None)
-        if not (uid and parameter):
-            raise ValueError(
-                "Provide uid and parameter either as a argument or as a key in the "
-                "updated info"
-            )
-        environment_parameter = await cls.get(
-            session, uid=uid, parameter=parameter)
-        if not environment_parameter:
-            values["ecosystem_uid"] = uid
-            values["parameter"] = parameter
-            await cls.create(session, values)
-        elif values:
-            await cls.update(session, values, uid, parameter)
-        else:
-            raise ValueError
-
-    @classmethod
-    async def get(
-            cls,
-            session: AsyncSession,
-            uid: str,
-            parameter: str,
-    ) -> Self | None:
-        stmt = (
-            select(cls)
-            .where(cls.ecosystem_uid == uid)
-            .where(cls.parameter == parameter)
-        )
-        result = await session.execute(stmt)
-        return result.scalar_one_or_none()
-
-    @classmethod
-    async def get_multiple(
-            cls,
-            session: AsyncSession,
-            uids: list | None = None,
-            parameters: list | None = None,
-    ) -> Sequence[Self]:
-        stmt = select(cls)
-        if uids:
-            stmt = stmt.where(cls.ecosystem_uid.in_(uids))
-        if parameters:
-            stmt = stmt.where(cls.parameter.in_(parameters))
-        result = await session.execute(stmt)
-        return result.scalars().all()
 
 
 AssociationHardwareMeasure = Table(
@@ -936,16 +617,17 @@ class Hardware(Base, CRUDMixin, InConfigMixin):
             if hasattr(m, "model_dump"):
                 m = m.model_dump()
             m: gv.MeasureDict
-            measure = await Measure.get(session, m["name"], m["unit"])
+            measure = await Measure.get(session, name=m["name"])
             if measure is None:
-                await Measure.create(session, {"name": m["name"], "unit": m["unit"]})
-                measure = await Measure.get(session, m["name"], m["unit"])
+                await Measure.create(session, values={"name": m["name"], "unit": m["unit"]})
+                measure = await Measure.get(session, name=m["name"])
             self.measures.append(measure)
 
     @classmethod
     async def create(
             cls,
             session: AsyncSession,
+            /,
             values: gv.HardwareConfigDict,
     ) -> None:
         measures: list[gv.Measure | gv.MeasureDict] = values.pop("measures", [])
@@ -953,7 +635,7 @@ class Hardware(Base, CRUDMixin, InConfigMixin):
         stmt = insert(cls).values(values)
         await session.execute(stmt)
         if any((measures, plants)):
-            hardware_obj = await cls.get(session, values["uid"])
+            hardware_obj = await cls.get(session, uid=values["uid"])
             if measures:
                 await hardware_obj.attach_measures(session, measures)
             if plants:
@@ -964,71 +646,25 @@ class Hardware(Base, CRUDMixin, InConfigMixin):
     async def update(
             cls,
             session: AsyncSession,
+            /,
             values: dict,
-            uid: str | None = None,
+            **lookup_keys: str | Enum,
     ) -> None:
-        uid = uid or values.get("uid")
+        uid = lookup_keys.get("uid") or values.get("uid", None)
+        if uid is None:
+            raise ValueError(
+                f"Provide 'uid' either as a parameter or as a key in the "
+                f"updated info")
         measures = values.pop("measures", [])
         plants = values.pop("plants", [])
-        await super().update(session, values, uid)
+        await super().update(session, uid=uid, values=values)
         if any((measures, plants)):
-            hardware_obj = await cls.get(session, uid)
+            hardware_obj = await cls.get(session, uid=uid)
             if measures:
                 await hardware_obj.attach_measures(session, measures)
             if plants:
                 await hardware_obj.attach_plants(session, plants)
             await session.commit()
-
-    @classmethod
-    async def get(
-            cls,
-            session: AsyncSession,
-            hardware_uid: str,
-    ) -> Self | None:
-        stmt = select(cls).where(cls.uid == hardware_uid)
-        result = await session.execute(stmt)
-        return result.unique().scalars().one_or_none()
-
-    @classmethod
-    def generate_query(
-            cls,
-            hardware_uid: str | list | None = None,
-            ecosystem_uid: str | list | None = None,
-            level: gv.HardwareLevel | list[gv.HardwareLevel] | None = None,
-            type: gv.HardwareType | list[gv.HardwareType] | None = None,
-            model: str | list | None = None,
-    ):
-        uid = hardware_uid
-        query = select(cls)
-        local_vars = locals()
-        args = "uid", "ecosystem_uid", "level", "type", "model"
-        for arg in args:
-            value = local_vars.get(arg)
-            if value:
-                if isinstance(value, str):
-                    value = value.split(",")
-                hardware_attr = getattr(cls, arg)
-                query = query.where(hardware_attr.in_(value))
-        return query
-
-    @classmethod
-    async def get_multiple(
-            cls,
-            session: AsyncSession,
-            hardware_uids: str | list | None = None,
-            ecosystem_uids: str | list | None = None,
-            levels: gv.HardwareLevel | list[gv.HardwareLevel] | None = None,
-            types: gv.HardwareType | list[gv.HardwareType] | None = None,
-            models: str | list | None = None,
-            in_config: bool | None = None,
-    ) -> Sequence[Self]:
-        stmt = cls.generate_query(
-            hardware_uids, ecosystem_uids, levels, types, models
-        )
-        if in_config is not None:
-            stmt = stmt.where(cls.in_config == in_config)
-        result = await session.execute(stmt)
-        return result.unique().scalars().all()
 
     @staticmethod
     def get_models_available() -> list[str]:
@@ -1060,36 +696,29 @@ class Sensor(Hardware):
     async def get(
             cls,
             session: AsyncSession,
-            uid: str,
+            /,
             time_window: timeWindow | None = None,
+            **lookup_keys: str | Enum,
     ) -> Self | None:
-        stmt = cls.generate_query(hardware_uid=uid)
+        lookup_keys["type"] = gv.HardwareType.sensor
+        stmt = cls._generate_get_query(**lookup_keys)
         if time_window:
             stmt = cls._add_time_window_to_stmt(stmt, time_window)
         result = await session.execute(stmt)
-        hardware: Hardware | None = result.unique().scalar_one_or_none()
-        if hardware:
-            if hardware.type != gv.HardwareType.sensor:
-                hardware = None
-        return hardware
+        return result.unique().scalar_one_or_none()
 
     @classmethod
     async def get_multiple(
             cls,
             session: AsyncSession,
-            hardware_uids: str | list | None = None,
-            ecosystem_uids: str | list | None = None,
-            levels: gv.HardwareLevel | list[gv.HardwareLevel] | None = None,
-            models: str | list | None = None,
-            time_window: timeWindow = None,
-            in_config: bool | None = None,
+            /,
+            time_window: timeWindow | None = None,
+            **lookup_keys: str | Enum,
     ) -> Sequence[Self]:
-        stmt = cls.generate_query(
-            hardware_uids, ecosystem_uids, levels, gv.HardwareType.sensor, models)
+        lookup_keys["type"] = gv.HardwareType.sensor
+        stmt = cls._generate_get_query(**lookup_keys)
         if time_window:
             stmt = cls._add_time_window_to_stmt(stmt, time_window)
-        if in_config is not None:
-            stmt = stmt.where(cls.in_config == in_config)
         result = await session.execute(stmt)
         return result.unique().scalars().all()
 
@@ -1167,49 +796,42 @@ class Actuator(Hardware):
     async def get(
             cls,
             session: AsyncSession,
-            uid: str,
+            /,
             time_window: timeWindow | None = None,
+            **lookup_keys,
     ) -> Self | None:
-        stmt = cls.generate_query(hardware_uid=uid)
+        type_: Enum | None = lookup_keys.get("type", None)
+        if type_ is not None:
+            assert not type_ & gv.HardwareType.sensor
+        stmt = cls._generate_get_query(**lookup_keys)
         if time_window:
             stmt = cls._add_time_window_to_stmt(stmt, time_window)
         result = await session.execute(stmt)
-        hardware: Hardware | None = result.unique().scalar_one_or_none()
-        if hardware:
-            if hardware.type == gv.HardwareType.sensor:
-                hardware = None
-        return hardware
+        return result.unique().scalar_one_or_none()
 
     @classmethod
     async def get_multiple(
             cls,
             session: AsyncSession,
-            hardware_uids: str | list | None = None,
-            ecosystem_uids: str | list | None = None,
-            type: gv.HardwareType | list[gv.HardwareType] | None = None,
-            levels: gv.HardwareLevel | list[gv.HardwareLevel] | None = None,
-            models: str | list | None = None,
-            time_window: timeWindow = None,
-            in_config: bool | None = None,
+            /,
+            time_window: timeWindow | None = None,
+            **lookup_keys,
     ) -> Sequence[Self]:
-        if type is not None:
-            if isinstance(type, list):
-                for t in type:
-                    assert t in gv.HardwareType.actuator
-            else:
-                assert type in gv.HardwareType.actuator
-        stmt = cls.generate_query(
-            hardware_uids, ecosystem_uids, levels, type, models)
+        type_: Enum | list[Enum] | None = lookup_keys.get("type", None)
+        if type_ is not None:
+            if not isinstance(type_, list):
+                type_ = [type_]
+            for t in type_:
+                assert t & gv.HardwareType.actuator
+        stmt = cls._generate_get_query(**lookup_keys)
         if time_window:
             stmt = cls._add_time_window_to_stmt(stmt, time_window)
-        if in_config is not None:
-            stmt = stmt.where(cls.in_config == in_config)
         result = await session.execute(stmt)
-        hardware: Sequence[Hardware] = result.unique().scalars().all()
-        return [h for h in hardware if h.type != gv.HardwareType.sensor]
+        return result.unique().scalars().all()
 
 
 class Measure(Base, CRUDMixin):
+    _lookup_keys = ["name"]
     __tablename__ = "measures"
 
     id: Mapped[int] = mapped_column(primary_key=True)  # Use this as PK as the name might be changed
@@ -1220,49 +842,8 @@ class Measure(Base, CRUDMixin):
     hardware: Mapped[list["Hardware"]] = relationship(
         back_populates="measures", secondary=AssociationHardwareMeasure)
 
-    @classmethod
-    @cached(_cache_measures, key=sessionless_hashkey)
-    async def get_unit(
-            cls,
-            session: AsyncSession,
-            *,
-            measure_name: str
-    ) -> str | None:
-        stmt = (
-            select(cls)
-            .filter(cls.name == measure_name)
-        )
-        result = await session.execute(stmt)
-        measure_obj = result.scalars().one_or_none()
-        if measure_obj is not None:
-            return measure_obj.unit
-        return None
-
-    @classmethod
-    async def get(
-            cls,
-            session: AsyncSession,
-            name: str,
-            unit: str | None = None,
-    ) -> Self | None:
-        stmt = select(cls).where(
-            (cls.name == name)
-            & (cls.unit == unit)
-        )
-        result = await session.execute(stmt)
-        return result.scalars().one_or_none()
-
-    @classmethod
-    async def get_multiple(
-            cls,
-            session: AsyncSession,
-            names: list[str] | None = None
-    ) -> Sequence[Self]:
-        stmt = select(cls)
-        if names:
-            stmt = stmt.where(cls.name.in_(names))
-        result = await session.execute(stmt)
-        return result.scalars().all()
+    def __repr__(self) -> str:
+        return f"<Measure({self.name}, unit={self.unit})>"
 
 
 class Plant(Base, CRUDMixin, InConfigMixin):
@@ -1755,6 +1336,7 @@ class GaiaWarning(Base):
     async def create(
             cls,
             session: AsyncSession,
+            /,
             ecosystem_uid: str,
             values: dict,
     ) -> None:
@@ -1767,7 +1349,7 @@ class GaiaWarning(Base):
     async def get_multiple(
             cls,
             session: AsyncSession,
-            *,
+            /,
             show_solved: bool = False,
             ecosystems: str | list[str] | None = None,
             limit: int = 10,
@@ -1790,6 +1372,7 @@ class GaiaWarning(Base):
     async def update(
             cls,
             session: AsyncSession,
+            /,
             warning_id: int,
             ecosystem_uid: str,
             values: dict,
@@ -1811,6 +1394,7 @@ class GaiaWarning(Base):
     async def mark_as_seen(
             cls,
             session: AsyncSession,
+            /,
             warning_id: int,
             user_id: int,
     ) -> None:
@@ -1832,6 +1416,7 @@ class GaiaWarning(Base):
     async def mark_as_solved(
             cls,
             session: AsyncSession,
+            /,
             warning_id: int,
             user_id: int,
     ) -> None:
@@ -1872,33 +1457,10 @@ class CrudRequest(Base, CRUDMixin):
         return self.result is not None
 
     @classmethod
-    async def get(cls, session: AsyncSession, uuid: UUID) -> Self | None:
-        stmt = select(cls).where(cls.uuid == uuid)
-        result = await session.execute(stmt)
-        return result.scalars().one_or_none()
-
-    @classmethod
-    async def get_multiple(
-            cls,
-            session: AsyncSession,
-            uuid: list[UUID] | None = None,
-            limit: int = 15,
-    ) -> Sequence[Self]:
-        stmt = select(cls)
-        if uuid is not None:
-            stmt = stmt.where(cls.uuid.in_(uuid))
-        stmt = (
-            stmt
-            .order_by(cls.created_on.desc())
-            .limit(limit)
-        )
-        result = await session.execute(stmt)
-        return result.scalars().all()
-
-    @classmethod
     async def get_for_engine(
             cls,
             session: AsyncSession,
+            /,
             engine_uid: str,
             limit: int = 10,
     ) -> Sequence[Self]:

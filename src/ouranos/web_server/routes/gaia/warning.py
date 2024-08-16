@@ -27,7 +27,7 @@ async def get_warnings(
         session: AsyncSession = Depends(get_session),
 ):
     response = await GaiaWarning.get_multiple(
-        session, limit=limit, ecosystems=ecosystems_uid, show_solved=solved)
+        session, ecosystems=ecosystems_uid, show_solved=solved, limit=limit)
     return response
 
 

@@ -21,7 +21,7 @@ async def system_or_abort(
         session: AsyncSession,
         uid: str,
 ) -> System:
-    system = await System.get(session=session, uid=uid)
+    system = await System.get(session, uid=uid)
     if system:
         return system
     raise HTTPException(
