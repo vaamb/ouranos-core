@@ -38,37 +38,6 @@ class System(Base, CRUDMixin):
     RAM_total: Mapped[float] = mapped_column(sa.Float(precision=2))
     DISK_total: Mapped[float] = mapped_column(sa.Float(precision=2))
 
-    @classmethod
-    async def get(cls, session: AsyncSession, uid: str) -> Self | None:
-        stmt = select(cls).where(cls.uid == uid)
-        result = await session.execute(stmt)
-        return result.scalar_one_or_none()
-
-    @classmethod
-    async def get_multiple(
-            cls,
-            session: AsyncSession,
-            uid: str | list | None = None,
-    ) -> Sequence[Self]:
-        if uid is None:
-            stmt = (
-                select(cls)
-                .order_by(cls.uid.asc(),
-                          cls.start_time.desc())
-            )
-            result = await session.execute(stmt)
-            return result.scalars().all()
-
-        if isinstance(uid, str):
-            uid = [uid, ]
-        stmt = (
-            select(cls)
-            .where(cls.uid.in_(uid))
-            .order_by(cls.start_time.desc())
-        )
-        result = await session.execute(stmt)
-        return result.scalars().all()
-
     async def get_recent_timed_values(
             self,
             session: AsyncSession,

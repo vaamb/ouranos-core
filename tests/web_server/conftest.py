@@ -96,7 +96,7 @@ async def add_ecosystems(db: AsyncSQLAlchemyWrapper):
 @pytest_asyncio.fixture(scope="module", autouse=True)
 async def add_system(db: AsyncSQLAlchemyWrapper):
     async with db.scoped_session() as session:
-        await System.create(session, system_dict)
+        await System.create(session, values=system_dict)
 
         adapted_system_record = system_data_dict.copy()
         await SystemDataCache.insert_data(session, adapted_system_record)
