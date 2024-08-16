@@ -354,7 +354,7 @@ class GaiaEvents(BaseEvents):
                 await Ecosystem.update_or_create(
                     session, {
                         **ecosystem,
-                        "in_config":True,
+                        "in_config": True,
                         "last_seen": datetime.now(timezone.utc)
                     }
                 )
@@ -362,20 +362,19 @@ class GaiaEvents(BaseEvents):
                 # Add the possible actuator types if missing
                 actuator_types = {i for i in gv.HardwareType.actuator}
                 actuator_states = await ActuatorState.get_multiple(
-                    session, ecosystem_uid=[ecosystem["uid"]], type=[*actuator_types])
-                present = {actuator_state.type for actuator_state in actuator_states}
-                missing = actuator_types - present
-                for actuator_state in actuator_states:
-                    actuator_types.discard(actuator_state.type)
-                await ActuatorState.create(
-                    session,
-                    values=[
-                        {
-                            "ecosystem_uid": ecosystem["uid"],
-                            "type": actuator_type,
-                        } for actuator_type in actuator_types
-                    ],
-                )
+                    session, ecosystem_uid=ecosystem["uid"], type=[*actuator_types])
+                actuator_types_present = {actuator_state.type for actuator_state in actuator_states}
+                missing_actuator_types = actuator_types - actuator_types_present
+                if missing_actuator_types:
+                    await ActuatorState.create(
+                        session,
+                        values=[
+                            {
+                                "ecosystem_uid": ecosystem["uid"],
+                                "type": actuator_type,
+                            } for actuator_type in missing_actuator_types
+                        ],
+                    )
 
             # Remove ecosystems not in `ecosystems.cfg` anymore
             stmt = (
