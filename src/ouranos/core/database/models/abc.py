@@ -75,6 +75,8 @@ class CRUDMixin:
             cls,
             session: AsyncSession,
             /,
+            offset: int | None = None,
+            limit: int | None = None,
             **lookup_keys: list[str | Enum] | str,
     ) -> Sequence[Self]:
         valid_lookup_keys = {}
@@ -100,6 +102,10 @@ class CRUDMixin:
                 )
             )
         )
+        if offset is not None:
+            stmt = stmt.offset(offset)
+        if limit is not None:
+            stmt = stmt.limit(limit)
         result = await session.execute(stmt)
         return result.scalars().all()
 
