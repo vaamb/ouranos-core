@@ -79,29 +79,13 @@ class CRUDMixin:
             order_by: str | None = None,
             **lookup_keys: list[str | Enum] | str,
     ) -> Sequence[Self]:
-        valid_lookup_keys = {}
-        for key in cls._get_lookup_keys():
-            value = lookup_keys.get(key, None)
-            if value is None:
-                continue
-            if isinstance(value, str):
-                value = [value]
-            valid_lookup_keys[key] = value
-
-        if not valid_lookup_keys:
-            stmt = select(cls)
-            result = await session.execute(stmt)
-            return result.scalars().all()
-
-        stmt = (
-            select(cls)
-            .where(
-                or_(
-                    cls.__table__.c[key].in_(value)
-                    for key, value in valid_lookup_keys.items()
-                )
-            )
-        )
+        stmt = select(cls)
+        for key in lookup_keys:
+            values = lookup_keys[key]
+            if isinstance(values, list):
+                stmt = stmt.where(cls.__table__.c[key].in_(values))
+            else:
+                stmt = stmt.where(cls.__table__.c[key] == values)
         if offset is not None:
             stmt = stmt.offset(offset)
         if limit is not None:
