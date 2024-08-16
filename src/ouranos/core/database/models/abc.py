@@ -29,13 +29,13 @@ class Base(db.Model, ToDictMixin):
 
 
 class CRUDMixin:
-    __primary_keys: list[str] | None = None
+    _lookup_keys: list[str] | None = None
 
     @classmethod
-    def _get_primary_keys(cls) -> list[str]:
-        if cls.__primary_keys is None:
-            cls.__primary_keys = [column.name for column in inspect(cls).primary_key]
-        return cls.__primary_keys
+    def _get_lookup_keys(cls) -> list[str]:
+        if cls._lookup_keys is None:
+            cls._lookup_keys = [column.name for column in inspect(cls).primary_key]
+        return cls._lookup_keys
 
     @classmethod
     async def create(
@@ -52,10 +52,10 @@ class CRUDMixin:
             cls,
             session: AsyncSession,
             /,
-            **primary_keys: str | Enum,
+            **lookup_keys: str | Enum,
     ) -> Self | None:
-        for key in cls._get_primary_keys():
-            value = primary_keys.get(key)
+        for key in cls._get_lookup_keys():
+            value = lookup_keys.get(key)
             if value is None:
                 raise ValueError(f"You need to provide '{key}'")
         stmt = (
@@ -63,7 +63,7 @@ class CRUDMixin:
             .where(
                 and_(
                     cls.__table__.c[key] == value
-                    for key, value in primary_keys.items()
+                    for key, value in lookup_keys.items()
                 )
             )
         )
@@ -75,25 +75,25 @@ class CRUDMixin:
             cls,
             session: AsyncSession,
             /,
-            **primary_keys: list[str | Enum] | str,
+            **lookup_keys: list[str | Enum] | str,
     ) -> Sequence[Self]:
-        if not primary_keys:
+        if not lookup_keys:
             stmt = select(cls)
             result = await session.execute(stmt)
             return result.scalars().all()
 
-        for key in cls._get_primary_keys():
-            value = primary_keys.get(key)
+        for key in cls._get_lookup_keys():
+            value = lookup_keys.get(key)
             if value is None:
                 raise ValueError(f"You need to provide '{key}'")
             if isinstance(value, str):
-                primary_keys[key] = [value]
+                lookup_keys[key] = [value]
         stmt = (
             select(cls)
             .where(
                 or_(
                     cls.__table__.c[key].in_(value)
-                    for key, value in primary_keys.items()
+                    for key, value in lookup_keys.items()
                 )
             )
         )
@@ -106,21 +106,21 @@ class CRUDMixin:
             session: AsyncSession,
             /,
             values: dict,
-            **primary_keys: str | Enum,
+            **lookup_keys: str | Enum,
     ) -> None:
-        for key in cls._get_primary_keys():
-            value = primary_keys.get(key) or values.pop(key, None)
+        for key in cls._get_lookup_keys():
+            value = lookup_keys.get(key) or values.pop(key, None)
             if value is None:
                 raise ValueError(
                     f"Provide '{key}' either as a parameter or as a key in the "
                     f"updated info")
-            primary_keys[key] = value
+            lookup_keys[key] = value
         stmt = (
             update(cls)
             .where(
                 and_(
                     cls.__table__.c[key] == value
-                    for key, value in primary_keys.items()
+                    for key, value in lookup_keys.items()
                 )
             )
             .values(**values)
@@ -132,14 +132,14 @@ class CRUDMixin:
             cls,
             session: AsyncSession,
             /,
-            **primary_keys: str | Enum,
+            **lookup_keys: str | Enum,
     ) -> None:
         stmt = (
             delete(cls)
             .where(
                 and_(
                     cls.__table__.c[key] == value
-                    for key, value in primary_keys.items()
+                    for key, value in lookup_keys.items()
                 )
             )
         )
@@ -151,21 +151,21 @@ class CRUDMixin:
             session: AsyncSession,
             /,
             values: dict,
-            **primary_keys: str | Enum,
+            **lookup_keys: str | Enum,
     ) -> None:
-        for key in cls._get_primary_keys():
-            value = primary_keys.get(key) or values.pop(key, None)
+        for key in cls._get_lookup_keys():
+            value = lookup_keys.get(key) or values.pop(key, None)
             if value is None:
                 raise ValueError(
                     f"Provide '{key}' either as a parameter or as a key in the "
                     f"updated info")
-            primary_keys[key] = value
-        obj = await cls.get(session, **primary_keys)
+            lookup_keys[key] = value
+        obj = await cls.get(session, **lookup_keys)
         if not obj:
-            values.update(primary_keys)
+            values.update(lookup_keys)
             await cls.create(session, values=values)
         elif values:
-            await cls.update(session, values=values, **primary_keys)
+            await cls.update(session, values=values, **lookup_keys)
 
 class RecordMixin:
     @classmethod
