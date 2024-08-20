@@ -302,25 +302,38 @@ class Ecosystem(Base, CRUDMixin, InConfigMixin):
     def reset_managements(self):
         self.management = 0
 
+    @classmethod
     @cached(_cache_ecosystem_has_recent_data, key=sessionless_hashkey)
-    async def has_recent_sensor_data(
-            self,
+    async def check_if_recent_sensor_data(
+            cls,
             session: AsyncSession,
-            *,
+            /,
+            uid: str,
             level: gv.HardwareLevel,
     ) -> bool:
         time_limit = datetime.now(timezone.utc) - timedelta(hours=TIME_LIMITS.SENSORS)
         stmt = (
             select(Hardware)
             .where(
-                Hardware.ecosystem_uid == self.uid,
+                Hardware.ecosystem_uid == uid,
                 Hardware.type == gv.HardwareType.sensor,
                 Hardware.level == level,
                 Hardware.last_log >= time_limit,
             )
+            .limit(1)
         )
         result = await session.execute(stmt)
-        return bool(result.first())
+        return bool(result.one_or_none())
+
+    async def has_recent_sensor_data(
+            self,
+            session: AsyncSession,
+            /,
+            level: gv.HardwareLevel,
+    ) -> bool:
+        result = await Ecosystem.check_if_recent_sensor_data(
+            session, uid=self.uid, level=level)
+        return result
 
     async def get_functionalities(self, session: AsyncSession) -> dict:
         return {

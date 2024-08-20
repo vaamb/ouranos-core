@@ -185,18 +185,19 @@ class DispatcherEvents(AsyncEventHandler):
         rv = []
         async with db.scoped_session() as session:
             for payload in data:
-                data = payload["data"]
+                payload_data = payload["data"]
                 uid: str = payload["uid"]
                 # Add extra functionalities required
-                ecosystem = await Ecosystem.get(session, uid=uid)
-                data["switches"] = data["climate"] or data["light"]
-                data["environment_data"] = await ecosystem.has_recent_sensor_data(
-                    session, level=gv.HardwareLevel.environment)
-                data["plants_data"] = await ecosystem.has_recent_sensor_data(
-                    session, level=gv.HardwareLevel.plants)
+                payload_data["switches"] = payload_data["climate"] or payload_data["light"]
+                payload_data["environment_data"] = \
+                    await Ecosystem.check_if_recent_sensor_data(
+                        session, uid=uid, level=gv.HardwareLevel.environment)
+                payload_data["plants_data"] = \
+                    await Ecosystem.check_if_recent_sensor_data(
+                        session, uid=uid, level=gv.HardwareLevel.plants)
                 rv.append({
                     "uid": uid,
-                    "data": data,
+                    "data": payload_data,
                 })
         await self.sio_manager.emit("management", data=rv, namespace="/")
 
