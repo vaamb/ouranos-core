@@ -6,11 +6,10 @@ from enum import Enum
 from typing import Literal, Optional, Sequence, Self, TypedDict
 from uuid import UUID
 
-from asyncache import cached
 from cachetools import LRUCache, TTLCache
 from dispatcher import AsyncDispatcher
 import sqlalchemy as sa
-from sqlalchemy import delete, insert, select, UniqueConstraint, update
+from sqlalchemy import insert, select, UniqueConstraint, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -23,6 +22,7 @@ import gaia_validators as gv
 from ouranos import current_app
 from ouranos.core.database.models.abc import (
     Base, CacheMixin, CRUDMixin, RecordMixin)
+from ouranos.core.database.models.caching import cached
 from ouranos.core.database.models.types import UtcDateTime
 from ouranos.core.database.models.utils import sessionless_hashkey, TIME_LIMITS
 from ouranos.core.database.utils import ArchiveLink
