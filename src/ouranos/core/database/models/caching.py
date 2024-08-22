@@ -91,6 +91,43 @@ def cached(
     return decorator
 
 
+def clearer(
+    cache: Optional[MutableMapping[_KT, Any]],
+    key: Callable[..., _KT] = keys.hashkey,
+    lock: Optional[AbstractContextManager[Any]] = None,
+) :
+    """Decorator to wrap a function to clear some cache results.
+    """
+    lock = lock or NullContext()
+
+    def decorator(func):
+        if asyncio.iscoroutinefunction(func):
+
+            async def wrapper(*args, **kwargs):
+                k = key(*args, **kwargs)
+                v = await func(*args, **kwargs)
+                async with lock:
+                    cache.pop(k, None)
+                return v
+
+        else:
+
+            def wrapper(*args, **kwargs):
+                k = key(*args, **kwargs)
+                v = func(*args, **kwargs)
+                with lock:
+                    cache.pop(k, None)
+                return v
+
+        wrapper.cache = cache
+        wrapper.cache_key = key
+        wrapper.cache_lock = lock
+
+        return functools.update_wrapper(wrapper, func)
+
+    return decorator
+
+
 def create_hashable_key(**kwargs: dict[str: Any]) -> tuple:
     to_freeze = []
     def append_if_hashable(key: str, value: Any) -> None:
