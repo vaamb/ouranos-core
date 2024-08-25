@@ -156,9 +156,28 @@ def sessionless_hashkey(
         /,
         **kwargs
 ) -> tuple:
-    #if isinstance(cls_or_self, Base):
-    #    if hasattr(cls_or_self, "id"):
-    #        kwargs["id"] = cls_or_self.id
-    #    if hasattr(cls_or_self, "uid"):
-    #        kwargs["uid"] = cls_or_self.uid
+    if isinstance(cls_or_self, Base):
+        if hasattr(cls_or_self, "id"):
+            kwargs["id"] = cls_or_self.id
+        if hasattr(cls_or_self, "uid"):
+            kwargs["uid"] = cls_or_self.uid
     return create_hashable_key(**kwargs)
+
+
+def cached_hash(
+        cls: Type[Base],
+        session: AsyncSession,
+        /,
+        **lookup_keys,
+) -> tuple:
+    return create_hashable_key(**lookup_keys)
+
+
+def clearer_hash(
+        cls: Type[Base],
+        session: AsyncSession,
+        /,
+        values: dict,
+        **lookup_keys,
+) -> tuple:
+    return create_hashable_key(**lookup_keys)
