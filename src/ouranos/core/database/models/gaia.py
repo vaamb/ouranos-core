@@ -51,6 +51,8 @@ _cache_hardware = LRUCache(maxsize=_hardware_caches_size)
 # Sensors caches
 _cache_sensors_data_skeleton = TTLCache(maxsize=_ecosystem_caches_size, ttl=900)
 _cache_sensor_values = TTLCache(maxsize=_ecosystem_caches_size * 32, ttl=600)
+# Plants caches
+_cache_plants = LRUCache(maxsize=_hardware_caches_size)
 # Other caches
 _cache_warnings = TTLCache(maxsize=5, ttl=60)
 _cache_measures = LRUCache(maxsize=16)  # TODO: re use
@@ -625,13 +627,13 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
     async def attach_plants(
             self,
             session: AsyncSession,
-            plants: list | str,
+            plants: list[str],
     ) -> None:
-        if isinstance(plants, str):
-            plants = [plants]
         self.plants.clear()
-        plants = await Plant.get_multiple(session, plants_id=plants)
-        for plant in plants:
+        for p in plants:
+            plant = await Plant.get(session, uid=p)
+            if plant is None:
+                raise RuntimeError("Plants should be registered before hardware")
             self.plants.append(plant)
 
     async def attach_measures(
@@ -873,8 +875,9 @@ class Measure(Base, CRUDMixin):
         return f"<Measure({self.name}, unit={self.unit})>"
 
 
-class Plant(Base, CRUDMixin, InConfigMixin):
+class Plant(Base, CachedCRUDMixin, InConfigMixin):
     __tablename__ = "plants"
+    _cache = _cache_plants
 
     uid: Mapped[str] = mapped_column(sa.String(length=16), primary_key=True)
     ecosystem_uid: Mapped[str] = mapped_column(sa.ForeignKey("ecosystems.uid"))
@@ -889,30 +892,37 @@ class Plant(Base, CRUDMixin, InConfigMixin):
         lazy="selectin")
 
     @classmethod
-    async def get(
+    async def get_by_id(
             cls,
             session: AsyncSession,
-            plant_id: str
+            /,
+            plant_id: str,
     ) -> Self | None:
-        stmt = select(cls).where(
-            (cls.name.in_(plant_id))
-            | (cls.uid.in_(plant_id))
+        stmt = (
+            select(cls)
+            .where(
+                (cls.uid == plant_id)
+                | (cls.name == plant_id)
+            )
         )
         result = await session.execute(stmt)
         return result.scalars().one_or_none()
 
     @classmethod
-    async def get_multiple(
+    async def get_multiple_by_id(
             cls,
             session: AsyncSession,
-            plants_id: list[str] | None = None,
+            /,
+            plants_id: list[str] | str | None = None,
             in_config: bool | None = None,
     ) -> Sequence[Self]:
         stmt = select(cls)
         if plants_id:
+            if isinstance(plants_id, str):
+                plants_id = [plants_id]
             stmt = stmt.where(
-                (cls.name.in_(plants_id))
-                | (cls.uid.in_(plants_id))
+                (cls.uid.in_(plants_id))
+                | (cls.name.in_(plants_id))
             )
         if in_config is not None:
             stmt = stmt.where(cls.in_config == in_config)
