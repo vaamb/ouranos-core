@@ -30,29 +30,30 @@ from tests.data.system import system_dict, system_data_dict
 @pytest_asyncio.fixture(scope="module", autouse=True)
 async def add_ecosystems(db: AsyncSQLAlchemyWrapper):
     async with db.scoped_session() as session:
-        await Engine.create(session, g_data.engine_dict)
+        engine = g_data.engine_dict.copy()
+        uid = engine.pop("uid")
+        await Engine.create(session, uid=uid, values=engine)
 
-        full_ecosystem_dict = {
+        ecosystem = {
             **g_data.ecosystem_dict,
             "day_start": g_data.sky["day"],
             "night_start": g_data.sky["night"],
         }
-        await Ecosystem.create(session, full_ecosystem_dict)
+        uid = ecosystem.pop("uid")
+        await Ecosystem.create(session, uid=uid, values=ecosystem)
 
-        environment_parameter = {
-            "ecosystem_uid": g_data.ecosystem_uid,
-            **g_data.climate
-        }
-        await EnvironmentParameter.create(session, values=environment_parameter)
+        environment_parameter = g_data.climate.copy()
+        parameter = environment_parameter.pop("parameter")
+        await EnvironmentParameter.create(
+            session, ecosystem_uid=uid, parameter=parameter, values=environment_parameter)
 
-        adapted_light_data = g_data.light_data.copy()
-        adapted_light_data["ecosystem_uid"] = g_data.ecosystem_uid
-        await Lighting.create(session, values=adapted_light_data)
+        await Lighting.create(session, ecosystem_uid=uid, values=g_data.light_data)
 
-        adapted_hardware_data = gv.HardwareConfig(**g_data.hardware_data).model_dump()
-        adapted_hardware_data.pop("multiplexer_model")
-        adapted_hardware_data["ecosystem_uid"] = g_data.ecosystem_uid
-        await Hardware.create(session, values=adapted_hardware_data)
+        hardware = gv.HardwareConfig(**g_data.hardware_data).model_dump()
+        hardware_uid = hardware.pop("uid")
+        hardware.pop("multiplexer_model")
+        hardware["ecosystem_uid"] = uid
+        await Hardware.create(session, uid=hardware_uid, values=hardware)
 
         adapted_sensor_record = {
             "ecosystem_uid": g_data.ecosystem_uid,
@@ -67,18 +68,20 @@ async def add_ecosystems(db: AsyncSQLAlchemyWrapper):
                 g_data.sensors_data["timestamp"] - timedelta(hours=1))
         await SensorDataRecord.create_records(session, adapted_sensor_record)
 
-        adapted_actuator_state = {
-            "ecosystem_uid": g_data.ecosystem_uid,
-            "type": g_data.actuator_record.type,
+        actuator_state = {
             "active": g_data.actuator_record.active,
             "mode": g_data.actuator_record.mode,
             "status": g_data.actuator_record.status,
             "level": g_data.actuator_record.level,
         }
-        await ActuatorState.create(session, values=adapted_actuator_state)
+        await ActuatorState.create(
+            session, ecosystem_uid=uid, type=g_data.actuator_record.type,
+            values=actuator_state)
 
-        adapted_actuator_state["timestamp"] = g_data.actuator_record.timestamp
-        await ActuatorRecord.create_records(session, adapted_actuator_state)
+        actuator_state["ecosystem_uid"] = uid
+        actuator_state["type"] = g_data.actuator_record.type
+        actuator_state["timestamp"] = g_data.actuator_record.timestamp
+        await ActuatorRecord.create_records(session, actuator_state)
 
         adapted_health_data = {
             "ecosystem_uid": g_data.ecosystem_uid,
@@ -96,7 +99,9 @@ async def add_ecosystems(db: AsyncSQLAlchemyWrapper):
 @pytest_asyncio.fixture(scope="module", autouse=True)
 async def add_system(db: AsyncSQLAlchemyWrapper):
     async with db.scoped_session() as session:
-        await System.create(session, values=system_dict)
+        system = system_dict.copy()
+        uid = system.pop("uid")
+        await System.create(session, uid=uid, values=system)
 
         adapted_system_record = system_data_dict.copy()
         await SystemDataCache.insert_data(session, adapted_system_record)

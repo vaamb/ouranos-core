@@ -25,14 +25,22 @@ async def naive_db(db):
 @pytest_asyncio.fixture(scope="function")
 async def engine_aware_db(naive_db: AsyncSQLAlchemyWrapper):
     async with naive_db.scoped_session() as session:
-        await Engine.create(session, g_data.engine_dict)
+        engine = g_data.engine_dict.copy()
+        uid = engine.pop("uid")
+        await Engine.create(session, uid=uid, values=engine)
     return naive_db
 
 
 @pytest_asyncio.fixture(scope="function")
 async def ecosystem_aware_db(naive_db: AsyncSQLAlchemyWrapper):
     async with naive_db.scoped_session() as session:
-        await Ecosystem.create(session, g_data.ecosystem_dict)
+        ecosystem = {
+            **g_data.ecosystem_dict,
+            "day_start": g_data.sky["day"],
+            "night_start": g_data.sky["night"],
+        }
+        uid = ecosystem.pop("uid")
+        await Ecosystem.create(session, uid=uid, values=ecosystem)
     return naive_db
 
 

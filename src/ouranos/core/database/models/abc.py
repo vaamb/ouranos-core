@@ -3,12 +3,16 @@ from __future__ import annotations
 from abc import abstractmethod
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, NamedTuple, Self, Sequence
+from typing import NamedTuple, Self, Sequence
+from uuid import UUID
 
 from sqlalchemy import and_, delete, insert, inspect, or_, Select, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos import db
+
+
+lookup_keys_type: str | Enum | UUID | bool
 
 
 class ToDictMixin:
@@ -37,11 +41,29 @@ class CRUDMixin:
         return cls._lookup_keys
 
     @classmethod
+    def _check_lookup_keys(cls, **lookup_keys) -> None:
+        valid_lookup_keys = cls._get_lookup_keys()
+        if not all(lookup_key in lookup_keys for lookup_key in valid_lookup_keys):
+            raise ValueError("You should provide all the lookup keys")
+
+    @classmethod
     async def create(
             cls,
             session: AsyncSession,
             /,
-            values: dict | list[dict],
+            values: dict,
+            **lookup_keys: lookup_keys_type,
+    ) -> None:
+        cls._check_lookup_keys(**lookup_keys)
+        stmt = insert(cls).values(**lookup_keys, **values)
+        await session.execute(stmt)
+
+    @classmethod
+    async def create_multiple(
+            cls,
+            session: AsyncSession,
+            /,
+            values: list[dict],
     ) -> None:
         stmt = insert(cls).values(values)
         await session.execute(stmt)
@@ -52,7 +74,7 @@ class CRUDMixin:
             offset: int | None = None,
             limit: int | None = None,
             order_by: str | None = None,
-            **lookup_keys: list[str | Enum] | str | Enum | None,
+            **lookup_keys: list[lookup_keys_type] | lookup_keys_type | None,
     ) -> Select:
         stmt = select(cls)
         for key, value in lookup_keys.items():
@@ -75,7 +97,7 @@ class CRUDMixin:
             cls,
             session: AsyncSession,
             /,
-            **lookup_keys: str | Enum | bool | None,
+            **lookup_keys: lookup_keys_type | None,
     ) -> Self | None:
         """
         :param session: an AsyncSession instance
@@ -94,7 +116,7 @@ class CRUDMixin:
             offset: int | None = None,
             limit: int | None = None,
             order_by: str | None = None,
-            **lookup_keys: list[str | Enum] | str | Enum | bool | None,
+            **lookup_keys: list[lookup_keys_type] | lookup_keys_type | None,
     ) -> Sequence[Self]:
         """
         :param session: an AsyncSession instance
@@ -114,15 +136,9 @@ class CRUDMixin:
             session: AsyncSession,
             /,
             values: dict,
-            **lookup_keys: str | Enum,
+            **lookup_keys: lookup_keys_type,
     ) -> None:
-        for key in cls._get_lookup_keys():
-            value = lookup_keys.get(key) or values.pop(key, None)
-            if value is None:
-                raise ValueError(
-                    f"Provide '{key}' either as a parameter or as a key in the "
-                    f"updated info")
-            lookup_keys[key] = value
+        cls._check_lookup_keys(**lookup_keys)
         stmt = (
             update(cls)
             .where(
@@ -152,8 +168,9 @@ class CRUDMixin:
             cls,
             session: AsyncSession,
             /,
-            **lookup_keys: str | Enum,
+            **lookup_keys: lookup_keys_type,
     ) -> None:
+        cls._check_lookup_keys(**lookup_keys)
         stmt = (
             delete(cls)
             .where(
@@ -171,19 +188,12 @@ class CRUDMixin:
             session: AsyncSession,
             /,
             values: dict,
-            **lookup_keys: str | Enum,
+            **lookup_keys: lookup_keys_type,
     ) -> None:
-        for key in cls._get_lookup_keys():
-            value = lookup_keys.get(key) or values.pop(key, None)
-            if value is None:
-                raise ValueError(
-                    f"Provide '{key}' either as a parameter or as a key in the "
-                    f"updated info")
-            lookup_keys[key] = value
+        #cls._check_lookup_keys(**lookup_keys)
         obj = await cls.get(session, **lookup_keys)
         if not obj:
-            values.update(lookup_keys)
-            await cls.create(session, values=values)
+            await cls.create(session, values=values, **lookup_keys)
         elif values:
             await cls.update(session, values=values, **lookup_keys)
 

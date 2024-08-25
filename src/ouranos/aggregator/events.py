@@ -42,21 +42,6 @@ class SensorDataRecordDict(TypedDict):
     timestamp: datetime
 
 
-class AwareActuatorStateDict(gv.ActuatorStateDict):
-    ecosystem_uid: str
-    type: gv.HardwareType
-
-
-class AwareActuatorStateRecordDict(TypedDict):
-    ecosystem_uid: str
-    type: gv.HardwareType
-    active: bool
-    mode: gv.ActuatorMode
-    status: bool
-    level: float | None
-    timestamp: datetime | None
-
-
 class SensorAlarmDict(TypedDict):
     sensor_uid: str
     measure: str
@@ -244,13 +229,12 @@ class GaiaEvents(BaseEvents):
             }
         now = datetime.now(timezone.utc).replace(microsecond=0)
         engine_info = {
-            "uid": engine_uid,
             "sid": sid,
             "last_seen": now,
             "address": f"{remote_addr}",
         }
         async with db.scoped_session() as session:
-            await Engine.update_or_create(session, engine_info)
+            await Engine.update_or_create(session, uid=engine_uid, values=engine_info)
         self.enter_room(room="engines")
 
         # await sleep(3)  # Allow slower Raspi0 to finish Gaia startup
@@ -320,13 +304,15 @@ class GaiaEvents(BaseEvents):
             data, gv.PlacesPayload, dict)
         async with db.scoped_session() as session:
             for place in payload["data"]:
-                coordinates = {
-                    "engine_uid": engine_uid,
-                    "name": place["name"],
-                    "latitude": place["coordinates"][0],
-                    "longitude": place["coordinates"][1],
-                }
-                await Place.update_or_create(session, values=coordinates)
+                await Place.update_or_create(
+                    session,
+                    engine_uid=engine_uid,
+                    name=place["name"],
+                    values={
+                        "latitude": place["coordinates"][0],
+                        "longitude": place["coordinates"][1],
+                    }
+                )
             await session.commit()
 
     @registration_required
@@ -347,11 +333,14 @@ class GaiaEvents(BaseEvents):
         async with db.scoped_session() as session:
             for payload in data:
                 ecosystem = payload["data"]
-                ecosystems_in_config.append(ecosystem["uid"])
+                ecosystem_uid = ecosystem.pop("uid")  # noqa
+                ecosystems_in_config.append(ecosystem_uid)
                 ecosystems_status.append({"uid": payload["uid"], "status": ecosystem["status"]})
                 ecosystems_to_log.append(ecosystem["name"])
                 await Ecosystem.update_or_create(
-                    session, {
+                    session,
+                    uid=ecosystem_uid,
+                    values={
                         **ecosystem,
                         "in_config": True,
                         "last_seen": datetime.now(timezone.utc)
@@ -361,15 +350,15 @@ class GaiaEvents(BaseEvents):
                 # Add the possible actuator types if missing
                 actuator_types = {i for i in gv.HardwareType.actuator}
                 actuator_states = await ActuatorState.get_multiple(
-                    session, ecosystem_uid=ecosystem["uid"], type=[*actuator_types])
+                    session, ecosystem_uid=ecosystem_uid, type=[*actuator_types])
                 actuator_types_present = {actuator_state.type for actuator_state in actuator_states}
                 actuator_types_missing = actuator_types - actuator_types_present
                 if actuator_types_missing:
-                    await ActuatorState.create(
+                    await ActuatorState.create_multiple(
                         session,
                         values=[
                             {
-                                "ecosystem_uid": ecosystem["uid"],
+                                "ecosystem_uid": ecosystem_uid,
                                 "type": actuator_type,
                             } for actuator_type in actuator_types_missing
                         ],
@@ -415,18 +404,19 @@ class GaiaEvents(BaseEvents):
                 ecosystem = payload["data"]
                 nycthemeral_cycle = ecosystem["nycthemeral_cycle"]
                 ecosystem_info = {
-                    "uid": uid,
                     "day_start": nycthemeral_cycle["day"],
                     "night_start": nycthemeral_cycle["night"],
                 }
-                await Ecosystem.update_or_create(session, values=ecosystem_info)
+                await Ecosystem.update_or_create(session, uid=uid, values=ecosystem_info)
                 await Lighting.update_or_create(
                     session, ecosystem_uid=uid, values={"method": nycthemeral_cycle["lighting"]})
                 environment_parameters_in_config: list[str] = []
                 for param in ecosystem["climate"]:
                     environment_parameters_in_config.append(param["parameter"])
-                    param["ecosystem_uid"] = uid  # noqa
-                    await EnvironmentParameter.update_or_create(session, values=param)
+                    parameter = param.pop("parameter")  # noqa
+                    await EnvironmentParameter.update_or_create(
+                        session, ecosystem_uid=uid, parameter=parameter,
+                        values=param)
 
                 # Remove environmental parameters not used anymore
                 stmt = (
@@ -461,12 +451,14 @@ class GaiaEvents(BaseEvents):
                 ecosystems_to_log.append(
                     await get_ecosystem_name(uid, session=session))
                 for hardware in payload["data"]:
-                    hardware_in_config.append(hardware["uid"])
+                    hardware_uid = hardware.pop("uid")  # noqa
+                    hardware_in_config.append(hardware_uid)
                     hardware["ecosystem_uid"] = uid  # noqa
                     hardware["in_config"] = True  # noqa
                     # TODO: register multiplexer ?
                     del hardware["multiplexer_model"]  # noqa
-                    await Hardware.update_or_create(session, values=hardware)
+                    await Hardware.update_or_create(
+                        session, uid=hardware_uid, values=hardware)
 
                 # Remove hardware not in `ecosystems.cfg` anymore
                 stmt = (
@@ -724,6 +716,14 @@ class GaiaEvents(BaseEvents):
             session["init_data"].discard("actuators_data")
         data: list[gv.ActuatorsDataPayloadDict] = self.validate_payload(
             data, gv.ActuatorsDataPayload, list)
+
+        class AwareActuatorStateDict(gv.ActuatorStateDict):
+            ecosystem_uid: str
+            type: gv.HardwareType
+
+        class AwareActuatorStateRecordDict(AwareActuatorStateDict):
+            timestamp: datetime | None
+
         logged: list[str] = []
         data_to_dispatch: list[AwareActuatorStateDict] = []
         records_to_log: list[AwareActuatorStateRecordDict] = []
@@ -734,21 +734,32 @@ class GaiaEvents(BaseEvents):
                     await get_ecosystem_name(payload["uid"], session=session))
                 for record in records:
                     record: gv.ActuatorStateRecord
-                    common_data: AwareActuatorStateDict = {
-                        "ecosystem_uid": payload["uid"],
-                        "type": record[0].name,
+                    ecosystem_uid=payload["uid"]
+                    type_=record[0].name
+                    common_data: gv.ActuatorStateDict = {
                         "active": record[1],
                         "mode": record[2],
                         "status": record[3],
                         "level": record[4],
                     }
-                    await ActuatorState.update_or_create(session, values={**common_data})
-                    data_to_dispatch.append(common_data)
+                    await ActuatorState.update_or_create(
+                        session,
+                        ecosystem_uid=ecosystem_uid,
+                        type=type_,
+                        values=common_data
+                    )
+                    data_to_dispatch.append(cast(AwareActuatorStateDict, {
+                        "ecosystem_uid": ecosystem_uid,
+                        "type": type_,
+                        **common_data
+                    }))
                     timestamp = record[5]
                     if timestamp is not None:
                         records_to_log.append(cast(AwareActuatorStateRecordDict, {
+                            "ecosystem_uid": ecosystem_uid,
+                            "type": type_,
+                            "timestamp": timestamp,
                             **common_data,
-                            "timestamp": timestamp
                         }))
             if records_to_log:
                 await ActuatorRecord.create_records(session, records_to_log)
@@ -851,14 +862,14 @@ class GaiaEvents(BaseEvents):
                     await get_ecosystem_name(payload["uid"], session=session))
                 ecosystem = payload["data"]
                 light_info = {
-                    "ecosystem_uid": payload["uid"],
                     "method": ecosystem["method"],
                     "morning_start": ecosystem["morning_start"],
                     "morning_end": ecosystem["morning_end"],
                     "evening_start": ecosystem["evening_start"],
                     "evening_end": ecosystem["evening_end"]
                 }
-                await Lighting.update_or_create(session, values=light_info)
+                await Lighting.update_or_create(
+                    session, ecosystem_uid=payload["uid"], values=light_info)
         self.logger.debug(
             f"Logged light data from ecosystem(s): {humanize_list(ecosystems_to_log)}"
         )
@@ -912,14 +923,17 @@ class GaiaEvents(BaseEvents):
         )
         async with db.scoped_session() as session:
             engine_sid = await get_engine_sid(engine_uid)
-            await CrudRequest.create(session, values={
-                "uuid": UUID(data["uuid"]),
-                "engine_uid": engine_uid,
-                "ecosystem_uid": data["routing"]["ecosystem_uid"],
-                "action": data["action"],
-                "target": data["target"],
-                "payload": json.dumps(data["data"]),
-            })
+            await CrudRequest.create(
+                session,
+                uuid=UUID(data["uuid"]),
+                values={
+                    "engine_uid": engine_uid,
+                    "ecosystem_uid": data["routing"]["ecosystem_uid"],
+                    "action": data["action"],
+                    "target": data["target"],
+                    "payload": json.dumps(data["data"])
+                }
+            )
         await self.emit(
             "crud", data=data, namespace="/gaia", to=engine_sid, ttl=30)
 

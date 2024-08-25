@@ -619,7 +619,7 @@ class Hardware(Base, CRUDMixin, InConfigMixin):
             m: gv.MeasureDict
             measure = await Measure.get(session, name=m["name"])
             if measure is None:
-                await Measure.create(session, values={"name": m["name"], "unit": m["unit"]})
+                await Measure.create(session, name=m["name"], values={"unit": m["unit"]})
                 measure = await Measure.get(session, name=m["name"])
             self.measures.append(measure)
 
@@ -629,13 +629,13 @@ class Hardware(Base, CRUDMixin, InConfigMixin):
             session: AsyncSession,
             /,
             values: gv.HardwareConfigDict,
+            **lookup_keys: str | Enum | UUID,
     ) -> None:
         measures: list[gv.Measure | gv.MeasureDict] = values.pop("measures", [])
         plants = values.pop("plants", [])
-        stmt = insert(cls).values(values)
-        await session.execute(stmt)
+        await super().create(session, values=values, **lookup_keys)
         if any((measures, plants)):
-            hardware_obj = await cls.get(session, uid=values["uid"])
+            hardware_obj = await cls.get(session, uid=lookup_keys["uid"])
             if measures:
                 await hardware_obj.attach_measures(session, measures)
             if plants:

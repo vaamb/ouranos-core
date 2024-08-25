@@ -84,16 +84,16 @@ class SystemMonitor:
 
     async def start(self) -> None:
         async with db.scoped_session() as session:
-            mem = psutil.virtual_memory()
-            disk = psutil.disk_usage("/")
-            data = {
-                "uid": current_app.config["API_UID"],
-                "hostname": current_app.config["API_HOST"],
-                "start_time": START_TIME,
-                "RAM_total": round(mem[0]/(1024*1024*1024), 2),
-                "DISK_total": round(disk[0]/(1024*1024*1024), 2),
-            }
-            await System.update_or_create(session, values=data)
+            await System.update_or_create(
+                session,
+                uid=current_app.config["API_UID"],
+                values={
+                    "hostname": current_app.config["API_HOST"],
+                    "start_time": START_TIME,
+                    "RAM_total": round(psutil.virtual_memory()[0]/(1024*1024*1024), 2),
+                    "DISK_total": round(psutil.disk_usage("/")[0]/(1024*1024*1024), 2),
+                }
+            )
 
         update_period = current_app.config.get("SYSTEM_UPDATE_PERIOD")
         if update_period is not None:
