@@ -6,7 +6,7 @@ from enum import Enum
 from typing import NamedTuple, Self, Sequence
 from uuid import UUID
 
-from sqlalchemy import and_, delete, insert, inspect, or_, Select, select, update
+from sqlalchemy import and_, delete, insert, inspect, Select, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos import db
