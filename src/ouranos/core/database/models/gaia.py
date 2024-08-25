@@ -22,7 +22,8 @@ import gaia_validators as gv
 from ouranos import current_app
 from ouranos.core.database.models.abc import (
     Base, CacheMixin, CRUDMixin, RecordMixin)
-from ouranos.core.database.models.caching import cached, sessionless_hashkey
+from ouranos.core.database.models.caching import (
+    CachedCRUDMixin, cached, sessionless_hashkey)
 from ouranos.core.database.models.types import UtcDateTime
 from ouranos.core.database.models.utils import TIME_LIMITS
 from ouranos.core.database.utils import ArchiveLink
@@ -36,11 +37,17 @@ measure_order = (
     "moisture"
 )
 
-
-_ecosystem_caches_size = 16
+# Cache sizes
+_engine_caches_size = 4
+_ecosystem_caches_size = _engine_caches_size * 4
+# Engine caches
+_cache_engines = LRUCache(maxsize=_engine_caches_size)
+# Ecosystems caches
 _cache_ecosystem_has_recent_data = TTLCache(maxsize=_ecosystem_caches_size * 2, ttl=60)
+# Sensors caches
 _cache_sensors_data_skeleton = TTLCache(maxsize=_ecosystem_caches_size, ttl=900)
 _cache_sensor_values = TTLCache(maxsize=_ecosystem_caches_size * 32, ttl=600)
+# Other caches
 _cache_warnings = TTLCache(maxsize=5, ttl=60)
 _cache_measures = LRUCache(maxsize=16)  # TODO: re use
 
@@ -70,8 +77,9 @@ class InConfigMixin:
 # ---------------------------------------------------------------------------
 #   Ecosystems-related models, located in db_main and db_archive
 # ---------------------------------------------------------------------------
-class Engine(Base, CRUDMixin):
+class Engine(Base, CachedCRUDMixin):
     __tablename__ = "engines"
+    _cache = _cache_engines
 
     uid: Mapped[str] = mapped_column(sa.String(length=32), primary_key=True)
     sid: Mapped[UUID] = mapped_column()

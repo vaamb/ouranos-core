@@ -280,12 +280,12 @@ class GaiaEvents(BaseEvents):
         async with db.scoped_session() as session:
             engine = await Engine.get(session, uid=engine_uid)
             if engine:
-                engine.last_seen = now
+                await Engine.update(session, uid=engine_uid, values={"last_seen": now})
             ecosystems = await Ecosystem.get_multiple(
                 session, uid=[ecosystem["uid"] for ecosystem in data])
             for ecosystem in ecosystems:
                 ecosystems_seen.append(ecosystem.name)
-                ecosystem.last_seen = now
+                await Ecosystem.update(session, uid=ecosystem.uid, values={"last_seen": now})
         self.logger.debug(
             f"Updated last seen info for ecosystem(s) "
             f"{humanize_list(ecosystems_seen)}"
