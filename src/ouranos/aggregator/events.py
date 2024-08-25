@@ -492,7 +492,6 @@ class GaiaEvents(BaseEvents):
             data, gv.ManagementConfigPayload, list)
 
         class EcosystemUpdateData(TypedDict):
-            uid: str
             management: str
 
         ecosystems_to_update: dict[str, EcosystemUpdateData] = {}
@@ -511,7 +510,6 @@ class GaiaEvents(BaseEvents):
                     pass
 
             ecosystems_to_update[uid] = {
-                "uid": uid,
                 "management": management_value
             }
             ecosystems_to_log.append(
@@ -519,8 +517,8 @@ class GaiaEvents(BaseEvents):
 
         if ecosystems_to_update:
             async with db.scoped_session() as session:
-                await Ecosystem.update_multiple(
-                    session, values=[*ecosystems_to_update.values()])
+                for ecosystem_uid, update_value in ecosystems_to_update.items():
+                    await Ecosystem.update(session, uid=ecosystem_uid, values=update_value)
             self.logger.debug(
                 f"Logged management info from ecosystem(s): "
                 f"{humanize_list(ecosystems_to_log)}")

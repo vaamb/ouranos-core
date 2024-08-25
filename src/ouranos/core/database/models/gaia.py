@@ -43,6 +43,7 @@ _ecosystem_caches_size = _engine_caches_size * 4
 # Engine caches
 _cache_engines = LRUCache(maxsize=_engine_caches_size)
 # Ecosystems caches
+_cache_ecosystems = LRUCache(maxsize=_ecosystem_caches_size)
 _cache_ecosystem_has_recent_data = TTLCache(maxsize=_ecosystem_caches_size * 2, ttl=60)
 # Sensors caches
 _cache_sensors_data_skeleton = TTLCache(maxsize=_ecosystem_caches_size, ttl=900)
@@ -172,8 +173,9 @@ class Engine(Base, CachedCRUDMixin):
         return response
 
 
-class Ecosystem(Base, CRUDMixin, InConfigMixin):
+class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
     __tablename__ = "ecosystems"
+    _cache = _cache_ecosystems
 
     uid: Mapped[str] = mapped_column(sa.String(length=8), primary_key=True)
     engine_uid: Mapped[str] = mapped_column(sa.String(length=32), sa.ForeignKey("engines.uid"))
