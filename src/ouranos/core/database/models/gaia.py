@@ -51,6 +51,8 @@ _cache_hardware = LRUCache(maxsize=_hardware_caches_size)
 # Sensors caches
 _cache_sensors_data_skeleton = TTLCache(maxsize=_ecosystem_caches_size, ttl=900)
 _cache_sensor_values = TTLCache(maxsize=_ecosystem_caches_size * 32, ttl=600)
+# Measure
+_cache_measures = LRUCache(maxsize=16)
 # Plants caches
 _cache_plants = LRUCache(maxsize=_hardware_caches_size)
 # Other caches
@@ -859,9 +861,10 @@ class Actuator(Hardware):
         return result.unique().scalars().all()
 
 
-class Measure(Base, CRUDMixin):
-    _lookup_keys = ["name"]
+class Measure(Base, CachedCRUDMixin):
     __tablename__ = "measures"
+    _lookup_keys = ["name"]
+    _cache = _cache_measures
 
     id: Mapped[int] = mapped_column(primary_key=True)  # Use this as PK as the name might be changed
     name: Mapped[str] = mapped_column(sa.String(length=32))
