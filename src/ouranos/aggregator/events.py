@@ -304,13 +304,15 @@ class GaiaEvents(BaseEvents):
             data, gv.PlacesPayload, dict)
         async with db.scoped_session() as session:
             for place in payload["data"]:
-                coordinates = {
-                    "latitude": place["coordinates"][0],
-                    "longitude": place["coordinates"][1],
-                }
                 await Place.update_or_create(
-                    session, engine_uid=engine_uid, name=place["name"],
-                    values=coordinates)
+                    session,
+                    engine_uid=engine_uid,
+                    name=place["name"],
+                    values={
+                        "latitude": place["coordinates"][0],
+                        "longitude": place["coordinates"][1],
+                    }
+                )
             await session.commit()
 
     @registration_required
@@ -411,7 +413,7 @@ class GaiaEvents(BaseEvents):
                 environment_parameters_in_config: list[str] = []
                 for param in ecosystem["climate"]:
                     environment_parameters_in_config.append(param["parameter"])
-                    parameter = param.pop("parameter")
+                    parameter = param.pop("parameter")  # noqa
                     await EnvironmentParameter.update_or_create(
                         session, ecosystem_uid=uid, parameter=parameter,
                         values=param)
