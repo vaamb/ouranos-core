@@ -467,9 +467,9 @@ class GaiaEvents(BaseEvents):
                     .where(Hardware.uid.not_in(hardware_in_config))
                 )
                 result = await session.execute(stmt)
-                not_used = result.scalars().all()
-                for hardware in not_used:
-                    hardware.in_config = False
+                not_used = result.all()
+                for hardware_row in not_used:
+                    await Hardware.update(session, uid=hardware_row.uid, values={"in_config": False})
         self.logger.debug(
             f"Logged hardware info from ecosystem(s): {humanize_list(ecosystems_to_log)}"
         )
