@@ -23,7 +23,7 @@ from ouranos import current_app
 from ouranos.core.database.models.abc import (
     Base, CacheMixin, CRUDMixin, RecordMixin)
 from ouranos.core.database.models.caching import (
-    CachedCRUDMixin, cached, sessionless_hashkey)
+    CachedCRUDMixin, cached, create_hashable_key, sessionless_hashkey)
 from ouranos.core.database.models.types import UtcDateTime
 from ouranos.core.database.models.utils import TIME_LIMITS
 from ouranos.core.database.utils import ArchiveLink
@@ -671,6 +671,9 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
                 await hardware_obj.attach_measures(session, measures)
             if plants:
                 await hardware_obj.attach_plants(session, plants)
+            # Clear cache as measures and/or plants have been added
+            hash_key = create_hashable_key(**lookup_keys)
+            cls._cache.pop(hash_key, None)
             await session.commit()
 
     @classmethod
@@ -695,6 +698,9 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
                 await hardware_obj.attach_measures(session, measures)
             if plants:
                 await hardware_obj.attach_plants(session, plants)
+            # Clear cache as measures and/or plants have been added
+            hash_key = create_hashable_key(**lookup_keys)
+            cls._cache.pop(hash_key, None)
             await session.commit()
 
     @staticmethod
