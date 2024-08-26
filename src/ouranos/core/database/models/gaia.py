@@ -6,7 +6,6 @@ from enum import Enum
 from typing import Literal, Optional, Sequence, Self, TypedDict
 from uuid import UUID
 
-from cachetools import LRUCache, TTLCache
 from dispatcher import AsyncDispatcher
 import sqlalchemy as sa
 from sqlalchemy import insert, select, UniqueConstraint, update
@@ -22,6 +21,10 @@ import gaia_validators as gv
 from ouranos import current_app
 from ouranos.core.database.models.abc import (
     Base, CacheMixin, CRUDMixin, RecordMixin)
+from ouranos.core.database.models.caches import (
+    cache_ecosystems, cache_ecosystems_has_recent_data, cache_engines,
+    cache_hardware, cache_measures, cache_plants, cache_sensors_data_skeleton,
+    cache_sensors_value, cache_warnings)
 from ouranos.core.database.models.caching import (
     CachedCRUDMixin, cached, create_hashable_key, sessionless_hashkey)
 from ouranos.core.database.models.types import UtcDateTime
@@ -36,28 +39,6 @@ measure_order = (
     "temperature", "humidity", "lux", "dew_point", "absolute_moisture",
     "moisture"
 )
-
-# Cache sizes
-_engine_caches_size = 4
-_ecosystem_caches_size = _engine_caches_size * 4
-_hardware_caches_size = _ecosystem_caches_size * 2
-# Engine caches
-_cache_engines = LRUCache(maxsize=_engine_caches_size)
-# Ecosystems caches
-_cache_ecosystems = LRUCache(maxsize=_ecosystem_caches_size)
-_cache_ecosystem_has_recent_data = TTLCache(maxsize=_ecosystem_caches_size * 2, ttl=60)
-# Hardware caches
-_cache_hardware = LRUCache(maxsize=_hardware_caches_size)
-# Sensors caches
-_cache_sensors_data_skeleton = TTLCache(maxsize=_ecosystem_caches_size, ttl=900)
-_cache_sensor_values = TTLCache(maxsize=_ecosystem_caches_size * 32, ttl=600)
-# Measure
-_cache_measures = LRUCache(maxsize=16)
-# Plants caches
-_cache_plants = LRUCache(maxsize=_hardware_caches_size)
-# Other caches
-_cache_warnings = TTLCache(maxsize=5, ttl=60)
-_cache_measures = LRUCache(maxsize=16)  # TODO: re use
 
 
 class EcosystemActuatorTypesManagedDict(TypedDict):
@@ -87,7 +68,7 @@ class InConfigMixin:
 # ---------------------------------------------------------------------------
 class Engine(Base, CachedCRUDMixin):
     __tablename__ = "engines"
-    _cache = _cache_engines
+    _cache = cache_engines
 
     uid: Mapped[str] = mapped_column(sa.String(length=32), primary_key=True)
     sid: Mapped[UUID] = mapped_column()
@@ -182,7 +163,7 @@ class Engine(Base, CachedCRUDMixin):
 
 class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
     __tablename__ = "ecosystems"
-    _cache = _cache_ecosystems
+    _cache = cache_ecosystems
 
     uid: Mapped[str] = mapped_column(sa.String(length=8), primary_key=True)
     engine_uid: Mapped[str] = mapped_column(sa.String(length=32), sa.ForeignKey("engines.uid"))
@@ -320,7 +301,7 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
         self.management = 0
 
     @classmethod
-    @cached(_cache_ecosystem_has_recent_data, key=sessionless_hashkey)
+    @cached(cache_ecosystems_has_recent_data, key=sessionless_hashkey)
     async def check_if_recent_sensor_data(
             cls,
             session: AsyncSession,
@@ -378,7 +359,7 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
             session, ecosystem_uid=self.uid, type=hardware_type,
             in_config=in_config)
 
-    @cached(_cache_sensors_data_skeleton, key=sessionless_hashkey)
+    @cached(cache_sensors_data_skeleton, key=sessionless_hashkey)
     async def get_sensors_data_skeleton(
             self,
             session: AsyncSession,
@@ -597,7 +578,7 @@ AssociationActuatorPlant = Table(
 
 class Hardware(Base, CachedCRUDMixin, InConfigMixin):
     __tablename__ = "hardware"
-    _cache = _cache_hardware
+    _cache = cache_hardware
 
     uid: Mapped[str] = mapped_column(sa.String(length=16), primary_key=True)
     ecosystem_uid: Mapped[str] = mapped_column(
@@ -870,7 +851,7 @@ class Actuator(Hardware):
 class Measure(Base, CachedCRUDMixin):
     __tablename__ = "measures"
     _lookup_keys = ["name"]
-    _cache = _cache_measures
+    _cache = cache_measures
 
     id: Mapped[int] = mapped_column(primary_key=True)  # Use this as PK as the name might be changed
     name: Mapped[str] = mapped_column(sa.String(length=32))
@@ -886,7 +867,7 @@ class Measure(Base, CachedCRUDMixin):
 
 class Plant(Base, CachedCRUDMixin, InConfigMixin):
     __tablename__ = "plants"
-    _cache = _cache_plants
+    _cache = cache_plants
 
     uid: Mapped[str] = mapped_column(sa.String(length=16), primary_key=True)
     ecosystem_uid: Mapped[str] = mapped_column(sa.ForeignKey("ecosystems.uid"))
@@ -1082,7 +1063,7 @@ class SensorDataRecord(BaseSensorDataRecord):
             session, sensor_uid, measure_name, time_window)
 
     @classmethod
-    @cached(_cache_sensor_values, key=sessionless_hashkey)
+    @cached(cache_sensors_value, key=sessionless_hashkey)
     async def get_timed_values(
             cls,
             session: AsyncSession,
@@ -1391,7 +1372,7 @@ class GaiaWarning(Base):
         await session.execute(stmt)
 
     @classmethod
-    @cached(_cache_warnings, key=sessionless_hashkey)
+    @cached(cache_warnings, key=sessionless_hashkey)
     async def get_multiple(
             cls,
             session: AsyncSession,
@@ -1434,7 +1415,7 @@ class GaiaWarning(Base):
             .values(**values)
         )
         await session.execute(stmt)
-        _cache_warnings.clear()
+        cache_warnings.clear()
 
     @classmethod
     async def mark_as_seen(
@@ -1456,7 +1437,7 @@ class GaiaWarning(Base):
             })
         )
         await session.execute(stmt)
-        _cache_warnings.clear()
+        cache_warnings.clear()
 
     @classmethod
     async def mark_as_solved(
@@ -1479,7 +1460,7 @@ class GaiaWarning(Base):
         )
         await session.execute(stmt)
         await cls.mark_as_seen(session, warning_id=warning_id, user_id=user_id)
-        _cache_warnings.clear()
+        cache_warnings.clear()
 
 
 # ---------------------------------------------------------------------------

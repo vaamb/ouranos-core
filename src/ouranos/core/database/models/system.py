@@ -4,7 +4,6 @@ from datetime import datetime
 from typing import Optional, Self, Sequence
 
 from asyncache import cached
-from cachetools import LRUCache, TTLCache
 import sqlalchemy as sa
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,15 +11,13 @@ from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql.functions import func, max as sa_max
 
 from ouranos.core.database.models.abc import Base, CacheMixin, RecordMixin
+from ouranos.core.database.models.caches import (
+    cache_systems, cache_systems_history)
 from ouranos.core.database.models.caching import (
     CachedCRUDMixin, sessionless_hashkey)
 from ouranos.core.database.models.types import UtcDateTime
 from ouranos.core.utils import timeWindow
 
-
-_system_cache_size = 2
-_cache_systems = LRUCache(maxsize=_system_cache_size)
-_cache_systems_history = TTLCache(maxsize=_system_cache_size, ttl=60*5)
 
 timed_value = list[
     tuple[datetime, float, Optional[float], float, float, float]
@@ -33,7 +30,7 @@ timed_value = list[
 class System(Base, CachedCRUDMixin):
     __tablename__ = "systems"
     __bind_key__ = "system"
-    _cache = _cache_systems
+    _cache = cache_systems
 
     uid: Mapped[str] = mapped_column(sa.String(32), primary_key=True)
     hostname: Mapped[str] = mapped_column(sa.String(32), default="_default")
@@ -99,7 +96,7 @@ class SystemDataRecord(BaseSystemData, RecordMixin):
         return result.scalars().all()
 
     @classmethod
-    @cached(_cache_systems_history, key=sessionless_hashkey)
+    @cached(cache_systems_history, key=sessionless_hashkey)
     async def get_timed_values(
             cls,
             session: AsyncSession,
