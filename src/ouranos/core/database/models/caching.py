@@ -218,23 +218,12 @@ def clearing_method(
 
 def create_hashable_key(**kwargs: dict[str: Any]) -> tuple:
     to_freeze = []
-    def append_if_hashable(key: str, value: Any) -> None:
-        nonlocal to_freeze
-        try:
-            hash(value)
-        except TypeError:
-            raise TypeError(f"Cannot hash {key}'s value {value}")
-        else:
-            to_freeze.append((key, value))
-
     for key, value in sorted(kwargs.items()):
         if isinstance(value, list):
-            frozen_value = tuple(value)
-            append_if_hashable(key, frozen_value)
-        #elif isinstance(value, dict):
-        #    to_freeze.append((key, create_hashable_key(**value)))
-        else:
-            append_if_hashable(key, value)
+            value = tuple(value)
+        elif isinstance(value, dict):
+            value = create_hashable_key(**value)
+        to_freeze.append((key, value))
     return tuple(to_freeze)
 
 
