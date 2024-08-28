@@ -6,11 +6,9 @@ from enum import Enum
 from typing import Literal, Optional, Sequence, Self, TypedDict
 from uuid import UUID
 
-from asyncache import cached
-from cachetools import LRUCache, TTLCache
 from dispatcher import AsyncDispatcher
 import sqlalchemy as sa
-from sqlalchemy import delete, insert, select, UniqueConstraint, update
+from sqlalchemy import insert, select, UniqueConstraint, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -23,8 +21,14 @@ import gaia_validators as gv
 from ouranos import current_app
 from ouranos.core.database.models.abc import (
     Base, CacheMixin, CRUDMixin, RecordMixin)
+from ouranos.core.database.models.caches import (
+    cache_ecosystems, cache_ecosystems_has_recent_data, cache_engines,
+    cache_hardware, cache_measures, cache_plants, cache_sensors_data_skeleton,
+    cache_sensors_value, cache_warnings)
+from ouranos.core.database.models.caching import (
+    CachedCRUDMixin, cached, create_hashable_key, sessionless_hashkey)
 from ouranos.core.database.models.types import UtcDateTime
-from ouranos.core.database.models.utils import sessionless_hashkey, TIME_LIMITS
+from ouranos.core.database.models.utils import TIME_LIMITS
 from ouranos.core.database.utils import ArchiveLink
 from ouranos.core.utils import create_time_window, timeWindow
 
@@ -35,14 +39,6 @@ measure_order = (
     "temperature", "humidity", "lux", "dew_point", "absolute_moisture",
     "moisture"
 )
-
-
-_ecosystem_caches_size = 16
-_cache_ecosystem_has_recent_data = TTLCache(maxsize=_ecosystem_caches_size * 2, ttl=60)
-_cache_sensors_data_skeleton = TTLCache(maxsize=_ecosystem_caches_size, ttl=900)
-_cache_sensor_values = TTLCache(maxsize=_ecosystem_caches_size * 32, ttl=600)
-_cache_warnings = TTLCache(maxsize=5, ttl=60)
-_cache_measures = LRUCache(maxsize=16)  # TODO: re use
 
 
 class EcosystemActuatorTypesManagedDict(TypedDict):
@@ -70,8 +66,9 @@ class InConfigMixin:
 # ---------------------------------------------------------------------------
 #   Ecosystems-related models, located in db_main and db_archive
 # ---------------------------------------------------------------------------
-class Engine(Base, CRUDMixin):
+class Engine(Base, CachedCRUDMixin):
     __tablename__ = "engines"
+    _cache = cache_engines
 
     uid: Mapped[str] = mapped_column(sa.String(length=32), primary_key=True)
     sid: Mapped[UUID] = mapped_column()
@@ -164,8 +161,9 @@ class Engine(Base, CRUDMixin):
         return response
 
 
-class Ecosystem(Base, CRUDMixin, InConfigMixin):
+class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
     __tablename__ = "ecosystems"
+    _cache = cache_ecosystems
 
     uid: Mapped[str] = mapped_column(sa.String(length=8), primary_key=True)
     engine_uid: Mapped[str] = mapped_column(sa.String(length=32), sa.ForeignKey("engines.uid"))
@@ -302,25 +300,38 @@ class Ecosystem(Base, CRUDMixin, InConfigMixin):
     def reset_managements(self):
         self.management = 0
 
-    @cached(_cache_ecosystem_has_recent_data, key=sessionless_hashkey)
-    async def has_recent_sensor_data(
-            self,
+    @classmethod
+    @cached(cache_ecosystems_has_recent_data, key=sessionless_hashkey)
+    async def check_if_recent_sensor_data(
+            cls,
             session: AsyncSession,
-            *,
+            /,
+            uid: str,
             level: gv.HardwareLevel,
     ) -> bool:
         time_limit = datetime.now(timezone.utc) - timedelta(hours=TIME_LIMITS.SENSORS)
         stmt = (
             select(Hardware)
             .where(
-                Hardware.ecosystem_uid == self.uid,
+                Hardware.ecosystem_uid == uid,
                 Hardware.type == gv.HardwareType.sensor,
                 Hardware.level == level,
                 Hardware.last_log >= time_limit,
             )
+            .limit(1)
         )
         result = await session.execute(stmt)
-        return bool(result.first())
+        return bool(result.one_or_none())
+
+    async def has_recent_sensor_data(
+            self,
+            session: AsyncSession,
+            /,
+            level: gv.HardwareLevel,
+    ) -> bool:
+        result = await Ecosystem.check_if_recent_sensor_data(
+            session, uid=self.uid, level=level)
+        return result
 
     async def get_functionalities(self, session: AsyncSession) -> dict:
         return {
@@ -348,7 +359,7 @@ class Ecosystem(Base, CRUDMixin, InConfigMixin):
             session, ecosystem_uid=self.uid, type=hardware_type,
             in_config=in_config)
 
-    @cached(_cache_sensors_data_skeleton, key=sessionless_hashkey)
+    @cached(cache_sensors_data_skeleton, key=sessionless_hashkey)
     async def get_sensors_data_skeleton(
             self,
             session: AsyncSession,
@@ -565,8 +576,9 @@ AssociationActuatorPlant = Table(
 )
 
 
-class Hardware(Base, CRUDMixin, InConfigMixin):
+class Hardware(Base, CachedCRUDMixin, InConfigMixin):
     __tablename__ = "hardware"
+    _cache = cache_hardware
 
     uid: Mapped[str] = mapped_column(sa.String(length=16), primary_key=True)
     ecosystem_uid: Mapped[str] = mapped_column(
@@ -598,13 +610,15 @@ class Hardware(Base, CRUDMixin, InConfigMixin):
     async def attach_plants(
             self,
             session: AsyncSession,
-            plants: list | str,
+            plants: list[str],
     ) -> None:
-        if isinstance(plants, str):
-            plants = [plants]
         self.plants.clear()
-        plants = await Plant.get_multiple(session, plants_id=plants)
-        for plant in plants:
+        for p in plants:
+            plant = await Plant.get(session, uid=p)
+            if plant is None:
+                # TODO: enforce
+                continue
+                # raise RuntimeError("Plants should be registered before hardware")
             self.plants.append(plant)
 
     async def attach_measures(
@@ -640,6 +654,9 @@ class Hardware(Base, CRUDMixin, InConfigMixin):
                 await hardware_obj.attach_measures(session, measures)
             if plants:
                 await hardware_obj.attach_plants(session, plants)
+            # Clear cache as measures and/or plants have been added
+            hash_key = create_hashable_key(**lookup_keys)
+            cls._cache.pop(hash_key, None)
             await session.commit()
 
     @classmethod
@@ -664,6 +681,9 @@ class Hardware(Base, CRUDMixin, InConfigMixin):
                 await hardware_obj.attach_measures(session, measures)
             if plants:
                 await hardware_obj.attach_plants(session, plants)
+            # Clear cache as measures and/or plants have been added
+            hash_key = create_hashable_key(**lookup_keys)
+            cls._cache.pop(hash_key, None)
             await session.commit()
 
     @staticmethod
@@ -830,9 +850,10 @@ class Actuator(Hardware):
         return result.unique().scalars().all()
 
 
-class Measure(Base, CRUDMixin):
-    _lookup_keys = ["name"]
+class Measure(Base, CachedCRUDMixin):
     __tablename__ = "measures"
+    _lookup_keys = ["name"]
+    _cache = cache_measures
 
     id: Mapped[int] = mapped_column(primary_key=True)  # Use this as PK as the name might be changed
     name: Mapped[str] = mapped_column(sa.String(length=32))
@@ -846,8 +867,9 @@ class Measure(Base, CRUDMixin):
         return f"<Measure({self.name}, unit={self.unit})>"
 
 
-class Plant(Base, CRUDMixin, InConfigMixin):
+class Plant(Base, CachedCRUDMixin, InConfigMixin):
     __tablename__ = "plants"
+    _cache = cache_plants
 
     uid: Mapped[str] = mapped_column(sa.String(length=16), primary_key=True)
     ecosystem_uid: Mapped[str] = mapped_column(sa.ForeignKey("ecosystems.uid"))
@@ -862,30 +884,37 @@ class Plant(Base, CRUDMixin, InConfigMixin):
         lazy="selectin")
 
     @classmethod
-    async def get(
+    async def get_by_id(
             cls,
             session: AsyncSession,
-            plant_id: str
+            /,
+            plant_id: str,
     ) -> Self | None:
-        stmt = select(cls).where(
-            (cls.name.in_(plant_id))
-            | (cls.uid.in_(plant_id))
+        stmt = (
+            select(cls)
+            .where(
+                (cls.uid == plant_id)
+                | (cls.name == plant_id)
+            )
         )
         result = await session.execute(stmt)
         return result.scalars().one_or_none()
 
     @classmethod
-    async def get_multiple(
+    async def get_multiple_by_id(
             cls,
             session: AsyncSession,
-            plants_id: list[str] | None = None,
+            /,
+            plants_id: list[str] | str | None = None,
             in_config: bool | None = None,
     ) -> Sequence[Self]:
         stmt = select(cls)
         if plants_id:
+            if isinstance(plants_id, str):
+                plants_id = [plants_id]
             stmt = stmt.where(
-                (cls.name.in_(plants_id))
-                | (cls.uid.in_(plants_id))
+                (cls.uid.in_(plants_id))
+                | (cls.name.in_(plants_id))
             )
         if in_config is not None:
             stmt = stmt.where(cls.in_config == in_config)
@@ -1036,7 +1065,7 @@ class SensorDataRecord(BaseSensorDataRecord):
             session, sensor_uid, measure_name, time_window)
 
     @classmethod
-    @cached(_cache_sensor_values, key=sessionless_hashkey)
+    @cached(cache_sensors_value, key=sessionless_hashkey)
     async def get_timed_values(
             cls,
             session: AsyncSession,
@@ -1345,7 +1374,7 @@ class GaiaWarning(Base):
         await session.execute(stmt)
 
     @classmethod
-    @cached(_cache_warnings, key=sessionless_hashkey)
+    @cached(cache_warnings, key=sessionless_hashkey)
     async def get_multiple(
             cls,
             session: AsyncSession,
@@ -1388,7 +1417,7 @@ class GaiaWarning(Base):
             .values(**values)
         )
         await session.execute(stmt)
-        _cache_warnings.clear()
+        cache_warnings.clear()
 
     @classmethod
     async def mark_as_seen(
@@ -1410,7 +1439,7 @@ class GaiaWarning(Base):
             })
         )
         await session.execute(stmt)
-        _cache_warnings.clear()
+        cache_warnings.clear()
 
     @classmethod
     async def mark_as_solved(
@@ -1433,7 +1462,7 @@ class GaiaWarning(Base):
         )
         await session.execute(stmt)
         await cls.mark_as_seen(session, warning_id=warning_id, user_id=user_id)
-        _cache_warnings.clear()
+        cache_warnings.clear()
 
 
 # ---------------------------------------------------------------------------

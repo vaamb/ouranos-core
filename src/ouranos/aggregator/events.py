@@ -7,7 +7,6 @@ import logging
 from typing import cast, Type, TypedDict, TypeVar
 from uuid import UUID
 
-from cachetools import LRUCache
 from pydantic import TypeAdapter, ValidationError
 from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
@@ -30,10 +29,6 @@ from ouranos.core.utils import humanize_list
 PT = TypeVar("PT", dict, list[dict])
 
 
-_ecosystem_name_cache = LRUCache(maxsize=32)
-_ecosystem_sid_cache = LRUCache(maxsize=32)
-
-
 class SensorDataRecordDict(TypedDict):
     ecosystem_uid: str
     sensor_uid: str
@@ -49,49 +44,6 @@ class SensorAlarmDict(TypedDict):
     delta: float
     level: gv.WarningLevel
     timestamp: datetime
-
-
-# ------------------------------------------------------------------------------
-#   Utility functions
-# ------------------------------------------------------------------------------
-async def get_ecosystem_name(
-        ecosystem_uid: str,
-        session: AsyncSession | None = None
-) -> str:
-    try:
-        return _ecosystem_name_cache[ecosystem_uid]
-    except KeyError:
-        async def inner_func(session: AsyncSession, ecosystem_uid: str) -> str:
-            ecosystem = await Ecosystem.get(session, uid=ecosystem_uid)
-            if ecosystem is not None:
-                _ecosystem_name_cache[ecosystem_uid] = ecosystem.name
-                return ecosystem.name
-
-        if session is not None:
-            return await inner_func(session, ecosystem_uid)
-        async with db.scoped_session() as session:
-            return await inner_func(session, ecosystem_uid)
-        # TODO: return or raise when not found
-
-
-async def get_engine_sid(
-        engine_uid: str,
-        session: AsyncSession | None = None
-) -> str:
-    try:
-        return _ecosystem_sid_cache[engine_uid]
-    except KeyError:
-        async def inner_func(session: AsyncSession, engine_uid: str) -> str:
-            engine = await Engine.get(session, uid=engine_uid)
-            if engine is not None:
-                sid = engine.sid
-                _ecosystem_sid_cache[engine_uid] = sid
-                return sid
-
-        if session is not None:
-            return await inner_func(session, engine_uid)
-        async with db.scoped_session() as session:
-            return await inner_func(session, engine_uid)
 
 
 # ------------------------------------------------------------------------------
@@ -140,6 +92,33 @@ class BaseEvents(AsyncEventHandler):
             )
             raise
 
+    async def get_ecosystem_name(
+            self,
+            session: AsyncSession,
+            /,
+            uid: str,
+    ) -> str | None:
+        ecosystem = await Ecosystem.get(session, uid=uid)
+        if ecosystem:
+            return ecosystem.name
+        else:
+            self.logger.error(
+                f"Received an event from an unknown ecosystem with uid '{uid}'")
+            return None
+
+    async def get_engine_sid(
+            self,
+            session: AsyncSession,
+            /,
+            uid: str,
+    ) -> str | None:
+        engine = await Engine.get(session, uid=uid)
+        if engine:
+            return engine.sid
+        else:
+            self.logger.error(
+                f"Received an event from an unknown engine with uid '{uid}'")
+            return None
 
 # ------------------------------------------------------------------------------
 #   Events class handling all events except short-lived payloads (stream)
@@ -280,12 +259,12 @@ class GaiaEvents(BaseEvents):
         async with db.scoped_session() as session:
             engine = await Engine.get(session, uid=engine_uid)
             if engine:
-                engine.last_seen = now
+                await Engine.update(session, uid=engine_uid, values={"last_seen": now})
             ecosystems = await Ecosystem.get_multiple(
                 session, uid=[ecosystem["uid"] for ecosystem in data])
             for ecosystem in ecosystems:
                 ecosystems_seen.append(ecosystem.name)
-                ecosystem.last_seen = now
+                await Ecosystem.update(session, uid=ecosystem.uid, values={"last_seen": now})
         self.logger.debug(
             f"Updated last seen info for ecosystem(s) "
             f"{humanize_list(ecosystems_seen)}"
@@ -400,7 +379,7 @@ class GaiaEvents(BaseEvents):
             for payload in data:
                 uid: str = payload["uid"]
                 ecosystems_to_log.append(
-                    await get_ecosystem_name(uid, session=session))
+                    await self.get_ecosystem_name(session, uid=uid))
                 ecosystem = payload["data"]
                 nycthemeral_cycle = ecosystem["nycthemeral_cycle"]
                 ecosystem_info = {
@@ -449,7 +428,7 @@ class GaiaEvents(BaseEvents):
                 hardware_in_config = []
                 uid = payload["uid"]
                 ecosystems_to_log.append(
-                    await get_ecosystem_name(uid, session=session))
+                    await self.get_ecosystem_name(session, uid=uid))
                 for hardware in payload["data"]:
                     hardware_uid = hardware.pop("uid")  # noqa
                     hardware_in_config.append(hardware_uid)
@@ -467,9 +446,9 @@ class GaiaEvents(BaseEvents):
                     .where(Hardware.uid.not_in(hardware_in_config))
                 )
                 result = await session.execute(stmt)
-                not_used = result.scalars().all()
-                for hardware in not_used:
-                    hardware.in_config = False
+                not_used = result.all()
+                for hardware_row in not_used:
+                    await Hardware.update(session, uid=hardware_row.uid, values={"in_config": False})
         self.logger.debug(
             f"Logged hardware info from ecosystem(s): {humanize_list(ecosystems_to_log)}"
         )
@@ -492,35 +471,34 @@ class GaiaEvents(BaseEvents):
             data, gv.ManagementConfigPayload, list)
 
         class EcosystemUpdateData(TypedDict):
-            uid: str
             management: str
 
         ecosystems_to_update: dict[str, EcosystemUpdateData] = {}
         ecosystems_to_log: list[str] = []
 
-        for payload in data:
-            uid: str = payload["uid"]
-            ecosystem_management = payload["data"]
-            management_value: int = 0
-            for management in gv.ManagementFlags:
-                try:
-                    if ecosystem_management[management.name]:
-                        management_value |= management.value
-                except KeyError:
-                    # Not implemented in gaia yet
-                    pass
+        async with db.scoped_session() as session:
+            for payload in data:
+                uid: str = payload["uid"]
+                ecosystem_management = payload["data"]
+                management_value: int = 0
+                for management in gv.ManagementFlags:
+                    try:
+                        if ecosystem_management[management.name]:
+                            management_value |= management.value
+                    except KeyError:
+                        # Not implemented in gaia yet
+                        pass
 
-            ecosystems_to_update[uid] = {
-                "uid": uid,
-                "management": management_value
-            }
-            ecosystems_to_log.append(
-                await get_ecosystem_name(uid, session=None))
+                ecosystems_to_update[uid] = {
+                    "management": management_value
+                }
+                ecosystems_to_log.append(
+                    await self.get_ecosystem_name(session, uid=uid))
 
         if ecosystems_to_update:
             async with db.scoped_session() as session:
-                await Ecosystem.update_multiple(
-                    session, values=[*ecosystems_to_update.values()])
+                for ecosystem_uid, update_value in ecosystems_to_update.items():
+                    await Ecosystem.update(session, uid=ecosystem_uid, values=update_value)
             self.logger.debug(
                 f"Logged management info from ecosystem(s): "
                 f"{humanize_list(ecosystems_to_log)}")
@@ -590,10 +568,12 @@ class GaiaEvents(BaseEvents):
         if logging_period is None:
             return
 
-        last_log: dict[str, datetime] = {}
-        hardware_uids: set[str] = set()
-        ecosystem_uids: set[str] = set()
-        records_to_log: list[SensorDataRecordDict] = []
+        class HardwareUpdateData(TypedDict):
+            last_log: datetime
+
+        records_to_create: list[SensorDataRecordDict] = []
+        hardware_to_update: dict[str, HardwareUpdateData] = {}
+        ecosystems_to_log: set[str] = set()
 
         async with db.scoped_session() as session:
             recent_sensors_record = await SensorDataCache.get_recent(
@@ -601,10 +581,12 @@ class GaiaEvents(BaseEvents):
             # Filter data that needs to be logged into db
             for record in recent_sensors_record:
                 if record.timestamp.minute % logging_period == 0:
-                    last_log[record.sensor_uid] = record.timestamp
-                    hardware_uids.add(record.sensor_uid)
-                    ecosystem_uids.add(record.ecosystem_uid)
-                    records_to_log.append(cast(SensorDataRecordDict, {
+                    hardware_to_update[record.sensor_uid] = {
+                        "last_log": record.timestamp,
+                    }
+                    ecosystems_to_log.add(
+                        await self.get_ecosystem_name(session, uid=record.ecosystem_uid))
+                    records_to_create.append(cast(SensorDataRecordDict, {
                         "ecosystem_uid": record.ecosystem_uid,
                         "sensor_uid": record.sensor_uid,
                         "measure": record.measure,
@@ -619,29 +601,29 @@ class GaiaEvents(BaseEvents):
                 if alarm["timestamp"].minute % logging_period == 0
             ]
 
-        if not records_to_log:
+        if not records_to_create:
             return
         # Dispatch the data that will become historic data
         await self.ouranos_dispatcher.emit(
-            "historic_sensors_data_update", data=records_to_log,
+            "historic_sensors_data_update", data=records_to_create,
             namespace="application-internal", ttl=15)
         self.logger.debug(
             f"Sent `historic_sensors_data_update` to the web API")
         # Log historic data in db
         async with db.scoped_session() as session:
-            await SensorDataRecord.create_records(session, records_to_log)
+            await SensorDataRecord.create_records(session, records_to_create)
             # Update the last_log column for hardware
-            for hardware in await Hardware.get_multiple(session, uid=[*hardware_uids]):
-                hardware.last_log = last_log.get(hardware.uid)
+            for hardware_uid, update_value in hardware_to_update.items():
+                await Hardware.update(session, uid=hardware_uid, values=update_value)
+                ecosystems_to_log.add(
+                    await self.get_ecosystem_name(session, uid=record.ecosystem_uid))
+            # Log new alarms or lengthen old ones
             for alarm in alarms_to_log:
                 await SensorAlarm.create_or_lengthen(session, alarm)
-            await session.commit()
             # Get ecosystem IDs
-            ecosystems = await Ecosystem.get_multiple(
-                session, uid=[*ecosystem_uids])
             self.logger.info(
                 f"Logged sensors data from ecosystem(s) "
-                f"{humanize_list([e.name for e in ecosystems])}")
+                f"{humanize_list([*ecosystems_to_log])}")
 
     async def _handle_buffered_records(
             self,
@@ -731,7 +713,7 @@ class GaiaEvents(BaseEvents):
             for payload in data:
                 records = payload["data"]
                 logged.append(
-                    await get_ecosystem_name(payload["uid"], session=session))
+                    await self.get_ecosystem_name(session, uid=payload["uid"]))
                 for record in records:
                     record: gv.ActuatorStateRecord
                     ecosystem_uid=payload["uid"]
@@ -820,22 +802,21 @@ class GaiaEvents(BaseEvents):
             data, gv.HealthDataPayload, list)
         logged: list[str] = []
         values: list[dict] = []
-        for payload in data:
-            raw_ecosystem = payload["data"]
-            ecosystem = gv.HealthRecord(*raw_ecosystem)
-            logged.append(
-                await get_ecosystem_name(payload["uid"], session=None)
-            )
-            health_data = {
-                "ecosystem_uid": payload["uid"],
-                "timestamp": ecosystem.timestamp,
-                "green": ecosystem.green,
-                "necrosis": ecosystem.necrosis,
-                "health_index": ecosystem.index
-            }
-            values.append(health_data)
-        if values:
-            async with db.scoped_session() as session:
+        async with db.scoped_session() as session:
+            for payload in data:
+                raw_ecosystem = payload["data"]
+                ecosystem = gv.HealthRecord(*raw_ecosystem)
+                logged.append(
+                    await self.get_ecosystem_name(session, uid=payload["uid"]))
+                health_data = {
+                    "ecosystem_uid": payload["uid"],
+                    "timestamp": ecosystem.timestamp,
+                    "green": ecosystem.green,
+                    "necrosis": ecosystem.necrosis,
+                    "health_index": ecosystem.index
+                }
+                values.append(health_data)
+            if values:
                 await HealthRecord.create_records(session, values)
             self.logger.debug(
                 f"Logged health data from ecosystem(s): "
@@ -859,7 +840,7 @@ class GaiaEvents(BaseEvents):
         async with db.scoped_session() as session:
             for payload in data:
                 ecosystems_to_log.append(
-                    await get_ecosystem_name(payload["uid"], session=session))
+                    await self.get_ecosystem_name(session, uid=payload["uid"]))
                 ecosystem = payload["data"]
                 light_info = {
                     "method": ecosystem["method"],
@@ -922,7 +903,7 @@ class GaiaEvents(BaseEvents):
             {data["target"]}) to engine '{engine_uid}'."""
         )
         async with db.scoped_session() as session:
-            engine_sid = await get_engine_sid(engine_uid)
+            engine_sid = await self.get_engine_sid(session, uid=engine_uid)
             await CrudRequest.create(
                 session,
                 uuid=UUID(data["uuid"]),

@@ -14,6 +14,7 @@ engine_sid = uuid.uuid4()
 engine_uid = "engine_uid"
 ecosystem_uid = "zutqsCKn"
 ecosystem_name = "TestingEcosystem"
+plant_uid = "plant_uid"
 hardware_uid = "hardware_uid"
 measure_name = "temperature"
 request_uuid = uuid.uuid4()
@@ -119,7 +120,7 @@ hardware_data: gv.HardwareConfigDict = {
     "level": gv.HardwareLevel.environment.name,
     "model": "virtualDHT22",
     "measures": ["temperature|°C"],
-    "plants": [],
+    "plants": [plant_uid],
     "multiplexer_model": None,
 }
 

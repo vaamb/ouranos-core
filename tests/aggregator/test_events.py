@@ -405,7 +405,9 @@ async def test_on_health_data(
     await events_handler.on_health_data(g_data.engine_sid, [g_data.health_data_payload])
 
     async with ecosystem_aware_db.scoped_session() as session:
-        health_record = (await session.execute(select(HealthRecord))).scalar()
+        stmt = select(HealthRecord)
+        result = await session.execute(stmt)
+        health_record = result.scalar()
         assert health_record.timestamp == g_data.health_data.timestamp
         assert health_record.green == g_data.health_data.green
         assert health_record.necrosis == g_data.health_data.necrosis

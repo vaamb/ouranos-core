@@ -1,39 +1,13 @@
 from __future__ import annotations
 
-from typing import Any, Type
-
-from cachetools.keys import hashkey
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.selectable import Select
-
-from ouranos.core.database.models.abc import Base
 
 
 class TIME_LIMITS:
     RECENT: int = 36
     SENSORS: int = 24 * 7
     HEALTH: int = 24 * 31
-    WARNING:int = 24 * 7
-
-
-def sessionless_hashkey(
-        cls_or_self: Type | Base,
-        session: AsyncSession,
-        /,
-        **kwargs
-) -> tuple:
-    inst_ids = []
-    if isinstance(cls_or_self, Base):
-        for id_ in ("uid", "id"):
-            if hasattr(cls_or_self, id_):
-                inst_ids.append(getattr(cls_or_self, id_))
-    unlisted_kwargs: list[Any] = []
-    for key in sorted(kwargs.keys()):
-        if isinstance(kwargs[key], list):
-            unlisted_kwargs.append(tuple(kwargs[key]))
-        else:
-            unlisted_kwargs.append(kwargs[key])
-    return hashkey(*inst_ids, *unlisted_kwargs)
+    WARNING: int = 24 * 7
 
 
 def paginate(
