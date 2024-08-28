@@ -616,7 +616,9 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
         for p in plants:
             plant = await Plant.get(session, uid=p)
             if plant is None:
-                raise RuntimeError("Plants should be registered before hardware")
+                # TODO: enforce
+                continue
+                # raise RuntimeError("Plants should be registered before hardware")
             self.plants.append(plant)
 
     async def attach_measures(
