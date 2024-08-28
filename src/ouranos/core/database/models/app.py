@@ -280,6 +280,62 @@ class User(Base, UserMixin):
         else:
             return await Role.get_default(session)
 
+    def set_password(self, password: str) -> None:
+        self.password_hash = argon2_hasher.hash(password)
+
+    def check_password(self, password: str) -> bool:
+        try:
+            return argon2_hasher.verify(self.password_hash, password)
+        except VerificationError:
+            return False
+
+    def validate_email(self, email_address: str) -> None:
+        if re.match(r"^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$", email_address) is not None:
+            self.email = email_address
+
+    @staticmethod
+    async def create_invitation_token(
+            session: AsyncSession,
+            role_name: RoleName | str | None = None,
+            user_info: UserTokenInfoDict | None = None,
+            expiration_delay: int = REGISTRATION_TOKEN_VALIDITY,
+    ) -> str:
+        user_info = user_info or {}
+        if role_name:
+            user_info["role"] = role_name
+        role_name = user_info.pop("role", None)
+        try:
+            role_name = safe_enum_from_name(RoleName, role_name)
+        except (TypeError, ValueError):
+            role_name = None
+        cor_role_name: RoleName | None = None
+        if role_name is not None:
+            default_role = await Role.get_default(session)
+            role = await Role.get(session, role_name)
+            if role is None:
+                cor_role_name = None
+            else:
+                if role.name != default_role.name:
+                    cor_role_name = role.name
+        if cor_role_name is not None:
+            user_info["role"] = cor_role_name.name
+        if expiration_delay is None:
+            expiration_delay = REGISTRATION_TOKEN_VALIDITY
+        token = Tokenizer.create_token(
+            subject=TOKEN_SUBS.REGISTRATION.value,
+            expiration_delay=expiration_delay,
+            other_claims=user_info,
+        )
+        return token
+
+    async def confirm(self, session: AsyncSession) -> None:
+        stmt = (
+            update(self.__class__)
+            .where(self.__class__.id == self.id)
+            .values(confirmed_at=func.current_timestamp())
+        )
+        await session.execute(stmt)
+
     @classmethod
     async def create(
             cls,
@@ -413,54 +469,6 @@ class User(Base, UserMixin):
                 role_id=admin.id,
             )
             session.add(gaia)
-
-    def set_password(self, password: str) -> None:
-        self.password_hash = argon2_hasher.hash(password)
-
-    def check_password(self, password: str) -> bool:
-        try:
-            return argon2_hasher.verify(self.password_hash, password)
-        except VerificationError:
-            return False
-
-    def validate_email(self, email_address: str) -> None:
-        if re.match(r"^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$", email_address) is not None:
-            self.email = email_address
-
-    @staticmethod
-    async def create_invitation_token(
-            session: AsyncSession,
-            role_name: RoleName | str | None = None,
-            user_info: UserTokenInfoDict | None = None,
-            expiration_delay: int = REGISTRATION_TOKEN_VALIDITY,
-    ) -> str:
-        user_info = user_info or {}
-        if role_name:
-            user_info["role"] = role_name
-        role_name = user_info.pop("role", None)
-        try:
-            role_name = safe_enum_from_name(RoleName, role_name)
-        except (TypeError, ValueError):
-            role_name = None
-        cor_role_name: RoleName | None = None
-        if role_name is not None:
-            default_role = await Role.get_default(session)
-            role = await Role.get(session, role_name)
-            if role is None:
-                cor_role_name = None
-            else:
-                if role.name != default_role.name:
-                    cor_role_name = role.name
-        if cor_role_name is not None:
-            user_info["role"] = cor_role_name.name
-        if expiration_delay is None:
-            expiration_delay = REGISTRATION_TOKEN_VALIDITY
-        token = Tokenizer.create_token(
-            subject=TOKEN_SUBS.REGISTRATION.value,
-            expiration_delay=expiration_delay,
-            other_claims=user_info,
-        )
-        return token
 
 
 class ServiceLevel(Enum):
