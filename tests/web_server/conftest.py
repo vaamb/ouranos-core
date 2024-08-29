@@ -124,7 +124,7 @@ async def users(db: AsyncSQLAlchemyWrapper):
                 "role": u.role.value
             }
             await User.create(session, u.username, u.password, **user_info)
-            usr = await User.get(session, u.username)
+            usr = await User.get_by(session, username=u.username)
             users_dict[u.role.value] = usr.id
     return users_dict
 

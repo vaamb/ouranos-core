@@ -189,11 +189,14 @@ login_manager = LoginManager()
 @login_manager.user_loader
 async def load_user(
         session: AsyncSession,
-        user_id: Optional[Union[int, str]]
+        user_id: Optional[Union[int]]
 ) -> UserMixin:
     if user_id is None:
         return anonymous_user
-    user = await User.get(session, user_id)
+    if isinstance(user_id, int):
+        user = await User.get(session, user_id)
+    else:
+        user = await User.get_by(session, username=user_id)
     if user is None or not user.active:
         return anonymous_user
     return user

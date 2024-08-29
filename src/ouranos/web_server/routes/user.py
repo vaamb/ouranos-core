@@ -37,7 +37,7 @@ async def get_user_or_abort(
         session: AsyncSession,
         username: str
 ) -> User:
-    user = await User.get(session, user_id=username)
+    user = await User.get_by(session, username=username)
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

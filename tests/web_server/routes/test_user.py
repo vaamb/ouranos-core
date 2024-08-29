@@ -69,7 +69,7 @@ async def test_update_user_success_same_user(
     assert response.status_code == 202
 
     async with db.scoped_session() as session:
-        user = await User.get(session, user_id=username)
+        user = await User.get_by(session, username=username)
         assert user.firstname == firstname
 
 
@@ -89,7 +89,7 @@ async def test_update_user_success_admin(
     assert response.status_code == 202
 
     async with db.scoped_session() as session:
-        user = await User.get(session, user_id=username)
+        user = await User.get_by(session, username=username)
         assert user.firstname == firstname
 
 

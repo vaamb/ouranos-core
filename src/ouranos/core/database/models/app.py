@@ -9,7 +9,7 @@ from typing import Optional, Self, Sequence, TypedDict
 from argon2 import PasswordHasher
 from argon2.exceptions import VerificationError
 import sqlalchemy as sa
-from sqlalchemy import delete, insert, select, Table, update
+from sqlalchemy import delete, insert, or_, select, Table, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -345,15 +345,14 @@ class User(Base, UserMixin):
             **kwargs
     ) -> User:
         # Check if new user is a duplicate
-        error = []
-        stmt = select(User).where(User.username == username)
-        if "email" in kwargs:
-            stmt = stmt.where(User.email == kwargs["email"])
-        if "telegram_id" in kwargs:
-            stmt = stmt.where(User.telegram_id == kwargs["telegram_id"])
-        result = await session.execute(stmt)
-        previous_user: User = result.scalars().first()
-        if previous_user:
+        previous_user: User = await cls.get_by(
+            session,
+            username=username,
+            email=kwargs.get("email", None),
+            telegram_id=kwargs.get("telegram_id", None),
+        )
+        if previous_user is not None:
+            error = []
             if previous_user.username == username:
                 error.append("username")
             if previous_user.email == kwargs.get("email", False):
@@ -370,6 +369,69 @@ class User(Base, UserMixin):
         session.add(user)
         await session.commit()
         return user
+
+    @classmethod
+    async def get(
+            cls,
+            session: AsyncSession,
+            user_id: int,
+    ) -> Self | None:
+        stmt = (
+            select(cls)
+            .where(cls.id == user_id)
+        )
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    @classmethod
+    async def get_by(
+            cls,
+            session,
+            /,
+            **lookup_keys: str | int,
+    ) -> Self | None:
+        non_null_lookup_keys = {
+            key: value
+            for key, value in lookup_keys.items()
+            if value is not None
+        }
+        if not non_null_lookup_keys:
+            return None
+        stmt = (
+            select(cls)
+            .where(
+                or_(
+                    cls.__table__.c[key] == value
+                    for key, value in non_null_lookup_keys.items()
+                )
+            )
+        )
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    @classmethod
+    async def get_multiple(
+            cls,
+            session: AsyncSession,
+            registration_start_time: datetime | None = None,
+            registration_end_time: datetime | None = None,
+            confirmed: bool = False,
+            active: bool = False,
+            page: int = 0,
+            per_page: int = 20,
+    ) -> Sequence[Self]:
+        start_page: int = page * per_page
+        stmt = select(cls).offset(start_page).limit(per_page)
+        if registration_start_time is not None:
+            stmt = stmt.where(cls.registration_datetime >= registration_start_time)
+        if registration_end_time is not None:
+            stmt = stmt.where(registration_end_time >= cls.registration_datetime)
+        if confirmed:
+            stmt = stmt.where(cls.confirmed == True)
+        if active:
+            stmt = stmt.where(cls.active == True)
+        result = await session.execute(stmt)
+        return result.scalars().all()
 
     @classmethod
     async def update(
@@ -411,47 +473,6 @@ class User(Base, UserMixin):
             )
         )
         await session.execute(stmt)
-
-    @classmethod
-    async def get(
-            cls,
-            session: AsyncSession,
-            user_id: int | str
-    ) -> Self | None:
-        stmt = (
-            select(cls)
-            .where(
-                (cls.id == user_id)
-                | (cls.username == user_id)
-                | (cls.email == user_id)
-            )
-        )
-        result = await session.execute(stmt)
-        return result.scalar_one_or_none()
-
-    @classmethod
-    async def get_multiple(
-            cls,
-            session: AsyncSession,
-            registration_start_time: datetime | None = None,
-            registration_end_time: datetime | None = None,
-            confirmed: bool = False,
-            active: bool = False,
-            page: int = 0,
-            per_page: int = 20,
-    ) -> Sequence[Self]:
-        start_page: int = page * per_page
-        stmt = select(cls).offset(start_page).limit(per_page)
-        if registration_start_time is not None:
-            stmt = stmt.where(cls.registration_datetime >= registration_start_time)
-        if registration_end_time is not None:
-            stmt = stmt.where(registration_end_time >= cls.registration_datetime)
-        if confirmed:
-            stmt = stmt.where(cls.confirmed == True)
-        if active:
-            stmt = stmt.where(cls.active == True)
-        result = await session.execute(stmt)
-        return result.scalars().all()
 
     @classmethod
     async def insert_gaia(cls, session: AsyncSession) -> None:
