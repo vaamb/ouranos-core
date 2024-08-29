@@ -110,14 +110,17 @@ class Engine(Base, CachedCRUDMixin):
             /,
             engines_id: RecentOrConnected | list[str] | list[UUID] | None = None,
     ) -> Sequence[Self]:
-        if engines_id is None or engines_id == "all":
+        if isinstance(engines_id, str):
+            # Should not happen
+            engines_id = engines_id.split(",")
+        if engines_id is None or "all" in engines_id:
             stmt = (
                 select(cls)
                 .order_by(cls.last_seen.desc())
             )
             result = await session.execute(stmt)
             return result.scalars().all()
-        elif engines_id == "recent":
+        elif "recent" in engines_id:
             time_limit = datetime.now(timezone.utc) - timedelta(hours=TIME_LIMITS.RECENT)
             stmt = (
                 select(cls)
@@ -126,7 +129,7 @@ class Engine(Base, CachedCRUDMixin):
             )
             result = await session.execute(stmt)
             return result.scalars().all()
-        elif engines_id == "connected":
+        elif "connected" in engines_id:
             stmt = (
                 select(cls)
                 .where(cls.connected == True)  # noqa
@@ -134,9 +137,6 @@ class Engine(Base, CachedCRUDMixin):
             )
             result = await session.execute(stmt)
             return result.scalars().all()
-        if isinstance(engines_id, str):
-            # Should not happen
-            engines_id = engines_id.split(",")
         # Check that all the list elements are of the same types as it can lead
         #  to issues on some backend
         lst_type = type(engines_id[0])
@@ -234,10 +234,13 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
             cls,
             session: AsyncSession,
             /,
-            ecosystems_id: RecentOrConnected | list[str] | None = None,
+            ecosystems_id: list[RecentOrConnected | str] | None = None,
             in_config: bool | None = None,
     ) -> Sequence[Self]:
-        if ecosystems_id is None or ecosystems_id == "all":
+        if isinstance(ecosystems_id, str):
+            # Should not happen
+            ecosystems_id = ecosystems_id.split(",")
+        if ecosystems_id is None or "all" in ecosystems_id:
             stmt = (
                 select(cls)
                 .order_by(
@@ -249,7 +252,7 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
                 stmt = stmt.where(cls.in_config == in_config)
             result = await session.execute(stmt)
             return result.scalars().all()
-        if ecosystems_id == "recent":
+        if "recent" in ecosystems_id:
             time_limit = datetime.now(timezone.utc) - timedelta(hours=TIME_LIMITS.RECENT)
             stmt = (
                 select(cls)
@@ -260,7 +263,7 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
                 stmt = stmt.where(cls.in_config == in_config)
             result = await session.execute(stmt)
             return result.scalars().all()
-        elif ecosystems_id == "connected":
+        elif "connected" in ecosystems_id:
             stmt = (
                 select(cls).join(Engine.ecosystems)
                 .where(Engine.connected == True)  # noqa
@@ -270,9 +273,6 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
                 stmt = stmt.where(cls.in_config == in_config)
             result = await session.execute(stmt)
             return result.scalars().all()
-        if isinstance(ecosystems_id, str):
-            # Should not happen
-            ecosystems_id = ecosystems_id.split(",")
         stmt = (
             select(cls)
             .where(
