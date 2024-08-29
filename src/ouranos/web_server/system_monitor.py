@@ -55,10 +55,11 @@ class SystemMonitor:
 
         while not self._stop_event.is_set():
             start = ctime.time()
+            uid = current_app.config["API_UID"]
             mem = psutil.virtual_memory()
             mem_proc = current_process.memory_info()
             disk = psutil.disk_usage("/")
-            data = {
+            common_data = {
                 "system_uid": "base_server",
                 "timestamp": datetime.now(timezone.utc),
                 "CPU_used": psutil.cpu_percent(),
@@ -68,14 +69,19 @@ class SystemMonitor:
                 "DISK_used": round(disk[1]/(1024*1024*1024), 2),
             }
             await self.dispatcher.emit(
-                "current_server_data", data=data, namespace="application-internal")
+                "current_server_data",
+                data={"uid": uid, **common_data},
+                namespace="application-internal",
+            )
             async with db.scoped_session() as session:
-                await SystemDataCache.insert_data(session, data)
+                await SystemDataCache.insert_data(
+                    session, {"system_uid": uid, **common_data})
             if logging_period and datetime.now().minute % logging_period == 0:
                 if not logged:
                     async with db.scoped_session() as session:
                         self.logger.debug("Logging system resources")
-                        await SystemDataRecord.create_records(session, data)
+                        await SystemDataRecord.create_records(
+                            session, {"system_uid": uid, **common_data})
                 logged = True
             else:
                 logged = False
