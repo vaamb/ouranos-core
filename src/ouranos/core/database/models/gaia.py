@@ -25,6 +25,8 @@ from ouranos.core.database.models.caches import (
     cache_ecosystems, cache_ecosystems_has_recent_data, cache_engines,
     cache_hardware, cache_measures, cache_plants, cache_sensors_data_skeleton,
     cache_sensors_value, cache_warnings)
+from ouranos.core.database.models.caches import (
+    cache_ecosystems_recent, cache_engines_recent)
 from ouranos.core.database.models.caching import (
     CachedCRUDMixin, cached, create_hashable_key, sessionless_hashkey)
 from ouranos.core.database.models.types import UtcDateTime
@@ -108,23 +110,27 @@ class Engine(Base, CachedCRUDMixin):
             cls,
             session: AsyncSession,
             /,
-            engines_id: RecentOrConnected | list[str] | list[UUID] | None = None,
+            engines_id: list[RecentOrConnected | str | UUID] | None = None,
     ) -> Sequence[Self]:
-        if isinstance(engines_id, str):
-            # Should not happen
-            engines_id = engines_id.split(",")
-        if engines_id is None or "all" in engines_id:
+        if engines_id is None:
+            engines_id = ["all"]
+        if "recent" in engines_id:
+            try:
+                return cache_engines_recent["recent"]
+            except KeyError:
+                time_limit = datetime.now(timezone.utc) - timedelta(hours=TIME_LIMITS.RECENT)
+                stmt = (
+                    select(cls)
+                    .where(cls.last_seen >= time_limit)
+                    .order_by(cls.last_seen.desc())
+                )
+                result = await session.execute(stmt)
+                engines = result.scalars().all()
+                cache_engines_recent["recent"] = engines
+                return engines
+        elif "all" in engines_id:
             stmt = (
                 select(cls)
-                .order_by(cls.last_seen.desc())
-            )
-            result = await session.execute(stmt)
-            return result.scalars().all()
-        elif "recent" in engines_id:
-            time_limit = datetime.now(timezone.utc) - timedelta(hours=TIME_LIMITS.RECENT)
-            stmt = (
-                select(cls)
-                .where(cls.last_seen >= time_limit)
                 .order_by(cls.last_seen.desc())
             )
             result = await session.execute(stmt)
@@ -143,8 +149,7 @@ class Engine(Base, CachedCRUDMixin):
         if len(engines_id) > 0:
             if not all(isinstance(id_, lst_type) for id_ in engines_id[1:]):
                 raise ValueError(
-                    "All the elements should either be engines 'uid' or 'name'"
-                )
+                    "All the elements should either be engines 'uid' or 'sid'")
         if lst_type == str:
             # Received an engine uid
             stmt = select(cls).where(cls.uid.in_(engines_id))
@@ -237,27 +242,31 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
             ecosystems_id: list[RecentOrConnected | str] | None = None,
             in_config: bool | None = None,
     ) -> Sequence[Self]:
-        if isinstance(ecosystems_id, str):
-            # Should not happen
-            ecosystems_id = ecosystems_id.split(",")
-        if ecosystems_id is None or "all" in ecosystems_id:
+        if ecosystems_id is None:
+            ecosystems_id = ["all"]
+        if "recent" in ecosystems_id:
+            try:
+                return cache_ecosystems_recent["recent"]
+            except KeyError:
+                time_limit = datetime.now(timezone.utc) - timedelta(hours=TIME_LIMITS.RECENT)
+                stmt = (
+                    select(cls)
+                    .where(cls.last_seen >= time_limit)
+                    .order_by(cls.status.desc(), cls.name.asc())
+                )
+                if in_config is not None:
+                    stmt = stmt.where(cls.in_config == in_config)
+                result = await session.execute(stmt)
+                ecosystems = result.scalars().all()
+                cache_ecosystems_recent["recent"] = ecosystems
+                return ecosystems
+        elif "all" in ecosystems_id:
             stmt = (
                 select(cls)
                 .order_by(
                     cls.name.asc(),
                     cls.last_seen.desc()
                 )
-            )
-            if in_config is not None:
-                stmt = stmt.where(cls.in_config == in_config)
-            result = await session.execute(stmt)
-            return result.scalars().all()
-        if "recent" in ecosystems_id:
-            time_limit = datetime.now(timezone.utc) - timedelta(hours=TIME_LIMITS.RECENT)
-            stmt = (
-                select(cls)
-                .where(cls.last_seen >= time_limit)
-                .order_by(cls.status.desc(), cls.name.asc())
             )
             if in_config is not None:
                 stmt = stmt.where(cls.in_config == in_config)
