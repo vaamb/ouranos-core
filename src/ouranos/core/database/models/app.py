@@ -179,9 +179,6 @@ class AnonymousUser(UserMixin):
     def is_anonymous(self) -> bool:
         return True
 
-    def get_id(self) -> None:
-        return
-
     def check_password(self, password: str) -> bool:
         return False
 
@@ -242,8 +239,11 @@ class User(Base, UserMixin):
         back_populates="users", secondary=AssociationUserRecap)
     calendar: Mapped[list["CalendarEvent"]] = relationship(back_populates="user")
 
+    # ---------------------------------------------------------------------------
+    #   Methods to override the Mixin default
+    # ---------------------------------------------------------------------------
     def __repr__(self):
-        return f"<User({self.username}, role={self.role.name})>"
+        return f"<User({self.username}, role={self.role.name.name})>"
 
     @property
     def is_confirmed(self) -> bool:
@@ -264,14 +264,6 @@ class User(Base, UserMixin):
     @property
     def role_name(self) -> RoleName:
         return self.role.name
-
-    async def confirm(self, session: AsyncSession) -> None:
-        stmt = (
-            update(self.__class__)
-            .where(self.__class__.id == self.id)
-            .values(confirmed_at=func.current_timestamp())
-        )
-        await session.execute(stmt)
 
     def check_password(self, password: str) -> bool:
         try:
@@ -306,7 +298,7 @@ class User(Base, UserMixin):
         return token
 
     # ---------------------------------------------------------------------------
-    #   Methods involved in user creation and update
+    #   Methods involved in the data processing of user creation and update
     # ---------------------------------------------------------------------------
     @classmethod
     def _validate_email(cls, email_address: str) -> None:
