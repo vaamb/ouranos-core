@@ -150,8 +150,7 @@ class Engine(Base, CachedCRUDMixin):
         if len(engines_id) > 0:
             if not all(isinstance(id_, lst_type) for id_ in engines_id[1:]):
                 raise ValueError(
-                    "All the elements should either be engines 'uid' or 'name'"
-                )
+                    "All the elements should either be engines 'uid' or 'sid'")
         if lst_type == str:
             # Received an engine uid
             stmt = select(cls).where(cls.uid.in_(engines_id))
