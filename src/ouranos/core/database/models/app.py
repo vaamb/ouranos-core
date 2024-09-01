@@ -265,58 +265,19 @@ class User(Base, UserMixin):
     def role_name(self) -> RoleName:
         return self.role.name
 
-    @classmethod
-    async def compute_default_role(
-            cls,
-            session: AsyncSession,
-            role_name: RoleName | str | None = None,
-            email: str | None = None,
-    ) -> Role:
-        # Promote to admin if the email address is in the admin mail list
-        admins: str | list = current_app.config.get("ADMINS", [])
-        if isinstance(admins, str):
-            admins = admins.split(",")
-        if email is not None and email in admins:
-            return await Role.get(session, role_name=RoleName.Administrator)
-        # Try to get the role name
-        try:
-            role_name = safe_enum_from_name(RoleName, role_name)
-        except (TypeError, ValueError):
-            role_name = None
-        # Get required role
-        if role_name is not None:
-            role = await Role.get(session, role_name)
-            if role:
-                return role
-        return await Role.get_default(session)
-
-    @classmethod
-    def _validate_password(cls, password: str) -> None:
-        # At least one lowercase, one capital letter, one number, one special char,
-        #  and no space
-        regex = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[-+_!$&?.,])(?=.{8,})[^ ]+$"
-        if re.match(regex, password) is None:
-            raise ValueError("Wrong password format.")
-
-    @classmethod
-    def generate_password_hash(cls, password: str) -> str:
-        return argon2_hasher.hash(password)
-
-    def set_password(self, password: str) -> None:
-        self.password_hash = self.generate_password_hash(password)
+    async def confirm(self, session: AsyncSession) -> None:
+        stmt = (
+            update(self.__class__)
+            .where(self.__class__.id == self.id)
+            .values(confirmed_at=func.current_timestamp())
+        )
+        await session.execute(stmt)
 
     def check_password(self, password: str) -> bool:
         try:
             return argon2_hasher.verify(self.password_hash, password)
         except VerificationError:
             return False
-
-    @classmethod
-    def validate_email(cls, email_address: str) -> None:
-        # Oversimplified but ok
-        regex = r"^[\-\w\.]+@([\w\-]+\.)+[\w\-]{2,4}$"
-        if re.match(regex, email_address) is None:
-            raise ValueError("Wrong email format.")
 
     @staticmethod
     async def create_invitation_token(
@@ -353,13 +314,23 @@ class User(Base, UserMixin):
         )
         return token
 
-    async def confirm(self, session: AsyncSession) -> None:
-        stmt = (
-            update(self.__class__)
-            .where(self.__class__.id == self.id)
-            .values(confirmed_at=func.current_timestamp())
-        )
-        await session.execute(stmt)
+    # ---------------------------------------------------------------------------
+    #   Methods involved in user creation and update
+    # ---------------------------------------------------------------------------
+    @classmethod
+    def _validate_email(cls, email_address: str) -> None:
+        # Oversimplified but ok
+        regex = r"^[\-\w\.]+@([\w\-]+\.)+[\w\-]{2,4}$"
+        if re.match(regex, email_address) is None:
+            raise ValueError("Wrong email format.")
+
+    @classmethod
+    def _validate_password(cls, password: str) -> None:
+        # At least one lowercase, one capital letter, one number, one special char,
+        #  and no space
+        regex = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[-+_!$&?.,])(?=.{8,})[^ ]+$"
+        if re.match(regex, password) is None:
+            raise ValueError("Wrong password format.")
 
     @classmethod
     async def _validate_values_payload(
@@ -372,7 +343,7 @@ class User(Base, UserMixin):
         # Check if the email is valid
         if "email" in values:
             try:
-                cls.validate_email(values["email"])
+                cls._validate_email(values["email"])
             except ValueError as e:
                 errors.extend(e.args)
         # Check if password has the proper format
@@ -399,6 +370,37 @@ class User(Base, UserMixin):
             raise ValueError(errors)
 
     @classmethod
+    def _generate_password_hash(cls, password: str) -> str:
+        if password is None:
+            raise ValueError("password cannot be `None`")
+        return argon2_hasher.hash(password)
+
+    @classmethod
+    async def _compute_default_role(
+            cls,
+            session: AsyncSession,
+            role_name: RoleName | str | None = None,
+            email: str | None = None,
+    ) -> Role:
+        # Promote to admin if the email address is in the admin mail list
+        admins: str | list = current_app.config.get("ADMINS", [])
+        if isinstance(admins, str):
+            admins = admins.split(",")
+        if email is not None and email in admins:
+            return await Role.get(session, role_name=RoleName.Administrator)
+        # Try to get the role name
+        try:
+            role_name = safe_enum_from_name(RoleName, role_name)
+        except (TypeError, ValueError):
+            role_name = None
+        # Get required role
+        if role_name is not None:
+            role = await Role.get(session, role_name)
+            if role:
+                return role
+        return await Role.get_default(session)
+
+    @classmethod
     async def _update_values_payload(
             cls,
             session: AsyncSession,
@@ -407,14 +409,17 @@ class User(Base, UserMixin):
     ) -> dict[str, str]:
         password = values.pop("password", None)
         if password is not None:
-            values["password_hash"] = cls.generate_password_hash(password)
+            values["password_hash"] = cls._generate_password_hash(password)
         role_name = values.pop("role", _Unfilled)
         if role_name is not _Unfilled:
             email = values.get("email", None)
-            role = await cls.compute_default_role(session, role_name, email)
+            role = await cls._compute_default_role(session, role_name, email)
             values["role_id"] = role.id
         return values
 
+    # ---------------------------------------------------------------------------
+    #   CRUD methods
+    # ---------------------------------------------------------------------------
     @classmethod
     async def create(
             cls,
@@ -526,14 +531,15 @@ class User(Base, UserMixin):
         await session.execute(stmt)
 
     @classmethod
-    async def delete(cls, session: AsyncSession, user_id: int | str) -> None:
+    async def delete(
+            cls,
+            session: AsyncSession,
+            /,
+            user_id: int,
+    ) -> None:
         stmt = (
             delete(cls)
-            .where(
-                (cls.id == user_id)
-                | (cls.username == user_id)
-                | (cls.email == user_id)
-            )
+            .where(cls.id == user_id)
         )
         await session.execute(stmt)
 
