@@ -23,10 +23,16 @@ from ouranos.core.config.consts import (
 from ouranos.core.database.models.abc import Base, ToDictMixin
 from ouranos.core.database.models.types import UtcDateTime
 from ouranos.core.database.utils import ArchiveLink
-from ouranos.core.exceptions import DuplicatedEntry
 from ouranos.core.utils import Tokenizer
 
 argon2_hasher = PasswordHasher()
+
+
+class _UnfilledCls:
+    pass
+
+
+_Unfilled = _UnfilledCls()
 
 
 # ---------------------------------------------------------------------------
@@ -259,10 +265,12 @@ class User(Base, UserMixin):
     def role_name(self) -> RoleName:
         return self.role.name
 
+    @classmethod
     async def compute_default_role(
-            self,
+            cls,
             session: AsyncSession,
             role_name: RoleName | str | None = None,
+            email: str | None = None,
     ) -> Role:
         try:
             role_name = safe_enum_from_name(RoleName, role_name)
@@ -275,13 +283,25 @@ class User(Base, UserMixin):
         admins: str | list = current_app.config.get("ADMINS", [])
         if isinstance(admins, str):
             admins = admins.split(",")
-        if self.email in admins:
+        if email is not None and email in admins:
             return await Role.get(session, role_name=RoleName.Administrator)
         else:
             return await Role.get_default(session)
 
+    @classmethod
+    def _validate_password(cls, password: str) -> None:
+        # At least one lowercase, one capital letter, one number, one special char,
+        #  and no space
+        regex = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[-+_!$&?.,])(?=.{8,})[^ ]+$"
+        if re.match(regex, password) is None:
+            raise ValueError("Wrong password format.")
+
+    @classmethod
+    def generate_password_hash(cls, password: str) -> str:
+        return argon2_hasher.hash(password)
+
     def set_password(self, password: str) -> None:
-        self.password_hash = argon2_hasher.hash(password)
+        self.password_hash = self.generate_password_hash(password)
 
     def check_password(self, password: str) -> bool:
         try:
@@ -289,9 +309,12 @@ class User(Base, UserMixin):
         except VerificationError:
             return False
 
-    def validate_email(self, email_address: str) -> None:
-        if re.match(r"^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$", email_address) is not None:
-            self.email = email_address
+    @classmethod
+    def validate_email(cls, email_address: str) -> None:
+        # Oversimplified but ok
+        regex = r"^[\-\w\.]+@([\w\-]+\.)+[\w\-]{2,4}$"
+        if re.match(regex, email_address) is None:
+            raise ValueError("Wrong email format.")
 
     @staticmethod
     async def create_invitation_token(
@@ -337,38 +360,85 @@ class User(Base, UserMixin):
         await session.execute(stmt)
 
     @classmethod
+    async def _validate_values_payload(
+            cls,
+            session: AsyncSession,
+            /,
+            values: dict,
+    ) -> None:
+        errors = []
+        # Check if the email is valid
+        if "email" in values:
+            try:
+                cls.validate_email(values["email"])
+            except ValueError as e:
+                errors.extend(e.args)
+        # Check if password has the proper format
+        if "password" in values:
+            try:
+                cls._validate_password(values["password"])
+            except ValueError as e:
+                errors.extend(e.args)
+        # Check if some of the info provided are already used
+        previous_user: User = await cls.get_by(
+            session,
+            username=values.get("username", None),
+            email=values.get("email", None),
+            telegram_id=values.get("telegram_id", None),
+        )
+        if previous_user is not None:
+            if "username" in values and previous_user.email == values["username"]:
+                errors.append("Username already used.")
+            if "email" in values and previous_user.email == values["email"]:
+                errors.append("Email address already used.")
+            if "telegram_id" in values and previous_user.telegram_id == values["telegram_id"]:
+                errors.append("Telegram id address already used.")
+        if errors:
+            raise ValueError(errors)
+
+    @classmethod
+    async def _update_values_payload(
+            cls,
+            session: AsyncSession,
+            /,
+            values: dict,
+    ) -> dict[str, str]:
+        password = values.pop("password", None)
+        if password is not None:
+            values["password_hash"] = cls.generate_password_hash(password)
+        role_name = values.pop("role", _Unfilled)
+        if role_name is not _Unfilled:
+            email = values.get("email", None)
+            role = await cls.compute_default_role(session, role_name, email)
+            values["role_id"] = role.id
+        return values
+
+    @classmethod
     async def create(
             cls,
             session: AsyncSession,
-            username: str,
-            password: str,
-            **kwargs
-    ) -> User:
-        # Check if new user is a duplicate
-        previous_user: User = await cls.get_by(
-            session,
-            username=username,
-            email=kwargs.get("email", None),
-            telegram_id=kwargs.get("telegram_id", None),
-        )
-        if previous_user is not None:
-            error = []
-            if previous_user.username == username:
-                error.append("username")
-            if previous_user.email == kwargs.get("email", False):
-                error.append("email")
-            if previous_user.telegram_id == kwargs.get("telegram_id", False):
-                error.append("telegram_id")
-            raise DuplicatedEntry(error)
+            /,
+            values: dict,
+    ) -> None:
+        # Check we have a username, password and email
+        if not (
+            "username" in values
+            and "password" in values
+            and "email" in values
+        ):
+            raise ValueError(
+                "`username`, `password` and `email` need to be passed in the values."
+            )
+        # Validate the values payload
+        await cls._validate_values_payload(session, values)
+        # Update the payload values for the password and role_id
+        if "role" not in values:
+            # If role is None, the default role will be assigned
+            values["role"] = None
+        values = await cls._update_values_payload(session, values)
         # Create user
-        kwargs["username"] = username
-        role_name = kwargs.pop("role", None)
-        user = cls(**kwargs)
-        user.role = await user.compute_default_role(session, role_name)
-        user.set_password(password)
-        session.add(user)
-        await session.commit()
-        return user
+        stmt = insert(cls).values(**values)
+        await session.execute(stmt)
 
     @classmethod
     async def get(
@@ -437,30 +507,21 @@ class User(Base, UserMixin):
     async def update(
             cls,
             session: AsyncSession,
+            /,
+            user_id: int,
             values: dict,
-            user_id: int | str | None,
     ) -> None:
-        user_id = user_id or values.pop("uid", None)
-        if not user_id:
-            raise ValueError(
-                "Provide user_id either as a parameter or as a key in the updated info"
-            )
-        password = values.pop("password", None)
+        # Validate the values payload
+        await cls._validate_values_payload(session, values=values)
+        # Update the payload values for the password and role_id
+        values = await cls._update_values_payload(session, values=values)
+        # Update the user
         stmt = (
             update(cls)
-            .where(
-                (User.id == user_id)
-                | (User.username == user_id)
-                | (User.email == user_id)
-            )
+            .where(User.id == user_id)
             .values(**values)
         )
         await session.execute(stmt)
-        user = await cls.get(session, user_id)
-        if password:
-            user.set_password(password)
-        session.add(user)
-        await session.commit()
 
     @classmethod
     async def delete(cls, session: AsyncSession, user_id: int | str) -> None:

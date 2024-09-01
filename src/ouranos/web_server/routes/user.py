@@ -5,7 +5,7 @@ from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fastapi import (
-    APIRouter, Body, Depends, HTTPException, Path, Query, Response, status)
+    APIRouter, Body, Depends, HTTPException, Path, Query, status)
 
 from ouranos.core.database.models.app import Permission, User, UserMixin
 from ouranos.web_server.auth import get_current_user, is_admin
@@ -89,7 +89,6 @@ async def get_user(
             status_code=status.HTTP_202_ACCEPTED,
             response_model=ResultResponse)
 async def update_user(
-        response: Response,
         username: str = Path(description="The username of the user"),
         payload: UserUpdatePayload = Body(
             description="Updated information about the ecosystem"),
@@ -117,15 +116,13 @@ async def update_user(
         if value is not None
     }
     try:
-        await User.update(session, values=user_dict, user_id=username)
+        await User.update(session, user_id=user.id, values=user_dict)
         return ResultResponse(
             msg=f"Successfully updated user '{username}''s info",
             status=ResultStatus.success,
         )
     except Exception as e:
-        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        return ResultResponse(
-            msg=f"Failed to update user '{username}''s info. Error "
-                f"msg: `{e.__class__.__name__}: {e}`",
-            status=ResultStatus.failure,
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=e.args
         )

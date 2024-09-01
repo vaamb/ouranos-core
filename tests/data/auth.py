@@ -18,6 +18,6 @@ class FakeUser:
     role: RoleNames
 
 
-user = FakeUser(5, "John", "Doe", "Who", "Password1", RoleNames.User)
-operator = FakeUser(6, "Jane", "Doe", "Her", "Password1", RoleNames.Operator)
-admin = FakeUser(7, "Nemo", "Nescio", "Me", "Password1", RoleNames.Administrator)
+user = FakeUser(5, "John", "Doe", "Who", "Password1!", RoleNames.User)
+operator = FakeUser(6, "Jane", "Doe", "Her", "Password1!", RoleNames.Operator)
+admin = FakeUser(7, "Nemo", "Nescio", "Me", "Password1!", RoleNames.Administrator)

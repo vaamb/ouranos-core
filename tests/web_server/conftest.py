@@ -118,12 +118,14 @@ async def users(db: AsyncSQLAlchemyWrapper):
         for u in (admin, operator, user):
             user_info = {
                 "id": u.id,
+                "username": u.username,
+                "password": u.password,
                 "email": f"{u.username}@fakemail.com",
                 "firstname": u.firstname,
                 "lastname": u.lastname,
                 "role": u.role.value
             }
-            await User.create(session, u.username, u.password, **user_info)
+            await User.create(session, values=user_info)
             usr = await User.get_by(session, username=u.username)
             users_dict[u.role.value] = usr.id
     return users_dict

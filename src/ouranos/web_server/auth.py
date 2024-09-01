@@ -233,7 +233,7 @@ async def get_current_user(
     if session_info is None:
         return anonymous_user
     user_id = session_info.user_id
-    user = await login_manager.get_user(session, user_id=user_id)
+    user = await login_manager.get_user(session, user_id)
     return user
 
 
