@@ -191,6 +191,8 @@ async def load_user(
         session: AsyncSession,
         user_id: Optional[Union[int]]
 ) -> UserMixin:
+    if user_id is None:
+        return anonymous_user
     if isinstance(user_id, int):
         user = await User.get(session, user_id)
     else:

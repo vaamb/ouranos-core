@@ -21,6 +21,7 @@ from ouranos import current_app
 from ouranos.core.config.consts import (
     REGISTRATION_TOKEN_VALIDITY, TOKEN_SUBS)
 from ouranos.core.database.models.abc import Base, ToDictMixin
+from ouranos.core.database.models.caches import cache_users
 from ouranos.core.database.models.types import UtcDateTime
 from ouranos.core.database.utils import ArchiveLink
 from ouranos.core.utils import Tokenizer
@@ -436,12 +437,17 @@ class User(Base, UserMixin):
             session: AsyncSession,
             user_id: int,
     ) -> Self | None:
-        stmt = (
-            select(cls)
-            .where(cls.id == user_id)
-        )
-        result = await session.execute(stmt)
-        return result.scalar_one_or_none()
+        try:
+            return cache_users[user_id]
+        except KeyError:
+            stmt = (
+                select(cls)
+                .where(cls.id == user_id)
+            )
+            result = await session.execute(stmt)
+            user = result.scalar_one_or_none()
+            cache_users[user_id] = user
+            return user
 
     @classmethod
     async def get_by(
@@ -512,6 +518,7 @@ class User(Base, UserMixin):
             .values(**values)
         )
         await session.execute(stmt)
+        del cache_users[user_id]
 
     @classmethod
     async def delete(
