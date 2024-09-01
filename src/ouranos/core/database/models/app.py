@@ -465,7 +465,7 @@ class User(Base, UserMixin):
             cls,
             session,
             /,
-            **lookup_keys: str | int,
+            **lookup_keys: str | int | None,
     ) -> Self | None:
         non_null_lookup_keys = {
             key: value
