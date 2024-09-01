@@ -11,7 +11,6 @@ from gaia_validators import safe_enum_from_name
 from ouranos.core.config.consts import REGISTRATION_TOKEN_VALIDITY
 from ouranos.core.database.models.app import (
     RoleName, User, UserMixin, UserTokenInfoDict)
-from ouranos.core.exceptions import DuplicatedEntry
 from ouranos.web_server.auth import (
     Authenticator, basic_auth, check_invitation_token, get_current_user,
     login_manager, is_admin)
@@ -19,14 +18,6 @@ from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.validate.auth import (
     LoginInfo, UserCreationPayload, UserInfo)
 from ouranos.web_server.validate.base import BaseResponse
-
-
-regex_email = re.compile(r"^[\-\w\.]+@([\w\-]+\.)+[\w\-]{2,4}$")  # Oversimplified but ok
-regex_password = re.compile(
-    # At least one lowercase, one capital letter, one number, one special char,
-    #  and no space
-    r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[-+_!$&?.,])(?=.{8,})[^ ]+$"
-)
 
 
 router = APIRouter(
@@ -89,42 +80,23 @@ async def register_new_user(
             detail="Logged in user cannot register"
         )
     token_payload = check_invitation_token(invitation_token)
+    payload_dict = payload.model_dump()
+    # Make sure token info are used
+    if "username" in token_payload:
+        payload_dict["username"] = token_payload["username"]
+    if "email" in token_payload:
+        payload_dict["email"] = token_payload["email"]
+    if "role" in token_payload:
+        payload_dict["role"] = token_payload["role"]
     try:
-        payload_dict = payload.model_dump()
-        errors = []
-        if token_payload.get("username"):
-            payload_dict["username"] = token_payload["username"]
-        username = payload_dict.pop("username")
-        user = await User.get(session, username)
-        if user is not None:
-            errors.append("Username already used.")
-        if token_payload.get("email"):
-            payload_dict["email"] = token_payload["email"]
-        email = payload_dict.pop("email")
-        if not regex_email.match(email):
-            errors.append("Wrong email format.")
-        user = await User.get(session, email)
-        if user is not None:
-            errors.append("Email address already used.")
-        password = payload_dict.pop("password")
-        if not regex_password.match(password):
-            errors.append("Wrong password format.")
-        if errors:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=errors
-            )
-        payload_dict["role"] = token_payload.pop("role", None)
-        await User.create(
-            session, username, password, email=email, **payload_dict)
-    except DuplicatedEntry as e:
-        args = e.args[0]
+        await User.create(session, values=payload_dict)
+    except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=args
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=e.args
         )
     else:
-        user = await User.get(session, username)
+        user = await User.get_by(session, username=payload_dict["username"])
         token = authenticator.login(user, False)
         return {
             "msg": "You are registered.",

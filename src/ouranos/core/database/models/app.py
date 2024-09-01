@@ -9,7 +9,7 @@ from typing import Optional, Self, Sequence, TypedDict
 from argon2 import PasswordHasher
 from argon2.exceptions import VerificationError
 import sqlalchemy as sa
-from sqlalchemy import delete, insert, select, Table, update
+from sqlalchemy import delete, insert, or_, select, Table, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -23,10 +23,16 @@ from ouranos.core.config.consts import (
 from ouranos.core.database.models.abc import Base, ToDictMixin
 from ouranos.core.database.models.types import UtcDateTime
 from ouranos.core.database.utils import ArchiveLink
-from ouranos.core.exceptions import DuplicatedEntry
 from ouranos.core.utils import Tokenizer
 
 argon2_hasher = PasswordHasher()
+
+
+class _UnfilledCls:
+    pass
+
+
+_Unfilled = _UnfilledCls()
 
 
 # ---------------------------------------------------------------------------
@@ -173,9 +179,6 @@ class AnonymousUser(UserMixin):
     def is_anonymous(self) -> bool:
         return True
 
-    def get_id(self) -> None:
-        return
-
     def check_password(self, password: str) -> bool:
         return False
 
@@ -236,8 +239,11 @@ class User(Base, UserMixin):
         back_populates="users", secondary=AssociationUserRecap)
     calendar: Mapped[list["CalendarEvent"]] = relationship(back_populates="user")
 
+    # ---------------------------------------------------------------------------
+    #   Methods to override the Mixin default
+    # ---------------------------------------------------------------------------
     def __repr__(self):
-        return f"<User({self.username}, role={self.role.name})>"
+        return f"<User({self.username}, role={self.role.name.name})>"
 
     @property
     def is_confirmed(self) -> bool:
@@ -259,115 +265,205 @@ class User(Base, UserMixin):
     def role_name(self) -> RoleName:
         return self.role.name
 
-    async def compute_default_role(
-            self,
+    def check_password(self, password: str) -> bool:
+        try:
+            return argon2_hasher.verify(self.password_hash, password)
+        except VerificationError:
+            return False
+
+    # ---------------------------------------------------------------------------
+    #   Tokens creation
+    # ---------------------------------------------------------------------------
+    @classmethod
+    async def create_invitation_token(
+            cls,
+            session: AsyncSession,
+            user_info: UserTokenInfoDict | None = None,
+            expiration_delay: int = REGISTRATION_TOKEN_VALIDITY,
+    ) -> str:
+        user_info = user_info or {}
+        expiration_delay = expiration_delay or REGISTRATION_TOKEN_VALIDITY
+        # Get the required role name
+        role_name = user_info.pop("role", None)
+        role = await cls._compute_default_role(session, role_name=role_name)
+        default_role = await Role.get_default(session)
+        if role.name != default_role.name:
+            user_info["role"] = role.name.name
+        # Create the token
+        token = Tokenizer.create_token(
+            subject=TOKEN_SUBS.REGISTRATION.value,
+            expiration_delay=expiration_delay,
+            other_claims=user_info,
+        )
+        return token
+
+    # ---------------------------------------------------------------------------
+    #   Methods involved in the data processing of user creation and update
+    # ---------------------------------------------------------------------------
+    @classmethod
+    def _validate_email(cls, email_address: str) -> None:
+        # Oversimplified but ok
+        regex = r"^[\-\w\.]+@([\w\-]+\.)+[\w\-]{2,4}$"
+        if re.match(regex, email_address) is None:
+            raise ValueError("Wrong email format.")
+
+    @classmethod
+    def _validate_password(cls, password: str) -> None:
+        # At least one lowercase, one capital letter, one number, one special char,
+        #  and no space
+        regex = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[-+_!$&?.,])(?=.{8,})[^ ]+$"
+        if re.match(regex, password) is None:
+            raise ValueError("Wrong password format.")
+
+    @classmethod
+    async def _validate_values_payload(
+            cls,
+            session: AsyncSession,
+            /,
+            values: dict,
+    ) -> None:
+        errors = []
+        # Check if the email is valid
+        if "email" in values:
+            try:
+                cls._validate_email(values["email"])
+            except ValueError as e:
+                errors.extend(e.args)
+        # Check if password has the proper format
+        if "password" in values:
+            try:
+                cls._validate_password(values["password"])
+            except ValueError as e:
+                errors.extend(e.args)
+        # Check if some of the info provided are already used
+        previous_user: User = await cls.get_by(
+            session,
+            username=values.get("username", None),
+            email=values.get("email", None),
+            telegram_id=values.get("telegram_id", None),
+        )
+        if previous_user is not None:
+            if "username" in values and previous_user.email == values["username"]:
+                errors.append("Username already used.")
+            if "email" in values and previous_user.email == values["email"]:
+                errors.append("Email address already used.")
+            if "telegram_id" in values and previous_user.telegram_id == values["telegram_id"]:
+                errors.append("Telegram id address already used.")
+        if errors:
+            raise ValueError(errors)
+
+    @classmethod
+    def _generate_password_hash(cls, password: str) -> str:
+        if password is None:
+            raise ValueError("password cannot be `None`")
+        return argon2_hasher.hash(password)
+
+    @classmethod
+    async def _compute_default_role(
+            cls,
             session: AsyncSession,
             role_name: RoleName | str | None = None,
+            email: str | None = None,
     ) -> Role:
+        # Promote to admin if the email address is in the admin mail list
+        admins: str | list = current_app.config.get("ADMINS", [])
+        if isinstance(admins, str):
+            admins = admins.split(",")
+        if email is not None and email in admins:
+            return await Role.get(session, role_name=RoleName.Administrator)
+        # Try to get the role name
         try:
             role_name = safe_enum_from_name(RoleName, role_name)
         except (TypeError, ValueError):
             role_name = None
+        # Get required role
         if role_name is not None:
             role = await Role.get(session, role_name)
             if role:
                 return role
-        admins: str | list = current_app.config.get("ADMINS", [])
-        if isinstance(admins, str):
-            admins = admins.split(",")
-        if self.email in admins:
-            return await Role.get(session, role_name=RoleName.Administrator)
-        else:
-            return await Role.get_default(session)
+        return await Role.get_default(session)
 
+    @classmethod
+    async def _update_values_payload(
+            cls,
+            session: AsyncSession,
+            /,
+            values: dict,
+    ) -> dict[str, str]:
+        password = values.pop("password", None)
+        if password is not None:
+            values["password_hash"] = cls._generate_password_hash(password)
+        role_name = values.pop("role", _Unfilled)
+        if role_name is not _Unfilled:
+            email = values.get("email", None)
+            role = await cls._compute_default_role(session, role_name, email)
+            values["role_id"] = role.id
+        return values
+
+    # ---------------------------------------------------------------------------
+    #   CRUD methods
+    # ---------------------------------------------------------------------------
     @classmethod
     async def create(
             cls,
             session: AsyncSession,
-            username: str,
-            password: str,
-            **kwargs
-    ) -> User:
-        # Check if new user is a duplicate
-        error = []
-        stmt = select(User).where(User.username == username)
-        if "email" in kwargs:
-            stmt = stmt.where(User.email == kwargs["email"])
-        if "telegram_id" in kwargs:
-            stmt = stmt.where(User.telegram_id == kwargs["telegram_id"])
-        result = await session.execute(stmt)
-        previous_user: User = result.scalars().first()
-        if previous_user:
-            if previous_user.username == username:
-                error.append("username")
-            if previous_user.email == kwargs.get("email", False):
-                error.append("email")
-            if previous_user.telegram_id == kwargs.get("telegram_id", False):
-                error.append("telegram_id")
-            raise DuplicatedEntry(error)
-        # Create user
-        kwargs["username"] = username
-        role_name = kwargs.pop("role", None)
-        user = cls(**kwargs)
-        user.role = await user.compute_default_role(session, role_name)
-        user.set_password(password)
-        session.add(user)
-        await session.commit()
-        return user
-
-    @classmethod
-    async def update(
-            cls,
-            session: AsyncSession,
+            /,
             values: dict,
-            user_id: int | str | None,
     ) -> None:
-        user_id = user_id or values.pop("uid", None)
-        if not user_id:
+        # Check we have a username, password and email
+        if not (
+            "username" in values
+            and "password" in values
+            and "email" in values
+        ):
             raise ValueError(
-                "Provide user_id either as a parameter or as a key in the updated info"
+                "`username`, `password` and `email` need to be passed in the values."
             )
-        password = values.pop("password", None)
-        stmt = (
-            update(cls)
-            .where(
-                (User.id == user_id)
-                | (User.username == user_id)
-                | (User.email == user_id)
-            )
-            .values(**values)
-        )
-        await session.execute(stmt)
-        user = await cls.get(session, user_id)
-        if password:
-            user.set_password(password)
-        session.add(user)
-        await session.commit()
-
-    @classmethod
-    async def delete(cls, session: AsyncSession, user_id: int | str) -> None:
-        stmt = (
-            delete(cls)
-            .where(
-                (cls.id == user_id)
-                | (cls.username == user_id)
-                | (cls.email == user_id)
-            )
-        )
+        # Validate the values payload
+        await cls._validate_values_payload(session, values)
+        # Update the payload values for the password and role_id
+        if "role" not in values:
+            # If role is None, the default role will be assigned
+            values["role"] = None
+        values = await cls._update_values_payload(session, values)
+        # Create user
+        stmt = insert(cls).values(**values)
         await session.execute(stmt)
 
     @classmethod
     async def get(
             cls,
             session: AsyncSession,
-            user_id: int | str
+            user_id: int,
     ) -> Self | None:
         stmt = (
             select(cls)
+            .where(cls.id == user_id)
+        )
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    @classmethod
+    async def get_by(
+            cls,
+            session,
+            /,
+            **lookup_keys: str | int | None,
+    ) -> Self | None:
+        non_null_lookup_keys = {
+            key: value
+            for key, value in lookup_keys.items()
+            if value is not None
+        }
+        if not non_null_lookup_keys:
+            return None
+        stmt = (
+            select(cls)
             .where(
-                (cls.id == user_id)
-                | (cls.username == user_id)
-                | (cls.email == user_id)
+                or_(
+                    cls.__table__.c[key] == value
+                    for key, value in non_null_lookup_keys.items()
+                )
             )
         )
         result = await session.execute(stmt)
@@ -398,69 +494,53 @@ class User(Base, UserMixin):
         return result.scalars().all()
 
     @classmethod
-    async def insert_gaia(cls, session: AsyncSession) -> None:
-        stmt = select(User).where(User.username == "Ouranos")
-        result = await session.execute(stmt)
-        gaia = result.scalars().first()
-        if not gaia:
-            stmt = select(Role).where(Role.name == RoleName.Administrator)
-            result = await session.execute(stmt)
-            admin: Role = result.scalars().one()
-            gaia = cls(
-                username="Ouranos",
-                email="None",
-                confirmed=True,
-                role_id=admin.id,
-            )
-            session.add(gaia)
-
-    def set_password(self, password: str) -> None:
-        self.password_hash = argon2_hasher.hash(password)
-
-    def check_password(self, password: str) -> bool:
-        try:
-            return argon2_hasher.verify(self.password_hash, password)
-        except VerificationError:
-            return False
-
-    def validate_email(self, email_address: str) -> None:
-        if re.match(r"^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$", email_address) is not None:
-            self.email = email_address
-
-    @staticmethod
-    async def create_invitation_token(
+    async def update(
+            cls,
             session: AsyncSession,
-            role_name: RoleName | str | None = None,
-            user_info: UserTokenInfoDict | None = None,
-            expiration_delay: int = REGISTRATION_TOKEN_VALIDITY,
-    ) -> str:
-        user_info = user_info or {}
-        if role_name:
-            user_info["role"] = role_name
-        role_name = user_info.pop("role", None)
-        try:
-            role_name = safe_enum_from_name(RoleName, role_name)
-        except (TypeError, ValueError):
-            role_name = None
-        cor_role_name: RoleName | None = None
-        if role_name is not None:
-            default_role = await Role.get_default(session)
-            role = await Role.get(session, role_name)
-            if role is None:
-                cor_role_name = None
-            else:
-                if role.name != default_role.name:
-                    cor_role_name = role.name
-        if cor_role_name is not None:
-            user_info["role"] = cor_role_name.name
-        if expiration_delay is None:
-            expiration_delay = REGISTRATION_TOKEN_VALIDITY
-        token = Tokenizer.create_token(
-            subject=TOKEN_SUBS.REGISTRATION.value,
-            expiration_delay=expiration_delay,
-            other_claims=user_info,
+            /,
+            user_id: int,
+            values: dict,
+    ) -> None:
+        # Validate the values payload
+        await cls._validate_values_payload(session, values=values)
+        # Update the payload values for the password and role_id
+        values = await cls._update_values_payload(session, values=values)
+        # Update the user
+        stmt = (
+            update(cls)
+            .where(User.id == user_id)
+            .values(**values)
         )
-        return token
+        await session.execute(stmt)
+
+    @classmethod
+    async def delete(
+            cls,
+            session: AsyncSession,
+            /,
+            user_id: int,
+    ) -> None:
+        stmt = (
+            delete(cls)
+            .where(cls.id == user_id)
+        )
+        await session.execute(stmt)
+
+    @classmethod
+    async def insert_gaia(cls, session: AsyncSession) -> None:
+        gaia = await cls.get_by(session, username="Ouranos")
+        if gaia is None:
+            admin = await Role.get(session, role_name=RoleName.Administrator)
+            stmt = (
+                insert(cls)
+                .values({
+                    "username": "Ouranos",
+                    "email": "None",
+                    "confirmed": True,
+                    "role_id": admin.id,
+                })
+            )
+            await session.execute(stmt)
 
 
 class ServiceLevel(Enum):
