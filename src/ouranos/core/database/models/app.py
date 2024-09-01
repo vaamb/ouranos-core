@@ -272,21 +272,23 @@ class User(Base, UserMixin):
             role_name: RoleName | str | None = None,
             email: str | None = None,
     ) -> Role:
-        try:
-            role_name = safe_enum_from_name(RoleName, role_name)
-        except (TypeError, ValueError):
-            role_name = None
-        if role_name is not None:
-            role = await Role.get(session, role_name)
-            if role:
-                return role
+        # Promote to admin if the email address is in the admin mail list
         admins: str | list = current_app.config.get("ADMINS", [])
         if isinstance(admins, str):
             admins = admins.split(",")
         if email is not None and email in admins:
             return await Role.get(session, role_name=RoleName.Administrator)
-        else:
-            return await Role.get_default(session)
+        # Try to get the role name
+        try:
+            role_name = safe_enum_from_name(RoleName, role_name)
+        except (TypeError, ValueError):
+            role_name = None
+        # Get required role
+        if role_name is not None:
+            role = await Role.get(session, role_name)
+            if role:
+                return role
+        return await Role.get_default(session)
 
     @classmethod
     def _validate_password(cls, password: str) -> None:
