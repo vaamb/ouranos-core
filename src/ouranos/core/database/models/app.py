@@ -545,20 +545,19 @@ class User(Base, UserMixin):
 
     @classmethod
     async def insert_gaia(cls, session: AsyncSession) -> None:
-        stmt = select(User).where(User.username == "Ouranos")
-        result = await session.execute(stmt)
-        gaia = result.scalars().first()
-        if not gaia:
-            stmt = select(Role).where(Role.name == RoleName.Administrator)
-            result = await session.execute(stmt)
-            admin: Role = result.scalars().one()
-            gaia = cls(
-                username="Ouranos",
-                email="None",
-                confirmed=True,
-                role_id=admin.id,
+        gaia = await cls.get_by(session, username="Ouranos")
+        if gaia is None:
+            admin = await Role.get(session, role_name=RoleName.Administrator)
+            stmt = (
+                insert(cls)
+                .values({
+                    "username": "Ouranos",
+                    "email": "None",
+                    "confirmed": True,
+                    "role_id": admin.id,
+                })
             )
-            session.add(gaia)
+            await session.execute(stmt)
 
 
 class ServiceLevel(Enum):
