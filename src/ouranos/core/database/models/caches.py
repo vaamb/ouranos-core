@@ -1,6 +1,11 @@
 from cachetools import LRUCache, TTLCache
 
 
+# App
+cache_users = LRUCache(maxsize=32)
+
+
+# Gaia
 # Caches size
 _engine_caches_size = 4
 _ecosystem_caches_size = _engine_caches_size * 4
@@ -22,6 +27,8 @@ cache_measures = LRUCache(maxsize=16)
 cache_plants = LRUCache(maxsize=_hardware_caches_size)
 # Warning caches
 cache_warnings = TTLCache(maxsize=5, ttl=60)
-# System caches
+
+
+# System
 cache_systems = LRUCache(maxsize=_system_cache_size)
 cache_systems_history = TTLCache(maxsize=_system_cache_size, ttl=60*5)
