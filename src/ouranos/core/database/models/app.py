@@ -279,34 +279,25 @@ class User(Base, UserMixin):
         except VerificationError:
             return False
 
-    @staticmethod
+    # ---------------------------------------------------------------------------
+    #   Tokens creation
+    # ---------------------------------------------------------------------------
+    @classmethod
     async def create_invitation_token(
+            cls,
             session: AsyncSession,
-            role_name: RoleName | str | None = None,
             user_info: UserTokenInfoDict | None = None,
             expiration_delay: int = REGISTRATION_TOKEN_VALIDITY,
     ) -> str:
         user_info = user_info or {}
-        if role_name:
-            user_info["role"] = role_name
+        expiration_delay = expiration_delay or REGISTRATION_TOKEN_VALIDITY
+        # Get the required role name
         role_name = user_info.pop("role", None)
-        try:
-            role_name = safe_enum_from_name(RoleName, role_name)
-        except (TypeError, ValueError):
-            role_name = None
-        cor_role_name: RoleName | None = None
-        if role_name is not None:
-            default_role = await Role.get_default(session)
-            role = await Role.get(session, role_name)
-            if role is None:
-                cor_role_name = None
-            else:
-                if role.name != default_role.name:
-                    cor_role_name = role.name
-        if cor_role_name is not None:
-            user_info["role"] = cor_role_name.name
-        if expiration_delay is None:
-            expiration_delay = REGISTRATION_TOKEN_VALIDITY
+        role = await cls._compute_default_role(session, role_name=role_name)
+        default_role = await Role.get_default(session)
+        if role.name != default_role.name:
+            user_info["role"] = role.name.name
+        # Create the token
         token = Tokenizer.create_token(
             subject=TOKEN_SUBS.REGISTRATION.value,
             expiration_delay=expiration_delay,
