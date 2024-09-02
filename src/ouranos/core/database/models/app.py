@@ -447,6 +447,8 @@ class User(Base, UserMixin):
             result = await session.execute(stmt)
             user = result.scalar_one_or_none()
             cache_users[user_id] = user
+            session.expunge(user)
+            session.expunge(user.role)
             return user
 
     @classmethod

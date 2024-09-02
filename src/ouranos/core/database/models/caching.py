@@ -282,7 +282,9 @@ class CachedCRUDMixin(CRUDMixin):
             /,
             **lookup_keys: lookup_keys_type,
     ) -> Self | None:
-        return await super().get(session, **lookup_keys)
+        result_obj = await super().get(session, **lookup_keys)
+        session.expunge(result_obj)
+        return result_obj
 
     @classmethod
     @clearing_method(key=clearer_hash)
