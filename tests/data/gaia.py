@@ -250,7 +250,7 @@ def get_actuator_state(actuator_type: gv.HardwareType) -> gv.ActuatorStateRecord
         mode=gv.ActuatorMode.automatic,
         status=False,
         level=42.0,
-        timestamp=None
+        timestamp=timestamp_now,
     )
 
 
