@@ -516,11 +516,11 @@ class User(Base, UserMixin):
         # Update the user
         stmt = (
             update(cls)
-            .where(User.id == user_id)
+            .where(cls.id == user_id)
             .values(**values)
         )
         await session.execute(stmt)
-        del cache_users[user_id]
+        cache_users.pop(user_id, None)
 
     @classmethod
     async def delete(
