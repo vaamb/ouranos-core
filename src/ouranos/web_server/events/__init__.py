@@ -15,6 +15,7 @@ from ouranos.web_server.events.decorators import permission_required
 
 
 ADMIN_ROOM = "administrator"
+CAMERA_STREAM_ROOM = "camera_stream"
 
 logger: Logger = getLogger(f"aggregator.socketio")
 
@@ -242,6 +243,14 @@ class DispatcherEvents(AsyncEventHandler):
     async def on_health_data(self, sid, data):
         logger.debug("Dispatching 'health_data' to clients")
         await self.sio_manager.emit("health_data", data=data, namespace="/")
+
+    # ---------------------------------------------------------------------------
+    #   Events Stream aggregator -> Web workers -> Web clients
+    # ---------------------------------------------------------------------------
+    async def on_picture_arrays(self, sid, data: dict) -> None:
+        logger.debug("Dispatching picture updated to clients")
+        await self.sio_manager.emit(
+            "pictures_update", data=data, namespace="", room=CAMERA_STREAM_ROOM)
 
     # ---------------------------------------------------------------------------
     #   Events Base web server ->  Web workers -> Admin web clients

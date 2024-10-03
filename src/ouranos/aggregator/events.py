@@ -961,6 +961,10 @@ class GaiaEvents(AsyncEventHandler):
         self.logger.debug(f"Received picture arrays from '{sid}'")
         serialized_images = SerializableImagePayload.decode(data)
         ecosystem_uid = serialized_images.uid
+        data_to_dispatch = {
+            "ecosystem_uid": ecosystem_uid,
+            "updated_pictures": [],
+        }
         async with db.scoped_session() as session:
             dir_path = self.camera_dir / f"{ecosystem_uid}"
             if not dir_path.exists():
@@ -985,3 +989,11 @@ class GaiaEvents(AsyncEventHandler):
                         "other_metadata": serialized_image.metadata,
                     }
                 )
+                data_to_dispatch["updated_pictures"].append({
+                    "camera_uid": camera_uid,
+                    "path": str(path),
+                    "timestamp": timestamp,
+                })
+        await self.emit(
+            "picture_arrays", data=data_to_dispatch,
+            namespace="application-internal", ttl=10)
