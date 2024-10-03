@@ -63,6 +63,11 @@ tags_metadata = [
                        "in as an operator",
     },
     {
+        "name": "gaia/camera_picture_info",
+        "description": "Information about the camera pictures available on the "
+                       "static endpoint",
+    },
+    {
         "name": "gaia/hardware",
         "description": "Manage the hardware in Gaia's ecosystems. Rem creating, "
                        "updating and deleting hardware require to be logged in "
