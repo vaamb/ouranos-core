@@ -35,7 +35,7 @@ async def get_camera_picture_info_for_ecosystem(
             default=None, description="A list of camera uids"),
         session: AsyncSession = Depends(get_session)
 ):
-    pictures_info = await CameraPicture.get(
+    pictures_info = await CameraPicture.get_multiple(
         session, ecosystem_uid=ecosystem_uid, camera_uid=cameras_uid)
     return pictures_info
 
