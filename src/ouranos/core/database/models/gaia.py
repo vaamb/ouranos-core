@@ -1509,3 +1509,24 @@ class CrudRequest(Base, CRUDMixin):
         )
         result = await session.execute(stmt)
         return result.scalars().all()
+
+
+# ---------------------------------------------------------------------------
+#   Ecosystem camera pictures
+# ---------------------------------------------------------------------------
+class PictureInfo(Base, CRUDMixin):
+    __tablename__ = "pictures_info"
+
+    ecosystem_uid: Mapped[str] = mapped_column(
+        sa.String(length=8), sa.ForeignKey("ecosystems.uid"), primary_key=True)
+    camera_uid: Mapped[str] = mapped_column(
+        sa.String(length=16), sa.ForeignKey("hardware.uid"), primary_key=True)
+    path: Mapped[str] = mapped_column()
+    timestamp: Mapped[datetime] = mapped_column(UtcDateTime)
+    other_metadata: Mapped[Optional[dict]] = mapped_column(sa.JSON, name="metadata")
+
+    def __repr__(self) -> str:
+        return (
+            f"<__tablename__({self.ecosystem_uid}-{self.camera_uid}, "
+            f"shape={self.shape}, depth={self.depth})>"
+        )
