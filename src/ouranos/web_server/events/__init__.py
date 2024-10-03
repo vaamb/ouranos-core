@@ -74,7 +74,7 @@ class ClientEvents(AsyncNamespace):
     async def on_join_room(self, sid, room_name: str) -> None:
         if room_name == ADMIN_ROOM:
             await self.emit(
-                "logout_ack",
+                "join_room_ack",
                 data={
                     "result": gv.Result.failure,
                     "reason": "Admin room can only be entered via `login` event."
@@ -83,11 +83,17 @@ class ClientEvents(AsyncNamespace):
                 room=sid
             )
         self.server.enter_room(sid, room_name)
+        await self.emit(
+            "join_room_ack",
+            data={"result": gv.Result.success,},
+            namespace="/",
+            room=sid
+        )
 
     async def on_leave_room(self, sid, room_name: str) -> None:
         if room_name == ADMIN_ROOM:
             await self.emit(
-                "logout_ack",
+                "leave_room_ack",
                 data={
                     "result": gv.Result.failure,
                     "reason": "Admin room can only be left via `login` event."
@@ -96,6 +102,12 @@ class ClientEvents(AsyncNamespace):
                 room=sid
             )
         self.server.leave_room(sid, room_name)
+        await self.emit(
+            "leave_room_ack",
+            data={"result": gv.Result.success,},
+            namespace="/",
+            room=sid
+        )
 
     # ---------------------------------------------------------------------------
     #   Events Web clients ->  Web server -> Aggregator
