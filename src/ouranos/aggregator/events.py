@@ -985,6 +985,8 @@ class GaiaEvents(AsyncEventHandler):
                     camera_uid=camera_uid,
                     values={
                         "path": str(path),
+                        "dimension": serialized_image.shape,
+                        "depth": serialized_image.depth,
                         "timestamp": timestamp,
                         "other_metadata": serialized_image.metadata,
                     }
