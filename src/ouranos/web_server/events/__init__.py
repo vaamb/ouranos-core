@@ -250,7 +250,7 @@ class DispatcherEvents(AsyncEventHandler):
     async def on_picture_arrays(self, sid, data: dict) -> None:
         logger.debug("Dispatching picture updated to clients")
         await self.sio_manager.emit(
-            "pictures_update", data=data, namespace="", room=CAMERA_STREAM_ROOM)
+            "pictures_update", data=data, namespace="/", room=CAMERA_STREAM_ROOM)
 
     # ---------------------------------------------------------------------------
     #   Events Base web server ->  Web workers -> Admin web clients
