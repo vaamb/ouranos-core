@@ -8,4 +8,8 @@ from ouranos.core.validate.utils import sqlalchemy_to_pydantic
 CameraPictureInfo = sqlalchemy_to_pydantic(
     CameraPicture,
     base=BaseModel,
+    exclude=["dimension"],
+    extra_fields={
+        "dimension": (tuple, ...),
+    },
 )
