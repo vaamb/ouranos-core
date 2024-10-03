@@ -25,7 +25,7 @@ from ouranos.aggregator.decorators import (
 from ouranos.core.database.models.abc import RecordMixin
 from ouranos.core.database.models.gaia import (
     ActuatorRecord, ActuatorState, CrudRequest, Ecosystem, Engine,
-    EnvironmentParameter, Hardware, HealthRecord, Lighting, Place, PictureInfo,
+    EnvironmentParameter, Hardware, HealthRecord, Lighting, Place, CameraPicture,
     SensorAlarm, SensorDataRecord, SensorDataCache)
 from ouranos.core.utils import humanize_list
 
@@ -979,7 +979,7 @@ class GaiaEvents(AsyncEventHandler):
                 # Save image
                 await run_sync(image.save, abs_path)
                 # Save image info
-                await PictureInfo.update_or_create(
+                await CameraPicture.update_or_create(
                     session,
                     ecosystem_uid=ecosystem_uid,
                     camera_uid=camera_uid,
