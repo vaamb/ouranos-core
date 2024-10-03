@@ -975,7 +975,7 @@ class GaiaEvents(AsyncEventHandler):
                 camera_uid = serialized_image.metadata.pop("camera_uid")
                 timestamp = datetime.fromisoformat(serialized_image.metadata.pop("timestamp"))
                 abs_path = dir_path / f"{camera_uid}.jpeg"
-                path = abs_path.relative_to(self.camera_dir)
+                path = abs_path.relative_to(current_app.static_dir.parent)
                 # Save image
                 await run_sync(image.save, abs_path)
                 # Save image info
