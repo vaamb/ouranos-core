@@ -53,7 +53,7 @@ def mock_dispatcher():
 @pytest.fixture(scope="module")
 def events_handler_module(mock_dispatcher: MockAsyncDispatcher):
     events_handler = GaiaEvents()
-    events_handler.ouranos_dispatcher = mock_dispatcher
+    events_handler.internal_dispatcher = mock_dispatcher
     mock_dispatcher.register_event_handler(events_handler)
     return events_handler
 

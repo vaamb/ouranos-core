@@ -47,14 +47,21 @@ class SensorAlarmDict(TypedDict):
 
 
 # ------------------------------------------------------------------------------
-#   BaseEvents class with common validation method
+#   Events class
 # ------------------------------------------------------------------------------
-class BaseEvents(AsyncEventHandler):
+class GaiaEvents(AsyncEventHandler):
     def __init__(self, *args, **kwargs) -> None:
         kwargs["namespace"] = "/gaia"
         super().__init__(*args, **kwargs)
-        self.logger: logging.Logger = logging.getLogger("ouranos.aggregator")
+        self.logger = logging.getLogger("ouranos.aggregator")
+        self._internal_dispatcher: AsyncDispatcher | None = None
+        self._stream_dispatcher: AsyncDispatcher | None = None
+        self._alarms_data: list[SensorAlarmDict] = []
+        self._alarms_data_lock: Lock = Lock()
 
+    # ---------------------------------------------------------------------------
+    #   Payload validation
+    # ---------------------------------------------------------------------------
     def validate_payload(
             self,
             data: PT,
@@ -120,32 +127,37 @@ class BaseEvents(AsyncEventHandler):
                 f"Received an event from an unknown engine with uid '{uid}'")
             return None
 
-# ------------------------------------------------------------------------------
-#   Events class handling all events except short-lived payloads (stream)
-# ------------------------------------------------------------------------------
-class GaiaEvents(BaseEvents):
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self.logger = logging.getLogger("ouranos.aggregator")
-        self._ouranos_dispatcher: AsyncDispatcher | None = None
-        self._alarms_data: list[SensorAlarmDict] = []
-        self._alarms_data_lock: Lock = Lock()
-
+    # ---------------------------------------------------------------------------
+    #   Alternative dispatchers
+    # ---------------------------------------------------------------------------
     @property
-    def ouranos_dispatcher(self) -> AsyncDispatcher:
-        if not self._ouranos_dispatcher:
+    def internal_dispatcher(self) -> AsyncDispatcher:
+        if not self._internal_dispatcher:
             raise RuntimeError("You need to set dispatcher")
-        return self._ouranos_dispatcher
+        return self._internal_dispatcher
 
-    @ouranos_dispatcher.setter
-    def ouranos_dispatcher(
+    @internal_dispatcher.setter
+    def internal_dispatcher(
             self,
             dispatcher: AsyncDispatcher
     ) -> None:
-        self._ouranos_dispatcher = dispatcher
-        self.ouranos_dispatcher.on("turn_light", self.turn_light)
-        self.ouranos_dispatcher.on("turn_actuator", self.turn_actuator)
-        self.ouranos_dispatcher.on("crud", self.crud)
+        self._internal_dispatcher = dispatcher
+        self._internal_dispatcher.on("turn_light", self.turn_light)
+        self._internal_dispatcher.on("turn_actuator", self.turn_actuator)
+        self._internal_dispatcher.on("crud", self.crud)
+
+    @property
+    def stream_dispatcher(self) -> AsyncDispatcher:
+        if not self._stream_dispatcher:
+            raise RuntimeError("You need to set dispatcher")
+        return self._stream_dispatcher
+
+    @stream_dispatcher.setter
+    def stream_dispatcher(
+            self,
+            dispatcher: AsyncDispatcher
+    ) -> None:
+        self._stream_dispatcher = dispatcher
 
     @property
     def alarms_data(self) -> list[SensorAlarmDict]:
@@ -181,7 +193,7 @@ class GaiaEvents(BaseEvents):
             engine = await Engine.get_by_id(session, engine_id=sid)
             if engine is None:
                 return
-            await self.ouranos_dispatcher.emit(
+            await self.internal_dispatcher.emit(
                 "ecosystem_status",
                 {ecosystem.uid: {"status": ecosystem.status, "connected": False}
                  for ecosystem in engine.ecosystems},
@@ -248,7 +260,7 @@ class GaiaEvents(BaseEvents):
         await self.emit("pong", to=sid)
         now = datetime.now(timezone.utc).replace(microsecond=0)
         ecosystems_seen: list[str] = []
-        await self.ouranos_dispatcher.emit(
+        await self.internal_dispatcher.emit(
             "ecosystems_heartbeat",
             data={
                 "engine_uid": engine_uid,
@@ -355,7 +367,7 @@ class GaiaEvents(BaseEvents):
         self.logger.debug(
             f"Logged base info from ecosystem(s): {humanize_list(ecosystems_to_log)}"
         )
-        await self.ouranos_dispatcher.emit(
+        await self.internal_dispatcher.emit(
             "ecosystem_status",
             data=ecosystems_status,
             namespace="application-internal"
@@ -544,7 +556,7 @@ class GaiaEvents(BaseEvents):
             return
 
         # Dispatch current data
-        await self.ouranos_dispatcher.emit(
+        await self.internal_dispatcher.emit(
             "current_sensors_data", data=sensors_data,
             namespace="application-internal", ttl=15)
         self.logger.debug(f"Sent `current_sensors_data` to the web API")
@@ -604,7 +616,7 @@ class GaiaEvents(BaseEvents):
         if not records_to_create:
             return
         # Dispatch the data that will become historic data
-        await self.ouranos_dispatcher.emit(
+        await self.internal_dispatcher.emit(
             "historic_sensors_data_update", data=records_to_create,
             namespace="application-internal", ttl=15)
         self.logger.debug(
@@ -746,7 +758,7 @@ class GaiaEvents(BaseEvents):
             if records_to_log:
                 await ActuatorRecord.create_records(session, records_to_log)
             if data_to_dispatch:
-                await self.ouranos_dispatcher.emit(
+                await self.internal_dispatcher.emit(
                     "actuators_data", data=data_to_dispatch,
                     namespace="application-internal", ttl=15)
 
@@ -930,18 +942,6 @@ class GaiaEvents(BaseEvents):
             crud_request.result = data["status"]
             crud_request.message = data["message"]
 
-
-# ------------------------------------------------------------------------------
-#   StreamEvents class handling short-lived payloads (stream)
-# ------------------------------------------------------------------------------
-class StreamGaiaEvents(BaseEvents):
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self.logger = logging.getLogger("ouranos.aggregator.stream")
-
-    async def on_ecosystem_image(
-        self,
-        sid: UUID,  # noqa
-        data: dict
-    ) -> None:
-        pass
+    # ---------------------------------------------------------------------------
+    #   Short-lived payloads (pseudo stream)
+    # ---------------------------------------------------------------------------
