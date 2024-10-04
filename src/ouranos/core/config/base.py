@@ -26,6 +26,10 @@ class BaseConfig:
     def DB_DIR(self):
         return os.environ.get("OURANOS_DB_DIR") or os.path.join(self.DIR, "DBs")
 
+    @property
+    def STATIC_DIR(self):
+        return os.environ.get("OURANOS_STATIC_DIR") or os.path.join(self.DIR, "static")
+
     SECRET_KEY = os.environ.get("OURANOS_SECRET_KEY") or "secret_key"
 
     @property

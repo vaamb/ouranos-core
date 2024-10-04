@@ -4,9 +4,12 @@ from datetime import datetime, timezone
 from threading import Lock
 import inspect
 import logging
+from pathlib import Path
 from typing import cast, Type, TypedDict, TypeVar
 from uuid import UUID
 
+from anyio.to_thread import run_sync
+from PIL import Image as PIL_image
 from pydantic import TypeAdapter, ValidationError
 from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
@@ -14,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from dispatcher import AsyncDispatcher, AsyncEventHandler
 import gaia_validators as gv
+from gaia_validators.image import SerializableImagePayload
 
 from ouranos import current_app, db, json
 from ouranos.aggregator.decorators import (
@@ -21,8 +25,8 @@ from ouranos.aggregator.decorators import (
 from ouranos.core.database.models.abc import RecordMixin
 from ouranos.core.database.models.gaia import (
     ActuatorRecord, ActuatorState, CrudRequest, Ecosystem, Engine,
-    EnvironmentParameter, Hardware, HealthRecord, Lighting, Place, SensorAlarm,
-    SensorDataRecord, SensorDataCache)
+    EnvironmentParameter, Hardware, HealthRecord, Lighting, Place, CameraPicture,
+    SensorAlarm, SensorDataRecord, SensorDataCache)
 from ouranos.core.utils import humanize_list
 
 
@@ -58,6 +62,7 @@ class GaiaEvents(AsyncEventHandler):
         self._stream_dispatcher: AsyncDispatcher | None = None
         self._alarms_data: list[SensorAlarmDict] = []
         self._alarms_data_lock: Lock = Lock()
+        self.camera_dir: Path = current_app.static_dir / "camera_stream"
 
     # ---------------------------------------------------------------------------
     #   Payload validation
@@ -159,6 +164,7 @@ class GaiaEvents(AsyncEventHandler):
     ) -> None:
         self._stream_dispatcher = dispatcher
         self._stream_dispatcher.on("ping", self.on_ping)
+        self._stream_dispatcher.on("picture_arrays", self.picture_arrays)
 
     @property
     def alarms_data(self) -> list[SensorAlarmDict]:
@@ -946,3 +952,51 @@ class GaiaEvents(AsyncEventHandler):
     # ---------------------------------------------------------------------------
     #   Short-lived payloads (pseudo stream)
     # ---------------------------------------------------------------------------
+    @registration_required
+    async def picture_arrays(
+        self,
+        sid: UUID,  # noqa
+        data: bytes,
+        engine_uid: str,
+    ) -> None:
+        self.logger.debug(f"Received picture arrays from '{engine_uid}'")
+        serialized_images = SerializableImagePayload.decode(data)
+        ecosystem_uid = serialized_images.uid
+        data_to_dispatch = {
+            "ecosystem_uid": ecosystem_uid,
+            "updated_pictures": [],
+        }
+        async with db.scoped_session() as session:
+            dir_path = self.camera_dir / f"{ecosystem_uid}"
+            if not dir_path.exists():
+                dir_path.mkdir(parents=True, exist_ok=True)
+            for serialized_image in serialized_images.data:
+                # Get information
+                image = PIL_image.fromarray(serialized_image.array)
+                camera_uid = serialized_image.metadata.pop("camera_uid")
+                timestamp = datetime.fromisoformat(serialized_image.metadata.pop("timestamp"))
+                abs_path = dir_path / f"{camera_uid}.jpeg"
+                path = abs_path.relative_to(current_app.static_dir)
+                # Save image
+                await run_sync(image.save, abs_path)
+                # Save image info
+                await CameraPicture.update_or_create(
+                    session,
+                    ecosystem_uid=ecosystem_uid,
+                    camera_uid=camera_uid,
+                    values={
+                        "path": str(path),
+                        "dimension": serialized_image.shape,
+                        "depth": serialized_image.depth,
+                        "timestamp": timestamp,
+                        "other_metadata": serialized_image.metadata,
+                    }
+                )
+                data_to_dispatch["updated_pictures"].append({
+                    "camera_uid": camera_uid,
+                    "path": str(path),
+                    "timestamp": timestamp,
+                })
+        await self.emit(
+            "picture_arrays", data=data_to_dispatch,
+            namespace="application-internal", ttl=10)

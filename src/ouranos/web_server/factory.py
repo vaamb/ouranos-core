@@ -189,6 +189,9 @@ def create_app(config: dict | None = None) -> FastAPI:
 
     logger.debug("- I'd rather have tea")
 
+    # Mount the static dir
+    app.mount("/static", StaticFiles(directory=current_app.static_dir))
+
     # Configure Socket.IO and load the socketio
     logger.debug("Configuring Socket.IO server")
     dispatcher = DispatcherFactory.get("application-internal")
@@ -207,13 +210,6 @@ def create_app(config: dict | None = None) -> FastAPI:
     # Events coming from Ouranos dispatcher, to send to client through sio
     event_handler = DispatcherEvents(sio_manager)
     dispatcher.register_event_handler(event_handler)
-
-    # Load the frontend if present
-    frontend_static_dir = current_app.base_dir/"frontend/dist"
-    frontend_index = frontend_static_dir/"index.html"
-    if frontend_index.exists():
-        logger.debug("Ouranos frontend detected, mounting it")
-        app.mount("/", StaticFiles(directory=frontend_static_dir, html=True))
 
     @asynccontextmanager
     async def lifespan(app_: FastAPI):
