@@ -1527,8 +1527,15 @@ class CameraPicture(Base, CRUDMixin):
     timestamp: Mapped[datetime] = mapped_column(UtcDateTime)
     other_metadata: Mapped[Optional[dict]] = mapped_column(sa.JSON)
 
+    # relationships
+    camera: Mapped["Hardware"] = relationship(lazy="selectin")
+
     def __repr__(self) -> str:
         return (
             f"<CameraPicture({self.ecosystem_uid}-{self.camera_uid}, "
             f"path={self.path}, timestamp={self.timestamp})>"
         )
+
+    @property
+    def camera_name(self) -> str:
+        return self.camera.name

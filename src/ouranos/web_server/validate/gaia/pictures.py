@@ -11,5 +11,6 @@ CameraPictureInfo = sqlalchemy_to_pydantic(
     exclude=["dimension"],
     extra_fields={
         "dimension": (tuple, ...),
+        "camera_name": (str, ...)
     },
 )
