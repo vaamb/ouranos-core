@@ -952,13 +952,14 @@ class GaiaEvents(AsyncEventHandler):
     # ---------------------------------------------------------------------------
     #   Short-lived payloads (pseudo stream)
     # ---------------------------------------------------------------------------
-    #@registration_required
+    @registration_required
     async def picture_arrays(
         self,
         sid: UUID,  # noqa
         data: bytes,
+        engine_uid: str,
     ) -> None:
-        self.logger.debug(f"Received picture arrays from '{sid}'")
+        self.logger.debug(f"Received picture arrays from '{engine_uid}'")
         serialized_images = SerializableImagePayload.decode(data)
         ecosystem_uid = serialized_images.uid
         data_to_dispatch = {
