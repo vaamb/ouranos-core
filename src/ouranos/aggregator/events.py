@@ -949,9 +949,9 @@ class GaiaEvents(AsyncEventHandler):
             crud_request.result = data["status"]
             crud_request.message = data["message"]
 
-# ---------------------------------------------------------------------------
-#   Short-lived payloads (pseudo stream)
-# ---------------------------------------------------------------------------
+    # ---------------------------------------------------------------------------
+    #   Short-lived payloads (pseudo stream)
+    # ---------------------------------------------------------------------------
     #@registration_required
     async def picture_arrays(
         self,
