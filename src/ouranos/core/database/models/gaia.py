@@ -1521,9 +1521,9 @@ class CameraPicture(Base, CRUDMixin):
         sa.String(length=8), sa.ForeignKey("ecosystems.uid"), primary_key=True)
     camera_uid: Mapped[str] = mapped_column(
         sa.String(length=16), sa.ForeignKey("hardware.uid"), primary_key=True)
-    path: Mapped[str] = mapped_column()
+    path: Mapped[str] = mapped_column(sa.String(length=512))
     dimension: Mapped[tuple] = mapped_column(sa.JSON)
-    depth: Mapped[str] = mapped_column()
+    depth: Mapped[str] = mapped_column(sa.String(length=16))
     timestamp: Mapped[datetime] = mapped_column(UtcDateTime)
     other_metadata: Mapped[Optional[dict]] = mapped_column(sa.JSON)
 
