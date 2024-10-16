@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional, Self, Sequence
 
-from asyncache import cached
 import sqlalchemy as sa
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,7 +13,7 @@ from ouranos.core.database.models.abc import Base, CacheMixin, RecordMixin
 from ouranos.core.database.models.caches import (
     cache_systems, cache_systems_history)
 from ouranos.core.database.models.caching import (
-    CachedCRUDMixin, sessionless_hashkey)
+    cached, CachedCRUDMixin, sessionless_hashkey)
 from ouranos.core.database.models.types import UtcDateTime
 from ouranos.core.utils import timeWindow
 
