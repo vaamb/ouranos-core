@@ -997,6 +997,6 @@ class GaiaEvents(AsyncEventHandler):
                     "path": str(path),
                     "timestamp": timestamp,
                 })
-        await self.emit(
+        await self.internal_dispatcher.emit(
             "picture_arrays", data=data_to_dispatch,
             namespace="application-internal", ttl=10)

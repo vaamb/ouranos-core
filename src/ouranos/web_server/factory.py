@@ -206,7 +206,7 @@ def create_app(config: dict | None = None) -> FastAPI:
     # Events coming from client through sio, to dispatch to Ouranos
     namespace = ClientEvents()
     namespace.ouranos_dispatcher = dispatcher
-    sio.register_namespace(ClientEvents())
+    sio.register_namespace(namespace)
     # Events coming from Ouranos dispatcher, to send to client through sio
     event_handler = DispatcherEvents(sio_manager)
     dispatcher.register_event_handler(event_handler)
