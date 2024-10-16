@@ -8,7 +8,7 @@ from uuid import UUID
 
 from dispatcher import AsyncDispatcher
 import sqlalchemy as sa
-from sqlalchemy import insert, select, UniqueConstraint, update
+from sqlalchemy import delete, insert, select, UniqueConstraint, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -492,6 +492,11 @@ class ActuatorState(Base, CRUDMixin):
     status: Mapped[bool] = mapped_column(default=False)
     level: Mapped[Optional[float]] = mapped_column(sa.Float(precision=2), default=None)
 
+    def __repr__(self):
+        return (
+            f"<ActuatorState({self.ecosystem_uid}, type={self.type}, active={self.active})>"
+        )
+
 
 class Place(Base, CRUDMixin):
     _lookup_keys = ["engine_uid", "name"]
@@ -621,21 +626,36 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
             session: AsyncSession,
             plants: list[str],
     ) -> None:
-        self.plants.clear()
+        stmt = (
+            delete(AssociationActuatorPlant)
+            .where(AssociationActuatorPlant.c.sensor_uid == self.uid)
+        )
+        await session.execute(stmt)
+
         for p in plants:
             plant = await Plant.get(session, uid=p)
             if plant is None:
                 # TODO: enforce
                 continue
                 # raise RuntimeError("Plants should be registered before hardware")
-            self.plants.append(plant)
+            stmt = (
+                insert(AssociationActuatorPlant)
+                .values(sensor_uid=self.uid, plant_uid=plant.uid)
+            )
+            await session.execute(stmt)
+        await session.commit()
 
     async def attach_measures(
             self,
             session: AsyncSession,
             measures: list[gv.Measure | gv.MeasureDict],
     ) -> None:
-        self.measures.clear()
+        stmt = (
+            delete(AssociationHardwareMeasure)
+            .where(AssociationHardwareMeasure.c.hardware_uid == self.uid)
+        )
+        await session.execute(stmt)
+
         for m in measures:
             if hasattr(m, "model_dump"):
                 m = m.model_dump()
@@ -644,7 +664,12 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
             if measure is None:
                 await Measure.create(session, name=m["name"], values={"unit": m["unit"]})
                 measure = await Measure.get(session, name=m["name"])
-            self.measures.append(measure)
+            stmt = (
+                insert(AssociationHardwareMeasure)
+                .values(hardware_uid=self.uid, measure_id=measure.id)
+            )
+            await session.execute(stmt)
+        await session.commit()
 
     @classmethod
     async def create(
