@@ -35,7 +35,7 @@ def cached(
     cache: Optional[MutableMapping[_KT, Any]],
     key: Callable[..., _KT] = keys.hashkey,
     lock: Optional[AbstractContextManager[Any]] = None,
-) :
+):
     """Decorator to wrap a function with a memoizing callable that saves
     results in a cache.
 
@@ -99,7 +99,7 @@ def cached(
 def cached_method(
     key: Callable[..., _KT] = keys.hashkey,
     lock: Optional[AbstractContextManager[Any]] = None,
-) :
+):
     """Decorator to wrap a class method with a memoizing callable that saves
     results in a cache.
 
@@ -151,7 +151,7 @@ def clearer(
     cache: Optional[MutableMapping[_KT, Any]],
     key: Callable[..., _KT] = keys.hashkey,
     lock: Optional[AbstractContextManager[Any]] = None,
-) :
+):
     """Decorator to wrap a function to clear some cache results.
     """
     lock = lock or NullContext()
@@ -187,7 +187,7 @@ def clearer(
 def clearing_method(
     key: Callable[..., _KT] = keys.hashkey,
     lock: Optional[AbstractContextManager[Any]] = None,
-) :
+):
     """Decorator to wrap a method to clear some cache results.
     """
     lock = lock or NullContext()
