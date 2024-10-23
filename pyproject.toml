@@ -16,6 +16,7 @@ dependencies = [
     "aiohttp~=3.8",
     "aiosqlite~=0.17",
     "argon2-cffi~=21.3",
+    "brotli-asgi~=1.4",
     "cachetools~=5.2",
     "click~=8.1",
     "cryptography~=40.0",

@@ -5,6 +5,7 @@ import logging
 import time as ctime
 from typing import Any
 
+from brotli_asgi import BrotliMiddleware
 from fastapi import APIRouter, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse as BaseResponse
@@ -114,6 +115,12 @@ def create_app(config: dict | None = None) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
         allow_origin_regex=allowed_origins_regex,
+    )
+
+    # Set up Brotli compression middleware
+    app.add_middleware(
+        BrotliMiddleware,
+        quality=5
     )
 
     # Add processing (brewing) time in headers when developing and testing
