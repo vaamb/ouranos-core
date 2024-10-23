@@ -1,7 +1,7 @@
 import asyncio
+from pathlib import Path
 import sys
 
-from anyio import Path
 import pytest
 import pytest_asyncio
 
@@ -27,8 +27,8 @@ def config(tmp_path_factory):
     tmp_path = tmp_path_factory.mktemp("base-dir")
     Config.DIR = str(tmp_path)
     db_dir = Path(Config().DB_DIR)
-    if not await db_dir.exists():
-        await db_dir.mkdir()
+    if not db_dir.exists():
+        db_dir.mkdir()
     Config.TESTING = True
     Config.SENSOR_LOGGING_PERIOD = 1
     Config.SYSTEM_LOGGING_PERIOD = 1
