@@ -15,19 +15,19 @@ class BaseConfig:
     DIR = os.environ.get("OURANOS_DIR") or os.getcwd()
 
     @property
-    def LOG_DIR(self):
+    def LOG_DIR(self) -> str | Path:
         return os.environ.get("OURANOS_LOG_DIR") or os.path.join(self.DIR, "logs")
 
     @property
-    def CACHE_DIR(self):
+    def CACHE_DIR(self) -> str | Path:
         return os.environ.get("OURANOS_CACHE_DIR") or os.path.join(self.DIR, ".cache")
 
     @property
-    def DB_DIR(self):
+    def DB_DIR(self) -> str | Path:
         return os.environ.get("OURANOS_DB_DIR") or os.path.join(self.DIR, "DBs")
 
     @property
-    def STATIC_DIR(self):
+    def STATIC_DIR(self) -> str | Path:
         return os.environ.get("OURANOS_STATIC_DIR") or os.path.join(self.DIR, "static")
 
     SECRET_KEY = os.environ.get("OURANOS_SECRET_KEY") or "secret_key"
@@ -78,14 +78,14 @@ class BaseConfig:
 
     # SQLAlchemy config
     @property
-    def SQLALCHEMY_DATABASE_URI(self):
+    def SQLALCHEMY_DATABASE_URI(self) -> str | Path:
         return (
             os.environ.get("OURANOS_DATABASE_URI") or
             "sqlite+aiosqlite:///" + os.path.join(self.DB_DIR, "ecosystems.db")
         )
 
     @property
-    def SQLALCHEMY_BINDS(self):
+    def SQLALCHEMY_BINDS(self) -> dict[str, str | Path]:
         return {
             "app": (os.environ.get("OURANOS_APP_DATABASE_URI") or
                     "sqlite+aiosqlite:///" + os.path.join(self.DB_DIR, "app.db")),
@@ -131,6 +131,7 @@ class BaseConfigDict(TypedDict):
     LOG_DIR: str | Path
     CACHE_DIR: str | Path
     DB_DIR: str | Path
+    STATIC_DIR: str | Path
 
     SECRET_KEY: str
     CONNECTION_KEY: str
