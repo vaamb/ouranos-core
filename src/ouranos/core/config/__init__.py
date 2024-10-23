@@ -3,9 +3,10 @@ from __future__ import annotations
 from inspect import isclass
 import logging
 import os
-from pathlib import Path
 import sys
 from typing import Type
+
+from anyio import Path
 
 from ouranos import __version__ as version
 from ouranos.core.config.base import BaseConfig, BaseConfigDict
@@ -173,12 +174,12 @@ class PathsHelper:
             except ValueError:
                 raise ValueError(f"Config.{dir_name} is not a valid directory.")
             else:
-                if not path.exists():
+                if not await path.exists():
                     logger = logging.getLogger("ouranos.paths_helper")
                     logger.warning(
                         f"'Config.{dir_name}' variable is set to a non-existing "
                         f"directory, trying to create it.")
-                    path.mkdir(parents=True)
+                    await path.mkdir(parents=True)
                 cls._dirs[dir_name] = path
                 return path
 

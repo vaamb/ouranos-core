@@ -5,12 +5,12 @@ from concurrent.futures import ThreadPoolExecutor
 import logging
 from logging import Formatter, Handler, LogRecord
 import logging.config
-from pathlib import Path
 import sqlite3
 import sys
 import time
 from typing import Literal
 
+from anyio import Path
 import click
 
 from ouranos.core.config.base import BaseConfigDict
@@ -55,8 +55,8 @@ class SQLiteHandler(Handler):
     def __init__(self, db_path: Path, table_name: str) -> None:
         super().__init__()
         parent_dir = Path(db_path).parent
-        if not parent_dir.exists():
-            parent_dir.mkdir(parents=True)
+        if not await parent_dir.exists():
+            await parent_dir.mkdir(parents=True)
         self.db_path = db_path
         self.table_name = table_name
         self._table_created: bool = False

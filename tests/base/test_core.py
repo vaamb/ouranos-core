@@ -1,5 +1,4 @@
-from pathlib import Path
-
+from anyio import Path
 import pytest
 
 from ouranos import current_app

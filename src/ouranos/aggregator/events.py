@@ -4,10 +4,10 @@ from datetime import datetime, timezone
 from threading import Lock
 import inspect
 import logging
-from pathlib import Path
 from typing import cast, Type, TypedDict, TypeVar
 from uuid import UUID
 
+from anyio import Path
 from anyio.to_thread import run_sync
 from PIL import Image as PIL_image
 from pydantic import TypeAdapter, ValidationError
@@ -968,8 +968,8 @@ class GaiaEvents(AsyncEventHandler):
         }
         async with db.scoped_session() as session:
             dir_path = self.camera_dir / f"{ecosystem_uid}"
-            if not dir_path.exists():
-                dir_path.mkdir(parents=True, exist_ok=True)
+            if not await dir_path.exists():
+                await dir_path.mkdir(parents=True, exist_ok=True)
             for serialized_image in serialized_images.data:
                 # Get information
                 image = PIL_image.fromarray(serialized_image.array)
