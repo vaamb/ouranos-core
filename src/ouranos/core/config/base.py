@@ -30,6 +30,10 @@ class BaseConfig:
     def STATIC_DIR(self) -> str | Path:
         return os.environ.get("OURANOS_STATIC_DIR") or os.path.join(self.DIR, "static")
 
+    @property
+    def WIKI_DIR(self) -> str | Path:
+        return os.environ.get("OURANOS_STATIC_DIR") or os.path.join(self.STATIC_DIR, "wiki")
+
     SECRET_KEY = os.environ.get("OURANOS_SECRET_KEY") or "secret_key"
 
     @property
@@ -132,6 +136,7 @@ class BaseConfigDict(TypedDict):
     CACHE_DIR: str | Path
     DB_DIR: str | Path
     STATIC_DIR: str | Path
+    WIKI_DIR: str | Path
 
     SECRET_KEY: str
     CONNECTION_KEY: str

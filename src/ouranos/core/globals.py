@@ -10,7 +10,7 @@ from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
 from ouranos.core.config import (
     ConfigDict, get_base_dir, get_cache_dir, get_config, get_log_dir,
-    get_static_dir)
+    get_static_dir, get_wiki_dir)
 from ouranos.core.database.base import CustomMeta, custom_metadata
 from ouranos.core.utils import json
 
@@ -45,6 +45,7 @@ class _CurrentApp(_DynamicVar):
         self.cache_dir: Path = get_cache_dir
         self.log_dir: Path = get_log_dir
         self.static_dir: Path = get_static_dir
+        self.wiki_dir: Path = get_wiki_dir
 
 
 current_app = _CurrentApp()
