@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from logging import getLogger, Logger
+from pathlib import Path
 
-from anyio import Path
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.schedulers.base import STATE_STOPPED
 
