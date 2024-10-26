@@ -7,7 +7,7 @@ import logging
 from typing import cast, Type, TypedDict, TypeVar
 from uuid import UUID
 
-from anyio import Path
+from anyio import Path as ioPath
 from anyio.to_thread import run_sync
 from PIL import Image as PIL_image
 from pydantic import TypeAdapter, ValidationError
@@ -62,7 +62,7 @@ class GaiaEvents(AsyncEventHandler):
         self._stream_dispatcher: AsyncDispatcher | None = None
         self._alarms_data: list[SensorAlarmDict] = []
         self._alarms_data_lock: Lock = Lock()
-        self.camera_dir: Path = current_app.static_dir / "camera_stream"
+        self.camera_dir: ioPath = ioPath(current_app.static_dir) / "camera_stream"
 
     # ---------------------------------------------------------------------------
     #   Payload validation
