@@ -6,10 +6,11 @@ from enum import Enum, IntFlag, StrEnum
 import re
 from typing import Optional, Self, Sequence, TypedDict
 
+from anyio import Path as ioPath
 from argon2 import PasswordHasher
 from argon2.exceptions import VerificationError
 import sqlalchemy as sa
-from sqlalchemy import delete, insert, or_, select, Table, update
+from sqlalchemy import delete, insert, or_, select, Table, UniqueConstraint, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -22,7 +23,7 @@ from ouranos.core.config.consts import (
     REGISTRATION_TOKEN_VALIDITY, TOKEN_SUBS)
 from ouranos.core.database.models.abc import Base, ToDictMixin
 from ouranos.core.database.models.caches import cache_users
-from ouranos.core.database.models.types import UtcDateTime
+from ouranos.core.database.models.types import PathType, UtcDateTime
 from ouranos.core.database.utils import ArchiveLink
 from ouranos.core.utils import Tokenizer
 
@@ -788,3 +789,576 @@ class GaiaJob(Base):
     command: Mapped[str] = mapped_column(sa.String(length=512))
     arguments: Mapped[str] = mapped_column(sa.String(length=512))
     done: Mapped[bool] = mapped_column(default=False)
+
+
+# ---------------------------------------------------------------------------
+#   Wiki topics and articles
+# ---------------------------------------------------------------------------
+class WikiArticleNotFound(KeyError):
+    pass
+
+
+class ModificationType(StrEnum):
+    creation = enum.auto()
+    deletion = enum.auto()
+    update = enum.auto()
+
+
+class WikiObject:
+    @staticmethod
+    def root_dir() -> ioPath:
+        return ioPath(current_app.static_dir)
+
+    @staticmethod
+    def wiki_dir() -> ioPath:
+        return ioPath(current_app.wiki_dir)
+
+    @classmethod
+    def get_rel_path(cls, abs_path: ioPath) -> ioPath:
+        return abs_path.relative_to(cls.root_dir())
+
+
+class WikiTopic(Base, WikiObject):
+    __tablename__ = "wiki_topics"
+    __bind_key__ = "app"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(sa.String(length=64), unique=True)
+    path: Mapped[ioPath] = mapped_column(PathType(length=512))
+    status: Mapped[bool] = mapped_column(default=True)
+
+    # relationship
+    articles: Mapped[list[WikiArticle]] = relationship(back_populates="topic")
+
+
+
+    def __repr__(self) -> str:
+        return f"<WikiTopic({self.topic})>"
+
+    @property
+    def absolute_path(self) -> ioPath:
+        return self.root_dir() / self.path
+
+    @classmethod
+    async def create(
+            cls,
+            session: AsyncSession,
+            /,
+            name: str,
+    ) -> None:
+        topic_dir = cls.wiki_dir() / name
+        # Create the topic dir
+        await topic_dir.mkdir(parents=True, exist_ok=True)
+        # Create the topic info
+        rel_path = cls.get_rel_path(topic_dir)
+        stmt = (
+            insert(cls)
+            .values({
+                "name": name,
+                "path": str(rel_path),
+            })
+        )
+        await session.execute(stmt)
+
+    @classmethod
+    async def get(
+            cls,
+            session: AsyncSession,
+            /,
+            name: str,
+    ) -> Self | None:
+        stmt = (
+            select(cls)
+            .where(
+                (cls.name == name)
+                & (cls.active == True)
+            )
+        )
+        result = await session.execute(stmt)
+        return result.scalars().one_or_none()
+
+    @classmethod
+    async def get_multiple(
+            cls,
+            session: AsyncSession,
+            /,
+            name: str | None = None,
+            limit: int = 50,
+    ) -> Sequence[Self]:
+        stmt = (
+            select(cls)
+            .where(cls.active == True)
+            .limit(limit)
+        )
+        if name is not None:
+            if isinstance(name, list):
+                stmt = stmt.where(cls.name.in_(name))
+            else:
+                stmt = stmt.where(cls.name == name)
+        result = await session.execute(stmt)
+        return result.scalars().all()
+
+    @classmethod
+    async def delete(
+            cls,
+            session: AsyncSession,
+            /,
+            name: str,
+    ) -> None:
+        stmt = (
+            update(cls)
+            .where(cls.name == name)
+            .values({"status": False})
+        )
+        await session.execute(stmt)
+
+    async def create_template(self, content: str, mode: str = "w") -> None:
+        path = self.absolute_path / "template.md"
+        async with await path.open(mode) as f:
+            await f.write(content)
+
+    async def get_template(self) -> str:
+        path = self.absolute_path / "template.md"
+        if not await path.exists():
+            raise WikiArticleNotFound
+        async with await path.open("r") as f:
+            content = await f.read()
+            return content
+
+
+class WikiArticle(Base, WikiObject):
+    __tablename__ = "wiki_articles"
+    __bind_key__ = "app"
+    __table_args__ = (
+        UniqueConstraint(
+            "title", "topic_id",
+            name="uq_wiki_articles_title"
+        ),
+    )
+    _lookup_keys = ["topic", "title"]
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    topic_id: Mapped[int] = mapped_column(sa.ForeignKey("wiki_topics.id"))
+    title: Mapped[str] = mapped_column(sa.String(length=64))
+    version: Mapped[int] = mapped_column(default=1)
+    path: Mapped[ioPath] = mapped_column(PathType(length=512))
+    status: Mapped[bool] = mapped_column(default=True)
+
+    # relationship
+    topic: Mapped[WikiTopic] = relationship(back_populates="articles", lazy="selectin")
+    modifications: Mapped[list[WikiArticleModification]] = relationship(back_populates="article")
+    images: Mapped[list[WikiArticlePicture]] = relationship(back_populates="article")
+
+    def __repr__(self) -> str:
+        return (
+            f"<WikiArticle({self.topic}-{self.title}-{self.version}, path={self.path})>"
+        )
+
+    @property
+    def topic_name(self) -> str:  # Needed for response formatting
+        return self.topic.name
+
+    @property
+    def absolute_path(self) -> ioPath:
+        return self.root_dir() / self.path
+
+    @property
+    def content_name(self) -> str:
+        return f"content-v{self.version:02d}.md"
+
+    @property
+    def content_path(self) -> ioPath:
+        return self.path / self.content_name
+
+    @property
+    def _abs_content_path(self) -> ioPath:
+        return self.absolute_path / self.content_name
+
+    async def set_content(self, content: str) -> None:
+        async with await self._abs_content_path.open("w") as f:
+            await f.write(content)
+
+    async def get_content(self) -> str:
+        async with await self._abs_content_path.open("r") as f:
+            content = await f.read()
+            return content
+
+    @classmethod
+    async def create(
+            cls,
+            session: AsyncSession,
+            /,
+            topic: str,
+            title: str,
+            content: str,
+            author_id: int,
+    ) -> None:
+        topic_obj = await WikiTopic.get(session, name=topic)
+        if topic_obj is None:
+            raise WikiArticleNotFound
+        article_dir = topic_obj.absolute_path / title
+        await article_dir.mkdir(parents=True, exist_ok=True)
+        rel_path = article_dir.relative_to(current_app.static_dir)
+        # Create the article info
+        stmt = (
+            insert(cls)
+            .values({
+                "topic_id": topic_obj.id,
+                "title": title,
+                "path": str(rel_path),
+            })
+        )
+        await session.execute(stmt)
+        # Create the article modification
+        article = await cls.get_latest_version(session, topic=topic, title=title)
+        await WikiArticleModification.create(
+            session,
+            article=article,
+            author_id=author_id,
+            modification=ModificationType.creation,
+        )
+        # Save the article content
+        await article.set_content(content)
+
+    @classmethod
+    async def get(
+            cls,
+            session: AsyncSession,
+            /,
+            topic: str,
+            title: str,
+            version: int,
+    ) -> Self:
+        stmt = (
+            select(cls)
+            .join(WikiTopic, cls.topic_id == WikiTopic.id)
+            .where(
+                (WikiTopic.name == topic)
+                & (cls.title == title)
+                & (cls.version == version)
+                & (cls.status == True)
+            )
+        )
+        result = await session.execute(stmt)
+        return result.scalars().one_or_none()
+
+    @classmethod
+    async def get_multiple(
+            cls,
+            session: AsyncSession,
+            /,
+            topic: list[str] | str | None = None,
+            title: list[str] | str | None = None,
+            limit: int = 50,
+    ) -> Sequence[Self]:
+        stmt = (
+            select(cls)
+            .join(WikiTopic, cls.topic_id == WikiTopic.id)
+            .limit(limit)
+        )
+        if topic:
+            if isinstance(topic, list):
+                stmt = stmt.where(WikiTopic.name.in_(topic))
+            else:
+                stmt = stmt.where(WikiTopic.name == topic)
+        if title:
+            if isinstance(title, list):
+                stmt = stmt.where(cls.title.in_(title))
+            else:
+                stmt = stmt.where(cls.title == title)
+        result = await session.execute(stmt)
+        return result.scalars().one_or_none()
+
+    @classmethod
+    async def get_latest_version(
+            cls,
+            session: AsyncSession,
+            /,
+            topic: str,
+            title: str
+    ) -> Self | None:
+        stmt = (
+            select(cls)
+            .join(WikiTopic, cls.topic_id == WikiTopic.id)
+            .where(
+                (WikiTopic.name == topic)
+                & (cls.title == title)
+                & (cls.status == True)
+            )
+            .order_by(cls.version.desc())
+            .limit(1)
+        )
+        result = await session.execute(stmt)
+        return result.scalars().one_or_none()
+
+    @classmethod
+    async def get_by_topic(
+            cls,
+            session: AsyncSession,
+            /,
+            topic: str,
+            limit: int = 50
+    ) -> Sequence[Self]:
+        stmt = (
+            select(cls)
+            .join(WikiTopic, cls.topic_id == WikiTopic.id)
+            .where(
+                (WikiTopic.name == topic)
+                & (cls.status == True)
+            )
+            .limit(limit)
+        )
+        result = await session.execute(stmt)
+        return result.scalars().all()
+
+    @classmethod
+    async def get_history(
+            cls,
+            session: AsyncSession,
+            /,
+            topic: str,
+            title: str,
+            limit: int = 50,
+    ) -> Sequence[WikiArticleModification]:
+        article = await cls.get_latest_version(session, topic=topic, title=title)
+        if not article:
+            raise ValueError("Article not found")
+        history = await WikiArticleModification.get_for_article(
+            session, article_id=article.id, limit=limit)
+        return history
+
+    @classmethod
+    async def update(
+            cls,
+            session: AsyncSession,
+            /,
+            topic: str,
+            title: str,
+            content: str,
+            author_id: int,
+    ) -> None:
+        article = await cls.get_latest_version(session, topic=topic, title=title)
+        if not article:
+            raise WikiArticleNotFound
+        new_version = article.version + 1
+        # Update the article info
+        stmt = (
+            update(cls)
+            .where(cls.id == article.id)
+            .values({"version": new_version})
+        )
+        await session.execute(stmt)
+        # Create the article modification
+        article = await cls.get_latest_version(session, topic=topic, title=title)
+        await WikiArticleModification.create(
+            session,
+            article=article,
+            author_id=author_id,
+            modification=ModificationType.update,
+        )
+        # Save the article content
+        await article.set_content(content)
+
+    @classmethod
+    async def delete(
+            cls,
+            session: AsyncSession,
+            /,
+            topic: str,
+            title: str,
+            author_id: int,
+    ) -> None:
+        article = await cls.get_latest_version(session, topic=topic, title=title)
+        if not article:
+            raise WikiArticleNotFound
+        # Update the article info
+        stmt = (
+            update(cls)
+            .where(cls.id == article.id)
+            .values({"status": False})
+        )
+        await session.execute(stmt)
+        # Create the article modification
+        article = await cls.get_latest_version(session, topic=topic, title=title)
+        await WikiArticleModification.create(
+            session,
+            article=article,
+            author_id=author_id,
+            modification=ModificationType.deletion,
+        )
+
+
+class WikiArticleModification(Base):
+    __tablename__ = "wiki_articles_modifications"
+    __bind_key__ = "app"
+    _lookup_keys = ["topic", "title"]
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    article_id: Mapped[int] = mapped_column(sa.ForeignKey("wiki_articles.id"))
+    article_version: Mapped[int] = mapped_column()
+    modification_type: Mapped[ModificationType] = mapped_column()
+    timestamp: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
+    author_id: Mapped[str] = mapped_column(sa.ForeignKey("users.id"))
+
+    # relationship
+    article: Mapped[WikiArticle] = relationship(back_populates="modifications", lazy="selectin")
+    author: Mapped[User] = relationship()
+
+    def __repr__(self) -> str:
+        return (
+            f"<WikiArticleModification({self.article_id}, "
+            f"timestamp={self.timestamp}, modification_type={self.modification_type})>"
+        )
+
+    @property
+    def topic_name(self) -> str:  # Needed for response formatting
+        return self.article.topic.name
+
+    @property
+    def article_title(self) -> str:  # Needed for response formatting
+        return self.article.title
+
+    @classmethod
+    async def create(
+            cls,
+            session: AsyncSession,
+            /,
+            article: WikiArticle,
+            author_id: int,
+            modification: ModificationType,
+    ) -> None:
+        stmt = (
+            insert(cls)
+            .values({
+                "article_id": article.id,
+                "article_version": article.version,
+                "modification_type": modification,
+                "author_id": author_id,
+            })
+        )
+        await session.execute(stmt)
+
+    @classmethod
+    async def get_for_article(
+            cls,
+            session: AsyncSession,
+            /,
+            article_id: int,
+            limit: int = 50,
+    ) -> Sequence[Self]:
+        stmt = (
+            select(cls)
+            .where(cls.article_id == article_id)
+            .limit(limit)
+        )
+        result = await session.execute(stmt)
+        return result.scalars().all()
+
+
+class WikiArticlePicture(Base, WikiObject):
+    __tablename__ = "wiki_articles_pictures"
+    __bind_key__ = "app"
+    __table_args__ = (
+        UniqueConstraint(
+            "article_id", "name",
+            name="uq_wiki_article_id"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    article_id: Mapped[int] = mapped_column(sa.ForeignKey("wiki_articles.id"))
+    name: Mapped[str] = mapped_column(sa.String(length=64))
+    path: Mapped[ioPath] = mapped_column(PathType(length=512))
+    status: Mapped[bool] = mapped_column(default=True)
+    timestamp: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
+    author_id: Mapped[str] = mapped_column(sa.ForeignKey("users.id"))
+
+    # relationship
+    article: Mapped[WikiArticle] = relationship(back_populates="images", lazy="selectin")
+
+    def __repr__(self) -> str:
+        return (
+            f"<WikiArticlePicture({self.article_id}, timestamp={self.timestamp})>"
+        )
+
+    @property
+    def absolute_path(self) -> ioPath:
+        return self.root_dir() / self.path
+
+    async def set_image(self, image: bytes) -> None:
+        async with await self.absolute_path.open("wb") as f:
+            await f.write(image)
+
+    async def get_image(self) -> bytes:
+        async with await self.absolute_path.open("rb")  as f:
+            image = await f.read(self.content)
+            return image
+
+    @classmethod
+    async def create(
+            cls,
+            session: AsyncSession,
+            /,
+            article_obj: WikiArticle,
+            name: str,
+            content: bytes,
+            author_id: int,
+    ) -> None:
+        picture_path = article_obj.absolute_path / name
+        rel_path = cls.get_rel_path(picture_path)
+        # Create the picture info
+        stmt = (
+            insert(cls)
+            .values({
+                "article_id": article_obj.id,
+                "name": name,
+                "path": str(rel_path),
+                "author_id": author_id,
+            })
+        )
+        await session.execute(stmt)
+        # Save the picture content
+        picture_info = await cls.get(session, article_obj=article_obj, name=name)
+        await picture_info.set_image(content)
+
+    @classmethod
+    async def get(
+            cls,
+            session: AsyncSession,
+            /,
+            article_obj: WikiArticle,
+            name: str,
+    ) -> Self | None:
+        stmt = (
+            select(cls)
+            .where(
+                (cls.article_id == article_obj.id)
+                & (cls.name == name)
+                & (cls.status == True)
+            )
+        )
+        result = await session.execute(stmt)
+        return result.scalars().one_or_none()
+
+    @classmethod
+    async def delete(
+            cls,
+            session: AsyncSession,
+            /,
+            article_obj: WikiArticle,
+            name: str,
+    ) -> None:
+        # Mark the picture as inactive
+        stmt = (
+            update(cls)
+            .where(
+                (cls.article_id == article_obj.id)
+                & (cls.name == name)
+            )
+            .values({"status": False})
+        )
+        await session.execute(stmt)
+        # Rename the picture content
+        #picture_info = await cls.get(session, article_obj=article_obj, name=name)
+        #new_picture_path = article_obj.absolute_path / f"DELETED-{name}.jpeg"
+        #await picture_info.absolute_path.rename(new_picture_path)
