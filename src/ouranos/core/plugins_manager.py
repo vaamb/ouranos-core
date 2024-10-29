@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from importlib.metadata import entry_points
-import inspect
 from logging import getLogger, Logger
 from typing import Iterator
 
@@ -43,14 +42,7 @@ class PluginManager:
             self,
             omit_excluded: bool = True
     ) -> Iterator[Plugin]:
-        args = inspect.signature(entry_points).parameters
-        if "group" in args:
-            entry_points_ = entry_points(group=self.entry_point)
-        # Python < 3.10
-        else:
-            grouped_entry_points = entry_points()
-            entry_points_ = grouped_entry_points.get(self.entry_point, [])
-        for entry_point in entry_points_:
+        for entry_point in entry_points(group=self.entry_point):
             pkg = entry_point.load()
             if isinstance(pkg, Plugin):
                 if current_app.config["TESTING"]:
