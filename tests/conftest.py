@@ -9,18 +9,6 @@ from ouranos.core.config import ConfigDict
 from ouranos.core.database.init import create_base_data
 
 
-@pytest.fixture(scope="session")
-def event_loop():
-    if sys.platform.startswith("win") and sys.version_info[:2] >= (3, 8):
-        # Avoid "RuntimeError: Event loop is closed" on Windows when tearing down tests
-        # https://github.com/encode/httpx/issues/914
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
-
-
 @pytest.fixture(scope="session", autouse=True)
 def config(tmp_path_factory):
     tmp_path = tmp_path_factory.mktemp("base-dir")
