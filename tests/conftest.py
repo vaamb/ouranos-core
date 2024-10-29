@@ -1,5 +1,4 @@
 import asyncio
-from pathlib import Path
 import sys
 
 import pytest
@@ -25,13 +24,19 @@ def event_loop():
 @pytest.fixture(scope="session", autouse=True)
 def config(tmp_path_factory):
     tmp_path = tmp_path_factory.mktemp("base-dir")
+
     Config.DIR = str(tmp_path)
-    db_dir = Path(Config().DB_DIR)
-    if not db_dir.exists():
-        db_dir.mkdir()
     Config.TESTING = True
+    Config.SQLALCHEMY_DATABASE_URI = "sqlite+aiosqlite://"
+    Config.SQLALCHEMY_BINDS = {
+        "app": "sqlite+aiosqlite://",
+        "system": "sqlite+aiosqlite://",
+        "archive": "sqlite+aiosqlite://",
+        "memory": "sqlite+aiosqlite://",
+    }
     Config.SENSOR_LOGGING_PERIOD = 1
     Config.SYSTEM_LOGGING_PERIOD = 1
+
     config = setup_config(Config)
     _db.init(config)
     yield config
