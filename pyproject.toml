@@ -45,8 +45,8 @@ dummy = "ouranos.sdk.tests.plugin:dummy_plugin"
 
 [project.optional-dependencies]
 test = [
-    "coverage~=8.1",
-    "pytest~=7.1",
+    "coverage~=7.6",
+    "pytest~=8.1",
     "pytest-asyncio~=0.24.0a1",
     "httpx~=0.24",
 ]
