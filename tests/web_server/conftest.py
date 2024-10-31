@@ -23,7 +23,7 @@ from ouranos.web_server.auth import SessionInfo
 from ouranos.web_server.factory import create_app
 
 from tests.data.app import (
-    calendar_event, wiki_article_content, wiki_article_title, wiki_picture_content,
+    calendar_event, wiki_article_content, wiki_article_name, wiki_picture_content,
     wiki_picture_name, wiki_topic_name)
 from tests.data.auth import admin, operator, user
 import tests.data.gaia as g_data
@@ -148,10 +148,10 @@ async def add_wiki(db: AsyncSQLAlchemyWrapper):
         await topic.create_template(wiki_article_content)
 
         await WikiArticle.create(
-            session, topic=wiki_topic_name, title=wiki_article_title,
+            session, topic=wiki_topic_name, name=wiki_article_name,
             content=wiki_article_content, author_id=operator.id)
         article = await WikiArticle.get_latest_version(
-            session, topic=wiki_topic_name, title=wiki_article_title)
+            session, topic=wiki_topic_name, name=wiki_article_name)
         await WikiArticlePicture.create(
             session, article_obj=article, name=wiki_picture_name,
             content=wiki_picture_content, author_id=operator.id)

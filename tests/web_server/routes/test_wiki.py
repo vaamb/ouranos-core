@@ -8,7 +8,7 @@ from ouranos.core.database.models.app import (
     WikiArticle, WikiArticleModification, WikiArticlePicture, WikiTopic)
 
 from tests.data.app import (
-    wiki_article_content, wiki_article_title, wiki_picture_name, wiki_topic_name)
+    wiki_article_content, wiki_article_name, wiki_picture_name, wiki_topic_name)
 from tests.data.auth import operator
 
 
@@ -63,7 +63,7 @@ async def test_get_topic_articles(client: TestClient):
 
     data = json.loads(response.text)
     assert len(data) == 1
-    assert wiki_article_title in [article["title"] for article in data]
+    assert wiki_article_name in [article["name"] for article in data]
 
 
 @pytest.mark.asyncio
@@ -142,10 +142,10 @@ async def test_create_article(
         db: AsyncSQLAlchemyWrapper
 ):
     # Run test
-    title = "New article title"
+    name = "New article name"
     content = "New article content"
     payload = {
-        "title": title,
+        "name": name,
         "content": content,
     }
     response = client_operator.post(
@@ -156,33 +156,33 @@ async def test_create_article(
 
     async with db.scoped_session() as session:
         article = await WikiArticle.get_latest_version(
-            session, topic=wiki_topic_name, title=title)
-        assert article.title == title
+            session, topic=wiki_topic_name, name=name)
+        assert article.name == name
         assert article.version == 1
         assert content == await article.get_content()
 
     # Clean up test
     async with db.scoped_session() as session:
         await WikiArticle.delete(
-            session, topic=wiki_topic_name, title=title, author_id=operator.id)
+            session, topic=wiki_topic_name, name=name, author_id=operator.id)
 
 
 @pytest.mark.asyncio
 async def test_get_article(client: TestClient):
     response = client.get(
-        f"/api/app/services/wiki/topics/u/{wiki_topic_name}/u/{wiki_article_title}")
+        f"/api/app/services/wiki/topics/u/{wiki_topic_name}/u/{wiki_article_name}")
     assert response.status_code == 200
 
     data = json.loads(response.text)
     assert data["topic"] == wiki_topic_name
-    assert data["title"] == wiki_article_title
+    assert data["name"] == wiki_article_name
     assert data["version"] == 1
 
 
 @pytest.mark.asyncio
 async def test_update_article_unauthorized(client: TestClient):
     response = client.put(
-        f"/api/app/services/wiki/topics/u/{wiki_topic_name}/u/{wiki_article_title}")
+        f"/api/app/services/wiki/topics/u/{wiki_topic_name}/u/{wiki_article_name}")
     assert response.status_code == 403
 
 
@@ -197,15 +197,15 @@ async def test_update_article(
     }
     # Run test
     response = client_operator.put(
-        f"/api/app/services/wiki/topics/u/{wiki_topic_name}/u/{wiki_article_title}",
+        f"/api/app/services/wiki/topics/u/{wiki_topic_name}/u/{wiki_article_name}",
         json=payload,
     )
     assert response.status_code == 200
 
     async with db.scoped_session() as session:
         article = await WikiArticle.get_latest_version(
-            session, topic=wiki_topic_name, title=wiki_article_title)
-        assert article.title == wiki_article_title
+            session, topic=wiki_topic_name, name=wiki_article_name)
+        assert article.name == wiki_article_name
         assert article.version == 2
         assert content == await article.get_content()
 
@@ -226,34 +226,34 @@ async def test_delete_article(
         client_operator: TestClient,
         db: AsyncSQLAlchemyWrapper,
 ):
-    article_title = "To delete article"
+    article_name = "To delete article"
     # Setup test
     async with db.scoped_session() as session:
         await WikiArticle.create(
-            session, topic=wiki_topic_name, title=article_title, content="",
+            session, topic=wiki_topic_name, name=article_name, content="",
             author_id=operator.id)
 
     # Run test
     response = client_operator.delete(
-        f"/api/app/services/wiki/topics/u/{wiki_topic_name}/u/{article_title}")
+        f"/api/app/services/wiki/topics/u/{wiki_topic_name}/u/{article_name}")
     assert response.status_code == 200
 
     async with db.scoped_session() as session:
         article = await WikiArticle.get_latest_version(
-            session, topic=wiki_topic_name, title=article_title)
+            session, topic=wiki_topic_name, name=article_name)
         assert article is None
 
 
 @pytest.mark.asyncio
 async def test_get_article_history(client: TestClient):
     response = client.get(
-        f"/api/app/services/wiki/topics/u/{wiki_topic_name}/u/{wiki_article_title}/history")
+        f"/api/app/services/wiki/topics/u/{wiki_topic_name}/u/{wiki_article_name}/history")
     assert response.status_code == 200
 
     data = json.loads(response.text)
     assert len(data) == 1
     assert data[0]["topic"] == wiki_topic_name
-    assert data[0]["article"] == wiki_article_title
+    assert data[0]["article"] == wiki_article_name
     assert data[0]["article_version"] == 1
     assert data[0]["author_id"] == operator.id
 
@@ -261,7 +261,7 @@ async def test_get_article_history(client: TestClient):
 @pytest.mark.asyncio
 async def test_create_picture_unauthorized(client: TestClient):
     response = client.post(
-        f"/api/app/services/wiki/topics/u/{wiki_topic_name}/u/{wiki_article_title}/u")
+        f"/api/app/services/wiki/topics/u/{wiki_topic_name}/u/{wiki_article_name}/u")
     assert response.status_code == 403
 
 
@@ -279,14 +279,14 @@ async def test_create_picture(
     # Run test
     response = client_operator.post(
         f"/api/app/services/wiki/topics/u/{wiki_topic_name}/"
-        f"u/{wiki_article_title}/u",
+        f"u/{wiki_article_name}/u",
         json=payload,
     )
     assert response.status_code == 200
 
     async with db.scoped_session() as session:
         article = await WikiArticle.get_latest_version(
-            session, topic=wiki_topic_name, title=wiki_article_title)
+            session, topic=wiki_topic_name, name=wiki_article_name)
         picture = await WikiArticlePicture.get(
             session, article_obj=article, name=payload["name"])
         assert picture.name == name
@@ -301,12 +301,12 @@ async def test_create_picture(
 async def test_get_picture(client: TestClient):
     response = client.get(
         f"/api/app/services/wiki/topics/u/{wiki_topic_name}/"
-        f"u/{wiki_article_title}/u/{wiki_picture_name}")
+        f"u/{wiki_article_name}/u/{wiki_picture_name}")
     assert response.status_code == 200
 
     data = json.loads(response.text)
     assert data["topic"] == wiki_topic_name
-    assert data["article"] == wiki_article_title
+    assert data["article"] == wiki_article_name
     assert data["name"] == wiki_picture_name
 
 
@@ -314,7 +314,7 @@ async def test_get_picture(client: TestClient):
 async def test_delete_picture_unauthorized(client: TestClient):
     response = client.delete(
         f"/api/app/services/wiki/topics/u/{wiki_topic_name}/"
-        f"u/{wiki_article_title}/u/{wiki_picture_name}")
+        f"u/{wiki_article_name}/u/{wiki_picture_name}")
     assert response.status_code == 403
 
 
@@ -327,7 +327,7 @@ async def test_delete_picture(
     # Setup test
     async with db.scoped_session() as session:
         article = await WikiArticle.get_latest_version(
-            session, topic=wiki_topic_name, title=wiki_article_title)
+            session, topic=wiki_topic_name, name=wiki_article_name)
         await WikiArticlePicture.create(
             session, article_obj=article, name=picture_name, content=b"",
             author_id=operator.id)
@@ -335,12 +335,12 @@ async def test_delete_picture(
     # Run test
     response = client_operator.delete(
         f"/api/app/services/wiki/topics/u/{wiki_topic_name}/"
-        f"u/{wiki_article_title}/u/{picture_name}")
+        f"u/{wiki_article_name}/u/{picture_name}")
     assert response.status_code == 200
 
     async with db.scoped_session() as session:
         article = await WikiArticle.get_latest_version(
-            session, topic=wiki_topic_name, title=wiki_article_title)
+            session, topic=wiki_topic_name, name=wiki_article_name)
         picture = await WikiArticlePicture.get(
             session, article_obj=article, name=picture_name)
         assert picture is None
@@ -353,4 +353,4 @@ async def test_get_articles(client: TestClient):
 
     data = json.loads(response.text)
     assert len(data) == 1
-    assert wiki_article_title in [article["title"] for article in data]
+    assert wiki_article_name in [article["name"] for article in data]

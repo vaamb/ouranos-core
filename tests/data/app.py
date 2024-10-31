@@ -16,7 +16,7 @@ calendar_event = {
 
 
 wiki_topic_name = "Topic"
-wiki_article_title = "Title"
+wiki_article_name = "Article"
 wiki_article_content = "Content"
 wiki_picture_name = "Picture"
 wiki_picture_content = b"Picture"

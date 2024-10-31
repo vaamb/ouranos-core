@@ -48,9 +48,9 @@ async def topic_or_abort(
 async def article_or_abort(
         session: AsyncSession,
         topic: str,
-        title: str,
+        name: str,
 ) -> WikiArticle:
-    article = await WikiArticle.get_latest_version(session, topic=topic, title=title)
+    article = await WikiArticle.get_latest_version(session, topic=topic, name=name)
     if not article:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -210,7 +210,7 @@ async def create_topic_article(
 ):
     try:
         await WikiArticle.create(
-            session, topic=topic_name, title=payload.title,
+            session, topic=topic_name, name=payload.name,
             content=payload.content, author_id=current_user.id)
         return ResultResponse(
             msg=f"A new wiki article was successfully created.",
@@ -248,7 +248,7 @@ async def upload_article(
             )
         content = await file.read()
         await WikiArticle.create(
-            session, topic=topic_name, title=filename,
+            session, topic=topic_name, name=filename,
             content=content.decode("utf-8"), author_id=current_user.id)
         return ResultResponse(
             msg=f"A new wiki article was successfully uploaded.",
@@ -270,7 +270,7 @@ async def get_topic_article(
         article_name: str = Path(description="The name of the article"),
         session: AsyncSession = Depends(get_session),
 ):
-    article = await article_or_abort(session, topic=topic_name, title=article_name)
+    article = await article_or_abort(session, topic=topic_name, name=article_name)
     return article
 
 
@@ -286,7 +286,7 @@ async def update_topic_article(
 ):
     try:
         await WikiArticle.update(
-            session, topic=topic_name, title=article_name,
+            session, topic=topic_name, name=article_name,
             content=payload.content, author_id=current_user.id)
         return ResultResponse(
             msg=f"Wiki article '{article_name}' was successfully updated.",
@@ -312,7 +312,7 @@ async def delete_topic_article(
 ):
     try:
         await WikiArticle.delete(
-            session, topic=topic_name, title=article_name,
+            session, topic=topic_name, name=article_name,
             author_id=current_user.id)
         return ResultResponse(
             msg=f"Wiki article '{article_name}' was successfully deleted.",
@@ -334,7 +334,7 @@ async def get_topic_article_history(
         article_name: str = Path(description="The name of the article"),
         session: AsyncSession = Depends(get_session),
 ):
-    article = await article_or_abort(session, topic=topic_name, title=article_name)
+    article = await article_or_abort(session, topic=topic_name, name=article_name)
     history = await WikiArticleModification.get_for_article(
         session, article_id=article.id)
     return history
@@ -350,7 +350,7 @@ async def add_picture_to_article(
         current_user: UserMixin = Depends(get_current_user),
         session: AsyncSession = Depends(get_session),
 ):
-    article = await article_or_abort(session, topic=topic_name, title=article_name)
+    article = await article_or_abort(session, topic=topic_name, name=article_name)
     try:
         await WikiArticlePicture.create(
             session, article_obj=article, name=payload.name, content=payload.content,
@@ -384,7 +384,7 @@ async def upload_picture_to_article(
             detail="File should be a valid '.md' file"
         )
     filename = file.filename.rstrip(".md")
-    article = await article_or_abort(session, topic=topic_name, title=article_name)
+    article = await article_or_abort(session, topic=topic_name, name=article_name)
     try:
         if file.size > MAX_PICTURE_FILE_SIZE:
             raise HTTPException(
@@ -416,7 +416,7 @@ async def get_article_picture(
         picture_name: str = Path(description="The name of the picture"),
         session: AsyncSession = Depends(get_session),
 ):
-    article = await article_or_abort(session, topic=topic_name, title=article_name)
+    article = await article_or_abort(session, topic=topic_name, name=article_name)
     picture = await WikiArticlePicture.get(
         session, article_obj=article, name=picture_name)
     if not picture:
@@ -436,7 +436,7 @@ async def delete_picture_from_article(
         picture_name: str = Path(description="The name of the picture"),
         session: AsyncSession = Depends(get_session),
 ):
-    article = await article_or_abort(session, topic=topic_name, title=article_name)
+    article = await article_or_abort(session, topic=topic_name, name=article_name)
     try:
         await WikiArticlePicture.delete(session, article_obj=article, name=picture_name)
         return ResultResponse(
@@ -455,11 +455,11 @@ async def delete_picture_from_article(
 @router.get("/articles",
             response_model=list[WikiArticleInfo])
 async def get_articles(
-        topic: list[str] = Query(default=None, description="The name of the topic"),
-        title: list[str] = Query(default=None, description="The name of the title"),
+        topic: list[str] = Query(default=None, description="The name of the topics"),
+        name: list[str] = Query(default=None, description="The name of the articles"),
         limit: int = Query(default=50, description="The number of articles name to fetch"),
         session: AsyncSession = Depends(get_session),
 ):
     articles = await WikiArticle.get_multiple(
-        session, topic=topic, title=title, limit=limit)
+        session, topic=topic, name=name, limit=limit)
     return articles

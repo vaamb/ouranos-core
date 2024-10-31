@@ -31,7 +31,7 @@ class WikiTopicTemplatePayload(BaseModel):
 
 class WikiArticleInfo(BaseModel):
     topic: str = Field(validation_alias="topic_name")
-    title: str
+    name: str
     version: int
     path: str = Field(validation_alias="content_path")
 
@@ -44,14 +44,14 @@ class WikiArticleInfo(BaseModel):
 
 class WikiArticleCreationPayload(BaseModel):
     # topic is provided by the route
-    title: str
+    name: str
     content: str
     # author_id is provided by the route
 
 
 class WikiArticleUpdatePayload(BaseModel):
     # topic is provided by the route
-    # title is provided by the route
+    # name is provided by the route
     content: str
     # author_id is provided by the route
 
@@ -59,7 +59,7 @@ class WikiArticleUpdatePayload(BaseModel):
 class WikiArticleModificationInfo(BaseModel):
     # topic is provided by the route
     topic: str = Field(validation_alias="topic_name")
-    article: str = Field(validation_alias="article_title")
+    article: str = Field(validation_alias="article_name")
     article_version: int
     author_id: int
     timestamp: datetime
@@ -68,7 +68,7 @@ class WikiArticleModificationInfo(BaseModel):
 
 class WikiArticlePictureInfo(BaseModel):
     topic: str = Field(validation_alias="topic_name")
-    article: str = Field(validation_alias="article_title")
+    article: str = Field(validation_alias="article_name")
     name: str
     path: str
 
