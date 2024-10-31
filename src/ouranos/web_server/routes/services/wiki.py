@@ -389,7 +389,6 @@ async def upload_picture_to_article(
             detail="File should be a valid '.md' file"
         )
     filename = file.filename.rstrip(".md")
-    article = await article_or_abort(session, topic=topic_name, name=article_name)
     try:
         if file.size > MAX_PICTURE_FILE_SIZE:
             raise HTTPException(
@@ -448,7 +447,6 @@ async def delete_picture_from_article(
         picture_name: str = Path(description="The name of the picture"),
         session: AsyncSession = Depends(get_session),
 ):
-    article = await article_or_abort(session, topic=topic_name, name=article_name)
     try:
         await WikiArticlePicture.delete(
             session, topic=topic_name, article=article_name, name=picture_name)
