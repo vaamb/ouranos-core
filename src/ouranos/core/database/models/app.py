@@ -1202,7 +1202,7 @@ class WikiArticleModification(Base):
             name="uq_wiki_articles_modifications"
         ),
     )
-    _lookup_keys = ["topic", "name"]
+    _lookup_keys = ["topic", "article", "version"]
 
     id: Mapped[int] = mapped_column(primary_key=True)
     article_id: Mapped[int] = mapped_column(sa.ForeignKey("wiki_articles.id"))
@@ -1292,7 +1292,7 @@ class WikiArticlePicture(Base, WikiObject):
             name="uq_wiki_article_id"
         ),
     )
-    _lookup_keys = ["article_id", "name"]
+    _lookup_keys = ["topic", "article", "name"]
 
     id: Mapped[int] = mapped_column(primary_key=True)
     article_id: Mapped[int] = mapped_column(sa.ForeignKey("wiki_articles.id"))
@@ -1336,11 +1336,16 @@ class WikiArticlePicture(Base, WikiObject):
             cls,
             session: AsyncSession,
             /,
-            article_obj: WikiArticle,
+            topic: str,
+            article: str,
             name: str,
             content: bytes,
             author_id: int,
     ) -> None:
+        article_obj = await WikiArticle.get_latest_version(
+            session, topic=topic, name=article)
+        if article_obj is None:
+            raise WikiArticleNotFound
         picture_path = article_obj.absolute_path / name
         rel_path = cls.get_rel_path(picture_path)
         # Create the picture info
@@ -1355,7 +1360,8 @@ class WikiArticlePicture(Base, WikiObject):
         )
         await session.execute(stmt)
         # Save the picture content
-        picture_info = await cls.get(session, article_obj=article_obj, name=name)
+        picture_info = await cls.get(
+            session, topic=topic, article=article, name=name)
         await picture_info.set_image(content)
 
     @classmethod
@@ -1363,9 +1369,14 @@ class WikiArticlePicture(Base, WikiObject):
             cls,
             session: AsyncSession,
             /,
-            article_obj: WikiArticle,
+            topic: str,
+            article: str,
             name: str,
     ) -> Self | None:
+        article_obj = await WikiArticle.get_latest_version(
+            session, topic=topic, name=article)
+        if article_obj is None:
+            raise WikiArticleNotFound
         stmt = (
             select(cls)
             .where(
@@ -1382,9 +1393,14 @@ class WikiArticlePicture(Base, WikiObject):
             cls,
             session: AsyncSession,
             /,
-            article_obj: WikiArticle,
+            topic: str,
+            article: str,
             name: str,
     ) -> None:
+        article_obj = await WikiArticle.get_latest_version(
+            session, topic=topic, name=article)
+        if article_obj is None:
+            raise WikiArticleNotFound
         # Mark the picture as inactive
         stmt = (
             update(cls)

@@ -150,11 +150,10 @@ async def add_wiki(db: AsyncSQLAlchemyWrapper):
         await WikiArticle.create(
             session, topic=wiki_topic_name, name=wiki_article_name,
             content=wiki_article_content, author_id=operator.id)
-        article = await WikiArticle.get_latest_version(
-            session, topic=wiki_topic_name, name=wiki_article_name)
         await WikiArticlePicture.create(
-            session, article_obj=article, name=wiki_picture_name,
-            content=wiki_picture_content, author_id=operator.id)
+            session, topic=wiki_topic_name, article=wiki_article_name,
+            name=wiki_picture_name, content=wiki_picture_content,
+            author_id=operator.id)
 
 
 @pytest.fixture(scope="module")

@@ -350,14 +350,19 @@ async def add_picture_to_article(
         current_user: UserMixin = Depends(get_current_user),
         session: AsyncSession = Depends(get_session),
 ):
-    article = await article_or_abort(session, topic=topic_name, name=article_name)
     try:
         await WikiArticlePicture.create(
-            session, article_obj=article, name=payload.name, content=payload.content,
+            session, topic=topic_name, article=article_name, name=payload.name,
+            content=payload.content,
             author_id=current_user.id)
         return ResultResponse(
             msg=f"A new wiki picture was successfully created.",
             status=ResultStatus.success
+        )
+    except WikiArticleNotFound:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No article(s) found"
         )
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
@@ -393,11 +398,16 @@ async def upload_picture_to_article(
             )
         content = await file.read()
         await WikiArticlePicture.create(
-            session, article_obj=article, name=filename, content=content,
-            author_id=current_user.id)
+            session, topic=topic_name, article=article_name, name=filename,
+            content=content, author_id=current_user.id)
         return ResultResponse(
             msg=f"A new wiki picture was successfully uploaded.",
             status=ResultStatus.success
+        )
+    except WikiArticleNotFound:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No article(s) found"
         )
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
@@ -416,9 +426,11 @@ async def get_article_picture(
         picture_name: str = Path(description="The name of the picture"),
         session: AsyncSession = Depends(get_session),
 ):
-    article = await article_or_abort(session, topic=topic_name, name=article_name)
-    picture = await WikiArticlePicture.get(
-        session, article_obj=article, name=picture_name)
+    try:
+        picture = await WikiArticlePicture.get(
+            session, topic=topic_name, article=article_name, name=picture_name)
+    except WikiArticleNotFound:
+        picture = None
     if not picture:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -438,10 +450,16 @@ async def delete_picture_from_article(
 ):
     article = await article_or_abort(session, topic=topic_name, name=article_name)
     try:
-        await WikiArticlePicture.delete(session, article_obj=article, name=picture_name)
+        await WikiArticlePicture.delete(
+            session, topic=topic_name, article=article_name, name=picture_name)
         return ResultResponse(
             msg=f"The wiki picture '{picture_name}' was successfully deleted.",
             status=ResultStatus.success
+        )
+    except WikiArticleNotFound:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No article(s) found"
         )
     except Exception as e:
         response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
