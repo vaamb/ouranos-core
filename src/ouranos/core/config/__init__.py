@@ -202,9 +202,14 @@ class PathsHelper:
     def get_static_dir(cls) -> Path:
         return cls._get_dir("STATIC_DIR")
 
+    @classmethod
+    def get_wiki_dir(cls) -> Path:
+        return cls._get_dir("WIKI_DIR")
+
 
 get_base_dir = PathsHelper.get_base_dir
 get_cache_dir = PathsHelper.get_cache_dir
 get_log_dir = PathsHelper.get_log_dir
 get_db_dir = PathsHelper.get_db_dir
 get_static_dir = PathsHelper.get_static_dir
+get_wiki_dir = PathsHelper.get_wiki_dir

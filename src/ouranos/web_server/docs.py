@@ -45,6 +45,10 @@ tags_metadata = [
                        "the weather service has been enabled",
     },
     {
+        "name": "app/services/wiki",
+        "description": "Create, update and get wiki articles",
+    },
+    {
         "name": "auth",
         "description": "Authenticate and log user to access protected paths",
     },
