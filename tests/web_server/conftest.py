@@ -11,7 +11,8 @@ import gaia_validators as gv
 
 from ouranos.core.config import ConfigDict
 from ouranos.core.config.consts import LOGIN_NAME
-from ouranos.core.database.models.app import CalendarEvent, User
+from ouranos.core.database.models.app import (
+    CalendarEvent, User, WikiArticle, WikiArticlePicture, WikiTopic)
 from ouranos.core.database.models.gaia import (
     ActuatorRecord, ActuatorState, Ecosystem, Engine, EnvironmentParameter,
     GaiaWarning, Hardware, HealthRecord, Lighting, SensorDataCache,
@@ -21,9 +22,11 @@ from ouranos.core.database.models.system import (
 from ouranos.web_server.auth import SessionInfo
 from ouranos.web_server.factory import create_app
 
-import tests.data.gaia as g_data
-from tests.data.app import calendar_event
+from tests.data.app import (
+    calendar_event, wiki_article_content, wiki_article_title, wiki_picture_content,
+    wiki_picture_name, wiki_topic_name)
 from tests.data.auth import admin, operator, user
+import tests.data.gaia as g_data
 from tests.data.system import system_dict, system_data_dict
 
 
@@ -132,9 +135,26 @@ async def users(db: AsyncSQLAlchemyWrapper):
 
 
 @pytest_asyncio.fixture(scope="module", autouse=True)
-async def events(db: AsyncSQLAlchemyWrapper):
+async def add_events(db: AsyncSQLAlchemyWrapper):
     async with db.scoped_session() as session:
         await CalendarEvent.create(session, creator_id=user.id, values=calendar_event)
+
+
+@pytest_asyncio.fixture(scope="module", autouse=True)
+async def add_wiki(db: AsyncSQLAlchemyWrapper):
+    async with db.scoped_session() as session:
+        await WikiTopic.create(session, name=wiki_topic_name)
+        topic = await WikiTopic.get(session, name=wiki_topic_name)
+        await topic.create_template(wiki_article_content)
+
+        await WikiArticle.create(
+            session, topic=wiki_topic_name, title=wiki_article_title,
+            content=wiki_article_content, author_id=operator.id)
+        article = await WikiArticle.get_latest_version(
+            session, topic=wiki_topic_name, title=wiki_article_title)
+        await WikiArticlePicture.create(
+            session, article_obj=article, name=wiki_picture_name,
+            content=wiki_picture_content, author_id=operator.id)
 
 
 @pytest.fixture(scope="module")

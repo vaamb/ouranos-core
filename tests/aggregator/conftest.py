@@ -14,7 +14,7 @@ from tests.utils import MockAsyncDispatcher
 
 
 @pytest_asyncio.fixture(scope="function", autouse=True)
-async def naive_db(db):
+async def naive_db(db: AsyncSQLAlchemyWrapper):
     from ouranos.core.database import models  # noqa
     yield db
     await db.drop_all()
