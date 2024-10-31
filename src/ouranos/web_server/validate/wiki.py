@@ -72,6 +72,12 @@ class WikiArticlePictureInfo(BaseModel):
     name: str
     path: str
 
+    @field_validator("path", mode="before")
+    def parse_path(cls, value):
+        if isinstance(value, (ioPath, Path)):
+            return str(value)
+        return value
+
 
 class WikiArticlePictureCreationPayload(BaseModel):
     name: str

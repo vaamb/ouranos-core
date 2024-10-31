@@ -830,8 +830,6 @@ class WikiTopic(Base, WikiObject):
     # relationship
     articles: Mapped[list[WikiArticle]] = relationship(back_populates="topic")
 
-
-
     def __repr__(self) -> str:
         return f"<WikiTopic({self.topic})>"
 
@@ -871,7 +869,7 @@ class WikiTopic(Base, WikiObject):
             select(cls)
             .where(
                 (cls.name == name)
-                & (cls.active == True)
+                & (cls.status == True)
             )
         )
         result = await session.execute(stmt)
@@ -887,7 +885,7 @@ class WikiTopic(Base, WikiObject):
     ) -> Sequence[Self]:
         stmt = (
             select(cls)
-            .where(cls.active == True)
+            .where(cls.status == True)
             .limit(limit)
         )
         if name is not None:
@@ -1054,6 +1052,7 @@ class WikiArticle(Base, WikiObject):
         stmt = (
             select(cls)
             .join(WikiTopic, cls.topic_id == WikiTopic.id)
+            .where(cls.status == True)
             .limit(limit)
         )
         if topic:
@@ -1067,7 +1066,7 @@ class WikiArticle(Base, WikiObject):
             else:
                 stmt = stmt.where(cls.title == title)
         result = await session.execute(stmt)
-        return result.scalars().one_or_none()
+        return result.scalars().all()
 
     @classmethod
     async def get_latest_version(
@@ -1179,7 +1178,6 @@ class WikiArticle(Base, WikiObject):
         )
         await session.execute(stmt)
         # Create the article modification
-        article = await cls.get_latest_version(session, topic=topic, title=title)
         await WikiArticleModification.create(
             session,
             article=article,
@@ -1254,6 +1252,23 @@ class WikiArticleModification(Base):
         result = await session.execute(stmt)
         return result.scalars().all()
 
+    @classmethod
+    async def delete(
+            cls,
+            session: AsyncSession,
+            /,
+            article_id: int,
+            article_version,
+    ) -> None:
+        stmt = (
+            delete(cls)
+            .where(
+                (cls.article_id == article_id)
+                & (cls.article_version == article_version)
+            )
+        )
+        await session.execute(stmt)
+
 
 class WikiArticlePicture(Base, WikiObject):
     __tablename__ = "wiki_articles_pictures"
@@ -1285,13 +1300,21 @@ class WikiArticlePicture(Base, WikiObject):
     def absolute_path(self) -> ioPath:
         return self.root_dir() / self.path
 
+    @property
+    def topic_name(self) -> str:
+        return self.article.topic.name
+
+    @property
+    def article_title(self) -> str:
+        return self.article.title
+
     async def set_image(self, image: bytes) -> None:
         async with await self.absolute_path.open("wb") as f:
             await f.write(image)
 
     async def get_image(self) -> bytes:
-        async with await self.absolute_path.open("rb")  as f:
-            image = await f.read(self.content)
+        async with await self.absolute_path.open("rb") as f:
+            image = await f.read()
             return image
 
     @classmethod
