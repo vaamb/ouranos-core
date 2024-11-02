@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,7 +20,7 @@ router = APIRouter(
 )
 
 
-async def engine_or_abort(session: AsyncSession, engine_id: str) -> "Engine":
+async def engine_or_abort(session: AsyncSession, engine_id: str) -> Engine:
     engine = await Engine.get_by_id(session, engine_id=engine_id)
     if engine:
         return engine
@@ -30,10 +32,13 @@ async def engine_or_abort(session: AsyncSession, engine_id: str) -> "Engine":
 
 @router.get("", response_model=list[EngineInfo])
 async def get_engines(
-        engines_id: list[str] | None = Query(
-            default=None, description="A list of engine ids (either uids or sids) or "
-                                      "'recent' or 'connected'"),
-        session: AsyncSession = Depends(get_session)
+        *,
+        engines_id: Annotated[
+            str | None,
+            Query(description="A list of engine ids (either uids or sids) or "
+                              "'recent' or 'connected'"),
+        ] = None,
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     engines = await Engine.get_multiple_by_id(session, engines_id=engines_id)
     return engines
@@ -41,8 +46,8 @@ async def get_engines(
 
 @router.get("/u/{uid}", response_model=EngineInfo)
 async def get_engine(
-        uid: str = Path(description="An engine uid"),
-        session: AsyncSession = Depends(get_session)
+        uid: Annotated[str, Path(description="An engine uid")],
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     assert_single_uid(uid)
     engine = await engine_or_abort(session, uid)
@@ -53,8 +58,8 @@ async def get_engine(
                response_model=ResultResponse,
                dependencies=[Depends(is_operator)])
 async def delete_engine(
-        uid: str = Path(description="An engine uid"),
-        session: AsyncSession = Depends(get_session)
+        uid: Annotated[str, Path(description="An engine uid")],
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     assert_single_uid(uid)
     engine = await engine_or_abort(session, uid)
@@ -68,8 +73,8 @@ async def delete_engine(
 @router.get("/u/{uid}/crud_requests",
             response_model=list[CrudRequestInfo])
 async def get_crud_requests(
-        uid: str = Path(description="An engine uid"),
-        session: AsyncSession = Depends(get_session)
+        uid: Annotated[str, Path(description="An engine uid")],
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     assert_single_uid(uid)
     engine = await engine_or_abort(session, uid)
