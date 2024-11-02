@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, Path, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,9 +20,6 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
     tags=["gaia/sensor"],
 )
-
-
-uid_param = Path(description="The uid of a sensor")
 
 
 async def sensor_or_abort(
@@ -44,9 +43,12 @@ async def get_measures_available(session: AsyncSession = Depends(get_session)):
 
 @router.get("/u/{uid}/data/{measure}/current", response_model=SensorMeasureCurrentTimedValue)
 async def get_sensor_current_data(
-        uid: str = uid_param,
-        measure: str = Path(description="The measure for which to fetch current data"),
-        session: AsyncSession = Depends(get_session),
+        uid: Annotated[str, Path(description="The uid of a sensor")],
+        measure: Annotated[
+            str,
+            Path(description="The measure for which to fetch current data"),
+        ],
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     assert_single_uid(uid)
     sensor = await sensor_or_abort(session, uid)
@@ -65,10 +67,16 @@ async def get_sensor_current_data(
 
 @router.get("/u/{uid}/data/{measure}/historic", response_model=SensorMeasureHistoricTimedValue)
 async def get_sensor_historic_data(
-        uid: str = uid_param,
-        measure: str = Path(description="The measure for which to fetch historic data"),
-        time_window: timeWindow = Depends(get_time_window(rounding=10, grace_time=60)),
-        session: AsyncSession = Depends(get_session),
+        uid: Annotated[str, Path(description="The uid of a sensor")],
+        measure: Annotated[
+            str,
+            Path(description="The measure for which to fetch historic data"),
+        ],
+        time_window: Annotated[
+            timeWindow,
+            Depends(get_time_window(rounding=10, grace_time=60)),
+        ],
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     assert_single_uid(uid)
     sensor = await sensor_or_abort(session, uid)
