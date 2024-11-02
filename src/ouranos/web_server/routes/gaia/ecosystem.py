@@ -18,7 +18,7 @@ from ouranos.web_server.auth import is_operator
 from ouranos.web_server.dependencies import get_session, get_time_window
 from ouranos.web_server.routes.utils import assert_single_uid
 from ouranos.web_server.routes.gaia.utils import (
-    ecosystem_or_abort, h_level_desc, uids_desc)
+    ecosystem_or_abort, h_level_desc, in_config_desc, uids_desc)
 from ouranos.web_server.validate.base import ResultResponse, ResultStatus
 from ouranos.web_server.validate.gaia.ecosystem import (
     EcosystemCreationPayload, EcosystemUpdatePayload, EcosystemInfo,
@@ -45,10 +45,6 @@ router = APIRouter(
 uid_desc = (
     "A list of ecosystem ids (either uids or names), or 'recent' or 'connected'")
 id_desc = "An ecosystem id, either its uid or its name"
-in_config_desc = (
-    "Only select elements that are present (True) or also include the ones "
-    "that have been removed (False) from the current gaia ecosystems config "
-    "files")
 env_parameter_desc = (
     "The environment parameter targeted. Leave empty to select them all")
 

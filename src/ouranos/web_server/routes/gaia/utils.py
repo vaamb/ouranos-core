@@ -8,6 +8,10 @@ uids_desc = (
     "A list of ecosystem ids (either uids or names), or 'recent' or 'connected'")
 h_level_desc = (
     "The sensor_level at which the sensor gathers data. Leave empty for both")
+in_config_desc = (
+    "Only select elements that are present (True) or also include the ones "
+    "that have been removed (False) from the current gaia ecosystems config "
+    "files")
 
 
 ecosystems_uid_q = Query(
