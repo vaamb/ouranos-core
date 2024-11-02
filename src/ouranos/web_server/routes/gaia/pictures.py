@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos.core.database.models.gaia import CameraPicture
 from ouranos.web_server.dependencies import get_session
-from ouranos.web_server.routes.gaia.utils import ecosystems_uid_q
+from ouranos.web_server.routes.gaia.utils import uids_desc
 from ouranos.web_server.validate.gaia.pictures import CameraPictureInfo
 
 
@@ -18,10 +20,13 @@ router = APIRouter(
 
 @router.get("/", response_model=list[CameraPictureInfo])
 async def get_multiple_camera_picture_info(
-    ecosystems_uid: list[str] | None = ecosystems_uid_q,
-    cameras_uid: list[str] | None = Query(
-            default=None, description="A list of camera uids"),
-    session: AsyncSession = Depends(get_session),
+    *,
+    ecosystems_uid: Annotated[list[str] | None,Query(description=uids_desc)] = None,
+    cameras_uid: Annotated[
+        list[str] | None,
+        Query(description="A list of camera uids"),
+    ] = None,
+    session: Annotated[AsyncSession, Depends(get_session)],
 ):
     pictures_info = await CameraPicture.get_multiple(
         session, ecosystem_uid=ecosystems_uid, camera_uid=cameras_uid)
@@ -30,10 +35,13 @@ async def get_multiple_camera_picture_info(
 
 @router.get("/u/{ecosystem_uid}", response_model=list[CameraPictureInfo])
 async def get_camera_picture_info_for_ecosystem(
-        ecosystem_uid: str = Path(description="An ecosystem uid"),
-        cameras_uid: list[str] | None = Query(
-            default=None, description="A list of camera uids"),
-        session: AsyncSession = Depends(get_session)
+        *,
+        ecosystem_uid: Annotated[str, Path(description="An ecosystem uid")],
+        cameras_uid: Annotated[
+            list[str] | None,
+            Query(description="A list of camera uids"),
+        ] = None,
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     pictures_info = await CameraPicture.get_multiple(
         session, ecosystem_uid=ecosystem_uid, camera_uid=cameras_uid)
@@ -42,9 +50,10 @@ async def get_camera_picture_info_for_ecosystem(
 
 @router.get("/u/{ecosystem_uid}/{camera_uid}", response_model=CameraPictureInfo)
 async def get_camera_picture_info(
-        ecosystem_uid: str = Path(description="An ecosystem uid"),
-        camera_uid: str = Path(description="A camera uid"),
-        session: AsyncSession = Depends(get_session)
+        *,
+        ecosystem_uid: Annotated[str, Path(description="An ecosystem uid")],
+        camera_uid: Annotated[str, Path(description="A camera uid")],
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     picture_info = await CameraPicture.get(
         session, ecosystem_uid=ecosystem_uid, camera_uid=camera_uid)
