@@ -1,4 +1,4 @@
-from fastapi import HTTPException, Query, status
+from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos.core.database.models.gaia import Ecosystem
@@ -12,17 +12,6 @@ in_config_desc = (
     "Only select elements that are present (True) or also include the ones "
     "that have been removed (False) from the current gaia ecosystems config "
     "files")
-
-
-ecosystems_uid_q = Query(
-    default=None,
-    description="A list of ecosystem ids (either uids or names), or 'recent' "
-                "or 'connected'"
-)
-hardware_level_q = Query(
-    default=None,
-    description="The sensor_level at which the sensor gathers data. Leave empty for both"
-)
 
 
 async def ecosystem_or_abort(
