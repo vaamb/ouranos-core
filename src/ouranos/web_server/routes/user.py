@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Annotated
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -50,16 +51,25 @@ async def get_user_or_abort(
             response_model=list[UserDescription],
             dependencies=[Depends(is_admin)])
 async def get_users(
-        registration_start_time: str = Query(
-            default=None, description="ISO (8601) formatted datetime from "
-                                      "which the research will be done"),
-        registration_end_time: str = Query(
-            default=None, description="ISO (8601) formatted datetime up to "
-                                      "which the research will be done"),
-        confirmed: bool = Query(default=False),
-        active: bool = Query(default=False),
-        page: int = Query(default=0),
-        session: AsyncSession = Depends(get_session),
+        *,
+        registration_start_time: Annotated[
+            str,
+            Query(description=(
+                "ISO (8601) formatted datetime from which the research will be "
+                "done"
+            )),
+        ] = None,
+        registration_end_time:Annotated[
+            str,
+            Query(description=(
+                "ISO (8601) formatted datetime up to which the research will be "
+                "done"
+            )),
+        ] = None,
+        confirmed: Annotated[bool, Query()] = False,
+        active: Annotated[bool, Query()] = False,
+        page: Annotated[int, Query()] = 0,
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     registration_start_time: datetime | None = _safe_datetime(registration_start_time)
     registration_end_time: datetime | None = _safe_datetime(registration_end_time)
@@ -72,9 +82,9 @@ async def get_users(
 
 @router.get("/u/{username}", response_model=UserDescription)
 async def get_user(
-        username: str = Path(description="The username of the user"),
-        current_user: UserMixin = Depends(get_current_user),
-        session: AsyncSession = Depends(get_session),
+        username: Annotated[str, Path(description="The username of the user")],
+        current_user: Annotated[UserMixin, Depends(get_current_user)],
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     if current_user.username != username and not current_user.can(Permission.ADMIN):
         raise HTTPException(
@@ -89,11 +99,13 @@ async def get_user(
             status_code=status.HTTP_202_ACCEPTED,
             response_model=ResultResponse)
 async def update_user(
-        username: str = Path(description="The username of the user"),
-        payload: UserUpdatePayload = Body(
-            description="Updated information about the ecosystem"),
-        current_user: UserMixin = Depends(get_current_user),
-        session: AsyncSession = Depends(get_session),
+        username: Annotated[str, Path(description="The username of the user")],
+        payload: Annotated[
+            UserUpdatePayload,
+            Body(description="Updated information about the ecosystem"),
+        ],
+        current_user: Annotated[UserMixin, Depends(get_current_user)],
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     if current_user.username != username and not current_user.can(Permission.ADMIN):
         raise HTTPException(
