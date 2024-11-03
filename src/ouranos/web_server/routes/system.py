@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, Path, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,7 +34,7 @@ async def system_or_abort(
 
 @router.get("", response_model=list[SystemInfo])
 async def get_systems(
-        session: AsyncSession = Depends(get_session),
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     system = await System.get_multiple(session)
     return system
@@ -40,8 +42,8 @@ async def get_systems(
 
 @router.get("/{system_uid}", response_model=SystemInfo)
 async def get_system(
-        system_uid: str = Path(description="A server uid"),
-        session: AsyncSession = Depends(get_session),
+        system_uid: Annotated[str, Path(description="A server uid")],
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     system = await system_or_abort(session, uid=system_uid)
     return system
@@ -49,8 +51,8 @@ async def get_system(
 
 @router.get("/{system_uid}/data/current", response_model=CurrentSystemData)
 async def get_current_system_data(
-        system_uid: str = Path(description="A server uid"),
-        session: AsyncSession = Depends(get_session),
+        system_uid: Annotated[str, Path(description="A server uid")],
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     system = await system_or_abort(session, uid=system_uid)
     response = {
@@ -68,9 +70,12 @@ async def get_current_system_data(
 
 @router.get("/{system_uid}/data/historic", response_model=HistoricSystemData)
 async def get_historic_system_data(
-        system_uid: str = Path(description="A server uid"),
-        time_window: timeWindow = Depends(get_time_window(rounding=10, grace_time=60)),
-        session: AsyncSession = Depends(get_session),
+        system_uid: Annotated[str, Path(description="A server uid")],
+        time_window: Annotated[
+            timeWindow,
+            Depends(get_time_window(rounding=10, grace_time=60)),
+        ],
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     system = await system_or_abort(session, uid=system_uid)
     response = {
