@@ -65,7 +65,7 @@ async def logout(
 
 @router.get("/current_user", response_model=UserInfo)
 async def get_current_user(
-        current_user: UserMixin = Depends(get_current_user), # Cannot use Annotated here
+        current_user: UserMixin = Depends(get_current_user),  # Cannot use Annotated here
 ):
     return current_user
 
