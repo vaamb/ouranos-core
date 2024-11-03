@@ -1,6 +1,7 @@
-from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos import current_app
 from ouranos.core.database.models.app import FlashMessage, Service, ServiceLevel
@@ -32,8 +33,12 @@ async def get_logging_config():
 
 @router.get("/services", response_model=list[ServiceInfo])
 async def get_services(
-        level: ServiceLevel = Query(default=ServiceLevel.all),
-        session: AsyncSession = Depends(get_session)
+        *,
+        level: Annotated[
+            ServiceLevel,
+            Query(description="The level of the services to fetch"),
+        ] = ServiceLevel.all,
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     services = await Service.get_multiple(session=session, level=level)
     return services
@@ -41,8 +46,9 @@ async def get_services(
 
 @router.get("/flash_messages", response_model=list[FlashMessageInfo])
 async def get_flash_messages(
-        last: int = Query(default=10),
-        session: AsyncSession = Depends(get_session)
+        *,
+        last: Annotated[int, Query(description="The number of messages to fetch")] = 10,
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     msgs = await FlashMessage.get_multiple(session=session, limit=last)
     return [msg.description for msg in msgs]

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from typing import Annotated
+
 from fastapi import (
-    APIRouter, Body, Depends, HTTPException, Path, Query, Response, status)
+    APIRouter, Body, Depends, HTTPException, Path, Query, status)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from dispatcher import AsyncDispatcher
@@ -16,7 +18,7 @@ from ouranos.web_server.auth import is_operator
 from ouranos.web_server.dependencies import get_session, get_time_window
 from ouranos.web_server.routes.utils import assert_single_uid
 from ouranos.web_server.routes.gaia.utils import (
-    ecosystem_or_abort, ecosystems_uid_q, hardware_level_q)
+    ecosystem_or_abort, h_level_desc, in_config_desc, uids_desc)
 from ouranos.web_server.validate.base import ResultResponse, ResultStatus
 from ouranos.web_server.validate.gaia.ecosystem import (
     EcosystemCreationPayload, EcosystemUpdatePayload, EcosystemInfo,
@@ -40,23 +42,11 @@ router = APIRouter(
 )
 
 
-id_param_query = Path(description="An ecosystem id, either its uid or its name")
-
-in_config_query = Query(
-    default=None, description="Only select ecosystems that are present (True) "
-                              "or also include the ones that have been removed "
-                              "(False) from the current gaia ecosystems config "
-                              "files")
-
-in_config_query_hardware = Query(
-    default=None, description="Only select hardware that are present (True) "
-                              "or also include the ones that have been removed "
-                              "(False) from the current gaia ecosystems config "
-                              "files")
-
-env_parameter_query = Query(
-    default=None, description="The environment parameter targeted. Leave empty "
-                              "to select them all")
+uid_desc = (
+    "A list of ecosystem ids (either uids or names), or 'recent' or 'connected'")
+id_desc = "An ecosystem id, either its uid or its name"
+env_parameter_desc = (
+    "The environment parameter targeted. Leave empty to select them all")
 
 
 async def environment_parameter_or_abort(
@@ -78,9 +68,10 @@ async def environment_parameter_or_abort(
 # ------------------------------------------------------------------------------
 @router.get("", response_model=list[EcosystemInfo])
 async def get_ecosystems(
-        ecosystems_id: list[str] | None = ecosystems_uid_q,
-        in_config: bool | None = in_config_query,
-        session: AsyncSession = Depends(get_session),
+        *,
+        ecosystems_id: Annotated[list[str] | None, Query(description=uid_desc)] = None,
+        in_config: Annotated[bool | None, Query(description=in_config_desc)] = None,
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     ecosystems = await Ecosystem.get_multiple_by_id(
         session, ecosystems_id=ecosystems_id, in_config=in_config)
@@ -92,9 +83,10 @@ async def get_ecosystems(
              status_code=status.HTTP_202_ACCEPTED,
              dependencies=[Depends(is_operator)])
 async def create_ecosystem(
-        response: Response,
-        payload: EcosystemCreationPayload = Body(
-            description="Information about the new ecosystem"),
+        payload: Annotated[
+            EcosystemCreationPayload,
+            Body(description="Information about the new ecosystem"),
+        ],
 ):
     ecosystem_dict = payload.model_dump()
     try:
@@ -116,19 +108,20 @@ async def create_ecosystem(
             status=ResultStatus.success
         )
     except Exception as e:
-        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        return ResultResponse(
-            msg=f"Failed to send ecosystem creation order to engine for "
-                f"ecosystem '{ecosystem_dict['name']}'. Error "
-                f"msg: `{e.__class__.__name__}: {e}`",
-            status=ResultStatus.failure
+        HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Failed to send ecosystem creation order to engine for "
+                f"ecosystem '{ecosystem_dict['name']}'. Error msg: "
+                f"`{e.__class__.__name__}: {e}`"
+            ),
         )
 
 
 @router.get("/u/{id}", response_model=EcosystemInfo)
 async def get_ecosystem(
-        id: str = id_param_query,
-        session: AsyncSession = Depends(get_session)
+        id: Annotated[str, Path(description=id_desc)],
+        session: Annotated [AsyncSession, Depends(get_session)],
 ):
     ecosystem = await ecosystem_or_abort(session, id)
     return ecosystem
@@ -139,11 +132,12 @@ async def get_ecosystem(
             response_model=ResultResponse,
             dependencies=[Depends(is_operator)])
 async def update_ecosystem(
-        response: Response,
-        id: str = id_param_query,
-        payload: EcosystemUpdatePayload = Body(
-            description="Updated information about the ecosystem"),
-        session: AsyncSession = Depends(get_session)
+        id: Annotated[str, Path(description=id_desc)],
+        payload: Annotated[
+            EcosystemUpdatePayload,
+            Body(description="Updated information about the ecosystem"),
+        ],
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     ecosystem_dict = payload.model_dump()
     try:
@@ -167,12 +161,12 @@ async def update_ecosystem(
             status=ResultStatus.success
         )
     except Exception as e:
-        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        return ResultResponse(
-            msg=f"Failed to send ecosystem update order to engine "
-                f"for ecosystem '{id}'. Error "
-                f"msg: `{e.__class__.__name__}: {e}`",
-            status=ResultStatus.failure
+        HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Failed to send ecosystem creation order to engine for "
+                f"ecosystem '{id}'. Error msg: `{e.__class__.__name__}: {e}`",
+            ),
         )
 
 
@@ -181,9 +175,8 @@ async def update_ecosystem(
                status_code=status.HTTP_202_ACCEPTED,
                dependencies=[Depends(is_operator)])
 async def delete_ecosystem(
-        response: Response,
-        id: str = id_param_query,
-        session: AsyncSession = Depends(get_session)
+        id: Annotated[str, Path(description=id_desc)],
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     try:
         ecosystem = await ecosystem_or_abort(session, id)
@@ -206,11 +199,12 @@ async def delete_ecosystem(
             status=ResultStatus.success
         )
     except Exception as e:
-        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        return ResultResponse(
-            msg=f"Failed to send delete order for ecosystem with id '{id}'. "
+        HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Failed to send delete order order ecosystem with id '{id}'. "
                 f"Error msg: `{e.__class__.__name__}: {e}`",
-            status=ResultStatus.failure
+            ),
         )
 
 
@@ -229,9 +223,10 @@ async def get_managements_available():
 
 @router.get("/management", response_model=list[EcosystemManagementInfo])
 async def get_ecosystems_management(
-        ecosystems_id: list[str] | None = ecosystems_uid_q,
-        in_config: bool | None = in_config_query,
-        session: AsyncSession = Depends(get_session),
+        *,
+        ecosystems_id: Annotated[list[str] | None, Query(description=uids_desc)] = None,
+        in_config: Annotated[bool | None, Query(description=in_config_desc)] = None,
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     ecosystems = await Ecosystem.get_multiple_by_id(
         session, ecosystems_id=ecosystems_id, in_config=in_config)
@@ -244,8 +239,8 @@ async def get_ecosystems_management(
 
 @router.get("/u/{id}/management", response_model=EcosystemManagementInfo)
 async def get_ecosystem_management(
-        id: str = id_param_query,
-        session: AsyncSession = Depends(get_session)
+        id: Annotated[str, Path(description=id_desc)],
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     assert_single_uid(id)
     ecosystem = await ecosystem_or_abort(session, id)
@@ -258,11 +253,12 @@ async def get_ecosystem_management(
             response_model=ResultResponse,
             dependencies=[Depends(is_operator)])
 async def update_management(
-        response: Response,
-        id: str = id_param_query,
-        payload: EcosystemManagementUpdatePayload = Body(
-            description="Updated information about the ecosystem management"),
-        session: AsyncSession = Depends(get_session)
+        id: Annotated[str, Path(description=id_desc)],
+        payload: Annotated[
+            EcosystemManagementUpdatePayload,
+            Body(description="Updated information about the ecosystem management"),
+        ],
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     management_dict = payload.model_dump()
     try:
@@ -286,12 +282,13 @@ async def update_management(
             status=ResultStatus.success
         )
     except Exception as e:
-        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        return ResultResponse(
-            msg=f"Failed to send ecosystem' management update order to engine "
-                f"for ecosystem '{id}'. Error "
-                f"msg: `{e.__class__.__name__}: {e}`",
-            status=ResultStatus.failure
+        HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Failed to send ecosystem' management update order to engine "
+                f"for ecosystem '{id}'. Error msg: "
+                f"`{e.__class__.__name__}: {e}`",
+            ),
         )
 
 
@@ -300,11 +297,18 @@ async def update_management(
 # ------------------------------------------------------------------------------
 @router.get("/sensors_skeleton", response_model=list[SensorSkeletonInfo])
 async def get_ecosystems_sensors_skeleton(
-        ecosystems_id: list[str] | None = ecosystems_uid_q,
-        level: list[gv.HardwareLevel] | None = hardware_level_q,
-        time_window: timeWindow = Depends(get_time_window(rounding=10, grace_time=60)),
-        in_config: bool | None = in_config_query,
-        session: AsyncSession = Depends(get_session),
+        *,
+        ecosystems_id: Annotated[list[str] | None, Query(description=uids_desc)] = None,
+        level: Annotated[
+            list[gv.HardwareLevel] | None,
+            Query(description=h_level_desc)
+        ] = None,
+        in_config: Annotated[bool | None, Query(description=in_config_desc)] = None,
+        time_window: Annotated[
+            timeWindow,
+            Depends(get_time_window(rounding=10, grace_time=60)),
+        ],
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     ecosystems = await Ecosystem.get_multiple_by_id(
         session, ecosystems_id=ecosystems_id, in_config=in_config)
@@ -318,10 +322,14 @@ async def get_ecosystems_sensors_skeleton(
 
 @router.get("/u/{id}/sensors_skeleton", response_model=SensorSkeletonInfo)
 async def get_ecosystem_sensors_skeleton(
-        id: str = id_param_query,
-        level: list[gv.HardwareLevel] | None = hardware_level_q,
-        time_window: timeWindow = Depends(get_time_window(rounding=10, grace_time=60)),
-        session: AsyncSession = Depends(get_session)
+        *,
+        id: Annotated[str, Path(description=id_desc)],
+        level: Annotated[list[gv.HardwareLevel]| None, Query(description=h_level_desc)] = None,
+        time_window: Annotated[
+            timeWindow,
+            Depends(get_time_window(rounding=10, grace_time=60)),
+        ],
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     assert_single_uid(id)
     ecosystem = await ecosystem_or_abort(session, id)
@@ -337,9 +345,10 @@ async def get_ecosystem_sensors_skeleton(
 # ------------------------------------------------------------------------------
 @router.get("/light", response_model=list[EcosystemLightInfo])
 async def get_ecosystems_light(
-        ecosystems_id: list[str] | None = ecosystems_uid_q,
-        in_config: bool | None = in_config_query,
-        session: AsyncSession = Depends(get_session),
+        *,
+        ecosystems_id: Annotated[list[str] | None, Query(description=uids_desc)] = None,
+        in_config: Annotated[bool | None, Query(description=in_config_desc)] = None,
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     ecosystems = await Ecosystem.get_multiple_by_id(
         session, ecosystems_id=ecosystems_id, in_config=in_config)
@@ -359,8 +368,8 @@ async def get_ecosystems_light(
 
 @router.get("/u/{id}/light", response_model=EcosystemLightInfo)
 async def get_ecosystem_lighting(
-        id: str = id_param_query,
-        session: AsyncSession = Depends(get_session)
+        id: Annotated[str, Path(description=id_desc)],
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     assert_single_uid(id)
     ecosystem = await ecosystem_or_abort(session, id)
@@ -383,11 +392,12 @@ async def get_ecosystem_lighting(
             response_model=ResultResponse,
             dependencies=[Depends(is_operator)])
 async def update_ecosystem_lighting(
-        response: Response,
-        id: str = id_param_query,
-        payload: EcosystemLightMethodUpdatePayload = Body(
-            description="Updated information about the ecosystem management"),
-        session: AsyncSession = Depends(get_session)
+        id: Annotated[str, Path(description=id_desc)],
+        payload: Annotated[
+            EcosystemLightMethodUpdatePayload,
+            Body(description="Updated information about the ecosystem management"),
+        ],
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     lighting_dict = payload.model_dump()
     assert_single_uid(id)
@@ -412,12 +422,13 @@ async def update_ecosystem_lighting(
             status=ResultStatus.success
         )
     except Exception as e:
-        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        return ResultResponse(
-            msg=f"Failed to send ecosystem' lighting update order to engine "
-                f"for ecosystem '{id}'. Error "
-                f"msg: `{e.__class__.__name__}: {e}`",
-            status=ResultStatus.failure
+        HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Failed to send ecosystem' lighting update order to engine "
+                f"for ecosystem '{id}'. Error msg: `{e.__class__.__name__}: "
+                f"{e}`",
+            ),
         )
 
 
@@ -426,10 +437,11 @@ async def update_ecosystem_lighting(
 # ------------------------------------------------------------------------------
 @router.get("/environment_parameters", response_model=list[EnvironmentParameterInfo])
 async def get_ecosystems_environment_parameters(
-        ecosystems_id: list[str] | None = ecosystems_uid_q,
-        parameters: list[str] | None = env_parameter_query,
-        in_config: bool | None = in_config_query,
-        session: AsyncSession = Depends(get_session)
+        *,
+        ecosystems_id: Annotated[list[str] | None, Query(description=uids_desc)] = None,
+        parameters: Annotated[str | None, Query(description=env_parameter_desc)] = None,
+        in_config: Annotated[bool | None, Query(description=in_config_desc)] = None,
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     ecosystems = await Ecosystem.get_multiple_by_id(
         session, ecosystems_id=ecosystems_id, in_config=in_config)
@@ -449,11 +461,12 @@ async def get_ecosystems_environment_parameters(
              response_model=ResultResponse,
              dependencies=[Depends(is_operator)])
 async def create_environment_parameters(
-        response: Response,
-        id: str = id_param_query,
-        payload: EnvironmentParameterCreationPayload = Body(
-            description="Creation information about the environment parameters"),
-        session: AsyncSession = Depends(get_session)
+        id: Annotated[str, Path(description=id_desc)],
+        payload: Annotated[
+            EnvironmentParameterCreationPayload,
+            Body(description="Creation information about the environment parameters"),
+        ],
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     environment_parameter_dict = payload.model_dump()
     parameter = environment_parameter_dict["parameter"]
@@ -479,20 +492,22 @@ async def create_environment_parameters(
             status=ResultStatus.success
         )
     except Exception as e:
-        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        return ResultResponse(
-            msg=f"Failed to send environment parameter creation order to engine "
+        HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Failed to send environment parameter creation order to engine "
                 f"for ecosystem '{id}'. Error "
                 f"msg: `{e.__class__.__name__}: {e}`",
-            status=ResultStatus.failure
+            ),
         )
 
 
 @router.get("/u/{id}/environment_parameters", response_model=EnvironmentParameterInfo)
 async def get_ecosystem_environment_parameters(
-        id: str = id_param_query,
-        parameters: list[str] | None = env_parameter_query,
-        session: AsyncSession = Depends(get_session)
+        *,
+        id: Annotated[str, Path(description=id_desc)],
+        parameters: Annotated[str | None, Query(description=env_parameter_desc)] = None,
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     assert_single_uid(id)
     ecosystem = await ecosystem_or_abort(session, id)
@@ -510,12 +525,13 @@ async def get_ecosystem_environment_parameters(
             response_model=ResultResponse,
             dependencies=[Depends(is_operator)])
 async def update_environment_parameters(
-        response: Response,
-        id: str = id_param_query,
-        parameter: str = Path(description="A climate parameter"),
-        payload: EnvironmentParameterUpdatePayload = Body(
-            description="Updated information about the environment parameters"),
-        session: AsyncSession = Depends(get_session)
+        id: Annotated[str, Path(description=id_desc)],
+        parameter: Annotated[str, Path(description="A climate parameter")],
+        payload: Annotated[
+            EnvironmentParameterUpdatePayload,
+            Body(description="Updated information about the environment parameters"),
+        ],
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     environment_parameter_dict = payload.model_dump()
     environment_parameter_dict["parameter"] = parameter
@@ -541,12 +557,12 @@ async def update_environment_parameters(
             status=ResultStatus.success
         )
     except Exception as e:
-        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        return ResultResponse(
-            msg=f"Failed to send environment parameter update order to engine "
-                f"for ecosystem '{id}'. Error "
-                f"msg: `{e.__class__.__name__}: {e}`",
-            status=ResultStatus.failure
+        HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Failed to send environment parameter update order to engine "
+                f"for ecosystem '{id}'. Error msg: `{e.__class__.__name__}: {e}`",
+            ),
         )
 
 
@@ -555,10 +571,9 @@ async def update_environment_parameters(
                response_model=ResultResponse,
                dependencies=[Depends(is_operator)])
 async def delete_environment_parameters(
-        response: Response,
-        id: str = id_param_query,
-        parameter: str = Path(description="A climate parameter"),
-        session: AsyncSession = Depends(get_session)
+        id: Annotated[str, Path(description=id_desc)],
+        parameter: Annotated[str, Path(description="A climate parameter")],
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     try:
         ecosystem = await ecosystem_or_abort(session, id)
@@ -582,12 +597,12 @@ async def delete_environment_parameters(
             status=ResultStatus.success
         )
     except Exception as e:
-        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        return ResultResponse(
-            msg=f"Failed to send environment parameter update order to engine "
-                f"for ecosystem '{id}'. Error "
-                f"msg: `{e.__class__.__name__}: {e}`",
-            status=ResultStatus.failure
+        HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Failed to send environment parameter update order to engine "
+                f"for ecosystem '{id}'. Error msg: `{e.__class__.__name__}: {e}`",
+            ),
         )
 
 
@@ -600,11 +615,12 @@ async def delete_environment_parameters(
              response_model=ResultResponse,
              dependencies=[Depends(is_operator)])
 async def create_ecosystem_hardware(
-        response: Response,
-        id: str = id_param_query,
-        payload: gv.AnonymousHardwareConfig = Body(
-            description="Information about the new hardware"),
-        session: AsyncSession = Depends(get_session)
+        id: Annotated[str, Path(description=id_desc)],
+        payload: Annotated[
+            gv.AnonymousHardwareConfig,
+            Body(description="Information about the new hardware"),
+        ],
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     assert_single_uid(id)
     hardware_dict = payload.model_dump()
@@ -629,21 +645,25 @@ async def create_ecosystem_hardware(
             status=ResultStatus.success
         )
     except Exception as e:
-        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        return ResultResponse(
-            msg=f"Failed to send hardware creation order to engine for "
+        HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Failed to send hardware creation order to engine for "
                 f"ecosystem '{id}'. Error msg: `{e.__class__.__name__}: {e}`",
-            status=ResultStatus.failure
+            ),
         )
 
 
 @router.get("/u/{id}/hardware", response_model=list[HardwareInfo])
 async def get_ecosystem_hardware(
-        id: str = id_param_query,
-        hardware_type: list[gv.HardwareType] | None = Query(
-            default=None, description="A list of types of hardware"),
-        in_config: bool | None = in_config_query_hardware,
-        session: AsyncSession = Depends(get_session),
+        *,
+        id: Annotated[str, Path(description=id_desc)],
+        hardware_type: Annotated[
+            list[gv.HardwareType] | None,
+            Query(description="A list of types of hardware"),
+        ] = None,
+        in_config: Annotated[bool | None, Query(description=in_config_desc)] = None,
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     ecosystem = await ecosystem_or_abort(session, id)
     hardware = await ecosystem.get_hardware(
@@ -656,9 +676,10 @@ async def get_ecosystem_hardware(
 # ------------------------------------------------------------------------------
 @router.get("/current_data", response_model=list[EcosystemSensorData])
 async def get_ecosystems_current_data(
-        ecosystems_id: list[str] | None = ecosystems_uid_q,
-        in_config: bool | None = in_config_query,
-        session: AsyncSession = Depends(get_session),
+        *,
+        ecosystems_id: Annotated[list[str] | None, Query(description=uids_desc)] = None,
+        in_config: Annotated[bool | None, Query(description=in_config_desc)] = None,
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     ecosystems = await Ecosystem.get_multiple_by_id(
         session, ecosystems_id=ecosystems_id, in_config=in_config)
@@ -674,8 +695,8 @@ async def get_ecosystems_current_data(
 
 @router.get("/u/{id}/current_data", response_model=EcosystemSensorData)
 async def get_ecosystem_current_data(
-        id: str = id_param_query,
-        session: AsyncSession = Depends(get_session)
+        id: Annotated[str, Path(description=id_desc)],
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     assert_single_uid(id)
     ecosystem = await ecosystem_or_abort(session, id)
@@ -692,9 +713,10 @@ async def get_ecosystem_current_data(
 # ------------------------------------------------------------------------------
 @router.get("/actuators_state", response_model=list[EcosystemActuatorInfo])
 async def get_ecosystems_actuators_status(
-        ecosystems_id: list[str] | None = ecosystems_uid_q,
-        in_config: bool | None = in_config_query,
-        session: AsyncSession = Depends(get_session),
+        *,
+        ecosystems_id: Annotated[list[str] | None, Query(description=uids_desc)] = None,
+        in_config: Annotated[bool | None, Query(description=in_config_desc)] = None,
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     ecosystems = await Ecosystem.get_multiple_by_id(
         session, ecosystems_id=ecosystems_id, in_config=in_config)
@@ -710,8 +732,8 @@ async def get_ecosystems_actuators_status(
 
 @router.get("/u/{id}/actuators_state", response_model=EcosystemActuatorInfo)
 async def get_ecosystem_actuators_status(
-        id: str = id_param_query,
-        session: AsyncSession = Depends(get_session)
+        id: Annotated[str, Path(description=id_desc)],
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     assert_single_uid(id)
     ecosystem = await ecosystem_or_abort(session, id)
@@ -726,10 +748,16 @@ async def get_ecosystem_actuators_status(
 @router.get("/u/{id}/actuator_records/{actuator_type}",
             response_model=EcosystemActuatorRecords)
 async def get_ecosystem_actuator_records(
-        id: str = id_param_query,
-        actuator_type: str = Path(description="The actuator type to search for."),
-        time_window: timeWindow = Depends(get_time_window(rounding=1, grace_time=10)),
-        session: AsyncSession = Depends(get_session)
+        id: Annotated[str, Path(description=id_desc)],
+        actuator_type: Annotated[
+            str,
+            Path(description="The actuator type to search for."),
+        ],
+        time_window: Annotated[
+            timeWindow,
+            Depends(get_time_window(rounding=10, grace_time=60)),
+        ],
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     assert_single_uid(id)
     assert_single_uid(actuator_type, "actuator_type")
@@ -764,10 +792,12 @@ async def get_ecosystem_actuator_records(
             status_code=status.HTTP_202_ACCEPTED,
             dependencies=[Depends(is_operator)])
 async def turn_actuator(
-        id: str = id_param_query,
-        payload: EcosystemTurnActuatorPayload = Body(
-            description="Instruction for the actuator"),
-        session: AsyncSession = Depends(get_session)
+        id: Annotated[str, Path(description=id_desc)],
+        payload: Annotated[
+            EcosystemTurnActuatorPayload,
+            Body(description="Instruction for the actuator"),
+        ],
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     instruction_dict = payload.model_dump()
     actuator: gv.HardwareType = instruction_dict["actuator"]

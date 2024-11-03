@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from typing import Annotated
+
 from fastapi import (
-    APIRouter, Body, Depends, HTTPException, Path, Query, Response, status)
+    APIRouter, Body, Depends, HTTPException, Path, Query, status)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from dispatcher import AsyncDispatcher
@@ -13,7 +15,7 @@ from ouranos.web_server.auth import is_operator
 from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.routes.utils import assert_single_uid
 from ouranos.web_server.routes.gaia.utils import (
-    ecosystem_or_abort, ecosystems_uid_q, hardware_level_q)
+    ecosystem_or_abort, h_level_desc, in_config_desc, uids_desc)
 from ouranos.web_server.validate.base import ResultResponse, ResultStatus
 from ouranos.web_server.validate.gaia.hardware import (
     HardwareType, HardwareCreationPayload, HardwareInfo, HardwareModelInfo,
@@ -28,14 +30,6 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
     tags=["gaia/hardware"],
 )
-
-
-uid_param = Path(description="The uid of a hardware")
-
-in_config_query = Query(
-    default=None, description="Only select hardware that are present (True) "
-                              "or have been removed (False) from the current "
-                              "gaia ecosystems config")
 
 
 async def hardware_or_abort(
@@ -53,16 +47,29 @@ async def hardware_or_abort(
 
 @router.get("", response_model=list[HardwareInfo])
 async def get_multiple_hardware(
-        hardware_uid: list[str] | None = Query(
-            default=None, description="A list of hardware uids"),
-        ecosystems_uid: list[str] | None = ecosystems_uid_q,
-        hardware_level: list[gv.HardwareLevel] | None = hardware_level_q,
-        hardware_type: list[gv.HardwareType] | None = Query(
-            default=None, description="A list of types of hardware"),
-        hardware_model: list[str] | None = Query(
-            default=None, description="A list of precise hardware model"),
-        in_config: bool | None = in_config_query,
-        session: AsyncSession = Depends(get_session),
+        *,
+        hardware_uid: Annotated[
+            list[str] | None,
+            Query(description="A list of hardware uids"),
+        ] = None,
+        ecosystems_uid: Annotated[
+            list[str] | None,
+            Query(description=uids_desc),
+        ] = None,
+        hardware_level: Annotated[
+            list[gv.HardwareLevel] | None,
+            Query(description=h_level_desc),
+        ] = None,
+        hardware_type: Annotated[
+            list[gv.HardwareType] | None,
+            Query(description="A list of types of hardware"),
+        ] = None,
+        hardware_model: Annotated[
+            list[str] | None,
+            Query(description="A list of precise hardware model"),
+        ] = None,
+        in_config: Annotated[bool | None, Query(description=in_config_desc)] = None,
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     hardware = await Hardware.get_multiple(
         session, hardware_uids=hardware_uid,
@@ -94,10 +101,11 @@ async def get_hardware_available():
              status_code=status.HTTP_202_ACCEPTED,
              dependencies=[Depends(is_operator)])
 async def create_hardware(
-        response: Response,
-        payload: HardwareCreationPayload = Body(
-            description="Information about the new hardware"),
-        session: AsyncSession = Depends(get_session)
+        payload: Annotated[
+            HardwareCreationPayload,
+            Body(description="Information about the new hardware"),
+        ],
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     hardware_dict = payload.model_dump()
     try:
@@ -123,19 +131,20 @@ async def create_hardware(
             status=ResultStatus.success
         )
     except Exception as e:
-        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        return ResultResponse(
-            msg=f"Failed to send hardware creation order to engine for "
-                f"hardware '{hardware_dict['name']}'. Error "
-                f"msg: `{e.__class__.__name__}: {e}`",
-            status=ResultStatus.failure
+        HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Failed to send hardware creation order to engine for "
+                f"hardware '{hardware_dict['name']}'. Error msg: "
+                f"`{e.__class__.__name__}: {e}`",
+            ),
         )
 
 
 @router.get("/u/{uid}", response_model=HardwareInfo)
 async def get_hardware(
-        uid: str = uid_param,
-        session: AsyncSession = Depends(get_session)
+        uid: Annotated[str, Path(description="The uid of a hardware")],
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     assert_single_uid(uid)
     hardware = await hardware_or_abort(session, uid)
@@ -147,11 +156,12 @@ async def get_hardware(
             status_code=status.HTTP_202_ACCEPTED,
             dependencies=[Depends(is_operator)])
 async def update_hardware(
-        response: Response,
-        uid: str = uid_param,
-        payload: HardwareUpdatePayload = Body(
-            description="Updated information about the hardware"),
-        session: AsyncSession = Depends(get_session)
+        uid: Annotated[str, Path(description="The uid of a hardware")],
+        payload: Annotated[
+            HardwareUpdatePayload,
+            Body(description="Updated information about the hardware"),
+        ],
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     hardware_dict = payload.model_dump()
     try:
@@ -176,12 +186,13 @@ async def update_hardware(
             status=ResultStatus.success
         )
     except Exception as e:
-        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        return ResultResponse(
-            msg=f"Failed to send hardware update order to engine "
-                f"for hardware '{id}'. Error "
-                f"msg: `{e.__class__.__name__}: {e}`",
-            status=ResultStatus.failure
+        HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Failed to send hardware update order to engine "
+                f"for hardware '{id}'. Error msg: `{e.__class__.__name__}: "
+                f"{e}`",
+            ),
         )
 
 
@@ -190,9 +201,8 @@ async def update_hardware(
                status_code=status.HTTP_202_ACCEPTED,
                dependencies=[Depends(is_operator)])
 async def delete_hardware(
-        response: Response,
-        uid: str = uid_param,
-        session: AsyncSession = Depends(get_session)
+        uid: Annotated[str, Path(description="The uid of a hardware")],
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     try:
         hardware = await hardware_or_abort(session, uid)
@@ -216,9 +226,10 @@ async def delete_hardware(
             status=ResultStatus.success
         )
     except Exception as e:
-        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        return ResultResponse(
-            msg=f"Failed to send delete order for hardware with uid '{uid}'. "
+        HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Failed to send delete order for hardware with uid '{uid}'. "
                 f"Error msg: `{e.__class__.__name__}: {e}`",
-            status=ResultStatus.failure
+            ),
         )

@@ -1,5 +1,7 @@
+from typing import Annotated
+
 from fastapi import (
-    APIRouter, Body, Depends, HTTPException, Path, Query, Response, status)
+    APIRouter, Body, Depends, HTTPException, Path, Query, status)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos.core.database.models.app import CalendarEvent, UserMixin
@@ -24,8 +26,9 @@ router = APIRouter(
             response_model=list[EventInfo],
             dependencies=[Depends(is_authenticated)])
 async def get_events(
-        limit: int = Query(default=8, description="The number of events to fetch"),
-        session: AsyncSession = Depends(get_session),
+        *,
+        limit: Annotated[int, Query(description="The number of events to fetch")] = 8,
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     response = await CalendarEvent.get_multiple(session, limit=limit)
     return response
@@ -36,11 +39,12 @@ async def get_events(
              status_code=status.HTTP_202_ACCEPTED,
              dependencies=[Depends(is_authenticated)])
 async def create_event(
-        response: Response,
-        payload: EventCreationPayload = Body(
-            description="Information about the new event"),
-        current_user: UserMixin = Depends(get_current_user),
-        session: AsyncSession = Depends(get_session),
+        payload: Annotated[
+            EventCreationPayload,
+            Body(description="Information about the new event"),
+        ],
+        current_user: Annotated[UserMixin, Depends(get_current_user)],
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     try:
         await CalendarEvent.create(
@@ -50,11 +54,12 @@ async def create_event(
             status=ResultStatus.success
         )
     except Exception as e:
-        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
-        return ResultResponse(
-            msg=f"Failed to create a new event. Error msg: "
-                f"`{e.__class__.__name__}: {e}`",
-            status=ResultStatus.failure
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Failed to create a new event. Error msg: "
+                f"`{e.__class__.__name__}: {e}`"
+            ),
         )
 
 
@@ -63,11 +68,13 @@ async def create_event(
             status_code=status.HTTP_202_ACCEPTED,
             dependencies=[Depends(is_authenticated)])
 async def update_event(
-        event_id: int = Path(description="The id of the event to update"),
-        payload: EventUpdatePayload = Body(
-                    description="Updated information about the event"),
-        current_user: UserMixin = Depends(get_current_user),
-        session: AsyncSession = Depends(get_session),
+        event_id: Annotated[int, Path(description="The id of the event to update")],
+        payload: Annotated[
+            EventUpdatePayload,
+            Body(description="Updated information about the event"),
+        ],
+        current_user: Annotated[UserMixin, Depends(get_current_user)],
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     event = await CalendarEvent.get(session, event_id=event_id)
     if event.created_by != current_user.id:
@@ -88,9 +95,9 @@ async def update_event(
              status_code=status.HTTP_202_ACCEPTED,
              dependencies=[Depends(is_authenticated)])
 async def mark_event_as_inactive(
-        event_id: int = Path(description="The id of the event to update"),
-        current_user: UserMixin = Depends(get_current_user),
-        session: AsyncSession = Depends(get_session),
+        event_id: Annotated[int, Path(description="The id of the event to update")],
+        current_user: Annotated[UserMixin, Depends(get_current_user)],
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     event = await CalendarEvent.get(session, event_id=event_id)
     if event.created_by != current_user.id:

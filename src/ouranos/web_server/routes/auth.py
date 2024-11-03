@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import re
+from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from fastapi.security import HTTPBasicCredentials
@@ -29,10 +29,17 @@ router = APIRouter(
 
 @router.get("/login", response_model=LoginInfo)
 async def login(
-        remember: bool = False,
-        authenticator: Authenticator = Depends(login_manager.get_authenticator),
-        credentials: HTTPBasicCredentials = Depends(basic_auth),
-        session: AsyncSession = Depends(get_session),
+        *,
+        remember: Annotated[
+            bool | None,
+            Query(description="Remember the session"),
+        ] = False,
+        authenticator: Annotated[
+            Authenticator,
+            Depends(login_manager.get_authenticator),
+        ],
+        credentials: Annotated[HTTPBasicCredentials, Depends(basic_auth)],
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     username = credentials.username
     password = credentials.password
@@ -47,8 +54,8 @@ async def login(
 
 @router.get("/logout", response_model=BaseResponse)
 async def logout(
-        authenticator: Authenticator = Depends(login_manager.get_authenticator),
-        current_user: UserMixin = Depends(get_current_user),
+        authenticator: Annotated[Authenticator, Depends(login_manager.get_authenticator)],
+        current_user: Annotated[UserMixin, Depends(get_current_user)],
 ):
     if current_user.is_anonymous:
         return BaseResponse(msg="You were not logged in")
@@ -57,8 +64,8 @@ async def logout(
 
 
 @router.get("/current_user", response_model=UserInfo)
-def get_current_user(
-        current_user: UserMixin = Depends(get_current_user)
+async def get_current_user(
+        current_user: UserMixin = Depends(get_current_user),  # Cannot use Annotated here
 ):
     return current_user
 
@@ -67,12 +74,17 @@ def get_current_user(
              status_code=status.HTTP_201_CREATED,
              response_model=LoginInfo)
 async def register_new_user(
-        invitation_token: str = Query(description="The invitation token received"),
-        payload: UserCreationPayload = Body(
-            description="Information about the new user"),
-        authenticator: Authenticator = Depends(login_manager.get_authenticator),
-        current_user: UserMixin = Depends(get_current_user),
-        session: AsyncSession = Depends(get_session),
+        invitation_token: Annotated[
+            str,
+            Query(description="The invitation token received"),
+        ],
+        payload: Annotated[
+            UserCreationPayload,
+            Body(description="Information about the new user"),
+        ],
+        authenticator: Annotated[Authenticator, Depends(login_manager.get_authenticator)],
+        current_user: Annotated[UserMixin, Depends(get_current_user)],
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     if current_user.is_authenticated:
         raise HTTPException(
@@ -107,22 +119,35 @@ async def register_new_user(
 
 @router.get("/registration_token", dependencies=[Depends(is_admin)])
 async def create_registration_token(
-        username: str = Query(
-            default=None, description="The user name of the future user"),
-        firstname: str = Query(
-            default=None, description="The firstname of the future user"),
-        lastname: str = Query(
-            default=None, description="The lastname of the future user"),
-        role: RoleName | str = Query(
-            default=None, description="The role of the future user"),
-        email: str = Query(
-            default=None, description="The email address of the future user"),
-        expires_in: int = Query(
-            default=REGISTRATION_TOKEN_VALIDITY,
-            description="The number of seconds before the token expires. "
-                        "Default to one day."
-        ),
-        session: AsyncSession = Depends(get_session),
+        *,
+        username: Annotated[
+            str,
+            Query(description="The user name of the future user")
+        ] = None,
+        firstname: Annotated[
+            str,
+            Query(description="The firstname of the future user"),
+        ] = None,
+        lastname: Annotated[
+            str,
+            Query(description="The lastname of the future user"),
+        ] = None,
+        role: Annotated[
+            RoleName | str,
+            Query(description="The role of the future user"),
+        ] = None,
+        email: Annotated[
+            str,
+            Query(description="The email address of the future user"),
+        ] = None,
+        expires_in: Annotated[
+            int,
+            Query(
+                description="The number of seconds before the token expires. "
+                            "Default to one day."
+            ),
+        ] = REGISTRATION_TOKEN_VALIDITY,
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
     if role is not None:
         try:
