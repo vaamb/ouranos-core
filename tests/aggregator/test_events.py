@@ -261,6 +261,9 @@ async def test_on_sensors_data(
     with pytest.raises(Exception):
         await events_handler.on_sensors_data(g_data.engine_sid, [wrong_payload])
 
+    async with ecosystem_aware_db.scoped_session() as session:
+        await SensorDataCache.clear(session)
+
 
 @pytest.mark.asyncio
 async def test_log_sensors_data(
@@ -269,6 +272,7 @@ async def test_log_sensors_data(
         ecosystem_aware_db: AsyncSQLAlchemyWrapper,
 ):
     # Cache new data (rely on `test_on_sensors_data`)
+    # Clear sensor data cache, then populate it without calling the sensors data event, then continue
     await events_handler.on_sensors_data(g_data.engine_sid, [g_data.sensors_data_payload])
     await events_handler.log_sensors_data()
 
@@ -300,6 +304,9 @@ async def test_log_sensors_data(
         assert alarm_data.level == g_data.alarm_record.level
         assert alarm_data.timestamp_from == g_data.sensors_data["timestamp"]
         assert alarm_data.timestamp_to == g_data.sensors_data["timestamp"]
+
+    async with ecosystem_aware_db.scoped_session() as session:
+        await SensorDataCache.clear(session)
 
 
 @pytest.mark.asyncio

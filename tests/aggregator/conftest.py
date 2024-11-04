@@ -13,7 +13,7 @@ import tests.data.gaia as g_data
 from tests.utils import MockAsyncDispatcher
 
 
-@pytest_asyncio.fixture(scope="function", autouse=True)
+@pytest_asyncio.fixture(scope="module", autouse=True)
 async def naive_db(db: AsyncSQLAlchemyWrapper):
     from ouranos.core.database import models  # noqa
     yield db
@@ -22,7 +22,7 @@ async def naive_db(db: AsyncSQLAlchemyWrapper):
     await create_base_data()
 
 
-@pytest_asyncio.fixture(scope="function")
+@pytest_asyncio.fixture(scope="module")
 async def engine_aware_db(naive_db: AsyncSQLAlchemyWrapper):
     async with naive_db.scoped_session() as session:
         engine = g_data.engine_dict.copy()
@@ -31,7 +31,7 @@ async def engine_aware_db(naive_db: AsyncSQLAlchemyWrapper):
     return naive_db
 
 
-@pytest_asyncio.fixture(scope="function")
+@pytest_asyncio.fixture(scope="module")
 async def ecosystem_aware_db(naive_db: AsyncSQLAlchemyWrapper):
     async with naive_db.scoped_session() as session:
         ecosystem = {
@@ -40,7 +40,7 @@ async def ecosystem_aware_db(naive_db: AsyncSQLAlchemyWrapper):
             "night_start": g_data.sky["night"],
         }
         uid = ecosystem.pop("uid")
-        await Ecosystem.create(session, uid=uid, values=ecosystem)
+        await Ecosystem.update_or_create(session, uid=uid, values=ecosystem)
     return naive_db
 
 
@@ -59,7 +59,10 @@ def events_handler_module(mock_dispatcher: MockAsyncDispatcher):
 
 
 @pytest.fixture(scope="function")
-def events_handler(mock_dispatcher, events_handler_module):
+def events_handler(
+        mock_dispatcher: MockAsyncDispatcher,
+        events_handler_module: GaiaEvents,
+):
     mock_dispatcher._sessions[g_data.engine_sid] = {
         "engine_uid": g_data.engine_uid,
         "init_data": {
