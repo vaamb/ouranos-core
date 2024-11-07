@@ -9,7 +9,6 @@ from uuid import UUID
 
 from anyio import Path as ioPath
 from anyio.to_thread import run_sync
-from PIL import Image as PIL_image
 from pydantic import TypeAdapter, ValidationError
 from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
@@ -17,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from dispatcher import AsyncDispatcher, AsyncEventHandler
 import gaia_validators as gv
-from gaia_validators.image import SerializableImagePayload
+from gaia_validators.image import SerializableImage, SerializableImagePayload
 
 from ouranos import current_app, db, json
 from ouranos.aggregator.decorators import (
@@ -960,7 +959,7 @@ class GaiaEvents(AsyncEventHandler):
         engine_uid: str,
     ) -> None:
         self.logger.debug(f"Received picture arrays from '{engine_uid}'")
-        serialized_images = SerializableImagePayload.decode(data)
+        serialized_images = SerializableImagePayload.deserialize(data)
         ecosystem_uid = serialized_images.uid
         data_to_dispatch = {
             "ecosystem_uid": ecosystem_uid,
@@ -971,14 +970,14 @@ class GaiaEvents(AsyncEventHandler):
             if not await dir_path.exists():
                 await dir_path.mkdir(parents=True, exist_ok=True)
             for serialized_image in serialized_images.data:
+                serialized_image: SerializableImage
                 # Get information
-                image = PIL_image.fromarray(serialized_image.array)
                 camera_uid = serialized_image.metadata.pop("camera_uid")
                 timestamp = datetime.fromisoformat(serialized_image.metadata.pop("timestamp"))
                 abs_path = dir_path / f"{camera_uid}.jpeg"
                 path = abs_path.relative_to(current_app.static_dir)
                 # Save image
-                await run_sync(image.save, abs_path)
+                await run_sync(serialized_image.write, abs_path)
                 # Save image info
                 await CameraPicture.update_or_create(
                     session,
