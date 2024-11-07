@@ -175,10 +175,11 @@ sensors_data_payload: gv.SensorsDataPayloadDict = \
     wrap_ecosystem_data_payload(sensors_data)
 
 
+# TODO: fix when health data is reimplemented
 health_data: gv.HealthRecord = gv.HealthRecord(
-    green=0.57,
-    necrosis=0.15,
-    index=0.85,
+    camera_uid="camera_uid",
+    measure="MPRI",
+    value=0.789,
     timestamp=timestamp_now,
 )
 

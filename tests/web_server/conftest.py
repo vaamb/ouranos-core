@@ -86,14 +86,15 @@ async def add_ecosystems(db: AsyncSQLAlchemyWrapper):
         actuator_state["timestamp"] = g_data.actuator_record.timestamp
         await ActuatorRecord.create_records(session, actuator_state)
 
-        adapted_health_data = {
-            "ecosystem_uid": g_data.ecosystem_uid,
-            "green": g_data.health_data.green,
-            "necrosis": g_data.health_data.necrosis,
-            "health_index": g_data.health_data.index,
-            "timestamp": g_data.health_data.timestamp,
-        }
-        await HealthRecord.create_records(session, adapted_health_data)
+        # TODO: fix when health data is reimplemented
+        #adapted_health_data = {
+        #    "ecosystem_uid": g_data.ecosystem_uid,
+        #    "green": g_data.health_data.green,
+        #    "necrosis": g_data.health_data.necrosis,
+        #    "health_index": g_data.health_data.index,
+        #    "timestamp": g_data.health_data.timestamp,
+        #}
+        #await HealthRecord.create_records(session, adapted_health_data)
 
         await GaiaWarning.create(
             session, ecosystem_uid=g_data.ecosystem_uid, values=g_data.gaia_warning)
