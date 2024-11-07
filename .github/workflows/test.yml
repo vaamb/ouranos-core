@@ -27,6 +27,6 @@ jobs:
       run: |
         coverage run -m pytest -v
       timeout-minutes: 5
-    - name: Display coverage
-      run: |
-        coverage report
+    #- name: Display coverage
+    #  run: |
+    #    coverage report
