@@ -38,6 +38,3 @@ class MockAsyncDispatcher(AsyncDispatcher):
 
     def clear_store(self):
         self.emit_store.clear()
-
-    def start(self, loop=None) -> None:
-        pass

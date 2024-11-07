@@ -1,6 +1,3 @@
-import asyncio
-import sys
-
 import pytest
 import pytest_asyncio
 
@@ -36,7 +33,9 @@ async def db(config: ConfigDict):
     from ouranos.core.database.models import caches
     await _db.create_all()
     await create_base_data()
+
     yield _db
+
     await _db.drop_all()
     # Clear up the caches
     for key, value in caches.__dict__.items():

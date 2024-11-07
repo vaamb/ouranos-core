@@ -224,7 +224,7 @@ class GaiaEvents(AsyncEventHandler):
                 "base_info", "environmental_parameters", "hardware",
                 "management", "actuators_data", "light_data",
             }
-        now = datetime.now(timezone.utc).replace(microsecond=0)
+        now = datetime.now(timezone.utc)
         engine_info = {
             "sid": sid,
             "last_seen": now,
@@ -264,7 +264,7 @@ class GaiaEvents(AsyncEventHandler):
     ) -> None:
         self.logger.debug(f"Received 'ping' from engine {engine_uid}")
         await self.emit("pong", to=sid)
-        now = datetime.now(timezone.utc).replace(microsecond=0)
+        now = datetime.now(timezone.utc)
         ecosystems_seen: list[str] = []
         await self.internal_dispatcher.emit(
             "ecosystems_heartbeat",

@@ -123,6 +123,11 @@ async def test_register_success(db: AsyncSQLAlchemyWrapper, client: TestClient):
     data = json.loads(response.text)
     assert data["user"]["username"] == registration_payload["username"]
 
+    # Clean up
+    async with db.scoped_session() as session:
+        user = await User.get_by(session, username=registration_payload["username"])
+        await User.delete(session, user_id=user.id)
+
 
 @pytest.mark.asyncio
 async def test_register_success_override(db: AsyncSQLAlchemyWrapper, client: TestClient):
@@ -141,6 +146,11 @@ async def test_register_success_override(db: AsyncSQLAlchemyWrapper, client: Tes
 
     data = json.loads(response.text)
     assert data["user"]["username"] == username
+
+    # Clean up
+    async with db.scoped_session() as session:
+        user = await User.get_by(session, username=username)
+        await User.delete(session, user_id=user.id)
 
 
 def test_registration_token_failure(client: TestClient):
