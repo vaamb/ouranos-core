@@ -6,6 +6,7 @@ from typing import Any, Iterable
 
 import aiosqlite
 
+from ouranos import current_app
 
 _create_query = """
   CREATE TABLE IF NOT EXISTS %(table_name)s (
@@ -26,8 +27,12 @@ class aioCache:
         self._table = table
         self._init: bool = False
 
+    @property
+    def is_init(self) -> bool:
+        return self._init
+
     def _check_init(self) -> None:
-        if not self._init:
+        if not self.is_init:
             raise RuntimeError("Cache is not initialized")
 
     async def init(self):
@@ -68,3 +73,36 @@ class aioCache:
             rows = await cursor.fetchall()
             for row in rows:
                 yield row[0]
+
+
+class CacheFactory:
+    __caches: dict[str, aioCache] = {}
+    __config: dict[str, Any] = {
+        "sky_watcher": {
+            "cache_path": "sky_watcher.sqlite",
+        },
+    }
+
+    @classmethod
+    def update_config(cls, cfg: dict[str, Any]) -> None:
+        cls.__config.update(cfg)
+
+    @classmethod
+    def get(
+            cls,
+            name: str,
+    ) -> aioCache:
+        try:
+            return cls.__caches[name]
+        except KeyError:
+            try:
+                cache_path_str = cls.__config[name]["cache_path"]
+            except KeyError:
+                raise ValueError(f"Cache '{name}' does not have a valid config")
+            cache_path = current_app.cache_dir / cache_path_str
+            table_name = cls.__config[name].get("table_name", "cache")
+
+
+            cache = aioCache(cache_path, table_name)
+            cls.__caches[name] = cache
+            return cache
