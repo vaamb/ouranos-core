@@ -18,6 +18,7 @@ _create_query = """
 _get_query = "SELECT value FROM %(table_name)s WHERE key = CAST(? AS TEXT)"
 _set_query = "REPLACE INTO %(table_name)s (key, value) VALUES (CAST(? AS TEXT), CAST(? AS BLOB))"
 _delete_query = "DELETE FROM %(table_name)s WHERE key = CAST(? AS TEXT)"
+_delete_all_query = "DELETE FROM %(table_name)s"
 _iter_query = "SELECT key FROM %(table_name)s"
 
 
@@ -64,6 +65,12 @@ class aioCache:
             cursor = await db.execute(_delete_query % {"table_name": self._table}, (key,))
             if not cursor.rowcount:
                 raise KeyError(key)
+            await db.commit()
+
+    async def clear(self) -> None:
+        self._check_init()
+        async with aiosqlite.connect(self._path) as db:
+            await db.execute(_delete_all_query % {"table_name": self._table})
             await db.commit()
 
     async def keys(self) -> Iterable[str]:
