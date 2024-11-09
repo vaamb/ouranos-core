@@ -110,8 +110,8 @@ class SkyWatcher:
                 await self._aio_cache.set("weather_currently", data["currently"])
                 await self._aio_cache.set("weather_hourly", data["hourly"])
                 await self._aio_cache.set("weather_daily", data["daily"])
-        current = await self._aio_cache.get("weather_currently")
-        time_ = current.get("time")
+        current = await self._aio_cache.get("weather_currently", {})
+        time_ = current.get("time", None)
         if time_ is None:
             return False
         update_period: int = current_app.config.get("WEATHER_UPDATE_PERIOD")

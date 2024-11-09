@@ -22,6 +22,13 @@ _delete_all_query = "DELETE FROM %(table_name)s"
 _iter_query = "SELECT key FROM %(table_name)s"
 
 
+class NoDefault:
+    pass
+
+
+no_default = NoDefault()
+
+
 class aioCache:
     def __init__(self, file_path: Path | str, table: str = "cache") -> None:
         self._path = Path(file_path)
@@ -42,13 +49,15 @@ class aioCache:
             await db.commit()
         self._init = True
 
-    async def get(self, key: str) -> Any:
+    async def get(self, key: str, default: Any = no_default) -> Any:
         self._check_init()
         async with aiosqlite.connect(self._path) as db:
             cursor = await db.execute(_get_query % {"table_name": self._table}, (key,))
             row = await cursor.fetchone()
         if not row:
-            raise KeyError(key)
+            if default == no_default:
+                raise KeyError(key)
+            return default
         return pickle.loads(row[0])
 
     async def set(self, key: str, value: Any) -> None:
