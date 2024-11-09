@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Response
 
+import gaia_validators as gv
+
 from ouranos.core.caches import CacheFactory
 from ouranos.web_server.validate.weather import (
-    CurrentWeatherResponse, DailyWeatherResponse, HourlyWeatherResponse,
-    SunTimesResponse)
+    CurrentWeatherInfo, DailyWeatherInfo, HourlyWeatherInfo)
 
 
 router = APIRouter(
@@ -26,7 +27,7 @@ async def init_cache_if_needed():
         await sky_watcher_cache.init()
 
 
-@router.get("/sun_times", response_model=SunTimesResponse)
+@router.get("/sun_times", response_model=list[gv.SunTimes])
 async def get_sun_times():
     await init_cache_if_needed()
     response = await sky_watcher_cache.get("sun_times", None)
@@ -35,7 +36,7 @@ async def get_sun_times():
     return Response(status_code=204)
 
 
-@router.get("/forecast/currently", response_model=CurrentWeatherResponse)
+@router.get("/forecast/currently", response_model=CurrentWeatherInfo)
 async def get_current_forecast():
     await init_cache_if_needed()
     response = await sky_watcher_cache.get("weather_currently", None)
@@ -44,7 +45,7 @@ async def get_current_forecast():
     return Response(status_code=204)
 
 
-@router.get("/forecast/hourly", response_model=list[HourlyWeatherResponse])
+@router.get("/forecast/hourly", response_model=list[HourlyWeatherInfo])
 async def get_current_forecast():
     await init_cache_if_needed()
     response = await sky_watcher_cache.get("weather_hourly", None)
@@ -53,7 +54,7 @@ async def get_current_forecast():
     return Response(status_code=204)
 
 
-@router.get("/forecast/daily", response_model=list[DailyWeatherResponse])
+@router.get("/forecast/daily", response_model=list[DailyWeatherInfo])
 async def get_current_forecast():
     await init_cache_if_needed()
     response = await sky_watcher_cache.get("weather_daily", None)

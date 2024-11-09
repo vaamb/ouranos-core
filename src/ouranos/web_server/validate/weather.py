@@ -1,70 +1,31 @@
+from datetime import datetime
+
+from pydantic import field_validator
+
 from ouranos.core.validate.base import BaseModel
 
 
-class SunTimesResponse(BaseModel):
-    sunrise: str
-    sunset: str
-    day_length: str
-
-
-class CurrentWeatherResponse(BaseModel):
-    time: int
-    summary: str
-    icon: str
-    precipIntensity: int
-    precipProbability: int
+class CurrentWeatherInfo(BaseModel):
+    timestamp: datetime
     temperature: float
-    apparentTemperature: float
-    dewPoint: float
     humidity: float
-    pressure: float
-    windSpeed: float
-    windGust: float
-    windBearing: int
-    cloudCover: float
-    uvIndex: int
-    visibility: float
-    ozone: float
+    dew_point: float
+    wind_speed: float
+    cloud_cover: float | None
+    summary: str | None
+    icon: str | None
+
+    @field_validator("timestamp", mode="before")
+    def parse_timestamp(cls, value):
+        if isinstance(value, str):
+            return datetime.fromisoformat(value)
+        return value
 
 
-class HourlyWeatherResponse(CurrentWeatherResponse):
-    apparentTemperature: float
+class HourlyWeatherInfo(CurrentWeatherInfo):
+    precipitation_probability: float
 
 
-class DailyWeatherResponse(BaseModel):
-    time: int
-    summary: str
-    icon: str
-    sunriseTime: int
-    sunsetTime: int
-    moonPhase: float
-    precipIntensity: int
-    precipIntensityMax: int
-    precipProbability: int
-    temperatureHigh: float
-    temperatureHighTime: int
-    temperatureLow: float
-    temperatureLowTime: int
-    apparentTemperatureHigh: float
-    apparentTemperatureHighTime: int
-    apparentTemperatureLow: float
-    apparentTemperatureLowTime: int
-    dewPoint: float
-    humidity: float
-    pressure: float
-    windSpeed: float
-    windGust: float
-    windBearing: int
-    cloudCover: float
-    uvIndex: int
-    uvIndexTime: int
-    visibility: float
-    ozone: float
-    temperatureMin: float
-    temperatureMinTime: int
-    temperatureMax: float
-    temperatureMaxTime: int
-    apparentTemperatureMin: float
-    apparentTemperatureMinTime: int
-    apparentTemperatureMax: float
-    apparentTemperatureMaxTime: int
+class DailyWeatherInfo(HourlyWeatherInfo):
+    temperature_min: float
+    temperature_max: float

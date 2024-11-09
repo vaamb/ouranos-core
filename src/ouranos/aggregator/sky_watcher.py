@@ -5,7 +5,7 @@ from datetime import date, datetime, timedelta
 from logging import getLogger, Logger
 
 from aiohttp import ClientError, ClientSession
-from pydantic import Field, field_validator, RootModel, ValidationError
+from pydantic import Field, field_validator, RootModel
 
 import gaia_validators as gv
 from gaia_validators.utils import get_sun_times
@@ -49,13 +49,12 @@ class WeatherDataCurrent(BaseModel):
     icon: str | None = Field(validation_alias="weather")
 
     @field_validator("timestamp", mode="before")
-    def parse_time(cls, value):
+    def parse_timestamp(cls, value):
         if isinstance(value, int):
             return datetime.fromtimestamp(value)
         if isinstance(value, str):
             return datetime.fromisoformat(value)
-        raise ValidationError(
-            f"'time' of type {type(value)} is not supported")
+        return value
 
     @field_validator("summary", mode="before")
     def parse_summary(cls, value):
@@ -117,7 +116,7 @@ async def get_weather_data(coordinates: gv.Coordinates, api_key: str) -> Weather
             async with session.get(url, params=parameters, timeout=3.0) as resp:
                 raw_data = await resp.json()
                 return WeatherData.model_validate(raw_data)
-    except ClientError as e:
+    except (ClientError, asyncio.TimeoutError) as e:
         raise ConnectionError from e
 
 
