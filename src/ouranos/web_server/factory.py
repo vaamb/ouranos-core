@@ -14,6 +14,7 @@ from socketio import AsyncManager, AsyncServer
 from socketio.asgi import ASGIApp
 
 from ouranos import current_app
+from ouranos.core.caches import CacheFactory
 from ouranos.core.dispatchers import DispatcherFactory
 from ouranos.core.plugins_manager import PluginManager
 from ouranos.core.utils import check_secret_key, json
@@ -218,9 +219,15 @@ def create_app(config: dict | None = None) -> FastAPI:
     event_handler = DispatcherEvents(sio_manager)
     dispatcher.register_event_handler(event_handler)
 
+    # Configure aio caches if needed
+    logger.debug("Initializing aio caches")
+    sky_watcher_cache = CacheFactory.get("sky_watcher")
+
     @asynccontextmanager
     async def lifespan(app_: FastAPI):
         logger.info("Ouranos web server worker successfully started")
+        if not sky_watcher_cache.is_init:
+            await sky_watcher_cache.init()
         await dispatcher.start(retry=True, block=False)
         yield
         await dispatcher.stop()

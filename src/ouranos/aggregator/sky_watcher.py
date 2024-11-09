@@ -10,7 +10,7 @@ import aiofiles
 from aiohttp import ClientError, ClientSession
 
 from ouranos import current_app, scheduler
-from ouranos.core.cache import SunTimesCache, WeatherCache
+from ouranos.core.caches import CacheFactory
 from ouranos.core.config.consts import WEATHER_MEASURES
 from ouranos.core.dispatchers import DispatcherFactory
 from ouranos.core.utils import json, stripped_warning
@@ -90,12 +90,14 @@ class SkyWatcher:
         self._mutex = asyncio.Lock()
         self._coordinates = current_app.config.get("HOME_COORDINATES")
         self._API_key = current_app.config.get("DARKSKY_API_KEY")
+        self._aio_cache = CacheFactory.get("sky_watcher")
 
     """Weather"""
 
     async def _check_weather_recency(self) -> bool:
         """Return True is weather data is recent (less than 5 min)"""
-        if not WeatherCache.get():
+        current = await self._aio_cache.get("weather_currently")
+        if not current:
             try:
                 path = current_app.cache_dir / _weather_file
                 async with aiofiles.open(path, "r") as file:
@@ -105,8 +107,11 @@ class SkyWatcher:
                 # No file or empty file
                 return False
             else:
-                WeatherCache.update(data)
-        time_ = WeatherCache.get_currently().get("time")
+                await self._aio_cache.set("weather_currently", data["currently"])
+                await self._aio_cache.set("weather_hourly", data["hourly"])
+                await self._aio_cache.set("weather_daily", data["daily"])
+        current = await self._aio_cache.get("weather_currently")
+        time_ = current.get("time")
         if time_ is None:
             return False
         update_period: int = current_app.config.get("WEATHER_UPDATE_PERIOD")
@@ -117,12 +122,15 @@ class SkyWatcher:
 
     async def clear_old_weather_data(self) -> None:
         path = current_app.cache_dir / _weather_file
-        time_ = WeatherCache.get_currently().get("time")
+        currently = await self._aio_cache.get("weather_currently")
+        time_ = currently.get("time")
         # If weather "current" time older than _weather_recency_limit hours: clear
         if time_ < time.time() - _weather_recency_limit * 60 * 60:
             os.remove(path)
             async with self._mutex:
-                WeatherCache.clear()
+                await self._aio_cache.delete("weather_currently")
+                await self._aio_cache.delete("weather_hourly")
+                await self._aio_cache.delete("weather_daily")
 
     async def update_weather_data(self) -> None:
         self.logger.debug("Trying to update weather data")
@@ -168,7 +176,9 @@ class SkyWatcher:
                     f"Could not dump updated weather data. Error msg: "
                     f"`{e.__class__.__name__}: {e}`"
                 )
-            WeatherCache.update(data)
+            await self._aio_cache.set("weather_currently", data["currently"])
+            await self._aio_cache.set("weather_hourly", data["hourly"])
+            await self._aio_cache.set("weather_daily", data["daily"])
             await self.dispatch_weather_data()
             self.logger.debug("Weather data updated")
 
@@ -176,16 +186,16 @@ class SkyWatcher:
         now = datetime.now()
         await self.dispatcher.emit(
             "application-internal", "weather_current",
-            data={"currently": WeatherCache.get_currently()},
+            data={"currently": self._aio_cache.get("weather_currently")},
         )
         if now.minute % 15 == 0:
             await self.dispatcher.emit(
                 "application-internal", "weather_hourly",
-                data={"hourly": WeatherCache.get_hourly()},
+                data={"hourly": await self._aio_cache.get("weather_hourly")},
             )
         if now.hour % 1 == 0 and now.minute == 0:
             await self.dispatcher.emit(
-                "weather_daily", data={"daily": WeatherCache.get_daily()},
+                "weather_daily", data={"daily": self._aio_cache.get("weather_daily")},
                 namespace="application-internal")
 
     """Sun times"""
@@ -204,7 +214,7 @@ class SkyWatcher:
         async with aiofiles.open(path, "r") as file:
             data_raw = await file.read()
         data = json.loads(data_raw)
-        SunTimesCache.update(data)
+        await self._aio_cache.set("sun_times", data)
         self.logger.debug("Sun times data already up to date")
         return True
 
@@ -212,7 +222,7 @@ class SkyWatcher:
         self.logger.debug("Updating sun times")
         if not await is_connected():
             async with self._mutex:
-                SunTimesCache.clear()
+                await self._aio_cache.delete("sun_times")
                 self.logger.error(
                     "Ouranos is not connected to the internet, could not "
                     "update sun times data"
@@ -230,7 +240,7 @@ class SkyWatcher:
                     raw_data = await resp.json()
         except ClientError:
             self.logger.error("ConnectionError: cannot update sun times data")
-            SunTimesCache.clear()
+            await self._aio_cache.delete("sun_times")
         else:
             path = current_app.cache_dir / _sun_times_file
             raw_data = raw_data["results"]
@@ -239,7 +249,7 @@ class SkyWatcher:
                 await file.write(stringified_data)
             formatted_data = format_sun_times_data(raw_data)
             async with self._mutex:
-                SunTimesCache.update(formatted_data)
+                await self._aio_cache.set("sun_times", formatted_data)
             try:
                 await self.dispatcher.emit(
                     "application-internal", "sun_times", data=formatted_data
@@ -253,6 +263,8 @@ class SkyWatcher:
     async def start(self) -> None:
         weather_delay = current_app.config.get("WEATHER_UPDATE_PERIOD")
         tasks = []
+        if not self._aio_cache.is_init:
+            await self._aio_cache.init()
         if all((self._API_key, self._coordinates, weather_delay)):
             if not await self._check_weather_recency():
                 tasks.append(self.update_weather_data())
@@ -276,7 +288,7 @@ class SkyWatcher:
             scheduler.remove_job("sky_watcher-weather")
         if scheduler.get_job("suntimes"):
             scheduler.remove_job("sky_watcher-suntimes")
-        SunTimesCache.clear()
+        await self._aio_cache.clear()
 
 
 info = {
