@@ -171,7 +171,7 @@ class SkyWatcher:
 
     async def update_weather_data(self) -> None:
         self.logger.debug("Trying to update weather data")
-        if not self._coordinates or self._API_key:
+        if not all((self._API_key, self._coordinates)):
             self.logger.error(
                 "'HOME_COORDINATES' and 'OPEN_WEATHER_MAP_API_KEY' are needed "
                 "in the config class in order to update the weather forecast.")
