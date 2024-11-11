@@ -117,7 +117,8 @@ class BaseConfig:
     # Private parameters
     HOME_CITY = os.environ.get("HOME_CITY")
     HOME_COORDINATES = os.environ.get("HOME_COORDINATES")
-    DARKSKY_API_KEY = os.environ.get("DARKSKY_API_KEY")
+    OPEN_WEATHER_MAP_API_KEY = os.environ.get("DARKSKY_API_KEY")
+    WEATHER_REFRESH_INTERVAL = 15  # in minute
 
 
 class BaseConfigDict(TypedDict):
@@ -201,5 +202,6 @@ class BaseConfigDict(TypedDict):
 
     # Private parameters
     HOME_CITY: str | None
-    HOME_COORDINATES: str | None
-    DARKSKY_API_KEY: str | None
+    HOME_COORDINATES: tuple[float, float] | None
+    OPEN_WEATHER_MAP_API_KEY: str | None
+    WEATHER_REFRESH_INTERVAL: int

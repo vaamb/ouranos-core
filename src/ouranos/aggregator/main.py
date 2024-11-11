@@ -164,7 +164,8 @@ class Aggregator(Functionality):
 
     async def _shutdown(self) -> None:
         try:
-            await self.sky_watcher.stop()
+            if self.sky_watcher.started:
+                await self.sky_watcher.stop()
             await self.archiver.stop()
             await self.gaia_dispatcher.stop()
             await self.internal_dispatcher.stop()
