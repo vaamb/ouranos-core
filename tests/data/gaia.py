@@ -177,7 +177,7 @@ sensors_data_payload: gv.SensorsDataPayloadDict = \
 
 # TODO: fix when health data is reimplemented
 health_data: gv.HealthRecord = gv.HealthRecord(
-    camera_uid="camera_uid",
+    sensor_uid="camera_uid",
     measure="MPRI",
     value=0.789,
     timestamp=timestamp_now,
