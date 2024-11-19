@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from threading import Lock
 import inspect
 import logging
-from typing import cast, Type, TypedDict, TypeVar
+from typing import Callable, cast, Type, TypedDict, TypeVar
 from uuid import UUID
 
 from anyio import Path as ioPath
@@ -19,17 +19,18 @@ import gaia_validators as gv
 from gaia_validators.image import SerializableImage, SerializableImagePayload
 
 from ouranos import current_app, db, json
-from ouranos.aggregator.decorators import (
-    dispatch_to_application, registration_required)
 from ouranos.core.database.models.abc import RecordMixin
 from ouranos.core.database.models.gaia import (
     ActuatorRecord, ActuatorState, CrudRequest, Ecosystem, Engine,
     EnvironmentParameter, Hardware, HealthRecord, Lighting, Place, CameraPicture,
     SensorAlarm, SensorDataRecord, SensorDataCache)
+from ouranos.core.exceptions import NotRegisteredError
 from ouranos.core.utils import humanize_list
 
 
 PT = TypeVar("PT", dict, list[dict])
+
+data_type: dict | list | str | tuple | None
 
 
 class SensorDataRecordDict(TypedDict):
@@ -47,6 +48,32 @@ class SensorAlarmDict(TypedDict):
     delta: float
     level: gv.WarningLevel
     timestamp: datetime
+
+
+def registration_required(func: Callable):
+    """Decorator which makes sure the engine is registered and injects
+    engine_uid"""
+    async def wrapper(self: GaiaEvents, sid: UUID, data: data_type = None):
+        async with self.session(sid) as session:
+            engine_uid: str | None = session.get("engine_uid")
+        if engine_uid is None:
+            raise NotRegisteredError(f"Engine with sid {sid} is not registered.")
+        else:
+            if data is not None:
+                return await func(self, sid, data, engine_uid)
+            return await func(self, sid, engine_uid)
+    return wrapper
+
+
+def dispatch_to_application(func: Callable):
+    """Decorator which dispatch the data to the clients namespace"""
+    async def wrapper(self: GaiaEvents, sid: str, data: data_type, *args):
+        func_name: str = func.__name__
+        event: str = func_name.lstrip("on_")
+        await self.internal_dispatcher.emit(
+            event, data=data, namespace="application-internal", ttl=15)
+        return await func(self, sid, data, *args)
+    return wrapper
 
 
 # ------------------------------------------------------------------------------
