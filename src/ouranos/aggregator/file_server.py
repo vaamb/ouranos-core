@@ -94,8 +94,8 @@ class FileServer:
                 )
         # Check that the ecosystem and camera are known
         image = SerializableImage.deserialize(chunks)
-        ecosystem_uid = image.metadata.get("ecosystem_uid")
-        camera_uid = image.metadata.get("camera_uid")
+        ecosystem_uid = image.metadata["ecosystem_uid"]
+        camera_uid = image.metadata["camera_uid"]
         async with db.scoped_session() as session:
             ecosystem = await Ecosystem.get(session, uid=ecosystem_uid)
             camera = await Hardware.get(session, uid=camera_uid)
