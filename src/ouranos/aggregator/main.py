@@ -8,6 +8,7 @@ from dispatcher import AsyncAMQPDispatcher, AsyncRedisDispatcher
 
 from ouranos.aggregator.archiver import Archiver
 from ouranos.aggregator.events import GaiaEvents
+from ouranos.aggregator.file_server import FileServer
 from ouranos.aggregator.sky_watcher import SkyWatcher
 from ouranos.core.dispatchers import DispatcherFactory
 from ouranos.core.globals import scheduler
@@ -70,6 +71,7 @@ class Aggregator(Functionality):
         self._init_gaia_events_handling()
         self.archiver = Archiver()
         self.sky_watcher = SkyWatcher()
+        self.file_server = FileServer()
 
     @property
     def gaia_dispatcher(self) -> AsyncAMQPDispatcher | AsyncRedisDispatcher:
@@ -161,9 +163,12 @@ class Aggregator(Functionality):
         await self.start_gaia_events_dispatcher()
         await self.archiver.start()
         await self.sky_watcher.start()
+        await self.file_server.start()
 
     async def _shutdown(self) -> None:
         try:
+            if self.file_server.started:
+                await self.file_server.stop()
             if self.sky_watcher.started:
                 await self.sky_watcher.stop()
             await self.archiver.stop()
