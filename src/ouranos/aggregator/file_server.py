@@ -14,6 +14,7 @@ from uvicorn import Config, Server
 from gaia_validators.image import SerializableImage
 
 from ouranos import current_app, db
+from ouranos.core.config.consts import TOKEN_SUBS
 from ouranos.core.database.models.gaia import Ecosystem, Hardware
 from ouranos.core.exceptions import TokenError
 from ouranos.core.utils import json, Tokenizer
@@ -74,7 +75,9 @@ class FileServer:
         # Check we have a valid token
         token = request.headers.get("token")
         try:
-            Tokenizer.loads(token)
+            claims = Tokenizer.loads(token)
+            if not claims.get("sub") == TOKEN_SUBS.CAMERA_UPLOAD.value:
+                raise TokenError
         except TokenError:
             return JSONResponse(
                 content={"detail": "Invalid token"},

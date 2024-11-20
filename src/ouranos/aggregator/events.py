@@ -19,13 +19,14 @@ import gaia_validators as gv
 from gaia_validators.image import SerializableImage, SerializableImagePayload
 
 from ouranos import current_app, db, json
+from ouranos.core.config.consts import TOKEN_SUBS
 from ouranos.core.database.models.abc import RecordMixin
 from ouranos.core.database.models.gaia import (
     ActuatorRecord, ActuatorState, CrudRequest, Ecosystem, Engine,
     EnvironmentParameter, Hardware, HealthRecord, Lighting, Place, CameraPicture,
     SensorAlarm, SensorDataRecord, SensorDataCache)
 from ouranos.core.exceptions import NotRegisteredError
-from ouranos.core.utils import humanize_list
+from ouranos.core.utils import humanize_list, Tokenizer
 
 
 PT = TypeVar("PT", dict, list[dict])
@@ -261,9 +262,11 @@ class GaiaEvents(AsyncEventHandler):
             await Engine.update_or_create(session, uid=engine_uid, values=engine_info)
         self.enter_room(room="engines")
 
-        # await sleep(3)  # Allow slower Raspi0 to finish Gaia startup
         self.logger.info(f"Successful registration of engine {engine_uid} with sid {sid}")
         await self.emit("registration_ack", data=sid, ttl=15, to=sid)
+
+        camera_token = Tokenizer.dumps({"sub": TOKEN_SUBS.CAMERA_UPLOAD.value})
+        await self.emit("camera_token", data=camera_token, to=sid)
 
     @registration_required
     async def on_initialization_data_sent(
