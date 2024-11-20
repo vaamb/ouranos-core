@@ -66,9 +66,8 @@ class WebServer(Functionality):
         super().__init__(config_profile, config_override, **kwargs)
         self.system_monitor = SystemMonitor()
         use_subprocess: bool = (
-                self.config["SERVER_RELOAD"] or
-                (self.config["START_API"] and
-                 self.config["API_WORKERS"] > 1)
+            self.config["API_SERVER_RELOAD"] or
+            self.config["API_WORKERS"] > 1
         )
         auto_loop_setup(use_subprocess)
         host: str = self.config["API_HOST"]

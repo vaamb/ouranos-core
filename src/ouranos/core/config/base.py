@@ -50,15 +50,16 @@ class BaseConfig:
     DISPATCHER_URL = os.environ.get("OURANOS_DISPATCHER_URL") or "memory://"  # memory:// or amqp://
     SIO_MANAGER_URL = os.environ.get("OURANOS_SIO_MANAGER_URL") or "memory://"  # memory:// or amqp:// or redis://
 
-    # Services
-    START_API = os.environ.get("OURANOS_START_API", True)
+    # Plugins
     API_UID = os.environ.get("OURANOS_UID") or "base_server"
     API_HOST = os.environ.get("OURANOS_API_HOST", "127.0.0.1")
     API_PORT = os.environ.get("OURANOS_API_PORT", 5000)
     API_WORKERS = os.environ.get("OURANOS_API_WORKERS", 0)
-    SERVER_RELOAD = False
-    START_AGGREGATOR = os.environ.get("OURANOS_START_AGGREGATOR", True)
-    AGGREGATOR_PORT = os.environ.get("OURANOS_AGGREGATOR_PORT", API_PORT)
+    API_SERVER_RELOAD = False
+
+    AGGREGATOR_HOST = os.environ.get("OURANOS_API_HOST", API_HOST)
+    AGGREGATOR_PORT = os.environ.get("OURANOS_AGGREGATOR_PORT", 7191)
+
     PLUGINS_OMITTED = os.environ.get("OURANOS_PLUGINS_OMITTED")
 
     # Ouranos and Gaia config
@@ -152,15 +153,16 @@ class BaseConfigDict(TypedDict):
     DISPATCHER_URL: str
     SIO_MANAGER_URL: str
 
-    # Services
-    START_API: bool
+    # Plugins
     API_UID: str
     API_HOST: str
     API_PORT: int
     API_WORKERS: int
-    SERVER_RELOAD: bool
-    START_AGGREGATOR: bool
+    API_SERVER_RELOAD: bool
+
+    AGGREGATOR_HOST: str
     AGGREGATOR_PORT: int
+
     PLUGINS_OMITTED: str
 
     # Ouranos and Gaia config
