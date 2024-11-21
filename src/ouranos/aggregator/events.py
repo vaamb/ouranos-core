@@ -998,6 +998,9 @@ class GaiaEvents(AsyncEventHandler):
                 await dir_path.mkdir(parents=True, exist_ok=True)
             for serialized_image in serialized_images.data:
                 serialized_image: SerializableImage
+                # Uncompress array if needed
+                if serialized_image.is_compressed:
+                    serialized_image = serialized_image.uncompress()
                 # Get information
                 camera_uid = serialized_image.metadata.pop("camera_uid")
                 timestamp = datetime.fromisoformat(serialized_image.metadata.pop("timestamp"))
