@@ -989,8 +989,8 @@ class GaiaEvents(AsyncEventHandler):
         engine_uid: str,
     ) -> None:
         self.logger.debug(f"Received picture arrays from '{engine_uid}'")
-        serialized_images = SerializableImagePayload.deserialize(data)
-        ecosystem_uid = serialized_images.uid
+        images = SerializableImagePayload.deserialize(data)
+        ecosystem_uid = images.uid
         data_to_dispatch = {
             "ecosystem_uid": ecosystem_uid,
             "updated_pictures": [],
@@ -999,36 +999,37 @@ class GaiaEvents(AsyncEventHandler):
             dir_path = self.camera_dir / f"{ecosystem_uid}"
             if not await dir_path.exists():
                 await dir_path.mkdir(parents=True, exist_ok=True)
-            for serialized_image in serialized_images.data:
-                serialized_image: SerializableImage
-                # Uncompress array if needed
-                if serialized_image.is_compressed:
-                    serialized_image = serialized_image.uncompress()
+            for image in images.data:
+                image: SerializableImage
                 # Get information
-                camera_uid = serialized_image.metadata.pop("camera_uid")
-                timestamp = datetime.fromisoformat(serialized_image.metadata.pop("timestamp"))
+                camera_uid = image.metadata.pop("camera_uid")
+                timestamp = datetime.fromisoformat(image.metadata.pop("timestamp"))
                 abs_path = dir_path / f"{camera_uid}.jpeg"
-                path = abs_path.relative_to(current_app.static_dir)
-                # Save image
-                await run_sync(serialized_image.write, abs_path)
+                rel_path = abs_path.relative_to(current_app.static_dir)
                 # Save image info
                 await CameraPicture.update_or_create(
                     session,
                     ecosystem_uid=ecosystem_uid,
                     camera_uid=camera_uid,
                     values={
-                        "path": str(path),
-                        "dimension": serialized_image.shape,
-                        "depth": serialized_image.depth,
+                        "path": str(rel_path),
+                        "dimension": image.shape,
+                        "depth": image.depth,
                         "timestamp": timestamp,
-                        "other_metadata": serialized_image.metadata,
+                        "other_metadata": image.metadata,
                     }
                 )
+                # Save image
+                if image.is_compressed:
+                    image = image.uncompress()
+                await run_sync(image.write, abs_path)
+                # Add to dispatch
                 data_to_dispatch["updated_pictures"].append({
                     "camera_uid": camera_uid,
-                    "path": str(path),
+                    "path": str(rel_path),
                     "timestamp": timestamp,
                 })
+        # Dispatch
         await self.internal_dispatcher.emit(
             "picture_arrays", data=data_to_dispatch,
             namespace="application-internal", ttl=10)
