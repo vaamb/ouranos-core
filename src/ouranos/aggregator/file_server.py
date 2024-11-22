@@ -1,9 +1,11 @@
 import asyncio
+from datetime import datetime
 from logging import getLogger, Logger
 from pathlib import Path
 from typing import Any
 
 from anyio.to_thread import run_sync
+from sqlalchemy.exc import IntegrityError
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import Response
@@ -15,7 +17,8 @@ from gaia_validators.image import SerializableImage
 
 from ouranos import current_app, db
 from ouranos.core.config.consts import TOKEN_SUBS
-from ouranos.core.database.models.gaia import Ecosystem, Hardware
+from ouranos.core.database.models.gaia import CameraPicture
+from ouranos.core.dispatchers import DispatcherFactory
 from ouranos.core.exceptions import TokenError
 from ouranos.core.utils import json, Tokenizer
 
@@ -42,6 +45,8 @@ class FileServer:
             server_header=False, date_header=False)
         self.server = Server(config=server_cfg)
         self._future = None
+        self.camera_dir: Path = Path(current_app.static_dir) / "camera_stream"
+        self.internal_dispatcher = DispatcherFactory.get("aggregator-internal")
 
     """Start stop logic"""
     @property
@@ -92,29 +97,51 @@ class FileServer:
                     content={"detail": "Image too large"},
                     status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
                 )
-        # Check that the ecosystem and camera are known
         image = SerializableImage.deserialize(chunks)
-        ecosystem_uid = image.metadata["ecosystem_uid"]
-        camera_uid = image.metadata["camera_uid"]
+        # Get information
+        ecosystem_uid = image.metadata.pop("ecosystem_uid")
+        camera_uid = image.metadata.pop("camera_uid")
+        timestamp = datetime.fromisoformat(image.metadata.pop("timestamp"))
+        dir_path = self.camera_dir / f"{ecosystem_uid}"
+        abs_path = dir_path / f"{camera_uid}.jpeg"
+        rel_path = abs_path.relative_to(current_app.static_dir)
+        # Check that the ecosystem and camera are known
         async with db.scoped_session() as session:
-            ecosystem = await Ecosystem.get(session, uid=ecosystem_uid)
-            camera = await Hardware.get(session, uid=camera_uid)
-            if ecosystem is None or camera is None:
-                return JSONResponse(
-                    content={"detail": "Unknown ecosystem or camera uid"},
-                    status_code=status.HTTP_404_NOT_FOUND
+            try:
+                await CameraPicture.update_or_create(
+                    session,
+                    ecosystem_uid=ecosystem_uid,
+                    camera_uid=camera_uid,
+                    values={
+                        "path": str(rel_path),
+                        "dimension": image.shape,
+                        "depth": image.depth,
+                        "timestamp": timestamp,
+                        "other_metadata": image.metadata,
+                    }
                 )
-            if camera.ecosystem_uid != ecosystem.uid:
+            except IntegrityError:
                 return JSONResponse(
-                    content={"detail": "Camera does not belong to ecosystem"},
+                    content={"detail": "Ecosystem or camera unknown"},
                     status_code=status.HTTP_400_BAD_REQUEST
                 )
-        # Save the picture
+        # Save image
         if image.is_compressed:
             image.uncompress(inplace=True)
-        picture_name = f"{camera_uid}.jpeg"
-        picture_path = self.static_dir / "camera_stream" / ecosystem_uid / picture_name
-        await run_sync(self._write_image, image, picture_path)
+        await run_sync(self._write_image, image, abs_path)
+        # Dispatch the data
+        await self.internal_dispatcher.emit(
+            "picture_arrays",
+            data={
+                "ecosystem_uid": ecosystem_uid,
+                "updated_pictures": [{
+                    "camera_uid": camera_uid,
+                    "path": str(rel_path),
+                    "timestamp": timestamp,
+                }],
+            }
+        )
+        # Return response
         return JSONResponse(content={"detail": "Image uploaded"})
 
     @staticmethod
