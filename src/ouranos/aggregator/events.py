@@ -267,30 +267,51 @@ class GaiaEvents(AsyncEventHandler):
     async def on_ping(
             self,
             sid: UUID,
-            data: list[dict[str, str]],
+            data: list[gv.EcosystemPingDataDict] | gv.EnginePingPayloadDict,
             engine_uid: str,
     ) -> None:
         self.logger.debug(f"Received 'ping' from engine {engine_uid}")
         await self.emit("pong", to=sid)
-        now = datetime.now(timezone.utc)
-        ecosystems_seen: list[str] = []
+        if isinstance(data, list):
+            payload: list[gv.EcosystemPingDataDict] = self.validate_payload(
+                data, RootModel[list[gv.EcosystemPingData]])
+            ecosystems_payload = payload
+        else:
+            payload: gv.EnginePingPayloadDict = self.validate_payload(
+                data, gv.EnginePingPayload)
+            ecosystems_payload = payload["ecosystems"]
+            self.logger.debug(
+                f"'ping' event from engine {engine_uid} emited at "
+                f"{payload['timestamp']}")
+        # Dispatch data to clients
         await self.internal_dispatcher.emit(
             "ecosystems_heartbeat",
             data={
                 "engine_uid": engine_uid,
-                "ecosystems": data,
+                "ecosystems": ecosystems_payload,
             },
             namespace="application-internal"
         )
+        # Log data
+        now = datetime.now(timezone.utc)
+        update_info: list[dict] = []
+        ecosystems_seen: list[str] = []
         async with db.scoped_session() as session:
             engine = await Engine.get(session, uid=engine_uid)
             if engine:
                 await Engine.update(session, uid=engine_uid, values={"last_seen": now})
-            ecosystems = await Ecosystem.get_multiple(
-                session, uid=[ecosystem["uid"] for ecosystem in data])
-            for ecosystem in ecosystems:
-                ecosystems_seen.append(ecosystem.name)
-                await Ecosystem.update(session, uid=ecosystem.uid, values={"last_seen": now})
+            for ecosystem in ecosystems_payload:
+                update_info.append({
+                    "uid": ecosystem["uid"],
+                    "status": ecosystem["status"],
+                    "last_seen": now,
+                })
+            await Ecosystem.update_multiple(session, values=update_info)
+            for ecosystem in ecosystems_payload:
+                Ecosystem.clear_cache(uid=ecosystem["uid"])
+                ecosystems_seen.append(
+                    await self.get_ecosystem_name(session, ecosystem["uid"])
+                )
         self.logger.debug(
             f"Updated last seen info for ecosystem(s) "
             f"{humanize_list(ecosystems_seen)}"
