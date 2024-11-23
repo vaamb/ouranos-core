@@ -41,7 +41,7 @@ class CRUDMixin:
         return cls._lookup_keys
 
     @classmethod
-    def _check_lookup_keys(cls, **lookup_keys) -> None:
+    def _check_lookup_keys(cls, *lookup_keys: str) -> None:
         valid_lookup_keys = cls._get_lookup_keys()
         if not all(lookup_key in lookup_keys for lookup_key in valid_lookup_keys):
             raise ValueError("You should provide all the lookup keys")
@@ -54,7 +54,7 @@ class CRUDMixin:
             values: dict,
             **lookup_keys: lookup_keys_type,
     ) -> None:
-        cls._check_lookup_keys(**lookup_keys)
+        cls._check_lookup_keys(*lookup_keys.keys())
         stmt = insert(cls).values(**lookup_keys, **values)
         await session.execute(stmt)
 
@@ -138,7 +138,7 @@ class CRUDMixin:
             values: dict,
             **lookup_keys: lookup_keys_type,
     ) -> None:
-        cls._check_lookup_keys(**lookup_keys)
+        cls._check_lookup_keys(*lookup_keys.keys())
         stmt = (
             update(cls)
             .where(
@@ -170,7 +170,7 @@ class CRUDMixin:
             /,
             **lookup_keys: lookup_keys_type,
     ) -> None:
-        cls._check_lookup_keys(**lookup_keys)
+        cls._check_lookup_keys(*lookup_keys.keys())
         stmt = (
             delete(cls)
             .where(
@@ -190,7 +190,7 @@ class CRUDMixin:
             values: dict,
             **lookup_keys: lookup_keys_type,
     ) -> None:
-        #cls._check_lookup_keys(**lookup_keys)
+        #cls._check_lookup_keys(*lookup_keys.keys())
         obj = await cls.get(session, **lookup_keys)
         if not obj:
             await cls.create(session, values=values, **lookup_keys)
