@@ -34,7 +34,8 @@ def test_handler(
 @pytest.mark.asyncio
 async def test_registration_wrapper(
         mock_dispatcher: MockAsyncDispatcher,
-        events_handler: GaiaEvents
+        events_handler: GaiaEvents,
+        ecosystem_aware_db: AsyncSQLAlchemyWrapper  # noqa
 ):
     await events_handler.on_ping(g_data.engine_sid, [
         {"uid": g_data.ecosystem_uid, "status": True}
@@ -71,7 +72,7 @@ async def test_on_disconnect(
 
     emitted = mock_dispatcher.emit_store[0]
     assert emitted["event"] == "ecosystem_status"
-    assert emitted["data"] == {}
+    assert emitted["data"] == {g_data.ecosystem_uid: {"status": True, "connected": False}}
     assert emitted["namespace"] == "application-internal"
 
 
@@ -106,9 +107,9 @@ async def test_on_register_engine(
 async def test_on_ping(
         mock_dispatcher: MockAsyncDispatcher,
         events_handler: GaiaEvents,
-        engine_aware_db: AsyncSQLAlchemyWrapper,
+        ecosystem_aware_db: AsyncSQLAlchemyWrapper,
 ):
-    async with engine_aware_db.scoped_session() as session:
+    async with ecosystem_aware_db.scoped_session() as session:
         engine = await Engine.get(session, uid=g_data.engine_uid)
         start = copy(engine.last_seen)
     await sleep(0.1)
@@ -117,7 +118,7 @@ async def test_on_ping(
         {"uid": g_data.ecosystem_uid, "status": True}
     ])
 
-    async with engine_aware_db.scoped_session() as session:
+    async with ecosystem_aware_db.scoped_session() as session:
         engine = await Engine.get_by_id(session, engine_id=g_data.engine_uid)
         assert engine.last_seen > start
 
