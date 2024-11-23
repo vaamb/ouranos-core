@@ -3,18 +3,19 @@ from asyncio import Future
 from datetime import datetime
 from logging import getLogger, Logger
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 from anyio.to_thread import run_sync
 from sqlalchemy.exc import IntegrityError
 from starlette.applications import Starlette
+from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from starlette.responses import Response
 from starlette.routing import Route
 from starlette import status
 from uvicorn import Config, Server
 
-from gaia_validators.image import SerializableImage
+from gaia_validators.image import SerializableImage, SerializableImagePayload
 
 from ouranos import current_app, db
 from ouranos.core.config.consts import TOKEN_SUBS
@@ -22,6 +23,12 @@ from ouranos.core.database.models.gaia import CameraPicture
 from ouranos.core.dispatchers import DispatcherFactory
 from ouranos.core.exceptions import TokenError
 from ouranos.core.utils import json, Tokenizer
+
+
+class UpdatedPictureInfo(TypedDict):
+    camera_uid: str
+    path: str
+    timestamp: datetime
 
 
 class JSONResponse(Response):
@@ -37,7 +44,7 @@ class FileServer:
     def __init__(self):
         self.logger: Logger = getLogger("ouranos.aggregator.server")
         self.static_dir = current_app.static_dir
-        self._image_max_size = 4 * 1024 * 1024
+        self._image_max_size = 1 * 1024 * 1024
         transfer_method = current_app.config.get("GAIA_PICTURE_TRANSFER_METHOD", None)
         self._server_needed = transfer_method in ("http", "both")
         self._app: Starlette | None = None
@@ -92,30 +99,23 @@ class FileServer:
     def routes(self) -> list[Route]:
         return [
             Route("/upload_camera_image", self.upload_camera_image, methods=["POST"]),
+            Route("/upload_camera_images", self.upload_camera_images, methods=["POST"]),
         ]
 
-    async def upload_camera_image(self, request: Request):
-        # Check we have a valid token
+    @staticmethod
+    def _check_token(request: Request) -> None:
         token = request.headers.get("token")
         try:
             claims = Tokenizer.loads(token)
             if not claims.get("sub") == TOKEN_SUBS.CAMERA_UPLOAD.value:
                 raise TokenError
         except TokenError:
-            return JSONResponse(
-                content={"detail": "Invalid token"},
-                status_code=status.HTTP_401_UNAUTHORIZED
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token",
             )
-        # Get the serialized image
-        chunks = bytearray()
-        async for chunk in request.stream():
-            chunks.extend(chunk)
-            if len(chunks) > self._image_max_size:
-                return JSONResponse(
-                    content={"detail": "Image too large"},
-                    status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
-                )
-        image = SerializableImage.deserialize(chunks)
+
+    async def _process_image(self, image: SerializableImage) -> UpdatedPictureInfo:
         # Get information
         ecosystem_uid = image.metadata.pop("ecosystem_uid")
         camera_uid = image.metadata.pop("camera_uid")
@@ -139,31 +139,78 @@ class FileServer:
                     }
                 )
             except IntegrityError:
-                return JSONResponse(
-                    content={"detail": "Ecosystem or camera unknown"},
-                    status_code=status.HTTP_400_BAD_REQUEST
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Ecosystem or camera unknown",
                 )
         # Save image
         if image.is_compressed:
             image.uncompress(inplace=True)
         await run_sync(self._write_image, image, abs_path)
-        # Dispatch the data
-        await self.internal_dispatcher.emit(
-            "picture_arrays",
-            data={
-                "ecosystem_uid": ecosystem_uid,
-                "updated_pictures": [{
-                    "camera_uid": camera_uid,
-                    "path": str(rel_path),
-                    "timestamp": timestamp,
-                }],
-            }
-        )
-        # Return response
-        return JSONResponse(content={"detail": "Image uploaded"})
+        # Return dict
+        return {
+            "camera_uid": camera_uid,
+            "path": str(rel_path),
+            "timestamp": timestamp,
+        }
 
     @staticmethod
     def _write_image(image: SerializableImage, path: Path) -> None:
         if not path.parent.exists():
             path.parent.mkdir(parents=True)
         image.write(path)
+
+    async def upload_camera_image(self, request: Request):
+        # Check we have a valid token
+        self._check_token(request)
+        # Get the serialized image
+        chunks = bytearray()
+        async for chunk in request.stream():
+            chunks.extend(chunk)
+            if len(chunks) > self._image_max_size:
+                return JSONResponse(
+                    content={"detail": "Image too large"},
+                    status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+                )
+        image = SerializableImage.deserialize(chunks)
+        ecosystem_uid = image.metadata["ecosystem_uid"]
+        updated_picture = await self._process_image(image)
+        # Dispatch the data
+        await self.internal_dispatcher.emit(
+            "picture_arrays",
+            data={
+                "ecosystem_uid": ecosystem_uid,
+                "updated_pictures": [updated_picture],
+            }
+        )
+        # Return response
+        return JSONResponse(content={"detail": "Image uploaded"})
+
+    async def upload_camera_images(self, request: Request):
+        # Check we have a valid token
+        self._check_token(request)
+        # Get the serialized image payload
+        chunks = bytearray()
+        async for chunk in request.stream():
+            chunks.extend(chunk)
+            if len(chunks) > self._image_max_size * 4:
+                return JSONResponse(
+                    content={"detail": "Images too large"},
+                    status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+                )
+        images = SerializableImagePayload.deserialize(chunks)
+        ecosystem_uid = images.uid
+        data_to_dispatch = {
+            "ecosystem_uid": ecosystem_uid,
+            "updated_pictures": [],
+        }
+        for image in images.data:
+            updated_picture = await self._process_image(image)
+            data_to_dispatch["updated_pictures"].append(updated_picture)
+        # Dispatch the data
+        await self.internal_dispatcher.emit(
+            "picture_arrays",
+            data=data_to_dispatch
+        )
+        # Return response
+        return JSONResponse(content={"detail": "Images uploaded"})
