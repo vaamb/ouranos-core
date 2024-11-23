@@ -1,4 +1,5 @@
 import asyncio
+from asyncio import Future
 from datetime import datetime
 from logging import getLogger, Logger
 from pathlib import Path
@@ -37,16 +38,30 @@ class FileServer:
         self.logger: Logger = getLogger("ouranos.aggregator.server")
         self.static_dir = current_app.static_dir
         self._image_max_size = 4 * 1024 * 1024
-        self.app = Starlette(routes=self.routes)
-        host: str = current_app.config.get("AGGREGATOR_HOST", "127.0.0.1")
-        port: int = current_app.config.get("AGGREGATOR_PORT", 7191)
-        server_cfg = Config(
-            app=self.app, host=host, port=port, log_config=None,
-            server_header=False, date_header=False)
-        self.server = Server(config=server_cfg)
-        self._future = None
+        transfer_method = current_app.config.get("GAIA_PICTURE_TRANSFER_METHOD", None)
+        self._server_needed = transfer_method in ("http", "both")
+        self._app: Starlette | None = None
+        self._server: Server | None = None
+        self._future: Future | None = None
         self.camera_dir: Path = Path(current_app.static_dir) / "camera_stream"
         self.internal_dispatcher = DispatcherFactory.get("aggregator-internal")
+
+    @property
+    def app(self) -> Starlette:
+        if self._app is None:
+            self._app = Starlette(routes=self.routes)
+        return self._app
+
+    @property
+    def server(self) -> Server:
+        if self._server is None:
+            host: str = current_app.config.get("AGGREGATOR_HOST", "127.0.0.1")
+            port: int = current_app.config.get("AGGREGATOR_PORT", 7191)
+            server_cfg = Config(
+                app=self.app, host=host, port=port, log_config=None,
+                server_header=False, date_header=False)
+            self._server = Server(config=server_cfg)
+        return self._server
 
     """Start stop logic"""
     @property
@@ -55,12 +70,15 @@ class FileServer:
 
     async def start(self):
         if self.started:
-            raise Exception("Server already started")
+            raise Exception("File server already started")
+        if not self._server_needed:
+            self.logger.debug("The file server is not needed")
+            return
         self.logger.info("Starting the file server")
         self._future = asyncio.ensure_future(self.server.serve())
         host = self.server.config.host
         port = self.server.config.port
-        self.logger.info(f"Server started at http://{host}:{port}.")
+        self.logger.info(f"File server running on http://{host}:{port}.")
 
     async def stop(self):
         if not self.started:

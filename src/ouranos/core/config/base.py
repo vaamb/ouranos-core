@@ -59,6 +59,7 @@ class BaseConfig:
 
     AGGREGATOR_HOST = os.environ.get("OURANOS_API_HOST", API_HOST)
     AGGREGATOR_PORT = os.environ.get("OURANOS_AGGREGATOR_PORT", 7191)
+    GAIA_PICTURE_TRANSFER_METHOD = "both"  # "broker", "http" or "both"
 
     PLUGINS_OMITTED = os.environ.get("OURANOS_PLUGINS_OMITTED")
 
@@ -162,6 +163,7 @@ class BaseConfigDict(TypedDict):
 
     AGGREGATOR_HOST: str
     AGGREGATOR_PORT: int
+    GAIA_PICTURE_TRANSFER_METHOD: str
 
     PLUGINS_OMITTED: str
 
