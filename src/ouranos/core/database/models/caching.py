@@ -264,6 +264,12 @@ class CachedCRUDMixin(CRUDMixin):
     _cache: MutableMapping
 
     @classmethod
+    def clear_cache(cls, /, **lookup_keys: lookup_keys_type) -> None:
+        cls._check_lookup_keys(*lookup_keys)
+        key = create_hashable_key(**lookup_keys)
+        cls._cache.pop(key, None)
+
+    @classmethod
     @clearing_method(key=clearer_hash)
     async def create(
             cls,
