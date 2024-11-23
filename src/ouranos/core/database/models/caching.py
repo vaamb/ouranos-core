@@ -265,7 +265,7 @@ class CachedCRUDMixin(CRUDMixin):
 
     @classmethod
     def clear_cache(cls, /, **lookup_keys: lookup_keys_type) -> None:
-        cls._check_lookup_keys(*lookup_keys)
+        cls._check_lookup_keys(*lookup_keys.keys())
         key = create_hashable_key(**lookup_keys)
         cls._cache.pop(key, None)
 

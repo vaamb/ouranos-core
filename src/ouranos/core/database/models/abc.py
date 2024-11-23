@@ -190,7 +190,7 @@ class CRUDMixin:
             values: dict,
             **lookup_keys: lookup_keys_type,
     ) -> None:
-        #cls._check_lookup_keys(**lookup_keys)
+        #cls._check_lookup_keys(*lookup_keys.keys())
         obj = await cls.get(session, **lookup_keys)
         if not obj:
             await cls.create(session, values=values, **lookup_keys)
