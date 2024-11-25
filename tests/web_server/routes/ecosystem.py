@@ -362,7 +362,8 @@ def test_delete_environment_parameter_request_success(client_operator: TestClien
 def test_get_actuator_records(client: TestClient):
     actuator = g_data.actuator_record.type.name
     response = client.get(
-        f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/actuator_records/{actuator}")
+        f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/actuator_records/u/{actuator}")
+    x = 1
     assert response.status_code == 200
 
     data = json.loads(response.text)

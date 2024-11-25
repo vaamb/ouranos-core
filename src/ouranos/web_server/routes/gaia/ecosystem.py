@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from enum import StrEnum
 from typing import Annotated
 
 from fastapi import (
@@ -45,6 +46,8 @@ uid_desc = (
 id_desc = "An ecosystem id, either its uid or its name"
 env_parameter_desc = (
     "The environment parameter targeted. Leave empty to select them all")
+
+HardwareTypeName = StrEnum("_HardwareType", [i.name for i in gv.HardwareType])
 
 
 async def environment_parameter_or_abort(
@@ -666,12 +669,12 @@ async def get_ecosystem_actuators_status(
     return response
 
 
-@router.get("/u/{id}/actuator_records/{actuator_type}",
+@router.get("/u/{id}/actuator_records/u/{actuator_type}",
             response_model=EcosystemActuatorRecords)
 async def get_ecosystem_actuator_records(
         id: Annotated[str, Path(description=id_desc)],
         actuator_type: Annotated[
-            str,
+            HardwareTypeName,
             Path(description="The actuator type to search for."),
         ],
         time_window: Annotated[
@@ -680,21 +683,15 @@ async def get_ecosystem_actuator_records(
         ],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    assert_single_uid(id)
-    assert_single_uid(actuator_type, "actuator_type")
-    error = False
     try:
-        actuator_type = safe_enum_from_name(gv.HardwareType, actuator_type)
-    except ValueError:
-        error = True
-    else:
+        actuator_type = safe_enum_from_name(gv.HardwareType, actuator_type.name)
         if not actuator_type & gv.HardwareType.actuator:
-            error = True
-    if error:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid actuator type"
-        )
+            raise ValueError
+    except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid actuator type"
+            )
     ecosystem = await ecosystem_or_abort(session, id)
     response = {
         "uid": ecosystem.uid,
