@@ -46,7 +46,10 @@ id_desc = "An ecosystem id, either its uid or its name"
 env_parameter_desc = (
     "The environment parameter targeted. Leave empty to select them all")
 
-HardwareTypeName = StrEnum("_HardwareType", [i.name for i in gv.HardwareType])
+HardwareTypeName = StrEnum(
+    "HardwareTypeName",
+    [i.name for i in gv.HardwareType if i in gv.HardwareType.actuator]
+)
 
 
 async def environment_parameter_or_abort(
@@ -628,7 +631,7 @@ async def get_ecosystem_actuator_records(
         id: Annotated[str, Path(description=id_desc)],
         actuator_type: Annotated[
             HardwareTypeName,
-            Path(description="The actuator type to search for."),
+            Path(description="The actuator type to search for"),
         ],
         time_window: Annotated[
             timeWindow,
@@ -636,15 +639,7 @@ async def get_ecosystem_actuator_records(
         ],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    try:
-        actuator_type = safe_enum_from_name(gv.HardwareType, actuator_type.name)
-        if not actuator_type & gv.HardwareType.actuator:
-            raise ValueError
-    except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid actuator type"
-            )
+    actuator_type = safe_enum_from_name(gv.HardwareType, actuator_type.name)
     ecosystem = await ecosystem_or_abort(session, id)
     response = {
         "uid": ecosystem.uid,
@@ -658,39 +653,38 @@ async def get_ecosystem_actuator_records(
     return response
 
 
-@router.put("/u/{id}/turn_actuator",
+@router.put("/u/{id}/turn_actuator/u/{actuator_type}",
             response_model=ResultResponse,
             status_code=status.HTTP_202_ACCEPTED,
             dependencies=[Depends(is_operator)])
 async def turn_actuator(
         id: Annotated[str, Path(description=id_desc)],
+        actuator_type: Annotated[
+            HardwareTypeName,
+            Path(description="The actuator type to search for"),
+        ],
         payload: Annotated[
             EcosystemTurnActuatorPayload,
             Body(description="Instruction for the actuator"),
         ],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    ecosystem = await ecosystem_or_abort(session, id)
+    actuator_type = safe_enum_from_name(gv.HardwareType, actuator_type.name)
     instruction_dict = payload.model_dump()
-    actuator: gv.HardwareType = instruction_dict["actuator"]
-    if not actuator & gv.HardwareType.actuator:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"{actuator.name.capitalize()} is not an actuator"
-        )
     mode: gv.ActuatorModePayload = instruction_dict["mode"]
     countdown = instruction_dict["countdown"]
     try:
-        assert_single_uid(id)
-        ecosystem = await ecosystem_or_abort(session, id)
         await ecosystem.turn_actuator(
-            dispatcher, actuator, mode, countdown)
+            dispatcher, actuator_type, mode, countdown)
         return ResultResponse(
-            msg=f"Turned {ecosystem.name}'s {actuator.name} to mode '{mode.name}'",
+            msg=f"Turned {ecosystem.name}'s {actuator_type.name} to mode '{mode.name}'",
             status=ResultStatus.success
         )
     except Exception as e:
         return ResultResponse(
-            msg=f"Failed to turn {actuator} from ecosystem with id {id} to "
-                f"mode '{mode}'. Error msg: `{e.__class__.__name__}: {e}`",
+            msg=f"Failed to turn {actuator_type.name} from ecosystem with id "
+                f"{ecosystem_id} to mode '{mode}'. Error msg: "
+                f"`{e.__class__.__name__}: {e}`",
             status=ResultStatus.failure
         )

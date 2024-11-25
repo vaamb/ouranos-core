@@ -336,26 +336,25 @@ def test_turn_actuator_failure_user(
         client_user: TestClient,
 ):
     response = client_user.put(
-        f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/turn_actuator"
+        f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/turn_actuator/u/heater"
     )
     assert response.status_code == 403
 
 
 def test_turn_actuator_failure_payload(client_operator: TestClient):
     response = client_operator.put(
-        f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/turn_actuator",
+        f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/turn_actuator/u/heater",
     )
     assert response.status_code == 422
 
 
 def test_turn_actuator_success(client_operator: TestClient):
     payload = {
-        "actuator": "heater",
         "mode": "automatic",
         "countdown": 0.0,
     }
     response = client_operator.put(
-        f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/turn_actuator",
+        f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/turn_actuator/u/heater",
         json=payload
     )
     assert response.status_code == 202
