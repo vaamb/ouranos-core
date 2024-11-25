@@ -11,8 +11,7 @@ from ouranos.core.database.models.gaia import Ecosystem, Measure, Sensor
 from ouranos.core.utils import timeWindow
 from ouranos.web_server.dependencies import get_session, get_time_window
 from ouranos.web_server.routes.gaia.utils import (
-    ecosystem_or_abort, h_level_desc, in_config_desc, uids_desc)
-from ouranos.web_server.routes.utils import assert_single_uid
+    ecosystem_or_abort, eids_desc, euid_desc, h_level_desc, in_config_desc)
 from ouranos.web_server.validate.gaia.sensor import (
     EcosystemSensorData, SensorMeasureCurrentTimedValue,
     SensorMeasureHistoricTimedValue, SensorSkeletonInfo)
@@ -53,7 +52,7 @@ async def get_measures_available(session: AsyncSession = Depends(get_session)):
 @router.get("/sensor/skeleton", response_model=list[SensorSkeletonInfo])
 async def get_ecosystems_sensors_skeleton(
         *,
-        ecosystems_id: Annotated[list[str] | None, Query(description=uids_desc)] = None,
+        ecosystems_id: Annotated[list[str] | None, Query(description=eids_desc)] = None,
         level: Annotated[
             list[gv.HardwareLevel] | None,
             Query(description=h_level_desc)
@@ -75,10 +74,11 @@ async def get_ecosystems_sensors_skeleton(
     return response
 
 
-@router.get("/u/{id}/sensor/skeleton", response_model=SensorSkeletonInfo)
+@router.get("/u/{ecosystem_uid}/sensor/skeleton",
+            response_model=SensorSkeletonInfo)
 async def get_ecosystem_sensors_skeleton(
         *,
-        id: Annotated[str, Path(description=id_desc)],
+        ecosystem_uid: Annotated[str, Path(description=euid_desc)],
         level: Annotated[
             list[gv.HardwareLevel]| None,
             Query(description=h_level_desc),
@@ -89,8 +89,7 @@ async def get_ecosystem_sensors_skeleton(
         ],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    assert_single_uid(id)
-    ecosystem = await ecosystem_or_abort(session, id)
+    ecosystem = await ecosystem_or_abort(session, ecosystem_uid)
     response = await ecosystem.get_sensors_data_skeleton(
         session, time_window=time_window, level=level)
     return response
@@ -99,7 +98,7 @@ async def get_ecosystem_sensors_skeleton(
 @router.get("/sensor/data/current", response_model=list[EcosystemSensorData])
 async def get_measures_available(
         *,
-        ecosystems_id: Annotated[list[str] | None, Query(description=uids_desc)] = None,
+        ecosystems_id: Annotated[list[str] | None, Query(description=eids_desc)] = None,
         in_config: Annotated[bool | None, Query(description=in_config_desc)] = None,
         session: Annotated[AsyncSession, Depends(get_session)]
 ):
@@ -115,13 +114,13 @@ async def get_measures_available(
     return response
 
 
-@router.get("/u/{id}/sensor/data/current", response_model=EcosystemSensorData)
+@router.get("/u/{ecosystem_uid}/sensor/data/current",
+            response_model=EcosystemSensorData)
 async def get_ecosystem_current_data(
-        id: Annotated[str, Path(description=id_desc)],
+        ecosystem_uid: Annotated[str, Path(description=euid_desc)],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    assert_single_uid(id)
-    ecosystem = await ecosystem_or_abort(session, id)
+    ecosystem = await ecosystem_or_abort(session, ecosystem_uid)
     response = {
         "uid": ecosystem.uid,
         "name": ecosystem.name,
@@ -130,20 +129,19 @@ async def get_ecosystem_current_data(
     return response
 
 
-@router.get("/u/{id}/sensor/u/{uid}/data/{measure}/current",
+@router.get("/u/{ecosystem_uid}/sensor/u/{hardware_uid}/data/{measure}/current",
             response_model=SensorMeasureCurrentTimedValue)
 async def get_sensor_current_data(
-        id: Annotated[str, Path(description=id_desc)],
-        uid: Annotated[str, Path(description="The uid of a sensor")],
+        ecosystem_uid: Annotated[str, Path(description=euid_desc)],
+        hardware_uid: Annotated[str, Path(description="The uid of a sensor")],
         measure: Annotated[
             str,
             Path(description="The measure for which to fetch current data"),
         ],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    assert_single_uid(uid)
-    await ecosystem_or_abort(session, id)
-    sensor = await sensor_or_abort(session, uid)
+    await ecosystem_or_abort(session, ecosystem_uid)
+    sensor = await sensor_or_abort(session, hardware_uid)
     current_data = await sensor.get_current_data(session, measure=measure)
     if current_data is None:
         raise HTTPException(
@@ -157,11 +155,11 @@ async def get_sensor_current_data(
     return response
 
 
-@router.get("/u/{id}/sensor/u/{uid}/data/{measure}/historic",
+@router.get("/u/{ecosystem_uid}/sensor/u/{hardware_uid}/data/{measure}/historic",
             response_model=SensorMeasureHistoricTimedValue)
 async def get_sensor_historic_data(
-        id: Annotated[str, Path(description=id_desc)],
-        uid: Annotated[str, Path(description="The uid of a sensor")],
+        ecosystem_uid: Annotated[str, Path(description=euid_desc)],
+        hardware_uid: Annotated[str, Path(description="The uid of a sensor")],
         measure: Annotated[
             str,
             Path(description="The measure for which to fetch historic data"),
@@ -172,9 +170,8 @@ async def get_sensor_historic_data(
         ],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    assert_single_uid(uid)
-    await ecosystem_or_abort(session, id)
-    sensor = await sensor_or_abort(session, uid)
+    await ecosystem_or_abort(session, ecosystem_uid)
+    sensor = await sensor_or_abort(session, hardware_uid)
     historic_data = await sensor.get_historic_data(
         session, measure=measure, time_window=time_window)
     if historic_data is None:

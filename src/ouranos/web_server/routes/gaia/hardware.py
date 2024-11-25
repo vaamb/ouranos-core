@@ -14,7 +14,7 @@ from ouranos.core.dispatchers import DispatcherFactory
 from ouranos.web_server.auth import is_operator
 from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.routes.gaia.utils import (
-    ecosystem_or_abort, h_level_desc, in_config_desc, uids_desc)
+    ecosystem_or_abort, eids_desc, euid_desc, h_level_desc, in_config_desc)
 from ouranos.web_server.validate.base import ResultResponse, ResultStatus
 from ouranos.web_server.validate.gaia.hardware import (
     HardwareType, HardwareInfo, HardwareModelInfo, HardwareUpdatePayload)
@@ -28,9 +28,6 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
     tags=["gaia/ecosystem/hardware"],
 )
-
-
-id_desc = "An ecosystem id, either its uid or its name"
 
 
 async def hardware_or_abort(
@@ -55,7 +52,7 @@ async def get_multiple_hardware(
         ] = None,
         ecosystems_uid: Annotated[
             list[str] | None,
-            Query(description=uids_desc),
+            Query(description=eids_desc),
         ] = None,
         hardware_level: Annotated[
             list[gv.HardwareLevel] | None,
@@ -97,10 +94,10 @@ async def get_hardware_models_available():
     return response
 
 
-@router.get("/u/{id}/hardware", response_model=list[HardwareInfo])
+@router.get("/u/{ecosystem_uid}/hardware", response_model=list[HardwareInfo])
 async def get_ecosystem_hardware(
         *,
-        id: Annotated[str, Path(description=id_desc)],
+        ecosystem_uid: Annotated[str, Path(description=euid_desc)],
         hardware_type: Annotated[
             list[gv.HardwareType] | None,
             Query(description="A list of types of hardware"),
@@ -108,25 +105,25 @@ async def get_ecosystem_hardware(
         in_config: Annotated[bool | None, Query(description=in_config_desc)] = None,
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    ecosystem = await ecosystem_or_abort(session, id)
+    ecosystem = await ecosystem_or_abort(session, ecosystem_uid)
     hardware = await ecosystem.get_hardware(
         session, hardware_type=hardware_type, in_config=in_config)
     return hardware
 
 
-@router.post("/u/{id}/hardware/u",
+@router.post("/u/{ecosystem_uid}/hardware/u",
              response_model=ResultResponse,
              status_code=status.HTTP_202_ACCEPTED,
              dependencies=[Depends(is_operator)])
 async def create_hardware(
-        id: Annotated[str, Path(description=id_desc)],
+        ecosystem_uid: Annotated[str, Path(description=euid_desc)],
         payload: Annotated[
             gv.AnonymousHardwareConfig,
             Body(description="Information about the new hardware"),
         ],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    ecosystem = await ecosystem_or_abort(session, id)
+    ecosystem = await ecosystem_or_abort(session, ecosystem_uid)
     hardware_dict = payload.model_dump()
     try:
         # TODO: check address before dispatching
@@ -159,32 +156,32 @@ async def create_hardware(
         )
 
 
-@router.get("/u/{id}/hardware/u/{uid}", response_model=HardwareInfo)
+@router.get("/u/{ecosystem_uid}/hardware/u/{hardware_uid}", response_model=HardwareInfo)
 async def get_hardware(
-        id: Annotated[str, Path(description=id_desc)],
-        uid: Annotated[str, Path(description="The uid of a hardware")],
+        ecosystem_uid: Annotated[str, Path(description=euid_desc)],
+        hardware_uid: Annotated[str, Path(description="The uid of a hardware")],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    await ecosystem_or_abort(session, id)
-    hardware = await hardware_or_abort(session, uid)
+    await ecosystem_or_abort(session, ecosystem_uid)
+    hardware = await hardware_or_abort(session, hardware_uid)
     return hardware
 
 
-@router.put("/u/{id}/hardware/u/{uid}",
+@router.put("/u/{ecosystem_uid}/hardware/u/{hardware_uid}",
             response_model=ResultResponse,
             status_code=status.HTTP_202_ACCEPTED,
             dependencies=[Depends(is_operator)])
 async def update_hardware(
-        id: Annotated[str, Path(description=id_desc)],
-        uid: Annotated[str, Path(description="The uid of a hardware")],
+        ecosystem_uid: Annotated[str, Path(description=euid_desc)],
+        hardware_uid: Annotated[str, Path(description="The uid of a hardware")],
         payload: Annotated[
             HardwareUpdatePayload,
             Body(description="Updated information about the hardware"),
         ],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    ecosystem = await ecosystem_or_abort(session, id)
-    hardware = await hardware_or_abort(session, uid)
+    ecosystem = await ecosystem_or_abort(session, ecosystem_uid)
+    hardware = await hardware_or_abort(session, hardware_uid)
     hardware_dict = payload.model_dump()
     try:
         await dispatcher.emit(
@@ -210,23 +207,23 @@ async def update_hardware(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"Failed to send hardware update order to engine "
-                f"for hardware '{id}'. Error msg: `{e.__class__.__name__}: "
+                f"for hardware '{ecosystem_uid}'. Error msg: `{e.__class__.__name__}: "
                 f"{e}`",
             ),
         )
 
 
-@router.delete("/u/{id}/hardware/u/{uid}",
+@router.delete("/u/{ecosystem_uid}/hardware/u/{hardware_uid}",
                response_model=ResultResponse,
                status_code=status.HTTP_202_ACCEPTED,
                dependencies=[Depends(is_operator)])
 async def delete_hardware(
-        id: Annotated[str, Path(description=id_desc)],
-        uid: Annotated[str, Path(description="The uid of a hardware")],
+        ecosystem_uid: Annotated[str, Path(description=euid_desc)],
+        hardware_uid: Annotated[str, Path(description="The uid of a hardware")],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    ecosystem = await ecosystem_or_abort(session, id)
-    hardware = await hardware_or_abort(session, uid)
+    ecosystem = await ecosystem_or_abort(session, ecosystem_uid)
+    hardware = await hardware_or_abort(session, hardware_uid)
     try:
         await dispatcher.emit(
             event="crud",
@@ -237,7 +234,7 @@ async def delete_hardware(
                 ),
                 action=gv.CrudAction.delete,
                 target="hardware",
-                data=uid,
+                data=hardware_uid,
             ).model_dump(),
             namespace="aggregator-internal",
         )
@@ -250,7 +247,7 @@ async def delete_hardware(
         HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
-                f"Failed to send delete order for hardware with uid '{uid}'. "
+                f"Failed to send delete order for hardware with uid '{hardware_uid}'. "
                 f"Error msg: `{e.__class__.__name__}: {e}`",
             ),
         )

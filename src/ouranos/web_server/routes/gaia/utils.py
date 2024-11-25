@@ -4,8 +4,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ouranos.core.database.models.gaia import Ecosystem
 
 
-uids_desc = (
+eids_desc = (
     "A list of ecosystem ids (either uids or names), or 'recent' or 'connected'")
+euid_desc = "An ecosystem uid"
 h_level_desc = (
     "The sensor_level at which the sensor gathers data. Leave empty for both")
 in_config_desc = (
