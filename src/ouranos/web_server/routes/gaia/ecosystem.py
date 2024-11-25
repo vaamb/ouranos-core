@@ -27,9 +27,7 @@ from ouranos.web_server.validate.gaia.ecosystem import (
     EnvironmentParameterCreationPayload, EnvironmentParameterUpdatePayload,
     EnvironmentParameterInfo,
     EcosystemActuatorInfo, EcosystemActuatorRecords, EcosystemTurnActuatorPayload)
-from ouranos.web_server.validate.gaia.hardware import HardwareInfo
-from ouranos.web_server.validate.gaia.sensor import (
-    EcosystemSensorData, SensorSkeletonInfo)
+from ouranos.web_server.validate.gaia.sensor import SensorSkeletonInfo
 
 
 dispatcher: AsyncDispatcher = DispatcherFactory.get("application-internal")
@@ -604,43 +602,6 @@ async def delete_environment_parameters(
                 f"for ecosystem '{id}'. Error msg: `{e.__class__.__name__}: {e}`",
             ),
         )
-
-
-# ------------------------------------------------------------------------------
-#   Ecosystem current data
-# ------------------------------------------------------------------------------
-@router.get("/current_data", response_model=list[EcosystemSensorData])
-async def get_ecosystems_current_data(
-        *,
-        ecosystems_id: Annotated[list[str] | None, Query(description=uids_desc)] = None,
-        in_config: Annotated[bool | None, Query(description=in_config_desc)] = None,
-        session: Annotated[AsyncSession, Depends(get_session)],
-):
-    ecosystems = await Ecosystem.get_multiple_by_id(
-        session, ecosystems_id=ecosystems_id, in_config=in_config)
-    response = [
-        {
-            "uid": ecosystem.uid,
-            "name": ecosystem.name,
-            "values": await ecosystem.get_current_data(session)
-        } for ecosystem in ecosystems
-    ]
-    return response
-
-
-@router.get("/u/{id}/current_data", response_model=EcosystemSensorData)
-async def get_ecosystem_current_data(
-        id: Annotated[str, Path(description=id_desc)],
-        session: Annotated[AsyncSession, Depends(get_session)],
-):
-    assert_single_uid(id)
-    ecosystem = await ecosystem_or_abort(session, id)
-    response = {
-        "uid": ecosystem.uid,
-        "name": ecosystem.name,
-        "values": await ecosystem.get_current_data(session)
-    }
-    return response
 
 
 # ------------------------------------------------------------------------------

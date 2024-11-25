@@ -78,7 +78,7 @@ tags_metadata = [
                        "as an operator",
     },
     {
-        "name": "gaia/sensor",
+        "name": "gaia/ecosystem/sensor",
         "description": "Consult Gaia's sensors info and data",
     },
     {
