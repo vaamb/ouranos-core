@@ -34,7 +34,8 @@ async def get_multiple_camera_picture_info(
     return pictures_info
 
 
-@router.get("/u/{ecosystem_uid}/image_info", response_model=list[CameraPictureInfo])
+@router.get("/u/{ecosystem_uid}/image_info",
+            response_model=list[CameraPictureInfo])
 async def get_camera_picture_info_for_ecosystem(
         *,
         ecosystem_uid: Annotated[str, Path(description=euid_desc)],
@@ -50,7 +51,8 @@ async def get_camera_picture_info_for_ecosystem(
     return pictures_info
 
 
-@router.get("/u/{ecosystem_uid}/image_info/u/{camera_uid}", response_model=CameraPictureInfo)
+@router.get("/u/{ecosystem_uid}/image_info/u/{camera_uid}",
+            response_model=CameraPictureInfo)
 async def get_camera_picture_info(
         *,
         ecosystem_uid: Annotated[str, Path(description=euid_desc)],
