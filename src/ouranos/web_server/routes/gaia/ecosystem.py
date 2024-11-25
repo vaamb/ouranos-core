@@ -126,7 +126,12 @@ async def get_ecosystem(
         ],
         session: Annotated [AsyncSession, Depends(get_session)],
 ):
-    ecosystem = await ecosystem_or_abort(session, ecosystem_id)
+    ecosystem = await Ecosystem.get_by_id(session, ecosystem_id=ecosystem_id)
+    if ecosystem is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No ecosystem(s) found"
+        )
     return ecosystem
 
 

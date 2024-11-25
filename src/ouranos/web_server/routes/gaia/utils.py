@@ -17,9 +17,9 @@ in_config_desc = (
 
 async def ecosystem_or_abort(
         session: AsyncSession,
-        ecosystem_id: str,
+        ecosystem_uid: str,
 ) -> Ecosystem:
-    ecosystem = await Ecosystem.get_by_id(session, ecosystem_id=ecosystem_id)
+    ecosystem = await Ecosystem.get(session, uid=ecosystem_uid)
     if ecosystem:
         return ecosystem
     raise HTTPException(
