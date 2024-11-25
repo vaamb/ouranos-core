@@ -162,51 +162,6 @@ def test_update_management_request_success(client_operator: TestClient):
 
 
 # ------------------------------------------------------------------------------
-#   Ecosystem sensors skeleton
-# ------------------------------------------------------------------------------
-@pytest.mark.asyncio
-async def test_ecosystems_sensors_skeleton(
-        client: TestClient,
-        db: AsyncSQLAlchemyWrapper,
-):
-    response = client.get("/api/gaia/ecosystem/sensors_skeleton")
-    assert response.status_code == 200
-
-    data = json.loads(response.text)[0]
-    async with db.scoped_session() as session:
-        time_window = create_time_window()
-        ecosystem = await Ecosystem.get(session, uid=g_data.ecosystem_uid)
-        skeleton = await ecosystem.get_sensors_data_skeleton(
-            session, time_window=time_window)
-    assert data["uid"] == skeleton["uid"] == g_data.ecosystem_uid
-    assert data["name"] == skeleton["name"] == g_data.ecosystem_name
-    assert data["sensors_skeleton"] == skeleton["sensors_skeleton"]
-    assert datetime.fromisoformat(data["span"][0]) == skeleton["span"][0]
-    assert datetime.fromisoformat(data["span"][1]) == skeleton["span"][1]
-
-
-@pytest.mark.asyncio
-async def test_ecosystem_sensors_skeleton_unique(
-        client: TestClient,
-        db: AsyncSQLAlchemyWrapper,
-):
-    response = client.get(f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/sensors_skeleton")
-    assert response.status_code == 200
-
-    data = json.loads(response.text)
-    async with db.scoped_session() as session:
-        time_window = create_time_window()
-        ecosystem = await Ecosystem.get(session, uid=g_data.ecosystem_uid)
-        skeleton = await ecosystem.get_sensors_data_skeleton(
-            session, time_window=time_window)
-    assert data["uid"] == skeleton["uid"] == g_data.ecosystem_uid
-    assert data["name"] == skeleton["name"] == g_data.ecosystem_name
-    assert data["sensors_skeleton"] == skeleton["sensors_skeleton"]
-    assert datetime.fromisoformat(data["span"][0]) == skeleton["span"][0]
-    assert datetime.fromisoformat(data["span"][1]) == skeleton["span"][1]
-
-
-# ------------------------------------------------------------------------------
 #   Ecosystem light
 # ------------------------------------------------------------------------------
 def test_light(client: TestClient):

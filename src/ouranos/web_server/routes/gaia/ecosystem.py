@@ -19,7 +19,7 @@ from ouranos.web_server.auth import is_operator
 from ouranos.web_server.dependencies import get_session, get_time_window
 from ouranos.web_server.routes.utils import assert_single_uid
 from ouranos.web_server.routes.gaia.utils import (
-    ecosystem_or_abort, h_level_desc, in_config_desc, uids_desc)
+    ecosystem_or_abort, in_config_desc, uids_desc)
 from ouranos.web_server.validate.base import ResultResponse, ResultStatus
 from ouranos.web_server.validate.gaia.ecosystem import (
     EcosystemCreationPayload, EcosystemUpdatePayload, EcosystemInfo,
@@ -28,7 +28,6 @@ from ouranos.web_server.validate.gaia.ecosystem import (
     EnvironmentParameterCreationPayload, EnvironmentParameterUpdatePayload,
     EnvironmentParameterInfo,
     EcosystemActuatorInfo, EcosystemActuatorRecords, EcosystemTurnActuatorPayload)
-from ouranos.web_server.validate.gaia.sensor import SensorSkeletonInfo
 
 
 dispatcher: AsyncDispatcher = DispatcherFactory.get("application-internal")
@@ -292,52 +291,6 @@ async def update_management(
                 f"`{e.__class__.__name__}: {e}`",
             ),
         )
-
-
-# ------------------------------------------------------------------------------
-#   Ecosystem sensors skeleton
-# ------------------------------------------------------------------------------
-@router.get("/sensors_skeleton", response_model=list[SensorSkeletonInfo])
-async def get_ecosystems_sensors_skeleton(
-        *,
-        ecosystems_id: Annotated[list[str] | None, Query(description=uids_desc)] = None,
-        level: Annotated[
-            list[gv.HardwareLevel] | None,
-            Query(description=h_level_desc)
-        ] = None,
-        in_config: Annotated[bool | None, Query(description=in_config_desc)] = None,
-        time_window: Annotated[
-            timeWindow,
-            Depends(get_time_window(rounding=10, grace_time=60)),
-        ],
-        session: Annotated[AsyncSession, Depends(get_session)],
-):
-    ecosystems = await Ecosystem.get_multiple_by_id(
-        session, ecosystems_id=ecosystems_id, in_config=in_config)
-    response = [
-        await ecosystem.get_sensors_data_skeleton(
-            session, time_window=time_window, level=level)
-        for ecosystem in ecosystems
-    ]
-    return response
-
-
-@router.get("/u/{id}/sensors_skeleton", response_model=SensorSkeletonInfo)
-async def get_ecosystem_sensors_skeleton(
-        *,
-        id: Annotated[str, Path(description=id_desc)],
-        level: Annotated[list[gv.HardwareLevel]| None, Query(description=h_level_desc)] = None,
-        time_window: Annotated[
-            timeWindow,
-            Depends(get_time_window(rounding=10, grace_time=60)),
-        ],
-        session: Annotated[AsyncSession, Depends(get_session)],
-):
-    assert_single_uid(id)
-    ecosystem = await ecosystem_or_abort(session, id)
-    response = await ecosystem.get_sensors_data_skeleton(
-        session, time_window=time_window, level=level)
-    return response
 
 
 # ------------------------------------------------------------------------------
