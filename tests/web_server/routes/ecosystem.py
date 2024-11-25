@@ -1,14 +1,10 @@
 from datetime import datetime, time
 
 from fastapi.testclient import TestClient
-import pytest
 
 import gaia_validators as gv
-from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
 from ouranos import json
-from ouranos.core.database.models.gaia import Ecosystem
-from ouranos.core.utils import create_time_window
 
 import tests.data.gaia as g_data
 

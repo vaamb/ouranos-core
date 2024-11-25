@@ -6,11 +6,9 @@ from fastapi import (
     APIRouter, Body, Depends, HTTPException, Path, Query, status)
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from dispatcher import AsyncDispatcher
 import gaia_validators as gv
 
 from ouranos.core.database.models.gaia import Hardware
-from ouranos.core.dispatchers import DispatcherFactory
 from ouranos.web_server.auth import is_operator
 from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.routes.gaia.utils import (
@@ -18,9 +16,6 @@ from ouranos.web_server.routes.gaia.utils import (
 from ouranos.web_server.validate.base import ResultResponse, ResultStatus
 from ouranos.web_server.validate.gaia.hardware import (
     HardwareType, HardwareInfo, HardwareModelInfo, HardwareUpdatePayload)
-
-
-dispatcher: AsyncDispatcher = DispatcherFactory.get("application-internal")
 
 
 router = APIRouter(
