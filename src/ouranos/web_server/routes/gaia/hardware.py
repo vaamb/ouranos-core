@@ -9,27 +9,28 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from dispatcher import AsyncDispatcher
 import gaia_validators as gv
 
-from ouranos.core.database.models.gaia import Ecosystem, Hardware
+from ouranos.core.database.models.gaia import Hardware
 from ouranos.core.dispatchers import DispatcherFactory
 from ouranos.web_server.auth import is_operator
 from ouranos.web_server.dependencies import get_session
-from ouranos.web_server.routes.utils import assert_single_uid
 from ouranos.web_server.routes.gaia.utils import (
     ecosystem_or_abort, h_level_desc, in_config_desc, uids_desc)
 from ouranos.web_server.validate.base import ResultResponse, ResultStatus
 from ouranos.web_server.validate.gaia.hardware import (
-    HardwareType, HardwareCreationPayload, HardwareInfo, HardwareModelInfo,
-    HardwareUpdatePayload)
+    HardwareType, HardwareInfo, HardwareModelInfo, HardwareUpdatePayload)
 
 
 dispatcher: AsyncDispatcher = DispatcherFactory.get("application-internal")
 
 
 router = APIRouter(
-    prefix="/hardware",
+    prefix="/ecosystem",
     responses={404: {"description": "Not found"}},
-    tags=["gaia/hardware"],
+    tags=["gaia/ecosystem/hardware"],
 )
+
+
+id_desc = "An ecosystem id, either its uid or its name"
 
 
 async def hardware_or_abort(
@@ -45,7 +46,7 @@ async def hardware_or_abort(
     )
 
 
-@router.get("", response_model=list[HardwareInfo])
+@router.get("/hardware", response_model=list[HardwareInfo])
 async def get_multiple_hardware(
         *,
         hardware_uid: Annotated[
@@ -78,7 +79,7 @@ async def get_multiple_hardware(
     return hardware
 
 
-@router.get("/types_available", response_model=list[HardwareType])
+@router.get("/hardware/types_available", response_model=list[HardwareType])
 async def get_hardware_types_available():
     response = [
         {
@@ -90,27 +91,44 @@ async def get_hardware_types_available():
     return response
 
 
-@router.get("/models_available", response_model=list[HardwareModelInfo])
-async def get_hardware_available():
+@router.get("/hardware/models_available", response_model=list[HardwareModelInfo])
+async def get_hardware_models_available():
     response = Hardware.get_models_available()
     return response
 
 
-@router.post("/u",
+@router.get("/u/{id}/hardware", response_model=list[HardwareInfo])
+async def get_ecosystem_hardware(
+        *,
+        id: Annotated[str, Path(description=id_desc)],
+        hardware_type: Annotated[
+            list[gv.HardwareType] | None,
+            Query(description="A list of types of hardware"),
+        ] = None,
+        in_config: Annotated[bool | None, Query(description=in_config_desc)] = None,
+        session: Annotated[AsyncSession, Depends(get_session)],
+):
+    ecosystem = await ecosystem_or_abort(session, id)
+    hardware = await ecosystem.get_hardware(
+        session, hardware_type=hardware_type, in_config=in_config)
+    return hardware
+
+
+@router.post("/u/{id}/hardware/u",
              response_model=ResultResponse,
              status_code=status.HTTP_202_ACCEPTED,
              dependencies=[Depends(is_operator)])
 async def create_hardware(
+        id: Annotated[str, Path(description=id_desc)],
         payload: Annotated[
-            HardwareCreationPayload,
+            gv.AnonymousHardwareConfig,
             Body(description="Information about the new hardware"),
         ],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    ecosystem = await ecosystem_or_abort(session, id)
     hardware_dict = payload.model_dump()
     try:
-        ecosystem_uid = hardware_dict.pop("ecosystem_uid")
-        ecosystem = await ecosystem_or_abort(session, ecosystem_uid)
         # TODO: check address before dispatching
         await dispatcher.emit(
             event="crud",
@@ -141,21 +159,23 @@ async def create_hardware(
         )
 
 
-@router.get("/u/{uid}", response_model=HardwareInfo)
+@router.get("/u/{id}/hardware/u/{uid}", response_model=HardwareInfo)
 async def get_hardware(
+        id: Annotated[str, Path(description=id_desc)],
         uid: Annotated[str, Path(description="The uid of a hardware")],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    assert_single_uid(uid)
+    await ecosystem_or_abort(session, id)
     hardware = await hardware_or_abort(session, uid)
     return hardware
 
 
-@router.put("/u/{uid}",
+@router.put("/u/{id}/hardware/u/{uid}",
             response_model=ResultResponse,
             status_code=status.HTTP_202_ACCEPTED,
             dependencies=[Depends(is_operator)])
 async def update_hardware(
+        id: Annotated[str, Path(description=id_desc)],
         uid: Annotated[str, Path(description="The uid of a hardware")],
         payload: Annotated[
             HardwareUpdatePayload,
@@ -163,10 +183,10 @@ async def update_hardware(
         ],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    ecosystem = await ecosystem_or_abort(session, id)
+    hardware = await hardware_or_abort(session, uid)
     hardware_dict = payload.model_dump()
     try:
-        hardware = await hardware_or_abort(session, uid)
-        ecosystem = await Ecosystem.get(session, uid=hardware.ecosystem_uid)
         await dispatcher.emit(
             event="crud",
             data=gv.CrudPayload(
@@ -196,17 +216,18 @@ async def update_hardware(
         )
 
 
-@router.delete("/u/{uid}",
+@router.delete("/u/{id}/hardware/u/{uid}",
                response_model=ResultResponse,
                status_code=status.HTTP_202_ACCEPTED,
                dependencies=[Depends(is_operator)])
 async def delete_hardware(
+        id: Annotated[str, Path(description=id_desc)],
         uid: Annotated[str, Path(description="The uid of a hardware")],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    ecosystem = await ecosystem_or_abort(session, id)
+    hardware = await hardware_or_abort(session, uid)
     try:
-        hardware = await hardware_or_abort(session, uid)
-        ecosystem = await Ecosystem.get(session, uid=hardware.ecosystem_uid)
         await dispatcher.emit(
             event="crud",
             data=gv.CrudPayload(

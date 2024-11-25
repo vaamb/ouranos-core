@@ -29,12 +29,7 @@ class HardwareType(BaseModel):
     value: int
 
 
-class HardwareCreationPayload(gv.AnonymousHardwareConfig):
-    ecosystem_uid: str
-
-
-class HardwareUpdatePayload(HardwareCreationPayload):
-    ecosystem_uid: str | None = None
+class HardwareUpdatePayload(gv.AnonymousHardwareConfig):
     name: str | None = None
     level: gv.HardwareLevel | None = None
     address: str | None = None

@@ -72,7 +72,7 @@ tags_metadata = [
                        "static endpoint",
     },
     {
-        "name": "gaia/hardware",
+        "name": "gaia/ecosystem/hardware",
         "description": "Manage the hardware in Gaia's ecosystems. Rem creating, "
                        "updating and deleting hardware require to be logged in "
                        "as an operator",

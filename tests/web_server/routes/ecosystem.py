@@ -341,44 +341,6 @@ def test_delete_environment_parameter_request_success(client_operator: TestClien
 
 
 # ------------------------------------------------------------------------------
-#   Ecosystem hardware
-# ------------------------------------------------------------------------------
-def test_get_ecosystem_hardware(client: TestClient):
-    response = client.get(f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/hardware")
-    assert response.status_code == 200
-
-    data = json.loads(response.text)
-    hardware = data[0]
-    assert hardware["uid"] == g_data.hardware_data["uid"]
-    assert hardware["level"] == g_data.hardware_data["level"]
-    assert hardware["last_log"] is None
-    measure = hardware["measures"][0]
-    measure_formatted = f"{measure['name']}|{measure['unit']}"
-    assert measure_formatted == g_data.hardware_data["measures"][0]
-
-
-def test_create_ecosystem_hardware_request_failure_user(client_user: TestClient):
-    response = client_user.post(f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/hardware")
-    assert response.status_code == 403
-
-
-def test_create_ecosystem_hardware_request_failure_payload(client_operator: TestClient):
-    response = client_operator.post(f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/hardware")
-    assert response.status_code == 422
-
-
-def test_create_ecosystem_hardware_request_success(client_operator: TestClient):
-    payload = g_data.hardware_data.copy()
-    del payload["uid"]
-
-    response = client_operator.post(
-        f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/hardware",
-        json=payload,
-    )
-    assert response.status_code == 202
-
-
-# ------------------------------------------------------------------------------
 #   Ecosystem current data
 # ------------------------------------------------------------------------------
 def test_current_data(client: TestClient):
