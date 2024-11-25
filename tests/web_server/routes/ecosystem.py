@@ -256,8 +256,8 @@ def test_update_light_request_success(client_operator: TestClient):
 # ------------------------------------------------------------------------------
 #   Ecosystem environment parameters
 # ------------------------------------------------------------------------------
-def test_environment_parameters(client: TestClient):
-    response = client.get("/api/gaia/ecosystem/environment_parameters")
+def test_environment_parameter(client: TestClient):
+    response = client.get("/api/gaia/ecosystem/environment_parameter")
     assert response.status_code == 200
 
     data = json.loads(response.text)[0]
@@ -269,8 +269,9 @@ def test_environment_parameters(client: TestClient):
     assert parameter_1["hysteresis"] == g_data.climate["hysteresis"]
 
 
-def test_environment_parameters_unique(client: TestClient):
-    response = client.get(f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameters")
+def test_environment_unique_parameter(client: TestClient):
+    response = client.get(
+        f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameter")
     assert response.status_code == 200
 
     data = json.loads(response.text)
@@ -283,13 +284,13 @@ def test_environment_parameters_unique(client: TestClient):
 
 def test_create_environment_parameter_request_failure_user(client_user: TestClient):
     response = client_user.post(
-        f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameters")
+        f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameter/u")
     assert response.status_code == 403
 
 
 def test_create_environment_parameter_request_failure_payload(client_operator: TestClient):
     response = client_operator.post(
-        f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameters")
+        f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameter/u")
     assert response.status_code == 422
 
 
@@ -298,21 +299,36 @@ def test_create_environment_parameter_request_success(client_operator: TestClien
     payload["parameter"] = "humidity"
 
     response = client_operator.post(
-        f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameters",
+        f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameter/u",
         json=payload,
     )
     assert response.status_code == 202
 
 
+def test_environment_unique_parameter_unique(client: TestClient):
+    parameter = g_data.climate["parameter"]
+    response = client.get(
+        f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameter/"
+        f"u/{parameter}"
+    )
+    assert response.status_code == 200
+
+    data = json.loads(response.text)
+    assert data["parameter"] == g_data.climate["parameter"]
+    assert data["day"] == g_data.climate["day"]
+    assert data["night"] == g_data.climate["night"]
+    assert data["hysteresis"] == g_data.climate["hysteresis"]
+
+
 def test_update_environment_parameter_request_failure_user(client_user: TestClient):
     response = client_user.put(
-        f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameters/temperature")
+        f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameter/u/temperature")
     assert response.status_code == 403
 
 
 def test_update_environment_parameter_request_failure_payload(client_operator: TestClient):
     response = client_operator.put(
-        f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameters/temperature")
+        f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameter/u/temperature")
     assert response.status_code == 422
 
 
@@ -322,7 +338,7 @@ def test_update_environment_parameter_request_success(client_operator: TestClien
     payload["day"] = 37.0
 
     response = client_operator.put(
-        f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameters/temperature",
+        f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameter/u/temperature",
         json=payload,
     )
     assert response.status_code == 202
@@ -330,13 +346,13 @@ def test_update_environment_parameter_request_success(client_operator: TestClien
 
 def test_delete_environment_parameter_request_failure_anon(client: TestClient):
     response = client.delete(
-        f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameters/temperature")
+        f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameter/u/temperature")
     assert response.status_code == 403
 
 
 def test_delete_environment_parameter_request_success(client_operator: TestClient):
     response = client_operator.delete(
-        f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameters/temperature")
+        f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameter/u/temperature")
     assert response.status_code == 202
 
 

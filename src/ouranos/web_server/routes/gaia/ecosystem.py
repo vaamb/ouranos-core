@@ -51,7 +51,7 @@ async def environment_parameter_or_abort(
         session: AsyncSession,
         ecosystem_uid: str,
         parameter: str
-) -> None:
+) -> EnvironmentParameter:
     environment_parameter = await EnvironmentParameter.get(
         session, ecosystem_uid=ecosystem_uid, parameter=parameter)
     if not environment_parameter:
@@ -59,6 +59,7 @@ async def environment_parameter_or_abort(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No environment_parameter found"
         )
+    return environment_parameter
 
 
 # ------------------------------------------------------------------------------
@@ -433,7 +434,7 @@ async def update_ecosystem_lighting(
 # ------------------------------------------------------------------------------
 #   Ecosystem environment parameters
 # ------------------------------------------------------------------------------
-@router.get("/environment_parameters", response_model=list[EnvironmentParameterInfo])
+@router.get("/environment_parameter", response_model=list[EnvironmentParameterInfo])
 async def get_ecosystems_environment_parameters(
         *,
         ecosystems_id: Annotated[list[str] | None, Query(description=uids_desc)] = None,
@@ -454,11 +455,30 @@ async def get_ecosystems_environment_parameters(
     return response
 
 
-@router.post("/u/{id}/environment_parameters",
+@router.get("/u/{id}/environment_parameter",
+            response_model=EnvironmentParameterInfo)
+async def get_ecosystem_environment_parameters(
+        *,
+        id: Annotated[str, Path(description=id_desc)],
+        parameters: Annotated[str | None, Query(description=env_parameter_desc)] = None,
+        session: Annotated[AsyncSession, Depends(get_session)],
+):
+    assert_single_uid(id)
+    ecosystem = await ecosystem_or_abort(session, id)
+    response = {
+        "uid": ecosystem.uid,
+        "name": ecosystem.name,
+        "environment_parameters": await EnvironmentParameter.get_multiple(
+            session, ecosystem_uid=[ecosystem.uid, ], parameter=parameters)
+    }
+    return response
+
+
+@router.post("/u/{id}/environment_parameter/u",
              status_code=status.HTTP_202_ACCEPTED,
              response_model=ResultResponse,
              dependencies=[Depends(is_operator)])
-async def create_environment_parameters(
+async def create_environment_parameter(
         id: Annotated[str, Path(description=id_desc)],
         payload: Annotated[
             EnvironmentParameterCreationPayload,
@@ -500,31 +520,33 @@ async def create_environment_parameters(
         )
 
 
-@router.get("/u/{id}/environment_parameters", response_model=EnvironmentParameterInfo)
-async def get_ecosystem_environment_parameters(
+@router.get("/u/{id}/environment_parameter/u/{parameter}",
+            response_model=EnvironmentParameterCreationPayload)
+async def get_ecosystem_environment_parameter(
         *,
         id: Annotated[str, Path(description=id_desc)],
-        parameters: Annotated[str | None, Query(description=env_parameter_desc)] = None,
+        parameter: Annotated[
+            gv.ClimateParameter,
+            Path(description="A climate parameter"),
+        ],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    assert_single_uid(id)
     ecosystem = await ecosystem_or_abort(session, id)
-    response = {
-        "uid": ecosystem.uid,
-        "name": ecosystem.name,
-        "environment_parameters": await EnvironmentParameter.get_multiple(
-            session, ecosystem_uid=[ecosystem.uid, ], parameter=parameters)
-    }
-    return response
+    env_parameter = await environment_parameter_or_abort(
+        session, ecosystem.uid, parameter)
+    return env_parameter
 
 
-@router.put("/u/{id}/environment_parameters/{parameter}",
+@router.put("/u/{id}/environment_parameter/u/{parameter}",
             status_code=status.HTTP_202_ACCEPTED,
             response_model=ResultResponse,
             dependencies=[Depends(is_operator)])
-async def update_environment_parameters(
+async def update_environment_parameter(
         id: Annotated[str, Path(description=id_desc)],
-        parameter: Annotated[str, Path(description="A climate parameter")],
+        parameter: Annotated[
+            gv.ClimateParameter,
+            Path(description="A climate parameter"),
+        ],
         payload: Annotated[
             EnvironmentParameterUpdatePayload,
             Body(description="Updated information about the environment parameters"),
@@ -535,7 +557,7 @@ async def update_environment_parameters(
     environment_parameter_dict["parameter"] = parameter
     try:
         ecosystem = await ecosystem_or_abort(session, id)
-        await environment_parameter_or_abort(session, id, parameter)
+        await environment_parameter_or_abort(session, ecosystem.uid, parameter)
         await dispatcher.emit(
             event="crud",
             data=gv.CrudPayload(
@@ -564,13 +586,16 @@ async def update_environment_parameters(
         )
 
 
-@router.delete("/u/{id}/environment_parameters/{parameter}",
+@router.delete("/u/{id}/environment_parameter/u/{parameter}",
                status_code=status.HTTP_202_ACCEPTED,
                response_model=ResultResponse,
                dependencies=[Depends(is_operator)])
-async def delete_environment_parameters(
+async def delete_environment_parameter(
         id: Annotated[str, Path(description=id_desc)],
-        parameter: Annotated[str, Path(description="A climate parameter")],
+        parameter: Annotated[
+            gv.ClimateParameter,
+            Path(description="A climate parameter"),
+        ],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     try:
