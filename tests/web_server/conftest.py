@@ -12,7 +12,8 @@ import gaia_validators as gv
 from ouranos.core.config import ConfigDict
 from ouranos.core.config.consts import LOGIN_NAME
 from ouranos.core.database.models.app import (
-    CalendarEvent, User, WikiArticle, WikiArticlePicture, WikiTopic)
+    CalendarEvent, User, Service, ServiceName, WikiArticle, WikiArticlePicture,
+    WikiTopic)
 from ouranos.core.database.models.gaia import (
     ActuatorRecord, ActuatorState, Ecosystem, Engine, EnvironmentParameter,
     GaiaWarning, Hardware, HealthRecord, Lighting, SensorDataCache,
@@ -135,6 +136,13 @@ async def users(db: AsyncSQLAlchemyWrapper):
             usr = await User.get_by(session, username=u.username)
             users_dict[u.role.value] = usr.id
     return users_dict
+
+
+@pytest_asyncio.fixture(scope="module", autouse=True)
+async def enable_services(db: AsyncSQLAlchemyWrapper):
+    async with db.scoped_session() as session:
+        for service_name in ServiceName:
+            await Service.update(session, name=service_name, values={"status": True})
 
 
 @pytest_asyncio.fixture(scope="module", autouse=True)

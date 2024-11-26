@@ -8,10 +8,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos.core.config.consts import MAX_PICTURE_FILE_SIZE, MAX_TEXT_FILE_SIZE
 from ouranos.core.database.models.app import (
-    WikiArticleNotFound, UserMixin, WikiArticle, WikiArticleModification,
+    ServiceName, UserMixin, WikiArticleNotFound, WikiArticle, WikiArticleModification,
     WikiArticlePicture, WikiTopic)
 from ouranos.web_server.auth import get_current_user, is_operator
 from ouranos.web_server.dependencies import get_session
+from ouranos.web_server.routes.services.utils import service_enabled
 from ouranos.web_server.validate.base import ResultResponse, ResultStatus
 from ouranos.web_server.validate.wiki import (
     WikiArticleInfo, WikiArticleModificationInfo, WikiArticleCreationPayload,
@@ -26,6 +27,7 @@ router = APIRouter(
         204: {"description": "Empty result"},
         404: {"description": "Not found"},
     },
+    dependencies=[Depends(service_enabled(ServiceName.wiki))],
     tags=["app/services/wiki"],
 )
 

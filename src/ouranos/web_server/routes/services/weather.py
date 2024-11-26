@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Response
+from fastapi import APIRouter, Depends, Response
 
 import gaia_validators as gv
 
 from ouranos.core.caches import CacheFactory
+from ouranos.core.database.models.app import ServiceName
+from ouranos.web_server.routes.services.utils import service_enabled
 from ouranos.web_server.validate.weather import (
     CurrentWeatherInfo, DailyWeatherInfo, HourlyWeatherInfo)
 
@@ -15,6 +17,7 @@ router = APIRouter(
         204: {"description": "Empty result"},
         404: {"description": "Not found"},
     },
+    dependencies=[Depends(service_enabled(ServiceName.weather))],
     tags=["app/services/weather"],
 )
 
