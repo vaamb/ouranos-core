@@ -4,10 +4,9 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos import current_app
-from ouranos.core.database.models.app import FlashMessage, Service, ServiceLevel
+from ouranos.core.database.models.app import FlashMessage
 from ouranos.web_server.dependencies import get_session
-from ouranos.web_server.validate.app import (
-    FlashMessageInfo, LoggingPeriodInfo, ServiceInfo)
+from ouranos.web_server.validate.app import FlashMessageInfo, LoggingPeriodInfo
 
 
 router = APIRouter(
@@ -29,21 +28,6 @@ async def get_logging_config():
         "system": current_app.config["SYSTEM_LOGGING_PERIOD"],
         "sensors": current_app.config["SENSOR_LOGGING_PERIOD"],
     }
-
-
-@router.get("/services", response_model=list[ServiceInfo])
-async def get_services(
-        *,
-        level: Annotated[
-            ServiceLevel,
-            Query(description="The level of the services to fetch"),
-        ] = None,
-        session: Annotated[AsyncSession, Depends(get_session)],
-):
-    if level == ServiceLevel.all:
-        level = None
-    services = await Service.get_multiple(session, level=level)
-    return services
 
 
 @router.get("/flash_messages", response_model=list[FlashMessageInfo])
