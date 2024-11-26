@@ -21,7 +21,7 @@ from gaia_validators import safe_enum_from_name
 from ouranos import current_app
 from ouranos.core.config.consts import (
     REGISTRATION_TOKEN_VALIDITY, TOKEN_SUBS)
-from ouranos.core.database.models.abc import Base, ToDictMixin
+from ouranos.core.database.models.abc import Base, CRUDMixin, ToDictMixin
 from ouranos.core.database.models.caches import cache_users
 from ouranos.core.database.models.types import PathType, UtcDateTime
 from ouranos.core.database.utils import ArchiveLink
@@ -572,9 +572,10 @@ services_definition: dict[ServiceName, ServiceLevel] = {
 }
 
 
-class Service(Base):
+class Service(Base, CRUDMixin):
     __tablename__ = "services"
     __bind_key__ = "app"
+    _lookup_keys = ["name"]
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[ServiceName] = mapped_column(sa.String(length=16), unique=True)
@@ -584,39 +585,9 @@ class Service(Base):
     @classmethod
     async def insert_services(cls, session: AsyncSession) -> None:
         for name, level in services_definition.items():
-            service_in_db = await cls.get(session, name)
-            if service_in_db is None:
-                service = cls(**{"name": name, "level": level})
-                session.add(service)
-
-    @classmethod
-    async def create(
-            cls,
-            session: AsyncSession,
-            values: dict | list[dict],
-    ) -> None:
-        stmt = insert(cls).values(values)
-        await session.execute(stmt)
-
-    @classmethod
-    async def get(cls, session: AsyncSession, name: str) -> Self | None:
-        stmt = select(cls).where(cls.name == name)
-        result = await session.execute(stmt)
-        return result.scalar()
-
-    @classmethod
-    async def get_multiple(
-            cls,
-            session: AsyncSession,
-            level: ServiceLevel | list[ServiceLevel] | None = None
-    ) -> Sequence[Service]:
-        if level is ServiceLevel.all:
-            level = None
-        stmt = select(cls)
-        if level:
-            stmt = stmt.where(cls.level.in_(level))
-        result = await session.execute(stmt)
-        return result.scalars().all()
+            service = await cls.get(session, name=name)
+            if service is None:
+                await cls.create(session, name=name, values={"level": level})
 
 
 channels_definition = [

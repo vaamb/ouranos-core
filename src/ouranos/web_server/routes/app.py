@@ -37,10 +37,12 @@ async def get_services(
         level: Annotated[
             ServiceLevel,
             Query(description="The level of the services to fetch"),
-        ] = ServiceLevel.all,
+        ] = None,
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    services = await Service.get_multiple(session=session, level=level)
+    if level == ServiceLevel.all:
+        level = None
+    services = await Service.get_multiple(session, level=level)
     return services
 
 
