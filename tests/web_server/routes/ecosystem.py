@@ -7,6 +7,7 @@ import gaia_validators as gv
 from ouranos import json
 
 import tests.data.gaia as g_data
+from tests.utils import MockAsyncDispatcher
 
 
 # ------------------------------------------------------------------------------
@@ -27,17 +28,20 @@ def test_ecosystems(client: TestClient):
     assert data["night_start"] == g_data.sky["night"].isoformat()
 
 
-def test_ecosystem_creation_request_failure_user(client_user: TestClient):
+def test_ecosystem_create_request_failure_user(client_user: TestClient):
     response = client_user.post("/api/gaia/ecosystem/u")
     assert response.status_code == 403
 
 
-def test_ecosystem_creation_request_failure_payload(client_operator: TestClient):
+def test_ecosystem_create_request_failure_payload(client_operator: TestClient):
     response = client_operator.post("/api/gaia/ecosystem/u")
     assert response.status_code == 422
 
 
-def test_ecosystem_creation_request_success(client_operator: TestClient):
+def test_ecosystem_create_request_success(
+        client_operator: TestClient,
+        mock_dispatcher: MockAsyncDispatcher,
+):
     payload = {
         "name": "NewEcosystem",
         "engine_uid": g_data.engine_uid,
@@ -47,6 +51,14 @@ def test_ecosystem_creation_request_success(client_operator: TestClient):
         json=payload,
     )
     assert response.status_code == 202
+
+    dispatched = mock_dispatcher.emit_store[0]
+    assert dispatched["event"] == "crud"
+    assert dispatched["data"]["routing"]["engine_uid"] == g_data.engine_uid
+    assert dispatched["data"]["routing"]["ecosystem_uid"] is None
+    assert dispatched["data"]["action"] == gv.CrudAction.create
+    assert dispatched["data"]["target"] == "ecosystem"
+    assert dispatched["data"]["data"]["name"] == payload["name"]
 
 
 def test_ecosystem_unique(client: TestClient):
@@ -79,7 +91,10 @@ def test_ecosystem_update_request_failure_payload(client_operator: TestClient):
     assert response.status_code == 422
 
 
-def test_ecosystem_update_request_success(client_operator: TestClient):
+def test_ecosystem_update_request_success(
+        client_operator: TestClient,
+        mock_dispatcher: MockAsyncDispatcher,
+):
     payload = {
         "name": "UpdatedEcosystem",
     }
@@ -89,15 +104,35 @@ def test_ecosystem_update_request_success(client_operator: TestClient):
     )
     assert response.status_code == 202
 
+    dispatched = mock_dispatcher.emit_store[0]
+    assert dispatched["event"] == "crud"
+    assert dispatched["data"]["routing"]["engine_uid"] == g_data.engine_uid
+    assert dispatched["data"]["routing"]["ecosystem_uid"] == g_data.ecosystem_uid
+    assert dispatched["data"]["action"] == gv.CrudAction.update
+    assert dispatched["data"]["target"] == "ecosystem"
+    assert dispatched["data"]["data"]["name"] == payload["name"]
+    assert dispatched["data"]["data"]["day_start"] is None
 
-def test_ecosystem_delete_request_failure_anon(client: TestClient):
+
+def test_ecosystem_delete_request_failure_user(client: TestClient):
     response = client.delete(f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}")
     assert response.status_code == 403
 
 
-def test_ecosystem_delete_request_success(client_operator: TestClient):
+def test_ecosystem_delete_request_success(
+        client_operator: TestClient,
+        mock_dispatcher: MockAsyncDispatcher,
+):
     response = client_operator.delete(f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}")
     assert response.status_code == 202
+
+    dispatched = mock_dispatcher.emit_store[0]
+    assert dispatched["event"] == "crud"
+    assert dispatched["data"]["routing"]["engine_uid"] == g_data.engine_uid
+    assert dispatched["data"]["routing"]["ecosystem_uid"] == g_data.ecosystem_uid
+    assert dispatched["data"]["action"] == gv.CrudAction.delete
+    assert dispatched["data"]["target"] == "ecosystem"
+    assert dispatched["data"]["data"] == g_data.ecosystem_uid
 
 
 # ------------------------------------------------------------------------------
@@ -118,7 +153,6 @@ def test_managements(client: TestClient):
     data = json.loads(response.text)[0]
     for management, value in g_data.management_data.items():
         if data.get(management):
-            # TODO: better handle new managements
             assert data[0][management] == value
 
 
@@ -129,21 +163,23 @@ def test_management_unique(client: TestClient):
     data = json.loads(response.text)
     for management, value in g_data.management_data.items():
         if data.get(management):
-            # TODO: better handle new managements
             assert data[0][management] == value
 
 
-def test_update_management_request_failure_user(client_user: TestClient):
+def test_management_update_request_failure_user(client_user: TestClient):
     response = client_user.put(f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/management")
     assert response.status_code == 403
 
 
-def test_update_management_request_failure_payload(client_operator: TestClient):
+def test_management_update_request_failure_payload(client_operator: TestClient):
     response = client_operator.put(f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/management")
     assert response.status_code == 422
 
 
-def test_update_management_request_success(client_operator: TestClient):
+def test_management_update_request_success(
+        client_operator: TestClient,
+        mock_dispatcher: MockAsyncDispatcher,
+):
     payload = g_data.management_data.copy()
     payload.update({
         "sensors": False,
@@ -155,6 +191,14 @@ def test_update_management_request_success(client_operator: TestClient):
         json=payload,
     )
     assert response.status_code == 202
+
+    dispatched = mock_dispatcher.emit_store[0]
+    assert dispatched["event"] == "crud"
+    assert dispatched["data"]["routing"]["engine_uid"] == g_data.engine_uid
+    assert dispatched["data"]["routing"]["ecosystem_uid"] == g_data.ecosystem_uid
+    assert dispatched["data"]["action"] == gv.CrudAction.update
+    assert dispatched["data"]["target"] == "management"
+    assert dispatched["data"]["data"]["pictures"] == payload["pictures"]
 
 
 # ------------------------------------------------------------------------------
@@ -184,17 +228,20 @@ def test_light_unique(client: TestClient):
     assert time.fromisoformat(data["evening_end"]) == g_data.light_data["evening_end"]
 
 
-def test_update_light_request_failure_user(client_user: TestClient):
+def test_light_update_request_failure_user(client_user: TestClient):
     response = client_user.put(f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/light")
     assert response.status_code == 403
 
 
-def test_update_light_request_failure_payload(client_operator: TestClient):
+def test_light_update_request_failure_payload(client_operator: TestClient):
     response = client_operator.put(f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/light")
     assert response.status_code == 422
 
 
-def test_update_light_request_success(client_operator: TestClient):
+def test_light_update_request_success(
+        client_operator: TestClient,
+        mock_dispatcher: MockAsyncDispatcher,
+):
     payload = {"method": "elongate"}
 
     response = client_operator.put(
@@ -202,6 +249,14 @@ def test_update_light_request_success(client_operator: TestClient):
         json=payload,
     )
     assert response.status_code == 202
+
+    dispatched = mock_dispatcher.emit_store[0]
+    assert dispatched["event"] == "crud"
+    assert dispatched["data"]["routing"]["engine_uid"] == g_data.engine_uid
+    assert dispatched["data"]["routing"]["ecosystem_uid"] == g_data.ecosystem_uid
+    assert dispatched["data"]["action"] == gv.CrudAction.update
+    assert dispatched["data"]["target"] == "lighting"
+    assert dispatched["data"]["data"]["method"] == gv.LightingMethod[payload["method"]]
 
 
 # ------------------------------------------------------------------------------
@@ -233,19 +288,22 @@ def test_environment_unique_parameter(client: TestClient):
     assert parameter_1["hysteresis"] == g_data.climate["hysteresis"]
 
 
-def test_create_environment_parameter_request_failure_user(client_user: TestClient):
+def test_environment_parameter_creation_request_failure_user(client_user: TestClient):
     response = client_user.post(
         f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameter/u")
     assert response.status_code == 403
 
 
-def test_create_environment_parameter_request_failure_payload(client_operator: TestClient):
+def test_environment_parameter_creation_request_failure_payload(client_operator: TestClient):
     response = client_operator.post(
         f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameter/u")
     assert response.status_code == 422
 
 
-def test_create_environment_parameter_request_success(client_operator: TestClient):
+def test_environment_parameter_creation_request_success(
+        client_operator: TestClient,
+        mock_dispatcher: MockAsyncDispatcher,
+):
     payload = g_data.climate.copy()
     payload["parameter"] = "humidity"
 
@@ -254,6 +312,15 @@ def test_create_environment_parameter_request_success(client_operator: TestClien
         json=payload,
     )
     assert response.status_code == 202
+
+    dispatched = mock_dispatcher.emit_store[0]
+    assert dispatched["event"] == "crud"
+    assert dispatched["data"]["routing"]["engine_uid"] == g_data.engine_uid
+    assert dispatched["data"]["routing"]["ecosystem_uid"] == g_data.ecosystem_uid
+    assert dispatched["data"]["action"] == gv.CrudAction.create
+    assert dispatched["data"]["target"] == "environment_parameter"
+    assert dispatched["data"]["data"]["parameter"] == gv.ClimateParameter[payload["parameter"]]
+    assert dispatched["data"]["data"]["day"] == payload["day"]
 
 
 def test_environment_unique_parameter_unique(client: TestClient):
@@ -271,40 +338,66 @@ def test_environment_unique_parameter_unique(client: TestClient):
     assert data["hysteresis"] == g_data.climate["hysteresis"]
 
 
-def test_update_environment_parameter_request_failure_user(client_user: TestClient):
+def test_environment_parameter_update_request_failure_user(client_user: TestClient):
     response = client_user.put(
         f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameter/u/temperature")
     assert response.status_code == 403
 
 
-def test_update_environment_parameter_request_failure_payload(client_operator: TestClient):
+def test_environment_parameter_update_request_failure_payload(client_operator: TestClient):
     response = client_operator.put(
         f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameter/u/temperature")
     assert response.status_code == 422
 
 
-def test_update_environment_parameter_request_success(client_operator: TestClient):
+def test_environment_parameter_update_request_success(
+        client_operator: TestClient,
+        mock_dispatcher: MockAsyncDispatcher,
+):
+    parameter = "temperature"
     payload = g_data.climate.copy()
     del payload["parameter"]
     payload["day"] = 37.0
 
     response = client_operator.put(
-        f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameter/u/temperature",
+        f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameter/"
+        f"u/{parameter}",
         json=payload,
     )
     assert response.status_code == 202
 
+    dispatched = mock_dispatcher.emit_store[0]
+    assert dispatched["event"] == "crud"
+    assert dispatched["data"]["routing"]["engine_uid"] == g_data.engine_uid
+    assert dispatched["data"]["routing"]["ecosystem_uid"] == g_data.ecosystem_uid
+    assert dispatched["data"]["action"] == gv.CrudAction.update
+    assert dispatched["data"]["target"] == "environment_parameter"
+    assert dispatched["data"]["data"]["parameter"] == gv.ClimateParameter[parameter]
+    assert dispatched["data"]["data"]["day"] == payload["day"]
 
-def test_delete_environment_parameter_request_failure_anon(client: TestClient):
+
+def test_environment_parameter_delete_request_failure_user(client: TestClient):
     response = client.delete(
         f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameter/u/temperature")
     assert response.status_code == 403
 
 
-def test_delete_environment_parameter_request_success(client_operator: TestClient):
+def test_environment_parameter_delete_request_success(
+        client_operator: TestClient,
+        mock_dispatcher: MockAsyncDispatcher,
+):
+    parameter = "temperature"
     response = client_operator.delete(
-        f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameter/u/temperature")
+        f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameter/u/{parameter}")
     assert response.status_code == 202
+
+    dispatched = mock_dispatcher.emit_store[0]
+    assert dispatched["event"] == "crud"
+    assert dispatched["data"]["routing"]["engine_uid"] == g_data.engine_uid
+    assert dispatched["data"]["routing"]["ecosystem_uid"] == g_data.ecosystem_uid
+    assert dispatched["data"]["action"] == gv.CrudAction.delete
+    assert dispatched["data"]["target"] == "environment_parameter"
+    assert dispatched["data"]["data"] == parameter
 
 
 # ------------------------------------------------------------------------------
@@ -314,7 +407,6 @@ def test_get_actuator_records(client: TestClient):
     actuator = g_data.actuator_record.type.name
     response = client.get(
         f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/actuator_records/u/{actuator}")
-    x = 1
     assert response.status_code == 200
 
     data = json.loads(response.text)
@@ -344,13 +436,24 @@ def test_turn_actuator_failure_payload(client_operator: TestClient):
     assert response.status_code == 422
 
 
-def test_turn_actuator_success(client_operator: TestClient):
+def test_turn_actuator_success(
+        client_operator: TestClient,
+        mock_dispatcher: MockAsyncDispatcher,
+):
+    actuator = "heater"
     payload = {
         "mode": "automatic",
         "countdown": 0.0,
     }
     response = client_operator.put(
-        f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/turn_actuator/u/heater",
+        f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/turn_actuator/u/{actuator}",
         json=payload
     )
     assert response.status_code == 202
+
+    dispatched = mock_dispatcher.emit_store[0]
+    assert dispatched["event"] == "turn_actuator"
+    assert dispatched["data"]["ecosystem_uid"] == g_data.ecosystem_uid
+    assert dispatched["data"]["actuator"] == actuator
+    assert dispatched["data"]["mode"] == payload["mode"]
+    assert dispatched["data"]["countdown"] == payload["countdown"]
