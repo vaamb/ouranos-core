@@ -5,6 +5,7 @@ import gaia_validators as gv
 from ouranos import json
 
 import tests.data.gaia as g_data
+from tests.utils import MockAsyncDispatcher
 
 
 def test_hardware(client: TestClient):
@@ -34,7 +35,10 @@ def test_hardware_models(client: TestClient):
     assert len(data) == 0
 
 
-def test_hardware_creation_request_success(client_operator: TestClient):
+def test_hardware_creation_request_success(
+        client_operator: TestClient,
+        mock_dispatcher: MockAsyncDispatcher,
+):
     payload = {
         "name": "TestLight",
         "address": "GPIO_17",
@@ -47,6 +51,14 @@ def test_hardware_creation_request_success(client_operator: TestClient):
         json=payload,
     )
     assert response.status_code == 202
+
+    dispatched = mock_dispatcher.emit_store[0]
+    assert dispatched["event"] == "crud"
+    assert dispatched["data"]["routing"]["engine_uid"] == g_data.engine_uid
+    assert dispatched["data"]["routing"]["ecosystem_uid"] == g_data.ecosystem_uid
+    assert dispatched["data"]["action"] == gv.CrudAction.create
+    assert dispatched["data"]["target"] == "hardware"
+    assert dispatched["data"]["data"]["name"] == payload["name"]
 
 
 def test_hardware_unique(client: TestClient):
@@ -87,7 +99,10 @@ def test_hardware_update_request_failure_payload(client_operator: TestClient):
     assert response.status_code == 422
 
 
-def test_hardware_update_request_success(client_operator: TestClient):
+def test_hardware_update_request_success(
+        client_operator: TestClient,
+        mock_dispatcher: MockAsyncDispatcher,
+):
     payload = {
         "name": "TestLedLight",
         "address": "GPIO_37",
@@ -99,14 +114,34 @@ def test_hardware_update_request_success(client_operator: TestClient):
     assert response.status_code == 202
 
 
+    dispatched = mock_dispatcher.emit_store[0]
+    assert dispatched["event"] == "crud"
+    assert dispatched["data"]["routing"]["engine_uid"] == g_data.engine_uid
+    assert dispatched["data"]["routing"]["ecosystem_uid"] == g_data.ecosystem_uid
+    assert dispatched["data"]["action"] == gv.CrudAction.update
+    assert dispatched["data"]["target"] == "hardware"
+    assert dispatched["data"]["data"]["name"] == payload["name"]
+    assert dispatched["data"]["data"]["level"] is None
+
+
 def test_hardware_delete_request_failure_user(client_user: TestClient):
     response = client_user.delete(
         f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/hardware/u/{g_data.hardware_uid}")
     assert response.status_code == 403
 
 
-def test_hardware_delete_request_success(client_operator: TestClient):
+def test_hardware_delete_request_success(
+        client_operator: TestClient,
+        mock_dispatcher: MockAsyncDispatcher,
+):
     response = client_operator.delete(
         f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/hardware/u/{g_data.hardware_uid}")
-    x = 1
     assert response.status_code == 202
+
+    dispatched = mock_dispatcher.emit_store[0]
+    assert dispatched["event"] == "crud"
+    assert dispatched["data"]["routing"]["engine_uid"] == g_data.engine_uid
+    assert dispatched["data"]["routing"]["ecosystem_uid"] == g_data.ecosystem_uid
+    assert dispatched["data"]["action"] == gv.CrudAction.delete
+    assert dispatched["data"]["target"] == "hardware"
+    assert dispatched["data"]["data"] == g_data.hardware_uid

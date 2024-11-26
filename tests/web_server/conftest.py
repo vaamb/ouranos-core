@@ -19,6 +19,7 @@ from ouranos.core.database.models.gaia import (
     SensorDataRecord)
 from ouranos.core.database.models.system import (
     System, SystemDataCache, SystemDataRecord)
+from ouranos.core.dispatchers import DispatcherFactory
 from ouranos.web_server.auth import SessionInfo
 from ouranos.web_server.factory import create_app
 
@@ -28,6 +29,7 @@ from tests.data.app import (
 from tests.data.auth import admin, operator, user
 import tests.data.gaia as g_data
 from tests.data.system import system_dict, system_data_dict
+from tests.utils import MockAsyncDispatcher
 
 
 @pytest_asyncio.fixture(scope="module", autouse=True)
@@ -204,3 +206,16 @@ def client_admin(
 ):
     client.cookies = get_user_cookie(users["Administrator"])
     return client
+
+
+@pytest.fixture(scope="module")
+def mock_dispatcher_module():
+    mock_dispatcher = MockAsyncDispatcher("application-internal")
+    DispatcherFactory._DispatcherFactory__dispatchers["application-internal"] = mock_dispatcher
+    return mock_dispatcher
+
+
+@pytest.fixture(scope="function")
+def mock_dispatcher(mock_dispatcher_module):
+    mock_dispatcher_module.clear_store()
+    return mock_dispatcher_module
