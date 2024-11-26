@@ -18,7 +18,7 @@ from ouranos.core.utils import timeWindow
 from ouranos.web_server.auth import is_operator
 from ouranos.web_server.dependencies import get_session, get_time_window
 from ouranos.web_server.routes.gaia.utils import (
-    ecosystem_or_abort, eids_desc, euid_desc, in_config_desc)
+    ecosystem_or_abort, eids_desc, emit_crud_event, euid_desc, in_config_desc)
 from ouranos.web_server.validate.base import ResultResponse, ResultStatus
 from ouranos.web_server.validate.gaia.ecosystem import (
     EcosystemCreationPayload, EcosystemUpdatePayload, EcosystemInfo,
@@ -27,9 +27,6 @@ from ouranos.web_server.validate.gaia.ecosystem import (
     EnvironmentParameterCreationPayload, EnvironmentParameterUpdatePayload,
     EnvironmentParameterInfo,
     EcosystemActuatorInfo, EcosystemActuatorRecords, EcosystemTurnActuatorPayload)
-
-
-dispatcher: AsyncDispatcher = DispatcherFactory.get("application-internal")
 
 
 router = APIRouter(
@@ -90,6 +87,8 @@ async def create_ecosystem(
 ):
     ecosystem_dict = payload.model_dump()
     try:
+        # Special case of dispatcher.emit as the ecosystem doesn't exist yet
+        dispatcher: AsyncDispatcher = DispatcherFactory.get("application-internal")
         await dispatcher.emit(
             event="crud",
             data=gv.CrudPayload(
@@ -121,7 +120,7 @@ async def create_ecosystem(
 @router.get("/u/{ecosystem_id}", response_model=EcosystemInfo)
 async def get_ecosystem(
         ecosystem_id: Annotated[
-            str, 
+            str,
             Path(description="An ecosystem id, either its uid or its name"),
         ],
         session: Annotated [AsyncSession, Depends(get_session)],
@@ -150,19 +149,8 @@ async def update_ecosystem(
     ecosystem = await ecosystem_or_abort(session, ecosystem_uid)
     ecosystem_dict = payload.model_dump()
     try:
-        await dispatcher.emit(
-            event="crud",
-            data=gv.CrudPayload(
-                routing=gv.Route(
-                    engine_uid=ecosystem.engine_uid,
-                    ecosystem_uid=ecosystem.uid
-                ),
-                action=gv.CrudAction.update,
-                target="ecosystem",
-                data=ecosystem_dict,
-            ).model_dump(),
-            namespace="aggregator-internal",
-        )
+        await emit_crud_event(
+            ecosystem, gv.CrudAction.update, "ecosystem", ecosystem_dict)
         return ResultResponse(
             msg=f"Request to update the ecosystem '{ecosystem.name}' "
                 f"successfully sent to engine '{ecosystem.engine_uid}'",
@@ -188,19 +176,8 @@ async def delete_ecosystem(
 ):
     ecosystem = await ecosystem_or_abort(session, ecosystem_uid)
     try:
-        await dispatcher.emit(
-            event="crud",
-            data=gv.CrudPayload(
-                routing=gv.Route(
-                    engine_uid=ecosystem.engine_uid,
-                    ecosystem_uid=ecosystem.uid,
-                ),
-                action=gv.CrudAction.delete,
-                target="ecosystem",
-                data=ecosystem.uid,
-            ).model_dump(),
-            namespace="aggregator-internal",
-        )
+        await emit_crud_event(
+            ecosystem, gv.CrudAction.delete, "ecosystem", ecosystem.uid)
         return ResultResponse(
             msg=f"Request to delete the ecosystem '{ecosystem.name}' "
                 f"successfully sent to engine '{ecosystem.engine_uid}'",
@@ -271,19 +248,8 @@ async def update_management(
     ecosystem = await ecosystem_or_abort(session, ecosystem_uid)
     management_dict = payload.model_dump()
     try:
-        await dispatcher.emit(
-            event="crud",
-            data=gv.CrudPayload(
-                routing=gv.Route(
-                    engine_uid=ecosystem.engine_uid,
-                    ecosystem_uid=ecosystem.uid
-                ),
-                action=gv.CrudAction.update,
-                target="management",
-                data=management_dict,
-            ).model_dump(),
-            namespace="aggregator-internal",
-        )
+        await emit_crud_event(
+            ecosystem, gv.CrudAction.update, "management", management_dict)
         return ResultResponse(
             msg=f"Request to update the ecosystem '{ecosystem.name}'\' management "
                 f"successfully sent to engine '{ecosystem.engine_uid}'",
@@ -363,19 +329,8 @@ async def update_ecosystem_lighting(
     ecosystem = await ecosystem_or_abort(session, ecosystem_uid)
     lighting_dict = payload.model_dump()
     try:
-        await dispatcher.emit(
-            event="crud",
-            data=gv.CrudPayload(
-                routing=gv.Route(
-                    engine_uid=ecosystem.engine_uid,
-                    ecosystem_uid=ecosystem.uid
-                ),
-                action=gv.CrudAction.update,
-                target="lighting",
-                data=lighting_dict,
-            ).model_dump(),
-            namespace="aggregator-internal",
-        )
+        await emit_crud_event(
+            ecosystem, gv.CrudAction.update, "lighting", lighting_dict)
         return ResultResponse(
             msg=f"Request to update the ecosystem '{ecosystem.name}'\' lighting "
                 f"successfully sent to engine '{ecosystem.engine_uid}'",
@@ -452,19 +407,9 @@ async def create_environment_parameter(
     parameter = environment_parameter_dict["parameter"]
     try:
         safe_enum_from_name(gv.ClimateParameter, parameter)
-        await dispatcher.emit(
-            event="crud",
-            data=gv.CrudPayload(
-                routing=gv.Route(
-                    engine_uid=ecosystem.engine_uid,
-                    ecosystem_uid=ecosystem.uid
-                ),
-                action=gv.CrudAction.create,
-                target="environment_parameter",
-                data=environment_parameter_dict,
-            ).model_dump(),
-            namespace="aggregator-internal",
-        )
+        await emit_crud_event(
+            ecosystem, gv.CrudAction.create, "environment_parameter",
+            environment_parameter_dict)
         return ResultResponse(
             msg=f"Request to create the environment parameter '{parameter}' "
                 f"successfully sent to engine '{ecosystem.engine_uid}'",
@@ -519,19 +464,9 @@ async def update_environment_parameter(
     environment_parameter_dict = payload.model_dump()
     environment_parameter_dict["parameter"] = parameter
     try:
-        await dispatcher.emit(
-            event="crud",
-            data=gv.CrudPayload(
-                routing=gv.Route(
-                    engine_uid=ecosystem.engine_uid,
-                    ecosystem_uid=ecosystem.uid
-                ),
-                action=gv.CrudAction.update,
-                target="environment_parameter",
-                data=environment_parameter_dict,
-            ).model_dump(),
-            namespace="aggregator-internal",
-        )
+        await emit_crud_event(
+            ecosystem, gv.CrudAction.update, "environment_parameter",
+            environment_parameter_dict)
         return ResultResponse(
             msg=f"Request to update the environment parameter '{parameter}' "
                 f"successfully sent to engine '{ecosystem.engine_uid}'",
@@ -562,19 +497,9 @@ async def delete_environment_parameter(
     ecosystem = await ecosystem_or_abort(session, ecosystem_uid)
     await environment_parameter_or_abort(session, ecosystem.uid, parameter)
     try:
-        await dispatcher.emit(
-            event="crud",
-            data=gv.CrudPayload(
-                routing=gv.Route(
-                    engine_uid=ecosystem.engine_uid,
-                    ecosystem_uid=ecosystem.uid
-                ),
-                action=gv.CrudAction.delete,
-                target="environment_parameter",
-                data=parameter
-            ).model_dump(),
-            namespace="aggregator-internal",
-        )
+        await emit_crud_event(
+            ecosystem, gv.CrudAction.delete, "environment_parameter",
+            parameter)
         return ResultResponse(
             msg=f"Request to delete the environment parameter '{parameter}' "
                 f"successfully sent to engine '{ecosystem.engine_uid}'",
@@ -677,6 +602,7 @@ async def turn_actuator(
     mode: gv.ActuatorModePayload = instruction_dict["mode"]
     countdown = instruction_dict["countdown"]
     try:
+        dispatcher: AsyncDispatcher = DispatcherFactory.get("application-internal")
         await ecosystem.turn_actuator(
             dispatcher, actuator_type, mode, countdown)
         return ResultResponse(

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import (
     APIRouter, Body, Depends, HTTPException, Path, Query, status)
@@ -14,7 +14,8 @@ from ouranos.core.dispatchers import DispatcherFactory
 from ouranos.web_server.auth import is_operator
 from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.routes.gaia.utils import (
-    ecosystem_or_abort, eids_desc, euid_desc, h_level_desc, in_config_desc)
+    ecosystem_or_abort, eids_desc, emit_crud_event, euid_desc, h_level_desc,
+    in_config_desc)
 from ouranos.web_server.validate.base import ResultResponse, ResultStatus
 from ouranos.web_server.validate.gaia.hardware import (
     HardwareType, HardwareInfo, HardwareModelInfo, HardwareUpdatePayload)
@@ -126,20 +127,9 @@ async def create_hardware(
     ecosystem = await ecosystem_or_abort(session, ecosystem_uid)
     hardware_dict = payload.model_dump()
     try:
-        # TODO: check address before dispatching
-        await dispatcher.emit(
-            event="crud",
-            data=gv.CrudPayload(
-                routing=gv.Route(
-                    engine_uid=ecosystem.engine_uid,
-                    ecosystem_uid=ecosystem.uid
-                ),
-                action=gv.CrudAction.create,
-                target="hardware",
-                data=hardware_dict,
-            ).model_dump(),
-            namespace="aggregator-internal",
-        )
+
+        await emit_crud_event(
+            ecosystem, gv.CrudAction.create, "hardware", hardware_dict)
         return ResultResponse(
             msg=f"Request to create the new hardware '{hardware_dict['name']}' "
                 f"successfully sent to engine '{ecosystem.engine_uid}'",
@@ -184,19 +174,8 @@ async def update_hardware(
     hardware = await hardware_or_abort(session, hardware_uid)
     hardware_dict = payload.model_dump()
     try:
-        await dispatcher.emit(
-            event="crud",
-            data=gv.CrudPayload(
-                routing=gv.Route(
-                    engine_uid=ecosystem.engine_uid,
-                    ecosystem_uid=ecosystem.uid
-                ),
-                action=gv.CrudAction.update,
-                target="hardware",
-                data=hardware_dict,
-            ).model_dump(),
-            namespace="aggregator-internal",
-        )
+        await emit_crud_event(
+            ecosystem, gv.CrudAction.update, "hardware", hardware_dict)
         return ResultResponse(
             msg=f"Request to update the hardware '{hardware.name}' "
                 f"successfully sent to engine '{ecosystem.engine_uid}'",
@@ -225,19 +204,8 @@ async def delete_hardware(
     ecosystem = await ecosystem_or_abort(session, ecosystem_uid)
     hardware = await hardware_or_abort(session, hardware_uid)
     try:
-        await dispatcher.emit(
-            event="crud",
-            data=gv.CrudPayload(
-                routing=gv.Route(
-                    engine_uid=ecosystem.engine_uid,
-                    ecosystem_uid=ecosystem.uid
-                ),
-                action=gv.CrudAction.delete,
-                target="hardware",
-                data=hardware_uid,
-            ).model_dump(),
-            namespace="aggregator-internal",
-        )
+        await emit_crud_event(
+            ecosystem, gv.CrudAction.delete, "hardware", hardware_uid)
         return ResultResponse(
             msg=f"Request to delete the hardware '{hardware.name}' "
                 f"successfully sent to engine '{ecosystem.engine_uid}'",
