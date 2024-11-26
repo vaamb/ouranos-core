@@ -172,15 +172,8 @@ class EcosystemActuatorRecords(BaseModel):
 
 
 class EcosystemTurnActuatorPayload(BaseModel):
-    actuator: gv.HardwareType
     mode: gv.ActuatorModePayload = gv.ActuatorModePayload.automatic
     countdown: float = 0.0
-
-    @field_validator("actuator", mode="before")
-    def parse_actuator(cls, value):
-        if isinstance(value, int):
-            return gv.HardwareType(value)
-        return safe_enum_from_name(gv.HardwareType, value)
 
     @field_validator("mode", mode="before")
     def parse_mode(cls, value):

@@ -9,7 +9,7 @@ from ouranos.core.database.models.app import UserMixin
 from ouranos.core.database.models.gaia import GaiaWarning
 from ouranos.web_server.auth import get_current_user, is_authenticated
 from ouranos.web_server.dependencies import get_session
-from ouranos.web_server.routes.gaia.utils import uids_desc
+from ouranos.web_server.routes.gaia.utils import eids_desc
 from ouranos.web_server.validate.base import ResultResponse, ResultStatus
 from ouranos.web_server.validate.gaia.warning import WarningInfo
 
@@ -26,7 +26,7 @@ router = APIRouter(
             dependencies=[Depends(is_authenticated)])
 async def get_warnings(
         *,
-        ecosystems_uid: Annotated[list[str] | None, Query(description=uids_desc)] = None,
+        ecosystems_uid: Annotated[list[str] | None, Query(description=eids_desc)] = None,
         solved: Annotated[
             bool,
             Query(description="Whether to retrieve solved warnings"),

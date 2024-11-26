@@ -4,8 +4,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ouranos.core.database.models.gaia import Ecosystem
 
 
-uids_desc = (
+eids_desc = (
     "A list of ecosystem ids (either uids or names), or 'recent' or 'connected'")
+euid_desc = "An ecosystem uid"
 h_level_desc = (
     "The sensor_level at which the sensor gathers data. Leave empty for both")
 in_config_desc = (
@@ -16,9 +17,9 @@ in_config_desc = (
 
 async def ecosystem_or_abort(
         session: AsyncSession,
-        ecosystem_id: str,
+        ecosystem_uid: str,
 ) -> Ecosystem:
-    ecosystem = await Ecosystem.get_by_id(session, ecosystem_id=ecosystem_id)
+    ecosystem = await Ecosystem.get(session, uid=ecosystem_uid)
     if ecosystem:
         return ecosystem
     raise HTTPException(
