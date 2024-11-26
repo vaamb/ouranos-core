@@ -18,7 +18,7 @@ from ouranos.core.utils import timeWindow
 from ouranos.web_server.auth import is_operator
 from ouranos.web_server.dependencies import get_session, get_time_window
 from ouranos.web_server.routes.gaia.utils import (
-    ecosystem_or_abort, in_config_desc, eids_desc, euid_desc)
+    ecosystem_or_abort, eids_desc, euid_desc, in_config_desc)
 from ouranos.web_server.validate.base import ResultResponse, ResultStatus
 from ouranos.web_server.validate.gaia.ecosystem import (
     EcosystemCreationPayload, EcosystemUpdatePayload, EcosystemInfo,
@@ -147,9 +147,9 @@ async def update_ecosystem(
         ],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    ecosystem = await ecosystem_or_abort(session, ecosystem_uid)
     ecosystem_dict = payload.model_dump()
     try:
-        ecosystem = await ecosystem_or_abort(session, ecosystem_uid)
         await dispatcher.emit(
             event="crud",
             data=gv.CrudPayload(
@@ -186,8 +186,8 @@ async def delete_ecosystem(
         ecosystem_uid: Annotated[str, Path(description=euid_desc)],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    ecosystem = await ecosystem_or_abort(session, ecosystem_uid)
     try:
-        ecosystem = await ecosystem_or_abort(session, ecosystem_uid)
         await dispatcher.emit(
             event="crud",
             data=gv.CrudPayload(
@@ -515,9 +515,9 @@ async def update_environment_parameter(
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     ecosystem = await ecosystem_or_abort(session, ecosystem_uid)
+    await environment_parameter_or_abort(session, ecosystem.uid, parameter)
     environment_parameter_dict = payload.model_dump()
     environment_parameter_dict["parameter"] = parameter
-    await environment_parameter_or_abort(session, ecosystem.uid, parameter)
     try:
         await dispatcher.emit(
             event="crud",

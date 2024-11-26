@@ -46,9 +46,6 @@ async def get_measures_available(session: AsyncSession = Depends(get_session)):
     return measures
 
 
-# ------------------------------------------------------------------------------
-#   Ecosystem sensors skeleton
-# ------------------------------------------------------------------------------
 @router.get("/sensor/skeleton", response_model=list[SensorSkeletonInfo])
 async def get_ecosystems_sensors_skeleton(
         *,
