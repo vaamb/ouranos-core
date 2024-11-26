@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import enum
-from enum import Enum, IntFlag, StrEnum
+from enum import IntFlag, StrEnum
 import re
 from typing import Optional, Self, Sequence, TypedDict
 
@@ -553,16 +553,22 @@ class User(Base, UserMixin):
             await session.execute(stmt)
 
 
-class ServiceLevel(Enum):
+class ServiceLevel(StrEnum):
     all = "all"
     app = "app"
     ecosystem = "ecosystem"
 
 
-services_definition = {
-        "weather": ServiceLevel.app,
-        "suntimes": ServiceLevel.app,
-        "calendar": ServiceLevel.app
+class ServiceName(StrEnum):
+    weather = "weather"
+    suntimes = "suntimes"
+    calendar = "calendar"
+
+
+services_definition: dict[ServiceName, ServiceLevel] = {
+        ServiceName.weather: ServiceLevel.app,
+        ServiceName.suntimes: ServiceLevel.app,
+        ServiceName.calendar: ServiceLevel.app
 }
 
 
@@ -571,7 +577,7 @@ class Service(Base):
     __bind_key__ = "app"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(sa.String(length=16))
+    name: Mapped[ServiceName] = mapped_column(sa.String(length=16), unique=True)
     level: Mapped[ServiceLevel] = mapped_column()
     status: Mapped[bool] = mapped_column(default=False)
 
