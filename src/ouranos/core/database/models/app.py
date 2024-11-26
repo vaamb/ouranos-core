@@ -561,14 +561,14 @@ class ServiceLevel(StrEnum):
 
 class ServiceName(StrEnum):
     weather = "weather"
-    suntimes = "suntimes"
     calendar = "calendar"
+    wiki = "wiki"
 
 
 services_definition: dict[ServiceName, ServiceLevel] = {
         ServiceName.weather: ServiceLevel.app,
-        ServiceName.suntimes: ServiceLevel.app,
-        ServiceName.calendar: ServiceLevel.app
+        ServiceName.calendar: ServiceLevel.app,
+        ServiceName.wiki: ServiceLevel.app,
 }
 
 
