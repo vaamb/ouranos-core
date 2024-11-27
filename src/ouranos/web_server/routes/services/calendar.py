@@ -4,9 +4,10 @@ from fastapi import (
     APIRouter, Body, Depends, HTTPException, Path, Query, status)
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ouranos.core.database.models.app import CalendarEvent, UserMixin
+from ouranos.core.database.models.app import CalendarEvent, ServiceName, UserMixin
 from ouranos.web_server.auth import get_current_user, is_authenticated
 from ouranos.web_server.dependencies import get_session
+from ouranos.web_server.routes.services.utils import service_enabled
 from ouranos.web_server.validate.base import ResultResponse, ResultStatus
 from ouranos.web_server.validate.calendar import (
     EventCreationPayload, EventUpdatePayload, EventInfo)
@@ -18,13 +19,15 @@ router = APIRouter(
         403: {"description": "Unauthorized"},
         404: {"description": "Not found"},
     },
+    dependencies=[
+        Depends(is_authenticated),
+        Depends(service_enabled(ServiceName.calendar)),
+    ],
     tags=["app/services/calendar"],
 )
 
 
-@router.get("",
-            response_model=list[EventInfo],
-            dependencies=[Depends(is_authenticated)])
+@router.get("", response_model=list[EventInfo])
 async def get_events(
         *,
         limit: Annotated[int, Query(description="The number of events to fetch")] = 8,
@@ -36,8 +39,7 @@ async def get_events(
 
 @router.post("/u",
              response_model=ResultResponse,
-             status_code=status.HTTP_202_ACCEPTED,
-             dependencies=[Depends(is_authenticated)])
+             status_code=status.HTTP_202_ACCEPTED)
 async def create_event(
         payload: Annotated[
             EventCreationPayload,
@@ -65,8 +67,7 @@ async def create_event(
 
 @router.put("/u/{event_id}",
             response_model=ResultResponse,
-            status_code=status.HTTP_202_ACCEPTED,
-            dependencies=[Depends(is_authenticated)])
+            status_code=status.HTTP_202_ACCEPTED)
 async def update_event(
         event_id: Annotated[int, Path(description="The id of the event to update")],
         payload: Annotated[
@@ -92,8 +93,7 @@ async def update_event(
 
 @router.post("/u/{event_id}/mark_as_inactive",
              response_model=ResultResponse,
-             status_code=status.HTTP_202_ACCEPTED,
-             dependencies=[Depends(is_authenticated)])
+             status_code=status.HTTP_202_ACCEPTED)
 async def mark_event_as_inactive(
         event_id: Annotated[int, Path(description="The id of the event to update")],
         current_user: Annotated[UserMixin, Depends(get_current_user)],

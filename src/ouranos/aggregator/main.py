@@ -140,7 +140,7 @@ class Aggregator(Functionality):
         # Get the dispatcher and the event handler
         self.gaia_dispatcher = DispatcherFactory.get("aggregator")
         # Create and register Gaia events handler
-        self.event_handler = GaiaEvents()
+        self.event_handler = GaiaEvents(aggregator=self)
         self.gaia_dispatcher.register_event_handler(self.event_handler)
         # Create or get the dispatcher used for internal communication
         self.internal_dispatcher = DispatcherFactory.get("aggregator-internal")

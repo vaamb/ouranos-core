@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from threading import Lock
 import inspect
 import logging
+import typing as t
 from typing import Callable, cast, Type, TypedDict, TypeVar
 from uuid import UUID
 
@@ -21,12 +22,17 @@ from gaia_validators.image import SerializableImage, SerializableImagePayload
 from ouranos import current_app, db, json
 from ouranos.core.config.consts import TOKEN_SUBS
 from ouranos.core.database.models.abc import RecordMixin
+from ouranos.core.database.models.app import ServiceName
 from ouranos.core.database.models.gaia import (
     ActuatorRecord, ActuatorState, CrudRequest, Ecosystem, Engine,
     EnvironmentParameter, Hardware, HealthRecord, Lighting, Place, CameraPicture,
     SensorAlarm, SensorDataRecord, SensorDataCache)
 from ouranos.core.exceptions import NotRegisteredError
 from ouranos.core.utils import humanize_list, Tokenizer
+
+
+if t.TYPE_CHECKING:
+    from ouranos.aggregator.main import Aggregator
 
 
 PT = TypeVar("PT", dict, list[dict])
@@ -49,6 +55,11 @@ class SensorAlarmDict(TypedDict):
     delta: float
     level: gv.WarningLevel
     timestamp: datetime
+
+
+class ServiceUpdateDict(TypedDict):
+    name: str
+    status: bool
 
 
 def registration_required(func: Callable):
@@ -81,10 +92,11 @@ def dispatch_to_application(func: Callable):
 #   Events class
 # ------------------------------------------------------------------------------
 class GaiaEvents(AsyncEventHandler):
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, aggregator: Aggregator, *args, **kwargs) -> None:
         kwargs["namespace"] = "/gaia"
         super().__init__(*args, **kwargs)
         self.logger = logging.getLogger("ouranos.aggregator")
+        self.aggregator: Aggregator = aggregator
         self._internal_dispatcher: AsyncDispatcher | None = None
         self._stream_dispatcher: AsyncDispatcher | None = None
         self._alarms_data: list[SensorAlarmDict] = []
@@ -156,6 +168,7 @@ class GaiaEvents(AsyncEventHandler):
         self._internal_dispatcher.on("turn_light", self.turn_light)
         self._internal_dispatcher.on("turn_actuator", self.turn_actuator)
         self._internal_dispatcher.on("crud", self.crud)
+        self._internal_dispatcher.on("update_service", self.update_service)
 
     @property
     def stream_dispatcher(self) -> AsyncDispatcher:
@@ -900,6 +913,32 @@ class GaiaEvents(AsyncEventHandler):
         self.logger.debug(
             f"Logged light data from ecosystem(s): {humanize_list(ecosystems_to_log)}"
         )
+
+    # ---------------------------------------------------------------------------
+    #   Events Api -> Aggregator
+    # ---------------------------------------------------------------------------
+    async def update_service(
+            self,
+            sid: UUID,  # noqa
+            data: ServiceUpdateDict,
+    ) -> None:
+        if data["name"] != ServiceName.weather:
+            self.logger.error(
+                f"Received an update for service '{data['name']}', but only the "
+                f"weather service is supported.")
+            return
+        if data["status"]:
+            self.logger.info("Received a request to start the sky watcher.")
+            if not self.aggregator.sky_watcher.started:
+                await self.aggregator.sky_watcher.start()
+            else:
+                self.logger.info("Sky watcher is already running.")
+        else:
+            self.logger.info("Received a request to stop the sky watcher.")
+            if self.aggregator.sky_watcher.started:
+                await self.aggregator.sky_watcher.stop()
+            else:
+                self.logger.info("Sky watcher is not running.")
 
     # ---------------------------------------------------------------------------
     #   Events Api -> Aggregator -> Gaia

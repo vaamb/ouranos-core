@@ -124,7 +124,7 @@ async def get_weather_data(coordinates: gv.Coordinates, api_key: str) -> Weather
 #   SkyWatcher class
 # -------------------------------------------------------------------------------
 class SkyWatcher:
-    def __init__(self, ):
+    def __init__(self):
         self.logger: Logger = getLogger("ouranos.aggregator")
         self.dispatcher = DispatcherFactory.get("aggregator-internal")
         self._mutex = asyncio.Lock()

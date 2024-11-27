@@ -20,3 +20,7 @@ ServiceInfo = sqlalchemy_to_pydantic(
     base=BaseModel,
     exclude=["id"]
 )
+
+
+class ServiceUpdatePayload(BaseModel):
+    status: bool
