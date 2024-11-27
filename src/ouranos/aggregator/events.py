@@ -56,6 +56,7 @@ class SensorAlarmDict(TypedDict):
     level: gv.WarningLevel
     timestamp: datetime
 
+
 class ServiceUpdateDict(TypedDict):
     name: str
     status: bool
@@ -930,14 +931,12 @@ class GaiaEvents(AsyncEventHandler):
             self.logger.info("Received a request to start the sky watcher.")
             if not self.aggregator.sky_watcher.started:
                 await self.aggregator.sky_watcher.start()
-                self.logger.info("Sky watcher started.")
             else:
                 self.logger.info("Sky watcher is already running.")
         else:
             self.logger.info("Received a request to stop the sky watcher.")
             if self.aggregator.sky_watcher.started:
                 await self.aggregator.sky_watcher.stop()
-                self.logger.info("Sky watcher stopped.")
             else:
                 self.logger.info("Sky watcher is not running.")
 
