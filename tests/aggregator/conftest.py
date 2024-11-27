@@ -6,6 +6,7 @@ import pytest_asyncio
 from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
 from ouranos.aggregator.events import GaiaEvents
+from ouranos.aggregator.sky_watcher import SkyWatcher
 from ouranos.core.database.init import create_base_data
 from ouranos.core.database.models.gaia import Engine, Ecosystem
 
@@ -45,14 +46,31 @@ async def ecosystem_aware_db(engine_aware_db: AsyncSQLAlchemyWrapper):
 
 
 @pytest.fixture(scope="module")
+def mock_aggregator():
+    class MockAggregator:
+        event_handler = None
+        sky_watcher = None
+
+    return MockAggregator()
+
+
+@pytest.fixture(scope="module")
+def sky_watcher(mock_aggregator):
+    sky_watcher = SkyWatcher()
+    mock_aggregator.sky_watcher = sky_watcher
+    return sky_watcher
+
+
+@pytest.fixture(scope="module")
 def mock_dispatcher():
     mock_dispatcher = MockAsyncDispatcher("aggregator")
     return mock_dispatcher
 
 
 @pytest.fixture(scope="module")
-def events_handler_module(mock_dispatcher: MockAsyncDispatcher):
-    events_handler = GaiaEvents()
+def events_handler_module(mock_aggregator, mock_dispatcher: MockAsyncDispatcher):
+    events_handler = GaiaEvents(mock_aggregator)  # noqa
+    mock_aggregator.event_handler = events_handler
     events_handler.internal_dispatcher = mock_dispatcher
     mock_dispatcher.register_event_handler(events_handler)
     return events_handler
