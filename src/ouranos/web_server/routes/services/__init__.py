@@ -52,13 +52,13 @@ async def update_service(
     service_status = payload.model_dump()["status"]
     await Service.update(
         session, name=service_name, values={"status": service_status})
-    # TODO: catch the dispatched message in the aggregator and act accordingly
-    dispatcher: AsyncDispatcher = DispatcherFactory.get("application-internal")
-    await dispatcher.emit(
-        event="update_service",
-        data={"name": service_name, "status": service_status},
-        namespace="aggregator-internal",
-    )
+    if service_name == ServiceName.weather:
+        dispatcher: AsyncDispatcher = DispatcherFactory.get("application-internal")
+        await dispatcher.emit(
+            event="update_service",
+            data={"name": service_name, "status": service_status},
+            namespace="aggregator-internal",
+        )
     return ResultResponse(
         msg=f"Updated service '{service_name.name}' to status '{service_status}'",
         status=ResultStatus.success
