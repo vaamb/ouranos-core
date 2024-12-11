@@ -14,6 +14,7 @@ class UserDescription(BaseModel):
     lastname: str | None = None
     confirmed: bool
     registration_datetime: datetime
+    last_seen: datetime
 
 
 class UserUpdatePayload(BaseModel):
