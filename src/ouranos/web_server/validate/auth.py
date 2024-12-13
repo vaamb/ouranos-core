@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from ouranos.core.validate.base import BaseModel
 from ouranos.web_server.validate.base import BaseResponse
 
@@ -21,6 +23,7 @@ class UserInfo(BaseModel):
     permissions: int = 0
     is_authenticated: bool = False
     is_confirmed: bool = False
+    last_seen: datetime | None = None
 
 
 class LoginInfo(BaseResponse):
