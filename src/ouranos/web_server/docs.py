@@ -36,6 +36,10 @@ tags_metadata = [
         "description": "App-related info",
     },
     {
+        "name": "app/services",
+        "description": "Manage the services",
+    },
+    {
         "name": "app/services/calendar",
         "description": "Create and manage the calendar",
     },
