@@ -18,7 +18,7 @@ router = APIRouter(
 )
 
 
-@router.get("", response_model=list[ServiceInfo], tags=["/app/services"])
+@router.get("", response_model=list[ServiceInfo], tags=["app/services"])
 async def get_services(
         *,
         level: Annotated[
@@ -36,7 +36,7 @@ async def get_services(
 @router.put("/u/{service_name}",
             status_code=status.HTTP_202_ACCEPTED,
             response_model=ResultResponse,
-            tags=["/app/services"])
+            tags=["app/services"])
 async def update_service(
         *,
         service_name: Annotated[
