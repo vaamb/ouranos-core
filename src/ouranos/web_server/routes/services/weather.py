@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Response
+from typing import Annotated, Literal
+
+from fastapi import APIRouter, Depends, Query, Response
 
 import gaia_validators as gv
 
@@ -8,7 +10,10 @@ from ouranos.core.caches import CacheFactory
 from ouranos.core.database.models.app import ServiceName
 from ouranos.web_server.routes.services.utils import service_enabled
 from ouranos.web_server.validate.weather import (
-    CurrentWeatherInfo, DailyWeatherInfo, HourlyWeatherInfo)
+    CurrentWeatherInfo, DailyWeatherInfo, HourlyWeatherInfo, WeatherInfo)
+
+
+excluded_timings = Literal["currently", "hourly", "daily"]
 
 
 router = APIRouter(
@@ -35,6 +40,23 @@ async def get_sun_times():
     await init_cache_if_needed()
     response = await sky_watcher_cache.get("sun_times", None)
     if response:
+        return response
+    return Response(status_code=204)
+
+
+@router.get("/forecast", response_model=WeatherInfo)
+async def get_forecast(
+        exclude: Annotated[list[excluded_timings] | None, Query(description="List of forecast to exclude")] = None,
+):
+    await init_cache_if_needed()
+    if exclude is None:
+        exclude = []
+    response = {
+        timing: await sky_watcher_cache.get(f"weather_{timing}", None)
+            if timing not in exclude else None
+        for timing in ["currently", "hourly", "daily"]
+    }
+    if any(value for value in response.values()):
         return response
     return Response(status_code=204)
 

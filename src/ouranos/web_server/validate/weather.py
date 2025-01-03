@@ -29,3 +29,9 @@ class HourlyWeatherInfo(CurrentWeatherInfo):
 class DailyWeatherInfo(HourlyWeatherInfo):
     temperature_min: float
     temperature_max: float
+
+
+class WeatherInfo(BaseModel):
+    currently: CurrentWeatherInfo | None
+    hourly: list[HourlyWeatherInfo] | None
+    daily: list[DailyWeatherInfo] | None
