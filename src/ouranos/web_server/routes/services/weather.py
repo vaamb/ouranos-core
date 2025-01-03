@@ -51,7 +51,6 @@ async def get_forecast(
     await init_cache_if_needed()
     if exclude is None:
         exclude = []
-
     response = {
         timing: await sky_watcher_cache.get(f"weather_{timing}", None)
             if timing not in exclude else None
