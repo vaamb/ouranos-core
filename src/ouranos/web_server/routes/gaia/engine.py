@@ -33,7 +33,7 @@ async def engine_or_abort(session: AsyncSession, engine_id: str) -> Engine:
 async def get_engines(
         *,
         engines_id: Annotated[
-            str | None,
+            list[str] | None,
             Query(description="A list of engine ids (either uids or sids) or "
                               "'recent' or 'connected'"),
         ] = None,

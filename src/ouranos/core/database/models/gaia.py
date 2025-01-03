@@ -43,6 +43,13 @@ measure_order = (
 )
 
 
+def try_uuid(potential_uuid: str) -> str | UUID:
+    try:
+        return UUID(potential_uuid)
+    except ValueError:
+        return potential_uuid
+
+
 class EcosystemActuatorTypesManagedDict(TypedDict):
     light: bool
     cooler: bool
@@ -145,6 +152,7 @@ class Engine(Base, CachedCRUDMixin):
             return result.scalars().all()
         # Check that all the list elements are of the same types as it can lead
         #  to issues on some backend
+        engines_id = [try_uuid(engine_id) for engine_id in engines_id]
         lst_type = type(engines_id[0])
         if len(engines_id) > 0:
             if not all(isinstance(id_, lst_type) for id_ in engines_id[1:]):
@@ -154,7 +162,6 @@ class Engine(Base, CachedCRUDMixin):
             # Received an engine uid
             stmt = select(cls).where(cls.uid.in_(engines_id))
         else:
-            # Received an engine sid
             # Received an engine sid
             stmt = select(cls).where(cls.sid.in_(engines_id))
         stmt = stmt.order_by(cls.uid.asc())
