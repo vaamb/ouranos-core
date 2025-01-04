@@ -43,6 +43,7 @@ class ClientEvents(AsyncNamespace):
         try:
             session_info = SessionInfo.from_token(token)
         except TokenError:
+            logger.warning(f"Received invalid session token from sid '{sid}'")
             await self.emit(
                 "login_ack",
                 data={
@@ -77,7 +78,7 @@ class ClientEvents(AsyncNamespace):
         try:
             session_info = SessionInfo.from_token(token)
         except TokenError:
-            pass  # Log this later on
+            logger.warning(f"Received invalid session token from sid '{sid}'")
         else:
             if session_info.user_id > 0:
                 async with db.scoped_session() as session:
