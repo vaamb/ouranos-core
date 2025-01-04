@@ -883,6 +883,35 @@ class GaiaEvents(AsyncEventHandler):
             )
 
     @registration_required
+    async def on_buffered_health_data(
+            self,
+            sid: UUID,
+            data: gv.BufferedSensorsDataPayloadDict,
+            engine_uid: str,
+    ) -> None:
+        self.logger.debug(
+            f"Received 'buffered_health_data' from {engine_uid}")
+        data: gv.BufferedSensorsDataPayloadDict = self.validate_payload(
+            data, gv.BufferedSensorsDataPayload)
+        exchange_uuid: UUID = data["uuid"]
+        records = [
+            {
+                "ecosystem_uid": record[0],
+                "sensor_uid": record[1],
+                "measure": record[2],
+                "value": record[3],
+                "timestamp": record[4],
+            }
+            for record in data["data"]
+        ]
+        await self._handle_buffered_records(
+            record_model=HealthRecord,
+            records=records,
+            exchange_uuid=exchange_uuid,
+            sender_sid=sid
+        )
+
+    @registration_required
     @dispatch_to_application
     async def on_light_data(
             self,
