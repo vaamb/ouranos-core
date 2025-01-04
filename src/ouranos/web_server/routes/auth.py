@@ -65,14 +65,14 @@ async def logout(
 
 
 @router.get("/current_user", response_model=UserInfo)
-async def get_current_user(
+async def get_current_user_info(
         current_user: UserMixin = Depends(get_current_user),  # Cannot use Annotated here
 ):
     return current_user
 
 
 @router.put("/current_user", response_model=UserInfo)
-async def get_current_user(
+async def update_current_user_info(
         *,
         current_user: UserMixin = Depends(get_current_user),  # Cannot use Annotated here
         session: Annotated[AsyncSession, Depends(get_session)],
