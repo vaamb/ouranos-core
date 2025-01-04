@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 
+from datetime import datetime, timezone
 from logging import getLogger, Logger
 
 from dispatcher import AsyncDispatcher, AsyncEventHandler
@@ -7,7 +8,7 @@ import gaia_validators as gv
 from socketio import AsyncNamespace, AsyncManager
 
 from ouranos import db
-from ouranos.core.database.models.app import Permission
+from ouranos.core.database.models.app import Permission, User
 from ouranos.core.database.models.gaia import Ecosystem
 from ouranos.core.exceptions import TokenError
 from ouranos.web_server.auth import login_manager, SessionInfo
@@ -38,9 +39,9 @@ class ClientEvents(AsyncNamespace):
     async def on_ping(self, sid):
         await self.emit("pong", namespace="/", room=sid)
 
-    async def on_login(self, sid, data):
+    async def on_login(self, sid, token: str):
         try:
-            session_info = SessionInfo.from_token(data)
+            session_info = SessionInfo.from_token(token)
         except TokenError:
             await self.emit(
                 "login_ack",
@@ -63,7 +64,7 @@ class ClientEvents(AsyncNamespace):
                 room=sid
             )
 
-    async def on_logout(self, sid, data):
+    async def on_logout(self, sid, token: str):
         self.server.leave_room(sid, ADMIN_ROOM)
         await self.emit(
             "logout_ack",
@@ -71,6 +72,20 @@ class ClientEvents(AsyncNamespace):
             namespace="/",
             room=sid
         )
+
+    async def on_heartbeat_user(self, sid, token: str):
+        try:
+            session_info = SessionInfo.from_token(token)
+        except TokenError:
+            pass  # Log this later on
+        else:
+            if session_info.user_id > 0:
+                async with db.scoped_session() as session:
+                    await User.update(
+                        session,
+                        user_id=session_info.user_id,
+                        values={"last_seen": datetime.now(timezone.utc)}
+                    )
 
     async def on_join_room(self, sid, room_name: str) -> None:
         if room_name == ADMIN_ROOM:
