@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
@@ -10,7 +11,7 @@ from gaia_validators import safe_enum_from_name
 
 from ouranos.core.config.consts import REGISTRATION_TOKEN_VALIDITY
 from ouranos.core.database.models.app import (
-    RoleName, User, UserMixin, UserTokenInfoDict)
+    anonymous_user, RoleName, User, UserMixin, UserTokenInfoDict)
 from ouranos.web_server.auth import (
     Authenticator, basic_auth, check_invitation_token, get_current_user,
     login_manager, is_admin)
@@ -68,6 +69,20 @@ async def get_current_user(
         current_user: UserMixin = Depends(get_current_user),  # Cannot use Annotated here
 ):
     return current_user
+
+
+@router.put("/current_user", response_model=UserInfo)
+async def get_current_user(
+        *,
+        current_user: UserMixin = Depends(get_current_user),  # Cannot use Annotated here
+        session: Annotated[AsyncSession, Depends(get_session)],
+):
+    if current_user != anonymous_user:
+        await User.update(
+            session,
+            user_id=current_user.id,
+            values={"last_seen": datetime.now(timezone.utc)}
+        )
 
 
 @router.post("/register",
