@@ -74,7 +74,7 @@ class ClientEvents(AsyncNamespace):
             room=sid
         )
 
-    async def on_heartbeat_user(self, sid, token: str):
+    async def on_user_heartbeat(self, sid, token: str):
         try:
             session_info = SessionInfo.from_token(token)
         except TokenError:
@@ -87,6 +87,11 @@ class ClientEvents(AsyncNamespace):
                         user_id=session_info.user_id,
                         values={"last_seen": datetime.now(timezone.utc)}
                     )
+                await self.emit(
+                    "user_heartbeat_ack",
+                    to=sid,
+                    namespace="/",
+                )
 
     async def on_join_room(self, sid, room_name: str) -> None:
         if room_name == ADMIN_ROOM:
