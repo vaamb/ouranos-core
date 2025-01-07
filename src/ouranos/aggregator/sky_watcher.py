@@ -194,16 +194,14 @@ class SkyWatcher:
             # Dispatch data
             now = datetime.now()
             await self.dispatcher.emit(
-                "weather_current", data={"currently": weather_data_dict["current"]},
+                "weather_current", data=weather_data_dict["current"],
                 namespace="application-internal")
-            if now.minute % 15 == 0:
-                await self.dispatcher.emit(
-                    "weather_hourly", data={"hourly": weather_data_dict["hourly"]},
-                    namespace="application-internal")
-            if now.hour % 1 == 0 and now.minute == 0:
-                await self.dispatcher.emit(
-                    "weather_daily", data={"daily": weather_data_dict["daily"]},
-                    namespace="application-internal")
+            await self.dispatcher.emit(
+                "weather_hourly", data=weather_data_dict["hourly"],
+                namespace="application-internal")
+            await self.dispatcher.emit(
+                "weather_daily", data=weather_data_dict["daily"],
+                namespace="application-internal")
 
     """Sun times"""
     async def update_sun_times_data(self) -> None:
