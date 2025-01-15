@@ -25,11 +25,7 @@ WEATHER_DATA_MULTIPLICATION_FACTORS = ImmutableDict({
     "precipProbability": 100,
 })
 
-HARDWARE_LEVELS = ("environment", "plants")
-
-HARDWARE_TYPES = (
-    "cooler", "dehumidifier", "heater", "humidifier", "light", "sensor"
-)
+ECOSYSTEM_TIMEOUT = 60
 
 ACTUATORS_AVAILABLE = ["gpioDimmable", "gpioSwitch"]
 

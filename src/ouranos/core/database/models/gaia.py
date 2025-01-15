@@ -19,6 +19,7 @@ from sqlalchemy.sql.functions import max as sa_max
 import gaia_validators as gv
 
 from ouranos import current_app
+from ouranos.core.config.consts import ECOSYSTEM_TIMEOUT
 from ouranos.core.database.models.abc import (
     Base, CacheMixin, CRUDMixin, RecordMixin)
 from ouranos.core.database.models.caches import (
@@ -94,7 +95,10 @@ class Engine(Base, CachedCRUDMixin):
 
     @property
     def connected(self) -> bool:
-        return datetime.now(timezone.utc) - self.last_seen <= timedelta(seconds=30.0)
+        return (
+            datetime.now(timezone.utc) - self.last_seen <=
+                timedelta(seconds=ECOSYSTEM_TIMEOUT)
+        )
 
     @classmethod
     async def get_by_id(
@@ -208,7 +212,10 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
 
     @property
     def connected(self) -> bool:
-        return datetime.now(timezone.utc) - self.last_seen <= timedelta(seconds=30.0)
+        return (
+            datetime.now(timezone.utc) - self.last_seen <=
+                timedelta(seconds=ECOSYSTEM_TIMEOUT)
+        )
 
     @property
     def management_dict(self):
