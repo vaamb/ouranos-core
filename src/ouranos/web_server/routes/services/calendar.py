@@ -1,10 +1,12 @@
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import (
     APIRouter, Body, Depends, HTTPException, Path, Query, status)
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ouranos.core.database.models.app import CalendarEvent, ServiceName, UserMixin
+from ouranos.core.database.models.app import (
+    CalendarEvent, Permission, ServiceName, UserMixin)
 from ouranos.web_server.auth import get_current_user, is_authenticated
 from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.routes.services.utils import service_enabled
@@ -30,10 +32,23 @@ router = APIRouter(
 @router.get("", response_model=list[EventInfo])
 async def get_events(
         *,
-        limit: Annotated[int, Query(description="The number of events to fetch")] = 8,
+        start_time: Annotated[
+            str | None,
+            Query(description="Lower bound as ISO (8601) formatted datetime"),
+        ] = None,
+        end_time: Annotated[
+            str | None,
+            Query(description="Upper bound as ISO (8601) formatted datetime"),
+        ] = None,
+        limit: Annotated[int, Query(description="The number of events to fetch")] = 10,
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    response = await CalendarEvent.get_multiple(session, limit=limit)
+    if isinstance(start_time, str):
+        start_time = datetime.fromisoformat(start_time)
+    if isinstance(end_time, str):
+        end_time = datetime.fromisoformat(end_time)
+    response = await CalendarEvent.get_multiple(
+        session, start_time=start_time, end_time=end_time, limit=limit)
     return response
 
 
@@ -78,7 +93,7 @@ async def update_event(
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     event = await CalendarEvent.get(session, event_id=event_id)
-    if event.created_by != current_user.id:
+    if event.created_by != current_user.id and not current_user.can(Permission.ADMIN):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
     values = {
         key: value for key, value in payload.model_dump().items()
@@ -100,7 +115,7 @@ async def mark_event_as_inactive(
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     event = await CalendarEvent.get(session, event_id=event_id)
-    if event.created_by != current_user.id:
+    if event.created_by != current_user.id and not current_user.can(Permission.ADMIN):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
     await CalendarEvent.inactivate(session, event_id=event_id)
     return ResultResponse(

@@ -716,17 +716,30 @@ class CalendarEvent(Base):
     async def get_multiple(
             cls,
             session: AsyncSession,
-            limit: int = 10,
+            *,
+            start_time: datetime | None = None,
+            end_time: datetime | None = None,
+            limit: int | None = None,
     ) -> Sequence[Self]:
         stmt = (
             select(cls)
             .where(
                 (cls.active == True)
-                & (cls.end_time > datetime.now(tz=timezone.utc))
             )
             .order_by(cls.start_time.asc())
-            .limit(limit)
         )
+        if start_time is not None:
+            stmt = stmt.where(
+                (cls.start_time >= start_time)
+                | (cls.end_time >= start_time)
+            )
+        if end_time is not None:
+            stmt = stmt.where(
+                (cls.start_time <= end_time)
+                | (cls.end_time <= end_time)
+            )
+        if limit is not None:
+            stmt = stmt.limit(limit)
         result = await session.execute(stmt)
         return result.scalars().all()
 
