@@ -106,10 +106,10 @@ async def update_event(
     )
 
 
-@router.post("/u/{event_id}/mark_as_inactive",
-             response_model=ResultResponse,
-             status_code=status.HTTP_202_ACCEPTED)
-async def mark_event_as_inactive(
+@router.delete("/u/{event_id}",
+               response_model=ResultResponse,
+               status_code=status.HTTP_202_ACCEPTED)
+async def delete_event(
         event_id: Annotated[int, Path(description="The id of the event to update")],
         current_user: Annotated[UserMixin, Depends(get_current_user)],
         session: Annotated[AsyncSession, Depends(get_session)],
@@ -119,6 +119,6 @@ async def mark_event_as_inactive(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
     await CalendarEvent.inactivate(session, event_id=event_id)
     return ResultResponse(
-        msg=f"Event with id '{event_id}' marked as inactive",
+        msg=f"Event with id '{event_id}' deleted",
         status=ResultStatus.success
     )
