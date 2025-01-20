@@ -766,7 +766,7 @@ class CalendarEvent(Base):
         stmt = (
             update(cls)
             .where(cls.id == event_id)
-            .values({"active": True})
+            .values({"active": False})
         )
         await session.execute(stmt)
 
