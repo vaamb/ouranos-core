@@ -25,6 +25,12 @@ class EcosystemCreationPayload(BaseModel):
     night_start: time = time(20, 00)
     engine_uid: str
 
+    @field_validator("day_start", "night_start", mode="before")
+    def parse_time(cls, value):
+        if isinstance(value, str):
+            return time.fromisoformat(value)
+        return value
+
 
 class EcosystemUpdatePayload(BaseModel):
     name: str | None = None
@@ -34,6 +40,12 @@ class EcosystemUpdatePayload(BaseModel):
     day_start: time | None = None
     night_start: time | None = None
     engine_uid: str | None = None
+
+    @field_validator("day_start", "night_start", mode="before")
+    def parse_time(cls, value):
+        if isinstance(value, str):
+            return time.fromisoformat(value)
+        return value
 
 
 _EcosystemInfo = sqlalchemy_to_pydantic(

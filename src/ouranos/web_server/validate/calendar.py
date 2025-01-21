@@ -23,6 +23,12 @@ class EventCreationPayload(BaseModel):
             return safe_enum_from_name(gv.WarningLevel, value)
         return value
 
+    @field_validator("start_time", "end_time", mode="before")
+    def parse_datetime(cls, value):
+        if isinstance(value, str):
+            return datetime.fromisoformat(value)
+        return value
+
 
 class EventUpdatePayload(BaseModel):
     level: gv.WarningLevel | None = None
@@ -35,6 +41,12 @@ class EventUpdatePayload(BaseModel):
     def parse_level(cls, value):
         if isinstance(value, str):
             return safe_enum_from_name(gv.WarningLevel, value)
+        return value
+
+    @field_validator("start_time", "end_time", mode="before")
+    def parse_datetime(cls, value):
+        if isinstance(value, str):
+            return datetime.fromisoformat(value)
         return value
 
 
