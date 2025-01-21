@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Type, TypeVar
 
-from pydantic import ConfigDict, field_serializer
+from pydantic import ConfigDict, field_serializer, field_validator
 
 import gaia_validators as gv
 from gaia_validators import safe_enum_from_name
@@ -38,6 +38,18 @@ class HardwareUpdatePayload(gv.AnonymousHardwareConfig):
     status: bool | None = None
     measures: list[str] | None = None
     plant_uid: list[str] | None = None
+
+    @field_validator("type", mode="before")
+    def parse_level(cls, value):
+        if isinstance(value, str):
+            return safe_enum_from_name(gv.HardwareLevel, value)
+        return value
+
+    @field_validator("type", mode="before")
+    def parse_type(cls, value):
+        if isinstance(value, str):
+            return safe_enum_from_name(gv.HardwareType, value)
+        return value
 
 
 class _HardwareInfo(BaseModel):

@@ -2,8 +2,6 @@ from datetime import datetime
 from typing import Optional
 from typing_extensions import TypedDict
 
-from pydantic import Field
-
 from ouranos.core.validate.base import BaseModel
 
 

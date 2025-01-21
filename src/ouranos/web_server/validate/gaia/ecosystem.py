@@ -25,6 +25,18 @@ class EcosystemCreationPayload(BaseModel):
     night_start: time = time(20, 00)
     engine_uid: str
 
+    @field_validator("lighting_method", mode="before")
+    def parse_lighting_method(cls, value):
+        if isinstance(value, str):
+            return safe_enum_from_name(gv.LightingMethod, value)
+        return value
+
+    @field_validator("day_start", "night_start", mode="before")
+    def parse_time(cls, value):
+        if isinstance(value, str):
+            return time.fromisoformat(value)
+        return value
+
 
 class EcosystemUpdatePayload(BaseModel):
     name: str | None = None
@@ -34,6 +46,18 @@ class EcosystemUpdatePayload(BaseModel):
     day_start: time | None = None
     night_start: time | None = None
     engine_uid: str | None = None
+
+    @field_validator("lighting_method", mode="before")
+    def parse_lighting_method(cls, value):
+        if isinstance(value, str):
+            return safe_enum_from_name(gv.LightingMethod, value)
+        return value
+
+    @field_validator("day_start", "night_start", mode="before")
+    def parse_time(cls, value):
+        if isinstance(value, str):
+            return time.fromisoformat(value)
+        return value
 
 
 _EcosystemInfo = sqlalchemy_to_pydantic(
@@ -93,7 +117,9 @@ class EcosystemLightMethodUpdatePayload(BaseModel):
 
     @field_validator("method", mode="before")
     def parse_method(cls, value):
-        return safe_enum_from_name(gv.LightingMethod, value)
+        if isinstance(value, str):
+            return safe_enum_from_name(gv.LightingMethod, value)
+        return value
 
 
 class _EcosystemLightInfo(BaseModel):
@@ -177,4 +203,6 @@ class EcosystemTurnActuatorPayload(BaseModel):
 
     @field_validator("mode", mode="before")
     def parse_mode(cls, value):
-        return safe_enum_from_name(gv.ActuatorModePayload, value)
+        if isinstance(value, str):
+            return safe_enum_from_name(gv.ActuatorModePayload, value)
+        return value
