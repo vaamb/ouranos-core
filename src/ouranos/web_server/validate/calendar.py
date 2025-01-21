@@ -20,7 +20,7 @@ class EventCreationPayload(BaseModel):
     @field_validator("level", mode="before")
     def parse_level(cls, value):
         if isinstance(value, str):
-            return safe_enum_from_name(gv.LightingMethod, value)
+            return safe_enum_from_name(gv.WarningLevel, value)
         return value
 
 
@@ -34,7 +34,7 @@ class EventUpdatePayload(BaseModel):
     @field_validator("level", mode="before")
     def parse_level(cls, value):
         if isinstance(value, str):
-            return safe_enum_from_name(gv.LightingMethod, value)
+            return safe_enum_from_name(gv.WarningLevel, value)
         return value
 
 
