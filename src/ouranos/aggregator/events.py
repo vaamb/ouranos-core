@@ -473,6 +473,7 @@ class GaiaEvents(AsyncEventHandler):
         )
 
     @registration_required
+    @dispatch_to_application
     async def on_chaos_parameters(
             self,
             sid: UUID,  # noqa
@@ -509,6 +510,7 @@ class GaiaEvents(AsyncEventHandler):
         )
 
     @registration_required
+    @dispatch_to_application
     async def on_nycthemeral_cycle(
             self,
             sid: UUID,  # noqa

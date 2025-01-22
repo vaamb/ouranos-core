@@ -218,6 +218,14 @@ class DispatcherEvents(AsyncEventHandler):
         logger.debug("Dispatching 'environmental_parameters' to clients")
         await self.sio_manager.emit("environmental_parameters", data=data, namespace="/")
 
+    async def on_chaos_parameters(self, sid, data):
+        logger.debug("Dispatching 'chaos_parameters' to clients")
+        await self.sio_manager.emit("chaos_parameters", data=data, namespace="/")
+
+    async def on_nycthemeral_cycle(self, sid, data):
+        logger.debug("Dispatching 'nycthemeral_cycle' to clients")
+        await self.sio_manager.emit("nycthemeral_cycle", data=data, namespace="/")
+
     async def on_ecosystem_status(self, sid, data):
         logger.debug("Dispatching 'ecosystem_status' to clients")
         await self.sio_manager.emit("ecosystem_status", data=data, namespace="/")
