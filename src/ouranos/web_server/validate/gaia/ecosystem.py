@@ -20,10 +20,18 @@ class EcosystemCreationPayload(BaseModel):
     name: str
     status: bool = False
     management: int = 0
-    lighting_method: gv.LightingMethod = gv.LightingMethod.fixed
+    nycthemeral_method: gv.NycthemeralSpanMethod = gv.NycthemeralSpanMethod.fixed
+    nycthemeral_target: str | None = None
     day_start: time = time(8, 00)
     night_start: time = time(20, 00)
+    lighting_method: gv.LightingMethod = gv.LightingMethod.fixed
     engine_uid: str
+
+    @field_validator("nycthemeral_method", mode="before")
+    def parse_nycthemeral_method(cls, value):
+        if isinstance(value, str):
+            return safe_enum_from_name(gv.NycthemeralSpanMethod, value)
+        return value
 
     @field_validator("lighting_method", mode="before")
     def parse_lighting_method(cls, value):
@@ -43,7 +51,7 @@ class EcosystemBaseInfoUpdatePayload(BaseModel):
     status: bool | None = None
 
 
-_EcosystemInfo = sqlalchemy_to_pydantic(
+EcosystemInfo = sqlalchemy_to_pydantic(
     Ecosystem,
     base=BaseModel,
     exclude=["management"],
@@ -53,12 +61,6 @@ _EcosystemInfo = sqlalchemy_to_pydantic(
         "lighting_method": (Optional[gv.LightingMethod], ...),
     },
 )
-
-
-class EcosystemInfo(_EcosystemInfo):
-    @field_serializer("lighting_method")
-    def serialize_lighting_method(self, value):
-        return value.name
 
 
 # ---------------------------------------------------------------------------
