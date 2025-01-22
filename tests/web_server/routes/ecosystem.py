@@ -24,8 +24,6 @@ def test_ecosystems(client: TestClient):
     assert data["status"] == g_data.ecosystem_dict["status"]
     assert datetime.fromisoformat(data["registration_date"]) == \
            g_data.ecosystem_dict["registration_date"]
-    assert data["day_start"] == g_data.sky["day"].isoformat()
-    assert data["night_start"] == g_data.sky["night"].isoformat()
 
 
 def test_ecosystem_create_request_failure_user(client_user: TestClient):
@@ -72,8 +70,6 @@ def test_ecosystem_unique(client: TestClient):
     assert data["status"] == g_data.ecosystem_dict["status"]
     assert datetime.fromisoformat(data["registration_date"]) == \
            g_data.ecosystem_dict["registration_date"]
-    assert data["day_start"] == g_data.sky["day"].isoformat()
-    assert data["night_start"] == g_data.sky["night"].isoformat()
 
 
 def test_ecosystem_unique_wrong_id(client: TestClient):
@@ -111,7 +107,6 @@ def test_ecosystem_update_request_success(
     assert dispatched["data"]["action"] == gv.CrudAction.update
     assert dispatched["data"]["target"] == "ecosystem"
     assert dispatched["data"]["data"]["name"] == payload["name"]
-    assert dispatched["data"]["data"]["day_start"] is None
 
 
 def test_ecosystem_delete_request_failure_user(client: TestClient):
@@ -209,7 +204,12 @@ def test_light(client: TestClient):
     assert response.status_code == 200
 
     data = json.loads(response.text)[0]
-    assert data["method"] == g_data.light_data["method"].name
+
+    assert data["span"] == g_data.sky["span"].name
+    assert data["lighting"] == g_data.sky["lighting"].name
+    assert data["target"] is None
+    assert time.fromisoformat(data["day_start"]) == g_data.sky["day"]
+    assert time.fromisoformat(data["night_start"]) == g_data.sky["night"]
     assert time.fromisoformat(data["morning_start"]) == g_data.light_data["morning_start"]
     assert time.fromisoformat(data["morning_end"]) == g_data.light_data["morning_end"]
     assert time.fromisoformat(data["evening_start"]) == g_data.light_data["evening_start"]
@@ -221,7 +221,11 @@ def test_light_unique(client: TestClient):
     assert response.status_code == 200
 
     data = json.loads(response.text)
-    assert data["method"] == g_data.light_data["method"].name
+    assert data["span"] == g_data.sky["span"].name
+    assert data["lighting"] == g_data.sky["lighting"].name
+    assert data["target"] is None
+    assert time.fromisoformat(data["day_start"]) == g_data.sky["day"]
+    assert time.fromisoformat(data["night_start"]) == g_data.sky["night"]
     assert time.fromisoformat(data["morning_start"]) == g_data.light_data["morning_start"]
     assert time.fromisoformat(data["morning_end"]) == g_data.light_data["morning_end"]
     assert time.fromisoformat(data["evening_start"]) == g_data.light_data["evening_start"]
@@ -242,7 +246,7 @@ def test_light_update_request_success(
         client_operator: TestClient,
         mock_dispatcher: MockAsyncDispatcher,
 ):
-    payload = {"method": "elongate"}
+    payload = {"lighting": "elongate"}
 
     response = client_operator.put(
         f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/light",
@@ -255,8 +259,8 @@ def test_light_update_request_success(
     assert dispatched["data"]["routing"]["engine_uid"] == g_data.engine_uid
     assert dispatched["data"]["routing"]["ecosystem_uid"] == g_data.ecosystem_uid
     assert dispatched["data"]["action"] == gv.CrudAction.update
-    assert dispatched["data"]["target"] == "lighting"
-    assert dispatched["data"]["data"]["method"] == gv.LightingMethod[payload["method"]]
+    assert dispatched["data"]["target"] == "nycthemeral_cycle"
+    assert dispatched["data"]["data"]["lighting"] == gv.LightingMethod[payload["lighting"]]
 
 
 # ------------------------------------------------------------------------------

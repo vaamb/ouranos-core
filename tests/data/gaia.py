@@ -188,12 +188,11 @@ health_data_payload: gv.HealthDataPayloadDict = \
     wrap_ecosystem_data_payload(health_data)
 
 
-light_data: gv.LightDataDict = {
+light_data: gv.LightingHoursDict = {
     "morning_start": timestamp_now.time(),
     "morning_end": timestamp_now.time(),
     "evening_start": timestamp_now.time(),
     "evening_end": timestamp_now.time(),
-    "method": gv.LightingMethod.elongate,
 }
 
 

@@ -173,6 +173,7 @@ async def test_on_management(
         await events_handler.on_management(g_data.engine_sid, [wrong_payload])
 
 
+# TODO: split
 @pytest.mark.asyncio
 async def test_on_environmental_parameters(
         mock_dispatcher: MockAsyncDispatcher,
@@ -184,8 +185,6 @@ async def test_on_environmental_parameters(
 
     async with ecosystem_aware_db.scoped_session() as session:
         ecosystem = await Ecosystem.get(session, uid=g_data.ecosystem_uid)
-        assert ecosystem.day_start == g_data.sky["day"]
-        assert ecosystem.night_start == g_data.sky["night"]
 
         light = await Lighting.get(session, ecosystem_uid=g_data.ecosystem_uid)
         assert light.method == g_data.sky["lighting"]
@@ -437,7 +436,6 @@ async def test_on_light_data(
 
     async with ecosystem_aware_db.scoped_session() as session:
         light = await Lighting.get(session, ecosystem_uid=g_data.ecosystem_uid)
-        assert light.method == g_data.light_data["method"]
         assert light.morning_start == g_data.light_data["morning_start"]
         assert light.morning_end == g_data.light_data["morning_end"]
         assert light.evening_start == g_data.light_data["evening_start"]
