@@ -38,26 +38,9 @@ class EcosystemCreationPayload(BaseModel):
         return value
 
 
-class EcosystemUpdatePayload(BaseModel):
+class EcosystemBaseInfoUpdatePayload(BaseModel):
     name: str | None = None
     status: bool | None = None
-    management: int | None = None
-    lighting_method: gv.LightingMethod | None = None
-    day_start: time | None = None
-    night_start: time | None = None
-    engine_uid: str | None = None
-
-    @field_validator("lighting_method", mode="before")
-    def parse_lighting_method(cls, value):
-        if isinstance(value, str):
-            return safe_enum_from_name(gv.LightingMethod, value)
-        return value
-
-    @field_validator("day_start", "night_start", mode="before")
-    def parse_time(cls, value):
-        if isinstance(value, str):
-            return time.fromisoformat(value)
-        return value
 
 
 _EcosystemInfo = sqlalchemy_to_pydantic(

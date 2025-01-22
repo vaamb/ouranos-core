@@ -21,7 +21,7 @@ from ouranos.web_server.routes.gaia.utils import (
     ecosystem_or_abort, eids_desc, emit_crud_event, euid_desc, in_config_desc)
 from ouranos.web_server.validate.base import ResultResponse, ResultStatus
 from ouranos.web_server.validate.gaia.ecosystem import (
-    EcosystemCreationPayload, EcosystemUpdatePayload, EcosystemInfo,
+    EcosystemCreationPayload, EcosystemBaseInfoUpdatePayload, EcosystemInfo,
     EcosystemManagementUpdatePayload, EcosystemManagementInfo, ManagementInfo,
     EcosystemLightMethodUpdatePayload, EcosystemLightInfo,
     EnvironmentParameterCreationPayload, EnvironmentParameterUpdatePayload,
@@ -141,7 +141,7 @@ async def get_ecosystem(
 async def update_ecosystem(
         ecosystem_uid: Annotated[str, Path(description=euid_desc)],
         payload: Annotated[
-            EcosystemUpdatePayload,
+            EcosystemBaseInfoUpdatePayload,
             Body(description="Updated information about the ecosystem"),
         ],
         session: Annotated[AsyncSession, Depends(get_session)],
@@ -150,7 +150,8 @@ async def update_ecosystem(
     ecosystem_dict = payload.model_dump()
     try:
         await emit_crud_event(
-            ecosystem, gv.CrudAction.update, "ecosystem", ecosystem_dict)
+            ecosystem, gv.CrudAction.update, "ecosystem",
+            {"ecosystem_id": ecosystem.uid, **ecosystem_dict})
         return ResultResponse(
             msg=f"Request to update the ecosystem '{ecosystem.name}' "
                 f"successfully sent to engine '{ecosystem.engine_uid}'",
