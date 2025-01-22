@@ -192,6 +192,7 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
     # relationships
     engine: Mapped["Engine"] = relationship(back_populates="ecosystems", lazy="selectin")
     lighting: Mapped["Lighting"] = relationship(back_populates="ecosystem", uselist=False, lazy="selectin")
+    chaos: Mapped["Chaos"] = relationship(back_populates="ecosystem", uselist=False, lazy="selectin")
     environment_parameters: Mapped[list["EnvironmentParameter"]] = relationship(back_populates="ecosystem")
     plants: Mapped[list["Plant"]] = relationship(back_populates="ecosystem")
     hardware: Mapped[list["Hardware"]] = relationship(back_populates="ecosystem")
@@ -560,6 +561,25 @@ class Lighting(Base, CRUDMixin):
             f"mode={self.mode})>"
         )
 
+
+class Chaos(Base, CRUDMixin):
+    __tablename__ = "chaos"
+
+    ecosystem_uid: Mapped[str] = mapped_column(sa.ForeignKey("ecosystems.uid"), primary_key=True)
+    frequency: Mapped[int] = mapped_column()
+    duration: Mapped[int] = mapped_column()
+    intensity: Mapped[float] = mapped_column(sa.Float(precision=1))
+    beginning: Mapped[Optional[datetime]] = mapped_column(UtcDateTime)
+    end: Mapped[Optional[datetime]] = mapped_column(UtcDateTime)
+
+    # relationships
+    ecosystem: Mapped["Ecosystem"] = relationship(back_populates="chaos")
+
+    def __repr__(self) -> str:
+        return (
+            f"<Chaos({self.ecosystem_uid}, frequency={self.frequency}, "
+            f"duration={self.duration}, intensity={self.intensity})>"
+        )
 
 class EnvironmentParameter(Base, CRUDMixin):
     __tablename__ = "environment_parameters"
