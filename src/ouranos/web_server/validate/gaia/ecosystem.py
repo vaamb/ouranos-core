@@ -22,8 +22,8 @@ class EcosystemCreationPayload(BaseModel):
     management: int = 0
     nycthemeral_method: gv.NycthemeralSpanMethod = gv.NycthemeralSpanMethod.fixed
     nycthemeral_target: str | None = None
-    day_start: time = time(8, 00)
-    night_start: time = time(20, 00)
+    day: time = time(8, 00)
+    night: time = time(20, 00)
     lighting_method: gv.LightingMethod = gv.LightingMethod.fixed
     engine_uid: str
 
@@ -39,7 +39,7 @@ class EcosystemCreationPayload(BaseModel):
             return safe_enum_from_name(gv.LightingMethod, value)
         return value
 
-    @field_validator("day_start", "night_start", mode="before")
+    @field_validator("day", "night", mode="before")
     def parse_time(cls, value):
         if isinstance(value, str):
             return time.fromisoformat(value)
@@ -103,8 +103,8 @@ class _EcosystemLightInfo(BaseModel):
     span: gv.NycthemeralSpanMethod
     lighting: gv.LightingMethod = Field(validation_alias="method")
     target: str | None
-    day_start: time | None
-    night_start: time | None
+    day: time | None
+    night: time | None
 
     @field_serializer("span", "lighting")
     def serialize_enums(self, value):
@@ -121,8 +121,8 @@ class NycthemeralCycleUpdatePayload(BaseModel):
     span: gv.NycthemeralSpanMethod | None = None
     lighting: gv.LightingMethod | None = None
     target: str | None = None
-    day_start: time | None = None
-    night_start: time | None = None
+    day: time | None = None
+    night: time | None = None
 
     @field_validator("span", mode="before")
     def parse_span(cls, value):
@@ -136,7 +136,7 @@ class NycthemeralCycleUpdatePayload(BaseModel):
             return safe_enum_from_name(gv.LightingMethod, value)
         return value
 
-    @field_validator("day_start", "night_start", mode="before")
+    @field_validator("day", "night", mode="before")
     def parse_time(cls, value):
         if isinstance(value, str):
             return time.fromisoformat(value)

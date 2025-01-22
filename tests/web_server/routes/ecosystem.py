@@ -208,8 +208,8 @@ def test_light(client: TestClient):
     assert data["span"] == g_data.sky["span"].name
     assert data["lighting"] == g_data.sky["lighting"].name
     assert data["target"] is None
-    assert time.fromisoformat(data["day_start"]) == g_data.sky["day"]
-    assert time.fromisoformat(data["night_start"]) == g_data.sky["night"]
+    assert time.fromisoformat(data["day"]) == g_data.sky["day"]
+    assert time.fromisoformat(data["night"]) == g_data.sky["night"]
     assert time.fromisoformat(data["morning_start"]) == g_data.light_data["morning_start"]
     assert time.fromisoformat(data["morning_end"]) == g_data.light_data["morning_end"]
     assert time.fromisoformat(data["evening_start"]) == g_data.light_data["evening_start"]
@@ -224,8 +224,8 @@ def test_light_unique(client: TestClient):
     assert data["span"] == g_data.sky["span"].name
     assert data["lighting"] == g_data.sky["lighting"].name
     assert data["target"] is None
-    assert time.fromisoformat(data["day_start"]) == g_data.sky["day"]
-    assert time.fromisoformat(data["night_start"]) == g_data.sky["night"]
+    assert time.fromisoformat(data["day"]) == g_data.sky["day"]
+    assert time.fromisoformat(data["night"]) == g_data.sky["night"]
     assert time.fromisoformat(data["morning_start"]) == g_data.light_data["morning_start"]
     assert time.fromisoformat(data["morning_end"]) == g_data.light_data["morning_end"]
     assert time.fromisoformat(data["evening_start"]) == g_data.light_data["evening_start"]

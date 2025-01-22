@@ -187,7 +187,7 @@ async def test_on_environmental_parameters(
         ecosystem = await Ecosystem.get(session, uid=g_data.ecosystem_uid)
 
         light = await Lighting.get(session, ecosystem_uid=g_data.ecosystem_uid)
-        assert light.method == g_data.sky["lighting"]
+        assert light.lighting == g_data.sky["lighting"]
 
         environment_parameter = await EnvironmentParameter.get(
             session, ecosystem_uid=g_data.ecosystem_uid, parameter=g_data.climate["parameter"])

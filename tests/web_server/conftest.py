@@ -54,10 +54,10 @@ async def add_ecosystems(db: AsyncSQLAlchemyWrapper):
             ecosystem_uid=uid,
             values={
                 "span": g_data.sky["span"],
-                "method": g_data.sky["lighting"],
+                "lighting": g_data.sky["lighting"],
                 "target_id": None,
-                "day_start": g_data.sky["day"],
-                "night_start": g_data.sky["night"],
+                "day": g_data.sky["day"],
+                "night": g_data.sky["night"],
                 **g_data.light_data,
             }
         )

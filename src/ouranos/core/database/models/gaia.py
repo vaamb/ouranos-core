@@ -226,7 +226,7 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
     @property
     def lighting_method(self) -> gv.LightingMethod | None:
         try:
-            return self.lighting.method
+            return self.lighting.lighting
         except AttributeError:
             return None
 
@@ -542,10 +542,10 @@ class Lighting(Base, CRUDMixin):
 
     ecosystem_uid: Mapped[str] = mapped_column(sa.ForeignKey("ecosystems.uid"), primary_key=True)
     span: Mapped[gv.NycthemeralSpanMethod] = mapped_column(default=gv.NycthemeralSpanMethod.fixed)
-    method: Mapped[gv.LightingMethod] = mapped_column(default=gv.LightingMethod.fixed)
+    lighting: Mapped[gv.LightingMethod] = mapped_column(default=gv.LightingMethod.fixed)
     target_id: Mapped[Optional[int]] = mapped_column(sa.ForeignKey("places.id"))
-    day_start: Mapped[time] = mapped_column(default=time(8, 00))
-    night_start: Mapped[time] = mapped_column(default=time(20, 00))
+    day: Mapped[time] = mapped_column(default=time(8, 00))
+    night: Mapped[time] = mapped_column(default=time(20, 00))
     morning_start: Mapped[Optional[time]] = mapped_column()
     morning_end: Mapped[Optional[time]] = mapped_column()
     evening_start: Mapped[Optional[time]] = mapped_column()

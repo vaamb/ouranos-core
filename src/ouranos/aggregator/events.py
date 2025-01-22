@@ -442,15 +442,10 @@ class GaiaEvents(AsyncEventHandler):
                     await self.get_ecosystem_name(session, uid=uid))
                 ecosystem = payload["data"]
                 nycthemeral_cycle = ecosystem["nycthemeral_cycle"]
-                lighting_info = {
-                    "span": nycthemeral_cycle["span"],
-                    "method": nycthemeral_cycle["lighting"],
-                    # TODO: handle target
-                    "day_start": nycthemeral_cycle["day"],
-                    "night_start": nycthemeral_cycle["night"],
-                }
+                # TODO: handle target
+                nycthemeral_cycle.pop("target")
                 await Lighting.update_or_create(
-                    session, ecosystem_uid=uid, values=lighting_info)
+                    session, ecosystem_uid=uid, values=nycthemeral_cycle)
                 environment_parameters_in_config: list[str] = []
                 for param in ecosystem["climate"]:
                     environment_parameters_in_config.append(param["parameter"])
@@ -529,21 +524,11 @@ class GaiaEvents(AsyncEventHandler):
                 uid: str = payload["uid"]
                 ecosystems_to_log.append(
                     await self.get_ecosystem_name(session, uid=uid))
-                nycthemeral = payload["data"]
-                method = nycthemeral.pop("lighting")
-                day_start = nycthemeral.pop("day")
-                night_start = nycthemeral.pop("night")
-                target = nycthemeral.pop("target")
+                nycthemeral_cycle = payload["data"]
+                # TODO: handle target
+                target = nycthemeral_cycle.pop("target")
                 await Lighting.update_or_create(
-                    session,
-                    ecosystem_uid=uid,
-                    values={
-                        **nycthemeral,
-                        "method": method,
-                        "day_start": day_start,
-                        "night_start": night_start,
-                    }
-                )
+                    session, ecosystem_uid=uid, values=nycthemeral_cycle)
 
         self.logger.debug(
             f"Logged nycthemeral cycle info from ecosystem(s): "
@@ -1052,7 +1037,6 @@ class GaiaEvents(AsyncEventHandler):
                     await self.get_ecosystem_name(session, uid=payload["uid"]))
                 ecosystem = payload["data"]
                 light_info = {
-                    "method": ecosystem["method"],
                     "morning_start": ecosystem["morning_start"],
                     "morning_end": ecosystem["morning_end"],
                     "evening_start": ecosystem["evening_start"],
