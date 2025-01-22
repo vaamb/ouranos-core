@@ -81,7 +81,7 @@ def dispatch_to_application(func: Callable):
     """Decorator which dispatch the data to the clients namespace"""
     async def wrapper(self: GaiaEvents, sid: str, data: data_type, *args):
         func_name: str = func.__name__
-        event: str = func_name.lstrip("on_")
+        event: str = func_name[3:]
         await self.internal_dispatcher.emit(
             event, data=data, namespace="application-internal", ttl=15)
         return await func(self, sid, data, *args)
