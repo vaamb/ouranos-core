@@ -553,7 +553,7 @@ class Lighting(Base, CRUDMixin):
 
     # relationships
     ecosystem: Mapped["Ecosystem"] = relationship(back_populates="lighting")
-    target: Mapped[Optional["Place"]] = relationship(back_populates="lightings")
+    target: Mapped[Optional["Place"]] = relationship(back_populates="lightings", uselist=False, lazy="selectin")
 
     def __repr__(self) -> str:
         return (
