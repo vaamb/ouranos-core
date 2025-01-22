@@ -23,7 +23,7 @@ from ouranos.web_server.validate.base import ResultResponse, ResultStatus
 from ouranos.web_server.validate.gaia.ecosystem import (
     EcosystemCreationPayload, EcosystemBaseInfoUpdatePayload, EcosystemInfo,
     EcosystemManagementUpdatePayload, EcosystemManagementInfo, ManagementInfo,
-    EcosystemLightMethodUpdatePayload, EcosystemLightInfo,
+    EcosystemLightInfo, NycthemeralCycleUpdatePayload,
     EnvironmentParameterCreationPayload, EnvironmentParameterUpdatePayload,
     EnvironmentParameterInfo,
     EcosystemActuatorInfo, EcosystemActuatorRecords, EcosystemTurnActuatorPayload)
@@ -322,8 +322,8 @@ async def get_ecosystem_lighting(
 async def update_ecosystem_lighting(
         ecosystem_uid: Annotated[str, Path(description=euid_desc)],
         payload: Annotated[
-            EcosystemLightMethodUpdatePayload,
-            Body(description="Updated information about the ecosystem management"),
+            NycthemeralCycleUpdatePayload,
+            Body(description="Updated information about the ecosystem nycthemeral cycle"),
         ],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
@@ -331,7 +331,7 @@ async def update_ecosystem_lighting(
     lighting_dict = payload.model_dump()
     try:
         await emit_crud_event(
-            ecosystem, gv.CrudAction.update, "lighting", lighting_dict)
+            ecosystem, gv.CrudAction.update, "nycthemeral_cycle", lighting_dict)
         return ResultResponse(
             msg=f"Request to update the ecosystem '{ecosystem.name}'\' lighting "
                 f"successfully sent to engine '{ecosystem.engine_uid}'",

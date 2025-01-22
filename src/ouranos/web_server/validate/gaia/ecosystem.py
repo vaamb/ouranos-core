@@ -97,29 +97,50 @@ class EcosystemManagementInfo(gv.ManagementConfig, _EcosystemManagementInfo):
 # ---------------------------------------------------------------------------
 #   Ecosystem lighting
 # ---------------------------------------------------------------------------
-class EcosystemLightMethodUpdatePayload(BaseModel):
-    method: gv.LightingMethod
-
-    @field_validator("method", mode="before")
-    def parse_method(cls, value):
-        if isinstance(value, str):
-            return safe_enum_from_name(gv.LightingMethod, value)
-        return value
-
-
 class _EcosystemLightInfo(BaseModel):
     uid: str
     name: str
+    span: gv.NycthemeralSpanMethod
+    lighting: gv.LightingMethod = Field(validation_alias="method")
+    target: str | None
+    day_start: time | None
+    night_start: time | None
+
+    @field_serializer("span", "lighting")
+    def serialize_enums(self, value):
+        return value.name
 
 
-class EcosystemLightInfo(gv.LightData, _EcosystemLightInfo):
+class EcosystemLightInfo(gv.LightingHours, _EcosystemLightInfo):
     model_config = ConfigDict(
         extra="ignore",
     )
 
-    @field_serializer("method")
-    def serialize_method(self, value):
-        return value.name
+
+class NycthemeralCycleUpdatePayload(BaseModel):
+    span: gv.NycthemeralSpanMethod | None = None
+    lighting: gv.LightingMethod | None = None
+    target: str | None = None
+    day_start: time | None = None
+    night_start: time | None = None
+
+    @field_validator("span", mode="before")
+    def parse_span(cls, value):
+        if isinstance(value, str):
+            return safe_enum_from_name(gv.NycthemeralSpanMethod, value)
+        return value
+
+    @field_validator("lighting", mode="before")
+    def parse_lighting(cls, value):
+        if isinstance(value, str):
+            return safe_enum_from_name(gv.LightingMethod, value)
+        return value
+
+    @field_validator("day_start", "night_start", mode="before")
+    def parse_time(cls, value):
+        if isinstance(value, str):
+            return time.fromisoformat(value)
+        return value
 
 
 # ---------------------------------------------------------------------------
