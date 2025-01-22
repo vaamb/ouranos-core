@@ -188,8 +188,6 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
     registration_date: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
     last_seen: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())  # , onupdate=func.current_timestamp())
     management: Mapped[int] = mapped_column(default=0)
-    day_start: Mapped[time] = mapped_column(default=time(8, 00))
-    night_start: Mapped[time] = mapped_column(default=time(20, 00))
 
     # relationships
     engine: Mapped["Engine"] = relationship(back_populates="ecosystems", lazy="selectin")
@@ -542,12 +540,15 @@ class Lighting(Base, CRUDMixin):
     __tablename__ = "lightings"
 
     ecosystem_uid: Mapped[str] = mapped_column(sa.ForeignKey("ecosystems.uid"), primary_key=True)
+    span: Mapped[gv.NycthemeralSpanMethod] = mapped_column(default=gv.NycthemeralSpanMethod.fixed)
     method: Mapped[gv.LightingMethod] = mapped_column(default=gv.LightingMethod.fixed)
+    target_id: Mapped[Optional[int]] = mapped_column(sa.ForeignKey("places.id"))
+    day_start: Mapped[time] = mapped_column(default=time(8, 00))
+    night_start: Mapped[time] = mapped_column(default=time(20, 00))
     morning_start: Mapped[Optional[time]] = mapped_column()
     morning_end: Mapped[Optional[time]] = mapped_column()
     evening_start: Mapped[Optional[time]] = mapped_column()
     evening_end: Mapped[Optional[time]] = mapped_column()
-    target_id: Mapped[Optional[int]] = mapped_column(sa.ForeignKey("places.id"))
 
     # relationships
     ecosystem: Mapped["Ecosystem"] = relationship(back_populates="lighting")
