@@ -51,6 +51,8 @@ def upgrade_ecosystems() -> None:
             sa.Column("day", sa.Time(), nullable=False, default=time(8)))
         batch_op.add_column(
             sa.Column("night", sa.Time(), nullable=False, default=time(20)))
+
+    op.rename_table("lightings", "nycthemeral_cycles")
     # ### end Alembic commands ###
 
 
@@ -67,6 +69,8 @@ def downgrade_ecosystems() -> None:
         batch_op.drop_column("lighting")
         batch_op.drop_column("day")
         batch_op.drop_column("night")
+
+    op.rename_table("nycthemeral_cycles", "lightings")
     # ### end Alembic commands ###
 
 

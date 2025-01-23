@@ -13,7 +13,7 @@ from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 from ouranos.aggregator.events import GaiaEvents
 from ouranos.core.database.models.gaia import (
     ActuatorState, Chaos, Ecosystem, Engine, EnvironmentParameter,
-    Hardware, HealthRecord, Lighting, Place, SensorAlarm, SensorDataCache,
+    Hardware, HealthRecord, NycthemeralCycle, Place, SensorAlarm, SensorDataCache,
     SensorDataRecord)
 from ouranos.core.exceptions import NotRegisteredError
 from ouranos.core.utils import create_time_window
@@ -184,7 +184,7 @@ async def test_on_environmental_parameters(
         g_data.engine_sid, [g_data.environmental_payload])
 
     async with ecosystem_aware_db.scoped_session() as session:
-        light = await Lighting.get(session, ecosystem_uid=g_data.ecosystem_uid)
+        light = await NycthemeralCycle.get(session, ecosystem_uid=g_data.ecosystem_uid)
         assert light.lighting == g_data.sky["lighting"]
 
         environment_parameter = await EnvironmentParameter.get(
@@ -227,7 +227,7 @@ async def test_on_nycthemeral_info(
         g_data.engine_sid, [g_data.nycthemeral_info_payload])
 
     async with ecosystem_aware_db.scoped_session() as session:
-        lighting = await Lighting.get(session, ecosystem_uid=g_data.ecosystem_uid)
+        lighting = await NycthemeralCycle.get(session, ecosystem_uid=g_data.ecosystem_uid)
         assert lighting.ecosystem_uid == g_data.ecosystem_uid
         assert lighting.span == g_data.sky["span"]
         assert lighting.lighting == g_data.sky["lighting"]
@@ -488,7 +488,7 @@ async def test_on_light_data(
     await events_handler.on_light_data(g_data.engine_sid, [g_data.light_data_payload])
 
     async with ecosystem_aware_db.scoped_session() as session:
-        light = await Lighting.get(session, ecosystem_uid=g_data.ecosystem_uid)
+        light = await NycthemeralCycle.get(session, ecosystem_uid=g_data.ecosystem_uid)
         assert light.morning_start == g_data.light_data["morning_start"]
         assert light.morning_end == g_data.light_data["morning_end"]
         assert light.evening_start == g_data.light_data["evening_start"]

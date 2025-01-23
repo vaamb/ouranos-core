@@ -16,7 +16,7 @@ from ouranos.core.database.models.app import (
     WikiTopic)
 from ouranos.core.database.models.gaia import (
     ActuatorRecord, ActuatorState, Ecosystem, Engine, EnvironmentParameter,
-    GaiaWarning, Hardware, HealthRecord, Lighting, SensorDataCache,
+    GaiaWarning, Hardware, HealthRecord, NycthemeralCycle, SensorDataCache,
     SensorDataRecord)
 from ouranos.core.database.models.system import (
     System, SystemDataCache, SystemDataRecord)
@@ -49,7 +49,7 @@ async def add_ecosystems(db: AsyncSQLAlchemyWrapper):
         await EnvironmentParameter.create(
             session, ecosystem_uid=uid, parameter=parameter, values=environment_parameter)
 
-        await Lighting.create(
+        await NycthemeralCycle.create(
             session,
             ecosystem_uid=uid,
             values={

@@ -191,7 +191,7 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
 
     # relationships
     engine: Mapped["Engine"] = relationship(back_populates="ecosystems", lazy="selectin")
-    lighting: Mapped["Lighting"] = relationship(back_populates="ecosystem", uselist=False, lazy="selectin")
+    lighting: Mapped["NycthemeralCycle"] = relationship(back_populates="ecosystem", uselist=False, lazy="selectin")
     chaos: Mapped["Chaos"] = relationship(back_populates="ecosystem", uselist=False, lazy="selectin")
     environment_parameters: Mapped[list["EnvironmentParameter"]] = relationship(back_populates="ecosystem")
     plants: Mapped[list["Plant"]] = relationship(back_populates="ecosystem")
@@ -535,7 +535,7 @@ class Place(Base, CRUDMixin):
     latitude: Mapped[float] = mapped_column()
 
     # relationships
-    lightings: Mapped[list[Lighting]] = relationship(back_populates="target")
+    lightings: Mapped[list[NycthemeralCycle]] = relationship(back_populates="target")
     engine: Mapped["Engine"] = relationship(back_populates="places")
 
     def __repr__(self) -> str:
@@ -544,8 +544,8 @@ class Place(Base, CRUDMixin):
         )
 
 
-class Lighting(Base, CRUDMixin):
-    __tablename__ = "lightings"
+class NycthemeralCycle(Base, CRUDMixin):
+    __tablename__ = "nycthemeral_cycles"
 
     ecosystem_uid: Mapped[str] = mapped_column(sa.ForeignKey("ecosystems.uid"), primary_key=True)
     span: Mapped[gv.NycthemeralSpanMethod] = mapped_column(default=gv.NycthemeralSpanMethod.fixed)
