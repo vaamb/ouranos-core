@@ -224,6 +224,13 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
         }
 
     @property
+    def nycthemeral_span(self) -> gv.NycthemeralSpanMethod | None:
+        try:
+            return self.lighting.span
+        except AttributeError:
+            return None
+
+    @property
     def lighting_method(self) -> gv.LightingMethod | None:
         try:
             return self.lighting.lighting

@@ -58,7 +58,7 @@ EcosystemInfo = sqlalchemy_to_pydantic(
     extra_fields={
         "management_value": (int, Field(validation_alias="management")),
         "connected": (bool, ...),
-        "lighting_method": (Optional[gv.LightingMethod], ...),
+        #"lighting_method": (Optional[gv.LightingMethod], ...),
     },
 )
 
