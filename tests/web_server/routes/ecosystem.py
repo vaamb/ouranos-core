@@ -259,7 +259,7 @@ def test_light_update_request_success(
     assert dispatched["data"]["routing"]["engine_uid"] == g_data.engine_uid
     assert dispatched["data"]["routing"]["ecosystem_uid"] == g_data.ecosystem_uid
     assert dispatched["data"]["action"] == gv.CrudAction.update
-    assert dispatched["data"]["target"] == "nycthemeral_cycle"
+    assert dispatched["data"]["target"] == "nycthemeral_config"
     assert dispatched["data"]["data"]["lighting"] == gv.LightingMethod[payload["lighting"]]
 
 

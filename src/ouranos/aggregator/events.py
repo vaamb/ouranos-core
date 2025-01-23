@@ -240,7 +240,7 @@ class GaiaEvents(AsyncEventHandler):
         async with self.session(sid) as session:
             session["engine_uid"] = engine_uid
             session["init_data"] = {
-                "base_info", "chaos_parameters", "nycthemeral_cycle", "light_data",
+                "base_info", "chaos_parameters", "nycthemeral_info",
                 "climate", "hardware", "management", "actuators_data",
             }
         now = datetime.now(timezone.utc)
@@ -505,19 +505,18 @@ class GaiaEvents(AsyncEventHandler):
         )
 
     @registration_required
-    @dispatch_to_application
-    async def on_nycthemeral_cycle(
+    async def on_nycthemeral_info(
             self,
             sid: UUID,  # noqa
-            data: list[gv.NycthemeralCycleConfigPayloadDict],
+            data: list[gv.NycthemeralCycleInfoPayload],
             engine_uid: str
     ) -> None:
         self.logger.debug(
             f"Received 'nycthemeral_cycle' from engine: {engine_uid}")
         async with self.session(sid) as session:
-            session["init_data"].discard("nycthemeral_cycle")
-        data: list[gv.NycthemeralCycleConfigPayloadDict] = self.validate_payload(
-            data, RootModel[list[gv.NycthemeralCycleConfigPayload]])
+            session["init_data"].discard("nycthemeral_info")
+        data: list[gv.NycthemeralCycleInfoPayloadDict] = self.validate_payload(
+            data, RootModel[list[gv.NycthemeralCycleInfoPayload]])
         ecosystems_to_log: list[str] = []
         async with db.scoped_session() as session:
             for payload in data:

@@ -331,7 +331,7 @@ async def update_ecosystem_lighting(
     lighting_dict = payload.model_dump()
     try:
         await emit_crud_event(
-            ecosystem, gv.CrudAction.update, "nycthemeral_cycle", lighting_dict)
+            ecosystem, gv.CrudAction.update, "nycthemeral_config", lighting_dict)
         return ResultResponse(
             msg=f"Request to update the ecosystem '{ecosystem.name}'\' lighting "
                 f"successfully sent to engine '{ecosystem.engine_uid}'",
