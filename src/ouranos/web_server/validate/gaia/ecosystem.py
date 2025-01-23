@@ -20,62 +20,47 @@ class EcosystemCreationPayload(BaseModel):
     name: str
     status: bool = False
     management: int = 0
+    nycthemeral_method: gv.NycthemeralSpanMethod = gv.NycthemeralSpanMethod.fixed
+    nycthemeral_target: str | None = None
+    day: time = time(8, 00)
+    night: time = time(20, 00)
     lighting_method: gv.LightingMethod = gv.LightingMethod.fixed
-    day_start: time = time(8, 00)
-    night_start: time = time(20, 00)
     engine_uid: str
 
+    @field_validator("nycthemeral_method", mode="before")
+    def parse_nycthemeral_method(cls, value):
+        if isinstance(value, str):
+            return safe_enum_from_name(gv.NycthemeralSpanMethod, value)
+        return value
+
     @field_validator("lighting_method", mode="before")
     def parse_lighting_method(cls, value):
         if isinstance(value, str):
             return safe_enum_from_name(gv.LightingMethod, value)
         return value
 
-    @field_validator("day_start", "night_start", mode="before")
+    @field_validator("day", "night", mode="before")
     def parse_time(cls, value):
         if isinstance(value, str):
             return time.fromisoformat(value)
         return value
 
 
-class EcosystemUpdatePayload(BaseModel):
+class EcosystemBaseInfoUpdatePayload(BaseModel):
     name: str | None = None
     status: bool | None = None
-    management: int | None = None
-    lighting_method: gv.LightingMethod | None = None
-    day_start: time | None = None
-    night_start: time | None = None
-    engine_uid: str | None = None
-
-    @field_validator("lighting_method", mode="before")
-    def parse_lighting_method(cls, value):
-        if isinstance(value, str):
-            return safe_enum_from_name(gv.LightingMethod, value)
-        return value
-
-    @field_validator("day_start", "night_start", mode="before")
-    def parse_time(cls, value):
-        if isinstance(value, str):
-            return time.fromisoformat(value)
-        return value
 
 
-_EcosystemInfo = sqlalchemy_to_pydantic(
+EcosystemInfo = sqlalchemy_to_pydantic(
     Ecosystem,
     base=BaseModel,
     exclude=["management"],
     extra_fields={
         "management_value": (int, Field(validation_alias="management")),
         "connected": (bool, ...),
-        "lighting_method": (Optional[gv.LightingMethod], ...),
+        #"lighting_method": (Optional[gv.LightingMethod], ...),
     },
 )
-
-
-class EcosystemInfo(_EcosystemInfo):
-    @field_serializer("lighting_method")
-    def serialize_lighting_method(self, value):
-        return value.name
 
 
 # ---------------------------------------------------------------------------
@@ -112,29 +97,50 @@ class EcosystemManagementInfo(gv.ManagementConfig, _EcosystemManagementInfo):
 # ---------------------------------------------------------------------------
 #   Ecosystem lighting
 # ---------------------------------------------------------------------------
-class EcosystemLightMethodUpdatePayload(BaseModel):
-    method: gv.LightingMethod
-
-    @field_validator("method", mode="before")
-    def parse_method(cls, value):
-        if isinstance(value, str):
-            return safe_enum_from_name(gv.LightingMethod, value)
-        return value
-
-
 class _EcosystemLightInfo(BaseModel):
     uid: str
     name: str
+    span: gv.NycthemeralSpanMethod
+    lighting: gv.LightingMethod = Field(validation_alias="method")
+    target: str | None
+    day: time | None
+    night: time | None
+
+    @field_serializer("span", "lighting")
+    def serialize_enums(self, value):
+        return value.name
 
 
-class EcosystemLightInfo(gv.LightData, _EcosystemLightInfo):
+class EcosystemLightInfo(gv.LightingHours, _EcosystemLightInfo):
     model_config = ConfigDict(
         extra="ignore",
     )
 
-    @field_serializer("method")
-    def serialize_method(self, value):
-        return value.name
+
+class NycthemeralCycleUpdatePayload(BaseModel):
+    span: gv.NycthemeralSpanMethod | None = None
+    lighting: gv.LightingMethod | None = None
+    target: str | None = None
+    day: time | None = None
+    night: time | None = None
+
+    @field_validator("span", mode="before")
+    def parse_span(cls, value):
+        if isinstance(value, str):
+            return safe_enum_from_name(gv.NycthemeralSpanMethod, value)
+        return value
+
+    @field_validator("lighting", mode="before")
+    def parse_lighting(cls, value):
+        if isinstance(value, str):
+            return safe_enum_from_name(gv.LightingMethod, value)
+        return value
+
+    @field_validator("day", "night", mode="before")
+    def parse_time(cls, value):
+        if isinstance(value, str):
+            return time.fromisoformat(value)
+        return value
 
 
 # ---------------------------------------------------------------------------

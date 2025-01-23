@@ -40,11 +40,7 @@ async def add_ecosystems(db: AsyncSQLAlchemyWrapper):
         uid = engine.pop("uid")
         await Engine.create(session, uid=uid, values=engine)
 
-        ecosystem = {
-            **g_data.ecosystem_dict,
-            "day_start": g_data.sky["day"],
-            "night_start": g_data.sky["night"],
-        }
+        ecosystem = {**g_data.ecosystem_dict}
         uid = ecosystem.pop("uid")
         await Ecosystem.create(session, uid=uid, values=ecosystem)
 
@@ -53,7 +49,18 @@ async def add_ecosystems(db: AsyncSQLAlchemyWrapper):
         await EnvironmentParameter.create(
             session, ecosystem_uid=uid, parameter=parameter, values=environment_parameter)
 
-        await Lighting.create(session, ecosystem_uid=uid, values=g_data.light_data)
+        await Lighting.create(
+            session,
+            ecosystem_uid=uid,
+            values={
+                "span": g_data.sky["span"],
+                "lighting": g_data.sky["lighting"],
+                "target_id": None,
+                "day": g_data.sky["day"],
+                "night": g_data.sky["night"],
+                **g_data.light_data,
+            }
+        )
 
         hardware = gv.HardwareConfig(**g_data.hardware_data).model_dump()
         hardware_uid = hardware.pop("uid")

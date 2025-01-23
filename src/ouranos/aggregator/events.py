@@ -24,7 +24,7 @@ from ouranos.core.config.consts import TOKEN_SUBS
 from ouranos.core.database.models.abc import RecordMixin
 from ouranos.core.database.models.app import ServiceName
 from ouranos.core.database.models.gaia import (
-    ActuatorRecord, ActuatorState, CrudRequest, Ecosystem, Engine,
+    ActuatorRecord, ActuatorState, Chaos, CrudRequest, Ecosystem, Engine,
     EnvironmentParameter, Hardware, HealthRecord, Lighting, Place, CameraPicture,
     SensorAlarm, SensorDataRecord, SensorDataCache)
 from ouranos.core.exceptions import NotRegisteredError
@@ -81,7 +81,7 @@ def dispatch_to_application(func: Callable):
     """Decorator which dispatch the data to the clients namespace"""
     async def wrapper(self: GaiaEvents, sid: str, data: data_type, *args):
         func_name: str = func.__name__
-        event: str = func_name.lstrip("on_")
+        event: str = func_name[3:]
         await self.internal_dispatcher.emit(
             event, data=data, namespace="application-internal", ttl=15)
         return await func(self, sid, data, *args)
@@ -240,8 +240,8 @@ class GaiaEvents(AsyncEventHandler):
         async with self.session(sid) as session:
             session["engine_uid"] = engine_uid
             session["init_data"] = {
-                "base_info", "environmental_parameters", "hardware",
-                "management", "actuators_data", "light_data",
+                "base_info", "chaos_parameters", "nycthemeral_info",
+                "climate", "hardware", "management", "actuators_data",
             }
         now = datetime.now(timezone.utc)
         engine_info = {
@@ -420,6 +420,7 @@ class GaiaEvents(AsyncEventHandler):
             namespace="application-internal"
         )
 
+    # TODO: remove later
     @registration_required
     async def on_environmental_parameters(
             self,
@@ -441,13 +442,10 @@ class GaiaEvents(AsyncEventHandler):
                     await self.get_ecosystem_name(session, uid=uid))
                 ecosystem = payload["data"]
                 nycthemeral_cycle = ecosystem["nycthemeral_cycle"]
-                ecosystem_info = {
-                    "day_start": nycthemeral_cycle["day"],
-                    "night_start": nycthemeral_cycle["night"],
-                }
-                await Ecosystem.update_or_create(session, uid=uid, values=ecosystem_info)
+                # TODO: handle target
+                nycthemeral_cycle.pop("target")
                 await Lighting.update_or_create(
-                    session, ecosystem_uid=uid, values={"method": nycthemeral_cycle["lighting"]})
+                    session, ecosystem_uid=uid, values=nycthemeral_cycle)
                 environment_parameters_in_config: list[str] = []
                 for param in ecosystem["climate"]:
                     environment_parameters_in_config.append(param["parameter"])
@@ -466,6 +464,113 @@ class GaiaEvents(AsyncEventHandler):
 
         self.logger.debug(
             f"Logged environmental parameters from ecosystem(s): "
+            f"{humanize_list(ecosystems_to_log)}"
+        )
+
+    @registration_required
+    @dispatch_to_application
+    async def on_chaos_parameters(
+            self,
+            sid: UUID,  # noqa
+            data: list[gv.ChaosParametersPayloadDict],
+            engine_uid: str
+    ) -> None:
+        self.logger.debug(
+            f"Received 'environmental_parameters' from engine: {engine_uid}")
+        async with self.session(sid) as session:
+            session["init_data"].discard("chaos_parameters")
+        data: list[gv.ChaosParametersPayloadDict] = self.validate_payload(
+            data, RootModel[list[gv.ChaosParametersPayload]])
+        ecosystems_to_log: list[str] = []
+        async with db.scoped_session() as session:
+            for payload in data:
+                uid: str = payload["uid"]
+                ecosystems_to_log.append(
+                    await self.get_ecosystem_name(session, uid=uid))
+                chaos = payload["data"]
+                time_window = chaos.pop("time_window")
+                await Chaos.update_or_create(
+                    session,
+                    ecosystem_uid=uid,
+                    values={
+                        **chaos,
+                        "beginning": time_window["beginning"],
+                        "end": time_window["end"],
+                    }
+                )
+
+        self.logger.debug(
+            f"Logged chaos parameters from ecosystem(s): "
+            f"{humanize_list(ecosystems_to_log)}"
+        )
+
+    @registration_required
+    async def on_nycthemeral_info(
+            self,
+            sid: UUID,  # noqa
+            data: list[gv.NycthemeralCycleInfoPayload],
+            engine_uid: str
+    ) -> None:
+        self.logger.debug(
+            f"Received 'nycthemeral_cycle' from engine: {engine_uid}")
+        async with self.session(sid) as session:
+            session["init_data"].discard("nycthemeral_info")
+        data: list[gv.NycthemeralCycleInfoPayloadDict] = self.validate_payload(
+            data, RootModel[list[gv.NycthemeralCycleInfoPayload]])
+        ecosystems_to_log: list[str] = []
+        async with db.scoped_session() as session:
+            for payload in data:
+                uid: str = payload["uid"]
+                ecosystems_to_log.append(
+                    await self.get_ecosystem_name(session, uid=uid))
+                nycthemeral_cycle = payload["data"]
+                # TODO: handle target
+                target = nycthemeral_cycle.pop("target")
+                await Lighting.update_or_create(
+                    session, ecosystem_uid=uid, values=nycthemeral_cycle)
+
+        self.logger.debug(
+            f"Logged nycthemeral cycle info from ecosystem(s): "
+            f"{humanize_list(ecosystems_to_log)}"
+        )
+
+    @registration_required
+    async def on_climate(
+            self,
+            sid: UUID,  # noqa
+            data: list[gv.ClimateConfigPayloadDict],
+            engine_uid: str
+    ) -> None:
+        self.logger.debug(
+            f"Received 'climate' from engine: {engine_uid}")
+        async with self.session(sid) as session:
+            session["init_data"].discard("climate")
+        data: list[gv.ClimateConfigPayloadDict] = self.validate_payload(
+            data, RootModel[list[gv.ClimateConfigPayload]])
+        ecosystems_to_log: list[str] = []
+        async with db.scoped_session() as session:
+            for payload in data:
+                uid: str = payload["uid"]
+                ecosystems_to_log.append(
+                    await self.get_ecosystem_name(session, uid=uid))
+                environment_parameters_in_config: list[str] = []
+                for param in payload["data"]:
+                    environment_parameters_in_config.append(param["parameter"])
+                    parameter = param.pop("parameter")  # noqa
+                    await EnvironmentParameter.update_or_create(
+                        session, ecosystem_uid=uid, parameter=parameter,
+                        values=param)
+
+                # Remove environmental parameters not used anymore
+                stmt = (
+                    delete(EnvironmentParameter)
+                    .where(EnvironmentParameter.ecosystem_uid == uid)
+                    .where(EnvironmentParameter.parameter.not_in(environment_parameters_in_config))
+                )
+                await session.execute(stmt)
+
+        self.logger.debug(
+            f"Logged climate parameters from ecosystem(s): "
             f"{humanize_list(ecosystems_to_log)}"
         )
 
@@ -931,7 +1036,6 @@ class GaiaEvents(AsyncEventHandler):
                     await self.get_ecosystem_name(session, uid=payload["uid"]))
                 ecosystem = payload["data"]
                 light_info = {
-                    "method": ecosystem["method"],
                     "morning_start": ecosystem["morning_start"],
                     "morning_end": ecosystem["morning_end"],
                     "evening_start": ecosystem["evening_start"],

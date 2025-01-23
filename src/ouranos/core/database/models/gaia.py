@@ -188,12 +188,11 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
     registration_date: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
     last_seen: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())  # , onupdate=func.current_timestamp())
     management: Mapped[int] = mapped_column(default=0)
-    day_start: Mapped[time] = mapped_column(default=time(8, 00))
-    night_start: Mapped[time] = mapped_column(default=time(20, 00))
 
     # relationships
     engine: Mapped["Engine"] = relationship(back_populates="ecosystems", lazy="selectin")
     lighting: Mapped["Lighting"] = relationship(back_populates="ecosystem", uselist=False, lazy="selectin")
+    chaos: Mapped["Chaos"] = relationship(back_populates="ecosystem", uselist=False, lazy="selectin")
     environment_parameters: Mapped[list["EnvironmentParameter"]] = relationship(back_populates="ecosystem")
     plants: Mapped[list["Plant"]] = relationship(back_populates="ecosystem")
     hardware: Mapped[list["Hardware"]] = relationship(back_populates="ecosystem")
@@ -225,9 +224,16 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
         }
 
     @property
+    def nycthemeral_span(self) -> gv.NycthemeralSpanMethod | None:
+        try:
+            return self.lighting.span
+        except AttributeError:
+            return None
+
+    @property
     def lighting_method(self) -> gv.LightingMethod | None:
         try:
-            return self.lighting.method
+            return self.lighting.lighting
         except AttributeError:
             return None
 
@@ -542,16 +548,19 @@ class Lighting(Base, CRUDMixin):
     __tablename__ = "lightings"
 
     ecosystem_uid: Mapped[str] = mapped_column(sa.ForeignKey("ecosystems.uid"), primary_key=True)
-    method: Mapped[gv.LightingMethod] = mapped_column(default=gv.LightingMethod.fixed)
+    span: Mapped[gv.NycthemeralSpanMethod] = mapped_column(default=gv.NycthemeralSpanMethod.fixed)
+    lighting: Mapped[gv.LightingMethod] = mapped_column(default=gv.LightingMethod.fixed)
+    target_id: Mapped[Optional[int]] = mapped_column(sa.ForeignKey("places.id"))
+    day: Mapped[time] = mapped_column(default=time(8, 00))
+    night: Mapped[time] = mapped_column(default=time(20, 00))
     morning_start: Mapped[Optional[time]] = mapped_column()
     morning_end: Mapped[Optional[time]] = mapped_column()
     evening_start: Mapped[Optional[time]] = mapped_column()
     evening_end: Mapped[Optional[time]] = mapped_column()
-    target_id: Mapped[Optional[int]] = mapped_column(sa.ForeignKey("places.id"))
 
     # relationships
     ecosystem: Mapped["Ecosystem"] = relationship(back_populates="lighting")
-    target: Mapped[Optional["Place"]] = relationship(back_populates="lightings")
+    target: Mapped[Optional["Place"]] = relationship(back_populates="lightings", uselist=False, lazy="selectin")
 
     def __repr__(self) -> str:
         return (
@@ -559,6 +568,25 @@ class Lighting(Base, CRUDMixin):
             f"mode={self.mode})>"
         )
 
+
+class Chaos(Base, CRUDMixin):
+    __tablename__ = "chaos"
+
+    ecosystem_uid: Mapped[str] = mapped_column(sa.ForeignKey("ecosystems.uid"), primary_key=True)
+    frequency: Mapped[int] = mapped_column()
+    duration: Mapped[int] = mapped_column()
+    intensity: Mapped[float] = mapped_column(sa.Float(precision=1))
+    beginning: Mapped[Optional[datetime]] = mapped_column(UtcDateTime)
+    end: Mapped[Optional[datetime]] = mapped_column(UtcDateTime)
+
+    # relationships
+    ecosystem: Mapped["Ecosystem"] = relationship(back_populates="chaos")
+
+    def __repr__(self) -> str:
+        return (
+            f"<Chaos({self.ecosystem_uid}, frequency={self.frequency}, "
+            f"duration={self.duration}, intensity={self.intensity})>"
+        )
 
 class EnvironmentParameter(Base, CRUDMixin):
     __tablename__ = "environment_parameters"
