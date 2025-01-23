@@ -25,7 +25,7 @@ from ouranos.core.database.models.abc import RecordMixin
 from ouranos.core.database.models.app import ServiceName
 from ouranos.core.database.models.gaia import (
     ActuatorRecord, ActuatorState, Chaos, CrudRequest, Ecosystem, Engine,
-    EnvironmentParameter, Hardware, HealthRecord, Lighting, Place, CameraPicture,
+    EnvironmentParameter, Hardware, HealthRecord, NycthemeralCycle, Place, CameraPicture,
     SensorAlarm, SensorDataRecord, SensorDataCache)
 from ouranos.core.exceptions import NotRegisteredError
 from ouranos.core.utils import humanize_list, Tokenizer
@@ -444,7 +444,7 @@ class GaiaEvents(AsyncEventHandler):
                 nycthemeral_cycle = ecosystem["nycthemeral_cycle"]
                 # TODO: handle target
                 nycthemeral_cycle.pop("target")
-                await Lighting.update_or_create(
+                await NycthemeralCycle.update_or_create(
                     session, ecosystem_uid=uid, values=nycthemeral_cycle)
                 environment_parameters_in_config: list[str] = []
                 for param in ecosystem["climate"]:
@@ -527,7 +527,7 @@ class GaiaEvents(AsyncEventHandler):
                 nycthemeral_cycle = payload["data"]
                 # TODO: handle target
                 target = nycthemeral_cycle.pop("target")
-                await Lighting.update_or_create(
+                await NycthemeralCycle.update_or_create(
                     session, ecosystem_uid=uid, values=nycthemeral_cycle)
 
         self.logger.debug(
@@ -1042,7 +1042,7 @@ class GaiaEvents(AsyncEventHandler):
                     "evening_start": ecosystem["evening_start"],
                     "evening_end": ecosystem["evening_end"]
                 }
-                await Lighting.update_or_create(
+                await NycthemeralCycle.update_or_create(
                     session, ecosystem_uid=payload["uid"], values=light_info)
         self.logger.debug(
             f"Logged light data from ecosystem(s): {humanize_list(ecosystems_to_log)}"
