@@ -12,7 +12,7 @@ from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
 from ouranos.aggregator.events import GaiaEvents
 from ouranos.core.database.models.gaia import (
-    ActuatorState, Ecosystem, Engine, EnvironmentParameter,
+    ActuatorState, Chaos, Ecosystem, Engine, EnvironmentParameter,
     Hardware, HealthRecord, Lighting, Place, SensorAlarm, SensorDataCache,
     SensorDataRecord)
 from ouranos.core.exceptions import NotRegisteredError
@@ -184,8 +184,6 @@ async def test_on_environmental_parameters(
         g_data.engine_sid, [g_data.environmental_payload])
 
     async with ecosystem_aware_db.scoped_session() as session:
-        ecosystem = await Ecosystem.get(session, uid=g_data.ecosystem_uid)
-
         light = await Lighting.get(session, ecosystem_uid=g_data.ecosystem_uid)
         assert light.lighting == g_data.sky["lighting"]
 
@@ -198,6 +196,61 @@ async def test_on_environmental_parameters(
     wrong_payload = {}
     with pytest.raises(Exception):
         await events_handler.on_environmental_parameters(g_data.engine_sid, [wrong_payload])
+
+
+@pytest.mark.asyncio
+async def test_on_chaos_parameters(
+        mock_dispatcher: MockAsyncDispatcher,
+        events_handler: GaiaEvents,
+        ecosystem_aware_db: AsyncSQLAlchemyWrapper,
+):
+    await events_handler.on_chaos_parameters(
+        g_data.engine_sid, [g_data.chaos_payload])
+
+    async with ecosystem_aware_db.scoped_session() as session:
+        chaos = await Chaos.get(session, ecosystem_uid=g_data.ecosystem_uid)
+        assert chaos.ecosystem_uid == g_data.ecosystem_uid
+        assert chaos.frequency == g_data.chaos["frequency"]
+        assert chaos.intensity == g_data.chaos["intensity"]
+        assert chaos.duration == g_data.chaos["duration"]
+        assert chaos.beginning is None
+        assert chaos.end is None
+
+
+@pytest.mark.asyncio
+async def test_on_nycthemeral_info(
+        mock_dispatcher: MockAsyncDispatcher,
+        events_handler: GaiaEvents,
+        ecosystem_aware_db: AsyncSQLAlchemyWrapper,
+):
+    await events_handler.on_nycthemeral_info(
+        g_data.engine_sid, [g_data.nycthemeral_info_payload])
+
+    async with ecosystem_aware_db.scoped_session() as session:
+        lighting = await Lighting.get(session, ecosystem_uid=g_data.ecosystem_uid)
+        assert lighting.ecosystem_uid == g_data.ecosystem_uid
+        assert lighting.span == g_data.sky["span"]
+        assert lighting.lighting == g_data.sky["lighting"]
+        assert lighting.target is None
+        assert lighting.day == g_data.sky["day"]
+        assert lighting.night == g_data.sky["night"]
+
+
+@pytest.mark.asyncio
+async def test_on_climate(
+        mock_dispatcher: MockAsyncDispatcher,
+        events_handler: GaiaEvents,
+        ecosystem_aware_db: AsyncSQLAlchemyWrapper,
+):
+    await events_handler.on_climate(
+        g_data.engine_sid, [g_data.climate_payload])
+
+    async with ecosystem_aware_db.scoped_session() as session:
+        environment_parameter = await EnvironmentParameter.get(
+            session, ecosystem_uid=g_data.ecosystem_uid, parameter=g_data.climate["parameter"])
+        assert environment_parameter.day == g_data.climate["day"]
+        assert environment_parameter.night == g_data.climate["night"]
+        assert environment_parameter.hysteresis == g_data.climate["hysteresis"]
 
 
 @pytest.mark.asyncio

@@ -84,6 +84,9 @@ chaos: gv.ChaosConfigDict = {
 }
 
 
+chaos_payload = wrap_ecosystem_data_payload(chaos)
+
+
 sky: gv.NycthemeralCycleConfigDict = {
     "day": time(6, 0),
     "night": time(22, 0),
@@ -100,6 +103,9 @@ climate: gv.ClimateConfigDict = {
     "hysteresis": 5,
     "alarm": None,
 }
+
+
+climate_payload = wrap_ecosystem_data_payload([climate])
 
 
 environmental_payload: gv.EnvironmentConfigPayloadDict = \
@@ -198,6 +204,9 @@ light_data: gv.LightingHoursDict = {
 
 light_data_payload: gv.LightDataPayloadDict = \
     wrap_ecosystem_data_payload(light_data)
+
+
+nycthemeral_info_payload = wrap_ecosystem_data_payload({**sky, **light_data})
 
 
 turn_actuator_payload: gv.TurnActuatorPayloadDict = {
