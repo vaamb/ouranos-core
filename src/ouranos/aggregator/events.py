@@ -505,6 +505,7 @@ class GaiaEvents(AsyncEventHandler):
         )
 
     @registration_required
+    @dispatch_to_application
     async def on_nycthemeral_info(
             self,
             sid: UUID,  # noqa
