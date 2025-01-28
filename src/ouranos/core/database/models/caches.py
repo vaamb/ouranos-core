@@ -13,10 +13,10 @@ _hardware_caches_size = _ecosystem_caches_size * 2
 _system_cache_size = 2
 # Engine caches
 cache_engines = LRUCache(maxsize=_engine_caches_size)
-cache_engines_recent = TTLCache(maxsize=1, ttl=60 * 5)
+cache_engines_recent = TTLCache(maxsize=1, ttl=30)
 # Ecosystem caches
 cache_ecosystems = LRUCache(maxsize=_ecosystem_caches_size)
-cache_ecosystems_recent = TTLCache(maxsize=1, ttl=60 * 5)
+cache_ecosystems_recent = TTLCache(maxsize=1, ttl=30)
 cache_ecosystems_has_recent_data = TTLCache(maxsize=_ecosystem_caches_size * 2, ttl=60)
 # Hardware caches
 cache_hardware = LRUCache(maxsize=_hardware_caches_size)
