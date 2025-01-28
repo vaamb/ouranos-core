@@ -561,6 +561,7 @@ class ServiceLevel(StrEnum):
 
 class ServiceName(StrEnum):
     weather = "weather"
+    suntimes = "suntimes"
     calendar = "calendar"
     wiki = "wiki"
 
