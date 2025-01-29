@@ -606,14 +606,21 @@ async def turn_actuator(
         dispatcher: AsyncDispatcher = DispatcherFactory.get("application-internal")
         await ecosystem.turn_actuator(
             dispatcher, actuator_type, mode, countdown)
+        if countdown:
+            extra = f" in {countdown} seconds"
+        else:
+            extra = ""
         return ResultResponse(
-            msg=f"Turned {ecosystem.name}'s {actuator_type.name} to mode '{mode.name}'",
+            msg=f"Request to turn {ecosystem.name}'s {actuator_type.name} "
+                f"actuator to mode '{mode.name}'{extra} successfully sent.",
             status=ResultStatus.success
         )
     except Exception as e:
-        return ResultResponse(
-            msg=f"Failed to turn {actuator_type.name} from ecosystem with uid "
-                f"{ecosystem_uid} to mode '{mode}'. Error msg: "
-                f"`{e.__class__.__name__}: {e}`",
-            status=ResultStatus.failure
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Failed to request ecosystem ''{ecosystem_uid}' to turn its "
+                f"{actuator_type.name} actuator to mode '{mode}'. "
+                f"Error msg: `{e.__class__.__name__}: {e}`",
+            ),
         )
