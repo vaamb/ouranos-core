@@ -24,9 +24,14 @@ class WikiTopicInfo(BaseModel):
         return value
 
 
-class WikiTopicPayload(BaseModel):
+class WikiTopicCreationPayload(BaseModel):
     name: str
     description: str | None = None
+
+
+class WikiTopicUpdatePayload(BaseModel):
+    name: str | MissingValue = missing
+    description: str | MissingValue = missing
 
 
 class WikiTopicTemplatePayload(BaseModel):

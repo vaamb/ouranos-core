@@ -17,8 +17,8 @@ from ouranos.web_server.validate.base import ResultResponse, ResultStatus
 from ouranos.web_server.validate.wiki import (
     WikiArticleInfo, WikiArticleModificationInfo, WikiArticleCreationPayload,
     WikiArticleUpdatePayload, WikiArticlePictureInfo,
-    WikiArticlePictureCreationPayload, WikiTopicPayload, WikiTopicInfo,
-    WikiTopicTemplatePayload)
+    WikiArticlePictureCreationPayload, WikiTopicCreationPayload, WikiTopicInfo,
+    WikiTopicTemplatePayload, WikiTopicUpdatePayload)
 
 
 router = APIRouter(
@@ -79,7 +79,7 @@ async def get_topics(
              dependencies=[Depends(is_operator)])
 async def create_topic(
         payload: Annotated[
-            WikiTopicPayload,
+            WikiTopicCreationPayload,
             Body(description="The new topic information"),
         ],
         session: Annotated[AsyncSession, Depends(get_session)],
@@ -122,6 +122,37 @@ async def get_topic_articles(
     await topic_or_abort(session, name=topic_name)
     articles = await WikiArticle.get_multiple(session, topic_name=topic_name, limit=limit)
     return articles
+
+
+@router.put("/topics/u/{topic_name}",
+               dependencies=[Depends(is_operator)])
+async def update_topic(
+        topic_name: Annotated[str, Path(description="The name of the topic")],
+        payload: Annotated[
+            WikiTopicUpdatePayload,
+            Body(description="The new topic information"),
+        ],
+        session: Annotated[AsyncSession, Depends(get_session)],
+):
+    try:
+        wiki_topic_dict = payload.model_dump(exclude_defaults=True)
+        await WikiTopic.update(
+            session,
+            name=topic_name,
+            values=wiki_topic_dict,
+        )
+        return ResultResponse(
+            msg=f"Wiki topic '{topic_name}' was successfully updated.",
+            status=ResultStatus.success
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Failed to update wiki topic '{topic_name}'. Error msg: "
+                f"`{e.__class__.__name__}: {e}`",
+            ),
+        )
 
 
 @router.delete("/topics/u/{topic_name}",
