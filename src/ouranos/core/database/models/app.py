@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import enum
-from enum import IntFlag, StrEnum
+from enum import Enum, IntFlag, StrEnum
 import re
 from typing import Optional, Self, Sequence, TypedDict
+from uuid import UUID
 
 from anyio import Path as ioPath
 from argon2 import PasswordHasher
@@ -35,6 +36,9 @@ class _UnfilledCls:
 
 
 _Unfilled = _UnfilledCls()
+
+
+lookup_keys_type: str | Enum | UUID | bool
 
 
 # ---------------------------------------------------------------------------
@@ -813,7 +817,7 @@ class WikiObject:
         return abs_path.relative_to(cls.root_dir())
 
 
-class WikiTopic(Base, WikiObject):
+class WikiTopic(Base, CRUDMixin, WikiObject):
     __tablename__ = "wiki_topics"
     __bind_key__ = "app"
     __table_args__ = (
@@ -844,73 +848,52 @@ class WikiTopic(Base, WikiObject):
             cls,
             session: AsyncSession,
             /,
-            name: str,
+            values: dict | None = None,
+            **lookup_keys: lookup_keys_type,
     ) -> None:
+        values = values or {}
+        name = lookup_keys["name"]
         topic_dir = cls.wiki_dir() / name
         # Create the topic dir
         await topic_dir.mkdir(parents=True, exist_ok=True)
+        values["path"] = cls.get_rel_path(topic_dir)
         # Create the topic info
-        rel_path = cls.get_rel_path(topic_dir)
-        stmt = (
-            insert(cls)
-            .values({
-                "name": name,
-                "path": str(rel_path),
-            })
-        )
-        await session.execute(stmt)
+        return await super().create(session, values=values, **lookup_keys)
 
     @classmethod
     async def get(
             cls,
             session: AsyncSession,
             /,
-            name: str,
+            **lookup_keys: lookup_keys_type,
     ) -> Self | None:
-        stmt = (
-            select(cls)
-            .where(
-                (cls.name == name)
-                & (cls.status == True)
-            )
-        )
-        result = await session.execute(stmt)
-        return result.scalars().one_or_none()
+        lookup_keys["status"] = True
+        return await super().get(session, **lookup_keys)
 
     @classmethod
     async def get_multiple(
             cls,
             session: AsyncSession,
             /,
-            name: str | None = None,
-            limit: int = 50,
+            offset: int | None = None,
+            limit: int | None = None,
+            order_by: str | None = None,
+            **lookup_keys: list[lookup_keys_type] | lookup_keys_type | None,
     ) -> Sequence[Self]:
-        stmt = (
-            select(cls)
-            .where(cls.status == True)
-            .limit(limit)
-        )
-        if name is not None:
-            if isinstance(name, list):
-                stmt = stmt.where(cls.name.in_(name))
-            else:
-                stmt = stmt.where(cls.name == name)
-        result = await session.execute(stmt)
-        return result.scalars().all()
+        if limit is None:
+            limit = 50
+        lookup_keys["status"] = True
+        return await super().get_multiple(
+            session, offset=offset, limit=limit, order_by=order_by, **lookup_keys)
 
     @classmethod
     async def delete(
             cls,
             session: AsyncSession,
             /,
-            name: str,
+            **lookup_keys: lookup_keys_type,
     ) -> None:
-        stmt = (
-            update(cls)
-            .where(cls.name == name)
-            .values({"status": False})
-        )
-        await session.execute(stmt)
+        return await super().update(session, values={"status": False}, **lookup_keys)
 
     async def create_template(self, content: str, mode: str = "w") -> None:
         path = self.absolute_path / "template.md"
