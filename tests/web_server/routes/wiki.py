@@ -156,7 +156,7 @@ async def test_create_article(
 
     async with db.scoped_session() as session:
         article = await WikiArticle.get_latest_version(
-            session, topic=wiki_topic_name, name=name)
+            session, topic_name=wiki_topic_name, name=name)
         assert article.name == name
         assert article.version == 1
         assert content == await article.get_content()
@@ -164,7 +164,7 @@ async def test_create_article(
     # Clean up test
     async with db.scoped_session() as session:
         await WikiArticle.delete(
-            session, topic=wiki_topic_name, name=name, author_id=operator.id)
+            session, topic_name=wiki_topic_name, name=name, author_id=operator.id)
 
 
 @pytest.mark.asyncio
@@ -204,7 +204,7 @@ async def test_update_article(
 
     async with db.scoped_session() as session:
         article = await WikiArticle.get_latest_version(
-            session, topic=wiki_topic_name, name=wiki_article_name)
+            session, topic_name=wiki_topic_name, name=wiki_article_name)
         assert article.name == wiki_article_name
         assert article.version == 2
         assert content == await article.get_content()
@@ -230,8 +230,14 @@ async def test_delete_article(
     # Setup test
     async with db.scoped_session() as session:
         await WikiArticle.create(
-            session, topic=wiki_topic_name, name=article_name, content="",
-            author_id=operator.id)
+            session,
+            topic_name=wiki_topic_name,
+            name=article_name,
+            values={
+                "content": "",
+                "author_id": operator.id,
+            },
+        )
 
     # Run test
     response = client_operator.delete(
@@ -240,7 +246,7 @@ async def test_delete_article(
 
     async with db.scoped_session() as session:
         article = await WikiArticle.get_latest_version(
-            session, topic=wiki_topic_name, name=article_name)
+            session, topic_name=wiki_topic_name, name=article_name)
         assert article is None
 
 
@@ -337,7 +343,7 @@ async def test_delete_picture(
 
     async with db.scoped_session() as session:
         article = await WikiArticle.get_latest_version(
-            session, topic=wiki_topic_name, name=wiki_article_name)
+            session, topic_name=wiki_topic_name, name=wiki_article_name)
         picture = await WikiArticlePicture.get(
             session, topic=wiki_topic_name, article=wiki_article_name, name=picture_name)
         assert picture is None

@@ -50,7 +50,7 @@ async def article_or_abort(
         topic: str,
         name: str,
 ) -> WikiArticle:
-    article = await WikiArticle.get_latest_version(session, topic=topic, name=name)
+    article = await WikiArticle.get_latest_version(session, topic_name=topic, name=name)
     if not article:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -114,7 +114,7 @@ async def get_topic_articles(
     if limit > 50:
         limit = 50
     await topic_or_abort(session, name=topic_name)
-    articles = await WikiArticle.get_by_topic(session, topic=topic_name, limit=limit)
+    articles = await WikiArticle.get_multiple(session, topic_name=topic_name, limit=limit)
     return articles
 
 
@@ -225,8 +225,14 @@ async def create_topic_article(
 ):
     try:
         await WikiArticle.create(
-            session, topic=topic_name, name=payload.name,
-            content=payload.content, author_id=current_user.id)
+            session,
+            topic_name=topic_name,
+            name=payload.name,
+            values={
+                "content": payload.content,
+                "author_id": current_user.id,
+            },
+        )
         return ResultResponse(
             msg=f"A new wiki article was successfully created.",
             status=ResultStatus.success
@@ -263,8 +269,14 @@ async def upload_article(
             )
         content = await file.read()
         await WikiArticle.create(
-            session, topic=topic_name, name=filename,
-            content=content.decode("utf-8"), author_id=current_user.id)
+            session,
+            topic_name=topic_name,
+            name=filename,
+            values={
+                "content": content.decode("utf-8"),
+                "author_id": current_user.id,
+            },
+        )
         return ResultResponse(
             msg=f"A new wiki article was successfully uploaded.",
             status=ResultStatus.success
@@ -304,8 +316,14 @@ async def update_topic_article(
 ):
     try:
         await WikiArticle.update(
-            session, topic=topic_name, name=article_name,
-            content=payload.content, author_id=current_user.id)
+            session,
+            topic_name=topic_name,
+            name=article_name,
+            values={
+                "content": payload.content,
+                "author_id": current_user.id,
+            },
+        )
         return ResultResponse(
             msg=f"Wiki article '{article_name}' was successfully updated.",
             status=ResultStatus.success
@@ -330,7 +348,7 @@ async def delete_topic_article(
 ):
     try:
         await WikiArticle.delete(
-            session, topic=topic_name, name=article_name,
+            session, topic_name=topic_name, name=article_name,
             author_id=current_user.id)
         return ResultResponse(
             msg=f"Wiki article '{article_name}' was successfully deleted.",
@@ -509,5 +527,5 @@ async def get_articles(
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     articles = await WikiArticle.get_multiple(
-        session, topic=topic, name=name, limit=limit)
+        session, topic_name=topic, name=name, limit=limit)
     return articles

@@ -11,8 +11,9 @@ from anyio import Path as ioPath
 from argon2 import PasswordHasher
 from argon2.exceptions import VerificationError
 import sqlalchemy as sa
-from sqlalchemy import delete, insert, or_, select, Table, UniqueConstraint, update
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import (
+    delete, insert, or_, Select, select, Table, UniqueConstraint, update)
+from sqlalchemy.ext.asyncio import AsyncAttrs, AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -909,7 +910,7 @@ class WikiTopic(Base, CRUDMixin, WikiObject):
             return content
 
 
-class WikiArticle(Base, WikiObject):
+class WikiArticle(Base, CRUDMixin, WikiObject):
     __tablename__ = "wiki_articles"
     __bind_key__ = "app"
     __table_args__ = (
@@ -918,7 +919,7 @@ class WikiArticle(Base, WikiObject):
             name="uq_wiki_articles_name"
         ),
     )
-    _lookup_keys = ["topic", "name"]
+    _lookup_keys = ["topic_id", "name"]  # "topic_name" is used
 
     id: Mapped[int] = mapped_column(primary_key=True)
     topic_id: Mapped[int] = mapped_column(sa.ForeignKey("wiki_topics.id"))
@@ -971,29 +972,27 @@ class WikiArticle(Base, WikiObject):
             cls,
             session: AsyncSession,
             /,
-            topic: str,
-            name: str,
-            content: str,
-            author_id: int,
+            values: dict | None = None,  # Must contain "content": str and "author_id": int
+            **lookup_keys: lookup_keys_type,  # Must contain "topic_name": str and "name": str
     ) -> None:
-        topic_obj = await WikiTopic.get(session, name=topic)
+        values = values or {}
+        topic_name = lookup_keys.pop("topic_name")
+        name = lookup_keys["name"]
+        # Create the article dir
+        topic_obj = await WikiTopic.get(session, name=topic_name)
         if topic_obj is None:
             raise WikiArticleNotFound
+        lookup_keys["topic_id"] = topic_obj.id
         article_dir = topic_obj.absolute_path / name
         await article_dir.mkdir(parents=True, exist_ok=True)
         rel_path = article_dir.relative_to(current_app.static_dir)
         # Create the article info
-        stmt = (
-            insert(cls)
-            .values({
-                "topic_id": topic_obj.id,
-                "name": name,
-                "path": str(rel_path),
-            })
-        )
-        await session.execute(stmt)
+        content = values.pop("content")
+        author_id = values.pop("author_id")
+        values["path"] = str(rel_path)
+        await super().create(session, values=values, **lookup_keys)
         # Create the article modification
-        article = await cls.get_latest_version(session, topic=topic, name=name)
+        article = await cls.get_latest_version(session, topic_name=topic_name, name=name)
         await WikiArticleModification.create(
             session,
             article=article,
@@ -1004,24 +1003,32 @@ class WikiArticle(Base, WikiObject):
         await article.set_content(content)
 
     @classmethod
+    def _generate_get_query(
+            cls,
+            offset: int | None = None,
+            limit: int | None = None,
+            order_by: str | None = None,
+            **lookup_keys: list[lookup_keys_type] | lookup_keys_type | None,
+    ) -> Select:
+        topic_name = lookup_keys.pop("topic_name")
+        lookup_keys["status"] = True
+        stmt = super()._generate_get_query(**lookup_keys)
+        if topic_name:
+            stmt = stmt.join(WikiTopic, cls.topic_id == WikiTopic.id)
+            if isinstance(topic_name, list):
+                stmt = stmt.where(WikiTopic.name.in_(topic_name))
+            else:
+                stmt = stmt.where(WikiTopic.name == topic_name)
+        return stmt
+
+    @classmethod
     async def get(
             cls,
             session: AsyncSession,
             /,
-            topic: str,
-            name: str,
-            version: int,
-    ) -> Self:
-        stmt = (
-            select(cls)
-            .join(WikiTopic, cls.topic_id == WikiTopic.id)
-            .where(
-                (WikiTopic.name == topic)
-                & (cls.name == name)
-                & (cls.version == version)
-                & (cls.status == True)
-            )
-        )
+            **lookup_keys: lookup_keys_type,  # Must contain "topic_name", "name" and "version"
+    ) -> Self | None:
+        stmt = cls._generate_get_query(**lookup_keys)
         result = await session.execute(stmt)
         return result.scalars().one_or_none()
 
@@ -1030,26 +1037,9 @@ class WikiArticle(Base, WikiObject):
             cls,
             session: AsyncSession,
             /,
-            topic: list[str] | str | None = None,
-            name: list[str] | str | None = None,
-            limit: int = 50,
+            **lookup_keys: lookup_keys_type,
     ) -> Sequence[Self]:
-        stmt = (
-            select(cls)
-            .join(WikiTopic, cls.topic_id == WikiTopic.id)
-            .where(cls.status == True)
-            .limit(limit)
-        )
-        if topic:
-            if isinstance(topic, list):
-                stmt = stmt.where(WikiTopic.name.in_(topic))
-            else:
-                stmt = stmt.where(WikiTopic.name == topic)
-        if name:
-            if isinstance(name, list):
-                stmt = stmt.where(cls.name.in_(name))
-            else:
-                stmt = stmt.where(cls.name == name)
+        stmt = cls._generate_get_query(**lookup_keys)
         result = await session.execute(stmt)
         return result.scalars().all()
 
@@ -1058,14 +1048,14 @@ class WikiArticle(Base, WikiObject):
             cls,
             session: AsyncSession,
             /,
-            topic: str,
+            topic_name: str,
             name: str
     ) -> Self | None:
         stmt = (
             select(cls)
             .join(WikiTopic, cls.topic_id == WikiTopic.id)
             .where(
-                (WikiTopic.name == topic)
+                (WikiTopic.name == topic_name)
                 & (cls.name == name)
                 & (cls.status == True)
             )
@@ -1076,26 +1066,6 @@ class WikiArticle(Base, WikiObject):
         return result.scalars().one_or_none()
 
     @classmethod
-    async def get_by_topic(
-            cls,
-            session: AsyncSession,
-            /,
-            topic: str,
-            limit: int = 50
-    ) -> Sequence[Self]:
-        stmt = (
-            select(cls)
-            .join(WikiTopic, cls.topic_id == WikiTopic.id)
-            .where(
-                (WikiTopic.name == topic)
-                & (cls.status == True)
-            )
-            .limit(limit)
-        )
-        result = await session.execute(stmt)
-        return result.scalars().all()
-
-    @classmethod
     async def get_history(
             cls,
             session: AsyncSession,
@@ -1104,7 +1074,7 @@ class WikiArticle(Base, WikiObject):
             name: str,
             limit: int = 50,
     ) -> Sequence[WikiArticleModification]:
-        article = await cls.get_latest_version(session, topic=topic, name=name)
+        article = await cls.get_latest_version(session, topic_name=topic, name=name)
         if not article:
             raise ValueError("Article not found")
         history = await WikiArticleModification.get_for_article(
@@ -1116,24 +1086,23 @@ class WikiArticle(Base, WikiObject):
             cls,
             session: AsyncSession,
             /,
-            topic: str,
-            name: str,
-            content: str,
-            author_id: int,
+            values: dict,  # Must contain "author_id": int
+            **lookup_keys: lookup_keys_type,  # Must contain "topic_name": str and "name": str
     ) -> None:
-        article = await cls.get_latest_version(session, topic=topic, name=name)
+        topic_name = lookup_keys.pop("topic_name")
+        name = lookup_keys["name"]
+        article = await cls.get_latest_version(session, topic_name=topic_name, name=name)
         if not article:
             raise WikiArticleNotFound
+        lookup_keys["topic_id"] = article.topic_id
         new_version = article.version + 1
         # Update the article info
-        stmt = (
-            update(cls)
-            .where(cls.id == article.id)
-            .values({"version": new_version})
-        )
-        await session.execute(stmt)
+        content = values.pop("content")
+        author_id = values.pop("author_id")
+        values["version"] = new_version
+        await super().update(session, values=values, **lookup_keys)
         # Create the article modification
-        article = await cls.get_latest_version(session, topic=topic, name=name)
+        article = await cls.get_latest_version(session, topic_name=topic_name, name=name)
         await WikiArticleModification.create(
             session,
             article=article,
@@ -1148,18 +1117,19 @@ class WikiArticle(Base, WikiObject):
             cls,
             session: AsyncSession,
             /,
-            topic: str,
-            name: str,
             author_id: int,
+            **lookup_keys: lookup_keys_type,
     ) -> None:
-        article = await cls.get_latest_version(session, topic=topic, name=name)
+        topic_name = lookup_keys.pop("topic_name")
+        name = lookup_keys["name"]
+        article = await cls.get_latest_version(session, topic_name=topic_name, name=name)
         if not article:
             raise WikiArticleNotFound
         # Update the article info
         stmt = (
             update(cls)
             .where(cls.id == article.id)
-            .values({"status": False})
+            .values(status=False)
         )
         await session.execute(stmt)
         # Create the article modification
@@ -1180,7 +1150,7 @@ class WikiArticleModification(Base):
             name="uq_wiki_articles_modifications"
         ),
     )
-    _lookup_keys = ["topic", "article", "version"]
+    _lookup_keys = ["topic_name", "article_name", "version"]
 
     id: Mapped[int] = mapped_column(primary_key=True)
     article_id: Mapped[int] = mapped_column(sa.ForeignKey("wiki_articles.id"))
@@ -1270,7 +1240,7 @@ class WikiArticlePicture(Base, WikiObject):
             name="uq_wiki_article_id"
         ),
     )
-    _lookup_keys = ["topic", "article", "name"]
+    _lookup_keys = ["topic_name", "article_name", "name"]
 
     id: Mapped[int] = mapped_column(primary_key=True)
     article_id: Mapped[int] = mapped_column(sa.ForeignKey("wiki_articles.id"))
@@ -1321,7 +1291,7 @@ class WikiArticlePicture(Base, WikiObject):
             author_id: int,
     ) -> None:
         article_obj = await WikiArticle.get_latest_version(
-            session, topic=topic, name=article)
+            session, topic_name=topic, name=article)
         if article_obj is None:
             raise WikiArticleNotFound
         picture_path = article_obj.absolute_path / name
@@ -1352,7 +1322,7 @@ class WikiArticlePicture(Base, WikiObject):
             name: str,
     ) -> Self | None:
         article_obj = await WikiArticle.get_latest_version(
-            session, topic=topic, name=article)
+            session, topic_name=topic, name=article)
         if article_obj is None:
             raise WikiArticleNotFound
         stmt = (
@@ -1376,7 +1346,7 @@ class WikiArticlePicture(Base, WikiObject):
             name: str,
     ) -> None:
         article_obj = await WikiArticle.get_latest_version(
-            session, topic=topic, name=article)
+            session, topic_name=topic, name=article)
         if article_obj is None:
             raise WikiArticleNotFound
         # Mark the picture as inactive
