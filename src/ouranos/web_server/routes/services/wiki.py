@@ -85,7 +85,11 @@ async def create_topic(
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     try:
-        await WikiTopic.create(session, name=payload.name)
+        await WikiTopic.create(
+            session,
+            name=payload.name,
+            values={"description": payload.description},
+        )
         return ResultResponse(
             msg=f"A new wiki topic '{payload.name}' was successfully created.",
             status=ResultStatus.success
@@ -230,6 +234,7 @@ async def create_topic_article(
             name=payload.name,
             values={
                 "content": payload.content,
+                "description": payload.description,
                 "author_id": current_user.id,
             },
         )
@@ -321,6 +326,7 @@ async def update_topic_article(
             name=article_name,
             values={
                 "content": payload.content,
+                "description": payload.description,
                 "author_id": current_user.id,
             },
         )

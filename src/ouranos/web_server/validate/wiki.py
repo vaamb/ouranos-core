@@ -14,6 +14,7 @@ from ouranos.core.validate.base import BaseModel
 
 class WikiTopicInfo(BaseModel):
     name: str
+    description: str | None = None
     path: str
 
     @field_validator("path", mode="before")
@@ -25,6 +26,7 @@ class WikiTopicInfo(BaseModel):
 
 class WikiTopicPayload(BaseModel):
     name: str
+    description: str | None = None
 
 
 class WikiTopicTemplatePayload(BaseModel):
@@ -34,6 +36,7 @@ class WikiTopicTemplatePayload(BaseModel):
 class WikiArticleInfo(BaseModel):
     topic: str = Field(validation_alias="topic_name")
     name: str
+    description: str | None = None
     version: int
     path: str = Field(validation_alias="content_path")
 
@@ -48,6 +51,7 @@ class WikiArticleCreationPayload(BaseModel):
     # topic is provided by the route
     name: str
     content: str
+    description: str | None = None
     # author_id is provided by the route
 
 
@@ -55,6 +59,7 @@ class WikiArticleUpdatePayload(BaseModel):
     # topic is provided by the route
     name : str | MissingValue = missing
     content: str | MissingValue = missing
+    description: str | MissingValue = missing
     # author_id is provided by the route
 
 

@@ -831,6 +831,7 @@ class WikiTopic(Base, CRUDMixin, WikiObject):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(sa.String(length=64), unique=True)
+    description: Mapped[Optional[str]] = mapped_column(sa.String(length=512))
     path: Mapped[ioPath] = mapped_column(PathType(length=512))
     status: Mapped[bool] = mapped_column(default=True)
 
@@ -925,6 +926,7 @@ class WikiArticle(Base, CRUDMixin, WikiObject):
     topic_id: Mapped[int] = mapped_column(sa.ForeignKey("wiki_topics.id"))
     name: Mapped[str] = mapped_column(sa.String(length=64))
     version: Mapped[int] = mapped_column(default=1)
+    description: Mapped[Optional[str]] = mapped_column(sa.String(length=512))
     path: Mapped[ioPath] = mapped_column(PathType(length=512))
     status: Mapped[bool] = mapped_column(default=True)
 
