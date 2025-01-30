@@ -7,7 +7,7 @@ from typing import Type, TypeVar
 from pydantic import ConfigDict, field_serializer, field_validator
 
 import gaia_validators as gv
-from gaia_validators import safe_enum_from_name
+from gaia_validators import MissingValue, missing, safe_enum_from_name
 
 from ouranos.core.validate.base import BaseModel
 
@@ -30,14 +30,14 @@ class HardwareType(BaseModel):
 
 
 class HardwareUpdatePayload(gv.AnonymousHardwareConfig):
-    name: str | None = None
-    level: gv.HardwareLevel | None = None
-    address: str | None = None
-    type: gv.HardwareType | None = None
-    model: str | None = None
-    status: bool | None = None
-    measures: list[str] | None = None
-    plant_uid: list[str] | None = None
+    name: str | MissingValue = missing
+    level: gv.HardwareLevel | MissingValue = missing
+    address: str | MissingValue = missing
+    type: gv.HardwareType | MissingValue = missing
+    model: str | MissingValue = missing
+    status: bool | MissingValue = missing
+    measures: list[str] | MissingValue = missing
+    plant_uid: list[str] | MissingValue = missing
 
     @field_validator("type", mode="before")
     def parse_level(cls, value):
