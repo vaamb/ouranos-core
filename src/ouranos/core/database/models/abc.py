@@ -51,10 +51,11 @@ class CRUDMixin:
             cls,
             session: AsyncSession,
             /,
-            values: dict,
+            values: dict | None = None,
             **lookup_keys: lookup_keys_type,
     ) -> None:
         cls._check_lookup_keys(*lookup_keys.keys())
+        values = values or {}
         stmt = insert(cls).values(**lookup_keys, **values)
         await session.execute(stmt)
 
@@ -187,7 +188,7 @@ class CRUDMixin:
             cls,
             session: AsyncSession,
             /,
-            values: dict,
+            values: dict | None = None,
             **lookup_keys: lookup_keys_type,
     ) -> None:
         #cls._check_lookup_keys(*lookup_keys.keys())

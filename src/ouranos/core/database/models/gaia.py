@@ -718,7 +718,7 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
             cls,
             session: AsyncSession,
             /,
-            values: gv.HardwareConfigDict,
+            values: gv.HardwareConfigDict | None = None,
             **lookup_keys: str | Enum | UUID,
     ) -> None:
         measures: list[gv.Measure | gv.MeasureDict] = values.pop("measures", [])
