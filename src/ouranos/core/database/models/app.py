@@ -839,7 +839,7 @@ class WikiTopic(Base, CRUDMixin, WikiObject):
     articles: Mapped[list[WikiArticle]] = relationship(back_populates="topic")
 
     def __repr__(self) -> str:
-        return f"<WikiTopic({self.topic})>"
+        return f"<WikiTopic({self.name})>"
 
     @property
     def absolute_path(self) -> ioPath:
