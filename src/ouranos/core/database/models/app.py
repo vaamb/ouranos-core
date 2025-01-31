@@ -836,7 +836,6 @@ class WikiTag(Base, CRUDMixin, AsyncAttrs):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(sa.String(length=64), unique=True)
     description: Mapped[Optional[str]] = mapped_column(sa.String(length=512))
-    status: Mapped[bool] = mapped_column(default=True)
 
     # relationship
     topics: Mapped[list[WikiTopic]] = relationship(
@@ -865,17 +864,6 @@ class WikiTag(Base, CRUDMixin, AsyncAttrs):
         for value in values:
             value["name"] = value["name"].replace(" ", "_").lower()
         await super().create_multiple(session, values=values)
-
-    @classmethod
-    def _generate_get_query(
-            cls,
-            offset: int | None = None,
-            limit: int | None = None,
-            order_by: str | None = None,
-            **lookup_keys: list[lookup_keys_type] | lookup_keys_type | None,
-    ) -> Select:
-        lookup_keys["status"] = True
-        return super()._generate_get_query(offset, limit, order_by, **lookup_keys)
 
 
 class WikiObject:
