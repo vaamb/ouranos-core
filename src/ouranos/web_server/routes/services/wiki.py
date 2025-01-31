@@ -85,10 +85,12 @@ async def create_topic(
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     try:
+        wiki_topic_dict = payload.model_dump()
+        name = wiki_topic_dict.pop("name")
         await WikiTopic.create(
             session,
-            name=payload.name,
-            values={"description": payload.description},
+            name=name,
+            values=wiki_topic_dict,
         )
         return ResultResponse(
             msg=f"A new wiki topic '{payload.name}' was successfully created.",
@@ -228,13 +230,14 @@ async def create_topic_article(
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     try:
+        wiki_article_dict = payload.model_dump()
+        name = wiki_article_dict.pop("name")
         await WikiArticle.create(
             session,
             topic_name=topic_name,
-            name=payload.name,
+            name=name,
             values={
-                "content": payload.content,
-                "description": payload.description,
+                **wiki_article_dict,
                 "author_id": current_user.id,
             },
         )
@@ -320,13 +323,13 @@ async def update_topic_article(
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     try:
+        wiki_article_dict = payload.model_dump(exclude_defaults=True)
         await WikiArticle.update(
             session,
             topic_name=topic_name,
             name=article_name,
             values={
-                "content": payload.content,
-                "description": payload.description,
+                **wiki_article_dict,
                 "author_id": current_user.id,
             },
         )
