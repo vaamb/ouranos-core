@@ -844,6 +844,39 @@ class WikiTag(Base, CRUDMixin, AsyncAttrs):
     articles: Mapped[list[WikiArticle]] = relationship(
         back_populates="tags", secondary=AssociationWikiTagArticle)
 
+    @classmethod
+    async def create(
+            cls,
+            session: AsyncSession,
+            /,
+            values: dict | None = None,
+            **lookup_keys: lookup_keys_type,
+    ) -> None:
+        lookup_keys["name"] = lookup_keys["name"].replace(" ", "_").lower()
+        await super().create(session, values=values, **lookup_keys)
+
+    @classmethod
+    async def create_multiple(
+            cls,
+            session: AsyncSession,
+            /,
+            values: list[dict],
+    ) -> None:
+        for value in values:
+            value["name"] = value["name"].replace(" ", "_").lower()
+        await super().create_multiple(session, values=values)
+
+    @classmethod
+    def _generate_get_query(
+            cls,
+            offset: int | None = None,
+            limit: int | None = None,
+            order_by: str | None = None,
+            **lookup_keys: list[lookup_keys_type] | lookup_keys_type | None,
+    ) -> Select:
+        lookup_keys["status"] = True
+        return super()._generate_get_query(offset, limit, order_by, **lookup_keys)
+
 
 class WikiObject:
     @staticmethod
