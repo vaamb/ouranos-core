@@ -66,7 +66,7 @@ async def get_tags(
         *,
         limit: Annotated[
             int,
-            Query(description="The number of topics name to fetch")
+            Query(description="The number of tags name to fetch")
         ] = 100,
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
@@ -132,7 +132,7 @@ async def update_tag(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
-                f"Failed to update wiki topic '{tag_name}'. Error msg: "
+                f"Failed to update wiki tag '{tag_name}'. Error msg: "
                 f"`{e.__class__.__name__}: {e}`",
             ),
         )
