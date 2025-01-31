@@ -807,8 +807,8 @@ class ModificationType(StrEnum):
 AssociationWikiTagTopic = Table(
     "association_wiki_tag_topic",
     Base.metadata,
-    sa.Column("tag_id", sa.Integer,sa.ForeignKey("wiki_tags.id")),
-    sa.Column("topic_id", sa.Integer,sa.ForeignKey("wiki_topics.id")),
+    sa.Column("tag_id", sa.Integer, sa.ForeignKey("wiki_tags.id")),
+    sa.Column("topic_id", sa.Integer, sa.ForeignKey("wiki_topics.id")),
     info={"bind_key": "app"},
 )
 
@@ -816,8 +816,8 @@ AssociationWikiTagTopic = Table(
 AssociationWikiTagArticle = Table(
     "association_wiki_tag_article",
     Base.metadata,
-    sa.Column("tag_id", sa.Integer,sa.ForeignKey("wiki_tags.id")),
-    sa.Column("article_id", sa.Integer,sa.ForeignKey("wiki_articles.id")),
+    sa.Column("tag_id", sa.Integer, sa.ForeignKey("wiki_tags.id")),
+    sa.Column("article_id", sa.Integer, sa.ForeignKey("wiki_articles.id")),
     info={"bind_key": "app"},
 )
 
@@ -990,7 +990,7 @@ class WikiTopic(Base, CRUDMixin, WikiObject):
     ) -> Self | None:
         stmt = cls._generate_get_query(**lookup_keys)
         result = await session.execute(stmt)
-        return result.unique().scalar_one_or_none()
+        return result.scalars().one_or_none()
 
     @classmethod
     async def get_multiple(

@@ -196,11 +196,11 @@ async def get_topic_articles(
         topic_name: Annotated[str, Path(description="The name of the topic")],
         tags: Annotated[
             list[str] | None,
-            Query(description="The tags of the topics"),
+            Query(description="The tags of the articles"),
         ] = None,
         limit: Annotated[
             int,
-            Query(description="The number of topics name to fetch")
+            Query(description="The number of articles name to fetch")
         ] = 50,
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
@@ -339,7 +339,7 @@ async def upload_topic_template(
 
 @router.post("/topics/u/{topic_name}/u",
              dependencies=[Depends(is_operator)])
-async def create_topic_article(
+async def create_article(
         topic_name: Annotated[str, Path(description="The name of the topic")],
         payload: Annotated[
             WikiArticleCreationPayload,
@@ -376,7 +376,7 @@ async def create_topic_article(
 
 @router.post("/topics/u/{topic_name}/u/upload_file",
              dependencies=[Depends(is_operator)])
-async def upload_topic_article(
+async def upload_article(
         topic_name: Annotated[str, Path(description="The name of the topic")],
         file: UploadFile,
         current_user: Annotated[UserMixin, Depends(get_current_user)],
@@ -420,7 +420,7 @@ async def upload_topic_article(
 
 @router.get("/topics/u/{topic_name}/u/{article_name}",
             response_model=WikiArticleInfo)
-async def get_topic_article(
+async def get_article(
         topic_name: Annotated[str, Path(description="The name of the topic")],
         article_name: Annotated[str, Path(description="The name of the article")],
         session: Annotated[AsyncSession, Depends(get_session)],
@@ -431,7 +431,7 @@ async def get_topic_article(
 
 @router.put("/topics/u/{topic_name}/u/{article_name}",
             dependencies=[Depends(is_operator)])
-async def update_topic_article(
+async def update_article(
         topic_name: Annotated[str, Path(description="The name of the topic")],
         article_name: Annotated[str, Path(description="The name of the article")],
         payload: Annotated[
@@ -468,7 +468,7 @@ async def update_topic_article(
 
 @router.delete("/topics/u/{topic_name}/u/{article_name}",
                dependencies=[Depends(is_operator)])
-async def delete_topic_article(
+async def delete_article(
         topic_name: Annotated[str, Path(description="The name of the topic")],
         article_name: Annotated[str, Path(description="The name of the article")],
         current_user: Annotated[UserMixin, Depends(get_current_user)],
@@ -494,7 +494,7 @@ async def delete_topic_article(
 
 @router.get("/topics/u/{topic_name}/u/{article_name}/history",
             response_model=list[WikiArticleModificationInfo])
-async def get_topic_article_history(
+async def get_article_history(
         topic_name: Annotated[str, Path(description="The name of the topic")],
         article_name: Annotated[str, Path(description="The name of the article")],
         session: Annotated[AsyncSession, Depends(get_session)],
