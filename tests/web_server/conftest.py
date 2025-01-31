@@ -166,8 +166,14 @@ async def add_wiki(db: AsyncSQLAlchemyWrapper):
         await topic.create_template(wiki_article_content)
 
         await WikiArticle.create(
-            session, topic=wiki_topic_name, name=wiki_article_name,
-            content=wiki_article_content, author_id=operator.id)
+            session,
+            topic_name=wiki_topic_name,
+            name=wiki_article_name,
+            values={
+                "content": wiki_article_content,
+                "author_id": operator.id,
+            },
+        )
         await WikiArticlePicture.create(
             session, topic=wiki_topic_name, article=wiki_article_name,
             name=wiki_picture_name, content=wiki_picture_content,
