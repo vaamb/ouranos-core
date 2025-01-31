@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+import pytest
 
 import gaia_validators as gv
 
@@ -121,7 +122,8 @@ def test_hardware_update_request_success(
     assert dispatched["data"]["action"] == gv.CrudAction.update
     assert dispatched["data"]["target"] == "hardware"
     assert dispatched["data"]["data"]["name"] == payload["name"]
-    assert dispatched["data"]["data"]["level"] is None
+    with pytest.raises(KeyError):
+        dispatched["data"]["data"]["level"]  # Not in the payload, should be missing
 
 
 def test_hardware_delete_request_failure_user(client_user: TestClient):

@@ -147,7 +147,7 @@ async def update_ecosystem(
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     ecosystem = await ecosystem_or_abort(session, ecosystem_uid)
-    ecosystem_dict = payload.model_dump()
+    ecosystem_dict = payload.model_dump(exclude_defaults=True)
     try:
         await emit_crud_event(
             ecosystem, gv.CrudAction.update, "ecosystem",
@@ -247,7 +247,7 @@ async def update_management(
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     ecosystem = await ecosystem_or_abort(session, ecosystem_uid)
-    management_dict = payload.model_dump()
+    management_dict = payload.model_dump(exclude_defaults=True)
     try:
         await emit_crud_event(
             ecosystem, gv.CrudAction.update, "management", management_dict)
@@ -328,7 +328,7 @@ async def update_ecosystem_lighting(
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     ecosystem = await ecosystem_or_abort(session, ecosystem_uid)
-    lighting_dict = payload.model_dump()
+    lighting_dict = payload.model_dump(exclude_defaults=True)
     try:
         await emit_crud_event(
             ecosystem, gv.CrudAction.update, "nycthemeral_config", lighting_dict)
@@ -462,7 +462,7 @@ async def update_environment_parameter(
 ):
     ecosystem = await ecosystem_or_abort(session, ecosystem_uid)
     await environment_parameter_or_abort(session, ecosystem.uid, parameter)
-    environment_parameter_dict = payload.model_dump()
+    environment_parameter_dict = payload.model_dump(exclude_defaults=True)
     environment_parameter_dict["parameter"] = parameter
     try:
         await emit_crud_event(

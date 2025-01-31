@@ -95,7 +95,7 @@ async def update_event(
     event = await CalendarEvent.get(session, event_id=event_id)
     if event.created_by != current_user.id and not current_user.can(Permission.ADMIN):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
-    values = payload.model_dump()
+    values = payload.model_dump(exclude_defaults=True)
     await CalendarEvent.update(session, event_id=event_id, values=values)
     return ResultResponse(
         msg=f"Updated event with id '{event_id}'",
