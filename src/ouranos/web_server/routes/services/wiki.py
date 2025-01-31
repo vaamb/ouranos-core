@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ouranos.core.config.consts import MAX_PICTURE_FILE_SIZE, MAX_TEXT_FILE_SIZE
 from ouranos.core.database.models.app import (
     ServiceName, UserMixin, WikiArticleNotFound, WikiArticle, WikiArticleModification,
-    WikiArticlePicture, WikiTopic)
+    WikiArticlePicture, WikiTag, WikiTopic)
 from ouranos.web_server.auth import get_current_user, is_operator
 from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.routes.services.utils import service_enabled
@@ -17,7 +17,8 @@ from ouranos.web_server.validate.base import ResultResponse, ResultStatus
 from ouranos.web_server.validate.wiki import (
     WikiArticleInfo, WikiArticleModificationInfo, WikiArticleCreationPayload,
     WikiArticleUpdatePayload, WikiArticlePictureInfo,
-    WikiArticlePictureCreationPayload, WikiTopicCreationPayload, WikiTopicInfo,
+    WikiArticlePictureCreationPayload, WikiTagCreationPayload, WikiTagInfo,
+    WikiTagUpdatePayload, WikiTopicCreationPayload, WikiTopicInfo,
     WikiTopicTemplatePayload, WikiTopicUpdatePayload)
 
 
@@ -59,10 +60,92 @@ async def article_or_abort(
     return article
 
 
+@router.get("/tags",
+            response_model=list[WikiTagInfo])
+async def get_tags(
+        *,
+        limit: Annotated[
+            int,
+            Query(description="The number of topics name to fetch")
+        ] = 100,
+        session: Annotated[AsyncSession, Depends(get_session)],
+):
+    if limit > 100:
+        limit = 100
+    tags = await WikiTag.get_multiple(session, limit=limit)
+    return tags
+
+
+@router.post("/tags/u",
+             dependencies=[Depends(is_operator)])
+async def create_tag(
+        payload: Annotated[
+            WikiTagCreationPayload,
+            Body(description="The new tag information"),
+        ],
+        session: Annotated[AsyncSession, Depends(get_session)],
+):
+    try:
+        wiki_tag_dict = payload.model_dump()
+        name = wiki_tag_dict.pop("name")
+        await WikiTag.create(
+            session,
+            name=name,
+            values=wiki_tag_dict,
+        )
+        return ResultResponse(
+            msg=f"A new wiki tag '{payload.name}' was successfully created.",
+            status=ResultStatus.success
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Failed to create the wiki tag '{payload.name}'. Error msg: "
+                f"`{e.__class__.__name__}: {e}`",
+            ),
+        )
+
+
+@router.put("/tags/u/{tag_name}",
+            dependencies=[Depends(is_operator)])
+async def update_tag(
+        tag_name: Annotated[str, Path(description="The name of the tag")],
+        payload: Annotated[
+            WikiTagUpdatePayload,
+            Body(description="The updated tag information"),
+        ],
+        session: Annotated[AsyncSession, Depends(get_session)],
+):
+    try:
+        wiki_tag_dict = payload.model_dump(exclude_defaults=True)
+        await WikiTag.update(
+            session,
+            name=tag_name,
+            values=wiki_tag_dict,
+        )
+        return ResultResponse(
+            msg=f"Wiki tag '{tag_name}' was successfully updated.",
+            status=ResultStatus.success
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Failed to update wiki topic '{tag_name}'. Error msg: "
+                f"`{e.__class__.__name__}: {e}`",
+            ),
+        )
+
+
 @router.get("/topics",
             response_model=list[WikiTopicInfo])
 async def get_topics(
         *,
+        tags: Annotated[
+            list[str] | None,
+            Query(description="The tags of the topics"),
+        ] = None,
         limit: Annotated[
             int,
             Query(description="The number of topics name to fetch")
@@ -71,7 +154,7 @@ async def get_topics(
 ):
     if limit > 50:
         limit = 50
-    topics = await WikiTopic.get_multiple(session, limit=limit)
+    topics = await WikiTopic.get_multiple(session, tags_name=tags, limit=limit)
     return topics
 
 
@@ -85,7 +168,7 @@ async def create_topic(
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     try:
-        wiki_topic_dict = payload.model_dump()
+        wiki_topic_dict = payload.model_dump(by_alias=True)
         name = wiki_topic_dict.pop("name")
         await WikiTopic.create(
             session,
@@ -111,6 +194,10 @@ async def create_topic(
 async def get_topic_articles(
         *,
         topic_name: Annotated[str, Path(description="The name of the topic")],
+        tags: Annotated[
+            list[str] | None,
+            Query(description="The tags of the topics"),
+        ] = None,
         limit: Annotated[
             int,
             Query(description="The number of topics name to fetch")
@@ -120,7 +207,8 @@ async def get_topic_articles(
     if limit > 50:
         limit = 50
     await topic_or_abort(session, name=topic_name)
-    articles = await WikiArticle.get_multiple(session, topic_name=topic_name, limit=limit)
+    articles = await WikiArticle.get_multiple(
+        session, topic_name=topic_name, tags_name=tags, limit=limit)
     return articles
 
 
@@ -135,7 +223,7 @@ async def update_topic(
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     try:
-        wiki_topic_dict = payload.model_dump(exclude_defaults=True)
+        wiki_topic_dict = payload.model_dump(by_alias=True, exclude_defaults=True)
         await WikiTopic.update(
             session,
             name=topic_name,
@@ -221,7 +309,7 @@ async def create_topic_template(
 
 @router.post("/topics/u/{topic_name}/template/upload_file",
              dependencies=[Depends(is_operator)])
-async def create_topic_template(
+async def upload_topic_template(
         topic_name: Annotated[str, Path(description="The name of the topic")],
         file: UploadFile,
         session: Annotated[AsyncSession, Depends(get_session)],
@@ -261,7 +349,7 @@ async def create_topic_article(
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     try:
-        wiki_article_dict = payload.model_dump()
+        wiki_article_dict = payload.model_dump(by_alias=True)
         name = wiki_article_dict.pop("name")
         await WikiArticle.create(
             session,
@@ -288,7 +376,7 @@ async def create_topic_article(
 
 @router.post("/topics/u/{topic_name}/u/upload_file",
              dependencies=[Depends(is_operator)])
-async def upload_article(
+async def upload_topic_article(
         topic_name: Annotated[str, Path(description="The name of the topic")],
         file: UploadFile,
         current_user: Annotated[UserMixin, Depends(get_current_user)],
@@ -354,7 +442,7 @@ async def update_topic_article(
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     try:
-        wiki_article_dict = payload.model_dump(exclude_defaults=True)
+        wiki_article_dict = payload.model_dump(by_alias=True, exclude_defaults=True)
         await WikiArticle.update(
             session,
             topic_name=topic_name,
@@ -560,6 +648,10 @@ async def get_articles(
               list[str] | None,
               Query(description="The name of the articles"),
         ] = None,
+        tags: Annotated[
+            list[str] | None,
+            Query(description="The tags of the articles"),
+        ] = None,
         limit: Annotated[
             int,
             Query(description="The number of topics name to fetch")
@@ -567,5 +659,5 @@ async def get_articles(
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     articles = await WikiArticle.get_multiple(
-        session, topic_name=topic, name=name, limit=limit)
+        session, topic_name=topic, name=name, tags_name=tags, limit=limit)
     return articles

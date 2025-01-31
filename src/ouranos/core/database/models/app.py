@@ -804,6 +804,47 @@ class ModificationType(StrEnum):
     update = enum.auto()
 
 
+AssociationWikiTagTopic = Table(
+    "association_wiki_tag_topic",
+    Base.metadata,
+    sa.Column("tag_id", sa.Integer,sa.ForeignKey("wiki_tags.id")),
+    sa.Column("topic_id", sa.Integer,sa.ForeignKey("wiki_topics.id")),
+    info={"bind_key": "app"},
+)
+
+
+AssociationWikiTagArticle = Table(
+    "association_wiki_tag_article",
+    Base.metadata,
+    sa.Column("tag_id", sa.Integer,sa.ForeignKey("wiki_tags.id")),
+    sa.Column("article_id", sa.Integer,sa.ForeignKey("wiki_articles.id")),
+    info={"bind_key": "app"},
+)
+
+
+class WikiTag(Base, CRUDMixin, AsyncAttrs):
+    __tablename__ = "wiki_tags"
+    __bind_key__ = "app"
+    __table_args__ = (
+        UniqueConstraint(
+            "name",
+            name="uq_wiki_tags_name"
+        ),
+    )
+    _lookup_keys = ["name"]
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(sa.String(length=64), unique=True)
+    description: Mapped[Optional[str]] = mapped_column(sa.String(length=512))
+    status: Mapped[bool] = mapped_column(default=True)
+
+    # relationship
+    topics: Mapped[list[WikiTopic]] = relationship(
+        back_populates="tags", secondary=AssociationWikiTagTopic)
+    articles: Mapped[list[WikiArticle]] = relationship(
+        back_populates="tags", secondary=AssociationWikiTagArticle)
+
+
 class WikiObject:
     @staticmethod
     def root_dir() -> ioPath:
@@ -837,6 +878,8 @@ class WikiTopic(Base, CRUDMixin, WikiObject):
 
     # relationship
     articles: Mapped[list[WikiArticle]] = relationship(back_populates="topic")
+    tags: Mapped[list[WikiTag]] = relationship(
+        back_populates="topics", secondary=AssociationWikiTagTopic, lazy="selectin")
 
     def __repr__(self) -> str:
         return f"<WikiTopic({self.name})>"
@@ -844,6 +887,26 @@ class WikiTopic(Base, CRUDMixin, WikiObject):
     @property
     def absolute_path(self) -> ioPath:
         return self.root_dir() / self.path
+
+    async def attach_tags(self, session:AsyncSession, tags_name: list[str]) -> None:
+        # Clear all tags
+        stmt = (
+            delete(AssociationWikiTagTopic)
+            .where(AssociationWikiTagTopic.c.topic_id == self.id)
+        )
+        await session.execute(stmt)
+        # Attach the tags
+        for tag_name in tags_name:
+            tag = await WikiTag.get(session, name=tag_name)
+            if tag is None:
+                await WikiTag.create(session, name=tag_name)
+                tag = await WikiTag.get(session, name=tag_name)
+            stmt = (
+                insert(AssociationWikiTagTopic)
+                .values(topic_id=self.id, tag_id=tag.id)
+            )
+            await session.execute(stmt)
+        await session.commit()
 
     @classmethod
     async def create(
@@ -860,7 +923,30 @@ class WikiTopic(Base, CRUDMixin, WikiObject):
         await topic_dir.mkdir(parents=True, exist_ok=True)
         values["path"] = cls.get_rel_path(topic_dir)
         # Create the topic info
-        return await super().create(session, values=values, **lookup_keys)
+        tags_name: list[str] = values.pop("tags_name", [])
+        await super().create(session, values=values, **lookup_keys)
+        if tags_name:
+            topic = await cls.get(session, **lookup_keys)
+            await topic.attach_tags(session, tags_name)
+
+    @classmethod
+    def _generate_get_query(
+            cls,
+            offset: int | None = None,
+            limit: int | None = None,
+            order_by: str | None = None,
+            **lookup_keys: list[lookup_keys_type] | lookup_keys_type | None,
+    ) -> Select:
+        lookup_keys["status"] = True
+        tags_name: list[str] | None = lookup_keys.pop("tags_name", None)
+        stmt = super()._generate_get_query(offset, limit, order_by, **lookup_keys)
+        if tags_name:
+            stmt = stmt.join(WikiTag.articles)
+            if isinstance(tags_name, list):
+                stmt = stmt.where(WikiTag.name.in_(tags_name))
+            else:
+                stmt = stmt.where(WikiTag.name == tags_name)
+        return stmt
 
     @classmethod
     async def get(
@@ -869,8 +955,9 @@ class WikiTopic(Base, CRUDMixin, WikiObject):
             /,
             **lookup_keys: lookup_keys_type,
     ) -> Self | None:
-        lookup_keys["status"] = True
-        return await super().get(session, **lookup_keys)
+        stmt = cls._generate_get_query(**lookup_keys)
+        result = await session.execute(stmt)
+        return result.unique().scalar_one_or_none()
 
     @classmethod
     async def get_multiple(
@@ -884,9 +971,23 @@ class WikiTopic(Base, CRUDMixin, WikiObject):
     ) -> Sequence[Self]:
         if limit is None:
             limit = 50
-        lookup_keys["status"] = True
-        return await super().get_multiple(
-            session, offset=offset, limit=limit, order_by=order_by, **lookup_keys)
+        stmt = cls._generate_get_query(offset, limit, order_by, **lookup_keys)
+        result = await session.execute(stmt)
+        return result.scalars().all()
+
+    @classmethod
+    async def update(
+            cls,
+            session: AsyncSession,
+            /,
+            values: dict,
+            **lookup_keys: lookup_keys_type,
+    ) -> None:
+        tags_name: list[str] = values.pop("tags_name", [])
+        await super().update(session, values=values, **lookup_keys)
+        if tags_name:
+            topic = await cls.get(session, **lookup_keys)
+            await topic.attach_tags(session, tags_name)
 
     @classmethod
     async def delete(
@@ -934,6 +1035,8 @@ class WikiArticle(Base, CRUDMixin, WikiObject):
     topic: Mapped[WikiTopic] = relationship(back_populates="articles", lazy="selectin")
     modifications: Mapped[list[WikiArticleModification]] = relationship(back_populates="article")
     images: Mapped[list[WikiArticlePicture]] = relationship(back_populates="article")
+    tags: Mapped[list[WikiTag]] = relationship(
+        back_populates="articles", secondary=AssociationWikiTagArticle, lazy="selectin")
 
     def __repr__(self) -> str:
         return (
@@ -969,6 +1072,26 @@ class WikiArticle(Base, CRUDMixin, WikiObject):
             content = await f.read()
             return content
 
+    async def attach_tags(self, session:AsyncSession, tags_name: list[str]) -> None:
+        # Clear all tags
+        stmt = (
+            delete(AssociationWikiTagArticle)
+            .where(AssociationWikiTagArticle.c.article_id == self.id)
+        )
+        await session.execute(stmt)
+        # Attach the tags
+        for tag_name in tags_name:
+            tag = await WikiTag.get(session, name=tag_name)
+            if tag is None:
+                await WikiTag.create(session, name=tag_name)
+                tag = await WikiTag.get(session, name=tag_name)
+            stmt = (
+                insert(AssociationWikiTagArticle)
+                .values(article_id=self.id, tag_id=tag.id)
+            )
+            await session.execute(stmt)
+        await session.commit()
+
     @classmethod
     async def create(
             cls,
@@ -992,7 +1115,12 @@ class WikiArticle(Base, CRUDMixin, WikiObject):
         content = values.pop("content")
         author_id = values.pop("author_id")
         values["path"] = str(rel_path)
+        tags_name: list[str] = values.pop("tags_name", [])
         await super().create(session, values=values, **lookup_keys)
+        if tags_name:
+            article = await cls.get_latest_version(
+                session, topic_name=topic_name, name=name)
+            await article.attach_tags(session, tags_name)
         # Create the article modification
         article = await cls.get_latest_version(session, topic_name=topic_name, name=name)
         await WikiArticleModification.create(
@@ -1012,15 +1140,22 @@ class WikiArticle(Base, CRUDMixin, WikiObject):
             order_by: str | None = None,
             **lookup_keys: list[lookup_keys_type] | lookup_keys_type | None,
     ) -> Select:
-        topic_name = lookup_keys.pop("topic_name")
         lookup_keys["status"] = True
-        stmt = super()._generate_get_query(**lookup_keys)
+        topic_name: str | None = lookup_keys.pop("topic_name", None)
+        tags_name: list[str] | None = lookup_keys.pop("tags_name", None)
+        stmt = super()._generate_get_query(offset, limit, order_by, **lookup_keys)
         if topic_name:
             stmt = stmt.join(WikiTopic, cls.topic_id == WikiTopic.id)
             if isinstance(topic_name, list):
                 stmt = stmt.where(WikiTopic.name.in_(topic_name))
             else:
                 stmt = stmt.where(WikiTopic.name == topic_name)
+        if tags_name:
+            stmt = stmt.join(WikiTag.articles)
+            if isinstance(tags_name, list):
+                stmt = stmt.where(WikiTag.name.in_(tags_name))
+            else:
+                stmt = stmt.where(WikiTag.name == tags_name)
         return stmt
 
     @classmethod
@@ -1039,9 +1174,12 @@ class WikiArticle(Base, CRUDMixin, WikiObject):
             cls,
             session: AsyncSession,
             /,
+            offset: int | None = None,
+            limit: int | None = None,
+            order_by: str | None = None,
             **lookup_keys: lookup_keys_type,
     ) -> Sequence[Self]:
-        stmt = cls._generate_get_query(**lookup_keys)
+        stmt = cls._generate_get_query(offset, limit, order_by, **lookup_keys)
         result = await session.execute(stmt)
         return result.scalars().all()
 
@@ -1102,7 +1240,11 @@ class WikiArticle(Base, CRUDMixin, WikiObject):
         content = values.pop("content")
         author_id = values.pop("author_id")
         values["version"] = new_version
+        tags_name: list[str] = values.pop("tags_name", [])
         await super().update(session, values=values, **lookup_keys)
+        if tags_name:
+            article = await cls.get_latest_version(session, topic_name=topic_name, name=name)
+            await article.attach_tags(session, tags_name)
         # Create the article modification
         article = await cls.get_latest_version(session, topic_name=topic_name, name=name)
         await WikiArticleModification.create(
