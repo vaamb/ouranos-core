@@ -122,10 +122,10 @@ async def update_user(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You can only update profiles with permissions lower than yours.",
         )
-    user_dict = payload.model_dump()
+    user_dict = payload.model_dump(exclude_defaults=True)
     user_dict = {
         key: value for key, value in user_dict.items()
-        if value is not None and value != getattr(user, key)
+        if value != getattr(user, key)
     }
     try:
         await User.update(session, user_id=user.id, values=user_dict)

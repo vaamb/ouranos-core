@@ -6,7 +6,7 @@ from typing import Optional
 from pydantic import ConfigDict, Field, field_serializer, field_validator
 
 import gaia_validators as gv
-from gaia_validators import safe_enum_from_name
+from gaia_validators import MissingValue, missing, safe_enum_from_name
 
 from ouranos.core.database.models.gaia import Ecosystem, ActuatorState
 from ouranos.core.validate.base import BaseModel
@@ -47,8 +47,8 @@ class EcosystemCreationPayload(BaseModel):
 
 
 class EcosystemBaseInfoUpdatePayload(BaseModel):
-    name: str | None = None
-    status: bool | None = None
+    name: str | MissingValue = missing
+    status: bool | MissingValue = missing
 
 
 EcosystemInfo = sqlalchemy_to_pydantic(
@@ -67,14 +67,14 @@ EcosystemInfo = sqlalchemy_to_pydantic(
 #   Ecosystem management
 # ---------------------------------------------------------------------------
 class EcosystemManagementUpdatePayload(BaseModel):
-    sensors: bool | None = None
-    light: bool | None = None
-    climate: bool | None = None
-    watering: bool | None = None
-    health: bool | None = None
-    alarms: bool | None = None
-    pictures: bool | None = None
-    database: bool | None = None
+    sensors: bool | MissingValue = missing
+    light: bool | MissingValue = missing
+    climate: bool | MissingValue = missing
+    watering: bool | MissingValue = missing
+    health: bool | MissingValue = missing
+    alarms: bool | MissingValue = missing
+    pictures: bool | MissingValue = missing
+    database: bool | MissingValue = missing
 
 
 class ManagementInfo(BaseModel):
@@ -118,11 +118,11 @@ class EcosystemLightInfo(gv.LightingHours, _EcosystemLightInfo):
 
 
 class NycthemeralCycleUpdatePayload(BaseModel):
-    span: gv.NycthemeralSpanMethod | None = None
-    lighting: gv.LightingMethod | None = None
-    target: str | None = None
-    day: time | None = None
-    night: time | None = None
+    span: gv.NycthemeralSpanMethod | MissingValue = missing
+    lighting: gv.LightingMethod | MissingValue = missing
+    target: str | None | MissingValue = missing
+    day: time | MissingValue = missing
+    night: time | MissingValue = missing
 
     @field_validator("span", mode="before")
     def parse_span(cls, value):
@@ -153,9 +153,10 @@ class EnvironmentParameterCreationPayload(gv.ClimateConfig):
 
 
 class EnvironmentParameterUpdatePayload(BaseModel):
-    day: float | None = None
-    night: float | None = None
-    hysteresis: float | None = None
+    day: float | MissingValue = missing
+    night: float | MissingValue = missing
+    hysteresis: float | MissingValue = missing
+    alarm: float | None | MissingValue = missing
 
 
 class EnvironmentParameterInfo(BaseModel):

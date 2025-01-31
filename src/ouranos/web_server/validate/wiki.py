@@ -6,6 +6,8 @@ from pathlib import Path
 from anyio import Path as ioPath
 from pydantic import Field, field_validator
 
+from gaia_validators import MissingValue, missing
+
 from ouranos.core.database.models.app import ModificationType
 from ouranos.core.validate.base import BaseModel
 
@@ -51,8 +53,8 @@ class WikiArticleCreationPayload(BaseModel):
 
 class WikiArticleUpdatePayload(BaseModel):
     # topic is provided by the route
-    # name is provided by the route
-    content: str
+    name : str | MissingValue = missing
+    content: str | MissingValue = missing
     # author_id is provided by the route
 
 

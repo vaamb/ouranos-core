@@ -5,7 +5,7 @@ from datetime import datetime
 from pydantic import field_validator
 
 import gaia_validators as gv
-from gaia_validators import safe_enum_from_name
+from gaia_validators import MissingValue, missing, safe_enum_from_name
 
 from ouranos.core.validate.base import BaseModel
 
@@ -31,11 +31,11 @@ class EventCreationPayload(BaseModel):
 
 
 class EventUpdatePayload(BaseModel):
-    level: gv.WarningLevel | None = None
-    title: str | None = None
-    description: str | None = None
-    start_time: datetime | None = None
-    end_time: datetime | None = None
+    level: gv.WarningLevel | MissingValue = missing
+    title: str | MissingValue = missing
+    description: str | None | MissingValue = missing
+    start_time: datetime | MissingValue = missing
+    end_time: datetime | MissingValue = missing
 
     @field_validator("level", mode="before")
     def parse_level(cls, value):

@@ -9,6 +9,8 @@ from uuid import UUID
 from sqlalchemy import and_, delete, insert, inspect, Select, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from gaia_validators import missing
+
 from ouranos import db
 
 
@@ -51,10 +53,11 @@ class CRUDMixin:
             cls,
             session: AsyncSession,
             /,
-            values: dict,
+            values: dict | None = None,
             **lookup_keys: lookup_keys_type,
     ) -> None:
         cls._check_lookup_keys(*lookup_keys.keys())
+        values = values or {}
         stmt = insert(cls).values(**lookup_keys, **values)
         await session.execute(stmt)
 
@@ -147,7 +150,11 @@ class CRUDMixin:
                     for key, value in lookup_keys.items()
                 )
             )
-            .values(**values)
+            .values({
+                key: value
+                for key, value in values.items()
+                if value is not missing
+            })
         )
         await session.execute(stmt)
 
@@ -187,7 +194,7 @@ class CRUDMixin:
             cls,
             session: AsyncSession,
             /,
-            values: dict,
+            values: dict | None = None,
             **lookup_keys: lookup_keys_type,
     ) -> None:
         #cls._check_lookup_keys(*lookup_keys.keys())

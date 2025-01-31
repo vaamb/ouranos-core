@@ -167,7 +167,7 @@ async def update_hardware(
 ):
     ecosystem = await ecosystem_or_abort(session, ecosystem_uid)
     hardware = await hardware_or_abort(session, hardware_uid)
-    hardware_dict = payload.model_dump()
+    hardware_dict = payload.model_dump(exclude_defaults=True)
     try:
         await emit_crud_event(
             ecosystem, gv.CrudAction.update, "hardware", hardware_dict)

@@ -16,7 +16,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 import gaia_validators as gv
-from gaia_validators import safe_enum_from_name
+from gaia_validators import missing, safe_enum_from_name
 
 from ouranos import current_app
 from ouranos.core.config.consts import (
@@ -754,7 +754,11 @@ class CalendarEvent(Base):
         stmt = (
             update(cls)
             .where(cls.id == event_id)
-            .values(values)
+            .values({
+                key: value
+                for key, value in values.items()
+                if value is not missing
+            })
         )
         await session.execute(stmt)
 

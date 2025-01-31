@@ -275,7 +275,7 @@ class CachedCRUDMixin(CRUDMixin):
             cls,
             session: AsyncSession,
             /,
-            values: dict,
+            values: dict | None = None,
             **lookup_keys: lookup_keys_type,
     ) -> Self | None:
         return await super().create(session, values=values, **lookup_keys)
