@@ -14,7 +14,7 @@ from ouranos.core.validate.base import BaseModel
 
 class WikiTagInfo(BaseModel):
     name: str
-    description: str
+    description: str | None = None
 
 
 class WikiTagCreationPayload(BaseModel):
@@ -70,7 +70,6 @@ class WikiArticleInfo(BaseModel):
     topic: str = Field(validation_alias="topic_name")
     name: str
     description: str | None = None
-    version: int
     tags: list[str] = Field(default_factory=list)
     path: str = Field(validation_alias="content_path")
 
@@ -113,7 +112,7 @@ class WikiArticleModificationInfo(BaseModel):
     # topic is provided by the route
     topic: str = Field(validation_alias="topic_name")
     article: str = Field(validation_alias="article_name")
-    article_version: int
+    version: int
     author_id: int
     timestamp: datetime
     modification_type: ModificationType
