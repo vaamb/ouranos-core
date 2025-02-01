@@ -11,6 +11,7 @@ import warnings
 import jwt
 import orjson
 from sqlalchemy import Row
+from slugify import slugify as _slugify
 
 from ouranos.core.exceptions import (
     ExpiredTokenError, InvalidTokenError, TokenError)
@@ -198,3 +199,7 @@ def check_secret_key(config: dict) -> str | None:
                     f"You need to set the environment variable '{secret}' when "
                     f"using Ouranos in a production environment."
                 )
+
+
+def slugify(s: str) -> str:
+    return _slugify(s, separator="_", lowercase=True)
