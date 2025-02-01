@@ -1143,9 +1143,11 @@ class WikiArticle(Base, CRUDMixin, WikiObject):
         # Create the article modification
         await WikiArticleModification.create(
             session,
-            article=article,
+            article_id=article.id,
             author_id=author_id,
-            modification=ModificationType.creation,
+            values = {
+                "modification_type": ModificationType.creation,
+            },
         )
         # Save the article content
         await article.set_content(content)
@@ -1213,7 +1215,7 @@ class WikiArticle(Base, CRUDMixin, WikiObject):
         article = await cls.get(session, topic_name=topic, name=name)
         if not article:
             raise ValueError("Article not found")
-        history = await WikiArticleModification.get_for_article(
+        history = await WikiArticleModification.get_multiple(
             session, article_id=article.id, limit=limit)
         return history
 
@@ -1243,9 +1245,11 @@ class WikiArticle(Base, CRUDMixin, WikiObject):
         # Create the article modification
         await WikiArticleModification.create(
             session,
-            article=article,
+            article_id=article.id,
             author_id=author_id,
-            modification=ModificationType.update,
+            values={
+                "modification_type": ModificationType.update,
+            },
         )
         # Save the article content
         await article.set_content(content)
@@ -1273,22 +1277,24 @@ class WikiArticle(Base, CRUDMixin, WikiObject):
         # Create the article modification
         await WikiArticleModification.create(
             session,
-            article=article,
+            article_id=article.id,
             author_id=author_id,
-            modification=ModificationType.deletion,
+            values={
+                "modification_type": ModificationType.deletion,
+            },
         )
 
 
-class WikiArticleModification(Base):
+class WikiArticleModification(Base, CRUDMixin):
     __tablename__ = "wiki_articles_modifications"
     __bind_key__ = "app"
     __table_args__ = (
         UniqueConstraint(
-            "article_id", "version", "modification_type",
+            "article_id", "version",
             name="uq_wiki_articles_modifications"
         ),
     )
-    _lookup_keys = ["topic_name", "article_name", "version"]
+    _lookup_keys = ["article_id", "version"]
 
     id: Mapped[int] = mapped_column(primary_key=True)
     article_id: Mapped[int] = mapped_column(sa.ForeignKey("wiki_articles.id"))
@@ -1320,39 +1326,13 @@ class WikiArticleModification(Base):
             cls,
             session: AsyncSession,
             /,
-            article: WikiArticle,
-            author_id: int,
-            modification: ModificationType,
+            values: dict | None = None,  # modification_type, author_id
+            **lookup_keys: lookup_keys_type,  # article_id
     ) -> None:
-        history = await cls.get_latest_version(session, article_id=article.id)
-        version: int = history.version + 1 if history is not None else 1
-        stmt = (
-            insert(cls)
-            .values({
-                "article_id": article.id,
-                "version": version,
-                "modification_type": modification,
-                "author_id": author_id,
-            })
-        )
-        await session.execute(stmt)
-
-    @classmethod
-    async def get_for_article(
-            cls,
-            session: AsyncSession,
-            /,
-            article_id: int,
-            limit: int = 50,
-    ) -> Sequence[Self]:
-        stmt = (
-            select(cls)
-            .where(cls.article_id == article_id)
-            .order_by(cls.version.desc())
-            .limit(limit)
-        )
-        result = await session.execute(stmt)
-        return result.scalars().all()
+        history = await cls.get_latest_version(
+            session, article_id=lookup_keys["article_id"])
+        lookup_keys["version"] = history.version + 1 if history is not None else 1
+        await super().create(session, values=values, **lookup_keys)
 
     @classmethod
     async def get_latest_version(
@@ -1361,31 +1341,9 @@ class WikiArticleModification(Base):
             /,
             article_id: int,
     ) -> Self | None:
-        stmt = (
-            select(cls)
-            .where(cls.article_id == article_id)
-            .order_by(cls.version.desc())
-            .limit(1)
-        )
-        result = await session.execute(stmt)
-        return result.scalars().one_or_none()
-
-    @classmethod
-    async def delete(
-            cls,
-            session: AsyncSession,
-            /,
-            article_id: int,
-            version,
-    ) -> None:
-        stmt = (
-            delete(cls)
-            .where(
-                (cls.article_id == article_id)
-                & (cls.version == version)
-            )
-        )
-        await session.execute(stmt)
+        return await cls.get(
+            session, article_id=article_id, limit=1,
+            order_by=WikiArticleModification.version.desc())
 
 
 class WikiArticlePicture(Base, WikiObject):

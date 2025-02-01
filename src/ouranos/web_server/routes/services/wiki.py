@@ -500,8 +500,8 @@ async def get_article_history(
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     article = await article_or_abort(session, topic=topic_name, name=article_name)
-    history = await WikiArticleModification.get_for_article(
-        session, article_id=article.id)
+    history = await WikiArticleModification.get_multiple(
+        session, article_id=article.id, order_by=WikiArticleModification.version.desc())
     return history
 
 
