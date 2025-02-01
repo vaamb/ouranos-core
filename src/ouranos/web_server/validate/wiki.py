@@ -133,4 +133,5 @@ class WikiArticlePictureInfo(BaseModel):
 
 class WikiArticlePictureCreationPayload(BaseModel):
     name: str
+    extension: str | None = None
     content: bytes

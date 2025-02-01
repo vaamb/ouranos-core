@@ -514,14 +514,17 @@ async def add_picture_to_article(
             WikiArticlePictureCreationPayload,
             Body(description="The new picture"),
         ],
-        current_user: Annotated[UserMixin, Depends(get_current_user)],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     try:
+        article = await article_or_abort(session, topic_name, article_name)
+        wiki_picture_dict = payload.model_dump()
         await WikiArticlePicture.create(
-            session, topic_name=topic_name, article_name=article_name, name=payload.name,
-            content=payload.content,
-            author_id=current_user.id)
+            session,
+            article_id=article.id,
+            name=wiki_picture_dict.pop("name"),
+            values=wiki_picture_dict,
+        )
         return ResultResponse(
             msg=f"A new wiki picture was successfully created.",
             status=ResultStatus.success
@@ -547,16 +550,11 @@ async def upload_picture_to_article(
         topic_name: Annotated[str, Path(description="The name of the topic")],
         article_name: Annotated[str, Path(description="The name of the article")],
         file: UploadFile,
-        current_user: Annotated[UserMixin, Depends(get_current_user)],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    if not file.filename.endswith(".md"):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="File should be a valid '.md' file"
-        )
     filename = file.filename.rstrip(".md")
     try:
+        article = await article_or_abort(session, topic_name, article_name)
         if file.size > MAX_PICTURE_FILE_SIZE:
             raise HTTPException(
                 status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
@@ -564,8 +562,13 @@ async def upload_picture_to_article(
             )
         content = await file.read()
         await WikiArticlePicture.create(
-            session, topic_name=topic_name, article_name=article_name, name=filename,
-            content=content, author_id=current_user.id)
+            session,
+            article_id=article.id,
+            name=filename,
+            values={
+                "content": content,
+            },
+        )
         return ResultResponse(
             msg=f"A new wiki picture was successfully uploaded.",
             status=ResultStatus.success
@@ -594,15 +597,15 @@ async def get_article_picture(
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     try:
+        article = await article_or_abort(session, topic_name, article_name)
         picture = await WikiArticlePicture.get(
-            session, topic_name=topic_name, article_name=article_name,
-            name=picture_name)
+            session, article_id=article.id, name=picture_name)
     except WikiArticleNotFound:
         picture = None
     if not picture:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="No picture(s) found"
+            detail="No picture found"
         )
     return picture
 
@@ -616,9 +619,9 @@ async def delete_picture_from_article(
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     try:
+        article = await article_or_abort(session, topic_name, article_name)
         await WikiArticlePicture.delete(
-            session, topic_name=topic_name, article_name=article_name,
-            name=picture_name)
+            session, article_id=article.id, name=picture_name)
         return ResultResponse(
             msg=f"The wiki picture '{picture_name}' was successfully deleted.",
             status=ResultStatus.success
@@ -626,7 +629,7 @@ async def delete_picture_from_article(
     except WikiArticleNotFound:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="No article(s) found"
+            detail="No picture found"
         )
     except Exception as e:
         raise HTTPException(
