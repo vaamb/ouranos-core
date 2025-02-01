@@ -6,7 +6,8 @@ from enum import Enum
 from typing import NamedTuple, Self, Sequence
 from uuid import UUID
 
-from sqlalchemy import and_, delete, insert, inspect, Select, select, update
+from sqlalchemy import (
+    and_, delete, insert, inspect, Select, select, UnaryExpression, update)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from gaia_validators import missing
@@ -100,14 +101,20 @@ class CRUDMixin:
             cls,
             session: AsyncSession,
             /,
-            **lookup_keys: lookup_keys_type | None,
+            offset: int | None = None,
+            limit: int | None = None,
+            order_by: UnaryExpression | None = None,
+            **lookup_keys: list[lookup_keys_type] | lookup_keys_type | None,
     ) -> Self | None:
         """
+        :param offset: the offset from which to start looking
+        :param limit: the maximum number of rows to query
+        :param order_by: how to order the results
         :param session: an AsyncSession instance
         :param lookup_keys: a dict with table column names as keys and values
                             depending on the related column data type
         """
-        stmt = cls._generate_get_query(**lookup_keys)
+        stmt = cls._generate_get_query(offset, limit, order_by, **lookup_keys)
         result = await session.execute(stmt)
         return result.scalar_one_or_none()
 
@@ -118,7 +125,7 @@ class CRUDMixin:
             /,
             offset: int | None = None,
             limit: int | None = None,
-            order_by: str | None = None,
+            order_by: UnaryExpression | None = None,
             **lookup_keys: list[lookup_keys_type] | lookup_keys_type | None,
     ) -> Sequence[Self]:
         """
@@ -129,7 +136,7 @@ class CRUDMixin:
         :param lookup_keys: a dict with table column names as keys and values
                             depending on the related column data type
         """
-        stmt = cls._generate_get_query(**lookup_keys)
+        stmt = cls._generate_get_query(offset, limit, order_by, **lookup_keys)
         result = await session.execute(stmt)
         return result.scalars().all()
 
