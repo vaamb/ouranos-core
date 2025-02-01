@@ -457,7 +457,6 @@ async def update_article(
             status=ResultStatus.success
         )
     except Exception as e:
-        raise e
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
