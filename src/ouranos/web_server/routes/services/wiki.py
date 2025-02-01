@@ -51,7 +51,7 @@ async def article_or_abort(
         topic: str,
         name: str,
 ) -> WikiArticle:
-    article = await WikiArticle.get_latest_version(session, topic_name=topic, name=name)
+    article = await WikiArticle.get(session, topic_name=topic, name=name)
     if not article:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -457,6 +457,7 @@ async def update_article(
             status=ResultStatus.success
         )
     except Exception as e:
+        raise e
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
@@ -519,7 +520,7 @@ async def add_picture_to_article(
 ):
     try:
         await WikiArticlePicture.create(
-            session, topic=topic_name, article=article_name, name=payload.name,
+            session, topic_name=topic_name, article_name=article_name, name=payload.name,
             content=payload.content,
             author_id=current_user.id)
         return ResultResponse(
@@ -564,7 +565,7 @@ async def upload_picture_to_article(
             )
         content = await file.read()
         await WikiArticlePicture.create(
-            session, topic=topic_name, article=article_name, name=filename,
+            session, topic_name=topic_name, article_name=article_name, name=filename,
             content=content, author_id=current_user.id)
         return ResultResponse(
             msg=f"A new wiki picture was successfully uploaded.",
@@ -595,7 +596,8 @@ async def get_article_picture(
 ):
     try:
         picture = await WikiArticlePicture.get(
-            session, topic=topic_name, article=article_name, name=picture_name)
+            session, topic_name=topic_name, article_name=article_name,
+            name=picture_name)
     except WikiArticleNotFound:
         picture = None
     if not picture:
@@ -616,7 +618,8 @@ async def delete_picture_from_article(
 ):
     try:
         await WikiArticlePicture.delete(
-            session, topic=topic_name, article=article_name, name=picture_name)
+            session, topic_name=topic_name, article_name=article_name,
+            name=picture_name)
         return ResultResponse(
             msg=f"The wiki picture '{picture_name}' was successfully deleted.",
             status=ResultStatus.success

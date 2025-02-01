@@ -155,10 +155,9 @@ async def test_create_article(
     assert response.status_code == 200
 
     async with db.scoped_session() as session:
-        article = await WikiArticle.get_latest_version(
+        article = await WikiArticle.get(
             session, topic_name=wiki_topic_name, name=name)
         assert article.name == name
-        assert article.version == 1
         assert content == await article.get_content()
 
     # Clean up test
@@ -176,7 +175,6 @@ async def test_get_article(client: TestClient):
     data = json.loads(response.text)
     assert data["topic"] == wiki_topic_name
     assert data["name"] == wiki_article_name
-    assert data["version"] == 1
 
 
 @pytest.mark.asyncio
@@ -203,16 +201,18 @@ async def test_update_article(
     assert response.status_code == 200
 
     async with db.scoped_session() as session:
-        article = await WikiArticle.get_latest_version(
+        article = await WikiArticle.get(
             session, topic_name=wiki_topic_name, name=wiki_article_name)
         assert article.name == wiki_article_name
-        assert article.version == 2
         assert content == await article.get_content()
 
     # Partly clean up test
     async with db.scoped_session() as session:
-        await WikiArticleModification.delete(
-            session, article_id=article.id, article_version=article.version)
+        latest = await WikiArticleModification.get_latest_version(
+            session, article_id=article.id)
+        if latest:
+            await WikiArticleModification.delete(
+                session, article_id=article.id, version=latest.version)
 
 
 @pytest.mark.asyncio
@@ -245,7 +245,7 @@ async def test_delete_article(
     assert response.status_code == 200
 
     async with db.scoped_session() as session:
-        article = await WikiArticle.get_latest_version(
+        article = await WikiArticle.get(
             session, topic_name=wiki_topic_name, name=article_name)
         assert article is None
 
@@ -260,7 +260,7 @@ async def test_get_article_history(client: TestClient):
     assert len(data) == 1
     assert data[0]["topic"] == wiki_topic_name
     assert data[0]["article"] == wiki_article_name
-    assert data[0]["article_version"] == 1
+    assert data[0]["version"] == 1
     assert data[0]["author_id"] == operator.id
 
 
@@ -292,14 +292,16 @@ async def test_create_picture(
 
     async with db.scoped_session() as session:
         picture = await WikiArticlePicture.get(
-            session, topic=wiki_topic_name, article=wiki_article_name, name=name)
+            session, topic_name=wiki_topic_name, article_name=wiki_article_name,
+            name=name)
         assert picture.name == name
         assert content == await picture.get_image()
 
     # Clean up test
     async with db.scoped_session() as session:
         await WikiArticlePicture.delete(
-            session, topic=wiki_topic_name, article=wiki_article_name, name=name)
+            session, topic_name=wiki_topic_name, article_name=wiki_article_name,
+            name=name)
 
 
 @pytest.mark.asyncio
@@ -332,7 +334,7 @@ async def test_delete_picture(
     # Setup test
     async with db.scoped_session() as session:
         await WikiArticlePicture.create(
-            session, topic=wiki_topic_name, article=wiki_article_name,
+            session, topic_name=wiki_topic_name, article_name=wiki_article_name,
             name=picture_name, content=b"", author_id=operator.id)
 
     # Run test
@@ -342,10 +344,9 @@ async def test_delete_picture(
     assert response.status_code == 200
 
     async with db.scoped_session() as session:
-        article = await WikiArticle.get_latest_version(
-            session, topic_name=wiki_topic_name, name=wiki_article_name)
         picture = await WikiArticlePicture.get(
-            session, topic=wiki_topic_name, article=wiki_article_name, name=picture_name)
+            session, topic_name=wiki_topic_name, article_name=wiki_article_name,
+            name=picture_name)
         assert picture is None
 
 

@@ -1047,7 +1047,6 @@ class WikiArticle(Base, CRUDMixin, WikiObject):
     id: Mapped[int] = mapped_column(primary_key=True)
     topic_id: Mapped[int] = mapped_column(sa.ForeignKey("wiki_topics.id"))
     name: Mapped[str] = mapped_column(sa.String(length=64))
-    version: Mapped[int] = mapped_column(default=1)
     description: Mapped[Optional[str]] = mapped_column(sa.String(length=512))
     path: Mapped[ioPath] = mapped_column(PathType(length=512))
     status: Mapped[bool] = mapped_column(default=True)
@@ -1061,7 +1060,7 @@ class WikiArticle(Base, CRUDMixin, WikiObject):
 
     def __repr__(self) -> str:
         return (
-            f"<WikiArticle({self.topic}-{self.name}-{self.version}, path={self.path})>"
+            f"<WikiArticle({self.topic}-{self.name}, path={self.path})>"
         )
 
     @property
@@ -1074,7 +1073,7 @@ class WikiArticle(Base, CRUDMixin, WikiObject):
 
     @property
     def content_name(self) -> str:
-        return f"content-v{self.version:02d}.md"
+        return f"content.md"
 
     @property
     def content_path(self) -> ioPath:
@@ -1138,12 +1137,10 @@ class WikiArticle(Base, CRUDMixin, WikiObject):
         values["path"] = str(rel_path)
         tags_name: list[str] = values.pop("tags_name", [])
         await super().create(session, values=values, **lookup_keys)
+        article = await cls.get(session, topic_name=topic_name, name=name)
         if tags_name:
-            article = await cls.get_latest_version(
-                session, topic_name=topic_name, name=name)
             await article.attach_tags(session, tags_name)
         # Create the article modification
-        article = await cls.get_latest_version(session, topic_name=topic_name, name=name)
         await WikiArticleModification.create(
             session,
             article=article,
@@ -1184,7 +1181,7 @@ class WikiArticle(Base, CRUDMixin, WikiObject):
             cls,
             session: AsyncSession,
             /,
-            **lookup_keys: lookup_keys_type,  # Must contain "topic_name", "name" and "version"
+            **lookup_keys: lookup_keys_type,  # Must contain "topic_name", "name"
     ) -> Self | None:
         stmt = cls._generate_get_query(**lookup_keys)
         result = await session.execute(stmt)
@@ -1205,28 +1202,6 @@ class WikiArticle(Base, CRUDMixin, WikiObject):
         return result.scalars().all()
 
     @classmethod
-    async def get_latest_version(
-            cls,
-            session: AsyncSession,
-            /,
-            topic_name: str,
-            name: str
-    ) -> Self | None:
-        stmt = (
-            select(cls)
-            .join(WikiTopic, cls.topic_id == WikiTopic.id)
-            .where(
-                (WikiTopic.name == topic_name)
-                & (cls.name == name)
-                & (cls.status == True)
-            )
-            .order_by(cls.version.desc())
-            .limit(1)
-        )
-        result = await session.execute(stmt)
-        return result.scalars().one_or_none()
-
-    @classmethod
     async def get_history(
             cls,
             session: AsyncSession,
@@ -1235,7 +1210,7 @@ class WikiArticle(Base, CRUDMixin, WikiObject):
             name: str,
             limit: int = 50,
     ) -> Sequence[WikiArticleModification]:
-        article = await cls.get_latest_version(session, topic_name=topic, name=name)
+        article = await cls.get(session, topic_name=topic, name=name)
         if not article:
             raise ValueError("Article not found")
         history = await WikiArticleModification.get_for_article(
@@ -1252,22 +1227,20 @@ class WikiArticle(Base, CRUDMixin, WikiObject):
     ) -> None:
         topic_name = lookup_keys.pop("topic_name")
         name = lookup_keys["name"]
-        article = await cls.get_latest_version(session, topic_name=topic_name, name=name)
+        article = await cls.get(session, topic_name=topic_name, name=name)
         if not article:
             raise WikiArticleNotFound
         lookup_keys["topic_id"] = article.topic_id
-        new_version = article.version + 1
         # Update the article info
         content = values.pop("content")
         author_id = values.pop("author_id")
-        values["version"] = new_version
         tags_name: list[str] = values.pop("tags_name", [])
-        await super().update(session, values=values, **lookup_keys)
+        if values:  # Might only be a content update
+            await super().update(session, values=values, **lookup_keys)
+        article = await cls.get(session, topic_name=topic_name, name=name)
         if tags_name:
-            article = await cls.get_latest_version(session, topic_name=topic_name, name=name)
             await article.attach_tags(session, tags_name)
         # Create the article modification
-        article = await cls.get_latest_version(session, topic_name=topic_name, name=name)
         await WikiArticleModification.create(
             session,
             article=article,
@@ -1287,7 +1260,7 @@ class WikiArticle(Base, CRUDMixin, WikiObject):
     ) -> None:
         topic_name = lookup_keys.pop("topic_name")
         name = lookup_keys["name"]
-        article = await cls.get_latest_version(session, topic_name=topic_name, name=name)
+        article = await cls.get(session, topic_name=topic_name, name=name)
         if not article:
             raise WikiArticleNotFound
         # Update the article info
@@ -1311,7 +1284,7 @@ class WikiArticleModification(Base):
     __bind_key__ = "app"
     __table_args__ = (
         UniqueConstraint(
-            "article_id", "article_version", "modification_type",
+            "article_id", "version", "modification_type",
             name="uq_wiki_articles_modifications"
         ),
     )
@@ -1319,7 +1292,7 @@ class WikiArticleModification(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     article_id: Mapped[int] = mapped_column(sa.ForeignKey("wiki_articles.id"))
-    article_version: Mapped[int] = mapped_column()
+    version: Mapped[int] = mapped_column()
     modification_type: Mapped[ModificationType] = mapped_column()
     timestamp: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
     author_id: Mapped[str] = mapped_column(sa.ForeignKey("users.id"))
@@ -1351,11 +1324,13 @@ class WikiArticleModification(Base):
             author_id: int,
             modification: ModificationType,
     ) -> None:
+        history = await cls.get_latest_version(session, article_id=article.id)
+        version: int = history.version + 1 if history is not None else 1
         stmt = (
             insert(cls)
             .values({
                 "article_id": article.id,
-                "article_version": article.version,
+                "version": version,
                 "modification_type": modification,
                 "author_id": author_id,
             })
@@ -1373,10 +1348,27 @@ class WikiArticleModification(Base):
         stmt = (
             select(cls)
             .where(cls.article_id == article_id)
+            .order_by(cls.version.desc())
             .limit(limit)
         )
         result = await session.execute(stmt)
         return result.scalars().all()
+
+    @classmethod
+    async def get_latest_version(
+            cls,
+            session: AsyncSession,
+            /,
+            article_id: int,
+    ) -> Self | None:
+        stmt = (
+            select(cls)
+            .where(cls.article_id == article_id)
+            .order_by(cls.version.desc())
+            .limit(1)
+        )
+        result = await session.execute(stmt)
+        return result.scalars().one_or_none()
 
     @classmethod
     async def delete(
@@ -1384,13 +1376,13 @@ class WikiArticleModification(Base):
             session: AsyncSession,
             /,
             article_id: int,
-            article_version,
+            version,
     ) -> None:
         stmt = (
             delete(cls)
             .where(
                 (cls.article_id == article_id)
-                & (cls.article_version == article_version)
+                & (cls.version == version)
             )
         )
         await session.execute(stmt)
@@ -1449,23 +1441,23 @@ class WikiArticlePicture(Base, WikiObject):
             cls,
             session: AsyncSession,
             /,
-            topic: str,
-            article: str,
+            topic_name: str,
+            article_name: str,
             name: str,
             content: bytes,
             author_id: int,
     ) -> None:
-        article_obj = await WikiArticle.get_latest_version(
-            session, topic_name=topic, name=article)
-        if article_obj is None:
+        article = await WikiArticle.get(
+            session, topic_name=topic_name, name=article_name)
+        if article is None:
             raise WikiArticleNotFound
-        picture_path = article_obj.absolute_path / name
+        picture_path = article.absolute_path / name
         rel_path = cls.get_rel_path(picture_path)
         # Create the picture info
         stmt = (
             insert(cls)
             .values({
-                "article_id": article_obj.id,
+                "article_id": article.id,
                 "name": name,
                 "path": str(rel_path),
                 "author_id": author_id,
@@ -1473,27 +1465,27 @@ class WikiArticlePicture(Base, WikiObject):
         )
         await session.execute(stmt)
         # Save the picture content
-        picture_info = await cls.get(
-            session, topic=topic, article=article, name=name)
-        await picture_info.set_image(content)
+        picture = await cls.get(
+            session, topic_name=topic_name, article_name=article_name, name=name)
+        await picture.set_image(content)
 
     @classmethod
     async def get(
             cls,
             session: AsyncSession,
             /,
-            topic: str,
-            article: str,
+            topic_name: str,
+            article_name: str,
             name: str,
     ) -> Self | None:
-        article_obj = await WikiArticle.get_latest_version(
-            session, topic_name=topic, name=article)
-        if article_obj is None:
+        article = await WikiArticle.get(
+            session, topic_name=topic_name, name=article_name)
+        if article is None:
             raise WikiArticleNotFound
         stmt = (
             select(cls)
             .where(
-                (cls.article_id == article_obj.id)
+                (cls.article_id == article.id)
                 & (cls.name == name)
                 & (cls.status == True)
             )
@@ -1506,25 +1498,26 @@ class WikiArticlePicture(Base, WikiObject):
             cls,
             session: AsyncSession,
             /,
-            topic: str,
-            article: str,
+            topic_name: str,
+            article_name: str,
             name: str,
     ) -> None:
-        article_obj = await WikiArticle.get_latest_version(
-            session, topic_name=topic, name=article)
-        if article_obj is None:
+        article = await WikiArticle.get(
+            session, topic_name=topic_name, name=article_name)
+        if article is None:
             raise WikiArticleNotFound
         # Mark the picture as inactive
         stmt = (
             update(cls)
             .where(
-                (cls.article_id == article_obj.id)
+                (cls.article_id == article.id)
                 & (cls.name == name)
             )
             .values({"status": False})
         )
         await session.execute(stmt)
         # Rename the picture content
-        #picture_info = await cls.get(session, article_obj=article_obj, name=name)
-        #new_picture_path = article_obj.absolute_path / f"DELETED-{name}.jpeg"
-        #await picture_info.absolute_path.rename(new_picture_path)
+        #picture = await cls.get(
+        #    session, topic_name=topic_name, article_name=article_name, name=name)
+        #new_picture_path = article.absolute_path / f"DELETED-{name}.jpeg"
+        #await picture.absolute_path.rename(new_picture_path)
