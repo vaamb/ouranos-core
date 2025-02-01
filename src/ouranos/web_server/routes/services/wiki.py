@@ -368,7 +368,7 @@ async def create_article(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
-                f"Failed to create a new wiki template. Error msg: "
+                f"Failed to create a new wiki article. Error msg: "
                 f"`{e.__class__.__name__}: {e}`",
             ),
         )
@@ -500,8 +500,8 @@ async def get_article_history(
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     article = await article_or_abort(session, topic=topic_name, name=article_name)
-    history = await WikiArticleModification.get_for_article(
-        session, article_id=article.id)
+    history = await WikiArticleModification.get_multiple(
+        session, article_id=article.id, order_by=WikiArticleModification.version.desc())
     return history
 
 
