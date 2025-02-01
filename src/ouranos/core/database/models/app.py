@@ -28,7 +28,7 @@ from ouranos.core.database.models.abc import Base, CRUDMixin, ToDictMixin
 from ouranos.core.database.models.caches import cache_users
 from ouranos.core.database.models.types import PathType, UtcDateTime
 from ouranos.core.database.utils import ArchiveLink
-from ouranos.core.utils import Tokenizer
+from ouranos.core.utils import slugify, Tokenizer
 
 argon2_hasher = PasswordHasher()
 
@@ -852,7 +852,7 @@ class WikiTag(Base, CRUDMixin, AsyncAttrs):
             values: dict | None = None,
             **lookup_keys: lookup_keys_type,
     ) -> None:
-        lookup_keys["name"] = lookup_keys["name"].replace(" ", "_").lower()
+        lookup_keys["name"] = slugify(lookup_keys["name"])
         await super().create(session, values=values, **lookup_keys)
 
     @classmethod
@@ -863,7 +863,7 @@ class WikiTag(Base, CRUDMixin, AsyncAttrs):
             values: list[dict],
     ) -> None:
         for value in values:
-            value["name"] = value["name"].replace(" ", "_").lower()
+            value["name"] = slugify(value["name"])
         await super().create_multiple(session, values=values)
 
 
@@ -940,7 +940,7 @@ class WikiTopic(Base, CRUDMixin, WikiObject):
     ) -> None:
         values = values or {}
         name = lookup_keys["name"]
-        topic_dir = cls.wiki_dir() / name
+        topic_dir = cls.wiki_dir() / slugify(name)
         # Create the topic dir
         await topic_dir.mkdir(parents=True, exist_ok=True)
         values["path"] = cls.get_rel_path(topic_dir)
@@ -1151,7 +1151,7 @@ class WikiArticle(Base, CRUDMixin, WikiObject):
         if topic_obj is None:
             raise WikiArticleNotFound
         lookup_keys["topic_id"] = topic_obj.id
-        article_dir = topic_obj.absolute_path / name
+        article_dir = topic_obj.absolute_path / slugify(name)
         await article_dir.mkdir(parents=True, exist_ok=True)
         rel_path = article_dir.relative_to(current_app.static_dir)
         values["path"] = str(rel_path)
@@ -1456,15 +1456,14 @@ class WikiArticlePicture(Base, WikiObject):
             session, topic_name=topic_name, name=article_name)
         if article is None:
             raise WikiArticleNotFound
-        picture_path = article.abs_path / name
-        rel_path = cls.get_rel_path(picture_path)
+        path = article.path / slugify(name)
         # Create the picture info
         stmt = (
             insert(cls)
             .values({
                 "article_id": article.id,
                 "name": name,
-                "path": str(rel_path),
+                "path": str(path),
                 "author_id": author_id,
             })
         )
