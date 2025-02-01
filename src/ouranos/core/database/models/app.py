@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
+import difflib
 import enum
 from enum import Enum, IntFlag, StrEnum
 import re
@@ -1115,6 +1116,25 @@ class WikiArticle(Base, CRUDMixin, WikiObject):
             await session.execute(stmt)
         await session.commit()
 
+    async def compute_diff(self, session, next_content: str) -> tuple[str, list[str]]:
+        modifications = await WikiArticleModification.get_multiple(
+            session, article_id=self.id, limit=2,
+            order_by=WikiArticleModification.version.desc())
+        if len(modifications) == 1:
+            current_name = f"EMPTY"
+            next_name = f"diff_{modifications[0].version:03}.md"
+        elif len(modifications) == 2:
+            current_name = f"diff_{modifications[1].version:03}.md"
+            next_name = f"diff_{modifications[0].version:03}.md"
+        else:
+            raise ValueError
+        current_content: str = await self.get_content() or ""
+        current_content: list[str] = current_content.splitlines(True)
+        next_content: list[str] = next_content.splitlines(True)
+        diff = difflib.unified_diff(
+            current_content, next_content, current_name, next_name, n=0)
+        return next_name, list(diff)
+
     @classmethod
     async def create(
             cls,
@@ -1152,6 +1172,11 @@ class WikiArticle(Base, CRUDMixin, WikiObject):
                 "modification_type": ModificationType.creation,
             },
         )
+        # Save the diff
+        diff_name, diff = await article.compute_diff(session, content)
+        diff_path = article.abs_path / diff_name
+        async with await diff_path.open("w") as f:
+            await f.writelines(diff)
         # Save the article content
         await article.set_content(content)
 
@@ -1260,6 +1285,11 @@ class WikiArticle(Base, CRUDMixin, WikiObject):
                 "modification_type": ModificationType.update,
             },
         )
+        # Save the diff
+        diff_name, diff = await article.compute_diff(session, content)
+        diff_path = article.abs_path / diff_name
+        async with await diff_path.open("w") as f:
+            await f.writelines(diff)
         # Save the article content
         await article.set_content(content)
 

@@ -368,7 +368,7 @@ async def create_article(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
-                f"Failed to create a new wiki template. Error msg: "
+                f"Failed to create a new wiki article. Error msg: "
                 f"`{e.__class__.__name__}: {e}`",
             ),
         )
