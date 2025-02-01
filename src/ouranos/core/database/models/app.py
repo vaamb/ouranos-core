@@ -1068,7 +1068,7 @@ class WikiArticle(Base, CRUDMixin, WikiObject):
         return self.topic.name
 
     @property
-    def absolute_path(self) -> ioPath:
+    def abs_path(self) -> ioPath:
         return self.root_dir() / self.path
 
     @property
@@ -1080,17 +1080,20 @@ class WikiArticle(Base, CRUDMixin, WikiObject):
         return self.path / self.content_name
 
     @property
-    def _abs_content_path(self) -> ioPath:
-        return self.absolute_path / self.content_name
+    def abs_content_path(self) -> ioPath:
+        return self.abs_path / self.content_name
 
     async def set_content(self, content: str) -> None:
-        async with await self._abs_content_path.open("w") as f:
+        async with await self.abs_content_path.open("w") as f:
             await f.write(content)
 
-    async def get_content(self) -> str:
-        async with await self._abs_content_path.open("r") as f:
-            content = await f.read()
-            return content
+    async def get_content(self) -> str | None:
+        try:
+            async with await self.abs_content_path.open("r") as f:
+                content = await f.read()
+                return content
+        except IOError:
+            return None
 
     async def attach_tags(self, session:AsyncSession, tags_name: list[str]) -> None:
         # Clear all tags
@@ -1131,10 +1134,10 @@ class WikiArticle(Base, CRUDMixin, WikiObject):
         article_dir = topic_obj.absolute_path / name
         await article_dir.mkdir(parents=True, exist_ok=True)
         rel_path = article_dir.relative_to(current_app.static_dir)
+        values["path"] = str(rel_path)
         # Create the article info
         content = values.pop("content")
         author_id = values.pop("author_id")
-        values["path"] = str(rel_path)
         tags_name: list[str] = values.pop("tags_name", [])
         await super().create(session, values=values, **lookup_keys)
         article = await cls.get(session, topic_name=topic_name, name=name)
@@ -1409,7 +1412,7 @@ class WikiArticlePicture(Base, WikiObject):
             session, topic_name=topic_name, name=article_name)
         if article is None:
             raise WikiArticleNotFound
-        picture_path = article.absolute_path / name
+        picture_path = article.abs_path / name
         rel_path = cls.get_rel_path(picture_path)
         # Create the picture info
         stmt = (
