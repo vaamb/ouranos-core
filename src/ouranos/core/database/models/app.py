@@ -1207,6 +1207,12 @@ class WikiArticle(Base, CRUDMixin, WikiObject):
         return result.scalars().all()
 
     @classmethod
+    async def get_by_id(cls, session: AsyncSession, article_id: int) -> Self | None:
+        stmt = select(cls).where(cls.id == article_id)
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    @classmethod
     async def get_history(
             cls,
             session: AsyncSession,
@@ -1303,6 +1309,7 @@ class WikiArticleModification(Base, CRUDMixin):
     article_id: Mapped[int] = mapped_column(sa.ForeignKey("wiki_articles.id"))
     version: Mapped[int] = mapped_column()
     modification_type: Mapped[ModificationType] = mapped_column()
+    path: Mapped[ioPath] = mapped_column(PathType(length=512))
     timestamp: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
     author_id: Mapped[str] = mapped_column(sa.ForeignKey("users.id"))
 
@@ -1332,9 +1339,16 @@ class WikiArticleModification(Base, CRUDMixin):
             values: dict | None = None,  # modification_type, author_id
             **lookup_keys: lookup_keys_type,  # article_id
     ) -> None:
+        # Get version number
         history = await cls.get_latest_version(
             session, article_id=lookup_keys["article_id"])
-        lookup_keys["version"] = history.version + 1 if history is not None else 1
+        version = history.version + 1 if history is not None else 1
+        lookup_keys["version"] = version
+        # Get path info
+        article = await WikiArticle.get_by_id(session, lookup_keys["article_id"])
+        rel_path = article.path / f"diff_{version:03}.md"
+        values["path"] = str(rel_path)
+        # Create the entry
         await super().create(session, values=values, **lookup_keys)
 
     @classmethod
