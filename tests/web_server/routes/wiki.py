@@ -58,7 +58,7 @@ async def test_create_topic(
 
 @pytest.mark.asyncio
 async def test_get_topic_articles(client: TestClient):
-    response = client.get(f"/api/app/services/wiki/topics/u/{wiki_topic_name}")
+    response = client.get(f"/api/app/services/wiki/topics/u/{wiki_topic_name}/articles")
     assert response.status_code == 200
 
     data = json.loads(response.text)

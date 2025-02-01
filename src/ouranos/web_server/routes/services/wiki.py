@@ -190,26 +190,14 @@ async def create_topic(
 
 
 @router.get("/topics/u/{topic_name}",
-            response_model=list[WikiArticleInfo])
-async def get_topic_articles(
+            response_model=WikiTopicInfo)
+async def get_topic(
         *,
         topic_name: Annotated[str, Path(description="The name of the topic")],
-        tags: Annotated[
-            list[str] | None,
-            Query(description="The tags of the articles"),
-        ] = None,
-        limit: Annotated[
-            int,
-            Query(description="The number of articles name to fetch")
-        ] = 50,
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    if limit > 50:
-        limit = 50
-    await topic_or_abort(session, name=topic_name)
-    articles = await WikiArticle.get_multiple(
-        session, topic_name=topic_name, tags_name=tags, limit=limit)
-    return articles
+    topic = await topic_or_abort(session, name=topic_name)
+    return topic
 
 
 @router.put("/topics/u/{topic_name}",
@@ -263,6 +251,29 @@ async def delete_topic(
                 f"`{e.__class__.__name__}: {e}`",
             ),
         )
+
+
+@router.get("/topics/u/{topic_name}/articles",
+            response_model=list[WikiArticleInfo])
+async def get_topic_articles(
+        *,
+        topic_name: Annotated[str, Path(description="The name of the topic")],
+        tags: Annotated[
+            list[str] | None,
+            Query(description="The tags of the articles"),
+        ] = None,
+        limit: Annotated[
+            int,
+            Query(description="The number of articles name to fetch")
+        ] = 50,
+        session: Annotated[AsyncSession, Depends(get_session)],
+):
+    if limit > 50:
+        limit = 50
+    await topic_or_abort(session, name=topic_name)
+    articles = await WikiArticle.get_multiple(
+        session, topic_name=topic_name, tags_name=tags, limit=limit)
+    return articles
 
 
 @router.get("/topics/u/{topic_name}/template",
@@ -505,6 +516,19 @@ async def get_article_history(
     return history
 
 
+@router.get("/topics/u/{topic_name}/u/{article_name}/pictures",
+            response_model=list[WikiArticlePictureInfo])
+async def get_article_pictures(
+        topic_name: Annotated[str, Path(description="The name of the topic")],
+        article_name: Annotated[str, Path(description="The name of the article")],
+        session: Annotated[AsyncSession, Depends(get_session)],
+):
+    article = await article_or_abort(session, topic=topic_name, name=article_name)
+    pictures = await WikiArticlePicture.get_multiple(
+        session, article_id=article.id)
+    return pictures
+
+
 @router.post("/topics/u/{topic_name}/u/{article_name}/u",
              dependencies=[Depends(is_operator)])
 async def add_picture_to_article(
@@ -528,11 +552,6 @@ async def add_picture_to_article(
         return ResultResponse(
             msg=f"A new wiki picture was successfully created.",
             status=ResultStatus.success
-        )
-    except WikiArticleNotFound:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No article(s) found"
         )
     except Exception as e:
         raise HTTPException(
@@ -573,11 +592,6 @@ async def upload_picture_to_article(
             msg=f"A new wiki picture was successfully uploaded.",
             status=ResultStatus.success
         )
-    except WikiArticleNotFound:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No article(s) found"
-        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -596,12 +610,9 @@ async def get_article_picture(
         picture_name: Annotated[str, Path(description="The name of the picture")],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    try:
-        article = await article_or_abort(session, topic_name, article_name)
-        picture = await WikiArticlePicture.get(
-            session, article_id=article.id, name=picture_name)
-    except WikiArticleNotFound:
-        picture = None
+    article = await article_or_abort(session, topic_name, article_name)
+    picture = await WikiArticlePicture.get(
+        session, article_id=article.id, name=picture_name)
     if not picture:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -625,11 +636,6 @@ async def delete_picture_from_article(
         return ResultResponse(
             msg=f"The wiki picture '{picture_name}' was successfully deleted.",
             status=ResultStatus.success
-        )
-    except WikiArticleNotFound:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No picture found"
         )
     except Exception as e:
         raise HTTPException(
