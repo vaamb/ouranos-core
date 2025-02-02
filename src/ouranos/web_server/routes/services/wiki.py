@@ -623,7 +623,6 @@ async def get_picture(
         picture_name: Annotated[str, Path(description="The name of the picture")],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    await article_or_abort(session, topic_name, article_name)
     picture = await WikiArticlePicture.get(
         session, topic_name=topic_name, article_name=article_name, name=picture_name)
     if not picture:
