@@ -562,6 +562,7 @@ async def upload_picture(
             name=file.filename.split(".")[0],
             values={
                 "content": content,
+                "extension": file.filename.split(".")[1],
             },
         )
         return f"A new wiki picture was successfully uploaded."
