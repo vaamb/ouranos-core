@@ -133,6 +133,6 @@ class WikiArticlePictureInfo(BaseModel):
 
 class WikiArticlePictureCreationPayload(BaseModel):
     name: str
-    extension: str | None = None
+    extension: str
     content: bytes
     tags: list[str] = Field(default_factory=list, serialization_alias="tags_name")
