@@ -11,7 +11,7 @@ from ouranos.core.config.consts import (
     SUPPORTED_TEXT_EXTENSIONS)
 from ouranos.core.database.models.app import (
     ServiceName, UserMixin, WikiArticleNotFound, WikiArticle, WikiArticleModification,
-    WikiArticlePicture, WikiTag, WikiTopic)
+    WikiPicture, WikiTag, WikiTopic)
 from ouranos.core.utils import check_filename
 from ouranos.web_server.auth import get_current_user, is_operator
 from ouranos.web_server.dependencies import get_session
@@ -495,7 +495,7 @@ async def get_article_pictures(
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     await article_or_abort(session, topic=topic_name, name=article_name)
-    pictures = await WikiArticlePicture.get_multiple(
+    pictures = await WikiPicture.get_multiple(
         session, topic_name=topic_name, article_name=article_name)
     return pictures
 
@@ -513,8 +513,8 @@ async def add_picture(
 ):
     try:
         await article_or_abort(session, topic_name, article_name)
-        wiki_picture_dict = payload.model_dump()
-        await WikiArticlePicture.create(
+        wiki_picture_dict = payload.model_dump(by_alias=True)
+        await WikiPicture.create(
             session,
             topic_name=topic_name,
             article_name=article_name,
@@ -555,7 +555,7 @@ async def upload_picture(
                 detail="Picture file too large"
             )
         content = await file.read()
-        await WikiArticlePicture.create(
+        await WikiPicture.create(
             session,
             topic_name=topic_name,
             article_name=article_name,
@@ -583,7 +583,7 @@ async def get_picture(
         picture_name: Annotated[str, Path(description="The name of the picture")],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    picture = await WikiArticlePicture.get(
+    picture = await WikiPicture.get(
         session, topic_name=topic_name, article_name=article_name, name=picture_name)
     if not picture:
         raise HTTPException(
@@ -602,7 +602,7 @@ async def delete_picture(
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     try:
-        await WikiArticlePicture.delete(
+        await WikiPicture.delete(
             session, topic_name=topic_name, article_name=article_name,
             name=picture_name)
         return "The wiki picture '{picture_name}' was successfully deleted."
