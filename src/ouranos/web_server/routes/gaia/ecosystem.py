@@ -19,7 +19,6 @@ from ouranos.web_server.auth import is_operator
 from ouranos.web_server.dependencies import get_session, get_time_window
 from ouranos.web_server.routes.gaia.utils import (
     ecosystem_or_abort, eids_desc, emit_crud_event, euid_desc, in_config_desc)
-from ouranos.web_server.validate.base import ResultResponse, ResultStatus
 from ouranos.web_server.validate.gaia.ecosystem import (
     EcosystemCreationPayload, EcosystemBaseInfoUpdatePayload, EcosystemInfo,
     EcosystemManagementUpdatePayload, EcosystemManagementInfo, ManagementInfo,
@@ -76,7 +75,6 @@ async def get_ecosystems(
 
 
 @router.post("/u",
-             response_model=ResultResponse,
              status_code=status.HTTP_202_ACCEPTED,
              dependencies=[Depends(is_operator)])
 async def create_ecosystem(
@@ -101,10 +99,9 @@ async def create_ecosystem(
             ).model_dump(),
             namespace="aggregator-internal",
         )
-        return ResultResponse(
-            msg=f"Request to create the new ecosystem '{ecosystem_dict['name']}' "
-                f"successfully sent to engine '{ecosystem_dict['engine_uid']}'",
-            status=ResultStatus.success
+        return (
+            f"Request to create the new ecosystem '{ecosystem_dict['name']}' "
+            f"successfully sent to engine '{ecosystem_dict['engine_uid']}'"
         )
     except Exception as e:
         HTTPException(
@@ -136,7 +133,6 @@ async def get_ecosystem(
 
 @router.put("/u/{ecosystem_uid}",
             status_code=status.HTTP_202_ACCEPTED,
-            response_model=ResultResponse,
             dependencies=[Depends(is_operator)])
 async def update_ecosystem(
         ecosystem_uid: Annotated[str, Path(description=euid_desc)],
@@ -152,10 +148,9 @@ async def update_ecosystem(
         await emit_crud_event(
             ecosystem, gv.CrudAction.update, "ecosystem",
             {"ecosystem_id": ecosystem.uid, **ecosystem_dict})
-        return ResultResponse(
-            msg=f"Request to update the ecosystem '{ecosystem.name}' "
-                f"successfully sent to engine '{ecosystem.engine_uid}'",
-            status=ResultStatus.success
+        return (
+            f"Request to update the ecosystem '{ecosystem.name}' "
+            f"successfully sent to engine '{ecosystem.engine_uid}'"
         )
     except Exception as e:
         HTTPException(
@@ -168,7 +163,6 @@ async def update_ecosystem(
 
 
 @router.delete("/u/{ecosystem_uid}",
-               response_model=ResultResponse,
                status_code=status.HTTP_202_ACCEPTED,
                dependencies=[Depends(is_operator)])
 async def delete_ecosystem(
@@ -179,10 +173,9 @@ async def delete_ecosystem(
     try:
         await emit_crud_event(
             ecosystem, gv.CrudAction.delete, "ecosystem", ecosystem.uid)
-        return ResultResponse(
-            msg=f"Request to delete the ecosystem '{ecosystem.name}' "
-                f"successfully sent to engine '{ecosystem.engine_uid}'",
-            status=ResultStatus.success
+        return (
+            f"Request to delete the ecosystem '{ecosystem.name}' "
+            f"successfully sent to engine '{ecosystem.engine_uid}'"
         )
     except Exception as e:
         HTTPException(
@@ -236,7 +229,6 @@ async def get_ecosystem_management(
 
 @router.put("/u/{ecosystem_uid}/management",
             status_code=status.HTTP_202_ACCEPTED,
-            response_model=ResultResponse,
             dependencies=[Depends(is_operator)])
 async def update_management(
         ecosystem_uid: Annotated[str, Path(description=euid_desc)],
@@ -251,10 +243,9 @@ async def update_management(
     try:
         await emit_crud_event(
             ecosystem, gv.CrudAction.update, "management", management_dict)
-        return ResultResponse(
-            msg=f"Request to update the ecosystem '{ecosystem.name}'\' management "
-                f"successfully sent to engine '{ecosystem.engine_uid}'",
-            status=ResultStatus.success
+        return (
+            f"Request to update the ecosystem '{ecosystem.name}'\' management "
+            f"successfully sent to engine '{ecosystem.engine_uid}'",
         )
     except Exception as e:
         HTTPException(
@@ -317,7 +308,6 @@ async def get_ecosystem_lighting(
 
 @router.put("/u/{ecosystem_uid}/light",
             status_code=status.HTTP_202_ACCEPTED,
-            response_model=ResultResponse,
             dependencies=[Depends(is_operator)])
 async def update_ecosystem_lighting(
         ecosystem_uid: Annotated[str, Path(description=euid_desc)],
@@ -332,10 +322,9 @@ async def update_ecosystem_lighting(
     try:
         await emit_crud_event(
             ecosystem, gv.CrudAction.update, "nycthemeral_config", lighting_dict)
-        return ResultResponse(
-            msg=f"Request to update the ecosystem '{ecosystem.name}'\' lighting "
-                f"successfully sent to engine '{ecosystem.engine_uid}'",
-            status=ResultStatus.success
+        return (
+            f"Request to update the ecosystem '{ecosystem.name}'\' lighting "
+            f"successfully sent to engine '{ecosystem.engine_uid}'"
         )
     except Exception as e:
         HTTPException(
@@ -393,7 +382,6 @@ async def get_ecosystem_environment_parameters(
 
 @router.post("/u/{ecosystem_uid}/environment_parameter/u",
              status_code=status.HTTP_202_ACCEPTED,
-             response_model=ResultResponse,
              dependencies=[Depends(is_operator)])
 async def create_environment_parameter(
         ecosystem_uid: Annotated[str, Path(description=euid_desc)],
@@ -411,10 +399,9 @@ async def create_environment_parameter(
         await emit_crud_event(
             ecosystem, gv.CrudAction.create, "environment_parameter",
             environment_parameter_dict)
-        return ResultResponse(
-            msg=f"Request to create the environment parameter '{parameter}' "
-                f"successfully sent to engine '{ecosystem.engine_uid}'",
-            status=ResultStatus.success
+        return (
+            f"Request to create the environment parameter '{parameter}' "
+            f"successfully sent to engine '{ecosystem.engine_uid}'"
         )
     except Exception as e:
         HTTPException(
@@ -446,7 +433,6 @@ async def get_ecosystem_environment_parameter(
 
 @router.put("/u/{ecosystem_uid}/environment_parameter/u/{parameter}",
             status_code=status.HTTP_202_ACCEPTED,
-            response_model=ResultResponse,
             dependencies=[Depends(is_operator)])
 async def update_environment_parameter(
         ecosystem_uid: Annotated[str, Path(description=euid_desc)],
@@ -468,10 +454,9 @@ async def update_environment_parameter(
         await emit_crud_event(
             ecosystem, gv.CrudAction.update, "environment_parameter",
             environment_parameter_dict)
-        return ResultResponse(
-            msg=f"Request to update the environment parameter '{parameter}' "
-                f"successfully sent to engine '{ecosystem.engine_uid}'",
-            status=ResultStatus.success
+        return (
+            f"Request to update the environment parameter '{parameter}' "
+            f"successfully sent to engine '{ecosystem.engine_uid}'"
         )
     except Exception as e:
         HTTPException(
@@ -485,7 +470,6 @@ async def update_environment_parameter(
 
 @router.delete("/u/{ecosystem_uid}/environment_parameter/u/{parameter}",
                status_code=status.HTTP_202_ACCEPTED,
-               response_model=ResultResponse,
                dependencies=[Depends(is_operator)])
 async def delete_environment_parameter(
         ecosystem_uid: Annotated[str, Path(description=euid_desc)],
@@ -501,10 +485,9 @@ async def delete_environment_parameter(
         await emit_crud_event(
             ecosystem, gv.CrudAction.delete, "environment_parameter",
             parameter)
-        return ResultResponse(
-            msg=f"Request to delete the environment parameter '{parameter}' "
-                f"successfully sent to engine '{ecosystem.engine_uid}'",
-            status=ResultStatus.success
+        return (
+            f"Request to delete the environment parameter '{parameter}' "
+            f"successfully sent to engine '{ecosystem.engine_uid}'"
         )
     except Exception as e:
         HTTPException(
@@ -582,7 +565,6 @@ async def get_ecosystem_actuator_records(
 
 
 @router.put("/u/{ecosystem_uid}/turn_actuator/u/{actuator_type}",
-            response_model=ResultResponse,
             status_code=status.HTTP_202_ACCEPTED,
             dependencies=[Depends(is_operator)])
 async def turn_actuator(
@@ -610,10 +592,9 @@ async def turn_actuator(
             extra = f" in {countdown} seconds"
         else:
             extra = ""
-        return ResultResponse(
-            msg=f"Request to turn {ecosystem.name}'s {actuator_type.name} "
-                f"actuator to mode '{mode.name}'{extra} successfully sent.",
-            status=ResultStatus.success
+        return (
+            f"Request to turn {ecosystem.name}'s {actuator_type.name} "
+            f"actuator to mode '{mode.name}'{extra} successfully sent."
         )
     except Exception as e:
         raise HTTPException(

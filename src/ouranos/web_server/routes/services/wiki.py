@@ -16,7 +16,6 @@ from ouranos.core.utils import check_filename
 from ouranos.web_server.auth import get_current_user, is_operator
 from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.routes.services.utils import service_enabled
-from ouranos.web_server.validate.base import ResultResponse, ResultStatus
 from ouranos.web_server.validate.wiki import (
     WikiArticleInfo, WikiArticleModificationInfo, WikiArticleCreationPayload,
     WikiArticleUpdatePayload, WikiArticlePictureInfo,
@@ -96,10 +95,7 @@ async def create_tag(
             name=name,
             values=wiki_tag_dict,
         )
-        return ResultResponse(
-            msg=f"A new wiki tag '{payload.name}' was successfully created.",
-            status=ResultStatus.success
-        )
+        return f"A new wiki tag '{payload.name}' was successfully created.",
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -127,10 +123,7 @@ async def update_tag(
             name=tag_name,
             values=wiki_tag_dict,
         )
-        return ResultResponse(
-            msg=f"Wiki tag '{tag_name}' was successfully updated.",
-            status=ResultStatus.success
-        )
+        return f"Wiki tag '{tag_name}' was successfully updated."
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -178,10 +171,7 @@ async def create_topic(
             name=name,
             values=wiki_topic_dict,
         )
-        return ResultResponse(
-            msg=f"A new wiki topic '{payload.name}' was successfully created.",
-            status=ResultStatus.success
-        )
+        return f"A new wiki topic '{payload.name}' was successfully created."
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -220,10 +210,7 @@ async def update_topic(
             name=topic_name,
             values=wiki_topic_dict,
         )
-        return ResultResponse(
-            msg=f"Wiki topic '{topic_name}' was successfully updated.",
-            status=ResultStatus.success
-        )
+        return f"Wiki topic '{topic_name}' was successfully updated.",
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -242,10 +229,7 @@ async def delete_topic(
 ):
     try:
         await WikiTopic.delete(session, name=topic_name)
-        return ResultResponse(
-            msg=f"Wiki topic '{topic_name}' was successfully deleted.",
-            status=ResultStatus.success
-        )
+        return f"Wiki topic '{topic_name}' was successfully deleted.",
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -307,10 +291,7 @@ async def create_topic_template(
     topic = await topic_or_abort(session, name=topic_name)
     try:
         await topic.create_template(payload.content)
-        return ResultResponse(
-            msg=f"A new template for topic '{topic_name}' was created",
-            status=ResultStatus.success
-        )
+        return f"A new template for topic '{topic_name}' was created"
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -337,10 +318,7 @@ async def upload_topic_template(
     try:
         content = await file.read()
         await topic.create_template(content.decode("utf-8"))
-        return ResultResponse(
-            msg=f"A new template for topic '{topic_name}' was created",
-            status=ResultStatus.success
-        )
+        return f"A new template for topic '{topic_name}' was created"
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -374,10 +352,7 @@ async def create_article(
                 "author_id": current_user.id,
             },
         )
-        return ResultResponse(
-            msg=f"A new wiki article was successfully created.",
-            status=ResultStatus.success
-        )
+        return f"A new wiki article was successfully created."
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -420,10 +395,7 @@ async def upload_article(
                 "author_id": current_user.id,
             },
         )
-        return ResultResponse(
-            msg=f"A new wiki article was successfully uploaded.",
-            status=ResultStatus.success
-        )
+        return "A new wiki article was successfully uploaded."
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -468,10 +440,7 @@ async def update_article(
                 "author_id": current_user.id,
             },
         )
-        return ResultResponse(
-            msg=f"Wiki article '{article_name}' was successfully updated.",
-            status=ResultStatus.success
-        )
+        return f"Wiki article '{article_name}' was successfully updated."
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -494,10 +463,7 @@ async def delete_article(
         await WikiArticle.delete(
             session, topic_name=topic_name, name=article_name,
             author_id=current_user.id)
-        return ResultResponse(
-            msg=f"Wiki article '{article_name}' was successfully deleted.",
-            status=ResultStatus.success
-        )
+        return f"Wiki article '{article_name}' was successfully deleted."
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -555,10 +521,7 @@ async def add_picture(
             name=wiki_picture_dict.pop("name"),
             values=wiki_picture_dict,
         )
-        return ResultResponse(
-            msg=f"A new wiki picture was successfully created.",
-            status=ResultStatus.success
-        )
+        return "A new wiki picture was successfully created."
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -601,10 +564,7 @@ async def upload_picture(
                 "content": content,
             },
         )
-        return ResultResponse(
-            msg=f"A new wiki picture was successfully uploaded.",
-            status=ResultStatus.success
-        )
+        return f"A new wiki picture was successfully uploaded."
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -645,10 +605,7 @@ async def delete_picture(
         await WikiArticlePicture.delete(
             session, topic_name=topic_name, article_name=article_name,
             name=picture_name)
-        return ResultResponse(
-            msg=f"The wiki picture '{picture_name}' was successfully deleted.",
-            status=ResultStatus.success
-        )
+        return "The wiki picture '{picture_name}' was successfully deleted."
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

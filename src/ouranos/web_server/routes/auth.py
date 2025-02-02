@@ -18,7 +18,6 @@ from ouranos.web_server.auth import (
 from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.validate.auth import (
     LoginInfo, UserCreationPayload, UserInfo)
-from ouranos.web_server.validate.base import BaseResponse
 
 
 router = APIRouter(
@@ -53,15 +52,15 @@ async def login(
     }
 
 
-@router.get("/logout", response_model=BaseResponse)
+@router.get("/logout")
 async def logout(
         authenticator: Annotated[Authenticator, Depends(login_manager.get_authenticator)],
         current_user: Annotated[UserMixin, Depends(get_current_user)],
 ):
     if current_user.is_anonymous:
-        return BaseResponse(msg="You were not logged in")
+        return "You were not logged in"
     authenticator.logout()
-    return BaseResponse(msg="Logged out")
+    return "Logged out"
 
 
 @router.get("/current_user", response_model=UserInfo)

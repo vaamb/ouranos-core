@@ -9,7 +9,6 @@ from ouranos.core.database.models.app import Service, ServiceLevel, ServiceName
 from ouranos.core.dispatchers import DispatcherFactory
 from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.validate.app import ServiceInfo, ServiceUpdatePayload
-from ouranos.web_server.validate.base import ResultResponse, ResultStatus
 
 
 router = APIRouter(
@@ -35,7 +34,6 @@ async def get_services(
 
 @router.put("/u/{service_name}",
             status_code=status.HTTP_202_ACCEPTED,
-            response_model=ResultResponse,
             tags=["app/services"])
 async def update_service(
         *,
@@ -59,10 +57,7 @@ async def update_service(
             data={"name": service_name, "status": service_status},
             namespace="aggregator-internal",
         )
-    return ResultResponse(
-        msg=f"Updated service '{service_name.name}' to status '{service_status}'",
-        status=ResultStatus.success
-    )
+    return f"Updated service '{service_name.name}' to status '{service_status}'"
 
 
 from ouranos.web_server.routes.services.calendar import router as calendar_router
