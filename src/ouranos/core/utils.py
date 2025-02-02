@@ -203,3 +203,17 @@ def check_secret_key(config: dict) -> str | None:
 
 def slugify(s: str) -> str:
     return _slugify(s, separator="_", lowercase=True)
+
+
+def check_filename(full_filename: str, extensions: set[str]) -> None:
+    split = full_filename.split(".")
+    if len(split) != 2:
+        if len(split) < 2:
+            raise ValueError("The full filename with extension should be provided")
+        raise ValueError("Files cannot contain '.' in their name")
+    name, extension = split
+    if extension.lower() not in extensions:
+        raise ValueError(
+            f"This file extension is not supported. Extensions supported: "
+            f"{humanize_list([*extensions])}"
+        )

@@ -272,11 +272,32 @@ async def test_create_picture_unauthorized(client: TestClient):
 
 
 @pytest.mark.asyncio
+async def test_create_picture_invalid_name(
+        client_operator: TestClient,
+        db: AsyncSQLAlchemyWrapper,
+):
+    name = "invalid.name"
+    content = b"def not a true picture"
+    payload = {
+        "name": name,
+        "extension": ".jpeg",
+        "content": content.decode("utf-8"),
+    }
+    # Run test
+    response = client_operator.post(
+        f"/api/app/services/wiki/topics/u/{wiki_topic_name}/"
+        f"u/{wiki_article_name}/u",
+        json=payload,
+    )
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
 async def test_create_picture(
         client_operator: TestClient,
         db: AsyncSQLAlchemyWrapper,
 ):
-    name = "Cute.plant.picture"
+    name = "Cute plant picture"
     content = b"def not a true picture"
     payload = {
         "name": name,
@@ -292,17 +313,16 @@ async def test_create_picture(
     assert response.status_code == 200
 
     async with db.scoped_session() as session:
-        article = await WikiArticle.get(
-            session, topic_name=wiki_topic_name, name=wiki_article_name)
-
         picture = await WikiArticlePicture.get(
-            session, article_id=article.id, name=name)
+            session, topic_name=wiki_topic_name, article_name=wiki_article_name,
+            name=name)
         assert picture.name == name
         assert content == await picture.get_image()
 
         # Clean up test
         await WikiArticlePicture.delete(
-            session, article_id=article.id, name=name)
+            session, topic_name=wiki_topic_name, article_name=wiki_article_name,
+            name=name)
 
 
 @pytest.mark.asyncio
@@ -331,17 +351,16 @@ async def test_delete_picture(
         client_operator: TestClient,
         db: AsyncSQLAlchemyWrapper,
 ):
-    picture_name = "to_delete_picture.png"
+    picture_name = "to_delete_picture"
     # Setup test
     async with db.scoped_session() as session:
-        article = await WikiArticle.get(
-            session, topic_name=wiki_topic_name, name=wiki_article_name)
-
         await WikiArticlePicture.create(
             session,
-            article_id=article.id,
+            topic_name=wiki_topic_name,
+            article_name=wiki_article_name,
             name=picture_name,
             values={
+                "extension": ".png",
                 "content": b"",
             },
         )
@@ -354,7 +373,8 @@ async def test_delete_picture(
 
     async with db.scoped_session() as session:
         picture = await WikiArticlePicture.get(
-            session, article_id=article.id, name=picture_name)
+            session, topic_name=wiki_topic_name, article_name=wiki_article_name,
+            name=picture_name)
         assert picture is None
 
 
