@@ -28,7 +28,7 @@ from ouranos.core.database.models.abc import Base, CRUDMixin, ToDictMixin
 from ouranos.core.database.models.caches import cache_users
 from ouranos.core.database.models.types import PathType, UtcDateTime
 from ouranos.core.database.utils import ArchiveLink
-from ouranos.core.utils import slugify, Tokenizer
+from ouranos.core.utils import humanize_list, slugify, Tokenizer
 
 argon2_hasher = PasswordHasher()
 
@@ -1393,7 +1393,7 @@ class WikiArticleModification(Base, CRUDMixin):
             order_by=WikiArticleModification.version.desc())
 
 
-class WikiArticlePicture(Base, WikiObject):
+class WikiArticlePicture(Base, CRUDMixin, WikiObject):
     __tablename__ = "wiki_articles_pictures"
     __bind_key__ = "app"
     __table_args__ = (
@@ -1402,15 +1402,13 @@ class WikiArticlePicture(Base, WikiObject):
             name="uq_wiki_article_id"
         ),
     )
-    _lookup_keys = ["topic_name", "article_name", "name"]
+    _lookup_keys = ["article_id", "name"]
 
     id: Mapped[int] = mapped_column(primary_key=True)
     article_id: Mapped[int] = mapped_column(sa.ForeignKey("wiki_articles.id"))
     name: Mapped[str] = mapped_column(sa.String(length=64))
     path: Mapped[ioPath] = mapped_column(PathType(length=512))
     status: Mapped[bool] = mapped_column(default=True)
-    timestamp: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
-    author_id: Mapped[str] = mapped_column(sa.ForeignKey("users.id"))
 
     # relationship
     article: Mapped[WikiArticle] = relationship(back_populates="images", lazy="selectin")
@@ -1446,80 +1444,53 @@ class WikiArticlePicture(Base, WikiObject):
             cls,
             session: AsyncSession,
             /,
-            topic_name: str,
-            article_name: str,
-            name: str,
-            content: bytes,
-            author_id: int,
+            values: dict | None = None,  # author_id, content, extension
+            **lookup_keys: lookup_keys_type,  # article_id, name
     ) -> None:
-        article = await WikiArticle.get(
-            session, topic_name=topic_name, name=article_name)
+        article_id: int = lookup_keys["article_id"]
+        article = await WikiArticle.get_by_id(session, article_id=article_id)
         if article is None:
             raise WikiArticleNotFound
-        path = article.path / slugify(name)
-        # Create the picture info
-        stmt = (
-            insert(cls)
-            .values({
-                "article_id": article.id,
-                "name": name,
-                "path": str(path),
-                "author_id": author_id,
-            })
-        )
-        await session.execute(stmt)
-        # Save the picture content
-        picture = await cls.get(
-            session, topic_name=topic_name, article_name=article_name, name=name)
-        await picture.set_image(content)
-
-    @classmethod
-    async def get(
-            cls,
-            session: AsyncSession,
-            /,
-            topic_name: str,
-            article_name: str,
-            name: str,
-    ) -> Self | None:
-        article = await WikiArticle.get(
-            session, topic_name=topic_name, name=article_name)
-        if article is None:
-            raise WikiArticleNotFound
-        stmt = (
-            select(cls)
-            .where(
-                (cls.article_id == article.id)
-                & (cls.name == name)
-                & (cls.status == True)
+        # Get extension info
+        name: str = lookup_keys["name"]
+        extension: str = values.pop("extension", None) or name.split(".")[-1]
+        if not extension.startswith("."):
+            extension = f".{extension}"
+        name: str = name.split(extension)[0]
+        lookup_keys["name"] = name
+        supported = {'.gif', '.jpeg', '.jpg', '.png', '.svg', '.webp'}
+        if extension.lower() not in supported:
+            raise ValueError(
+                f"This image format is not supported. Image format supported: "
+                f"{humanize_list([*supported])}."
             )
-        )
-        result = await session.execute(stmt)
-        return result.scalars().one_or_none()
+        # Get path info
+        path = article.path / f"{slugify(name)}{extension}"
+        values["path"] = str(path)
+        # Create the picture info
+        content = values.pop("content")
+        await super().create(session, values=values, **lookup_keys)
+        # Save the picture content
+        x = 1
+        picture = await cls.get(session, article_id=article_id, name=name)
+        await picture.set_image(content)
 
     @classmethod
     async def delete(
             cls,
             session: AsyncSession,
             /,
-            topic_name: str,
-            article_name: str,
-            name: str,
+            values: dict | None = None,  # author_id, content
+            **lookup_keys: lookup_keys_type,  # article_id, name
     ) -> None:
-        article = await WikiArticle.get(
-            session, topic_name=topic_name, name=article_name)
+        article_id: int = lookup_keys["article_id"]
+        name: str = lookup_keys["name"]
+        article = await WikiArticle.get_by_id(session, article_id=article_id)
         if article is None:
             raise WikiArticleNotFound
         # Mark the picture as inactive
-        stmt = (
-            update(cls)
-            .where(
-                (cls.article_id == article.id)
-                & (cls.name == name)
-            )
-            .values({"status": False})
-        )
-        await session.execute(stmt)
+        await super().update(
+            session, article_id=article_id, name=name, values={"status": False})
         # Rename the picture content
         #picture = await cls.get(
         #    session, topic_name=topic_name, article_name=article_name, name=name)
