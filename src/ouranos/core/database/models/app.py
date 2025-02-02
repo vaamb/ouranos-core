@@ -836,12 +836,6 @@ AssociationWikiTagPicture = Table(
 class WikiTag(Base, CRUDMixin, AsyncAttrs):
     __tablename__ = "wiki_tags"
     __bind_key__ = "app"
-    __table_args__ = (
-        UniqueConstraint(
-            "name",
-            name="uq_wiki_tags_name"
-        ),
-    )
     _lookup_keys = ["name"]
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -941,12 +935,6 @@ class WikiObject:
 class WikiTopic(Base, WikiTagged, CRUDMixin, WikiObject):
     __tablename__ = "wiki_topics"
     __bind_key__ = "app"
-    __table_args__ = (
-        UniqueConstraint(
-            "name",
-            name="uq_wiki_topics_name"
-        ),
-    )
     _lookup_keys = ["name"]
 
     id: Mapped[int] = mapped_column(primary_key=True)
