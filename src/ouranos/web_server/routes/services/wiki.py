@@ -523,9 +523,9 @@ async def get_article_pictures(
         article_name: Annotated[str, Path(description="The name of the article")],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    article = await article_or_abort(session, topic=topic_name, name=article_name)
+    await article_or_abort(session, topic=topic_name, name=article_name)
     pictures = await WikiArticlePicture.get_multiple(
-        session, article_id=article.id)
+        session, topic_name=topic_name, article_name=article_name)
     return pictures
 
 
@@ -541,11 +541,12 @@ async def add_picture(
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     try:
-        article = await article_or_abort(session, topic_name, article_name)
+        await article_or_abort(session, topic_name, article_name)
         wiki_picture_dict = payload.model_dump()
         await WikiArticlePicture.create(
             session,
-            article_id=article.id,
+            topic_name=topic_name,
+            article_name=article_name,
             name=wiki_picture_dict.pop("name"),
             values=wiki_picture_dict,
         )
@@ -573,7 +574,7 @@ async def upload_picture(
 ):
     filename = file.filename.rstrip(".md")
     try:
-        article = await article_or_abort(session, topic_name, article_name)
+        await article_or_abort(session, topic_name, article_name)
         if file.size > MAX_PICTURE_FILE_SIZE:
             raise HTTPException(
                 status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
@@ -582,7 +583,8 @@ async def upload_picture(
         content = await file.read()
         await WikiArticlePicture.create(
             session,
-            article_id=article.id,
+            topic_name=topic_name,
+            article_name=article_name,
             name=filename,
             values={
                 "content": content,
@@ -610,9 +612,9 @@ async def get_picture(
         picture_name: Annotated[str, Path(description="The name of the picture")],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    article = await article_or_abort(session, topic_name, article_name)
+    await article_or_abort(session, topic_name, article_name)
     picture = await WikiArticlePicture.get(
-        session, article_id=article.id, name=picture_name)
+        session, topic_name=topic_name, article_name=article_name, name=picture_name)
     if not picture:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -630,9 +632,9 @@ async def delete_picture(
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     try:
-        article = await article_or_abort(session, topic_name, article_name)
         await WikiArticlePicture.delete(
-            session, article_id=article.id, name=picture_name)
+            session, topic_name=topic_name, article_name=article_name,
+            name=picture_name)
         return ResultResponse(
             msg=f"The wiki picture '{picture_name}' was successfully deleted.",
             status=ResultStatus.success

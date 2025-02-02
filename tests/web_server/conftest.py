@@ -161,7 +161,14 @@ async def add_events(db: AsyncSQLAlchemyWrapper):
 @pytest_asyncio.fixture(scope="module", autouse=True)
 async def add_wiki(db: AsyncSQLAlchemyWrapper):
     async with db.scoped_session() as session:
-        await WikiTopic.create(session, name=wiki_topic_name)
+        await WikiTopic.create(
+            session,
+            name=wiki_topic_name,
+            values={
+                "description": "Useless",
+            },
+        )
+
         topic = await WikiTopic.get(session, name=wiki_topic_name)
         await topic.create_template(wiki_article_content)
 
@@ -174,11 +181,11 @@ async def add_wiki(db: AsyncSQLAlchemyWrapper):
                 "author_id": operator.id,
             },
         )
-        article = await WikiArticle.get(
-            session, topic_name=wiki_topic_name, name=wiki_article_name)
+
         await WikiArticlePicture.create(
             session,
-            article_id=article.id,
+            topic_name=wiki_topic_name,
+            article_name=wiki_article_name,
             name=wiki_picture_name,
             values={
                 "content": wiki_picture_content,
