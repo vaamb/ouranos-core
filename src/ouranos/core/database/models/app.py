@@ -1326,27 +1326,34 @@ class WikiPicture(Base, WikiTagged, CRUDMixin, WikiObject):
     __bind_key__ = "app"
     __table_args__ = (
         UniqueConstraint(
-            "topic_name", "article_name", "name",
+            "article_id", "name",
             name="uq_wiki_pictures_name"
         ),
     )
-    _lookup_keys = ["topic_name", "article_name", "name"]
+    _lookup_keys = ["article_id", "name"]  # Search by topic_name, article_name and name
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    topic_name: Mapped[str] = mapped_column(sa.ForeignKey("wiki_topics.name"))
-    article_name: Mapped[str] = mapped_column(sa.ForeignKey("wiki_articles.name"))
+    article_id: Mapped[int] = mapped_column(sa.ForeignKey("wiki_articles.id"))
     name: Mapped[str] = mapped_column(sa.String(length=64))
     path: Mapped[ioPath] = mapped_column(PathType(length=512))
     status: Mapped[bool] = mapped_column(default=True)
 
     # relationship
-    article: Mapped[WikiArticle] = relationship(back_populates="pictures")
+    article: Mapped[WikiArticle] = relationship(back_populates="pictures", lazy="selectin")
 
     def __repr__(self) -> str:
         return (
             f"<WikiArticle({self.topic_name}-{self.article_name}-{self.name}, "
             f"path={self.path})>"
         )
+
+    @property
+    def topic_name(self) -> str:
+        return self.article.topic_name
+
+    @property
+    def article_name(self) -> str:
+        return self.article.name
 
     @property
     def absolute_path(self) -> ioPath:
@@ -1362,6 +1369,30 @@ class WikiPicture(Base, WikiTagged, CRUDMixin, WikiObject):
             return image
 
     @classmethod
+    def _generate_get_query(
+            cls,
+            offset: int | None = None,
+            limit: int | None = None,
+            order_by: str | None = None,
+            **lookup_keys: list[lookup_keys_type] | lookup_keys_type | None,
+    ) -> Select:
+        lookup_keys["status"] = True
+        topic_name = lookup_keys.pop("topic_name", None)
+        article_name = lookup_keys.pop("article_name", None)
+        stmt = super()._generate_get_query(offset, limit, order_by, **lookup_keys)
+        if topic_name or article_name:
+            stmt = stmt.join(WikiArticle.pictures)
+            if isinstance(topic_name, list):
+                stmt = stmt.where(WikiArticle.topic_name.in_(topic_name))
+            else:
+                stmt = stmt.where(WikiArticle.topic_name == topic_name)
+            if isinstance(article_name, list):
+                stmt = stmt.where(WikiArticle.name.in_(article_name))
+            else:
+                stmt = stmt.where(WikiArticle.name == article_name)
+        return stmt
+
+    @classmethod
     async def create(
             cls,
             session: AsyncSession,
@@ -1369,12 +1400,13 @@ class WikiPicture(Base, WikiTagged, CRUDMixin, WikiObject):
             values: dict | None = None,  # author_id, content, extension
             **lookup_keys: lookup_keys_type,  # article_id, name
     ) -> None:
-        topic_name = lookup_keys["topic_name"]
-        article_name = lookup_keys["article_name"]
+        topic_name = lookup_keys.pop("topic_name")
+        article_name = lookup_keys.pop("article_name")
         article = await WikiArticle.get(
             session, topic_name=topic_name, name=article_name)
         if article is None:
             raise WikiArticleNotFound
+        lookup_keys["article_id"] = article.id
         # Get extension info
         name: str = lookup_keys["name"]
         extension: str = values.pop("extension")
@@ -1398,6 +1430,23 @@ class WikiPicture(Base, WikiTagged, CRUDMixin, WikiObject):
         await picture.set_image(content)
 
     @classmethod
+    async def update(
+            cls,
+            session: AsyncSession,
+            /,
+            values: dict | None = None,  # author_id, content, extension
+            **lookup_keys: lookup_keys_type,  # article_id, name
+    ) -> None:
+        topic_name = lookup_keys.pop("topic_name")
+        article_name = lookup_keys.pop("article_name")
+        article = await WikiArticle.get(
+            session, topic_name=topic_name, name=article_name)
+        if article is None:
+            raise WikiArticleNotFound
+        lookup_keys["article_id"] = article.id
+        await super().update(session, values=values, **lookup_keys)
+
+    @classmethod
     async def delete(
             cls,
             session: AsyncSession,
@@ -1405,15 +1454,18 @@ class WikiPicture(Base, WikiTagged, CRUDMixin, WikiObject):
             values: dict | None = None,  # author_id, content
             **lookup_keys: lookup_keys_type,  # article_id, name
     ) -> None:
-        topic_name = lookup_keys["topic_name"]
-        article_name = lookup_keys["article_name"]
+        topic_name = lookup_keys.pop("topic_name")
+        article_name = lookup_keys.pop("article_name")
+        article = await WikiArticle.get(
+            session, topic_name=topic_name, name=article_name)
+        if article is None:
+            raise WikiArticleNotFound
         name: str = lookup_keys["name"]
-        picture = await cls.get(
-            session, topic_name=topic_name, article_name=article_name, name=name)
+        picture = await cls.get(session, article_id=article.id, name=name)
         if picture is None:
             raise WikiArticleNotFound
         # Mark the picture as inactive
-        await super().update(
+        await cls.update(
             session, topic_name=topic_name, article_name=article_name, name=name,
             values={"status": False})
         # Rename the picture content

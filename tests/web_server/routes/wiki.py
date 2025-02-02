@@ -305,13 +305,11 @@ async def test_create_picture(
         "content": content.decode("utf-8"),
     }
     # Run test
-    x = 1
     response = client_operator.post(
         f"/api/app/services/wiki/topics/u/{wiki_topic_name}/"
         f"u/{wiki_article_name}/u",
         json=payload,
     )
-    x = 1
     assert response.status_code == 200
 
     async with db.scoped_session() as session:
