@@ -12,7 +12,7 @@ import gaia_validators as gv
 from ouranos.core.config import ConfigDict
 from ouranos.core.config.consts import LOGIN_NAME
 from ouranos.core.database.models.app import (
-    CalendarEvent, User, Service, ServiceName, WikiArticle, WikiArticlePicture,
+    CalendarEvent, User, Service, ServiceName, WikiArticle, WikiPicture,
     WikiTopic)
 from ouranos.core.database.models.gaia import (
     ActuatorRecord, ActuatorState, Ecosystem, Engine, EnvironmentParameter,
@@ -182,7 +182,7 @@ async def add_wiki(db: AsyncSQLAlchemyWrapper):
             },
         )
 
-        await WikiArticlePicture.create(
+        await WikiPicture.create(
             session,
             topic_name=wiki_topic_name,
             article_name=wiki_article_name,

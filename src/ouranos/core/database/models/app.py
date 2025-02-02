@@ -5,7 +5,7 @@ import difflib
 import enum
 from enum import Enum, IntFlag, StrEnum
 import re
-from typing import Optional, Self, Sequence, TypedDict
+from typing import Optional, Self, Sequence, Type, TypedDict
 from uuid import UUID
 
 from anyio import Path as ioPath
@@ -824,6 +824,15 @@ AssociationWikiTagArticle = Table(
 )
 
 
+AssociationWikiTagPicture = Table(
+    "association_wiki_tag_picture",
+    Base.metadata,
+    sa.Column("tag_id", sa.Integer, sa.ForeignKey("wiki_tags.id")),
+    sa.Column("picture_id", sa.Integer, sa.ForeignKey("wiki_pictures.id")),
+    info={"bind_key": "app"},
+)
+
+
 class WikiTag(Base, CRUDMixin, AsyncAttrs):
     __tablename__ = "wiki_tags"
     __bind_key__ = "app"
@@ -888,6 +897,32 @@ class WikiTagged:
                 stmt = stmt.where(WikiTag.name == tags_name)
         return stmt
 
+    async def attach_tags(
+            self,
+            session:AsyncSession,
+            secondary_table: Table,
+            secondary_key_obj,
+            tags_name: list[str],
+    ) -> None:
+        # Clear all tags
+        stmt = (
+            delete(secondary_table)
+            .where(secondary_key_obj == self.id)
+        )
+        await session.execute(stmt)
+        # Attach the tags
+        for tag_name in tags_name:
+            tag = await WikiTag.get(session, name=tag_name)
+            if tag is None:
+                await WikiTag.create(session, name=tag_name)
+                tag = await WikiTag.get(session, name=tag_name)
+            stmt = (
+                insert(AssociationWikiTagTopic)
+                .values(topic_id=self.id, tag_id=tag.id)
+            )
+            await session.execute(stmt)
+        await session.commit()
+
 
 class WikiObject:
     @staticmethod
@@ -932,26 +967,6 @@ class WikiTopic(Base, WikiTagged, CRUDMixin, WikiObject):
     def absolute_path(self) -> ioPath:
         return self.root_dir() / self.path
 
-    async def attach_tags(self, session:AsyncSession, tags_name: list[str]) -> None:
-        # Clear all tags
-        stmt = (
-            delete(AssociationWikiTagTopic)
-            .where(AssociationWikiTagTopic.c.topic_id == self.id)
-        )
-        await session.execute(stmt)
-        # Attach the tags
-        for tag_name in tags_name:
-            tag = await WikiTag.get(session, name=tag_name)
-            if tag is None:
-                await WikiTag.create(session, name=tag_name)
-                tag = await WikiTag.get(session, name=tag_name)
-            stmt = (
-                insert(AssociationWikiTagTopic)
-                .values(topic_id=self.id, tag_id=tag.id)
-            )
-            await session.execute(stmt)
-        await session.commit()
-
     @classmethod
     async def create(
             cls,
@@ -971,7 +986,9 @@ class WikiTopic(Base, WikiTagged, CRUDMixin, WikiObject):
         await super().create(session, values=values, **lookup_keys)
         if tags_name:
             topic = await cls.get(session, **lookup_keys)
-            await topic.attach_tags(session, tags_name)
+            await topic.attach_tags(
+                session, AssociationWikiTagTopic,
+                AssociationWikiTagTopic.c.topic_id, tags_name)
 
     @classmethod
     async def get_multiple(
@@ -998,7 +1015,9 @@ class WikiTopic(Base, WikiTagged, CRUDMixin, WikiObject):
         await super().update(session, values=values, **lookup_keys)
         if tags_name:
             topic = await cls.get(session, **lookup_keys)
-            await topic.attach_tags(session, tags_name)
+            await topic.attach_tags(
+                session, AssociationWikiTagTopic,
+                AssociationWikiTagTopic.c.topic_id, tags_name)
 
     @classmethod
     async def delete(
@@ -1044,7 +1063,7 @@ class WikiArticle(Base, WikiTagged, CRUDMixin, WikiObject):
     # relationship
     topic: Mapped[WikiTopic] = relationship(back_populates="articles", lazy="selectin")
     modifications: Mapped[list[WikiArticleModification]] = relationship(back_populates="article")
-    images: Mapped[list[WikiArticlePicture]] = relationship(back_populates="article")
+    pictures: Mapped[list[WikiPicture]] = relationship(back_populates="article")
     tags: Mapped[list[WikiTag]] = relationship(
         back_populates="articles", secondary=AssociationWikiTagArticle, lazy="selectin")
 
@@ -1080,26 +1099,6 @@ class WikiArticle(Base, WikiTagged, CRUDMixin, WikiObject):
                 return content
         except IOError:
             return None
-
-    async def attach_tags(self, session:AsyncSession, tags_name: list[str]) -> None:
-        # Clear all tags
-        stmt = (
-            delete(AssociationWikiTagArticle)
-            .where(AssociationWikiTagArticle.c.article_id == self.id)
-        )
-        await session.execute(stmt)
-        # Attach the tags
-        for tag_name in tags_name:
-            tag = await WikiTag.get(session, name=tag_name)
-            if tag is None:
-                await WikiTag.create(session, name=tag_name)
-                tag = await WikiTag.get(session, name=tag_name)
-            stmt = (
-                insert(AssociationWikiTagArticle)
-                .values(article_id=self.id, tag_id=tag.id)
-            )
-            await session.execute(stmt)
-        await session.commit()
 
     async def compute_diff(self, session, next_content: str) -> tuple[str, list[str]]:
         modifications = await WikiArticleModification.get_multiple(
@@ -1146,7 +1145,9 @@ class WikiArticle(Base, WikiTagged, CRUDMixin, WikiObject):
         await super().create(session, values=values, **lookup_keys)
         article = await cls.get(session, topic_name=topic_name, name=name)
         if tags_name:
-            await article.attach_tags(session, tags_name)
+            await article.attach_tags(
+                session, AssociationWikiTagArticle,
+                AssociationWikiTagTopic.c.article_id, tags_name)
         # Create the article modification
         await WikiArticleModification.create(
             session,
@@ -1196,22 +1197,6 @@ class WikiArticle(Base, WikiTagged, CRUDMixin, WikiObject):
         return result.scalar_one_or_none()
 
     @classmethod
-    async def get_history(
-            cls,
-            session: AsyncSession,
-            /,
-            topic: str,
-            name: str,
-            limit: int = 50,
-    ) -> Sequence[WikiArticleModification]:
-        article = await cls.get(session, topic_name=topic, name=name)
-        if not article:
-            raise ValueError("Article not found")
-        history = await WikiArticleModification.get_multiple(
-            session, article_id=article.id, limit=limit)
-        return history
-
-    @classmethod
     async def update(
             cls,
             session: AsyncSession,
@@ -1232,7 +1217,9 @@ class WikiArticle(Base, WikiTagged, CRUDMixin, WikiObject):
             await super().update(session, values=values, **lookup_keys)
         article = await cls.get(session, topic_name=topic_name, name=name)
         if tags_name:
-            await article.attach_tags(session, tags_name)
+            await article.attach_tags(
+                session, AssociationWikiTagArticle,
+                AssociationWikiTagTopic.c.article_id, tags_name)
         # Create the article modification
         await WikiArticleModification.create(
             session,
@@ -1346,8 +1333,8 @@ class WikiArticleModification(Base, CRUDMixin):
             order_by=WikiArticleModification.version.desc())
 
 
-class WikiArticlePicture(Base, WikiTagged, CRUDMixin, WikiObject):
-    __tablename__ = "wiki_picture"
+class WikiPicture(Base, WikiTagged, CRUDMixin, WikiObject):
+    __tablename__ = "wiki_pictures"
     __bind_key__ = "app"
     __table_args__ = (
         UniqueConstraint(
@@ -1365,7 +1352,7 @@ class WikiArticlePicture(Base, WikiTagged, CRUDMixin, WikiObject):
     status: Mapped[bool] = mapped_column(default=True)
 
     # relationship
-    article: Mapped[WikiArticle] = relationship(back_populates="images")
+    article: Mapped[WikiArticle] = relationship(back_populates="pictures")
 
     def __repr__(self) -> str:
         return (
@@ -1411,7 +1398,12 @@ class WikiArticlePicture(Base, WikiTagged, CRUDMixin, WikiObject):
         values["path"] = str(path)
         # Create the picture info
         content = values.pop("content")
+        tags_name: list[str] = values.pop("tags_name", [])
         await super().create(session, values=values, **lookup_keys)
+        if tags_name:
+            await article.attach_tags(
+                session, AssociationWikiTagPicture,
+                AssociationWikiTagPicture.c.picture_id, tags_name)
         # Save the picture content
         picture = await cls.get(
             session, topic_name=topic_name, article_name=article_name, name=name)
