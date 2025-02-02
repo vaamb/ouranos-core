@@ -23,12 +23,13 @@ from gaia_validators import missing, safe_enum_from_name
 
 from ouranos import current_app
 from ouranos.core.config.consts import (
-    REGISTRATION_TOKEN_VALIDITY, TOKEN_SUBS)
+    REGISTRATION_TOKEN_VALIDITY, SUPPORTED_IMAGE_EXTENSIONS, TOKEN_SUBS)
 from ouranos.core.database.models.abc import Base, CRUDMixin, ToDictMixin
 from ouranos.core.database.models.caches import cache_users
 from ouranos.core.database.models.types import PathType, UtcDateTime
 from ouranos.core.database.utils import ArchiveLink
-from ouranos.core.utils import humanize_list, slugify, Tokenizer
+from ouranos.core.utils import check_filename, slugify, Tokenizer
+
 
 argon2_hasher = PasswordHasher()
 
@@ -1401,17 +1402,10 @@ class WikiArticlePicture(Base, WikiTagged, CRUDMixin, WikiObject):
             raise WikiArticleNotFound
         # Get extension info
         name: str = lookup_keys["name"]
-        extension: str = values.pop("extension", None) or name.split(".")[-1]
+        extension: str = values.pop("extension")
         if not extension.startswith("."):
             extension = f".{extension}"
-        name: str = name.split(extension)[0]
-        lookup_keys["name"] = name
-        supported = {'.gif', '.jpeg', '.jpg', '.png', '.svg', '.webp'}
-        if extension.lower() not in supported:
-            raise ValueError(
-                f"This image format is not supported. Image format supported: "
-                f"{humanize_list([*supported])}."
-            )
+        check_filename(f"{name}{extension}", SUPPORTED_IMAGE_EXTENSIONS)
         # Get path info
         path = article.path / f"{slugify(name)}{extension}"
         values["path"] = str(path)

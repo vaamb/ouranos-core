@@ -272,11 +272,32 @@ async def test_create_picture_unauthorized(client: TestClient):
 
 
 @pytest.mark.asyncio
+async def test_create_picture_invalid_name(
+        client_operator: TestClient,
+        db: AsyncSQLAlchemyWrapper,
+):
+    name = "invalid.name"
+    content = b"def not a true picture"
+    payload = {
+        "name": name,
+        "extension": ".jpeg",
+        "content": content.decode("utf-8"),
+    }
+    # Run test
+    response = client_operator.post(
+        f"/api/app/services/wiki/topics/u/{wiki_topic_name}/"
+        f"u/{wiki_article_name}/u",
+        json=payload,
+    )
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
 async def test_create_picture(
         client_operator: TestClient,
         db: AsyncSQLAlchemyWrapper,
 ):
-    name = "Cute.plant.picture"
+    name = "Cute plant picture"
     content = b"def not a true picture"
     payload = {
         "name": name,
