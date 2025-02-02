@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import datetime
 
 from ouranos.core.validate.base import BaseModel
-from ouranos.web_server.validate.base import BaseResponse
 
 
 class UserCreationPayload(BaseModel):
@@ -26,6 +25,7 @@ class UserInfo(BaseModel):
     last_seen: datetime | None = None
 
 
-class LoginInfo(BaseResponse):
+class LoginInfo(BaseModel):
+    msg: str
     user: UserInfo
     session_token: str

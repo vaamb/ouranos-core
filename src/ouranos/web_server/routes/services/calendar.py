@@ -10,7 +10,6 @@ from ouranos.core.database.models.app import (
 from ouranos.web_server.auth import get_current_user, is_authenticated
 from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.routes.services.utils import service_enabled
-from ouranos.web_server.validate.base import ResultResponse, ResultStatus
 from ouranos.web_server.validate.calendar import (
     EventCreationPayload, EventUpdatePayload, EventInfo)
 
@@ -53,7 +52,6 @@ async def get_events(
 
 
 @router.post("/u",
-             response_model=ResultResponse,
              status_code=status.HTTP_202_ACCEPTED)
 async def create_event(
         payload: Annotated[
@@ -66,10 +64,7 @@ async def create_event(
     try:
         await CalendarEvent.create(
             session, creator_id=current_user.id, values=payload.model_dump())
-        return ResultResponse(
-            msg=f"A new event was successfully created",
-            status=ResultStatus.success
-        )
+        return "A new event was successfully created"
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -81,7 +76,6 @@ async def create_event(
 
 
 @router.put("/u/{event_id}",
-            response_model=ResultResponse,
             status_code=status.HTTP_202_ACCEPTED)
 async def update_event(
         event_id: Annotated[int, Path(description="The id of the event to update")],
@@ -96,15 +90,20 @@ async def update_event(
     if event.created_by != current_user.id and not current_user.can(Permission.ADMIN):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
     values = payload.model_dump(exclude_defaults=True)
-    await CalendarEvent.update(session, event_id=event_id, values=values)
-    return ResultResponse(
-        msg=f"Updated event with id '{event_id}'",
-        status=ResultStatus.success
-    )
+    try:
+        await CalendarEvent.update(session, event_id=event_id, values=values)
+        return f"Updated event '{event.title}'"
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Failed to update the event. Error msg: "
+                f"`{e.__class__.__name__}: {e}`"
+            ),
+        )
 
 
 @router.delete("/u/{event_id}",
-               response_model=ResultResponse,
                status_code=status.HTTP_202_ACCEPTED)
 async def delete_event(
         event_id: Annotated[int, Path(description="The id of the event to update")],
@@ -114,8 +113,14 @@ async def delete_event(
     event = await CalendarEvent.get(session, event_id=event_id)
     if event.created_by != current_user.id and not current_user.can(Permission.ADMIN):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
-    await CalendarEvent.inactivate(session, event_id=event_id)
-    return ResultResponse(
-        msg=f"Event with id '{event_id}' deleted",
-        status=ResultStatus.success
-    )
+    try:
+        await CalendarEvent.inactivate(session, event_id=event_id)
+        return f"Event '{event.title}' deleted"
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Failed to delete the event. Error msg: "
+                f"`{e.__class__.__name__}: {e}`"
+            ),
+        )

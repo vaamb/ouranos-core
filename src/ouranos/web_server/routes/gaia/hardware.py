@@ -14,7 +14,6 @@ from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.routes.gaia.utils import (
     ecosystem_or_abort, eids_desc, emit_crud_event, euid_desc, h_level_desc,
     in_config_desc)
-from ouranos.web_server.validate.base import ResultResponse, ResultStatus
 from ouranos.web_server.validate.gaia.hardware import (
     HardwareType, HardwareInfo, HardwareModelInfo, HardwareUpdatePayload)
 
@@ -108,7 +107,6 @@ async def get_ecosystem_hardware(
 
 
 @router.post("/u/{ecosystem_uid}/hardware/u",
-             response_model=ResultResponse,
              status_code=status.HTTP_202_ACCEPTED,
              dependencies=[Depends(is_operator)])
 async def create_hardware(
@@ -125,10 +123,9 @@ async def create_hardware(
 
         await emit_crud_event(
             ecosystem, gv.CrudAction.create, "hardware", hardware_dict)
-        return ResultResponse(
-            msg=f"Request to create the new hardware '{hardware_dict['name']}' "
-                f"successfully sent to engine '{ecosystem.engine_uid}'",
-            status=ResultStatus.success
+        return (
+            f"Request to create the new hardware '{hardware_dict['name']}' "
+            f"successfully sent to engine '{ecosystem.engine_uid}'"
         )
     except Exception as e:
         HTTPException(
@@ -153,7 +150,6 @@ async def get_hardware(
 
 
 @router.put("/u/{ecosystem_uid}/hardware/u/{hardware_uid}",
-            response_model=ResultResponse,
             status_code=status.HTTP_202_ACCEPTED,
             dependencies=[Depends(is_operator)])
 async def update_hardware(
@@ -171,10 +167,9 @@ async def update_hardware(
     try:
         await emit_crud_event(
             ecosystem, gv.CrudAction.update, "hardware", hardware_dict)
-        return ResultResponse(
-            msg=f"Request to update the hardware '{hardware.name}' "
-                f"successfully sent to engine '{ecosystem.engine_uid}'",
-            status=ResultStatus.success
+        return (
+            f"Request to update the hardware '{hardware.name}' "
+            f"successfully sent to engine '{ecosystem.engine_uid}'"
         )
     except Exception as e:
         HTTPException(
@@ -188,7 +183,6 @@ async def update_hardware(
 
 
 @router.delete("/u/{ecosystem_uid}/hardware/u/{hardware_uid}",
-               response_model=ResultResponse,
                status_code=status.HTTP_202_ACCEPTED,
                dependencies=[Depends(is_operator)])
 async def delete_hardware(
@@ -201,10 +195,9 @@ async def delete_hardware(
     try:
         await emit_crud_event(
             ecosystem, gv.CrudAction.delete, "hardware", hardware_uid)
-        return ResultResponse(
-            msg=f"Request to delete the hardware '{hardware.name}' "
-                f"successfully sent to engine '{ecosystem.engine_uid}'",
-            status=ResultStatus.success
+        return (
+            f"Request to delete the hardware '{hardware.name}' "
+                f"successfully sent to engine '{ecosystem.engine_uid}'"
         )
     except Exception as e:
         HTTPException(

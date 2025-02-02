@@ -11,7 +11,6 @@ from fastapi import (
 from ouranos.core.database.models.app import Permission, User, UserMixin
 from ouranos.web_server.auth import get_current_user, is_admin
 from ouranos.web_server.dependencies import get_session
-from ouranos.web_server.validate.base import ResultResponse, ResultStatus
 from ouranos.web_server.validate.user import UserDescription, UserUpdatePayload
 
 
@@ -96,8 +95,7 @@ async def get_user(
 
 
 @router.put("/u/{username}",
-            status_code=status.HTTP_202_ACCEPTED,
-            response_model=ResultResponse)
+            status_code=status.HTTP_202_ACCEPTED)
 async def update_user(
         username: Annotated[str, Path(description="The username of the user")],
         payload: Annotated[
@@ -129,10 +127,7 @@ async def update_user(
     }
     try:
         await User.update(session, user_id=user.id, values=user_dict)
-        return ResultResponse(
-            msg=f"Successfully updated user '{username}''s info",
-            status=ResultStatus.success,
-        )
+        return f"Successfully updated user '{username}''s info"
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

@@ -10,7 +10,6 @@ from ouranos.core.database.models.gaia import GaiaWarning
 from ouranos.web_server.auth import get_current_user, is_authenticated
 from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.routes.gaia.utils import eids_desc
-from ouranos.web_server.validate.base import ResultResponse, ResultStatus
 from ouranos.web_server.validate.gaia.warning import WarningInfo
 
 
@@ -40,7 +39,6 @@ async def get_warnings(
 
 
 @router.post("/u/{warning_id}/mark_as_seen",
-             response_model=ResultResponse,
              status_code=status.HTTP_202_ACCEPTED,
              dependencies=[Depends(is_authenticated)])
 async def mark_warning_as_seen(
@@ -50,14 +48,10 @@ async def mark_warning_as_seen(
 ):
     await GaiaWarning.mark_as_seen(
         session, warning_id=warning_id, user_id=current_user.id)
-    return ResultResponse(
-        msg=f"Warning with id '{warning_id}' marked as seen",
-        status=ResultStatus.success
-    )
+    return f"Warning with id '{warning_id}' marked as seen"
 
 
 @router.post("/u/{warning_id}/mark_as_solved",
-             response_model=ResultResponse,
              status_code=status.HTTP_202_ACCEPTED,
              dependencies=[Depends(is_authenticated)])
 async def mark_warning_as_solved(
@@ -67,7 +61,4 @@ async def mark_warning_as_solved(
 ):
     await GaiaWarning.mark_as_solved(
         session, warning_id=warning_id, user_id=current_user.id)
-    return ResultResponse(
-        msg=f"Warning with id '{warning_id}' marked as solved",
-        status=ResultStatus.success
-    )
+    return f"Warning with id '{warning_id}' marked as solved"

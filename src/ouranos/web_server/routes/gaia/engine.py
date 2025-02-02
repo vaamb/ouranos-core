@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ouranos.core.database.models.gaia import Engine
 from ouranos.web_server.auth import is_operator
 from ouranos.web_server.dependencies import get_session
-from ouranos.web_server.validate.base import ResultResponse, ResultStatus
 from ouranos.web_server.validate.gaia.engine import CrudRequestInfo, EngineInfo
 
 
@@ -53,7 +52,6 @@ async def get_engine(
 
 
 @router.delete("/u/{uid}",
-               response_model=ResultResponse,
                dependencies=[Depends(is_operator)])
 async def delete_engine(
         uid: Annotated[str, Path(description="An engine uid")],
@@ -61,10 +59,7 @@ async def delete_engine(
 ):
     engine = await engine_or_abort(session, uid)
     await Engine.delete(session, engine.uid)
-    return ResultResponse(
-        msg=f"Engine {uid} deleted",
-        status=ResultStatus.success
-    )
+    return f"Engine {uid} deleted"
 
 
 @router.get("/u/{uid}/crud_requests",
