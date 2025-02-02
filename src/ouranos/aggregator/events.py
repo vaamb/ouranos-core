@@ -112,7 +112,7 @@ class GaiaEvents(AsyncEventHandler):
             model_cls: Type[gv.BaseModel] | Type[RootModel],
     ) -> PT:
         try:
-            return model_cls.model_validate(data).model_dump()
+            return model_cls.model_validate(data).model_dump(by_alias=True)
         except ValidationError as e:
             event = inspect.stack()[1].function.lstrip("on_")
             msg_list = [f"{error['loc'][0]}: {error['msg']}" for error in e.errors()]
@@ -280,22 +280,17 @@ class GaiaEvents(AsyncEventHandler):
     async def on_ping(
             self,
             sid: UUID,
-            data: list[gv.EcosystemPingDataDict] | gv.EnginePingPayloadDict,
+            data: gv.EnginePingPayloadDict,
             engine_uid: str,
     ) -> None:
         self.logger.debug(f"Received 'ping' from engine {engine_uid}")
         await self.emit("pong", to=sid)
-        if isinstance(data, list):
-            payload: list[gv.EcosystemPingDataDict] = self.validate_payload(
-                data, RootModel[list[gv.EcosystemPingData]])
-            ecosystems_payload = payload
-        else:
-            payload: gv.EnginePingPayloadDict = self.validate_payload(
-                data, gv.EnginePingPayload)
-            ecosystems_payload = payload["ecosystems"]
-            self.logger.debug(
-                f"'ping' event from engine {engine_uid} emited at "
-                f"{payload['timestamp']}")
+        payload: gv.EnginePingPayloadDict = self.validate_payload(
+            data, gv.EnginePingPayload)
+        ecosystems_payload = payload["ecosystems"]
+        self.logger.debug(
+            f"'ping' event from engine {engine_uid} emitted at "
+            f"{payload['timestamp']}")
         # Dispatch data to clients
         await self.internal_dispatcher.emit(
             "ecosystems_heartbeat",

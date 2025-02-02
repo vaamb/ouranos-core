@@ -37,9 +37,14 @@ async def test_registration_wrapper(
         events_handler: GaiaEvents,
         ecosystem_aware_db: AsyncSQLAlchemyWrapper  # noqa
 ):
-    await events_handler.on_ping(g_data.engine_sid, [
-        {"uid": g_data.ecosystem_uid, "status": True}
-    ])
+    payload: gv.EnginePingPayloadDict = {
+        "engine_uid": g_data.engine_uid,
+        "timestamp": datetime.now(timezone.utc),
+        "ecosystems": [
+            {"uid": g_data.ecosystem_uid, "status": True},
+        ],
+    }
+    await events_handler.on_ping(g_data.engine_sid, payload)
 
     # Remove sid from session dict
     mock_dispatcher._sessions[g_data.engine_sid] = {}
@@ -114,9 +119,14 @@ async def test_on_ping(
         start = copy(engine.last_seen)
     await sleep(0.1)
 
-    await events_handler.on_ping(g_data.engine_sid, [
-        {"uid": g_data.ecosystem_uid, "status": True}
-    ])
+    payload: gv.EnginePingPayloadDict = {
+        "engine_uid": g_data.engine_uid,
+        "timestamp": datetime.now(timezone.utc),
+        "ecosystems": [
+            {"uid": g_data.ecosystem_uid, "status": True},
+        ],
+    }
+    await events_handler.on_ping(g_data.engine_sid, payload)
 
     async with ecosystem_aware_db.scoped_session() as session:
         engine = await Engine.get_by_id(session, engine_id=g_data.engine_uid)
