@@ -531,7 +531,7 @@ async def get_article_pictures(
 
 @router.post("/topics/u/{topic_name}/u/{article_name}/u",
              dependencies=[Depends(is_operator)])
-async def add_picture_to_article(
+async def add_picture(
         topic_name: Annotated[str, Path(description="The name of the topic")],
         article_name: Annotated[str, Path(description="The name of the article")],
         payload: Annotated[
@@ -565,7 +565,7 @@ async def add_picture_to_article(
 
 @router.post("/topics/u/{topic_name}/u/{article_name}/u/upload_file",
              dependencies=[Depends(is_operator)])
-async def upload_picture_to_article(
+async def upload_picture(
         topic_name: Annotated[str, Path(description="The name of the topic")],
         article_name: Annotated[str, Path(description="The name of the article")],
         file: UploadFile,
@@ -604,7 +604,7 @@ async def upload_picture_to_article(
 
 @router.get("/topics/u/{topic_name}/u/{article_name}/u/{picture_name}",
             response_model=WikiArticlePictureInfo)
-async def get_article_picture(
+async def get_picture(
         topic_name: Annotated[str, Path(description="The name of the topic")],
         article_name: Annotated[str, Path(description="The name of the article")],
         picture_name: Annotated[str, Path(description="The name of the picture")],
@@ -623,7 +623,7 @@ async def get_article_picture(
 
 @router.delete("/topics/u/{topic_name}/u/{article_name}/u/{picture_name}",
                dependencies=[Depends(is_operator)])
-async def delete_picture_from_article(
+async def delete_picture(
         topic_name: Annotated[str, Path(description="The name of the topic")],
         article_name: Annotated[str, Path(description="The name of the article")],
         picture_name: Annotated[str, Path(description="The name of the picture")],
