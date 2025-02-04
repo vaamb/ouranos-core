@@ -1416,18 +1416,23 @@ class WikiPicture(Base, WikiTagged, CRUDMixin, WikiObject):
     ) -> Select:
         lookup_keys["status"] = True
         topic_name = lookup_keys.pop("topic_name", None)
+        topic_slug = lookup_keys.pop("topic_slug", None)
         article_name = lookup_keys.pop("article_name", None)
+        article_slug = lookup_keys.pop("article_slug", None)
         stmt = super()._generate_get_query(offset, limit, order_by, **lookup_keys)
-        if topic_name or article_name:
+        if any ((topic_name, topic_slug, article_name, article_slug)):
             stmt = stmt.join(WikiArticle.pictures)
-            if isinstance(topic_name, list):
-                stmt = stmt.where(WikiArticle.topic_name.in_(topic_name))
-            else:
-                stmt = stmt.where(WikiArticle.topic_name == topic_name)
-            if isinstance(article_name, list):
-                stmt = stmt.where(WikiArticle.name.in_(article_name))
-            else:
-                stmt = stmt.where(WikiArticle.name == article_name)
+            local_vars = locals()
+            for arg in ["topic_name", "topic_slug", "article_name", "article_slug"]:
+                value = lookup_keys.get(arg)
+                if arg.startswith("article"):
+                    arg = arg[8:]
+                if value:
+                    wiki_article_col = getattr(WikiArticle, arg)
+                    if isinstance(value, list):
+                        stmt = stmt.where(wiki_article_col.in_(value))
+                    else:
+                        stmt = stmt.where(wiki_article_col == value)
         return stmt
 
     @classmethod
