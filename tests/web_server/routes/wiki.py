@@ -397,3 +397,38 @@ async def test_get_articles(client: TestClient):
     data = json.loads(response.text)
     assert len(data) == 1
     assert wiki_article_name in [article["name"] for article in data]
+
+
+@pytest.mark.asyncio
+async def test_error_404(client: TestClient):
+    wrong = "so wrong it doesn't match"
+
+    response = client.get(
+        f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}")
+    assert response.status_code == 200
+
+    response = client.get(
+        f"/api/app/services/wiki/topics/u/{slugify(wrong)}")
+    assert response.status_code == 404
+
+
+    response = client.get(
+        f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}/"
+        f"u/{slugify(wiki_article_name)}")
+    assert response.status_code == 200
+
+    response = client.get(
+        f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}/"
+        f"u/{slugify(wrong)}")
+    assert response.status_code == 404
+
+
+    response = client.get(
+        f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}/"
+        f"u/{slugify(wiki_article_name)}/u/{slugify(wiki_picture_name)}")
+    assert response.status_code == 200
+
+    response = client.get(
+        f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}/"
+        f"u/{slugify(wrong)}/u/{slugify(wiki_picture_name)}")
+    assert response.status_code == 404
