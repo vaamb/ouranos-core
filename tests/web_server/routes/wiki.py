@@ -6,6 +6,7 @@ from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 from ouranos import json
 from ouranos.core.database.models.app import (
     WikiArticle, WikiArticleModification, WikiPicture, WikiTopic)
+from ouranos.core.utils import slugify
 
 from tests.data.app import (
     wiki_article_content, wiki_article_name, wiki_picture_name, wiki_topic_name)
@@ -58,7 +59,8 @@ async def test_create_topic(
 
 @pytest.mark.asyncio
 async def test_get_topic_articles(client: TestClient):
-    response = client.get(f"/api/app/services/wiki/topics/u/{wiki_topic_name}/articles")
+    response = client.get(
+        f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}/articles")
     assert response.status_code == 200
 
     data = json.loads(response.text)
@@ -68,7 +70,8 @@ async def test_get_topic_articles(client: TestClient):
 
 @pytest.mark.asyncio
 async def test_delete_topic_unauthorized(client: TestClient):
-    response = client.delete(f"/api/app/services/wiki/topics/u/{wiki_topic_name}")
+    response = client.delete(
+        f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}")
     assert response.status_code == 403
 
 
@@ -84,7 +87,7 @@ async def test_delete_topic(
 
     # Run test
     response = client_operator.delete(
-        f"/api/app/services/wiki/topics/u/{name}")
+        f"/api/app/services/wiki/topics/u/{slugify(name)}")
     assert response.status_code == 200
 
     async with db.scoped_session() as session:
@@ -95,7 +98,7 @@ async def test_delete_topic(
 @pytest.mark.asyncio
 async def test_get_topic_template(client: TestClient):
     response = client.get(
-        f"/api/app/services/wiki/topics/u/{wiki_topic_name}/template")
+        f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}/template")
     assert response.status_code == 200
 
     data = json.loads(response.text)
@@ -105,7 +108,7 @@ async def test_get_topic_template(client: TestClient):
 @pytest.mark.asyncio
 async def test_set_topic_template_unauthorized(client: TestClient):
     response = client.post(
-        f"/api/app/services/wiki/topics/u/{wiki_topic_name}/template")
+        f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}/template")
     assert response.status_code == 403
 
 
@@ -119,7 +122,7 @@ async def test_set_topic_template(
         "content": template
     }
     response = client_operator.post(
-        f"/api/app/services/wiki/topics/u/{wiki_topic_name}/template",
+        f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}/template",
         json=payload,
     )
     assert response.status_code == 200
@@ -132,7 +135,8 @@ async def test_set_topic_template(
 
 @pytest.mark.asyncio
 async def test_create_article_unauthorized(client: TestClient):
-    response = client.post(f"/api/app/services/wiki/topics/u/{wiki_topic_name}/u")
+    response = client.post(
+        f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}/u")
     assert response.status_code == 403
 
 
@@ -149,7 +153,7 @@ async def test_create_article(
         "content": content,
     }
     response = client_operator.post(
-        f"/api/app/services/wiki/topics/u/{wiki_topic_name}/u",
+        f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}/u",
         json=payload,
     )
     assert response.status_code == 200
@@ -169,7 +173,8 @@ async def test_create_article(
 @pytest.mark.asyncio
 async def test_get_article(client: TestClient):
     response = client.get(
-        f"/api/app/services/wiki/topics/u/{wiki_topic_name}/u/{wiki_article_name}")
+        f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}/"
+        f"u/{slugify(wiki_article_name)}")
     assert response.status_code == 200
 
     data = json.loads(response.text)
@@ -180,7 +185,8 @@ async def test_get_article(client: TestClient):
 @pytest.mark.asyncio
 async def test_update_article_unauthorized(client: TestClient):
     response = client.put(
-        f"/api/app/services/wiki/topics/u/{wiki_topic_name}/u/{wiki_article_name}")
+        f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}/"
+        f"u/{slugify(wiki_article_name)}")
     assert response.status_code == 403
 
 
@@ -195,7 +201,8 @@ async def test_update_article(
     }
     # Run test
     response = client_operator.put(
-        f"/api/app/services/wiki/topics/u/{wiki_topic_name}/u/{wiki_article_name}",
+        f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}/"
+        f"u/{slugify(wiki_article_name)}",
         json=payload,
     )
     assert response.status_code == 200
@@ -217,7 +224,8 @@ async def test_update_article(
 
 @pytest.mark.asyncio
 async def test_delete_article_unauthorized(client: TestClient):
-    response = client.delete(f"/api/app/services/wiki/topics/u/{wiki_topic_name}")
+    response = client.delete(
+        f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}")
     assert response.status_code == 403
 
 
@@ -241,7 +249,8 @@ async def test_delete_article(
 
     # Run test
     response = client_operator.delete(
-        f"/api/app/services/wiki/topics/u/{wiki_topic_name}/u/{article_name}")
+        f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}/"
+        f"u/{slugify(article_name)}")
     assert response.status_code == 200
 
     async with db.scoped_session() as session:
@@ -253,7 +262,8 @@ async def test_delete_article(
 @pytest.mark.asyncio
 async def test_get_article_history(client: TestClient):
     response = client.get(
-        f"/api/app/services/wiki/topics/u/{wiki_topic_name}/u/{wiki_article_name}/history")
+        f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}/"
+        f"u/{slugify(wiki_article_name)}/history")
     assert response.status_code == 200
 
     data = json.loads(response.text)
@@ -267,7 +277,8 @@ async def test_get_article_history(client: TestClient):
 @pytest.mark.asyncio
 async def test_create_picture_unauthorized(client: TestClient):
     response = client.post(
-        f"/api/app/services/wiki/topics/u/{wiki_topic_name}/u/{wiki_article_name}/u")
+        f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}/"
+        f"u/{slugify(wiki_article_name)}/u")
     assert response.status_code == 403
 
 
@@ -285,11 +296,11 @@ async def test_create_picture_invalid_name(
     }
     # Run test
     response = client_operator.post(
-        f"/api/app/services/wiki/topics/u/{wiki_topic_name}/"
+        f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}/"
         f"u/{wiki_article_name}/u",
         json=payload,
     )
-    assert response.status_code == 422
+    assert response.status_code == 404
 
 
 @pytest.mark.asyncio
@@ -306,8 +317,8 @@ async def test_create_picture(
     }
     # Run test
     response = client_operator.post(
-        f"/api/app/services/wiki/topics/u/{wiki_topic_name}/"
-        f"u/{wiki_article_name}/u",
+        f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}/"
+        f"u/{slugify(wiki_article_name)}/u",
         json=payload,
     )
     assert response.status_code == 200
@@ -328,8 +339,8 @@ async def test_create_picture(
 @pytest.mark.asyncio
 async def test_get_picture(client: TestClient):
     response = client.get(
-        f"/api/app/services/wiki/topics/u/{wiki_topic_name}/"
-        f"u/{wiki_article_name}/u/{wiki_picture_name}")
+        f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}/"
+        f"u/{slugify(wiki_article_name)}/u/{slugify(wiki_picture_name)}")
     assert response.status_code == 200
 
     data = json.loads(response.text)
@@ -341,8 +352,8 @@ async def test_get_picture(client: TestClient):
 @pytest.mark.asyncio
 async def test_delete_picture_unauthorized(client: TestClient):
     response = client.delete(
-        f"/api/app/services/wiki/topics/u/{wiki_topic_name}/"
-        f"u/{wiki_article_name}/u/{wiki_picture_name}")
+        f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}/"
+        f"u/{slugify(wiki_article_name)}/u/{slugify(wiki_picture_name)}")
     assert response.status_code == 403
 
 
@@ -367,8 +378,8 @@ async def test_delete_picture(
 
     # Run test
     response = client_operator.delete(
-        f"/api/app/services/wiki/topics/u/{wiki_topic_name}/"
-        f"u/{wiki_article_name}/u/{picture_name}")
+        f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}/"
+        f"u/{slugify(wiki_article_name)}/u/{slugify(picture_name)}")
     assert response.status_code == 200
 
     async with db.scoped_session() as session:

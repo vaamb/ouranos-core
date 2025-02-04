@@ -37,9 +37,9 @@ router = APIRouter(
 
 async def topic_or_abort(
         session: AsyncSession,
-        name: str,
+        slug: str,
 ) -> WikiTopic:
-    topic = await WikiTopic.get(session, name=name)
+    topic = await WikiTopic.get(session, slug=slug)
     if not topic:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -50,10 +50,10 @@ async def topic_or_abort(
 
 async def article_or_abort(
         session: AsyncSession,
-        topic: str,
-        name: str,
+        topic_slug: str,
+        slug: str,
 ) -> WikiArticle:
-    article = await WikiArticle.get(session, topic_name=topic, name=name)
+    article = await WikiArticle.get(session, topic_slug=topic_slug, slug=slug)
     if not article:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -106,10 +106,10 @@ async def create_tag(
         )
 
 
-@router.put("/tags/u/{tag_name}",
+@router.put("/tags/u/{tag_slug}",
             dependencies=[Depends(is_operator)])
 async def update_tag(
-        tag_name: Annotated[str, Path(description="The name of the tag")],
+        tag_slug: Annotated[str, Path(description="The name of the tag")],
         payload: Annotated[
             WikiTagUpdatePayload,
             Body(description="The updated tag information"),
@@ -120,15 +120,15 @@ async def update_tag(
         wiki_tag_dict = payload.model_dump(exclude_defaults=True)
         await WikiTag.update(
             session,
-            name=tag_name,
+            name=tag_slug,
             values=wiki_tag_dict,
         )
-        return f"Wiki tag '{tag_name}' was successfully updated."
+        return f"Wiki tag '{tag_slug}' was successfully updated."
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
-                f"Failed to update wiki tag '{tag_name}'. Error msg: "
+                f"Failed to update wiki tag '{tag_slug}'. Error msg: "
                 f"`{e.__class__.__name__}: {e}`",
             ),
         )
@@ -182,69 +182,71 @@ async def create_topic(
         )
 
 
-@router.get("/topics/u/{topic_name}",
+@router.get("/topics/u/{topic_slug}",
             response_model=WikiTopicInfo)
 async def get_topic(
         *,
-        topic_name: Annotated[str, Path(description="The name of the topic")],
+        topic_slug: Annotated[str, Path(description="The name of the topic")],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    topic = await topic_or_abort(session, name=topic_name)
+    topic = await topic_or_abort(session, slug=topic_slug)
     return topic
 
 
-@router.put("/topics/u/{topic_name}",
+@router.put("/topics/u/{topic_slug}",
                dependencies=[Depends(is_operator)])
 async def update_topic(
-        topic_name: Annotated[str, Path(description="The name of the topic")],
+        topic_slug: Annotated[str, Path(description="The name of the topic")],
         payload: Annotated[
             WikiTopicUpdatePayload,
             Body(description="The new topic information"),
         ],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    topic = await topic_or_abort(session, slug=topic_slug)
     try:
         wiki_topic_dict = payload.model_dump(by_alias=True, exclude_defaults=True)
         await WikiTopic.update(
             session,
-            name=topic_name,
+            name=topic.name,
             values=wiki_topic_dict,
         )
-        return f"Wiki topic '{topic_name}' was successfully updated.",
+        return f"Wiki topic '{topic_slug}' was successfully updated.",
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
-                f"Failed to update wiki topic '{topic_name}'. Error msg: "
+                f"Failed to update wiki topic '{topic_slug}'. Error msg: "
                 f"`{e.__class__.__name__}: {e}`",
             ),
         )
 
 
-@router.delete("/topics/u/{topic_name}",
+@router.delete("/topics/u/{topic_slug}",
                dependencies=[Depends(is_operator)])
 async def delete_topic(
-        topic_name: Annotated[str, Path(description="The name of the topic")],
+        topic_slug: Annotated[str, Path(description="The name of the topic")],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    topic = await topic_or_abort(session, slug=topic_slug)
     try:
-        await WikiTopic.delete(session, name=topic_name)
-        return f"Wiki topic '{topic_name}' was successfully deleted.",
+        await WikiTopic.delete(session, name=topic.name)
+        return f"Wiki topic '{topic_slug}' was successfully deleted.",
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
-                f"Failed to delete wiki topic '{topic_name}'. Error msg: "
+                f"Failed to delete wiki topic '{topic_slug}'. Error msg: "
                 f"`{e.__class__.__name__}: {e}`",
             ),
         )
 
 
-@router.get("/topics/u/{topic_name}/articles",
+@router.get("/topics/u/{topic_slug}/articles",
             response_model=list[WikiArticleInfo])
 async def get_topic_articles(
         *,
-        topic_name: Annotated[str, Path(description="The name of the topic")],
+        topic_slug: Annotated[str, Path(description="The name of the topic")],
         tags: Annotated[
             list[str] | None,
             Query(description="The tags of the articles"),
@@ -257,19 +259,19 @@ async def get_topic_articles(
 ):
     if limit > 50:
         limit = 50
-    await topic_or_abort(session, name=topic_name)
+    await topic_or_abort(session, slug=topic_slug)
     articles = await WikiArticle.get_multiple(
-        session, topic_name=topic_name, tags_name=tags, limit=limit)
+        session, topic_slug=topic_slug, tags_name=tags, limit=limit)
     return articles
 
 
-@router.get("/topics/u/{topic_name}/template",
+@router.get("/topics/u/{topic_slug}/template",
             response_model=str)
 async def get_topic_template(
-        topic_name: Annotated[str, Path(description="The name of the topic")],
+        topic_slug: Annotated[str, Path(description="The name of the topic")],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    topic = await topic_or_abort(session, name=topic_name)
+    topic = await topic_or_abort(session, slug=topic_slug)
     try:
         template = await topic.get_template()
         return template
@@ -278,20 +280,20 @@ async def get_topic_template(
             status_code=status.HTTP_404_NOT_FOUND)
 
 
-@router.post("/topics/u/{topic_name}/template",
+@router.post("/topics/u/{topic_slug}/template",
              dependencies=[Depends(is_operator)])
 async def create_topic_template(
-        topic_name: Annotated[str, Path(description="The name of the topic")],
+        topic_slug: Annotated[str, Path(description="The name of the topic")],
         payload: Annotated[
             WikiTopicTemplatePayload,
             Body(description="The new topic template"),
         ],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    topic = await topic_or_abort(session, name=topic_name)
+    topic = await topic_or_abort(session, slug=topic_slug)
     try:
         await topic.create_template(payload.content)
-        return f"A new template for topic '{topic_name}' was created"
+        return f"A new template for topic '{topic_slug}' was created"
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -302,10 +304,10 @@ async def create_topic_template(
         )
 
 
-@router.post("/topics/u/{topic_name}/template/upload_file",
+@router.post("/topics/u/{topic_slug}/template/upload_file",
              dependencies=[Depends(is_operator)])
 async def upload_topic_template(
-        topic_name: Annotated[str, Path(description="The name of the topic")],
+        topic_slug: Annotated[str, Path(description="The name of the topic")],
         file: UploadFile,
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
@@ -314,11 +316,11 @@ async def upload_topic_template(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="File should be a valid '.md' file"
         )
-    topic = await topic_or_abort(session, name=topic_name)
+    topic = await topic_or_abort(session, slug=topic_slug)
     try:
         content = await file.read()
         await topic.create_template(content.decode("utf-8"))
-        return f"A new template for topic '{topic_name}' was created"
+        return f"A new template for topic '{topic_slug}' was created"
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -329,10 +331,10 @@ async def upload_topic_template(
         )
 
 
-@router.post("/topics/u/{topic_name}/u",
+@router.post("/topics/u/{topic_slug}/u",
              dependencies=[Depends(is_operator)])
 async def create_article(
-        topic_name: Annotated[str, Path(description="The name of the topic")],
+        topic_slug: Annotated[str, Path(description="The name of the topic")],
         payload: Annotated[
             WikiArticleCreationPayload,
             Body(description="The new article"),
@@ -340,12 +342,13 @@ async def create_article(
         current_user: Annotated[UserMixin, Depends(get_current_user)],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    topic = await topic_or_abort(session, slug=topic_slug)
     try:
         wiki_article_dict = payload.model_dump(by_alias=True)
         name = wiki_article_dict.pop("name")
         await WikiArticle.create(
             session,
-            topic_name=topic_name,
+            topic_name=topic.name,
             name=name,
             values={
                 **wiki_article_dict,
@@ -363,10 +366,10 @@ async def create_article(
         )
 
 
-@router.post("/topics/u/{topic_name}/u/upload_file",
+@router.post("/topics/u/{topic_slug}/u/upload_file",
              dependencies=[Depends(is_operator)])
 async def upload_article(
-        topic_name: Annotated[str, Path(description="The name of the topic")],
+        topic_slug: Annotated[str, Path(description="The name of the topic")],
         file: UploadFile,
         current_user: Annotated[UserMixin, Depends(get_current_user)],
         session: Annotated[AsyncSession, Depends(get_session)],
@@ -378,8 +381,8 @@ async def upload_article(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"{e}"
         )
+    topic = await topic_or_abort(session, slug=topic_slug)
     try:
-        await topic_or_abort(session, topic_name)
         if file.size > MAX_TEXT_FILE_SIZE:
             raise HTTPException(
                 status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
@@ -388,7 +391,7 @@ async def upload_article(
         content = await file.read()
         await WikiArticle.create(
             session,
-            topic_name=topic_name,
+            topic_slug=topic.slug,
             name=file.filename.split(".")[0],
             values={
                 "content": content.decode("utf-8"),
@@ -406,22 +409,22 @@ async def upload_article(
         )
 
 
-@router.get("/topics/u/{topic_name}/u/{article_name}",
+@router.get("/topics/u/{topic_slug}/u/{article_slug}",
             response_model=WikiArticleInfo)
 async def get_article(
-        topic_name: Annotated[str, Path(description="The name of the topic")],
-        article_name: Annotated[str, Path(description="The name of the article")],
+        topic_slug: Annotated[str, Path(description="The name of the topic")],
+        article_slug: Annotated[str, Path(description="The name of the article")],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    article = await article_or_abort(session, topic=topic_name, name=article_name)
+    article = await article_or_abort(session, topic_slug=topic_slug, slug=article_slug)
     return article
 
 
-@router.put("/topics/u/{topic_name}/u/{article_name}",
+@router.put("/topics/u/{topic_slug}/u/{article_slug}",
             dependencies=[Depends(is_operator)])
 async def update_article(
-        topic_name: Annotated[str, Path(description="The name of the topic")],
-        article_name: Annotated[str, Path(description="The name of the article")],
+        topic_slug: Annotated[str, Path(description="The name of the topic")],
+        article_slug: Annotated[str, Path(description="The name of the article")],
         payload: Annotated[
             WikiArticleUpdatePayload,
             Body(description="The updated article")
@@ -429,95 +432,97 @@ async def update_article(
         current_user: Annotated[UserMixin, Depends(get_current_user)],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    article = await article_or_abort(session, topic_slug=topic_slug, slug=article_slug)
     try:
         wiki_article_dict = payload.model_dump(by_alias=True, exclude_defaults=True)
         await WikiArticle.update(
             session,
-            topic_name=topic_name,
-            name=article_name,
+            topic_name=article.topic_name,
+            name=article.name,
             values={
                 **wiki_article_dict,
                 "author_id": current_user.id,
             },
         )
-        return f"Wiki article '{article_name}' was successfully updated."
+        return f"Wiki article '{article_slug}' was successfully updated."
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
-                f"Failed to update wiki article '{article_name}'. Error msg: "
+                f"Failed to update wiki article '{article_slug}'. Error msg: "
                 f"`{e.__class__.__name__}: {e}`",
             ),
         )
 
 
-@router.delete("/topics/u/{topic_name}/u/{article_name}",
+@router.delete("/topics/u/{topic_slug}/u/{article_slug}",
                dependencies=[Depends(is_operator)])
 async def delete_article(
-        topic_name: Annotated[str, Path(description="The name of the topic")],
-        article_name: Annotated[str, Path(description="The name of the article")],
+        topic_slug: Annotated[str, Path(description="The name of the topic")],
+        article_slug: Annotated[str, Path(description="The name of the article")],
         current_user: Annotated[UserMixin, Depends(get_current_user)],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    article = await article_or_abort(session, topic_slug=topic_slug, slug=article_slug)
     try:
         await WikiArticle.delete(
-            session, topic_name=topic_name, name=article_name,
+            session, topic_name=article.topic_name, name=article.name,
             author_id=current_user.id)
-        return f"Wiki article '{article_name}' was successfully deleted."
+        return f"Wiki article '{article_slug}' was successfully deleted."
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
-                f"Failed to delete wiki article '{article_name}'. Error msg: "
+                f"Failed to delete wiki article '{article_slug}'. Error msg: "
                 f"`{e.__class__.__name__}: {e}`",
             ),
         )
 
 
-@router.get("/topics/u/{topic_name}/u/{article_name}/history",
+@router.get("/topics/u/{topic_slug}/u/{article_slug}/history",
             response_model=list[WikiArticleModificationInfo])
 async def get_article_history(
-        topic_name: Annotated[str, Path(description="The name of the topic")],
-        article_name: Annotated[str, Path(description="The name of the article")],
+        topic_slug: Annotated[str, Path(description="The name of the topic")],
+        article_slug: Annotated[str, Path(description="The name of the article")],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    article = await article_or_abort(session, topic=topic_name, name=article_name)
+    article = await article_or_abort(session, topic_slug=topic_slug, slug=article_slug)
     history = await WikiArticleModification.get_multiple(
         session, article_id=article.id, order_by=WikiArticleModification.version.desc())
     return history
 
 
-@router.get("/topics/u/{topic_name}/u/{article_name}/pictures",
+@router.get("/topics/u/{topic_slug}/u/{article_slug}/pictures",
             response_model=list[WikiArticlePictureInfo])
 async def get_article_pictures(
-        topic_name: Annotated[str, Path(description="The name of the topic")],
-        article_name: Annotated[str, Path(description="The name of the article")],
+        topic_slug: Annotated[str, Path(description="The name of the topic")],
+        article_slug: Annotated[str, Path(description="The name of the article")],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    await article_or_abort(session, topic=topic_name, name=article_name)
+    await article_or_abort(session, topic_slug=topic_slug, slug=article_slug)
     pictures = await WikiPicture.get_multiple(
-        session, topic_name=topic_name, article_name=article_name)
+        session, topic_slug=topic_slug, article_slug=article_slug)
     return pictures
 
 
-@router.post("/topics/u/{topic_name}/u/{article_name}/u",
+@router.post("/topics/u/{topic_slug}/u/{article_slug}/u",
              dependencies=[Depends(is_operator)])
 async def add_picture(
-        topic_name: Annotated[str, Path(description="The name of the topic")],
-        article_name: Annotated[str, Path(description="The name of the article")],
+        topic_slug: Annotated[str, Path(description="The name of the topic")],
+        article_slug: Annotated[str, Path(description="The name of the article")],
         payload: Annotated[
             WikiArticlePictureCreationPayload,
             Body(description="The new picture"),
         ],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    article = await article_or_abort(session, topic_slug=topic_slug, slug=article_slug)
     try:
-        await article_or_abort(session, topic_name, article_name)
         wiki_picture_dict = payload.model_dump(by_alias=True)
         await WikiPicture.create(
             session,
-            topic_name=topic_name,
-            article_name=article_name,
+            topic_name=article.topic_name,
+            article_name=article.name,
             name=wiki_picture_dict.pop("name"),
             values=wiki_picture_dict,
         )
@@ -532,11 +537,11 @@ async def add_picture(
         )
 
 
-@router.post("/topics/u/{topic_name}/u/{article_name}/u/upload_file",
+@router.post("/topics/u/{topic_slug}/u/{article_slug}/u/upload_file",
              dependencies=[Depends(is_operator)])
 async def upload_picture(
-        topic_name: Annotated[str, Path(description="The name of the topic")],
-        article_name: Annotated[str, Path(description="The name of the article")],
+        topic_slug: Annotated[str, Path(description="The name of the topic")],
+        article_slug: Annotated[str, Path(description="The name of the article")],
         file: UploadFile,
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
@@ -547,8 +552,8 @@ async def upload_picture(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"{e}"
         )
+    article = await article_or_abort(session, topic_slug=topic_slug, slug=article_slug)
     try:
-        await article_or_abort(session, topic_name, article_name)
         if file.size > MAX_PICTURE_FILE_SIZE:
             raise HTTPException(
                 status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
@@ -557,8 +562,8 @@ async def upload_picture(
         content = await file.read()
         await WikiPicture.create(
             session,
-            topic_name=topic_name,
-            article_name=article_name,
+            topic_name=article.topic_name,
+            article_name=article.name,
             name=file.filename.split(".")[0],
             values={
                 "content": content,
@@ -576,16 +581,16 @@ async def upload_picture(
         )
 
 
-@router.get("/topics/u/{topic_name}/u/{article_name}/u/{picture_name}",
+@router.get("/topics/u/{topic_slug}/u/{article_slug}/u/{picture_slug}",
             response_model=WikiArticlePictureInfo)
 async def get_picture(
-        topic_name: Annotated[str, Path(description="The name of the topic")],
-        article_name: Annotated[str, Path(description="The name of the article")],
-        picture_name: Annotated[str, Path(description="The name of the picture")],
+        topic_slug: Annotated[str, Path(description="The name of the topic")],
+        article_slug: Annotated[str, Path(description="The name of the article")],
+        picture_slug: Annotated[str, Path(description="The name of the picture")],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     picture = await WikiPicture.get(
-        session, topic_name=topic_name, article_name=article_name, name=picture_name)
+        session, topic_slug=topic_slug, article_slug=article_slug, slug=picture_slug)
     if not picture:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -594,24 +599,32 @@ async def get_picture(
     return picture
 
 
-@router.delete("/topics/u/{topic_name}/u/{article_name}/u/{picture_name}",
+@router.delete("/topics/u/{topic_slug}/u/{article_slug}/u/{picture_slug}",
                dependencies=[Depends(is_operator)])
 async def delete_picture(
-        topic_name: Annotated[str, Path(description="The name of the topic")],
-        article_name: Annotated[str, Path(description="The name of the article")],
-        picture_name: Annotated[str, Path(description="The name of the picture")],
+        topic_slug: Annotated[str, Path(description="The name of the topic")],
+        article_slug: Annotated[str, Path(description="The name of the article")],
+        picture_slug: Annotated[str, Path(description="The name of the picture")],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    picture = await WikiPicture.get(
+        session, topic_slug=topic_slug, article_slug=article_slug,
+        slug=picture_slug)
     try:
+        if not picture:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No picture(s) found"
+            )
         await WikiPicture.delete(
-            session, topic_name=topic_name, article_name=article_name,
-            name=picture_name)
-        return "The wiki picture '{picture_name}' was successfully deleted."
+            session, topic_name=picture.topic_name, article_name=picture.article_name,
+            name=picture.name)
+        return f"The wiki picture '{picture_slug}' was successfully deleted."
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
-                f"Failed to delete the wiki picture '{picture_name}'. Error msg: "
+                f"Failed to delete the wiki picture '{picture_slug}'. Error msg: "
                 f"`{e.__class__.__name__}: {e}`",
             ),
         )
