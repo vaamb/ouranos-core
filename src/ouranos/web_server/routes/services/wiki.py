@@ -610,12 +610,12 @@ async def delete_picture(
     picture = await WikiPicture.get(
         session, topic_slug=topic_slug, article_slug=article_slug,
         slug=picture_slug)
+    if not picture:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No picture(s) found"
+        )
     try:
-        if not picture:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="No picture(s) found"
-            )
         await WikiPicture.delete(
             session, topic_name=picture.topic_name, article_name=picture.article_name,
             name=picture.name)

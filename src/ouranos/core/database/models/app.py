@@ -1424,7 +1424,7 @@ class WikiPicture(Base, WikiTagged, CRUDMixin, WikiObject):
             stmt = stmt.join(WikiArticle.pictures)
             local_vars = locals()
             for arg in ["topic_name", "topic_slug", "article_name", "article_slug"]:
-                value = lookup_keys.get(arg)
+                value = local_vars.get(arg)
                 if arg.startswith("article"):
                     arg = arg[8:]
                 if value:
