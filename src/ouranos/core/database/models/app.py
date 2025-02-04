@@ -842,11 +842,15 @@ class WikiTag(Base, CRUDMixin, AsyncAttrs):
     name: Mapped[str] = mapped_column(sa.String(length=64), unique=True)
     description: Mapped[Optional[str]] = mapped_column(sa.String(length=512))
 
+    slug: Mapped[str] = mapped_column(sa.String(length=64), unique=True)
+
     # relationship
     topics: Mapped[list[WikiTopic]] = relationship(
         back_populates="tags", secondary=AssociationWikiTagTopic)
     articles: Mapped[list[WikiArticle]] = relationship(
         back_populates="tags", secondary=AssociationWikiTagArticle)
+    pictures: Mapped[list[WikiPicture]] = relationship(
+        back_populates="tags", secondary=AssociationWikiTagPicture)
 
     @classmethod
     async def create(
@@ -856,7 +860,7 @@ class WikiTag(Base, CRUDMixin, AsyncAttrs):
             values: dict | None = None,
             **lookup_keys: lookup_keys_type,
     ) -> None:
-        lookup_keys["name"] = slugify(lookup_keys["name"])
+        lookup_keys["slug"] = slugify(lookup_keys["name"])
         await super().create(session, values=values, **lookup_keys)
 
     @classmethod
@@ -867,7 +871,7 @@ class WikiTag(Base, CRUDMixin, AsyncAttrs):
             values: list[dict],
     ) -> None:
         for value in values:
-            value["name"] = slugify(value["name"])
+            value["slug"] = slugify(value["name"])
         await super().create_multiple(session, values=values)
 
 
@@ -943,6 +947,8 @@ class WikiTopic(Base, WikiTagged, CRUDMixin, WikiObject):
     path: Mapped[ioPath] = mapped_column(PathType(length=512))
     status: Mapped[bool] = mapped_column(default=True)
 
+    slug: Mapped[str] = mapped_column(sa.String(length=64), unique=True)
+
     # relationship
     articles: Mapped[list[WikiArticle]] = relationship(back_populates="topic")
     tags: Mapped[list[WikiTag]] = relationship(
@@ -955,6 +961,10 @@ class WikiTopic(Base, WikiTagged, CRUDMixin, WikiObject):
     def absolute_path(self) -> ioPath:
         return self.root_dir() / self.path
 
+    @property
+    def tags_slug(self) -> list[str]:
+        return [tag.slug for tag in self.tags]
+
     @classmethod
     async def create(
             cls,
@@ -964,8 +974,8 @@ class WikiTopic(Base, WikiTagged, CRUDMixin, WikiObject):
             **lookup_keys: lookup_keys_type,
     ) -> None:
         values = values or {}
-        name = lookup_keys["name"]
-        topic_dir = cls.wiki_dir() / slugify(name)
+        slug = lookup_keys["slug"] = slugify(lookup_keys["name"])
+        topic_dir = cls.wiki_dir() / slug
         # Create the topic dir
         await topic_dir.mkdir(parents=True, exist_ok=True)
         values["path"] = cls.get_rel_path(topic_dir)
@@ -999,6 +1009,7 @@ class WikiTopic(Base, WikiTagged, CRUDMixin, WikiObject):
             values: dict,
             **lookup_keys: lookup_keys_type,
     ) -> None:
+        lookup_keys["slug"] = slugify(lookup_keys["name"])
         tags_name: list[str] = values.pop("tags_name", [])
         await super().update(session, values=values, **lookup_keys)
         if tags_name:
@@ -1048,6 +1059,9 @@ class WikiArticle(Base, WikiTagged, CRUDMixin, WikiObject):
     path: Mapped[ioPath] = mapped_column(PathType(length=512))
     status: Mapped[bool] = mapped_column(default=True)
 
+    topic_slug: Mapped[str] = mapped_column(sa.String(length=64))
+    slug: Mapped[str] = mapped_column(sa.String(length=64))
+
     # relationship
     topic: Mapped[WikiTopic] = relationship(back_populates="articles", lazy="selectin")
     modifications: Mapped[list[WikiArticleModification]] = relationship(back_populates="article")
@@ -1075,6 +1089,10 @@ class WikiArticle(Base, WikiTagged, CRUDMixin, WikiObject):
     @property
     def abs_content_path(self) -> ioPath:
         return self.abs_path / self.content_name
+
+    @property
+    def tags_slug(self) -> list[str]:
+        return [tag.slug for tag in self.tags]
 
     async def set_content(self, content: str) -> None:
         async with await self.abs_content_path.open("w") as f:
@@ -1122,7 +1140,9 @@ class WikiArticle(Base, WikiTagged, CRUDMixin, WikiObject):
         topic = await WikiTopic.get(session, name=topic_name)
         if topic is None:
             raise WikiArticleNotFound
-        article_dir = topic.absolute_path / slugify(name)
+        lookup_keys["topic_slug"] = topic.slug
+        slug = lookup_keys["slug"] = slugify(name)
+        article_dir = topic.absolute_path / slug
         await article_dir.mkdir(parents=True, exist_ok=True)
         rel_path = article_dir.relative_to(current_app.static_dir)
         values["path"] = str(rel_path)
@@ -1197,6 +1217,8 @@ class WikiArticle(Base, WikiTagged, CRUDMixin, WikiObject):
         article = await cls.get(session, topic_name=topic_name, name=name)
         if not article:
             raise WikiArticleNotFound
+        lookup_keys["topic_slug"] = slugify(topic_name)
+        lookup_keys["slug"] = slugify(name)
         # Update the article info
         content = values.pop("content")
         author_id = values.pop("author_id")
@@ -1338,8 +1360,12 @@ class WikiPicture(Base, WikiTagged, CRUDMixin, WikiObject):
     path: Mapped[ioPath] = mapped_column(PathType(length=512))
     status: Mapped[bool] = mapped_column(default=True)
 
+    slug: Mapped[str] = mapped_column(sa.String(length=64))
+
     # relationship
     article: Mapped[WikiArticle] = relationship(back_populates="pictures", lazy="selectin")
+    tags: Mapped[list[WikiTag]] = relationship(
+        back_populates="pictures", secondary=AssociationWikiTagPicture, lazy="selectin")
 
     def __repr__(self) -> str:
         return (
@@ -1352,12 +1378,24 @@ class WikiPicture(Base, WikiTagged, CRUDMixin, WikiObject):
         return self.article.topic_name
 
     @property
+    def topic_slug(self) -> str:
+        return self.article.topic_slug
+
+    @property
     def article_name(self) -> str:
         return self.article.name
 
     @property
+    def article_slug(self) -> str:
+        return self.article.slug
+
+    @property
     def absolute_path(self) -> ioPath:
         return self.root_dir() / self.path
+
+    @property
+    def tags_slug(self) -> list[str]:
+        return [tag.slug for tag in self.tags]
 
     async def set_image(self, image: bytes) -> None:
         async with await self.absolute_path.open("wb") as f:
@@ -1378,18 +1416,23 @@ class WikiPicture(Base, WikiTagged, CRUDMixin, WikiObject):
     ) -> Select:
         lookup_keys["status"] = True
         topic_name = lookup_keys.pop("topic_name", None)
+        topic_slug = lookup_keys.pop("topic_slug", None)
         article_name = lookup_keys.pop("article_name", None)
+        article_slug = lookup_keys.pop("article_slug", None)
         stmt = super()._generate_get_query(offset, limit, order_by, **lookup_keys)
-        if topic_name or article_name:
+        if any ((topic_name, topic_slug, article_name, article_slug)):
             stmt = stmt.join(WikiArticle.pictures)
-            if isinstance(topic_name, list):
-                stmt = stmt.where(WikiArticle.topic_name.in_(topic_name))
-            else:
-                stmt = stmt.where(WikiArticle.topic_name == topic_name)
-            if isinstance(article_name, list):
-                stmt = stmt.where(WikiArticle.name.in_(article_name))
-            else:
-                stmt = stmt.where(WikiArticle.name == article_name)
+            local_vars = locals()
+            for arg in ["topic_name", "topic_slug", "article_name", "article_slug"]:
+                value = local_vars.get(arg)
+                if arg.startswith("article"):
+                    arg = arg[8:]
+                if value:
+                    wiki_article_col = getattr(WikiArticle, arg)
+                    if isinstance(value, list):
+                        stmt = stmt.where(wiki_article_col.in_(value))
+                    else:
+                        stmt = stmt.where(wiki_article_col == value)
         return stmt
 
     @classmethod
@@ -1414,7 +1457,8 @@ class WikiPicture(Base, WikiTagged, CRUDMixin, WikiObject):
             extension = f".{extension}"
         check_filename(f"{name}{extension}", SUPPORTED_IMAGE_EXTENSIONS)
         # Get path info
-        path = article.path / f"{slugify(name)}{extension}"
+        slug = lookup_keys["slug"] = slugify(name)
+        path = article.path / f"{slug}{extension}"
         values["path"] = str(path)
         # Create the picture info
         content = values.pop("content")
@@ -1444,6 +1488,7 @@ class WikiPicture(Base, WikiTagged, CRUDMixin, WikiObject):
         if article is None:
             raise WikiArticleNotFound
         lookup_keys["article_id"] = article.id
+        lookup_keys["slug"] = slugify(lookup_keys["name"])
         await super().update(session, values=values, **lookup_keys)
 
     @classmethod

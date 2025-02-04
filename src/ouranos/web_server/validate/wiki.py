@@ -14,6 +14,7 @@ from ouranos.core.validate.base import BaseModel
 
 class WikiTagInfo(BaseModel):
     name: str
+    slug: str
     description: str | None = None
 
 
@@ -29,8 +30,10 @@ class WikiTagUpdatePayload(BaseModel):
 
 class WikiTopicInfo(BaseModel):
     name: str
+    slug : str
     description: str | None = None
     tags: list[str] = Field(default_factory=list)
+    tags_slug: list[str] = Field(default_factory=list)
     path: str
 
     @field_validator("path", mode="before")
@@ -68,9 +71,12 @@ class WikiTopicTemplatePayload(BaseModel):
 
 class WikiArticleInfo(BaseModel):
     topic: str = Field(validation_alias="topic_name")
+    topic_slug: str
     name: str
+    slug: str
     description: str | None = None
     tags: list[str] = Field(default_factory=list)
+    tags_slug: list[str] = Field(default_factory=list)
     path: str = Field(validation_alias="content_path")
 
     @field_validator("tags", mode="before")
@@ -120,9 +126,24 @@ class WikiArticleModificationInfo(BaseModel):
 
 class WikiArticlePictureInfo(BaseModel):
     topic: str = Field(validation_alias="topic_name")
+    topic_slug: str = Field(validation_alias="topic_slug")
     article: str = Field(validation_alias="article_name")
+    article_slug: str = Field(validation_alias="article_slug")
     name: str
+    slug: str
+    tags: list[str] = Field(default_factory=list)
+    tags_slug: list[str] = Field(default_factory=list)
     path: str
+
+    @field_validator("tags", mode="before")
+    def parse_tags(cls, values):
+        if (
+                isinstance(values, list)
+                and len(values) > 0
+                and isinstance(values[0], WikiTag)
+        ):
+            return [value.name for value in values]
+        return values
 
     @field_validator("path", mode="before")
     def parse_path(cls, value):
