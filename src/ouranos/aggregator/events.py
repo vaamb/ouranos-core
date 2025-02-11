@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from threading import Lock
-import inspect
 from functools import wraps
 import logging
 import typing as t
@@ -87,7 +86,7 @@ def validate_payload(model_cls: Type[gv.BaseModel] | Type[RootModel]):
             try:
                 validated_data = model_cls.model_validate(data).model_dump(by_alias=True)
             except ValidationError as e:
-                event = inspect.stack()[1].function.lstrip("on_")
+                event: str = func.__name__[3:]
                 msg_list = [f"{error['loc'][0]}: {error['msg']}" for error in e.errors()]
                 self.logger.error(
                     f"Encountered an error while validating '{event}' data. Error "
