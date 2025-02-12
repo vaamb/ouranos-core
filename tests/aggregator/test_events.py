@@ -344,7 +344,7 @@ async def test_log_sensors_data(
             await SensorDataRecord.get_records(
                 session,
                 sensor_uid=g_data.hardware_uid,
-                measure_name=g_data.measure_name,
+                measure=g_data.measure_name,
                 time_window=create_time_window(
                     start_time=datetime.now(timezone.utc) - timedelta(hours=1),
                     end_time=datetime.now(timezone.utc) + timedelta(hours=1),
@@ -412,7 +412,7 @@ async def test_on_buffered_sensors_data(
             await SensorDataRecord.get_records(
                 session,
                 sensor_uid=g_data.hardware_uid,
-                measure_name="temperature",
+                measure="temperature",
                 time_window=create_time_window(
                     end_time=datetime.now(timezone.utc) + timedelta(days=1))
             )
