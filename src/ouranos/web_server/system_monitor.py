@@ -79,7 +79,7 @@ class SystemMonitor:
                 if not logged:
                     async with db.scoped_session() as session:
                         self.logger.debug("Logging system resources")
-                        await SystemDataRecord.create_records(
+                        await SystemDataRecord.create_multiple(
                             session, {"system_uid": uid, **common_data})
                 logged = True
             else:

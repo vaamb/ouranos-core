@@ -79,7 +79,7 @@ async def add_ecosystems(db: AsyncSQLAlchemyWrapper):
 
         adapted_sensor_record["timestamp"] = (
                 g_data.sensors_data["timestamp"] - timedelta(hours=1))
-        await SensorDataRecord.create_records(session, adapted_sensor_record)
+        await SensorDataRecord.create_multiple(session, adapted_sensor_record)
 
         actuator_state = {
             "active": g_data.actuator_record.active,
@@ -94,7 +94,7 @@ async def add_ecosystems(db: AsyncSQLAlchemyWrapper):
         actuator_state["ecosystem_uid"] = uid
         actuator_state["type"] = g_data.actuator_record.type
         actuator_state["timestamp"] = g_data.actuator_record.timestamp
-        await ActuatorRecord.create_records(session, actuator_state)
+        await ActuatorRecord.create_multiple(session, actuator_state)
 
         # TODO: fix when health data is reimplemented
         #adapted_health_data = {
@@ -122,7 +122,7 @@ async def add_system(db: AsyncSQLAlchemyWrapper):
 
         adapted_system_record["timestamp"] = (
                 system_data_dict["timestamp"] - timedelta(hours=1))
-        await SystemDataRecord.create_records(session, adapted_system_record)
+        await SystemDataRecord.create_multiple(session, adapted_system_record)
 
 
 @pytest_asyncio.fixture(scope="module", autouse=True)

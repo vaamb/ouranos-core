@@ -868,7 +868,7 @@ class Sensor(Hardware):
             session: AsyncSession,
             values: dict | list[dict],
     ) -> None:
-        await SensorDataRecord.create_records(session, values)
+        await SensorDataRecord.create_multiple(session, values)
 
 
 class Actuator(Hardware):
@@ -1100,26 +1100,6 @@ class SensorDataCache(BaseSensorData, CacheMixin):
 class BaseSensorDataRecord(BaseSensorData, RecordMixin):
     __abstract__ = True
 
-    @classmethod
-    async def get_records(
-            cls,
-            session: AsyncSession,
-            sensor_uid: str,
-            measure_name: str,
-            time_window: timeWindow
-    ) -> Sequence[Self]:
-        stmt = (
-            select(cls)
-            .where(cls.measure == measure_name)
-            .where(cls.sensor_uid == sensor_uid)
-            .where(
-                (cls.timestamp > time_window.start)
-                & (cls.timestamp <= time_window.end)
-            )
-        )
-        result = await session.execute(stmt)
-        return result.scalars().all()
-
 
 class SensorDataRecord(BaseSensorDataRecord):
     __tablename__ = "sensor_records"
@@ -1128,17 +1108,6 @@ class SensorDataRecord(BaseSensorDataRecord):
     # relationships
     ecosystem: Mapped["Ecosystem"] = relationship(back_populates="sensor_records")
     sensor: Mapped["Hardware"] = relationship(back_populates="sensor_records")
-
-    @classmethod
-    async def get_records(
-            cls,
-            session: AsyncSession,
-            sensor_uid: str,
-            measure_name: str,
-            time_window: timeWindow
-    ) -> Sequence[Self]:
-        return await super().get_records(
-            session, sensor_uid, measure_name, time_window)
 
     @classmethod
     @cached(cache_sensors_value, key=sessionless_hashkey)
@@ -1317,26 +1286,6 @@ class BaseActuatorRecord(Base, RecordMixin):
         )
 
     @classmethod
-    async def get_records(
-            cls,
-            session: AsyncSession,
-            ecosystem_uid: str,
-            actuator_type: gv.HardwareType,
-            time_window: timeWindow,
-    ) -> Sequence[Self]:
-        stmt = (
-            select(cls)
-            .where(cls.ecosystem_uid == ecosystem_uid)
-            .where(cls.type == actuator_type)
-            .where(
-                (cls.timestamp > time_window.start)
-                & (cls.timestamp <= time_window.end)
-            )
-        )
-        result = await session.execute(stmt)
-        return result.scalars().all()
-
-    @classmethod
     async def get_timed_values(
             cls,
             session: AsyncSession,
@@ -1390,24 +1339,6 @@ class HealthRecord(BaseHealthRecord):
 
     # relationships
     ecosystem: Mapped["Ecosystem"] = relationship("Ecosystem", back_populates="health_records")
-
-    @classmethod
-    async def get_records(
-            cls,
-            session: AsyncSession,
-            ecosystem_uid: str,
-            time_window: timeWindow,
-    ) -> Sequence[Self]:
-        stmt = (
-            select(cls)
-            .where(cls.ecosystem_uid == ecosystem_uid)
-            .where(
-                (cls.timestamp > time_window.start)
-                & (cls.timestamp <= time_window.end)
-            )
-        )
-        result = await session.execute(stmt)
-        return result.scalars().all()
 
 
 # ---------------------------------------------------------------------------

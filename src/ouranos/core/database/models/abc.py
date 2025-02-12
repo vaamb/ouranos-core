@@ -9,10 +9,12 @@ from uuid import UUID
 from sqlalchemy import (
     and_, delete, insert, inspect, Select, select, UnaryExpression, update)
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Mapped
 
 from gaia_validators import missing
 
 from ouranos import db
+from ouranos.core.utils import timeWindow
 
 
 lookup_keys_type: str | Enum | UUID | bool
@@ -67,7 +69,7 @@ class CRUDMixin:
             cls,
             session: AsyncSession,
             /,
-            values: list[dict],
+            values: list[dict] | list[NamedTuple],
     ) -> None:
         stmt = insert(cls).values(values)
         await session.execute(stmt)
@@ -212,24 +214,31 @@ class CRUDMixin:
             await cls.update(session, values=values, **lookup_keys)
 
 
-class RecordMixin:
-    @classmethod
-    async def create_records(
-            cls,
-            session: AsyncSession,
-            values: dict | list[dict] | list[NamedTuple],
-    ) -> None:
-        stmt = insert(cls).values(values)
-        await session.execute(stmt)
+class RecordMixin(CRUDMixin):
+    """Records are Models with at least one `timestamp` column that can be
+    queried with a `timeWindow`"""
+
+    timestamp: Mapped[datetime]
 
     @classmethod
-    @abstractmethod
     async def get_records(
             cls,
             session: AsyncSession,
-            **kwargs
+            /,
+            offset: int | None = None,
+            limit: int | None = None,
+            order_by: UnaryExpression | None = None,
+            time_window: timeWindow | None = None,
+            **lookup_keys: list[lookup_keys_type] | lookup_keys_type | None,
     ) -> Sequence[Self]:
-        raise NotImplementedError
+        stmt = cls._generate_get_query(offset, limit, order_by, **lookup_keys)
+        if time_window:
+            stmt = stmt.where(
+                (cls.timestamp > time_window.start)
+                & (cls.timestamp <= time_window.end)
+            )
+        result = await session.execute(stmt)
+        return result.scalars().all()
 
 
 class CacheMixin:

@@ -766,7 +766,7 @@ class GaiaEvents(AsyncEventHandler):
             f"Sent `historic_sensors_data_update` to the web API")
         # Log historic data in db
         async with db.scoped_session() as session:
-            await SensorDataRecord.create_records(session, records_to_create)
+            await SensorDataRecord.create_multiple(session, records_to_create)
             # Update the last_log column for hardware
             for hardware_uid, update_value in hardware_to_update.items():
                 await Hardware.update(session, uid=hardware_uid, values=update_value)
@@ -789,7 +789,7 @@ class GaiaEvents(AsyncEventHandler):
     ) -> None:
         async with db.scoped_session() as session:
             try:
-                await record_model.create_records(session, records)
+                await record_model.create_multiple(session, records)
             except Exception as e:
                 await self.emit(
                     "buffered_data_ack",
@@ -897,7 +897,7 @@ class GaiaEvents(AsyncEventHandler):
                             **common_data,
                         }))
             if records_to_log:
-                await ActuatorRecord.create_records(session, records_to_log)
+                await ActuatorRecord.create_multiple(session, records_to_log)
             if data_to_dispatch:
                 await self.internal_dispatcher.emit(
                     "actuators_data", data=data_to_dispatch,
@@ -968,7 +968,7 @@ class GaiaEvents(AsyncEventHandler):
                 }
                 values.append(health_data)
             if values:
-                await HealthRecord.create_records(session, values)
+                await HealthRecord.create_multiple(session, values)
             self.logger.debug(
                 f"Logged health data from ecosystem(s): "
                 f"{humanize_list(logged)}"
