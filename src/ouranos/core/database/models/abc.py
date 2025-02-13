@@ -3,11 +3,13 @@ from __future__ import annotations
 from abc import abstractmethod
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import NamedTuple, Self, Sequence
+import typing as t
+from typing import Callable, Literal, NamedTuple, Self, Sequence
 from uuid import UUID
+from warnings import warn
 
 from sqlalchemy import (
-    and_, delete, insert, inspect, Select, select, UnaryExpression, update)
+    and_, delete, Insert, inspect, Select, select, table, UnaryExpression, update)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped
 
@@ -35,48 +37,175 @@ class ToDictMixin:
 class Base(db.Model, ToDictMixin):
     __abstract__ = True
 
+    _dialect: str | None = None
+    _insert: Callable[[table], Insert] | None = None
+    _on_conflict_do: Callable[[Insert, str], Insert] | None = None
+
+    @classmethod
+    def _get_dialect(cls) -> str:
+        if cls._dialect is None:
+            table = db.Model.metadata.tables[cls.__tablename__]
+            bind_key = table.info.get("bind_key", None)
+            engine = db.get_engine_for_bind(bind_key)
+            cls._dialect = engine.dialect.name
+        return cls._dialect
+
+    @classmethod
+    def _get_insert(cls) -> Callable[[table], Insert]:
+        """Get a dialect-specific `insert`"""
+        if cls._insert is None:
+            dialect = cls._get_dialect()
+            if dialect in ["mariadb", "mysql"]:
+                from sqlalchemy.dialects.mysql import insert
+                cls._insert = insert
+            elif dialect == "postgresql":
+                from sqlalchemy.dialects.postgresql import insert
+                cls._insert = insert
+            elif dialect == "sqlite":
+                from sqlalchemy.dialects.sqlite import insert
+                cls._insert = insert
+            else:
+                from sqlalchemy import insert
+                cls._insert = insert
+        return cls._insert
+
+    @classmethod
+    def _get_on_conflict_do(cls) -> Callable[[Insert, str], Insert]:
+        if cls._on_conflict_do is None:
+            dialect = cls._get_dialect()
+
+            if dialect in ["mariadb", "mysql"]:
+                if t.TYPE_CHECKING:
+                    from sqlalchemy.dialects.mysql import Insert
+
+                def impl(stmt: Insert, action: str) -> Insert:
+                    if action == "nothing":
+                        unique = cls._get_lookup_keys()[0]
+                        stmt = stmt.on_duplicate_key_update(
+                            {unique: getattr(stmt.inserted, unique)},
+                        )
+                    elif action == "update":
+                        stmt = stmt.on_duplicate_key_update(
+                            {"data": stmt.inserted.data},
+                        )
+                    else:
+                        raise ValueError
+                    return stmt
+
+            elif dialect == "postgresql":
+                if t.TYPE_CHECKING:
+                    from sqlalchemy.dialects.postgresql import Insert
+
+                def impl(stmt: Insert, action: str) -> Insert:
+                    if action == "nothing":
+                        stmt = stmt.on_conflict_do_nothing(
+                            index_elements=cls._get_lookup_keys(),
+                        )
+                    elif action == "update":
+                        columns_name = inspect(cls).attrs.keys()
+                        stmt = stmt.on_conflict_do_update(
+                            index_elements=cls._get_lookup_keys(),
+                            set_={
+                                column: getattr(stmt.excluded, column)
+                                for column in columns_name
+                                if column not in cls._get_lookup_keys()
+                            },
+                        )
+                    else:
+                        raise ValueError
+                    return stmt
+
+            elif dialect == "sqlite":
+                if t.TYPE_CHECKING:
+                    from sqlalchemy.dialects.sqlite import Insert
+
+                def impl(stmt: Insert, action: str) -> Insert:
+                    if action == "nothing":
+                        stmt = stmt.on_conflict_do_nothing(
+                            index_elements=cls._get_lookup_keys(),
+                        )
+                    elif action == "update":
+                        columns_name = inspect(cls).attrs.keys()
+                        stmt = stmt.on_conflict_do_update(
+                            index_elements=cls._get_lookup_keys(),
+                            set_={
+                                column: getattr(stmt.excluded, column)
+                                for column in columns_name
+                                if column not in cls._get_lookup_keys()
+                            },
+                        )
+                    else:
+                        raise ValueError
+                    return stmt
+
+            else:
+                warn(
+                    f"Dialect '{dialect}' is not yet supported. Feel free to "
+                    f"add it.")
+
+                def impl(stmt: Insert, action: str) -> Insert:
+                    if action not in ["nothing", "update"]:
+                        raise ValueError
+                    return stmt
+
+            cls._on_conflict_do = impl
+        return cls._on_conflict_do
+
 
 class CRUDMixin:
     _lookup_keys: list[str] | None = None
 
     @classmethod
-    def _get_lookup_keys(cls) -> list[str]:
+    def _get_lookup_keys(cls: Base) -> list[str]:
         if cls._lookup_keys is None:
             cls._lookup_keys = [column.name for column in inspect(cls).primary_key]
         return cls._lookup_keys
 
     @classmethod
-    def _check_lookup_keys(cls, *lookup_keys: str) -> None:
+    def _check_lookup_keys(cls: Base, *lookup_keys: str) -> None:
         valid_lookup_keys = cls._get_lookup_keys()
         if not all(lookup_key in lookup_keys for lookup_key in valid_lookup_keys):
             raise ValueError("You should provide all the lookup keys")
 
     @classmethod
     async def create(
-            cls,
+            cls: Base,
             session: AsyncSession,
             /,
             values: dict | None = None,
+            _on_conflict_do: Literal["update", "nothing"] | None = None,
             **lookup_keys: lookup_keys_type,
     ) -> None:
         cls._check_lookup_keys(*lookup_keys.keys())
         values = values or {}
+        insert = cls._get_insert()
         stmt = insert(cls).values(**lookup_keys, **values)
+        if _on_conflict_do:
+            if cls._on_conflict_do is None:
+                cls._on_conflict_do = cls._get_on_conflict_do()
+            stmt = cls._on_conflict_do(stmt, _on_conflict_do)
+        x = 1
         await session.execute(stmt)
 
     @classmethod
     async def create_multiple(
-            cls,
+            cls: Base,
             session: AsyncSession,
             /,
             values: list[dict] | list[NamedTuple],
+            _on_conflict_do: Literal["update", "nothing"] | None = None,
     ) -> None:
+        insert = cls._get_insert()
         stmt = insert(cls).values(values)
+        if _on_conflict_do:
+            if cls._on_conflict_do is None:
+                cls._on_conflict_do = cls._get_on_conflict_do()
+            stmt = cls._on_conflict_do(stmt, _on_conflict_do)
         await session.execute(stmt)
 
     @classmethod
     def _generate_get_query(
-            cls,
+            cls: Base,
             offset: int | None = None,
             limit: int | None = None,
             order_by: str | None = None,
@@ -100,7 +229,7 @@ class CRUDMixin:
 
     @classmethod
     async def get(
-            cls,
+            cls: Base,
             session: AsyncSession,
             /,
             offset: int | None = None,
@@ -122,7 +251,7 @@ class CRUDMixin:
 
     @classmethod
     async def get_multiple(
-            cls,
+            cls: Base,
             session: AsyncSession,
             /,
             offset: int | None = None,
@@ -144,7 +273,7 @@ class CRUDMixin:
 
     @classmethod
     async def update(
-            cls,
+            cls: Base,
             session: AsyncSession,
             /,
             values: dict,
@@ -169,7 +298,7 @@ class CRUDMixin:
 
     @classmethod
     async def update_multiple(
-            cls,
+            cls: Base,
             session: AsyncSession,
             /,
             values: list[dict],
@@ -181,7 +310,7 @@ class CRUDMixin:
 
     @classmethod
     async def delete(
-            cls,
+            cls: Base,
             session: AsyncSession,
             /,
             **lookup_keys: lookup_keys_type,
@@ -200,7 +329,7 @@ class CRUDMixin:
 
     @classmethod
     async def update_or_create(
-            cls,
+            cls: Base,
             session: AsyncSession,
             /,
             values: dict | None = None,
@@ -222,7 +351,7 @@ class RecordMixin(CRUDMixin):
 
     @classmethod
     async def get_records(
-            cls,
+            cls: Base,
             session: AsyncSession,
             /,
             offset: int | None = None,
@@ -230,7 +359,7 @@ class RecordMixin(CRUDMixin):
             order_by: UnaryExpression | None = None,
             time_window: timeWindow | None = None,
             **lookup_keys: list[lookup_keys_type] | lookup_keys_type | None,
-    ) -> Sequence[Self]:
+    ) -> Sequence[Base]:
         stmt = cls._generate_get_query(offset, limit, order_by, **lookup_keys)
         if time_window:
             stmt = stmt.where(
@@ -242,31 +371,32 @@ class RecordMixin(CRUDMixin):
 
 
 class CacheMixin:
-    timestamp: datetime
+    timestamp: Mapped[datetime]
 
     @classmethod
     @abstractmethod
-    def get_ttl(cls) -> int:
+    def get_ttl(cls: Base) -> int:
         """Return data TTL in seconds"""
         raise NotImplementedError
 
     @classmethod
     async def insert_data(
-            cls,
+            cls: Base,
             session: AsyncSession,
             values: dict | list[dict]
     ) -> None:
         await cls.remove_expired(session)
+        insert = cls._get_insert()
         stmt = insert(cls).values(values)
         await session.execute(stmt)
 
     @classmethod
     @abstractmethod
     async def get_recent(
-            cls,
+            cls: Base,
             session: AsyncSession,
             **kwargs
-    ) -> Sequence[Self]:
+    ) -> Sequence[Base]:
         """Must start by calling `await cls.remove_expired(session)`"""
         raise NotImplementedError
 
@@ -277,6 +407,6 @@ class CacheMixin:
         await session.execute(stmt)
 
     @classmethod
-    async def clear(cls, session: AsyncSession) -> None:
+    async def clear(cls: Base, session: AsyncSession) -> None:
         stmt = delete(cls)
         await session.execute(stmt)
