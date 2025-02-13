@@ -789,7 +789,8 @@ class GaiaEvents(AsyncEventHandler):
     ) -> None:
         async with db.scoped_session() as session:
             try:
-                await record_model.create_multiple(session, records)
+                await record_model.create_multiple(
+                    session, records, _on_conflict_do="nothing")
             except Exception as e:
                 await self.emit(
                     "buffered_data_ack",
