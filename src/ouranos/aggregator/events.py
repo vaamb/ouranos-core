@@ -67,13 +67,15 @@ def registration_required(func: Callable):
     engine_uid"""
 
     @wraps(func)
-    async def wrapper(self: GaiaEvents, sid: UUID, data: data_type, *args, **kwargs):
+    async def wrapper(self: GaiaEvents, sid: UUID, data: data_type=None):
         async with self.session(sid) as session:
             engine_uid: str | None = session.get("engine_uid")
         if engine_uid is None:
             raise NotRegisteredError(f"Engine with sid {sid} is not registered.")
         else:
-            return await func(self, sid, data, engine_uid, *args, **kwargs)
+            if data:
+                return await func(self, sid, data, engine_uid)
+            return await func(self, sid, engine_uid)
     return wrapper
 
 
@@ -82,7 +84,7 @@ def validate_payload(model_cls: Type[gv.BaseModel] | Type[RootModel]):
     and the remaining decorators"""
     def decorator(func: Callable):
         @wraps(func)
-        async def wrapper(self: GaiaEvents, sid: str, data: PT, *args, **kwargs):
+        async def wrapper(self: GaiaEvents, sid: str, data: PT, *args):
             try:
                 validated_data = model_cls.model_validate(data).model_dump(by_alias=True)
             except ValidationError as e:
@@ -93,7 +95,7 @@ def validate_payload(model_cls: Type[gv.BaseModel] | Type[RootModel]):
                     f"msg: {', '.join(msg_list)}"
                 )
                 raise
-            return await func(self, sid, validated_data, *args, **kwargs)
+            return await func(self, sid, validated_data, *args)
         return wrapper
     return decorator
 
@@ -101,11 +103,11 @@ def validate_payload(model_cls: Type[gv.BaseModel] | Type[RootModel]):
 def dispatch_to_application(func: Callable):
     """Decorator which dispatch the data to the clients namespace"""
     @wraps(func)
-    async def wrapper(self: GaiaEvents, sid: str, data: data_type, *args, **kwargs):
+    async def wrapper(self: GaiaEvents, sid: str, data: data_type, *args):
         event: str = func.__name__[3:]
         await self.internal_dispatcher.emit(
             event, data=data, namespace="application-internal", ttl=15)
-        return await func(self, sid, data, *args, **kwargs)
+        return await func(self, sid, data, *args)
     return wrapper
 
 
@@ -267,7 +269,7 @@ class GaiaEvents(AsyncEventHandler):
     @registration_required
     async def on_initialization_data_sent(
             self,
-            sid: UUID,  # noqa
+            sid: UUID,
             engine_uid: str,
     ) -> None:
         async with self.session(sid) as session:
