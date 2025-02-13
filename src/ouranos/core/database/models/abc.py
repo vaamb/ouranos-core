@@ -3,8 +3,10 @@ from __future__ import annotations
 from abc import abstractmethod
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import NamedTuple, Self, Sequence
+import typing as t
+from typing import Callable, Literal, NamedTuple, Self, Sequence
 from uuid import UUID
+from warnings import warn
 
 from sqlalchemy import (
     and_, delete, Insert, inspect, Select, select, table, UnaryExpression, update)
@@ -37,6 +39,7 @@ class Base(db.Model, ToDictMixin):
 
     _dialect: str | None = None
     _insert: Callable[[table], Insert] | None = None
+    _on_conflict_do: Callable[[Insert, str], Insert] | None = None
 
     @classmethod
     def _get_dialect(cls) -> str:
@@ -66,6 +69,88 @@ class Base(db.Model, ToDictMixin):
                 cls._insert = insert
         return cls._insert
 
+    @classmethod
+    def _get_on_conflict_do(cls) -> Callable[[Insert, str], Insert]:
+        if cls._on_conflict_do is None:
+            dialect = cls._get_dialect()
+
+            if dialect in ["mariadb", "mysql"]:
+                if t.TYPE_CHECKING:
+                    from sqlalchemy.dialects.mysql import Insert
+
+                def impl(stmt: Insert, action: str) -> Insert:
+                    if action == "nothing":
+                        unique = cls._get_lookup_keys()[0]
+                        stmt = stmt.on_duplicate_key_update(
+                            {unique: getattr(stmt.inserted, unique)},
+                        )
+                    elif action == "update":
+                        stmt = stmt.on_duplicate_key_update(
+                            {"data": stmt.inserted.data},
+                        )
+                    else:
+                        raise ValueError
+                    return stmt
+
+            elif dialect == "postgresql":
+                if t.TYPE_CHECKING:
+                    from sqlalchemy.dialects.postgresql import Insert
+
+                def impl(stmt: Insert, action: str) -> Insert:
+                    if action == "nothing":
+                        stmt = stmt.on_conflict_do_nothing(
+                            index_elements=cls._get_lookup_keys(),
+                        )
+                    elif action == "update":
+                        columns_name = inspect(cls).attrs.keys()
+                        stmt = stmt.on_conflict_do_update(
+                            index_elements=cls._get_lookup_keys(),
+                            set_={
+                                column: getattr(stmt.excluded, column)
+                                for column in columns_name
+                                if column not in cls._get_lookup_keys()
+                            },
+                        )
+                    else:
+                        raise ValueError
+                    return stmt
+
+            elif dialect == "sqlite":
+                if t.TYPE_CHECKING:
+                    from sqlalchemy.dialects.sqlite import Insert
+
+                def impl(stmt: Insert, action: str) -> Insert:
+                    if action == "nothing":
+                        stmt = stmt.on_conflict_do_nothing(
+                            index_elements=cls._get_lookup_keys(),
+                        )
+                    elif action == "update":
+                        columns_name = inspect(cls).attrs.keys()
+                        stmt = stmt.on_conflict_do_update(
+                            index_elements=cls._get_lookup_keys(),
+                            set_={
+                                column: getattr(stmt.excluded, column)
+                                for column in columns_name
+                                if column not in cls._get_lookup_keys()
+                            },
+                        )
+                    else:
+                        raise ValueError
+                    return stmt
+
+            else:
+                warn(
+                    f"Dialect '{dialect}' is not yet supported. Feel free to "
+                    f"add it.")
+
+                def impl(stmt: Insert, action: str) -> Insert:
+                    if action not in ["nothing", "update"]:
+                        raise ValueError
+                    return stmt
+
+            cls._on_conflict_do = impl
+        return cls._on_conflict_do
+
 
 class CRUDMixin:
     _lookup_keys: list[str] | None = None
@@ -88,12 +173,18 @@ class CRUDMixin:
             session: AsyncSession,
             /,
             values: dict | None = None,
+            _on_conflict_do: Literal["update", "nothing"] | None = None,
             **lookup_keys: lookup_keys_type,
     ) -> None:
         cls._check_lookup_keys(*lookup_keys.keys())
         values = values or {}
         insert = cls._get_insert()
         stmt = insert(cls).values(**lookup_keys, **values)
+        if _on_conflict_do:
+            if cls._on_conflict_do is None:
+                cls._on_conflict_do = cls._get_on_conflict_do()
+            stmt = cls._on_conflict_do(stmt, _on_conflict_do)
+        x = 1
         await session.execute(stmt)
 
     @classmethod
@@ -102,9 +193,14 @@ class CRUDMixin:
             session: AsyncSession,
             /,
             values: list[dict] | list[NamedTuple],
+            _on_conflict_do: Literal["update", "nothing"] | None = None,
     ) -> None:
         insert = cls._get_insert()
         stmt = insert(cls).values(values)
+        if _on_conflict_do:
+            if cls._on_conflict_do is None:
+                cls._on_conflict_do = cls._get_on_conflict_do()
+            stmt = cls._on_conflict_do(stmt, _on_conflict_do)
         await session.execute(stmt)
 
     @classmethod
