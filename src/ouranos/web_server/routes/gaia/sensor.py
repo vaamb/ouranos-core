@@ -139,6 +139,11 @@ async def get_sensor_current_data(
 ):
     await ecosystem_or_abort(session, ecosystem_uid)
     sensor = await sensor_or_abort(session, hardware_uid)
+    if sensor.type == gv.HardwareType.camera:
+        raise HTTPException(
+            status_code=status.HTT,
+            detail="No current measure available for this kind of sensor"
+        )
     current_data = await sensor.get_current_data(session, measure=measure)
     if current_data is None:
         raise HTTPException(
