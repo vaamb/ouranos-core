@@ -37,9 +37,22 @@ class ToDictMixin:
 class Base(db.Model, ToDictMixin):
     __abstract__ = True
 
+    _lookup_keys: list[str] | None = None
     _dialect: str | None = None
     _insert: Callable[[table], Insert] | None = None
     _on_conflict_do: Callable[[Insert, str], Insert] | None = None
+
+    @classmethod
+    def _get_lookup_keys(cls: Base) -> list[str]:
+        if cls._lookup_keys is None:
+            cls._lookup_keys = [column.name for column in inspect(cls).primary_key]
+        return cls._lookup_keys
+
+    @classmethod
+    def _check_lookup_keys(cls: Base, *lookup_keys: str) -> None:
+        valid_lookup_keys = cls._get_lookup_keys()
+        if not all(lookup_key in lookup_keys for lookup_key in valid_lookup_keys):
+            raise ValueError("You should provide all the lookup keys")
 
     @classmethod
     def _get_dialect(cls) -> str:
@@ -153,20 +166,6 @@ class Base(db.Model, ToDictMixin):
 
 
 class CRUDMixin:
-    _lookup_keys: list[str] | None = None
-
-    @classmethod
-    def _get_lookup_keys(cls: Base) -> list[str]:
-        if cls._lookup_keys is None:
-            cls._lookup_keys = [column.name for column in inspect(cls).primary_key]
-        return cls._lookup_keys
-
-    @classmethod
-    def _check_lookup_keys(cls: Base, *lookup_keys: str) -> None:
-        valid_lookup_keys = cls._get_lookup_keys()
-        if not all(lookup_key in lookup_keys for lookup_key in valid_lookup_keys):
-            raise ValueError("You should provide all the lookup keys")
-
     @classmethod
     async def create(
             cls: Base,
