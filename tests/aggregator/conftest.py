@@ -5,10 +5,12 @@ import pytest_asyncio
 
 from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
+import gaia_validators as gv
+
 from ouranos.aggregator.events import GaiaEvents
 from ouranos.aggregator.sky_watcher import SkyWatcher
 from ouranos.core.database.init import create_base_data
-from ouranos.core.database.models.gaia import Engine, Ecosystem
+from ouranos.core.database.models.gaia import Ecosystem, Engine, Hardware
 
 import tests.data.gaia as g_data
 from tests.utils import MockAsyncDispatcher
@@ -29,6 +31,13 @@ async def engine_aware_db(naive_db: AsyncSQLAlchemyWrapper):
         engine = g_data.engine_dict.copy()
         uid = engine.pop("uid")
         await Engine.create(session, uid=uid, values=engine)
+        hardware_config = [g_data.hardware_data.copy(), g_data.camera_config.copy()]
+        for hardware in hardware_config:
+            hardware = gv.HardwareConfig(**hardware).model_dump()
+            hardware_uid = hardware.pop("uid")
+            hardware["ecosystem_uid"] = g_data.ecosystem_uid
+            del hardware["multiplexer_model"]
+            await Hardware.create(session, uid=hardware_uid, values=hardware)
     return naive_db
 
 

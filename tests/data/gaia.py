@@ -131,6 +131,19 @@ hardware_data: gv.HardwareConfigDict = {
 }
 
 
+camera_config: gv.HardwareConfigDict = {
+    "uid": "camera_uid",
+    "name": "TestCamera",
+    "address": "PICAMERA",
+    "type": gv.HardwareType.camera.name,
+    "level": gv.HardwareLevel.ecosystem.name,
+    "model": "virtualDHT22",
+    "measures": ["MPRI|"],
+    "plants": [],
+    "multiplexer_model": None,
+}
+
+
 hardware_payload: gv.HardwareConfigPayloadDict = \
     wrap_ecosystem_data_payload([hardware_data])
 
@@ -181,13 +194,18 @@ sensors_data_payload: gv.SensorsDataPayloadDict = \
     wrap_ecosystem_data_payload(sensors_data)
 
 
-# TODO: fix when health data is reimplemented
-health_data: gv.HealthRecord = gv.HealthRecord(
+health_record: gv.HealthRecord = gv.HealthRecord(
     sensor_uid="camera_uid",
     measure="MPRI",
     value=0.789,
     timestamp=timestamp_now,
 )
+
+
+health_data: gv.HealthDataDict = {
+    "timestamp": timestamp_now,
+    "records": [health_record],
+}
 
 
 health_data_payload: gv.HealthDataPayloadDict = \

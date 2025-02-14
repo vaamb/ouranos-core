@@ -198,7 +198,6 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
     hardware: Mapped[list["Hardware"]] = relationship(back_populates="ecosystem")
     sensor_records: Mapped[list["SensorDataRecord"]] = relationship(back_populates="ecosystem")
     actuator_records: Mapped[list["ActuatorRecord"]] = relationship(back_populates="ecosystem")
-    health_records: Mapped[list["HealthRecord"]] = relationship(back_populates="ecosystem")
 
     def __repr__(self):
         return (
@@ -396,34 +395,21 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
             time_window: timeWindow,
             level: gv.HardwareLevel | list[gv.HardwareLevel] | None = None,
     ) -> dict:
-        stmt = (
-            select(Hardware).join(SensorDataRecord.sensor)
-            .where(Hardware.ecosystem_uid == self.uid)
-            .where(
-                (SensorDataRecord.timestamp > time_window.start)
-                & (SensorDataRecord.timestamp <= time_window.end)
-            )
-        )
-        if level:
-            if isinstance(level, str):
-                level = level.split(",")
-            stmt = stmt.where(Hardware.level.in_(level))
-        stmt = stmt.group_by(Hardware.uid)
-        result = await session.execute(stmt)
-        sensor_objs: Sequence[Hardware] = result.unique().scalars().all()
+        level = level or [i for i in gv.HardwareLevel]
+        sensors = await Sensor.get_multiple(
+            session, time_window=time_window, level=level)
         sensors_by_measure: dict[str, list[dict[str, str]]] = {}
-        for sensor_obj in sensor_objs:
-            for measure_obj in sensor_obj.measures:
-                measure_obj: Measure
+        for sensor in sensors:
+            for measure in sensor.measures:
                 sensor_summary: dict[str, str] = {
-                    "uid": sensor_obj.uid,
-                    "name": sensor_obj.name,
-                    "unit": measure_obj.unit,
+                    "uid": sensor.uid,
+                    "name": sensor.name,
+                    "unit": measure.unit,
                 }
                 try:
-                    sensors_by_measure[measure_obj.name].append(sensor_summary)
+                    sensors_by_measure[measure.name].append(sensor_summary)
                 except KeyError:
-                    sensors_by_measure[measure_obj.name] = [sensor_summary]
+                    sensors_by_measure[measure.name] = [sensor_summary]
         skeleton = []
         # Add common measures first
         for measure_name in measure_order:
@@ -444,7 +430,7 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
         return {
             "uid": self.uid,
             "name": self.name,
-            "level": [i.name for i in gv.HardwareLevel] if level is None else level,
+            "level": level,
             "span": (time_window.start, time_window.end),
             "sensors_skeleton": skeleton,
         }
@@ -794,9 +780,9 @@ class Sensor(Hardware):
             session: AsyncSession,
             /,
             time_window: timeWindow | None = None,
-            **lookup_keys: str | Enum,
+            **lookup_keys: str | Enum | list[str] | list[Enum],
     ) -> Self | None:
-        lookup_keys["type"] = gv.HardwareType.sensor
+        lookup_keys["type"] = [gv.HardwareType.sensor, gv.HardwareType.camera]
         stmt = cls._generate_get_query(**lookup_keys)
         if time_window:
             stmt = cls._add_time_window_to_stmt(stmt, time_window)
@@ -809,9 +795,9 @@ class Sensor(Hardware):
             session: AsyncSession,
             /,
             time_window: timeWindow | None = None,
-            **lookup_keys: str | Enum,
+            **lookup_keys: str | Enum | list[str] | list[Enum],
     ) -> Sequence[Self]:
-        lookup_keys["type"] = gv.HardwareType.sensor
+        lookup_keys["type"] = [gv.HardwareType.sensor, gv.HardwareType.camera]
         stmt = cls._generate_get_query(**lookup_keys)
         if time_window:
             stmt = cls._add_time_window_to_stmt(stmt, time_window)
@@ -1313,33 +1299,6 @@ class ActuatorRecord(BaseActuatorRecord):
 
     # relationships
     ecosystem: Mapped["Ecosystem"] = relationship(back_populates="actuator_records")
-
-
-# ---------------------------------------------------------------------------
-#   Health data
-# ---------------------------------------------------------------------------
-class BaseHealthRecord(Base, RecordMixin):
-    __abstract__ = True
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    timestamp: Mapped[datetime] = mapped_column(UtcDateTime)
-    green: Mapped[int] = mapped_column()
-    necrosis: Mapped[int] = mapped_column()
-    health_index: Mapped[int] = mapped_column()
-
-    @declared_attr
-    def ecosystem_uid(cls) -> Mapped[str]:
-        return mapped_column(
-            sa.String(length=8), sa.ForeignKey("ecosystems.uid"), index=True
-        )
-
-
-class HealthRecord(BaseHealthRecord):
-    __tablename__ = "health_records"
-    __archive_link__ = ArchiveLink("health_records", "recent")
-
-    # relationships
-    ecosystem: Mapped["Ecosystem"] = relationship("Ecosystem", back_populates="health_records")
 
 
 # ---------------------------------------------------------------------------

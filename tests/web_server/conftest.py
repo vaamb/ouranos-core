@@ -16,8 +16,7 @@ from ouranos.core.database.models.app import (
     WikiTopic)
 from ouranos.core.database.models.gaia import (
     ActuatorRecord, ActuatorState, Ecosystem, Engine, EnvironmentParameter,
-    GaiaWarning, Hardware, HealthRecord, NycthemeralCycle, SensorDataCache,
-    SensorDataRecord)
+    GaiaWarning, Hardware, NycthemeralCycle, SensorDataCache, SensorDataRecord)
 from ouranos.core.database.models.system import (
     System, SystemDataCache, SystemDataRecord)
 from ouranos.core.dispatchers import DispatcherFactory
@@ -95,16 +94,6 @@ async def add_ecosystems(db: AsyncSQLAlchemyWrapper):
         actuator_state["type"] = g_data.actuator_record.type
         actuator_state["timestamp"] = g_data.actuator_record.timestamp
         await ActuatorRecord.create_multiple(session, actuator_state)
-
-        # TODO: fix when health data is reimplemented
-        #adapted_health_data = {
-        #    "ecosystem_uid": g_data.ecosystem_uid,
-        #    "green": g_data.health_data.green,
-        #    "necrosis": g_data.health_data.necrosis,
-        #    "health_index": g_data.health_data.index,
-        #    "timestamp": g_data.health_data.timestamp,
-        #}
-        #await HealthRecord.create_records(session, adapted_health_data)
 
         await GaiaWarning.create(
             session, ecosystem_uid=g_data.ecosystem_uid, values=g_data.gaia_warning)
