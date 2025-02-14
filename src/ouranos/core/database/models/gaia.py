@@ -1009,6 +1009,7 @@ class BaseSensorData(Base):
             name="_no_repost_constraint"
         ),
     )
+    _lookup_keys = ["measure", "timestamp", "value", "ecosystem_uid", "sensor_uid"]
 
     id: Mapped[int] = mapped_column(primary_key=True)
     timestamp: Mapped[datetime] = mapped_column(UtcDateTime)
