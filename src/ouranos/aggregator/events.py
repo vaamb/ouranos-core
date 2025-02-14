@@ -25,7 +25,7 @@ from ouranos.core.database.models.abc import RecordMixin
 from ouranos.core.database.models.app import ServiceName
 from ouranos.core.database.models.gaia import (
     ActuatorRecord, ActuatorState, Chaos, CrudRequest, Ecosystem, Engine,
-    EnvironmentParameter, Hardware, HealthRecord, NycthemeralCycle, Place, CameraPicture,
+    EnvironmentParameter, Hardware, NycthemeralCycle, Place, CameraPicture,
     SensorAlarm, SensorDataRecord, SensorDataCache)
 from ouranos.core.exceptions import NotRegisteredError
 from ouranos.core.utils import humanize_list, Tokenizer
@@ -600,14 +600,14 @@ class GaiaEvents(AsyncEventHandler):
 
                 # Remove hardware not in `ecosystems.cfg` anymore
                 stmt = (
-                    select(Hardware)
+                    select(Hardware.uid)
                     .where(Hardware.ecosystem_uid == uid)
                     .where(Hardware.uid.not_in(hardware_in_config))
                 )
                 result = await session.execute(stmt)
                 not_used = result.all()
                 for hardware_row in not_used:
-                    await Hardware.update(session, uid=hardware_row.uid, values={"in_config": False})
+                    await Hardware.update(session, uid=hardware_row[0], values={"in_config": False})
         self.logger.debug(
             f"Logged hardware info from ecosystem(s): {humanize_list(ecosystems_to_log)}"
         )
@@ -726,8 +726,10 @@ class GaiaEvents(AsyncEventHandler):
             return
 
         class HardwareUpdateData(TypedDict):
+            uid: str
             last_log: datetime
 
+        logged_cached_data: list[dict] = []
         records_to_create: list[SensorDataRecordDict] = []
         hardware_to_update: dict[str, HardwareUpdateData] = {}
         ecosystems_to_log: set[str] = set()
@@ -738,11 +740,7 @@ class GaiaEvents(AsyncEventHandler):
             # Filter data that needs to be logged into db
             for record in recent_sensors_record:
                 if record.timestamp.minute % logging_period == 0:
-                    hardware_to_update[record.sensor_uid] = {
-                        "last_log": record.timestamp,
-                    }
-                    ecosystems_to_log.add(
-                        await self.get_ecosystem_name(session, uid=record.ecosystem_uid))
+                    # Get the sensor data to log
                     records_to_create.append(cast(SensorDataRecordDict, {
                         "ecosystem_uid": record.ecosystem_uid,
                         "sensor_uid": record.sensor_uid,
@@ -750,7 +748,19 @@ class GaiaEvents(AsyncEventHandler):
                         "value": record.value,
                         "timestamp": record.timestamp,
                     }))
-                    record.logged = True
+                    # Mark the cached data as logged
+                    logged_cached_data.append({
+                        "id": record.id,
+                        "logged": True,
+                    })
+                    # Get the hardware to update
+                    hardware_to_update[record.sensor_uid] = {
+                        "uid": record.sensor_uid,
+                        "last_log": record.timestamp,
+                    }
+                    # Get the ecosystem name
+                    ecosystems_to_log.add(
+                        await self.get_ecosystem_name(session, uid=record.ecosystem_uid))
 
             alarms = self.alarms_data  # Use the lock a single time
             alarms_to_log: list[SensorAlarmDict] = [
@@ -766,21 +776,19 @@ class GaiaEvents(AsyncEventHandler):
             namespace="application-internal", ttl=15)
         self.logger.debug(
             f"Sent `historic_sensors_data_update` to the web API")
-        # Log historic data in db
+
         async with db.scoped_session() as session:
+            # Log historic data in the DB
             await SensorDataRecord.create_multiple(session, records_to_create)
             # Update the last_log column for hardware
-            for hardware_uid, update_value in hardware_to_update.items():
-                await Hardware.update(session, uid=hardware_uid, values=update_value)
-                ecosystems_to_log.add(
-                    await self.get_ecosystem_name(session, uid=record.ecosystem_uid))
+            await Hardware.update_multiple(
+                session, values=[*hardware_to_update.values()])
             # Log new alarms or lengthen old ones
             for alarm in alarms_to_log:
                 await SensorAlarm.create_or_lengthen(session, alarm)
-            # Get ecosystem IDs
-            self.logger.info(
-                f"Logged sensors data from ecosystem(s) "
-                f"{humanize_list([*ecosystems_to_log])}")
+        self.logger.info(
+            f"Logged sensors data from ecosystem(s) "
+            f"{humanize_list([*ecosystems_to_log])}")
 
     async def _handle_buffered_records(
             self,
@@ -815,16 +823,11 @@ class GaiaEvents(AsyncEventHandler):
                     to=sender_sid
                 )
 
-    @registration_required
-    @validate_payload(gv.BufferedSensorsDataPayload)
-    async def on_buffered_sensors_data(
+    async def _handle_buffered_sensors_data(
             self,
             sid: UUID,
             data: gv.BufferedSensorsDataPayloadDict,
-            engine_uid: str
     ) -> None:
-        self.logger.debug(
-            f"Received 'buffered_sensors_data' from {engine_uid}")
         exchange_uuid: UUID = data["uuid"]
         records = [
             {
@@ -842,6 +845,18 @@ class GaiaEvents(AsyncEventHandler):
             exchange_uuid=exchange_uuid,
             sender_sid=sid
         )
+
+    @registration_required
+    @validate_payload(gv.BufferedSensorsDataPayload)
+    async def on_buffered_sensors_data(
+            self,
+            sid: UUID,
+            data: gv.BufferedSensorsDataPayloadDict,
+            engine_uid: str
+    ) -> None:
+        self.logger.debug(
+            f"Received 'buffered_sensors_data' from {engine_uid}")
+        await self._handle_buffered_sensors_data(sid, data)
 
     @registration_required
     @validate_payload(RootModel[list[gv.ActuatorsDataPayload]])
@@ -954,28 +969,53 @@ class GaiaEvents(AsyncEventHandler):
         self.logger.debug(f"Received 'health_data' from {engine_uid}")
         async with self.session(sid) as session:
             session["init_data"].discard("health_data")
-        logged: list[str] = []
-        values: list[dict] = []
-        async with db.scoped_session() as session:
-            for payload in data:
-                raw_ecosystem = payload["data"]
-                ecosystem = gv.HealthRecord(*raw_ecosystem)
-                logged.append(
-                    await self.get_ecosystem_name(session, uid=payload["uid"]))
-                health_data = {
-                    "ecosystem_uid": payload["uid"],
-                    "timestamp": ecosystem.timestamp,
-                    "green": ecosystem.green,
-                    "necrosis": ecosystem.necrosis,
-                    "health_index": ecosystem.index
+
+        class HardwareUpdateData(TypedDict):
+            uid: str
+            last_log: datetime
+
+        health_data: list[SensorDataRecordDict] = []
+        hardware_to_update: dict[str, HardwareUpdateData] = {}
+        for ecosystem in data:
+            ecosystem_data = ecosystem["data"]
+            timestamp = ecosystem_data["timestamp"]
+            for raw_record in ecosystem_data["records"]:
+                # Get record data
+                record = gv.SensorRecord(*raw_record)
+                record_timestamp = record.timestamp if record.timestamp else timestamp
+                # Get the health data to log
+                health_data.append(cast(SensorDataRecordDict, {
+                    "ecosystem_uid": ecosystem["uid"],
+                    "sensor_uid": record.sensor_uid,
+                    "measure": record.measure,
+                    "value": float(record.value),
+                    "timestamp": record_timestamp,
+                }))
+                # Get the hardware to update
+                hardware_to_update[record.sensor_uid] = {
+                    "uid": record.sensor_uid,
+                    "last_log": record_timestamp,
                 }
-                values.append(health_data)
-            if values:
-                await HealthRecord.create_multiple(session, values)
-            self.logger.debug(
-                f"Logged health data from ecosystem(s): "
-                f"{humanize_list(logged)}"
-            )
+
+        if not health_data:
+            return
+
+        logged: list[str] = []
+        async with db.scoped_session() as session:
+            # Log the health data in the DB
+            await SensorDataRecord.create_multiple(
+                session, health_data, _on_conflict_do="nothing")
+            # Update the last_log column for hardware
+            await Hardware.update_multiple(
+                session, values=[*hardware_to_update.values()])
+            # Get ecosystems name
+            for ecosystem in data:
+                ecosystem_name = await self.get_ecosystem_name(
+                    session, uid=ecosystem["uid"])
+                logged.append(ecosystem_name)
+
+        self.logger.debug(
+            f"Logged health data from ecosystem(s): {humanize_list(logged)}")
 
     @registration_required
     @validate_payload(gv.BufferedSensorsDataPayload)
@@ -987,23 +1027,7 @@ class GaiaEvents(AsyncEventHandler):
     ) -> None:
         self.logger.debug(
             f"Received 'buffered_health_data' from {engine_uid}")
-        exchange_uuid: UUID = data["uuid"]
-        records = [
-            {
-                "ecosystem_uid": record[0],
-                "sensor_uid": record[1],
-                "measure": record[2],
-                "value": record[3],
-                "timestamp": record[4],
-            }
-            for record in data["data"]
-        ]
-        await self._handle_buffered_records(
-            record_model=HealthRecord,
-            records=records,
-            exchange_uuid=exchange_uuid,
-            sender_sid=sid
-        )
+        await self._handle_buffered_sensors_data(sid, data)
 
     @registration_required
     @validate_payload(RootModel[list[gv.LightDataPayload]])

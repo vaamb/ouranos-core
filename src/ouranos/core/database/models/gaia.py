@@ -198,7 +198,6 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
     hardware: Mapped[list["Hardware"]] = relationship(back_populates="ecosystem")
     sensor_records: Mapped[list["SensorDataRecord"]] = relationship(back_populates="ecosystem")
     actuator_records: Mapped[list["ActuatorRecord"]] = relationship(back_populates="ecosystem")
-    health_records: Mapped[list["HealthRecord"]] = relationship(back_populates="ecosystem")
 
     def __repr__(self):
         return (
@@ -1313,33 +1312,6 @@ class ActuatorRecord(BaseActuatorRecord):
 
     # relationships
     ecosystem: Mapped["Ecosystem"] = relationship(back_populates="actuator_records")
-
-
-# ---------------------------------------------------------------------------
-#   Health data
-# ---------------------------------------------------------------------------
-class BaseHealthRecord(Base, RecordMixin):
-    __abstract__ = True
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    timestamp: Mapped[datetime] = mapped_column(UtcDateTime)
-    green: Mapped[int] = mapped_column()
-    necrosis: Mapped[int] = mapped_column()
-    health_index: Mapped[int] = mapped_column()
-
-    @declared_attr
-    def ecosystem_uid(cls) -> Mapped[str]:
-        return mapped_column(
-            sa.String(length=8), sa.ForeignKey("ecosystems.uid"), index=True
-        )
-
-
-class HealthRecord(BaseHealthRecord):
-    __tablename__ = "health_records"
-    __archive_link__ = ArchiveLink("health_records", "recent")
-
-    # relationships
-    ecosystem: Mapped["Ecosystem"] = relationship("Ecosystem", back_populates="health_records")
 
 
 # ---------------------------------------------------------------------------

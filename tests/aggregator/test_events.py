@@ -5,16 +5,14 @@ from copy import copy
 from datetime import datetime,timedelta, timezone
 
 import pytest
-from sqlalchemy import select
 
 import gaia_validators as gv
 from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
 from ouranos.aggregator.events import GaiaEvents
 from ouranos.core.database.models.gaia import (
-    ActuatorState, Chaos, Ecosystem, Engine, EnvironmentParameter,
-    Hardware, HealthRecord, NycthemeralCycle, Place, SensorAlarm, SensorDataCache,
-    SensorDataRecord)
+    ActuatorState, Chaos, Ecosystem, Engine, EnvironmentParameter, Hardware,
+    NycthemeralCycle, Place, SensorAlarm, SensorDataCache, SensorDataRecord)
 from ouranos.core.exceptions import NotRegisteredError
 from ouranos.core.utils import create_time_window
 
@@ -466,23 +464,24 @@ async def test_on_actuators_data(
         await events_handler.on_sensors_data(g_data.engine_sid, [wrong_payload])
 
 
-# TODO: fix when health data is reimplemented
 @pytest.mark.asyncio
-async def _test_on_health_data(
+async def test_on_health_data(
         mock_dispatcher: MockAsyncDispatcher,
         events_handler: GaiaEvents,
         ecosystem_aware_db: AsyncSQLAlchemyWrapper,
 ):
-    await events_handler.on_health_data(g_data.engine_sid, [g_data.health_data_payload])
+    await events_handler.on_health_data(
+        g_data.engine_sid, [g_data.health_data_payload])
 
     async with ecosystem_aware_db.scoped_session() as session:
-        stmt = select(HealthRecord)
-        result = await session.execute(stmt)
-        health_record = result.scalar()
-        assert health_record.timestamp == g_data.health_data.timestamp
-        #assert health_record.green == g_data.health_data.green
-        #assert health_record.necrosis == g_data.health_data.necrosis
-        #assert health_record.health_index == g_data.health_data.index
+        health_record = await SensorDataRecord.get(
+            session, ecosystem_uid=g_data.ecosystem_uid,
+            sensor_uid= g_data.health_record.sensor_uid)
+        assert health_record.ecosystem_uid == g_data.health_data_payload["uid"]
+        assert health_record.sensor_uid == g_data.health_record.sensor_uid
+        assert health_record.measure == g_data.health_record.measure
+        assert health_record.timestamp == g_data.health_record.timestamp
+        assert health_record.value == g_data.health_record.value
 
     wrong_payload = {}
     with pytest.raises(Exception):
