@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from copy import copy
-from concurrent.futures import ThreadPoolExecutor
 import logging
 from logging import Formatter, Handler, LogRecord
 import logging.config
@@ -11,6 +10,7 @@ import sys
 import time
 from typing import Literal
 
+from anyio.to_thread import run_sync
 import click
 
 from ouranos.core.config.base import BaseConfigDict
@@ -60,7 +60,6 @@ class SQLiteHandler(Handler):
         self.db_path = db_path
         self.table_name = table_name
         self._table_created: bool = False
-        self._executor = ThreadPoolExecutor(max_workers=1)
 
     def _execute_query(self, query: str) -> None:
         db = sqlite3.connect(self.db_path)
@@ -68,18 +67,19 @@ class SQLiteHandler(Handler):
         db.commit()
 
     def execute_query(self, query: str) -> None:
-        self._executor.submit(self._execute_query, query)
+        run_sync(self._execute_query, query)
 
     def create_table(self) -> None:
         query = self._create_query % {"table_name": self.table_name}
         self.execute_query(query)
 
-    def log_record(self, record) -> None:
-        query = self._log_query % {"table_name": self.table_name, ** record.__dict__}
+    def log_record(self, record: LogRecord) -> None:
+        query = self._log_query % {"table_name": self.table_name, **record.__dict__}
         self.execute_query(query)
 
-    def format_time(self, record) -> None:
-        record.timestamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(record.created))
+    def format_time(self, record: LogRecord) -> None:
+        record.timestamp = time.strftime(
+            "%Y-%m-%dT%H:%M:%SZ", time.gmtime(record.created))
 
     def emit(self, record: LogRecord) -> None:
         if not self._table_created:
@@ -127,82 +127,94 @@ class ColourFormatter(Formatter):
         return super().formatMessage(record_copy)
 
 
-handlers: list[str] = []
-
-
-logging_config = {
-    "version": 1,
-    "disable_existing_loggers": True,
-    "formatters": {
-        "base_format": {
-            "()": "ouranos.core.logging.ColourFormatter",
-            "format": "%(asctime)s %(levelname)s %(name)-30.30s: %(message)s",
-            "datefmt": "%Y-%m-%d %H:%M:%S"
+def configure_logging(config: BaseConfigDict, log_dir: Path) -> None:
+    logging_config = {
+        "version": 1,
+        "disable_existing_loggers": True,
+        "formatters": {
+            "base_format": {
+                "()": "ouranos.core.logging.ColourFormatter",
+                "format": "%(asctime)s %(levelname)s %(name)-30.30s: %(message)s",
+                "datefmt": "%Y-%m-%d %H:%M:%S"
+            },
         },
-    },
-    "handlers": {
-        "stream_handler": {
-            "level": "INFO",
-            "formatter": "base_format",
-            "class": "logging.StreamHandler",
+        "handlers": {
+            "stream_handler": {
+                "level": "INFO",
+                "formatter": "base_format",
+                "class": "logging.StreamHandler",
+            },
+            "db_handler": {
+                "level": "INFO",
+                "class": "ouranos.core.logging.SQLiteHandler",
+                "db_path": "log.sqlite",
+                "table_name": "logs",
+            },
         },
-        "file_handler": {
+        "loggers": {
+            "ouranos": {
+                "handlers": [],
+                "level": "INFO"
+            },
+            "dispatcher": {
+                "handlers": [],
+                "level": "WARNING",
+            },
+            "uvicorn": {
+                "handlers": [],
+                "level": "INFO",
+            },
+        },
+    }
+
+    def make_file_handler(filename: str, size: int = 4 * 1024 * 1024, count: int = 5) -> dict:
+        return {
             "level": "INFO",
             "formatter": "base_format",
             "class": "logging.handlers.RotatingFileHandler",
-            "filename": "ouranos.log",
+            "filename": filename,
             "mode": "a",
-            "maxBytes": 4 * 1024 * 1024,
-            "backupCount": 5,
-        },
-        "db_handler": {
-            "level": "INFO",
-            "class": "ouranos.core.logging.SQLiteHandler",
-            "db_path": "log.sqlite",
-            "table_name": "logs",
-        },
-    },
-    "loggers": {
-        "ouranos": {
-            "handlers": handlers,
-            "level": "INFO"
-        },
-        "dispatcher": {
-            "handlers": handlers,
-            "level": "WARNING",
-        },
-        "uvicorn": {
-            "handlers": handlers,
-            "level": "INFO",
-        },
-    },
-}
+            "maxBytes": size,
+            "backupCount": count,
+        }
 
-
-def configure_logging(config: BaseConfigDict, log_dir: Path) -> None:
-    # Prepend log_dir path to the file handler file name
-    file_handler_filename = logging_config["handlers"]["file_handler"]["filename"]
-    logging_config["handlers"]["file_handler"]["filename"] = str(log_dir / file_handler_filename)
+    # Add file handlers
+    logging_config["handlers"]["ouranos_file_handler"] = make_file_handler("ouranos.log", count=2)
+    logging_config["handlers"]["uvicorn_file_handler"] = make_file_handler("uvicorn.log", count=5)
 
     # Prepend log_dir path to the file handler file name
-    db_handler_filename = logging_config["handlers"]["db_handler"]["db_path"]
-    logging_config["handlers"]["db_handler"]["db_path"] = str(log_dir / db_handler_filename)
+    for handler in logging_config["handlers"].values():
+        if handler["class"] == "logging.handlers.RotatingFileHandler":
+            handler["filename"] = str(log_dir / handler["filename"])
 
-    # Tweak formatters, handlers and loggers if debugging
+    # Prepend log_dir path to the file handler file name
+    for handler in logging_config["handlers"].values():
+        if handler["class"] == "logging.handlers.SQLiteHandler":
+            handler["db_path"] = str(log_dir / handler["db_path"])
+
+    # Patch formatters, handlers and loggers if debugging
     if config["DEBUG"]:
         debug_fmt = "%(asctime)s %(levelname)s [%(filename)-20.20s:%(lineno)3d] %(name)-30.30s: %(message)s"
         logging_config["formatters"]["base_format"]["format"] = debug_fmt
-        logging_config["handlers"]["stream_handler"]["level"] = "DEBUG"
-        logging_config["loggers"]["ouranos"]["level"] = "DEBUG"
-        logging_config["loggers"]["dispatcher"]["level"] = "DEBUG"
-        logging_config["loggers"]["uvicorn"]["level"] = "DEBUG"
+        for handler in logging_config["handlers"].values():
+            handler["level"] = "DEBUG"
+        for logger in logging_config["loggers"].values():
+            logger["level"] = "DEBUG"
 
-    # Use the required handlers
+    # Patch handlers depending on the config requirements
     if config["LOG_TO_STDOUT"]:
-        handlers.append("stream_handler")
+        for logger in logging_config["loggers"].values():
+            logger["handlers"].append("stream_handler")
+
     if config["LOG_TO_FILE"]:
-        handlers.append("file_handler")
+        for logger_name, logger in logging_config["loggers"].items():
+            if logger_name == "uvicorn":
+                logger["handlers"].append("uvicorn_file_handler")
+            else:
+                logger["handlers"].append("ouranos_file_handler")
+
     if config["LOG_TO_DB"]:
-        handlers.append("db_handler")
+        for logger in logging_config["loggers"].values():
+            logger["handlers"].append("db_handler")
 
     logging.config.dictConfig(logging_config)
