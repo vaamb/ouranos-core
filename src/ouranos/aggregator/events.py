@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from threading import Lock
 from functools import wraps
 import logging
 import typing as t
@@ -123,11 +122,10 @@ class GaiaEvents(AsyncEventHandler):
         self._internal_dispatcher: AsyncDispatcher | None = None
         self._stream_dispatcher: AsyncDispatcher | None = None
         self._alarms_data: list[SensorAlarmDict] = []
-        self._alarms_data_lock: Lock = Lock()
         self.camera_dir: ioPath = ioPath(current_app.static_dir) / "camera_stream"
 
     # ---------------------------------------------------------------------------
-    #   Payload validation
+    #   Utility
     # ---------------------------------------------------------------------------
     async def get_ecosystem_name(
             self,
@@ -141,20 +139,6 @@ class GaiaEvents(AsyncEventHandler):
         else:
             self.logger.error(
                 f"Received an event from an unknown ecosystem with uid '{uid}'")
-            return None
-
-    async def get_engine_sid(
-            self,
-            session: AsyncSession,
-            /,
-            uid: str,
-    ) -> str | None:
-        engine = await Engine.get(session, uid=uid)
-        if engine:
-            return engine.sid
-        else:
-            self.logger.error(
-                f"Received an event from an unknown engine with uid '{uid}'")
             return None
 
     # ---------------------------------------------------------------------------
@@ -194,13 +178,11 @@ class GaiaEvents(AsyncEventHandler):
 
     @property
     def alarms_data(self) -> list[SensorAlarmDict]:
-        with self._alarms_data_lock:
-            return self._alarms_data
+        return self._alarms_data
 
     @alarms_data.setter
     def alarms_data(self, value: list[SensorAlarmDict]) -> None:
-        with self._alarms_data_lock:
-            self._alarms_data = value
+        self._alarms_data = value
 
     # ---------------------------------------------------------------------------
     #   Events Gaia <-> Aggregator
@@ -1134,7 +1116,7 @@ class GaiaEvents(AsyncEventHandler):
             {data["target"]}) to engine '{engine_uid}'."""
         )
         async with db.scoped_session() as session:
-            engine_sid = await self.get_engine_sid(session, uid=engine_uid)
+            engine = await Engine.get(session, uid=engine_uid)
             await CrudRequest.create(
                 session,
                 uuid=UUID(data["uuid"]),
@@ -1147,7 +1129,7 @@ class GaiaEvents(AsyncEventHandler):
                 }
             )
         await self.emit(
-            "crud", data=data, namespace="/gaia", to=engine_sid, ttl=30)
+            "crud", data=data, namespace="/gaia", to=engine.sid, ttl=30)
 
     # Response to crud event, actual path: Gaia -> Aggregator -> Api
     async def on_crud_result(
