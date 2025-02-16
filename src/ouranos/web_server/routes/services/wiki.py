@@ -114,7 +114,7 @@ async def update_tag(
         tag_slug: Annotated[str, Path(description="The name of the tag")],
         payload: Annotated[
             WikiTagUpdatePayload,
-            Body(description="The updated tag information"),
+            Body(description="The tag updated information"),
         ],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
@@ -201,7 +201,7 @@ async def update_topic(
         topic_slug: Annotated[str, Path(description="The name of the topic")],
         payload: Annotated[
             WikiTopicUpdatePayload,
-            Body(description="The new topic information"),
+            Body(description="The topic updated information"),
         ],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
@@ -374,7 +374,7 @@ async def upload_article(
         topic_slug: Annotated[str, Path(description="The name of the topic")],
         payload: Annotated[
             WikiArticleUploadPayload,
-            Body(description="Information about the new payload"),
+            Body(description="Information about the new article"),
         ],
         file: UploadFile,
         current_user: Annotated[UserMixin, Depends(get_current_user)],
@@ -436,7 +436,7 @@ async def update_article(
         article_slug: Annotated[str, Path(description="The name of the article")],
         payload: Annotated[
             WikiArticleUpdatePayload,
-            Body(description="The updated article")
+            Body(description="The article updated information")
         ],
         current_user: Annotated[UserMixin, Depends(get_current_user)],
         session: Annotated[AsyncSession, Depends(get_session)],
@@ -495,7 +495,7 @@ async def update_article_upload(
         article_slug: Annotated[str, Path(description="The name of the article")],
         payload: Annotated[
             WikiArticleUploadPayload,
-            Body(description="Information about the new payload"),
+            Body(description="The article updated information"),
         ],
         file: UploadFile,
         current_user: Annotated[UserMixin, Depends(get_current_user)],
@@ -604,7 +604,7 @@ async def upload_picture(
         article_slug: Annotated[str, Path(description="The name of the article")],
         payload: Annotated[
             WikiArticlePictureUploadPayload,
-            Body(description="Information about the new payload"),
+            Body(description="Information about the new picture"),
         ],
         file: UploadFile,
         session: Annotated[AsyncSession, Depends(get_session)],
