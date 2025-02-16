@@ -18,10 +18,12 @@ from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.routes.services.utils import service_enabled
 from ouranos.web_server.validate.wiki import (
     WikiArticleInfo, WikiArticleModificationInfo, WikiArticleCreationPayload,
-    WikiArticleUpdatePayload, WikiArticlePictureInfo,
-    WikiArticlePictureCreationPayload, WikiTagCreationPayload, WikiTagInfo,
-    WikiTagUpdatePayload, WikiTopicCreationPayload, WikiTopicInfo,
-    WikiTopicTemplatePayload, WikiTopicUpdatePayload)
+    WikiArticleUpdatePayload, WikiArticleUploadPayload,
+    WikiArticlePictureInfo, WikiArticlePictureCreationPayload,
+    WikiArticlePictureUploadPayload,
+    WikiTagCreationPayload, WikiTagInfo, WikiTagUpdatePayload,
+    WikiTopicCreationPayload, WikiTopicInfo, WikiTopicTemplatePayload,
+    WikiTopicUpdatePayload)
 
 
 router = APIRouter(
@@ -370,6 +372,10 @@ async def create_article(
              dependencies=[Depends(is_operator)])
 async def upload_article(
         topic_slug: Annotated[str, Path(description="The name of the topic")],
+        payload: Annotated[
+            WikiArticleUploadPayload,
+            Body(description="Information about the new payload"),
+        ],
         file: UploadFile,
         current_user: Annotated[UserMixin, Depends(get_current_user)],
         session: Annotated[AsyncSession, Depends(get_session)],
@@ -388,12 +394,15 @@ async def upload_article(
                 status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
                 detail="Picture file too large"
             )
+        article_dict = payload.model_dump(by_alias=True, exclude_defaults=True)
+        name = article_dict.pop("name", None)
         content = await file.read()
         await WikiArticle.create(
             session,
             topic_slug=topic.slug,
-            name=file.filename.split(".")[0],
+            name=name or file.filename.split(".")[0],
             values={
+                **article_dict,
                 "content": content.decode("utf-8"),
                 "author_id": current_user.id,
             },
@@ -479,6 +488,57 @@ async def delete_article(
         )
 
 
+@router.put("/topics/u/{topic_slug}/u/{article_slug}/upload_file",
+            dependencies=[Depends(is_operator)])
+async def update_article_upload(
+        topic_slug: Annotated[str, Path(description="The name of the topic")],
+        article_slug: Annotated[str, Path(description="The name of the article")],
+        payload: Annotated[
+            WikiArticleUploadPayload,
+            Body(description="Information about the new payload"),
+        ],
+        file: UploadFile,
+        current_user: Annotated[UserMixin, Depends(get_current_user)],
+        session: Annotated[AsyncSession, Depends(get_session)],
+):
+    try:
+        check_filename(file.filename, SUPPORTED_TEXT_EXTENSIONS)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"{e}"
+        )
+    article = await article_or_abort(session, topic_slug=topic_slug, slug=article_slug)
+    try:
+        if file.size > MAX_TEXT_FILE_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail="Picture file too large"
+            )
+        article_dict = payload.model_dump(by_alias=True, exclude_defaults=True)
+        name = article_dict.pop("name", None)
+        content = await file.read()
+        await WikiArticle.update(
+            session,
+            topic_name=article.topic_name,
+            name=article.name,
+            values={
+                **article_dict,
+                "content": content.decode("utf-8"),
+                "author_id": current_user.id,
+            },
+        )
+        return "A new wiki article was successfully uploaded."
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Failed to upload a new wiki article. Error msg: "
+                f"`{e.__class__.__name__}: {e}`",
+            ),
+        )
+
+
 @router.get("/topics/u/{topic_slug}/u/{article_slug}/history",
             response_model=list[WikiArticleModificationInfo])
 async def get_article_history(
@@ -542,6 +602,10 @@ async def add_picture(
 async def upload_picture(
         topic_slug: Annotated[str, Path(description="The name of the topic")],
         article_slug: Annotated[str, Path(description="The name of the article")],
+        payload: Annotated[
+            WikiArticlePictureUploadPayload,
+            Body(description="Information about the new payload"),
+        ],
         file: UploadFile,
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
@@ -559,14 +623,16 @@ async def upload_picture(
                 status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
                 detail="Picture file too large"
             )
-        content = await file.read()
+        picture_dict = payload.model_dump(by_alias=True, exclude_defaults=True)
+        name = picture_dict.pop("name", None)
         await WikiPicture.create(
             session,
             topic_name=article.topic_name,
             article_name=article.name,
-            name=file.filename.split(".")[0],
+            name=name or file.filename.split(".")[0],
             values={
-                "content": content,
+                **picture_dict,
+                "content": await file.read(),
                 "extension": file.filename.split(".")[1],
             },
         )
