@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from copy import copy
 import logging
 from logging import Formatter, Handler, LogRecord
@@ -10,7 +11,6 @@ import sys
 import time
 from typing import Literal
 
-from anyio.to_thread import run_sync
 import click
 
 from ouranos.core.config.base import BaseConfigDict
@@ -60,6 +60,7 @@ class SQLiteHandler(Handler):
         self.db_path = db_path
         self.table_name = table_name
         self._table_created: bool = False
+        self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='db_logging')
 
     def _execute_query(self, query: str) -> None:
         db = sqlite3.connect(self.db_path)
@@ -67,7 +68,7 @@ class SQLiteHandler(Handler):
         db.commit()
 
     def execute_query(self, query: str) -> None:
-        run_sync(self._execute_query, query)
+        self._executor.submit(self._execute_query, query)
 
     def create_table(self) -> None:
         query = self._create_query % {"table_name": self.table_name}
