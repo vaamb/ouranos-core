@@ -1357,6 +1357,7 @@ class WikiPicture(Base, WikiTagged, CRUDMixin, WikiObject):
     id: Mapped[int] = mapped_column(primary_key=True)
     article_id: Mapped[int] = mapped_column(sa.ForeignKey("wiki_articles.id"))
     name: Mapped[str] = mapped_column(sa.String(length=64))
+    description: Mapped[Optional[str]] = mapped_column(sa.String(length=512))
     path: Mapped[ioPath] = mapped_column(PathType(length=512))
     status: Mapped[bool] = mapped_column(default=True)
 

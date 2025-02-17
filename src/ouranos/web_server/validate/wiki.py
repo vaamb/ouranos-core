@@ -105,15 +105,6 @@ class WikiArticleCreationPayload(BaseModel):
     # author_id is provided by the route
 
 
-class WikiArticleUploadPayload(BaseModel):
-    # topic is provided by the route
-    name: str | MissingValue = missing
-    # content is provided as the uploaded file
-    description: str | MissingValue = missing
-    tags: list[str] | MissingValue = Field(missing, serialization_alias="tags_name")
-    # author_id is provided by the route
-
-
 class WikiArticleUpdatePayload(BaseModel):
     # topic is provided by the route
     # name is provided by the route
@@ -165,9 +156,4 @@ class WikiArticlePictureCreationPayload(BaseModel):
     name: str
     extension: str
     content: bytes
-    tags: list[str] = Field(default_factory=list, serialization_alias="tags_name")
-
-
-class WikiArticlePictureUploadPayload(BaseModel):
-    name : str | MissingValue = missing
     tags: list[str] = Field(default_factory=list, serialization_alias="tags_name")
