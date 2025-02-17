@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import (
-    APIRouter, Body, Depends, HTTPException, Query, Path, status, UploadFile)
+    APIRouter, Body, Depends, Form, HTTPException, Query, Path, status, UploadFile)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos.core.config.consts import (
@@ -592,7 +592,7 @@ async def add_picture(
             ),
         )
 
-from fastapi import Form
+
 @router.post("/topics/u/{topic_slug}/u/{article_slug}/u/upload_file",
              dependencies=[Depends(is_operator)])
 async def upload_picture(
