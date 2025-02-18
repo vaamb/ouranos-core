@@ -400,7 +400,7 @@ async def upload_article(
             name=name or file.filename.split(".")[0],
             values={
                 "description": description,
-                "tags": tags,
+                "tags_name": tags,
                 "content": content.decode("utf-8"),
                 "author_id": current_user.id,
             },
@@ -519,7 +519,7 @@ async def update_article_upload(
             name=article.name,
             values={
                 "description": description,
-                "tags": tags,
+                "tags_name": tags,
                 "content": content.decode("utf-8"),
                 "author_id": current_user.id,
             },
@@ -626,7 +626,7 @@ async def upload_picture(
             name=name or file.filename.split(".")[0],
             values={
                 "description": description,
-                "tags": tags,
+                "tags_name": tags,
                 "content": await file.read(),
                 "extension": file.filename.split(".")[1],
             },
