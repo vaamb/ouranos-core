@@ -1155,7 +1155,7 @@ class WikiArticle(Base, WikiTagged, CRUDMixin, WikiObject):
         if tags_name:
             await article.attach_tags(
                 session, AssociationWikiTagArticle,
-                AssociationWikiTagTopic.c.article_id, tags_name)
+                AssociationWikiTagArticle.c.article_id, tags_name)
         # Create the article modification
         await WikiArticleModification.create(
             session,
@@ -1229,7 +1229,7 @@ class WikiArticle(Base, WikiTagged, CRUDMixin, WikiObject):
         if tags_name:
             await article.attach_tags(
                 session, AssociationWikiTagArticle,
-                AssociationWikiTagTopic.c.article_id, tags_name)
+                AssociationWikiTagArticle.c.article_id, tags_name)
         # Create the article modification
         await WikiArticleModification.create(
             session,
