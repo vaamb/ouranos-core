@@ -141,7 +141,7 @@ async def get_sensor_current_data(
     sensor = await sensor_or_abort(session, hardware_uid)
     if sensor.type == gv.HardwareType.camera:
         raise HTTPException(
-            status_code=status.HTT,
+            status_code=status.HTTP_404_NOT_FOUND,
             detail="No current measure available for this kind of sensor"
         )
     current_data = await sensor.get_current_data(session, measure=measure)
