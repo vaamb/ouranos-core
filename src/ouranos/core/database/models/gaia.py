@@ -370,6 +370,8 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
                 self.management_dict.get("climate"),
                 self.management_dict.get("light")
             )),
+            "ecosystem_data": await self.has_recent_sensor_data(
+                session, level=gv.HardwareLevel.ecosystem),
             "environment_data": await self.has_recent_sensor_data(
                 session, level=gv.HardwareLevel.environment),
             "plants_data": await self.has_recent_sensor_data(
