@@ -168,7 +168,7 @@ async def get_sensor_historic_data(
         ],
         time_window: Annotated[
             timeWindow,
-            Depends(get_time_window(rounding=10, grace_time=60)),
+            Depends(get_time_window(rounding=10, grace_time=60, max_window_length=31)),
         ],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
