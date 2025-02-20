@@ -131,6 +131,7 @@ class WikiArticlePictureInfo(BaseModel):
     article_slug: str = Field(validation_alias="article_slug")
     name: str
     slug: str
+    description: str | None = None
     tags: list[str] = Field(default_factory=list)
     tags_slug: list[str] = Field(default_factory=list)
     path: str
@@ -156,4 +157,5 @@ class WikiArticlePictureCreationPayload(BaseModel):
     name: str
     extension: str
     content: bytes
+    description: str | None = None
     tags: list[str] = Field(default_factory=list, serialization_alias="tags_name")
