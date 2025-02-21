@@ -370,6 +370,8 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
                 self.management_dict.get("climate"),
                 self.management_dict.get("light")
             )),
+            "ecosystem_data": await self.has_recent_sensor_data(
+                session, level=gv.HardwareLevel.ecosystem),
             "environment_data": await self.has_recent_sensor_data(
                 session, level=gv.HardwareLevel.environment),
             "plants_data": await self.has_recent_sensor_data(
@@ -821,7 +823,7 @@ class Sensor(Hardware):
             "measure": measure_obj.name,
             "unit": measure_obj.unit,
             "values": await SensorDataCache.get_recent_timed_values(
-                session, self.uid, measure_obj.name),
+                session, self.uid, measure_obj.name.lower()),
         }
 
     async def get_historic_data(
@@ -845,7 +847,7 @@ class Sensor(Hardware):
             "unit": measure_obj.unit,
             "span": (time_window.start, time_window.end),
             "values": await SensorDataRecord.get_timed_values(
-                session, sensor_uid=self.uid, measure_name=measure_obj.name,
+                session, sensor_uid=self.uid, measure_name=measure_obj.name.lower(),
                 time_window=time_window),
         }
 

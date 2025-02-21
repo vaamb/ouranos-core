@@ -257,6 +257,9 @@ class DispatcherEvents(AsyncEventHandler):
                 uid: str = payload["uid"]
                 # Add extra functionalities required
                 payload_data["switches"] = payload_data["climate"] or payload_data["light"]
+                payload_data["ecosystem_data"] = \
+                    await Ecosystem.check_if_recent_sensor_data(
+                    session, uid=uid, level=gv.HardwareLevel.ecosystem),
                 payload_data["environment_data"] = \
                     await Ecosystem.check_if_recent_sensor_data(
                         session, uid=uid, level=gv.HardwareLevel.environment)

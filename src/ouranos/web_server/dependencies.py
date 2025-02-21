@@ -19,7 +19,11 @@ start_time_query = Query(
 
 end_time_query = Query(
     default=None, description="ISO (8601) formatted datetime up to which the "
-                              "research will be done")
+                              "research will be done. By default, it is now.")
+
+window_length_query = Query(
+    default=7, description="The number of days to fetch if no start time is "
+                           "provided.")
 
 
 class get_time_window:  # noqa: 801
@@ -27,21 +31,25 @@ class get_time_window:  # noqa: 801
             self,
             rounding: int,
             grace_time: int,
-            window_length: int = 7
+            default_window_length: int = 7,
+            max_window_length: int | None = 7,
     ) -> None:
         self.rounding = rounding
         self.grace_time = grace_time
-        self.window_length = window_length
+        self.default_window_length = default_window_length
+        self.max_window_length = max_window_length
 
     def __call__(
             self,
             start_time: Optional[str] = start_time_query,
             end_time: Optional[str] = end_time_query,
+            window_length: Optional[int] | None = window_length_query,
     ) -> timeWindow:
         try:
             return create_time_window(
-                start_time, end_time, window_length=7, rounding_base=self.rounding,
-                grace_time=self.grace_time)
+                start_time, end_time, rounding_base=self.rounding,
+                grace_time=self.grace_time, max_window_length=self.max_window_length,
+                window_length=window_length or self.default_window_length)
         except ValueError as e:
             raise HTTPException(
                 status.HTTP_422_UNPROCESSABLE_ENTITY,

@@ -59,9 +59,10 @@ class timeWindow:
 def create_time_window(
         start_time: str | datetime | None = None,
         end_time: str | datetime | None = None,
-        window_length: int = 7,
+        window_length: int | None = 7,
         rounding_base: int = 10,
-        grace_time: int = 60
+        grace_time: int = 60,
+        max_window_length: int | None = 7,
 ) -> timeWindow:
     def extract_dt(dt: str | datetime, limit_name: str) -> datetime:
         if isinstance(dt, str):
@@ -76,9 +77,14 @@ def create_time_window(
         end = datetime.now(timezone.utc)
     if start_time:
         start = extract_dt(start_time, "start_time")
-        if end - start > timedelta(days=window_length):
-            raise ValueError(f"Max time window length is {window_length} days.")
+        if max_window_length  and end - start > timedelta(days=max_window_length):
+            raise ValueError(f"Max time window length is {max_window_length} days.")
     else:
+        if window_length is None:
+            raise ValueError(
+                f"Cannot create a time window without a start time or a window "
+                f"length."
+            )
         start = end - timedelta(days=window_length)
     if start > end:
         start, end = end, start

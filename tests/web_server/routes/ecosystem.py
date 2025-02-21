@@ -149,6 +149,9 @@ def test_managements(client: TestClient):
     for management, value in g_data.management_data.items():
         if data.get(management):
             assert data[0][management] == value
+    assert not data["ecosystem_data"]
+    assert not data["environment_data"]
+    assert not data["plants_data"]
 
 
 def test_management_unique(client: TestClient):
@@ -159,6 +162,9 @@ def test_management_unique(client: TestClient):
     for management, value in g_data.management_data.items():
         if data.get(management):
             assert data[0][management] == value
+    assert not data["ecosystem_data"]
+    assert not data["environment_data"]
+    assert not data["plants_data"]
 
 
 def test_management_update_request_failure_user(client_user: TestClient):

@@ -86,6 +86,7 @@ class _EcosystemManagementInfo(BaseModel):
     uid: str
     name: str
     switches: bool = False
+    ecosystem_data: bool = False
     environment_data: bool = False
     plants_data: bool = False
 

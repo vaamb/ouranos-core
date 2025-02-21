@@ -141,7 +141,7 @@ async def get_sensor_current_data(
     sensor = await sensor_or_abort(session, hardware_uid)
     if sensor.type == gv.HardwareType.camera:
         raise HTTPException(
-            status_code=status.HTT,
+            status_code=status.HTTP_404_NOT_FOUND,
             detail="No current measure available for this kind of sensor"
         )
     current_data = await sensor.get_current_data(session, measure=measure)
@@ -168,7 +168,7 @@ async def get_sensor_historic_data(
         ],
         time_window: Annotated[
             timeWindow,
-            Depends(get_time_window(rounding=10, grace_time=60)),
+            Depends(get_time_window(rounding=10, grace_time=60, max_window_length=31)),
         ],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
