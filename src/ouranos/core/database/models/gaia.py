@@ -342,7 +342,7 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
             select(Hardware)
             .where(
                 Hardware.ecosystem_uid == uid,
-                Hardware.type == gv.HardwareType.sensor,
+                Hardware.type.in_([gv.HardwareType.sensor, gv.HardwareType.camera]),
                 Hardware.level == level,
                 Hardware.last_log >= time_limit,
             )
@@ -370,6 +370,8 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
                 self.management_dict.get("climate"),
                 self.management_dict.get("light")
             )),
+            "ecosystem_data": await self.has_recent_sensor_data(
+                session, level=gv.HardwareLevel.ecosystem),
             "environment_data": await self.has_recent_sensor_data(
                 session, level=gv.HardwareLevel.environment),
             "plants_data": await self.has_recent_sensor_data(
