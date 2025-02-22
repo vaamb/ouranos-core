@@ -25,8 +25,7 @@ jobs:
         pip install -e .[test]
     - name: Run tests with coverage
       run: |
-        coverage run -m pytest -v
+        coverage run --data-file tests/.coverage -m pytest -v
+        coverage json --data-file tests/.coverage -o buf/tests/coverage.json
+        coverage report --data-file tests/.coverage
       timeout-minutes: 5
-    #- name: Display coverage
-    #  run: |
-    #    coverage report
