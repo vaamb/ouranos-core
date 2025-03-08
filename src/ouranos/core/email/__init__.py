@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from email.message import EmailMessage
 from email.utils import make_msgid
 from typing import Iterator, Self
@@ -10,10 +10,14 @@ from ouranos import current_app
 from ouranos.core.email.templates import get_body_text, render_template
 
 
+def _get_default_sender():
+    return current_app.config["MAIL_SENDER_ADDRESS"]
+
+
 @dataclass
 class Email:
-    sender: str
     to: list[str]
+    sender: str = field(default_factory=_get_default_sender)
     cc: list[str] | None = None
     bcc: list[str] | None = None
     subject: str = ""
@@ -57,12 +61,14 @@ class Email:
                 "when using Ouranos in a production environment."
             )
 
+        msg = self.make_msg()
+
         if current_app.config["TESTING"] and self._outbox is not None:
-            self._outbox.append(self.make_msg())
+            self._outbox.append(msg)
             return
 
         await aiosmtplib.send(
-            self.make_msg(),
+            msg,
             hostname=hostname,
             port=port,
             username=username,
