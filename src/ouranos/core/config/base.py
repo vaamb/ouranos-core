@@ -198,10 +198,9 @@ class BaseConfigDict(TypedDict):
     MAIL_SERVER: str
     MAIL_PORT: int
     MAIL_USE_TLS: bool
-    MAIL_USE_SSL: bool
     MAIL_USERNAME: str | None
     MAIL_PASSWORD: str | None
-    MAIL_SUPPRESS_SEND: bool
+    MAIL_SENDER_ADDRESS: str | None
 
     # Private parameters
     HOME_CITY: str | None
