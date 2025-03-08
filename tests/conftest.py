@@ -5,6 +5,8 @@ from ouranos import Config, db as _db, setup_config
 from ouranos.core.config import ConfigDict
 from ouranos.core.database.init import create_base_data
 
+from .data.auth import admin
+
 
 @pytest.fixture(scope="session", autouse=True)
 def config(tmp_path_factory):
@@ -21,6 +23,11 @@ def config(tmp_path_factory):
     }
     Config.SENSOR_LOGGING_PERIOD = 1
     Config.SYSTEM_LOGGING_PERIOD = 1
+
+    Config.MAIL_SERVER = "127.0.0.1"
+    Config.MAIL_PORT = 465
+    Config.MAIL_USERNAME = admin.username
+    Config.MAIL_PASSWORD = admin.password
 
     config = setup_config(Config)
     _db.init(config)

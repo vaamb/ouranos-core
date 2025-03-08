@@ -110,11 +110,10 @@ class BaseConfig:
     # Mail config
     MAIL_SERVER = os.environ.get("OURANOS_MAIL_SERVER") or "smtp.gmail.com"
     MAIL_PORT = int(os.environ.get("OURANOS_MAIL_PORT") or 465)
-    MAIL_USE_TLS = False
-    MAIL_USE_SSL = True
+    MAIL_USE_TLS = True
     MAIL_USERNAME = os.environ.get("OURANOS_MAIL_ADDRESS")
     MAIL_PASSWORD = os.environ.get("OURANOS_MAIL_PASSWORD")
-    MAIL_SUPPRESS_SEND = False
+    MAIL_SENDER_ADDRESS = os.environ.get("OURANOS_MAIL_SENDER_ADDRESS")
 
     # Private parameters
     HOME_CITY = os.environ.get("HOME_CITY")
@@ -199,10 +198,9 @@ class BaseConfigDict(TypedDict):
     MAIL_SERVER: str
     MAIL_PORT: int
     MAIL_USE_TLS: bool
-    MAIL_USE_SSL: bool
     MAIL_USERNAME: str | None
     MAIL_PASSWORD: str | None
-    MAIL_SUPPRESS_SEND: bool
+    MAIL_SENDER_ADDRESS: str | None
 
     # Private parameters
     HOME_CITY: str | None
