@@ -7,6 +7,7 @@ from typing import Iterator, Self
 import aiosmtplib
 
 from ouranos import current_app
+from ouranos.core.email.templates import get_body_text, render_template
 
 
 @dataclass
