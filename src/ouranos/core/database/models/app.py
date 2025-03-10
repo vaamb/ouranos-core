@@ -538,8 +538,9 @@ class User(Base, UserMixin):
             user_id: int,
     ) -> None:
         stmt = (
-            delete(cls)
+            update(cls)
             .where(cls.id == user_id)
+            .values({"active": False})
         )
         await session.execute(stmt)
 
