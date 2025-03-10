@@ -318,6 +318,16 @@ class User(Base, UserMixin):
             other_claims={"user_id": self.id},
         )
 
+    async def create_password_reset_token(
+            self,
+            expiration_delay: int = REGISTRATION_TOKEN_VALIDITY,
+    ) -> str:
+        return Tokenizer.create_token(
+            subject=TOKEN_SUBS.RESET_PASSWORD.value,
+            expiration_delay=expiration_delay,
+            other_claims={"user_id": self.id},
+        )
+
     # ---------------------------------------------------------------------------
     #   Methods involved in the data processing of user creation and update
     # ---------------------------------------------------------------------------
@@ -577,6 +587,9 @@ class User(Base, UserMixin):
             )
             await session.execute(stmt)
 
+    # ---------------------------------------------------------------------------
+    #   Other methods requiring tokens
+    # ---------------------------------------------------------------------------
     @classmethod
     async def confirm(cls, session: AsyncSession, confirmation_token: str) -> None:
         payload = Tokenizer.loads(confirmation_token)
@@ -596,6 +609,21 @@ class User(Base, UserMixin):
             .values(confirmed_at=func.current_timestamp())
         )
         await session.execute(stmt)
+
+    @classmethod
+    async def reset_password(
+            cls,
+            session: AsyncSession,
+            reset_token: str,
+            new_password: str,
+    ) -> None:
+        payload = Tokenizer.loads(reset_token)
+        if payload["sub"] != TOKEN_SUBS.RESET_PASSWORD.value:
+            raise ValueError("Invalid token subject")
+        user = await cls.get(session, payload["user_id"])
+        if user is None:
+            raise ValueError("Invalid token user id")
+        await cls.update(session, payload["user_id"], {"password": new_password})
 
 
 class ServiceLevel(StrEnum):
