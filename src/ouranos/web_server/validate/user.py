@@ -14,8 +14,8 @@ class UserDescription(BaseModel):
     role_name: RoleName
     firstname: str | None = None
     lastname: str | None = None
-    confirmed: bool
-    registration_datetime: datetime
+    created_at: datetime
+    confirmed_at: datetime | None
     last_seen: datetime
 
 

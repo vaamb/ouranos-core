@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 import difflib
 import enum
 from enum import Enum, IntFlag, StrEnum
@@ -581,7 +581,7 @@ class User(Base, UserMixin):
                 .values({
                     "username": "Ouranos",
                     "email": "None",
-                    "confirmed": True,
+                    "confirmed_at": datetime.now(tz=timezone.utc),
                     "role_id": admin.id,
                 })
             )
