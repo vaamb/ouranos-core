@@ -33,6 +33,26 @@ def _safe_datetime(datetime_str: str | None) -> datetime | None:
         )
 
 
+def check_current_user_is_allowed(current_user: UserMixin, username: str) -> None:
+    if current_user.username != username and not current_user.can(Permission.ADMIN):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only access your own profile",
+        )
+
+
+def check_current_user_is_higher(current_user: UserMixin, user: UserMixin) -> None:
+    if (
+            current_user.username != user.username
+            and current_user.role.permissions <= user.role.permissions
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only update other users info with permission level "
+                   "lower than yours.",
+        )
+
+
 async def get_user_or_abort(
         session: AsyncSession,
         username: str
@@ -85,11 +105,7 @@ async def get_user(
         current_user: Annotated[UserMixin, Depends(get_current_user)],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    if current_user.username != username and not current_user.can(Permission.ADMIN):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only request your own profile",
-        )
+    check_current_user_is_allowed(current_user, username)
     user = await get_user_or_abort(session, username)
     return user
 
@@ -105,21 +121,10 @@ async def update_user(
         current_user: Annotated[UserMixin, Depends(get_current_user)],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    if current_user.username != username and not current_user.can(Permission.ADMIN):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only update your own profile",
-        )
-
+    check_current_user_is_allowed(current_user, username)
     user = await get_user_or_abort(session, username)
-    if (
-            current_user.username != user.username
-            and user.role.permissions >= current_user.role.permissions
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only update profiles with permissions lower than yours.",
-        )
+    check_current_user_is_higher(current_user, user)
+
     user_dict = payload.model_dump(exclude_defaults=True)
     user_dict = {
         key: value for key, value in user_dict.items()
