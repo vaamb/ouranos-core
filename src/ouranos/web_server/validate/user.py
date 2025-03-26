@@ -20,6 +20,5 @@ class UserDescription(BaseModel):
 
 
 class UserUpdatePayload(BaseModel):
-    email: str | MissingValue = missing
     firstname: str | None | MissingValue = missing
     lastname: str | None | MissingValue = missing
