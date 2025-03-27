@@ -85,3 +85,23 @@ class Email:
         yield self._outbox
 
         self._outbox = None
+
+
+async def send_gaia_templated_email(
+        template_name: str,
+        recipients: list[str],
+        subject: str,
+        **template_context,
+) -> None:
+    html = await render_template(
+        template_name,
+        email_subject=subject,
+        **template_context,
+    )
+    email = Email(
+        to=recipients,
+        subject="Invitation to Gaia",
+        html=html,
+        body=get_body_text(html),
+    )
+    await email.send()
