@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import difflib
 import enum
 from enum import Enum, IntFlag, StrEnum
@@ -11,6 +11,7 @@ from uuid import UUID
 from anyio import Path as ioPath
 from argon2 import PasswordHasher
 from argon2.exceptions import VerificationError
+import humanize
 import sqlalchemy as sa
 from sqlalchemy import (
     and_, delete, insert, Select, select, Table, UniqueConstraint, update)
@@ -28,6 +29,7 @@ from ouranos.core.database.models.abc import Base, CRUDMixin, ToDictMixin
 from ouranos.core.database.models.caches import cache_users
 from ouranos.core.database.models.types import PathType, UtcDateTime
 from ouranos.core.database.utils import ArchiveLink
+from ouranos.core.email import send_gaia_templated_email
 from ouranos.core.utils import check_filename, slugify, Tokenizer
 
 
@@ -311,7 +313,7 @@ class User(Base, UserMixin):
             expiration_delay: int = REGISTRATION_TOKEN_VALIDITY,
     ) -> str:
         if self.confirmed_at is not None:
-            raise RuntimeError("User is already confirmed")
+            raise ValueError("User is already confirmed")
         return Tokenizer.create_token(
             subject=TOKEN_SUBS.CONFIRMATION.value,
             expiration_delay=expiration_delay,
@@ -322,10 +324,105 @@ class User(Base, UserMixin):
             self,
             expiration_delay: int = REGISTRATION_TOKEN_VALIDITY,
     ) -> str:
+        if self.confirmed_at is None:
+            raise ValueError("User is not confirmed")
         return Tokenizer.create_token(
             subject=TOKEN_SUBS.RESET_PASSWORD.value,
             expiration_delay=expiration_delay,
             other_claims={"user_id": self.id},
+        )
+
+    # ---------------------------------------------------------------------------
+    #   Sending email
+    # ---------------------------------------------------------------------------
+    @classmethod
+    async def send_invitation_email(
+            cls,
+            session: AsyncSession,
+            user_info: UserTokenInfoDict | None = None,
+            email: str | None = None,
+            token: str | None = None,
+            expiration_delay: int = REGISTRATION_TOKEN_VALIDITY,
+    ) -> None:
+        # Check we have the required data
+        user_info = user_info or {}
+        email = email or user_info.get("email")
+        if not email:
+            raise ValueError(
+                "Email should be defined either as a parameter or in `user_info`"
+            )
+        user_info["email"] = email  # Be consistent
+        url = current_app.config.get("FRONTEND_URL", None)
+        if not url:
+            raise ValueError("Frontend URL is not configured")
+        # Actual logic
+        token = token or await cls.create_invitation_token(
+            session, user_info=user_info, expiration_delay=expiration_delay)
+        await send_gaia_templated_email(
+            "invitation",
+            subject="Invitation to Gaia",
+            recipients=[email],
+            frontend_address=url,
+            logo_address=f"{url}/favicon.ico",
+            token=token,
+            expiration_delay=humanize.time.precisedelta(
+                timedelta(seconds=expiration_delay), minimum_unit="hours",
+                format="%0.0f"),
+            firstname=user_info.get("firstname"),
+        )
+
+    async def send_confirmation_email(
+        self,
+        token: str | None = None,
+        expiration_delay: int = REGISTRATION_TOKEN_VALIDITY,
+    ) -> None:
+        # Check we have the required data
+        if self.confirmed_at is not None:
+            raise ValueError("User is already confirmed")
+        url = current_app.config.get("FRONTEND_URL", None)
+        if not url:
+            raise ValueError("Frontend URL is not configured")
+        # Actual logic
+        token = token or await self.create_confirmation_token(
+            expiration_delay=expiration_delay)
+        await send_gaia_templated_email(
+            "welcome",
+            subject="Welcome to Gaia",
+            recipients=[self.email],
+            frontend_address=url,
+            logo_address=f"{url}/favicon.ico",
+            token=token,
+            expiration_delay=humanize.time.precisedelta(
+                timedelta(seconds=expiration_delay), minimum_unit="hours",
+                format="%0.0f"),
+            username=self.username,
+        )
+
+    async def send_reset_password_email(
+        self,
+        token: str | None = None,
+        expiration_delay: int = REGISTRATION_TOKEN_VALIDITY,
+    ) -> None:
+        # Check we have the required data
+        if self.confirmed_at is None:
+            raise ValueError("User is not confirmed")
+        url = current_app.config.get("FRONTEND_URL", None)
+        if not url:
+            raise ValueError("Frontend URL is not configured")
+        # Actual logic
+        token = token or await self.create_password_reset_token(
+            expiration_delay=expiration_delay)
+        await send_gaia_templated_email(
+            "reset_password",
+            subject="Reset your password",
+            recipients=[self.email],
+            frontend_address=url,
+            logo_address=f"{url}/favicon.ico",
+            token=token,
+            expiration_delay=humanize.time.precisedelta(
+                timedelta(seconds=expiration_delay), minimum_unit="hours",
+                format="%0.0f"),
+            username=self.username,
         )
 
     # ---------------------------------------------------------------------------
