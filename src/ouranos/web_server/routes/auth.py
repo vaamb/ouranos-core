@@ -161,8 +161,20 @@ async def create_registration_token(
                             "Default to one day."
             ),
         ] = REGISTRATION_TOKEN_VALIDITY,
+        send_email: Annotated[
+            bool,
+            Query(
+                description="Whether to send an email to the user. "
+                            "Default to False."
+            ),
+        ] = False,
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    if send_email and email is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Email address is required to send an invitation",
+        )
     if role is not None:
         try:
             role = safe_enum_from_name(RoleName, role)
@@ -178,5 +190,14 @@ async def create_registration_token(
         "role": role,
         "email": email,
     }
-    return await User.create_invitation_token(
+    token = await User.create_invitation_token(
         session, user_info=user_info, expiration_delay=expires_in)
+    if send_email:
+        try:
+            await User.send_invitation_email(session, user_info=user_info, token=token)
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_501_NOT_IMPLEMENTED,
+                detail=str(e),
+            )
+    return token
