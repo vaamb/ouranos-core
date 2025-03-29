@@ -29,3 +29,7 @@ class LoginInfo(BaseModel):
     msg: str
     user: UserInfo
     session_token: str
+
+
+class UserPasswordUpdatePayload(BaseModel):
+    password: str

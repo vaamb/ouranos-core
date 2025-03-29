@@ -27,11 +27,11 @@ def _create_session_id(user_agent: str) -> str:
     return h.hexdigest()
 
 
-def check_invitation_token(invitation_token: str) -> dict:
+def check_token(invitation_token: str, token_sub: str) -> dict:
     try:
         payload = Tokenizer.loads(invitation_token)
         if (
-                payload.get("sub") != TOKEN_SUBS.REGISTRATION.value
+                payload.get("sub") != token_sub
                 or not payload.get("exp")
         ):
             raise InvalidTokenError
