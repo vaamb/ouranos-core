@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import (
     APIRouter, Body, Depends, HTTPException, Path, Query, status)
 
+from ouranos.core.config.consts import REGISTRATION_TOKEN_VALIDITY
 from ouranos.core.database.models.app import Permission, User, UserMixin
 from ouranos.web_server.auth import get_current_user, is_admin
 from ouranos.web_server.dependencies import get_session
@@ -138,3 +139,53 @@ async def update_user(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=e.args
         )
+
+
+@router.get("/u/{username}/confirmation_token")
+async def create_confirmation_token(
+        *,
+        username: Annotated[str, Path(description="The username of the user")],
+        send_email: Annotated[
+            bool,
+            Query(
+                description="Whether to send an email to the user. "
+                            "Default to False."
+            ),
+        ] = False,
+        current_user: Annotated[UserMixin, Depends(get_current_user)],
+        session: Annotated[AsyncSession, Depends(get_session)],
+):
+    check_current_user_is_allowed(current_user, username)
+    user = await get_user_or_abort(session, username)
+    check_current_user_is_higher(current_user, user)
+
+    token = await user.create_confirmation_token(
+        expiration_delay=REGISTRATION_TOKEN_VALIDITY)
+    if send_email:
+        await user.send_confirmation_email(token, REGISTRATION_TOKEN_VALIDITY)
+    return token
+
+
+@router.get("/u/{username}/password_reset_token")
+async def create_password_reset_token(
+        *,
+        username: Annotated[str, Path(description="The username of the user")],
+        send_email: Annotated[
+            bool,
+            Query(
+                description="Whether to send an email to the user. "
+                            "Default to False."
+            ),
+        ] = False,
+        current_user: Annotated[UserMixin, Depends(get_current_user)],
+        session: Annotated[AsyncSession, Depends(get_session)],
+):
+    check_current_user_is_allowed(current_user, username)
+    user = await get_user_or_abort(session, username)
+    check_current_user_is_higher(current_user, user)
+
+    token = await user.create_password_reset_token(
+        expiration_delay=REGISTRATION_TOKEN_VALIDITY)
+    if send_email:
+        await user.send_confirmation_email(token, REGISTRATION_TOKEN_VALIDITY)
+    return token
