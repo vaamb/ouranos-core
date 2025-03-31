@@ -5,7 +5,7 @@ import difflib
 import enum
 from enum import Enum, IntFlag, StrEnum
 import re
-from typing import Optional, Self, Sequence, Type, TypedDict
+from typing import Optional, Self, Sequence, TypedDict
 from uuid import UUID
 
 from anyio import Path as ioPath
@@ -13,7 +13,7 @@ from argon2 import PasswordHasher
 from argon2.exceptions import VerificationError
 import sqlalchemy as sa
 from sqlalchemy import (
-    delete, insert, or_, Select, select, Table, UniqueConstraint, update)
+    and_, delete, insert, Select, select, Table, UniqueConstraint, update)
 from sqlalchemy.ext.asyncio import AsyncAttrs, AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -476,7 +476,7 @@ class User(Base, UserMixin):
         stmt = (
             select(cls)
             .where(
-                or_(
+                and_(
                     cls.__table__.c[key] == value
                     for key, value in non_null_lookup_keys.items()
                 )
