@@ -13,7 +13,12 @@ def test_get_users_fail_not_admin(client_operator: TestClient):
 
 
 def test_get_users_success(client_admin: TestClient):
-    response = client_admin.get("/api/user/")
+    response = client_admin.get(
+        "/api/user/",
+        params={
+            "active": True,
+        }
+    )
     assert response.status_code == 200
 
     data = json.loads(response.text)
