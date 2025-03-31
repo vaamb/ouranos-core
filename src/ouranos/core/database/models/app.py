@@ -521,6 +521,8 @@ class User(Base, UserMixin):
         await cls._validate_values_payload(session, values=values)
         # Update the payload values for the password and role_id
         values = await cls._update_values_payload(session, values=values)
+        # Remove user from the cache
+        cache_users.pop(user_id, None)
         # Update the user
         stmt = (
             update(cls)
@@ -537,6 +539,9 @@ class User(Base, UserMixin):
             /,
             user_id: int,
     ) -> None:
+        # Remove user from the cache
+        cache_users.pop(user_id, None)
+        # Delete the user
         stmt = (
             update(cls)
             .where(cls.id == user_id)
