@@ -104,7 +104,7 @@ async def test_confirm_email(db: AsyncSQLAlchemyWrapper):
 
 
 @pytest.mark.asyncio
-async def test_confirm_email(db: AsyncSQLAlchemyWrapper):
+async def test_reset_password_email(db: AsyncSQLAlchemyWrapper):
     async with db.scoped_session() as session:
         await User.update(
             session, user_id=user_.id, values={"confirmed_at": datetime.now()})
