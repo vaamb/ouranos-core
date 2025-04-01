@@ -159,10 +159,22 @@ async def create_confirmation_token(
     user = await get_user_or_abort(session, username)
     check_current_user_is_higher(current_user, user)
 
-    token = await user.create_confirmation_token(
-        expiration_delay=REGISTRATION_TOKEN_VALIDITY)
+    try:
+        token = await user.create_confirmation_token(
+            expiration_delay=REGISTRATION_TOKEN_VALIDITY)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(e),
+        )
     if send_email:
-        await user.send_confirmation_email(token, REGISTRATION_TOKEN_VALIDITY)
+        try:
+            await user.send_confirmation_email(token, REGISTRATION_TOKEN_VALIDITY)
+        except NotImplementedError as e:
+            raise HTTPException(
+                status_code=status.HTTP_501_NOT_IMPLEMENTED,
+                detail=str(e),
+            )
     return token
 
 
@@ -184,8 +196,20 @@ async def create_password_reset_token(
     user = await get_user_or_abort(session, username)
     check_current_user_is_higher(current_user, user)
 
-    token = await user.create_password_reset_token(
-        expiration_delay=REGISTRATION_TOKEN_VALIDITY)
+    try:
+        token = await user.create_password_reset_token(
+            expiration_delay=REGISTRATION_TOKEN_VALIDITY)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
+        )
     if send_email:
-        await user.send_confirmation_email(token, REGISTRATION_TOKEN_VALIDITY)
+        try:
+            await user.send_confirmation_email(token, REGISTRATION_TOKEN_VALIDITY)
+        except NotImplementedError as e:
+            raise HTTPException(
+                status_code=status.HTTP_501_NOT_IMPLEMENTED,
+                detail=str(e),
+            )
     return token

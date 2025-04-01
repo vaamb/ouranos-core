@@ -354,7 +354,7 @@ class User(Base, UserMixin):
         user_info["email"] = email  # Be consistent
         url = current_app.config.get("FRONTEND_URL", None)
         if not url:
-            raise ValueError("Frontend URL is not configured")
+            raise NotImplementedError("Frontend URL is not configured")
         # Actual logic
         token = token or await cls.create_invitation_token(
             session, user_info=user_info, expiration_delay=expiration_delay)
@@ -381,7 +381,7 @@ class User(Base, UserMixin):
             raise ValueError("User is already confirmed")
         url = current_app.config.get("FRONTEND_URL", None)
         if not url:
-            raise ValueError("Frontend URL is not configured")
+            raise NotImplementedError("Frontend URL is not configured")
         # Actual logic
         token = token or await self.create_confirmation_token(
             expiration_delay=expiration_delay)
@@ -408,7 +408,7 @@ class User(Base, UserMixin):
             raise ValueError("User is not confirmed")
         url = current_app.config.get("FRONTEND_URL", None)
         if not url:
-            raise ValueError("Frontend URL is not configured")
+            raise NotImplementedError("Frontend URL is not configured")
         # Actual logic
         token = token or await self.create_password_reset_token(
             expiration_delay=expiration_delay)

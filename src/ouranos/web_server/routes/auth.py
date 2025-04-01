@@ -135,7 +135,7 @@ async def register_new_user(
         if send_email:
             try:
                 await user.send_confirmation_email()
-            except ValueError as e:
+            except NotImplementedError as e:
                 raise HTTPException(
                     status_code=status.HTTP_501_NOT_IMPLEMENTED,
                     detail=str(e),
@@ -255,7 +255,7 @@ async def create_registration_token(
     if send_email:
         try:
             await User.send_invitation_email(session, user_info=user_info, token=token)
-        except ValueError as e:
+        except NotImplementedError as e:
             raise HTTPException(
                 status_code=status.HTTP_501_NOT_IMPLEMENTED,
                 detail=str(e),
