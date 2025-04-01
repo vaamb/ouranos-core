@@ -88,6 +88,7 @@ async def update_current_user_info(
              status_code=status.HTTP_201_CREATED,
              response_model=LoginInfo)
 async def register_new_user(
+        *,
         invitation_token: Annotated[
             str,
             Query(description="The invitation token received"),
@@ -96,6 +97,13 @@ async def register_new_user(
             UserCreationPayload,
             Body(description="Information about the new user"),
         ],
+        send_email: Annotated[
+            bool,
+            Query(
+                description="Whether to send a welcome email to the user. "
+                            "Default to False."
+            ),
+        ] = False,
         authenticator: Annotated[Authenticator, Depends(login_manager.get_authenticator)],
         current_user: Annotated[UserMixin, Depends(get_current_user)],
         session: Annotated[AsyncSession, Depends(get_session)],
@@ -124,6 +132,14 @@ async def register_new_user(
     else:
         user = await User.get_by(session, username=payload_dict["username"])
         token = authenticator.login(user, False)
+        if send_email:
+            try:
+                await user.send_confirmation_email()
+            except ValueError as e:
+                raise HTTPException(
+                    status_code=status.HTTP_501_NOT_IMPLEMENTED,
+                    detail=str(e),
+                )
         return {
             "msg": "You are registered.",
             "user": user,
