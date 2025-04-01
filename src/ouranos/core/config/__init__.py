@@ -9,7 +9,6 @@ from typing import Type
 
 from ouranos import __version__ as version
 from ouranos.core.config.base import BaseConfig, BaseConfigDict
-from ouranos.core.config.consts import ImmutableDict
 from ouranos.core.logging import configure_logging
 
 
@@ -17,6 +16,11 @@ from ouranos.core.logging import configure_logging
 #  ImmutableDict. For now: use the TypedDict for type hinting
 ConfigDict = BaseConfigDict
 profile_type: Type[BaseConfig] | str | None
+
+
+class ImmutableDict(dict):
+    def __setitem__(self, key, value):
+        raise AttributeError
 
 
 app_info = {
