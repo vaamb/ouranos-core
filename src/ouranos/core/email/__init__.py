@@ -101,7 +101,7 @@ async def send_gaia_templated_email(
     )
     email = Email(
         to=recipients,
-        subject="Invitation to Gaia",
+        subject=subject,
         html=html,
         body=get_body_text(html),
     )
