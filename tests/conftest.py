@@ -24,6 +24,7 @@ def config(tmp_path_factory):
     Config.SENSOR_LOGGING_PERIOD = 1
     Config.SYSTEM_LOGGING_PERIOD = 1
 
+    Config.FRONTEND_URL = "http://127.0.0.1:42424"
     Config.MAIL_SERVER = "127.0.0.1"
     Config.MAIL_PORT = 465
     Config.MAIL_USERNAME = admin.username
