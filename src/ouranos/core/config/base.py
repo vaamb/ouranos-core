@@ -63,6 +63,8 @@ class BaseConfig:
 
     PLUGINS_OMITTED = os.environ.get("OURANOS_PLUGINS_OMITTED")
 
+    FRONTEND_URL = os.environ.get("OURANOS_FRONTEND_URL", None)
+
     # Ouranos and Gaia config
     ADMINS = os.environ.get("OURANOS_ADMINS", [])
     RECAP_SENDING_HOUR = 4
@@ -165,6 +167,8 @@ class BaseConfigDict(TypedDict):
     GAIA_PICTURE_TRANSFER_METHOD: str
 
     PLUGINS_OMITTED: str
+
+    FRONTEND_URL: str | None
 
     # Ouranos and Gaia config
     ADMINS: list[str]

@@ -9,15 +9,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from gaia_validators import safe_enum_from_name
 
-from ouranos.core.config.consts import REGISTRATION_TOKEN_VALIDITY
+from ouranos.core.config.consts import REGISTRATION_TOKEN_VALIDITY, TOKEN_SUBS
 from ouranos.core.database.models.app import (
     anonymous_user, RoleName, User, UserMixin, UserTokenInfoDict)
 from ouranos.web_server.auth import (
-    Authenticator, basic_auth, check_invitation_token, get_current_user,
+    Authenticator, basic_auth, check_token, get_current_user,
     login_manager, is_admin)
 from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.validate.auth import (
-    LoginInfo, UserCreationPayload, UserInfo)
+    LoginInfo, UserCreationPayload, UserPasswordUpdatePayload, UserInfo)
 
 
 router = APIRouter(
@@ -88,6 +88,7 @@ async def update_current_user_info(
              status_code=status.HTTP_201_CREATED,
              response_model=LoginInfo)
 async def register_new_user(
+        *,
         invitation_token: Annotated[
             str,
             Query(description="The invitation token received"),
@@ -96,6 +97,13 @@ async def register_new_user(
             UserCreationPayload,
             Body(description="Information about the new user"),
         ],
+        send_email: Annotated[
+            bool,
+            Query(
+                description="Whether to send a welcome email to the user. "
+                            "Default to False."
+            ),
+        ] = False,
         authenticator: Annotated[Authenticator, Depends(login_manager.get_authenticator)],
         current_user: Annotated[UserMixin, Depends(get_current_user)],
         session: Annotated[AsyncSession, Depends(get_session)],
@@ -105,7 +113,7 @@ async def register_new_user(
             status_code=status.HTTP_406_NOT_ACCEPTABLE,
             detail="Logged in user cannot register"
         )
-    token_payload = check_invitation_token(invitation_token)
+    token_payload = check_token(invitation_token, TOKEN_SUBS.REGISTRATION.value)
     payload_dict = payload.model_dump()
     # Make sure token info are used
     if "username" in token_payload:
@@ -124,11 +132,63 @@ async def register_new_user(
     else:
         user = await User.get_by(session, username=payload_dict["username"])
         token = authenticator.login(user, False)
+        if send_email:
+            try:
+                await user.send_confirmation_email()
+            except NotImplementedError as e:
+                raise HTTPException(
+                    status_code=status.HTTP_501_NOT_IMPLEMENTED,
+                    detail=str(e),
+                )
         return {
             "msg": "You are registered.",
             "user": user,
             "session_token": token,
         }
+
+
+@router.post("/confirm_account")
+async def reset_password(
+        token: Annotated[
+            str,
+            Query(description="The confirmation token received"),
+        ],
+        session: Annotated[AsyncSession, Depends(get_session)],
+):
+    check_token(token, TOKEN_SUBS.CONFIRMATION.value)
+    try:
+        await User.confirm(session, token)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    else:
+        return {"msg": "Your account has been confirmed."}
+
+
+@router.post("/reset_password")
+async def reset_password(
+        token: Annotated[
+            str,
+            Query(description="The reset token received"),
+        ],
+        payload: Annotated[
+            UserPasswordUpdatePayload,
+            Body(description="Updated password"),
+        ],
+        session: Annotated[AsyncSession, Depends(get_session)],
+):
+    check_token(token, TOKEN_SUBS.RESET_PASSWORD.value)
+    try:
+        await User.reset_password(session, token, payload.password)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e) if not e.args else e.args[0]  # There should be a single error
+        )
+    else:
+        return {"msg": "Your password has been changed."}
 
 
 @router.get("/registration_token", dependencies=[Depends(is_admin)])
@@ -161,8 +221,20 @@ async def create_registration_token(
                             "Default to one day."
             ),
         ] = REGISTRATION_TOKEN_VALIDITY,
+        send_email: Annotated[
+            bool,
+            Query(
+                description="Whether to send an email to the user. "
+                            "Default to False."
+            ),
+        ] = False,
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    if send_email and email is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Email address is required to send an invitation",
+        )
     if role is not None:
         try:
             role = safe_enum_from_name(RoleName, role)
@@ -178,5 +250,14 @@ async def create_registration_token(
         "role": role,
         "email": email,
     }
-    return await User.create_invitation_token(
+    token = await User.create_invitation_token(
         session, user_info=user_info, expiration_delay=expires_in)
+    if send_email:
+        try:
+            await User.send_invitation_email(session, user_info=user_info, token=token)
+        except NotImplementedError as e:
+            raise HTTPException(
+                status_code=status.HTTP_501_NOT_IMPLEMENTED,
+                detail=str(e),
+            )
+    return token

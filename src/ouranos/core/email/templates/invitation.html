@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <p>
+    {% if firstname %}
+    Hej {{ firstname }}!
+    {% else %}
+    Hej!
+    {% endif %}
+  </p>
+
+  <p>You have been invited you to use Gaia, the Greenhouse Automation Intuitive App.</p>
+
+  <p>Visit <a href="{{frontend_address}}/auth/register?token={{token}}">this page</a> to register.</p>
+
+  <p>
+    Alternatively, you can copy this link into your favorite web browser:
+    <a href="{{frontend_address}}/auth/invitation">{{frontend_address}}/auth/invitation</a>
+    and use this registration token:
+  </p>
+
+  <p style="overflow-wrap: break-word; word-break:break-all; word-wrap: break-word; overflow: hidden">
+    {{token}}
+  </p>
+
+  <p>Do not wait, this link is only valid for {{ expiration_delay }}!</p>
+
+  <p>Hope to see you soon!</p>
+{% endblock %}

@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi.testclient import TestClient
 from httpx import BasicAuth
 import pytest
@@ -9,7 +11,7 @@ from ouranos.core.config.consts import TOKEN_SUBS
 from ouranos.core.database.models.app import anonymous_user, User
 from ouranos.core.utils import Tokenizer
 
-from tests.data.auth import admin
+from tests.data.auth import admin, operator
 
 
 registration_payload = {
@@ -151,6 +153,104 @@ async def test_register_success_override(db: AsyncSQLAlchemyWrapper, client: Tes
     async with db.scoped_session() as session:
         user = await User.get_by(session, username=username)
         await User.delete(session, user_id=user.id)
+
+
+@pytest.mark.asyncio
+async def test_user_confirmation_token_expired(db: AsyncSQLAlchemyWrapper, client: TestClient):
+    async with db.scoped_session() as session:
+        user = await User.get_by(session, username=operator.username)
+
+    token = await user.create_confirmation_token(-1)
+    response = client.post(
+        "/api/auth/confirm_account",
+        params={"token": token},
+    )
+
+    assert response.status_code == 422
+    assert "Expired token" in response.text
+
+
+@pytest.mark.asyncio
+async def test_user_confirmation_token_expired(db: AsyncSQLAlchemyWrapper, client: TestClient):
+    async with db.scoped_session() as session:
+        user = await User.get_by(session, username=operator.username)
+    assert user.confirmed_at is None
+
+    token = await user.create_confirmation_token()
+    response = client.post(
+        "/api/auth/confirm_account",
+        params={"token": token},
+    )
+
+    assert response.status_code == 200
+    assert "Your account has been confirmed" in response.text
+
+    async with db.scoped_session() as session:
+        user = await User.get_by(session, username=operator.username)
+    assert user.is_confirmed
+
+
+@pytest.mark.asyncio
+async def test_user_reset_password_token_expired(db: AsyncSQLAlchemyWrapper, client: TestClient):
+    # User need to be confirmed to update his password
+    async with db.scoped_session() as session:
+        await User.update(session, user_id=operator.id, values={"confirmed_at": datetime.now()})
+        user = await User.get_by(session, username=operator.username)
+    assert user.is_confirmed
+
+    token = await user.create_password_reset_token(-1)
+    response = client.post(
+        "/api/auth/reset_password",
+        params={"token": token},
+        json={"password": "new_password"},
+    )
+
+    assert response.status_code == 422
+    assert "Expired token" in response.text
+
+
+@pytest.mark.asyncio
+async def test_user_reset_password_token_wrong_format(db: AsyncSQLAlchemyWrapper, client: TestClient):
+    # User need to be confirmed to update his password
+    async with db.scoped_session() as session:
+        await User.update(session, user_id=operator.id, values={"confirmed_at": datetime.now()})
+        user = await User.get_by(session, username=operator.username)
+    assert user.is_confirmed
+
+    token = await user.create_password_reset_token()
+    response = client.post(
+        "/api/auth/reset_password",
+        params={"token": token},
+        json={"password": "new_password"},
+    )
+
+    assert response.status_code == 400
+    assert "Wrong password format" in response.text
+
+
+@pytest.mark.asyncio
+async def test_user_reset_password_token_success(db: AsyncSQLAlchemyWrapper, client: TestClient):
+    # User need to be confirmed to update his password
+    async with db.scoped_session() as session:
+        await User.update(session, user_id=operator.id, values={"confirmed_at": datetime.now()})
+        user = await User.get_by(session, username=operator.username)
+    assert user.is_confirmed
+
+    old_hash = user.password_hash
+
+    token = await user.create_password_reset_token()
+    response = client.post(
+        "/api/auth/reset_password",
+        params={"token": token},
+        json={"password": "New_val1d_password!"},
+    )
+
+    assert response.status_code == 200
+    assert "Your password has been changed" in response.text
+
+    async with db.scoped_session() as session:
+        user = await User.get_by(session, username=operator.username)
+    assert user.password_hash != old_hash
 
 
 def test_registration_token_failure(client: TestClient):

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import difflib
 import enum
 from enum import Enum, IntFlag, StrEnum
@@ -11,6 +11,7 @@ from uuid import UUID
 from anyio import Path as ioPath
 from argon2 import PasswordHasher
 from argon2.exceptions import VerificationError
+import humanize
 import sqlalchemy as sa
 from sqlalchemy import (
     and_, delete, insert, Select, select, Table, UniqueConstraint, update)
@@ -28,6 +29,7 @@ from ouranos.core.database.models.abc import Base, CRUDMixin, ToDictMixin
 from ouranos.core.database.models.caches import cache_users
 from ouranos.core.database.models.types import PathType, UtcDateTime
 from ouranos.core.database.utils import ArchiveLink
+from ouranos.core.email import send_gaia_templated_email
 from ouranos.core.utils import check_filename, slugify, Tokenizer
 
 
@@ -228,9 +230,9 @@ class User(Base, UserMixin):
 
     # User account info fields
     active: Mapped[bool] = mapped_column(default=True)
-    confirmed: Mapped[bool] = mapped_column(default=False)
-    registration_datetime: Mapped[datetime] = mapped_column(
+    created_at: Mapped[datetime] = mapped_column(
         UtcDateTime, default=func.current_timestamp())
+    confirmed_at: Mapped[Optional[datetime]] = mapped_column(UtcDateTime)
 
     # User information fields
     firstname: Mapped[Optional[str]] = mapped_column(sa.String(64))
@@ -256,7 +258,7 @@ class User(Base, UserMixin):
 
     @property
     def is_confirmed(self) -> bool:
-        return self.confirmed
+        return self.confirmed_at is not None
 
     @property
     def is_authenticated(self) -> bool:
@@ -305,6 +307,123 @@ class User(Base, UserMixin):
             other_claims=user_info,
         )
         return token
+
+    async def create_confirmation_token(
+            self,
+            expiration_delay: int = REGISTRATION_TOKEN_VALIDITY,
+    ) -> str:
+        if self.confirmed_at is not None:
+            raise ValueError("User is already confirmed")
+        return Tokenizer.create_token(
+            subject=TOKEN_SUBS.CONFIRMATION.value,
+            expiration_delay=expiration_delay,
+            other_claims={"user_id": self.id},
+        )
+
+    async def create_password_reset_token(
+            self,
+            expiration_delay: int = REGISTRATION_TOKEN_VALIDITY,
+    ) -> str:
+        if self.confirmed_at is None:
+            raise ValueError("User is not confirmed")
+        return Tokenizer.create_token(
+            subject=TOKEN_SUBS.RESET_PASSWORD.value,
+            expiration_delay=expiration_delay,
+            other_claims={"user_id": self.id},
+        )
+
+    # ---------------------------------------------------------------------------
+    #   Sending email
+    # ---------------------------------------------------------------------------
+    @classmethod
+    async def send_invitation_email(
+            cls,
+            session: AsyncSession,
+            user_info: UserTokenInfoDict | None = None,
+            email: str | None = None,
+            token: str | None = None,
+            expiration_delay: int = REGISTRATION_TOKEN_VALIDITY,
+    ) -> None:
+        # Check we have the required data
+        user_info = user_info or {}
+        email = email or user_info.get("email")
+        if not email:
+            raise ValueError(
+                "Email should be defined either as a parameter or in `user_info`"
+            )
+        user_info["email"] = email  # Be consistent
+        url = current_app.config.get("FRONTEND_URL", None)
+        if not url:
+            raise NotImplementedError("Frontend URL is not configured")
+        # Actual logic
+        token = token or await cls.create_invitation_token(
+            session, user_info=user_info, expiration_delay=expiration_delay)
+        await send_gaia_templated_email(
+            "invitation",
+            subject="Invitation to Gaia",
+            recipients=[email],
+            frontend_address=url,
+            logo_address=f"{url}/favicon.ico",
+            token=token,
+            expiration_delay=humanize.time.precisedelta(
+                timedelta(seconds=expiration_delay), minimum_unit="hours",
+                format="%0.0f"),
+            firstname=user_info.get("firstname"),
+        )
+
+    async def send_confirmation_email(
+        self,
+        token: str | None = None,
+        expiration_delay: int = REGISTRATION_TOKEN_VALIDITY,
+    ) -> None:
+        # Check we have the required data
+        if self.confirmed_at is not None:
+            raise ValueError("User is already confirmed")
+        url = current_app.config.get("FRONTEND_URL", None)
+        if not url:
+            raise NotImplementedError("Frontend URL is not configured")
+        # Actual logic
+        token = token or await self.create_confirmation_token(
+            expiration_delay=expiration_delay)
+        await send_gaia_templated_email(
+            "welcome",
+            subject="Welcome to Gaia",
+            recipients=[self.email],
+            frontend_address=url,
+            logo_address=f"{url}/favicon.ico",
+            token=token,
+            expiration_delay=humanize.time.precisedelta(
+                timedelta(seconds=expiration_delay), minimum_unit="hours",
+                format="%0.0f"),
+            username=self.username,
+        )
+
+    async def send_reset_password_email(
+        self,
+        token: str | None = None,
+        expiration_delay: int = REGISTRATION_TOKEN_VALIDITY,
+    ) -> None:
+        # Check we have the required data
+        if self.confirmed_at is None:
+            raise ValueError("User is not confirmed")
+        url = current_app.config.get("FRONTEND_URL", None)
+        if not url:
+            raise NotImplementedError("Frontend URL is not configured")
+        # Actual logic
+        token = token or await self.create_password_reset_token(
+            expiration_delay=expiration_delay)
+        await send_gaia_templated_email(
+            "reset_password",
+            subject="Reset your password",
+            recipients=[self.email],
+            frontend_address=url,
+            logo_address=f"{url}/favicon.ico",
+            token=token,
+            expiration_delay=humanize.time.precisedelta(
+                timedelta(seconds=expiration_delay), minimum_unit="hours",
+                format="%0.0f"),
+            username=self.username,
+        )
 
     # ---------------------------------------------------------------------------
     #   Methods involved in the data processing of user creation and update
@@ -559,11 +678,49 @@ class User(Base, UserMixin):
                 .values({
                     "username": "Ouranos",
                     "email": "None",
-                    "confirmed": True,
+                    "confirmed_at": datetime.now(tz=timezone.utc),
                     "role_id": admin.id,
                 })
             )
             await session.execute(stmt)
+
+    # ---------------------------------------------------------------------------
+    #   Other methods requiring tokens
+    # ---------------------------------------------------------------------------
+    @classmethod
+    async def confirm(cls, session: AsyncSession, confirmation_token: str) -> None:
+        payload = Tokenizer.loads(confirmation_token)
+        if payload["sub"] != TOKEN_SUBS.CONFIRMATION.value:
+            raise ValueError("Invalid token subject")
+        user = await cls.get(session, payload["user_id"])
+        if user is None:
+            raise ValueError("Invalid token user id")
+        if user.confirmed_at is not None:
+            raise RuntimeError("User is already confirmed")
+        stmt = (
+            update(cls)
+            .where(
+                (cls.id == payload["user_id"])
+                & (cls.active == True)
+            )
+            .values(confirmed_at=func.current_timestamp())
+        )
+        await session.execute(stmt)
+
+    @classmethod
+    async def reset_password(
+            cls,
+            session: AsyncSession,
+            reset_token: str,
+            new_password: str,
+    ) -> None:
+        payload = Tokenizer.loads(reset_token)
+        if payload["sub"] != TOKEN_SUBS.RESET_PASSWORD.value:
+            raise ValueError("Invalid token subject")
+        user = await cls.get(session, payload["user_id"])
+        if user is None:
+            raise ValueError("Invalid token user id")
+        await cls.update(session, payload["user_id"], {"password": new_password})
 
 
 class ServiceLevel(StrEnum):

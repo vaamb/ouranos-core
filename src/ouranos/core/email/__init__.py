@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from email.message import EmailMessage
 from email.utils import make_msgid
-from typing import Iterator, Self
+from typing import ClassVar, Iterator, Self
 
 import aiosmtplib
 
@@ -23,7 +23,7 @@ class Email:
     subject: str = ""
     body: str | None = None
     html: str | None = None
-    _outbox: list | None = None
+    _outbox: ClassVar[list | None] = None
 
     def make_msg(self) -> EmailMessage:
         msg = EmailMessage()
@@ -78,10 +78,31 @@ class Email:
             start_tls=not current_app.config["MAIL_USE_TLS"],
         )
 
+    @classmethod
     @asynccontextmanager
-    async def record_messages(self) -> Iterator[list[Self]]:
-        self._outbox = []
+    async def record_messages(cls) -> Iterator[list[Self]]:
+        cls._outbox = []
 
-        yield self._outbox
+        yield cls._outbox
 
-        self._outbox = None
+        cls._outbox = None
+
+
+async def send_gaia_templated_email(
+        template_name: str,
+        recipients: list[str],
+        subject: str,
+        **template_context,
+) -> None:
+    html = await render_template(
+        template_name,
+        email_subject=subject,
+        **template_context,
+    )
+    email = Email(
+        to=recipients,
+        subject=subject,
+        html=html,
+        body=get_body_text(html),
+    )
+    await email.send()

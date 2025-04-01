@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <p>Hej {{ username }}!</p>
+
+  <p>You recently registered to Gaia.</p>
+
+  <p>
+    In order to confirm your email address and activate your account,
+    visit <a href="{{frontend_address}}/auth/confirm?token={{token}}">this page</a>.
+  </p>
+
+  <p>
+    Alternatively, you can copy this link into your favorite web browser:
+    <a href="{{frontend_address}}/auth/confirm">{{frontend_address}}/auth/confirm</a>
+    and use this confirmation token:
+  </p>
+
+  <p style="overflow-wrap: break-word; word-break:break-all; word-wrap: break-word; overflow: hidden">
+    {{token}}
+  </p>
+
+  <p>Do not wait, this link is only valid for {{ expiration_delay }}!</p>
+{% endblock %}

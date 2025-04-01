@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import (
     APIRouter, Body, Depends, HTTPException, Path, Query, status)
 
+from ouranos.core.config.consts import REGISTRATION_TOKEN_VALIDITY
 from ouranos.core.database.models.app import Permission, User, UserMixin
 from ouranos.web_server.auth import get_current_user, is_admin
 from ouranos.web_server.dependencies import get_session
@@ -30,6 +31,26 @@ def _safe_datetime(datetime_str: str | None) -> datetime | None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Dates should be entered in a valid ISO (8601) format.",
+        )
+
+
+def check_current_user_is_allowed(current_user: UserMixin, username: str) -> None:
+    if current_user.username != username and not current_user.can(Permission.ADMIN):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only access your own profile",
+        )
+
+
+def check_current_user_is_higher(current_user: UserMixin, user: UserMixin) -> None:
+    if (
+            current_user.username != user.username
+            and current_user.role.permissions <= user.role.permissions
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only update other users info with permission level "
+                   "lower than yours.",
         )
 
 
@@ -85,11 +106,7 @@ async def get_user(
         current_user: Annotated[UserMixin, Depends(get_current_user)],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    if current_user.username != username and not current_user.can(Permission.ADMIN):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only request your own profile",
-        )
+    check_current_user_is_allowed(current_user, username)
     user = await get_user_or_abort(session, username)
     return user
 
@@ -105,21 +122,10 @@ async def update_user(
         current_user: Annotated[UserMixin, Depends(get_current_user)],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    if current_user.username != username and not current_user.can(Permission.ADMIN):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only update your own profile",
-        )
-
+    check_current_user_is_allowed(current_user, username)
     user = await get_user_or_abort(session, username)
-    if (
-            current_user.username != user.username
-            and user.role.permissions >= current_user.role.permissions
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only update profiles with permissions lower than yours.",
-        )
+    check_current_user_is_higher(current_user, user)
+
     user_dict = payload.model_dump(exclude_defaults=True)
     user_dict = {
         key: value for key, value in user_dict.items()
@@ -133,3 +139,77 @@ async def update_user(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=e.args
         )
+
+
+@router.get("/u/{username}/confirmation_token")
+async def create_confirmation_token(
+        *,
+        username: Annotated[str, Path(description="The username of the user")],
+        send_email: Annotated[
+            bool,
+            Query(
+                description="Whether to send an email to the user. "
+                            "Default to False."
+            ),
+        ] = False,
+        current_user: Annotated[UserMixin, Depends(get_current_user)],
+        session: Annotated[AsyncSession, Depends(get_session)],
+):
+    check_current_user_is_allowed(current_user, username)
+    user = await get_user_or_abort(session, username)
+    check_current_user_is_higher(current_user, user)
+
+    try:
+        token = await user.create_confirmation_token(
+            expiration_delay=REGISTRATION_TOKEN_VALIDITY)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(e),
+        )
+    if send_email:
+        try:
+            await user.send_confirmation_email(token, REGISTRATION_TOKEN_VALIDITY)
+        except NotImplementedError as e:
+            raise HTTPException(
+                status_code=status.HTTP_501_NOT_IMPLEMENTED,
+                detail=str(e),
+            )
+    return token
+
+
+@router.get("/u/{username}/password_reset_token")
+async def create_password_reset_token(
+        *,
+        username: Annotated[str, Path(description="The username of the user")],
+        send_email: Annotated[
+            bool,
+            Query(
+                description="Whether to send an email to the user. "
+                            "Default to False."
+            ),
+        ] = False,
+        current_user: Annotated[UserMixin, Depends(get_current_user)],
+        session: Annotated[AsyncSession, Depends(get_session)],
+):
+    check_current_user_is_allowed(current_user, username)
+    user = await get_user_or_abort(session, username)
+    check_current_user_is_higher(current_user, user)
+
+    try:
+        token = await user.create_password_reset_token(
+            expiration_delay=REGISTRATION_TOKEN_VALIDITY)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
+        )
+    if send_email:
+        try:
+            await user.send_confirmation_email(token, REGISTRATION_TOKEN_VALIDITY)
+        except NotImplementedError as e:
+            raise HTTPException(
+                status_code=status.HTTP_501_NOT_IMPLEMENTED,
+                detail=str(e),
+            )
+    return token
