@@ -1,8 +1,8 @@
 """Change user confirmation logic
 
 Revision ID: 092bfca12615
-Revises: a721d18f48c6
-Create Date: 2024-07-31 23:23:07.599120
+Revises: d3c34effeefa
+Create Date: 2025-03-07 23:23:07.599120
 
 """
 from typing import Sequence, Union
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = '092bfca12615'
-down_revision: Union[str, None] = 'a721d18f48c6'
+down_revision: Union[str, None] = 'd3c34effeefa'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
