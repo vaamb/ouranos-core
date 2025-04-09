@@ -769,7 +769,7 @@ class Service(Base, CRUDMixin):
         status = all((
             current_app.config["FRONTEND_URL"],
             current_app.config["MAIL_USERNAME"],
-            current_app.config["MAIL_PASSWORD"]
+            current_app.config["MAIL_PASSWORD"],
         ))
         await cls.update(session, name=ServiceName.email, values={"status": status})
 
