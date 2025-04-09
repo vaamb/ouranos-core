@@ -133,7 +133,7 @@ async def update_user(
     }
     try:
         await User.update(session, user_id=user.id, values=user_dict)
-        return f"Successfully updated user '{username}''s info"
+        return f"Successfully updated user {username}'s info"
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -175,7 +175,7 @@ async def create_confirmation_token(
                 status_code=status.HTTP_501_NOT_IMPLEMENTED,
                 detail=str(e),
             )
-        return f"Successfully sent an email to confirm user '{username}'s account"
+        return f"Successfully sent an email to confirm {username}'s account"
     return token
 
 
@@ -213,5 +213,5 @@ async def create_password_reset_token(
                 status_code=status.HTTP_501_NOT_IMPLEMENTED,
                 detail=str(e),
             )
-        return f"Successfully sent an email to reset user '{username}''s password"
+        return f"Successfully sent an email to reset {username}'s password"
     return token
