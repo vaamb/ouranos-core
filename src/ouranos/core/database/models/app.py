@@ -14,7 +14,7 @@ from argon2.exceptions import VerificationError
 import humanize
 import sqlalchemy as sa
 from sqlalchemy import (
-    and_, delete, insert, Select, select, Table, UniqueConstraint, update)
+    and_, delete, insert, or_, Select, select, Table, UniqueConstraint, update)
 from sqlalchemy.ext.asyncio import AsyncAttrs, AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -466,6 +466,7 @@ class User(Base, UserMixin):
         # Check if some of the info provided are already used
         previous_user: User = await cls.get_by(
             session,
+            and_or="or",
             username=values.get("username", None),
             email=values.get("email", None),
             telegram_id=values.get("telegram_id", None),
@@ -583,6 +584,7 @@ class User(Base, UserMixin):
             cls,
             session,
             /,
+            and_or: str = "and",
             **lookup_keys: str | int | None,
     ) -> Self | None:
         non_null_lookup_keys = {
@@ -592,10 +594,16 @@ class User(Base, UserMixin):
         }
         if not non_null_lookup_keys:
             return None
+        if and_or == "and":
+            link = and_
+        elif and_or == "or":
+            link = or_
+        else:
+            raise ValueError("'and_or' must be either 'and' or 'or'")
         stmt = (
             select(cls)
             .where(
-                and_(
+                link(
                     cls.__table__.c[key] == value
                     for key, value in non_null_lookup_keys.items()
                 )
