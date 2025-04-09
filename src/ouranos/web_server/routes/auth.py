@@ -148,7 +148,7 @@ async def register_new_user(
 
 
 @router.post("/confirm_account")
-async def reset_password(
+async def confirm_account(
         token: Annotated[
             str,
             Query(description="The confirmation token received"),
@@ -164,7 +164,7 @@ async def reset_password(
             detail=str(e)
         )
     else:
-        return {"msg": "Your account has been confirmed."}
+        return "Your account has been confirmed."
 
 
 @router.post("/reset_password")
@@ -188,7 +188,7 @@ async def reset_password(
             detail=str(e) if not e.args else e.args[0]  # There should be a single error
         )
     else:
-        return {"msg": "Your password has been changed."}
+        return "Your password has been changed."
 
 
 @router.get("/registration_token", dependencies=[Depends(is_admin)])
