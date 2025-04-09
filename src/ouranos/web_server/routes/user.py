@@ -133,7 +133,7 @@ async def update_user(
     }
     try:
         await User.update(session, user_id=user.id, values=user_dict)
-        return f"Successfully updated user {username}'s info"
+        return f"Successfully updated {username}'s info"
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
