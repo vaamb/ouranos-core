@@ -742,12 +742,15 @@ class ServiceName(StrEnum):
     suntimes = "suntimes"
     calendar = "calendar"
     wiki = "wiki"
+    email = "email"
 
 
 services_definition: dict[ServiceName, ServiceLevel] = {
-        ServiceName.weather: ServiceLevel.app,
-        ServiceName.calendar: ServiceLevel.app,
-        ServiceName.wiki: ServiceLevel.app,
+    ServiceName.weather: ServiceLevel.app,
+    ServiceName.calendar: ServiceLevel.app,
+    ServiceName.wiki: ServiceLevel.app,
+    ServiceName.suntimes: ServiceLevel.ecosystem,
+    ServiceName.email: ServiceLevel.app,
 }
 
 
@@ -767,6 +770,16 @@ class Service(Base, CRUDMixin):
             service = await cls.get(session, name=name)
             if service is None:
                 await cls.create(session, name=name, values={"level": level})
+
+    @classmethod
+    async def update_email_service_status(cls, session: AsyncSession) -> None:
+        # Check that we have all the required environment variables
+        status = all((
+            current_app.config["FRONTEND_URL"],
+            current_app.config["MAIL_USERNAME"],
+            current_app.config["MAIL_PASSWORD"],
+        ))
+        await cls.update(session, name=ServiceName.email, values={"status": status})
 
 
 channels_definition = [

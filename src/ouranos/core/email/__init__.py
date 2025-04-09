@@ -11,7 +11,7 @@ from ouranos.core.email.templates import get_body_text, render_template
 
 
 def _get_default_sender():
-    return current_app.config["MAIL_SENDER_ADDRESS"]
+    return current_app.config["MAIL_SENDER_ADDRESS"] or current_app.config["MAIL_USERNAME"]
 
 
 @dataclass

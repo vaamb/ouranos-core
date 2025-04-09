@@ -26,6 +26,7 @@ async def create_base_data(logger: Logger = getLogger()):
             await app.CommunicationChannel.insert_channels(session)
             await app.Role.insert_roles(session)
             await app.Service.insert_services(session)
+            await app.Service.update_email_service_status(session)
             await app.User.insert_gaia(session)
         except Exception as e:
             logger.error(e)
