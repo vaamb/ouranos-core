@@ -8,6 +8,7 @@ import sys
 from typing import Type
 
 from ouranos import __version__ as version
+from ouranos.core.config import consts
 from ouranos.core.config.base import BaseConfig, BaseConfigDict
 from ouranos.core.logging import configure_logging
 

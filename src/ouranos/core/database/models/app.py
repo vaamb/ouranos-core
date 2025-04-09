@@ -23,8 +23,7 @@ import gaia_validators as gv
 from gaia_validators import missing, safe_enum_from_name
 
 from ouranos import current_app
-from ouranos.core.config.consts import (
-    REGISTRATION_TOKEN_VALIDITY, SUPPORTED_IMAGE_EXTENSIONS, TOKEN_SUBS)
+from ouranos.core.config import consts
 from ouranos.core.database.models.abc import Base, CRUDMixin, ToDictMixin
 from ouranos.core.database.models.caches import cache_users
 from ouranos.core.database.models.types import PathType, UtcDateTime
@@ -290,10 +289,10 @@ class User(Base, UserMixin):
             cls,
             session: AsyncSession,
             user_info: UserTokenInfoDict | None = None,
-            expiration_delay: int = REGISTRATION_TOKEN_VALIDITY,
+            expiration_delay: int = consts.REGISTRATION_TOKEN_VALIDITY,
     ) -> str:
         user_info = user_info or {}
-        expiration_delay = expiration_delay or REGISTRATION_TOKEN_VALIDITY
+        expiration_delay = expiration_delay or consts.REGISTRATION_TOKEN_VALIDITY
         # Get the required role name
         role_name = user_info.pop("role", None)
         role = await cls._compute_default_role(session, role_name=role_name)
@@ -302,7 +301,7 @@ class User(Base, UserMixin):
             user_info["role"] = role.name.name
         # Create the token
         token = Tokenizer.create_token(
-            subject=TOKEN_SUBS.REGISTRATION.value,
+            subject=consts.TOKEN_SUBS.REGISTRATION.value,
             expiration_delay=expiration_delay,
             other_claims=user_info,
         )
@@ -310,24 +309,24 @@ class User(Base, UserMixin):
 
     async def create_confirmation_token(
             self,
-            expiration_delay: int = REGISTRATION_TOKEN_VALIDITY,
+            expiration_delay: int = consts.REGISTRATION_TOKEN_VALIDITY,
     ) -> str:
         if self.confirmed_at is not None:
             raise ValueError("User is already confirmed")
         return Tokenizer.create_token(
-            subject=TOKEN_SUBS.CONFIRMATION.value,
+            subject=consts.TOKEN_SUBS.CONFIRMATION.value,
             expiration_delay=expiration_delay,
             other_claims={"user_id": self.id},
         )
 
     async def create_password_reset_token(
             self,
-            expiration_delay: int = REGISTRATION_TOKEN_VALIDITY,
+            expiration_delay: int = consts.PASSWORD_RESET_TOKEN_VALIDITY,
     ) -> str:
         if self.confirmed_at is None:
             raise ValueError("User is not confirmed")
         return Tokenizer.create_token(
-            subject=TOKEN_SUBS.RESET_PASSWORD.value,
+            subject=consts.TOKEN_SUBS.RESET_PASSWORD.value,
             expiration_delay=expiration_delay,
             other_claims={"user_id": self.id},
         )
@@ -342,7 +341,7 @@ class User(Base, UserMixin):
             user_info: UserTokenInfoDict | None = None,
             email: str | None = None,
             token: str | None = None,
-            expiration_delay: int = REGISTRATION_TOKEN_VALIDITY,
+            expiration_delay: int = consts.REGISTRATION_TOKEN_VALIDITY,
     ) -> None:
         # Check we have the required data
         user_info = user_info or {}
@@ -374,7 +373,7 @@ class User(Base, UserMixin):
     async def send_confirmation_email(
         self,
         token: str | None = None,
-        expiration_delay: int = REGISTRATION_TOKEN_VALIDITY,
+        expiration_delay: int = consts.REGISTRATION_TOKEN_VALIDITY,
     ) -> None:
         # Check we have the required data
         if self.confirmed_at is not None:
@@ -401,7 +400,7 @@ class User(Base, UserMixin):
     async def send_reset_password_email(
         self,
         token: str | None = None,
-        expiration_delay: int = REGISTRATION_TOKEN_VALIDITY,
+        expiration_delay: int = consts.PASSWORD_RESET_TOKEN_VALIDITY,
     ) -> None:
         # Check we have the required data
         if self.confirmed_at is None:
@@ -698,7 +697,7 @@ class User(Base, UserMixin):
     @classmethod
     async def confirm(cls, session: AsyncSession, confirmation_token: str) -> None:
         payload = Tokenizer.loads(confirmation_token)
-        if payload["sub"] != TOKEN_SUBS.CONFIRMATION.value:
+        if payload["sub"] != consts.TOKEN_SUBS.CONFIRMATION.value:
             raise ValueError("Invalid token subject")
         user = await cls.get(session, payload["user_id"])
         if user is None:
@@ -723,7 +722,7 @@ class User(Base, UserMixin):
             new_password: str,
     ) -> None:
         payload = Tokenizer.loads(reset_token)
-        if payload["sub"] != TOKEN_SUBS.RESET_PASSWORD.value:
+        if payload["sub"] != consts.TOKEN_SUBS.RESET_PASSWORD.value:
             raise ValueError("Invalid token subject")
         user = await cls.get(session, payload["user_id"])
         if user is None:
@@ -1640,7 +1639,7 @@ class WikiPicture(Base, WikiTagged, CRUDMixin, WikiObject):
         extension: str = values.pop("extension")
         if not extension.startswith("."):
             extension = f".{extension}"
-        check_filename(f"{name}{extension}", SUPPORTED_IMAGE_EXTENSIONS)
+        check_filename(f"{name}{extension}", consts.SUPPORTED_IMAGE_EXTENSIONS)
         # Get path info
         slug = lookup_keys["slug"] = slugify(name)
         path = article.path / f"{slug}{extension}"
