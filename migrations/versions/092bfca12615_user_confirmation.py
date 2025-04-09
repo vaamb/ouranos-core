@@ -1,4 +1,4 @@
-"""user_timestamps
+"""Change user confirmation logic
 
 Revision ID: 092bfca12615
 Revises: a721d18f48c6
