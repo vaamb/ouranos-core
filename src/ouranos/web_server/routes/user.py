@@ -175,6 +175,7 @@ async def create_confirmation_token(
                 status_code=status.HTTP_501_NOT_IMPLEMENTED,
                 detail=str(e),
             )
+        return f"Successfully sent an email to confirm user '{username}'s account"
     return token
 
 
@@ -206,10 +207,11 @@ async def create_password_reset_token(
         )
     if send_email:
         try:
-            await user.send_confirmation_email(token, REGISTRATION_TOKEN_VALIDITY)
+            await user.send_reset_password_email(token, REGISTRATION_TOKEN_VALIDITY)
         except NotImplementedError as e:
             raise HTTPException(
                 status_code=status.HTTP_501_NOT_IMPLEMENTED,
                 detail=str(e),
             )
+        return f"Successfully sent an email to reset user '{username}''s password"
     return token
