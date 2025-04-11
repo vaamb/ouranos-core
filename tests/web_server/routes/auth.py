@@ -254,12 +254,12 @@ async def test_user_reset_password_token_success(db: AsyncSQLAlchemyWrapper, cli
 
 
 def test_registration_token_failure(client: TestClient):
-    response = client.get("/api/auth/registration_token")
+    response = client.post("/api/auth/registration_token")
     assert response.status_code == 403
 
 
 def test_registration_token_success(client_admin: TestClient):
-    response = client_admin.get("/api/auth/registration_token")
+    response = client_admin.post("/api/auth/registration_token")
     assert response.status_code == 200
 
     data = json.loads(response.text)
@@ -271,9 +271,9 @@ def test_registration_token_success(client_admin: TestClient):
 def test_registration_token_user_info(client_admin: TestClient):
     username = "BoringTest"
     role = "User"
-    response = client_admin.get(
+    response = client_admin.post(
         "/api/auth/registration_token",
-        params={
+        json={
             "username": username,
             "role": role,
         }
@@ -288,9 +288,9 @@ def test_registration_token_user_info(client_admin: TestClient):
 
 def test_registration_token_operator_info(client_admin: TestClient):
     role = "Operator"
-    response = client_admin.get(
+    response = client_admin.post(
         "/api/auth/registration_token",
-        params={
+        json={
             "role": role,
         }
     )

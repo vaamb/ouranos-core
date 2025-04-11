@@ -2,7 +2,18 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from gaia_validators import MissingValue, missing
+
+from ouranos.core.database.models.app import RoleName
 from ouranos.core.validate.base import BaseModel
+
+
+class UserInvitationPayload(BaseModel):
+    username: str | MissingValue = missing
+    firstname: str | None | MissingValue = missing
+    lastname: str | None | MissingValue = missing
+    role: RoleName | str | None | MissingValue = missing
+    email: str | MissingValue = missing
 
 
 class UserCreationPayload(BaseModel):

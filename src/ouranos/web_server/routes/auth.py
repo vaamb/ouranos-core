@@ -17,7 +17,8 @@ from ouranos.web_server.auth import (
     login_manager, is_admin)
 from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.validate.auth import (
-    LoginInfo, UserCreationPayload, UserPasswordUpdatePayload, UserInfo)
+    LoginInfo, UserCreationPayload, UserInvitationPayload,
+    UserPasswordUpdatePayload, UserInfo)
 
 
 router = APIRouter(
@@ -191,29 +192,13 @@ async def reset_password(
         return "Your password has been changed."
 
 
-@router.get("/registration_token", dependencies=[Depends(is_admin)])
+@router.post("/registration_token", dependencies=[Depends(is_admin)])
 async def create_registration_token(
         *,
-        username: Annotated[
-            str,
-            Query(description="The user name of the future user")
-        ] = None,
-        firstname: Annotated[
-            str,
-            Query(description="The firstname of the future user"),
-        ] = None,
-        lastname: Annotated[
-            str,
-            Query(description="The lastname of the future user"),
-        ] = None,
-        role: Annotated[
-            RoleName | str,
-            Query(description="The role of the future user"),
-        ] = None,
-        email: Annotated[
-            str,
-            Query(description="The email address of the future user"),
-        ] = None,
+        payload: Annotated[
+            UserInvitationPayload,
+            Body(description="Information about the future user"),
+        ] = UserInvitationPayload(),
         expires_in: Annotated[
             int,
             Query(
@@ -230,11 +215,14 @@ async def create_registration_token(
         ] = False,
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    user_dict = payload.model_dump(exclude_defaults=True)
+    email = user_dict.pop("email", None)
     if send_email and email is None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Email address is required to send an invitation",
         )
+    role = user_dict.pop("role", None)
     if role is not None:
         try:
             role = safe_enum_from_name(RoleName, role)
@@ -244,9 +232,9 @@ async def create_registration_token(
                 detail="Invalid role"
             )
     user_info: UserTokenInfoDict = {
-        "username": username,
-        "firstname": firstname,
-        "lastname": lastname,
+        "username": user_dict.get("username", None),
+        "firstname": user_dict.get("firstname", None),
+        "lastname": user_dict.get("lastname", None),
         "role": role,
         "email": email,
     }
