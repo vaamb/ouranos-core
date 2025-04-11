@@ -8,13 +8,13 @@ from ouranos.core.database.models.app import User
 
 
 def test_get_users_fail_not_admin(client_operator: TestClient):
-    response = client_operator.get("/api/user/")
+    response = client_operator.get("/api/user")
     assert response.status_code == 403
 
 
 def test_get_users_success(client_admin: TestClient):
     response = client_admin.get(
-        "/api/user/",
+        "/api/user",
         params={
             "active": True,
         }
