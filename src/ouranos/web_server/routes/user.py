@@ -89,14 +89,16 @@ async def get_users(
         confirmed: Annotated[bool, Query()] = False,
         active: Annotated[bool, Query()] = False,
         page: Annotated[int, Query()] = 0,
+        per_page: Annotated[int, Query(le=100)] = 25,
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     registration_start_time: datetime | None = _safe_datetime(registration_start_time)
     registration_end_time: datetime | None = _safe_datetime(registration_end_time)
+    per_page = min(per_page, 100)
     users = await User.get_multiple(
         session, registration_start_time=registration_start_time,
         registration_end_time=registration_end_time, confirmed=confirmed,
-        active=active, page=page)
+        active=active, per_page=per_page, page=page)
     return users
 
 
