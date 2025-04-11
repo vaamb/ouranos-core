@@ -67,7 +67,7 @@ async def get_user_or_abort(
     return user
 
 
-@router.get("/",
+@router.get("",
             response_model=list[UserDescription],
             dependencies=[Depends(is_admin)])
 async def get_users(
