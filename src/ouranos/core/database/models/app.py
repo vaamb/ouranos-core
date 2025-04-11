@@ -623,13 +623,18 @@ class User(Base, UserMixin):
             per_page: int = 20,
     ) -> Sequence[Self]:
         start_page: int = page * per_page
-        stmt = select(cls).offset(start_page).limit(per_page)
+        stmt = (
+            select(cls)
+            .offset(start_page)
+            .limit(per_page)
+            .order_by(cls.username)
+        )
         if registration_start_time is not None:
             stmt = stmt.where(cls.registration_datetime >= registration_start_time)
         if registration_end_time is not None:
             stmt = stmt.where(registration_end_time >= cls.registration_datetime)
         if confirmed:
-            stmt = stmt.where(cls.confirmed == True)
+            stmt = stmt.where(cls.confirmed_at != None)
         if active:
             stmt = stmt.where(cls.active == True)
         result = await session.execute(stmt)
