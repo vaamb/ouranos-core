@@ -243,6 +243,7 @@ async def create_registration_token(
     if send_email:
         try:
             await User.send_invitation_email(session, user_info=user_info, token=token)
+            return "Invitation sent"
         except NotImplementedError as e:
             raise HTTPException(
                 status_code=status.HTTP_501_NOT_IMPLEMENTED,
