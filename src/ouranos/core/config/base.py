@@ -54,6 +54,7 @@ class BaseConfig:
     API_UID = os.environ.get("OURANOS_UID") or "base_server"
     API_HOST = os.environ.get("OURANOS_API_HOST", "127.0.0.1")
     API_PORT = os.environ.get("OURANOS_API_PORT", 5000)
+    API_USE_SSL = os.environ.get("OURANOS_API_USE_SSL", False)
     API_WORKERS = os.environ.get("OURANOS_API_WORKERS", 0)
     API_SERVER_RELOAD = False
 
@@ -174,6 +175,7 @@ class BaseConfigDict(TypedDict):
     API_UID: str
     API_HOST: str
     API_PORT: int
+    API_USE_SSL: bool
     API_WORKERS: int
     API_SERVER_RELOAD: bool
 
