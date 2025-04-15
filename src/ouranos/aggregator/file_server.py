@@ -62,8 +62,8 @@ class FileServer:
     @property
     def server(self) -> Server:
         if self._server is None:
-            host: str = current_app.config.get("AGGREGATOR_HOST", "127.0.0.1")
-            port: int = current_app.config.get("AGGREGATOR_PORT", 7191)
+            host: str = current_app.config["AGGREGATOR_HOST"]
+            port: int = current_app.config["AGGREGATOR_PORT"]
             server_cfg = Config(
                 app=self.app, host=host, port=port, log_config=None,
                 server_header=False, date_header=False)

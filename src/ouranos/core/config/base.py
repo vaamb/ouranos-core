@@ -50,15 +50,16 @@ class BaseConfig:
     DISPATCHER_URL = os.environ.get("OURANOS_DISPATCHER_URL") or "memory://"  # memory:// or amqp://
     SIO_MANAGER_URL = os.environ.get("OURANOS_SIO_MANAGER_URL") or "memory://"  # memory:// or amqp:// or redis://
 
-    # Plugins
-    API_UID = os.environ.get("OURANOS_UID") or "base_server"
+    # API config
     API_HOST = os.environ.get("OURANOS_API_HOST", "127.0.0.1")
     API_PORT = os.environ.get("OURANOS_API_PORT", 5000)
     API_USE_SSL = os.environ.get("OURANOS_API_USE_SSL", False)
+    API_UID = os.environ.get("OURANOS_UID") or "base_server"
     API_WORKERS = os.environ.get("OURANOS_API_WORKERS", 0)
     API_SERVER_RELOAD = False
 
-    AGGREGATOR_HOST = os.environ.get("OURANOS_API_HOST", API_HOST)
+    # Aggregator server config (for pictures upload)
+    AGGREGATOR_HOST = os.environ.get("OURANOS_AGGREGATOR_HOST", API_HOST)
     AGGREGATOR_PORT = os.environ.get("OURANOS_AGGREGATOR_PORT", 7191)
     GAIA_PICTURE_TRANSFER_METHOD = "both"  # "broker", "http" or "both"
 
@@ -171,14 +172,15 @@ class BaseConfigDict(TypedDict):
     DISPATCHER_URL: str
     SIO_MANAGER_URL: str
 
-    # Plugins
-    API_UID: str
+    # API config
     API_HOST: str
     API_PORT: int
     API_USE_SSL: bool
+    API_UID: str
     API_WORKERS: int
     API_SERVER_RELOAD: bool
 
+    # Aggregator server config (for pictures upload)
     AGGREGATOR_HOST: str
     AGGREGATOR_PORT: int
     GAIA_PICTURE_TRANSFER_METHOD: str
