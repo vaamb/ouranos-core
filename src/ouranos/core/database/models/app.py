@@ -351,7 +351,7 @@ class User(Base, UserMixin):
                 "Email should be defined either as a parameter or in `user_info`"
             )
         user_info["email"] = email  # Be consistent
-        url = current_app.config.get("FRONTEND_URL", None)
+        url = current_app.config["FRONTEND_URL"]
         if not url:
             raise NotImplementedError("Frontend URL is not configured")
         # Actual logic
@@ -378,7 +378,7 @@ class User(Base, UserMixin):
         # Check we have the required data
         if self.confirmed_at is not None:
             raise ValueError("User is already confirmed")
-        url = current_app.config.get("FRONTEND_URL", None)
+        url = current_app.config["FRONTEND_URL"]
         if not url:
             raise NotImplementedError("Frontend URL is not configured")
         # Actual logic
@@ -405,7 +405,7 @@ class User(Base, UserMixin):
         # Check we have the required data
         if self.confirmed_at is None:
             raise ValueError("User is not confirmed")
-        url = current_app.config.get("FRONTEND_URL", None)
+        url = current_app.config["FRONTEND_URL"]
         if not url:
             raise NotImplementedError("Frontend URL is not configured")
         # Actual logic
