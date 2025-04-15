@@ -61,9 +61,24 @@ class BaseConfig:
     AGGREGATOR_PORT = os.environ.get("OURANOS_AGGREGATOR_PORT", 7191)
     GAIA_PICTURE_TRANSFER_METHOD = "both"  # "broker", "http" or "both"
 
-    PLUGINS_OMITTED = os.environ.get("OURANOS_PLUGINS_OMITTED")
+    # Frontend backup config
+    @property
+    def FRONTEND_URL(self) -> str | None:
+        # If defined in the environment, return it
+        from_env = os.environ.get("OURANOS_FRONTEND_URL")
+        if from_env is not None:
+            return from_env
+        # If not defined in environment, try to get it from (frontend) config
+        frontend_host = self.FRONTEND_HOST if hasattr(self, "FRONTEND_HOST") else None
+        frontend_port = self.FRONTEND_PORT if hasattr(self, "FRONTEND_PORT") else None
+        if frontend_host and frontend_port:
+            use_ssl = \
+                self.FRONTEND_USE_SSL if hasattr(self, "FRONTEND_USE_SSL") else False
+            return f"http{'s' if use_ssl else ''}://{frontend_host}:{frontend_port}"
+        # Else, return None
+        return None
 
-    FRONTEND_URL = os.environ.get("OURANOS_FRONTEND_URL", None)
+    PLUGINS_OMITTED = os.environ.get("OURANOS_PLUGINS_OMITTED")
 
     # Ouranos and Gaia config
     ADMINS = os.environ.get("OURANOS_ADMINS", [])
@@ -166,9 +181,10 @@ class BaseConfigDict(TypedDict):
     AGGREGATOR_PORT: int
     GAIA_PICTURE_TRANSFER_METHOD: str
 
-    PLUGINS_OMITTED: str
-
+    # Frontend backup config
     FRONTEND_URL: str | None
+
+    PLUGINS_OMITTED: str
 
     # Ouranos and Gaia config
     ADMINS: list[str]
