@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import enum
-from typing import cast, Literal
+from typing import cast, Literal, TypedDict
 
 
 from dispatcher import (
@@ -26,8 +26,15 @@ DispatcherName = Literal[
 ]
 
 
+class DispatcherConfig(TypedDict):
+    uri_cfg_lookup: str
+    DispatcherType.memory: dict
+    DispatcherType.amqp: dict
+    DispatcherType.redis: dict
+
+
 class DispatcherOptions:
-    __options: dict[DispatcherName, dict[str | enum.Enum, str | dict]] = {
+    __options: dict[DispatcherName | str, DispatcherConfig] = {
         "aggregator": {
             "uri_cfg_lookup": "GAIA_COMMUNICATION_URL",
             DispatcherType.memory: {},
@@ -91,12 +98,24 @@ class DispatcherOptions:
     }
 
     @classmethod
-    def set_options(
+    def get_option(
             cls,
             dispatcher_name: DispatcherName,
             dispatcher_type: DispatcherType,
-            options: dict
+    ) -> dict:
+        return cls.__options[dispatcher_name][dispatcher_type]
+
+    @classmethod
+    def set_option(
+            cls,
+            dispatcher_name: DispatcherName,
+            options: DispatcherConfig | dict,
+            dispatcher_type: DispatcherType | None = None,
     ) -> None:
+        if dispatcher_name not in cls.__options:
+            cls.__options[dispatcher_name] = {}
+        if dispatcher_type is None:
+            cls.__options[dispatcher_name] = options
         cls.__options[dispatcher_name][dispatcher_type] = options
 
     @classmethod
@@ -104,12 +123,10 @@ class DispatcherOptions:
         return cls.__options[dispatcher_name]["uri_cfg_lookup"]
 
     @classmethod
-    def get_option(
-            cls,
-            dispatcher_name: DispatcherName,
-            dispatcher_type: DispatcherType,
-    ) -> dict:
-        return cls.__options[dispatcher_name][dispatcher_type]
+    def set_uri_lookup(cls, dispatcher_name: DispatcherName, uri_lookup: str) -> None:
+        if dispatcher_name not in cls.__options:
+            cls.__options[dispatcher_name] = {}
+        cls.__options[dispatcher_name]["uri_cfg_lookup"] = uri_lookup
 
 
 class DispatcherFactory:
