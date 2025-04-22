@@ -440,17 +440,33 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
     async def get_current_data(self, session: AsyncSession) -> Sequence[SensorDataCache]:
         return await SensorDataCache.get_recent(session, self.uid)
 
+    async def get_actuator_state(
+            self,
+            session: AsyncSession,
+            actuator_type: gv.HardwareType,
+    ) -> ActuatorState:
+        stmt = (
+            select(ActuatorState)
+            .where(
+                (ActuatorState.ecosystem_uid == self.uid)
+                & (ActuatorState.type == actuator_type)
+            )
+        )
+        result = await session.execute(stmt)
+        actuator_state = result.scalars().one()
+        return actuator_state
+
     async def get_actuators_state(
             self,
-            session: AsyncSession
-    ) -> list[ActuatorState]:
+            session: AsyncSession,
+    ) -> Sequence[ActuatorState]:
         stmt = (
             select(ActuatorState)
             .where(ActuatorState.ecosystem_uid == self.uid)
         )
         result = await session.execute(stmt)
-        actuators_status = result.scalars().all()
-        return actuators_status
+        actuators_state = result.scalars().all()
+        return actuators_state
 
     async def get_timed_values(
             self,
