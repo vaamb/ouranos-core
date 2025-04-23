@@ -23,7 +23,7 @@ DispatcherName = Literal[
     "aggregator-stream",     # Used by the aggregator, receives large data from Gaia
     "aggregator-internal",   # Used by the aggregator, receives data from the web server
     "application-internal",  # Used by the web server, receives data from the aggregator
-]
+] | str
 
 
 class DispatcherConfig(TypedDict):
@@ -109,14 +109,29 @@ class DispatcherOptions:
     def set_option(
             cls,
             dispatcher_name: DispatcherName,
-            options: DispatcherConfig | dict,
-            dispatcher_type: DispatcherType | None = None,
+            dispatcher_type: DispatcherType,
+            option: dict,
     ) -> None:
         if dispatcher_name not in cls.__options:
             cls.__options[dispatcher_name] = {}
-        if dispatcher_type is None:
-            cls.__options[dispatcher_name] = options
-        cls.__options[dispatcher_name][dispatcher_type] = options
+        cls.__options[dispatcher_name][dispatcher_type] = option
+
+    @classmethod
+    def get_options(
+            cls,
+            dispatcher_name: DispatcherName,
+    ) -> DispatcherConfig:
+        return cls.__options[dispatcher_name]
+
+    @classmethod
+    def set_options(
+            cls,
+            dispatcher_name: DispatcherName,
+            options: DispatcherConfig,
+    ) -> None:
+        if dispatcher_name not in cls.__options:
+            cls.__options[dispatcher_name] = {}
+        cls.__options[dispatcher_name] = options
 
     @classmethod
     def get_uri_lookup(cls, dispatcher_name: DispatcherName) -> str:
