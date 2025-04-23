@@ -23,7 +23,7 @@ DispatcherName = Literal[
     "aggregator-stream",     # Used by the aggregator, receives large data from Gaia
     "aggregator-internal",   # Used by the aggregator, receives data from the web server
     "application-internal",  # Used by the web server, receives data from the aggregator
-]
+] | str
 
 
 class DispatcherConfig(TypedDict):
