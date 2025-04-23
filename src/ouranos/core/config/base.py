@@ -136,7 +136,7 @@ class BaseConfig:
             "app": self.DATABASE_URI_APP,
             "system": self.DATABASE_URI_SYSTEM,
             "archive": self.DATABASE_URI_ARCHIVE,
-            "transient": self.DATABASE_URI_CACHE,
+            "transient": self.DATABASE_URI_TRANSIENT,
         }
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
