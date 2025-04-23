@@ -51,14 +51,6 @@ def try_uuid(potential_uuid: str) -> str | UUID:
         return potential_uuid
 
 
-class EcosystemActuatorTypesManagedDict(TypedDict):
-    light: bool
-    cooler: bool
-    heater: bool
-    humidifier: bool
-    dehumidifier: bool
-
-
 class InConfigMixin:
     in_config: Mapped[bool] = mapped_column(default=True)
 
