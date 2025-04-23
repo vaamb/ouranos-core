@@ -77,7 +77,7 @@ async def get_users(
         ] = None,
         confirmed: Annotated[bool, Query()] = False,
         active: Annotated[bool, Query()] = False,
-        page: Annotated[int, Query()] = 0,
+        page: Annotated[int, Query()] = 1,
         per_page: Annotated[int, Query(le=100)] = 25,
         session: Annotated[AsyncSession, Depends(get_session)],
 ):

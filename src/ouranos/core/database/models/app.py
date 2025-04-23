@@ -625,10 +625,9 @@ class User(Base, UserMixin):
         start_page: int = page * per_page
         stmt = (
             select(cls)
-            .offset(start_page)
-            .limit(per_page)
             .order_by(cls.username)
         )
+        stmt = paginate(stmt, page, per_page)
         if registration_start_time is not None:
             stmt = stmt.where(cls.registration_datetime >= registration_start_time)
         if registration_end_time is not None:
