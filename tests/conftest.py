@@ -19,7 +19,7 @@ def config(tmp_path_factory):
         "app": "sqlite+aiosqlite://",
         "system": "sqlite+aiosqlite://",
         "archive": "sqlite+aiosqlite://",
-        "memory": "sqlite+aiosqlite://",
+        "transient": "sqlite+aiosqlite://",
     }
     Config.SENSOR_LOGGING_PERIOD = 1
     Config.SYSTEM_LOGGING_PERIOD = 1

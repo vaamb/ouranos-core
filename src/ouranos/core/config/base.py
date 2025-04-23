@@ -118,7 +118,7 @@ class BaseConfig:
                        "sqlite+aiosqlite:///" + os.path.join(self.DB_DIR, "system.db")),
             "archive": (os.environ.get("OURANOS_ARCHIVE_DATABASE_URI") or
                         "sqlite+aiosqlite:///" + os.path.join(self.DB_DIR, "archive.db")),
-            "memory": "sqlite+aiosqlite://",
+            "transient": "sqlite+aiosqlite://",
         }
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False

@@ -123,7 +123,7 @@ class SystemDataRecord(BaseSystemData, RecordMixin):
 
 class SystemDataCache(BaseSystemData, CacheMixin):
     __tablename__ = "system_temp"
-    __bind_key__ = "memory"
+    __bind_key__ = "transient"
 
     @classmethod
     def get_ttl(cls) -> int:

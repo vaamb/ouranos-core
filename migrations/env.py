@@ -55,7 +55,7 @@ db.init(ouranos_cfg)
 # Patch config
 base_bind = "ecosystems"
 binds_keys = [base_bind, *db.config.binds.keys()]
-index = binds_keys.index("memory")
+index = binds_keys.index("transient")
 del binds_keys[index]
 
 config.set_main_option("databases", ",".join(binds_keys))
