@@ -870,6 +870,12 @@ class FlashMessage(Base):
         await session.execute(stmt)
 
 
+class CalendarEventVisibility(StrEnum):
+    public = "public"
+    users = "users"
+    private = "private"
+
+
 class CalendarEvent(Base):
     __tablename__ = "calendar_events"
     __bind_key__ = "app"
@@ -883,6 +889,7 @@ class CalendarEvent(Base):
     start_time: Mapped[datetime] = mapped_column(UtcDateTime)
     end_time: Mapped[datetime] = mapped_column(UtcDateTime)
     active: Mapped[bool] = mapped_column(default=True)
+    visibility: Mapped[CalendarEventVisibility] = mapped_column(default=CalendarEventVisibility.users)
 
     # relationship
     user: Mapped[list["User"]] = relationship(back_populates="calendar")
