@@ -10,6 +10,7 @@ from ouranos.core.database.models.app import (
 from ouranos.web_server.auth import get_current_user, is_authenticated
 from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.routes.services.utils import service_enabled
+from ouranos.web_server.routes.utils import http_datetime
 from ouranos.web_server.validate.calendar import (
     EventCreationPayload, EventUpdatePayload, EventInfo)
 
@@ -39,15 +40,15 @@ async def get_events(
             str | None,
             Query(description="Upper bound as ISO (8601) formatted datetime"),
         ] = None,
-        limit: Annotated[int, Query(description="The number of events to fetch")] = 10,
+        page: Annotated[int, Query()] = 1,
+        per_page: Annotated[int, Query(le=100)] = 10,
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    if isinstance(start_time, str):
-        start_time = datetime.fromisoformat(start_time)
-    if isinstance(end_time, str):
-        end_time = datetime.fromisoformat(end_time)
+    start_time: datetime | None = http_datetime(start_time)
+    end_time: datetime | None = http_datetime(end_time)
     response = await CalendarEvent.get_multiple(
-        session, start_time=start_time, end_time=end_time, limit=limit)
+        session, start_time=start_time, end_time=end_time, page=page,
+        per_page=per_page)
     return response
 
 

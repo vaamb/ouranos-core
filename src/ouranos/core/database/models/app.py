@@ -921,7 +921,8 @@ class CalendarEvent(Base):
             *,
             start_time: datetime | None = None,
             end_time: datetime | None = None,
-            limit: int | None = None,
+            page: int = 0,
+            per_page: int = 20,
     ) -> Sequence[Self]:
         stmt = (
             select(cls)
@@ -930,6 +931,7 @@ class CalendarEvent(Base):
             )
             .order_by(cls.start_time.asc())
         )
+        stmt = paginate(stmt, page, per_page)
         if start_time is not None:
             stmt = stmt.where(
                 (cls.start_time >= start_time)
@@ -940,8 +942,6 @@ class CalendarEvent(Base):
                 (cls.start_time <= end_time)
                 | (cls.end_time <= end_time)
             )
-        if limit is not None:
-            stmt = stmt.limit(limit)
         result = await session.execute(stmt)
         return result.scalars().all()
 
