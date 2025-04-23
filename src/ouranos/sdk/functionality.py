@@ -4,6 +4,7 @@ import asyncio
 from abc import ABC, abstractmethod
 from logging import Logger, getLogger
 import os
+from pathlib import Path
 import re
 import typing as t
 from typing import Type
@@ -85,14 +86,18 @@ class BaseFunctionality(ABC):
     def proc_name_has_been_setup(self) -> None:
         _SetUp.proc_name = True
 
-    @staticmethod
-    async def init_the_db(generate_registration_token: bool = True):
-        logger: Logger = getLogger("ouranos")
-        logger.info("Initializing the database")
+    async def init_the_db(self, generate_registration_token: bool = True) -> None:
+        self.logger.info("Initializing the database")
         db.init(current_app.config)
-        await create_base_data(logger)
+        await create_base_data(self.logger)
         if generate_registration_token:
-            await print_registration_token(logger)
+            await print_registration_token(self.logger)
+
+    async def clean_the_db(self) -> None:
+        self.logger.info("Cleaning the database cache")
+        cache_uri = self.config["SQLALCHEMY_BINDS"]["memory"]
+        cache_path = Path(cache_uri.split("///")[1])
+        cache_path.unlink(missing_ok=True)
 
     async def startup(self):
         if not self._status:
@@ -159,6 +164,7 @@ class BaseFunctionality(ABC):
         await self.shutdown()
         scheduler.remove_all_jobs()
         scheduler.shutdown()
+        await self.clean_the_db()
 
     def stop(self):
         self._runner.stop()

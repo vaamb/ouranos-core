@@ -1040,7 +1040,7 @@ class BaseSensorData(Base):
 
 class SensorDataCache(BaseSensorData, CacheMixin):
     __tablename__ = "sensor_temp"
-    __bind_key__ = "memory"
+    __bind_key__ = "transient"
 
     logged: Mapped[bool] = mapped_column(default=False)
 
