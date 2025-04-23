@@ -103,22 +103,40 @@ class BaseConfig:
 
     # SQLAlchemy config
     @property
+    def DATABASE_URI_ECOSYSTEMS(self) -> str | Path:
+        return (os.environ.get("OURANOS_DATABASE_URI") or
+                "sqlite+aiosqlite:///" + os.path.join(self.DB_DIR, "ecosystems.db"))
+
+    @property
+    def DATABASE_URI_APP(self) -> str | Path:
+        return (os.environ.get("OURANOS_APP_DATABASE_URI") or
+                "sqlite+aiosqlite:///" + os.path.join(self.DB_DIR, "app.db"))
+
+    @property
+    def DATABASE_URI_SYSTEM(self) -> str | Path:
+        return (os.environ.get("OURANOS_SYSTEM_DATABASE_URI") or
+                "sqlite+aiosqlite:///" + os.path.join(self.DB_DIR, "system.db"))
+
+    @property
+    def DATABASE_URI_ARCHIVE(self) -> str | Path:
+        return (os.environ.get("OURANOS_ARCHIVE_DATABASE_URI") or
+                "sqlite+aiosqlite:///" + os.path.join(self.DB_DIR, "archive.db"))
+
+    @property
+    def DATABASE_URI_TRANSIENT(self) -> str | Path:
+        return "sqlite+aiosqlite:///" + os.path.join(self.DB_DIR, "cache.db")
+
+    @property
     def SQLALCHEMY_DATABASE_URI(self) -> str | Path:
-        return (
-            os.environ.get("OURANOS_DATABASE_URI") or
-            "sqlite+aiosqlite:///" + os.path.join(self.DB_DIR, "ecosystems.db")
-        )
+        return self.DATABASE_URI_ECOSYSTEMS
 
     @property
     def SQLALCHEMY_BINDS(self) -> dict[str, str | Path]:
         return {
-            "app": (os.environ.get("OURANOS_APP_DATABASE_URI") or
-                    "sqlite+aiosqlite:///" + os.path.join(self.DB_DIR, "app.db")),
-            "system": (os.environ.get("OURANOS_SYSTEM_DATABASE_URI") or
-                       "sqlite+aiosqlite:///" + os.path.join(self.DB_DIR, "system.db")),
-            "archive": (os.environ.get("OURANOS_ARCHIVE_DATABASE_URI") or
-                        "sqlite+aiosqlite:///" + os.path.join(self.DB_DIR, "archive.db")),
-            "transient": "sqlite+aiosqlite:///" + os.path.join(self.DB_DIR, "transient.db"),
+            "app": self.DATABASE_URI_APP,
+            "system": self.DATABASE_URI_SYSTEM,
+            "archive": self.DATABASE_URI_ARCHIVE,
+            "transient": self.DATABASE_URI_CACHE,
         }
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
@@ -210,6 +228,11 @@ class BaseConfigDict(TypedDict):
     WARNING_ARCHIVING_PERIOD: int | None
 
     # SQLAlchemy config
+    DATABASE_URI_ECOSYSTEMS: str | Path
+    DATABASE_URI_APP: str | Path
+    DATABASE_URI_SYSTEM: str | Path
+    DATABASE_URI_ARCHIVE: str | Path
+    DATABASE_URI_TRANSIENT: str | Path
     SQLALCHEMY_DATABASE_URI: str | Path
     SQLALCHEMY_BINDS: dict[str, str | Path]
 
