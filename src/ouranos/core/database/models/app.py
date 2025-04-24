@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 import difflib
 import enum
-from enum import Enum, IntFlag, StrEnum
+from enum import Enum, IntEnum, IntFlag, StrEnum
 import re
 from typing import Optional, Self, Sequence, TypedDict
 from uuid import UUID
@@ -27,6 +27,7 @@ from ouranos.core.config import consts
 from ouranos.core.database.models.abc import Base, CRUDMixin, ToDictMixin
 from ouranos.core.database.models.caches import cache_users
 from ouranos.core.database.models.types import PathType, UtcDateTime
+from ouranos.core.database.models.utils import paginate
 from ouranos.core.database.utils import ArchiveLink
 from ouranos.core.email import send_gaia_templated_email
 from ouranos.core.utils import check_filename, slugify, Tokenizer
@@ -869,10 +870,10 @@ class FlashMessage(Base):
         await session.execute(stmt)
 
 
-class CalendarEventVisibility(StrEnum):
-    public = "public"
-    users = "users"
-    private = "private"
+class CalendarEventVisibility(IntEnum):
+    public = 0
+    users = 1
+    private = 2
 
 
 class CalendarEvent(Base):
@@ -894,6 +895,31 @@ class CalendarEvent(Base):
     user: Mapped[list["User"]] = relationship(back_populates="calendar")
 
     @classmethod
+    def _filter_by_visibility(
+            cls,
+            stmt: Select,
+            visibility: CalendarEventVisibility,
+            user_id: int | None,
+    ) -> Select:
+        if visibility > CalendarEventVisibility.public and user_id is None:
+            raise ValueError(
+                "user_id is required to see events with a visibility level "
+                "higher than 'public'"
+            )
+        # If `visibility` is less than private, should return all the events
+        #  with a level lower or equal to `visibility`
+        if visibility < CalendarEventVisibility.private:
+            stmt = stmt.where(cls.visibility <= visibility)
+        # If visibility is private, should return all the events with a level
+        #  lower than private and the private events created by the user
+        if visibility == CalendarEventVisibility.private:
+            stmt = stmt.where(
+                (cls.visibility <= CalendarEventVisibility.users)
+                | (cls.created_by == user_id)
+            )
+        return stmt
+
+    @classmethod
     async def create(
             cls,
             session: AsyncSession,
@@ -908,9 +934,14 @@ class CalendarEvent(Base):
     async def get(
             cls,
             session: AsyncSession,
+            *,
             event_id: int,
+            user_id: int | None = None,
     ) -> Self | None:
         stmt = select(cls).where(cls.id == event_id)
+        visibility = CalendarEventVisibility.private if user_id \
+                     else CalendarEventVisibility.public
+        stmt = cls._filter_by_visibility(stmt, visibility, user_id)
         result = await session.execute(stmt)
         return result.scalars().one_or_none()
 
@@ -919,6 +950,8 @@ class CalendarEvent(Base):
             cls,
             session: AsyncSession,
             *,
+            visibility: CalendarEventVisibility = CalendarEventVisibility.public,
+            user_id: int | None = None,
             start_time: datetime | None = None,
             end_time: datetime | None = None,
             page: int = 0,
@@ -931,6 +964,7 @@ class CalendarEvent(Base):
             )
             .order_by(cls.start_time.asc())
         )
+        stmt = cls._filter_by_visibility(stmt, visibility, user_id)
         stmt = paginate(stmt, page, per_page)
         if start_time is not None:
             stmt = stmt.where(
