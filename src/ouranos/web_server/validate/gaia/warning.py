@@ -14,6 +14,5 @@ class WarningInfo(BaseModel):
     description: str
     created_on: datetime
     created_by: str
-    updated_on: datetime | None
     seen_on: datetime | None
     solved_on: datetime | None

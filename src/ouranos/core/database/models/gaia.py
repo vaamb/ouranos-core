@@ -1324,7 +1324,6 @@ class GaiaWarning(Base):
     description: Mapped[str] = mapped_column(sa.String(length=2048))
     created_on: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
     created_by: Mapped[str] = mapped_column(sa.ForeignKey("ecosystems.uid"))
-    updated_on: Mapped[Optional[datetime]] = mapped_column(UtcDateTime)
     seen_on: Mapped[Optional[datetime]] = mapped_column(UtcDateTime)
     seen_by: Mapped[Optional[int]] = mapped_column()
     solved_on: Mapped[Optional[datetime]] = mapped_column(UtcDateTime)
