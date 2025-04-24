@@ -124,7 +124,7 @@ class BaseConfig:
 
     @property
     def DATABASE_URI_TRANSIENT(self) -> str | Path:
-        return "sqlite+aiosqlite:///" + os.path.join(self.DB_DIR, "cache.db")
+        return "sqlite+aiosqlite:///" + os.path.join(self.DB_DIR, "transient.db")
 
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> str | Path:

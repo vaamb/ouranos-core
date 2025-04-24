@@ -95,7 +95,7 @@ class BaseFunctionality(ABC):
 
     async def clean_the_db(self) -> None:
         self.logger.info("Cleaning the database cache")
-        cache_uri = self.config["SQLALCHEMY_BINDS"]["memory"]
+        cache_uri = self.config["SQLALCHEMY_BINDS"]["transient"]
         cache_path = Path(cache_uri.split("///")[1])
         cache_path.unlink(missing_ok=True)
 
