@@ -23,9 +23,7 @@ from ouranos.core.dispatchers import DispatcherFactory
 from ouranos.web_server.auth import SessionInfo
 from ouranos.web_server.factory import create_app
 
-from tests.data.app import (
-    calendar_event, wiki_article_content, wiki_article_name, wiki_picture_content,
-    wiki_picture_name, wiki_topic_name)
+import tests.data.app as a_data
 from tests.data.auth import admin, operator, user
 import tests.data.gaia as g_data
 from tests.data.system import system_dict, system_data_dict
@@ -144,7 +142,10 @@ async def enable_services(db: AsyncSQLAlchemyWrapper):
 @pytest_asyncio.fixture(scope="module", autouse=True)
 async def add_events(db: AsyncSQLAlchemyWrapper):
     async with db.scoped_session() as session:
-        await CalendarEvent.create(session, creator_id=user.id, values=calendar_event)
+        await CalendarEvent.create(
+            session, creator_id=user.id, values=a_data.calendar_event_public)
+        await CalendarEvent.create(
+            session, creator_id=user.id, values=a_data.calendar_event_users)
 
 
 @pytest_asyncio.fixture(scope="module", autouse=True)
@@ -152,32 +153,32 @@ async def add_wiki(db: AsyncSQLAlchemyWrapper):
     async with db.scoped_session() as session:
         await WikiTopic.create(
             session,
-            name=wiki_topic_name,
+            name=a_data.wiki_topic_name,
             values={
                 "description": "Useless",
             },
         )
 
-        topic = await WikiTopic.get(session, name=wiki_topic_name)
-        await topic.create_template(wiki_article_content)
+        topic = await WikiTopic.get(session, name=a_data.wiki_topic_name)
+        await topic.create_template(a_data.wiki_article_content)
 
         await WikiArticle.create(
             session,
-            topic_name=wiki_topic_name,
-            name=wiki_article_name,
+            topic_name=a_data.wiki_topic_name,
+            name=a_data.wiki_article_name,
             values={
-                "content": wiki_article_content,
+                "content": a_data.wiki_article_content,
                 "author_id": operator.id,
             },
         )
 
         await WikiPicture.create(
             session,
-            topic_name=wiki_topic_name,
-            article_name=wiki_article_name,
-            name=wiki_picture_name,
+            topic_name=a_data.wiki_topic_name,
+            article_name=a_data.wiki_article_name,
+            name=a_data.wiki_picture_name,
             values={
-                "content": wiki_picture_content,
+                "content": a_data.wiki_picture_content,
                 "extension": ".png"
             },
         )
