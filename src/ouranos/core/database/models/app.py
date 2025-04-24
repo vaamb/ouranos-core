@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 import difflib
 import enum
-from enum import Enum, IntFlag, StrEnum
+from enum import Enum, IntEnum, IntFlag, StrEnum
 import re
 from typing import Optional, Self, Sequence, TypedDict
 from uuid import UUID
@@ -27,6 +27,7 @@ from ouranos.core.config import consts
 from ouranos.core.database.models.abc import Base, CRUDMixin, ToDictMixin
 from ouranos.core.database.models.caches import cache_users
 from ouranos.core.database.models.types import PathType, UtcDateTime
+from ouranos.core.database.models.utils import paginate
 from ouranos.core.database.utils import ArchiveLink
 from ouranos.core.email import send_gaia_templated_email
 from ouranos.core.utils import check_filename, slugify, Tokenizer
@@ -625,10 +626,9 @@ class User(Base, UserMixin):
         start_page: int = page * per_page
         stmt = (
             select(cls)
-            .offset(start_page)
-            .limit(per_page)
             .order_by(cls.username)
         )
+        stmt = paginate(stmt, page, per_page)
         if registration_start_time is not None:
             stmt = stmt.where(cls.registration_datetime >= registration_start_time)
         if registration_end_time is not None:
@@ -870,6 +870,12 @@ class FlashMessage(Base):
         await session.execute(stmt)
 
 
+class CalendarEventVisibility(IntEnum):
+    public = 0
+    users = 1
+    private = 2
+
+
 class CalendarEvent(Base):
     __tablename__ = "calendar_events"
     __bind_key__ = "app"
@@ -883,9 +889,54 @@ class CalendarEvent(Base):
     start_time: Mapped[datetime] = mapped_column(UtcDateTime)
     end_time: Mapped[datetime] = mapped_column(UtcDateTime)
     active: Mapped[bool] = mapped_column(default=True)
+    visibility: Mapped[CalendarEventVisibility] = mapped_column(default=CalendarEventVisibility.users)
 
     # relationship
     user: Mapped[list["User"]] = relationship(back_populates="calendar")
+
+    @classmethod
+    def _filter_by_visibility(
+            cls,
+            stmt: Select,
+            visibility: CalendarEventVisibility,
+            user_id: int | None,
+    ) -> Select:
+        if visibility > CalendarEventVisibility.public and user_id is None:
+            raise ValueError(
+                "user_id is required to see events with a visibility level "
+                "higher than 'public'"
+            )
+        # If `visibility` is less than private, should return all the events
+        #  with a level lower or equal to `visibility`
+        if visibility < CalendarEventVisibility.private:
+            stmt = stmt.where(cls.visibility <= visibility)
+        # If visibility is private, should return all the events with a level
+        #  lower than private and the private events created by the user
+        if visibility == CalendarEventVisibility.private:
+            stmt = stmt.where(
+                (cls.visibility <= CalendarEventVisibility.users)
+                | (cls.created_by == user_id)
+            )
+        return stmt
+
+    @classmethod
+    def _filter_by_datetime(
+            cls,
+            stmt: Select,
+            start_time: datetime,
+            end_time: datetime,
+    ) -> Select:
+        if start_time is not None:
+            stmt = stmt.where(
+                (cls.start_time >= start_time)
+                | (cls.end_time >= start_time)
+            )
+        if end_time is not None:
+            stmt = stmt.where(
+                (cls.start_time <= end_time)
+                | (cls.end_time <= end_time)
+            )
+        return stmt
 
     @classmethod
     async def create(
@@ -902,6 +953,7 @@ class CalendarEvent(Base):
     async def get(
             cls,
             session: AsyncSession,
+            *,
             event_id: int,
     ) -> Self | None:
         stmt = select(cls).where(cls.id == event_id)
@@ -913,29 +965,60 @@ class CalendarEvent(Base):
             cls,
             session: AsyncSession,
             *,
+            visibility: CalendarEventVisibility = CalendarEventVisibility.users,
             start_time: datetime | None = None,
             end_time: datetime | None = None,
-            limit: int | None = None,
+            page: int = 0,
+            per_page: int = 20,
     ) -> Sequence[Self]:
         stmt = (
             select(cls)
             .where(
                 (cls.active == True)
+                & (cls.visibility <= visibility)
             )
             .order_by(cls.start_time.asc())
         )
-        if start_time is not None:
-            stmt = stmt.where(
-                (cls.start_time >= start_time)
-                | (cls.end_time >= start_time)
-            )
-        if end_time is not None:
-            stmt = stmt.where(
-                (cls.start_time <= end_time)
-                | (cls.end_time <= end_time)
-            )
-        if limit is not None:
-            stmt = stmt.limit(limit)
+        stmt = paginate(stmt, page, per_page)
+        stmt = cls._filter_by_datetime(stmt, start_time, end_time)
+        result = await session.execute(stmt)
+        return result.scalars().all()
+
+    @classmethod
+    async def get_with_visibility(
+            cls,
+            session: AsyncSession,
+            *,
+            event_id: int,
+            user_id: int | None = None,
+    ) -> Self | None:
+        stmt = select(cls).where(cls.id == event_id)
+        visibility = CalendarEventVisibility.private if user_id \
+                     else CalendarEventVisibility.public
+        stmt = cls._filter_by_visibility(stmt, visibility, user_id)
+        result = await session.execute(stmt)
+        return result.scalars().one_or_none()
+
+    @classmethod
+    async def get_multiple_with_visibility(
+            cls,
+            session: AsyncSession,
+            *,
+            visibility: CalendarEventVisibility = CalendarEventVisibility.public,
+            user_id: int | None = None,
+            start_time: datetime | None = None,
+            end_time: datetime | None = None,
+            page: int = 0,
+            per_page: int = 20,
+    ) -> Sequence[Self]:
+        stmt = (
+            select(cls)
+            .where(cls.active == True)
+            .order_by(cls.start_time.asc())
+        )
+        stmt = cls._filter_by_visibility(stmt, visibility, user_id)
+        stmt = paginate(stmt, page, per_page)
+        stmt = cls._filter_by_datetime(stmt, start_time, end_time)
         result = await session.execute(stmt)
         return result.scalars().all()
 

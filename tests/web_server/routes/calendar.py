@@ -8,12 +8,13 @@ from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 from ouranos import json
 from ouranos.core.database.models.app import CalendarEvent
 
-from tests.data.app import calendar_event
+from tests.data.app import calendar_event_public, calendar_event_users
 
 title = "Just a test ..."
 start = datetime.now(tz=timezone.utc)
 creation_payload = {
     "level": 0,
+    "visibility": 0,
     "title": title,
     "description": "... and its description",
     "start_time": (start + timedelta(days=7)).isoformat(),
@@ -21,19 +22,32 @@ creation_payload = {
 }
 
 
-def test_calendar_failure_unauthorized(client: TestClient):
+def test_calendar_public(client: TestClient):
     response = client.get("/api/app/services/calendar")
-    assert response.status_code == 403
-
-
-def test_calendar_success(client_user: TestClient):
-    response = client_user.get("/api/app/services/calendar")
     assert response.status_code == 200
 
     data = json.loads(response.text)
-    assert data[0]["level"] == calendar_event["level"].value
-    assert data[0]["title"] == calendar_event["title"]
-    assert data[0]["description"] == calendar_event["description"]
+    assert len(data) == 1
+    assert data[0]["level"] == calendar_event_public["level"].value
+    assert data[0]["title"] == calendar_event_public["title"]
+
+
+def test_calendar_users(client_user: TestClient):
+    response = client_user.get(
+        "/api/app/services/calendar",
+        params={"visibility": "users"},
+    )
+    assert response.status_code == 200
+
+    data = json.loads(response.text)
+    assert len(data) == 2
+    # Public event starts before
+    assert data[0]["level"] == calendar_event_public["level"].value
+    assert data[0]["title"] == calendar_event_public["title"]
+    # User event starts later and so is second
+    assert data[1]["level"] == calendar_event_users["level"].value
+    assert data[1]["title"] == calendar_event_users["title"]
+    assert data[1]["description"] == calendar_event_users["description"]
 
 
 def test_event_creation_failure_unauthorized(client: TestClient):
@@ -56,7 +70,7 @@ async def test_event_creation_success(
     assert response.status_code == 202
 
     async with db.scoped_session() as session:
-        events = await CalendarEvent.get_multiple(session)
+        events = await CalendarEvent.get_multiple_with_visibility(session)
         failed = True
         for event in events:
             if event.title == title:
@@ -98,7 +112,7 @@ async def test_event_update_success(
     assert response.status_code == 202
 
     async with db.scoped_session() as session:
-        events = await CalendarEvent.get_multiple(session)
+        events = await CalendarEvent.get_multiple_with_visibility(session)
         failed = True
         for event in events:
             if event.description == description:

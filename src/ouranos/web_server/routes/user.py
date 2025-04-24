@@ -12,6 +12,7 @@ from ouranos.core.config.consts import REGISTRATION_TOKEN_VALIDITY
 from ouranos.core.database.models.app import Permission, User, UserMixin
 from ouranos.web_server.auth import get_current_user, is_admin
 from ouranos.web_server.dependencies import get_session
+from ouranos.web_server.routes.utils import http_datetime
 from ouranos.web_server.validate.user import UserDescription, UserUpdatePayload
 
 
@@ -20,18 +21,6 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
     tags=["user"],
 )
-
-
-def _safe_datetime(datetime_str: str | None) -> datetime | None:
-    try:
-        return datetime.fromisoformat(datetime_str)
-    except TypeError:
-        return None
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Dates should be entered in a valid ISO (8601) format.",
-        )
 
 
 def check_current_user_is_allowed(current_user: UserMixin, username: str) -> None:
@@ -88,12 +77,12 @@ async def get_users(
         ] = None,
         confirmed: Annotated[bool, Query()] = False,
         active: Annotated[bool, Query()] = False,
-        page: Annotated[int, Query()] = 0,
+        page: Annotated[int, Query()] = 1,
         per_page: Annotated[int, Query(le=100)] = 25,
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    registration_start_time: datetime | None = _safe_datetime(registration_start_time)
-    registration_end_time: datetime | None = _safe_datetime(registration_end_time)
+    registration_start_time: datetime | None = http_datetime(registration_start_time)
+    registration_end_time: datetime | None = http_datetime(registration_end_time)
     per_page = min(per_page, 100)
     users = await User.get_multiple(
         session, registration_start_time=registration_start_time,

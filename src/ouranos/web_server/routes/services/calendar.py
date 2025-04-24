@@ -5,11 +5,14 @@ from fastapi import (
     APIRouter, Body, Depends, HTTPException, Path, Query, status)
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from gaia_validators import safe_enum_from_name
+
 from ouranos.core.database.models.app import (
-    CalendarEvent, Permission, ServiceName, UserMixin)
+    CalendarEvent, CalendarEventVisibility, Permission, ServiceName, UserMixin)
 from ouranos.web_server.auth import get_current_user, is_authenticated
 from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.routes.services.utils import service_enabled
+from ouranos.web_server.routes.utils import http_datetime
 from ouranos.web_server.validate.calendar import (
     EventCreationPayload, EventUpdatePayload, EventInfo)
 
@@ -21,7 +24,6 @@ router = APIRouter(
         404: {"description": "Not found"},
     },
     dependencies=[
-        Depends(is_authenticated),
         Depends(service_enabled(ServiceName.calendar)),
     ],
     tags=["app/services/calendar"],
@@ -39,20 +41,34 @@ async def get_events(
             str | None,
             Query(description="Upper bound as ISO (8601) formatted datetime"),
         ] = None,
-        limit: Annotated[int, Query(description="The number of events to fetch")] = 10,
+        visibility: Annotated[
+            str | None,
+            Query(description="Events' visibility level"),
+        ] = CalendarEventVisibility.public.name,
+        page: Annotated[int, Query()] = 1,
+        per_page: Annotated[int, Query(le=100)] = 10,
+        current_user: Annotated[UserMixin, Depends(get_current_user)],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    if isinstance(start_time, str):
-        start_time = datetime.fromisoformat(start_time)
-    if isinstance(end_time, str):
-        end_time = datetime.fromisoformat(end_time)
-    response = await CalendarEvent.get_multiple(
-        session, start_time=start_time, end_time=end_time, limit=limit)
+    start_time: datetime | None = http_datetime(start_time)
+    end_time: datetime | None = http_datetime(end_time)
+    visibility = safe_enum_from_name(CalendarEventVisibility, visibility)
+    if current_user.can(Permission.ADMIN):
+        # Admins can see all events
+        response = await CalendarEvent.get_multiple(
+            session, start_time=start_time, end_time=end_time, page=page,
+            per_page=per_page, visibility=visibility)
+    else:
+        # Regular users can only see their own events at most
+        response = await CalendarEvent.get_multiple_with_visibility(
+            session, start_time=start_time, end_time=end_time, page=page,
+            per_page=per_page, visibility=visibility, user_id=current_user.id)
     return response
 
 
 @router.post("/u",
-             status_code=status.HTTP_202_ACCEPTED)
+             status_code=status.HTTP_202_ACCEPTED,
+             dependencies=[Depends(is_authenticated)])
 async def create_event(
         payload: Annotated[
             EventCreationPayload,
@@ -76,7 +92,8 @@ async def create_event(
 
 
 @router.put("/u/{event_id}",
-            status_code=status.HTTP_202_ACCEPTED)
+            status_code=status.HTTP_202_ACCEPTED,
+            dependencies=[Depends(is_authenticated)])
 async def update_event(
         event_id: Annotated[int, Path(description="The id of the event to update")],
         payload: Annotated[
@@ -86,7 +103,7 @@ async def update_event(
         current_user: Annotated[UserMixin, Depends(get_current_user)],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    event = await CalendarEvent.get(session, event_id=event_id)
+    event = await CalendarEvent.get_with_visibility(session, event_id=event_id)
     if event.created_by != current_user.id and not current_user.can(Permission.ADMIN):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
     values = payload.model_dump(exclude_defaults=True)
@@ -104,13 +121,14 @@ async def update_event(
 
 
 @router.delete("/u/{event_id}",
-               status_code=status.HTTP_202_ACCEPTED)
+               status_code=status.HTTP_202_ACCEPTED,
+               dependencies=[Depends(is_authenticated)])
 async def delete_event(
         event_id: Annotated[int, Path(description="The id of the event to update")],
         current_user: Annotated[UserMixin, Depends(get_current_user)],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    event = await CalendarEvent.get(session, event_id=event_id)
+    event = await CalendarEvent.get_with_visibility(session, event_id=event_id)
     if event.created_by != current_user.id and not current_user.can(Permission.ADMIN):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
     try:
