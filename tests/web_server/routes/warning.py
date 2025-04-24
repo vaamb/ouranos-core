@@ -9,13 +9,8 @@ from ouranos.core.database.models.gaia import GaiaWarning
 import tests.data.gaia as g_data
 
 
-def test_warning_failure_anon(client: TestClient):
+def test_warning(client: TestClient):
     response = client.get("/api/gaia/warning")
-    assert response.status_code == 403
-
-
-def test_warning_success_all(client_user: TestClient):
-    response = client_user.get("/api/gaia/warning")
     assert response.status_code == 200
 
     data = json.loads(response.text)
@@ -42,7 +37,7 @@ async def test_warning_mark_seen_success(
         client_user: TestClient,
         db: AsyncSQLAlchemyWrapper,
 ):
-    response = client_user.post("/api/gaia/warning/u/1/mark_as_seen",)
+    response = client_user.post("/api/gaia/warning/u/1/mark_as_seen")
     assert response.status_code == 202
 
     async with db.scoped_session() as session:
@@ -60,7 +55,7 @@ async def test_warning_mark_solved_success(
         client_user: TestClient,
         db: AsyncSQLAlchemyWrapper,
 ):
-    response = client_user.post("/api/gaia/warning/u/1/mark_as_solved",)
+    response = client_user.post("/api/gaia/warning/u/1/mark_as_solved")
     assert response.status_code == 202
 
     async with db.scoped_session() as session:

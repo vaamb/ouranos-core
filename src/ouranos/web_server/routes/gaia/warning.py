@@ -20,9 +20,7 @@ router = APIRouter(
 )
 
 
-@router.get("",
-            response_model=list[WarningInfo],
-            dependencies=[Depends(is_authenticated)])
+@router.get("", response_model=list[WarningInfo])
 async def get_warnings(
         *,
         ecosystems_uid: Annotated[list[str] | None, Query(description=eids_desc)] = None,
