@@ -70,7 +70,7 @@ async def test_event_creation_success(
     assert response.status_code == 202
 
     async with db.scoped_session() as session:
-        events = await CalendarEvent.get_multiple(session)
+        events = await CalendarEvent.get_multiple_with_visibility(session)
         failed = True
         for event in events:
             if event.title == title:
@@ -112,7 +112,7 @@ async def test_event_update_success(
     assert response.status_code == 202
 
     async with db.scoped_session() as session:
-        events = await CalendarEvent.get_multiple(session)
+        events = await CalendarEvent.get_multiple_with_visibility(session)
         failed = True
         for event in events:
             if event.description == description:

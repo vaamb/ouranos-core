@@ -920,6 +920,25 @@ class CalendarEvent(Base):
         return stmt
 
     @classmethod
+    def _filter_by_datetime(
+            cls,
+            stmt: Select,
+            start_time: datetime,
+            end_time: datetime,
+    ) -> Select:
+        if start_time is not None:
+            stmt = stmt.where(
+                (cls.start_time >= start_time)
+                | (cls.end_time >= start_time)
+            )
+        if end_time is not None:
+            stmt = stmt.where(
+                (cls.start_time <= end_time)
+                | (cls.end_time <= end_time)
+            )
+        return stmt
+
+    @classmethod
     async def create(
             cls,
             session: AsyncSession,
@@ -936,6 +955,41 @@ class CalendarEvent(Base):
             session: AsyncSession,
             *,
             event_id: int,
+    ) -> Self | None:
+        stmt = select(cls).where(cls.id == event_id)
+        result = await session.execute(stmt)
+        return result.scalars().one_or_none()
+
+    @classmethod
+    async def get_multiple(
+            cls,
+            session: AsyncSession,
+            *,
+            visibility: CalendarEventVisibility = CalendarEventVisibility.users,
+            start_time: datetime | None = None,
+            end_time: datetime | None = None,
+            page: int = 0,
+            per_page: int = 20,
+    ) -> Sequence[Self]:
+        stmt = (
+            select(cls)
+            .where(
+                (cls.active == True)
+                & (cls.visibility <= visibility)
+            )
+            .order_by(cls.start_time.asc())
+        )
+        stmt = paginate(stmt, page, per_page)
+        stmt = cls._filter_by_datetime(stmt, start_time, end_time)
+        result = await session.execute(stmt)
+        return result.scalars().all()
+
+    @classmethod
+    async def get_with_visibility(
+            cls,
+            session: AsyncSession,
+            *,
+            event_id: int,
             user_id: int | None = None,
     ) -> Self | None:
         stmt = select(cls).where(cls.id == event_id)
@@ -946,7 +1000,7 @@ class CalendarEvent(Base):
         return result.scalars().one_or_none()
 
     @classmethod
-    async def get_multiple(
+    async def get_multiple_with_visibility(
             cls,
             session: AsyncSession,
             *,
@@ -959,23 +1013,12 @@ class CalendarEvent(Base):
     ) -> Sequence[Self]:
         stmt = (
             select(cls)
-            .where(
-                (cls.active == True)
-            )
+            .where(cls.active == True)
             .order_by(cls.start_time.asc())
         )
         stmt = cls._filter_by_visibility(stmt, visibility, user_id)
         stmt = paginate(stmt, page, per_page)
-        if start_time is not None:
-            stmt = stmt.where(
-                (cls.start_time >= start_time)
-                | (cls.end_time >= start_time)
-            )
-        if end_time is not None:
-            stmt = stmt.where(
-                (cls.start_time <= end_time)
-                | (cls.end_time <= end_time)
-            )
+        stmt = cls._filter_by_datetime(stmt, start_time, end_time)
         result = await session.execute(stmt)
         return result.scalars().all()
 
