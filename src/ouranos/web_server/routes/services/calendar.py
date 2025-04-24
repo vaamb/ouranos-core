@@ -53,9 +53,16 @@ async def get_events(
     start_time: datetime | None = http_datetime(start_time)
     end_time: datetime | None = http_datetime(end_time)
     visibility = safe_enum_from_name(CalendarEventVisibility, visibility)
-    response = await CalendarEvent.get_multiple_with_visibility(
-        session, start_time=start_time, end_time=end_time, page=page,
-        per_page=per_page, visibility=visibility, user_id=current_user.id)
+    if current_user.can(Permission.ADMIN):
+        # Admins can see all events
+        response = await CalendarEvent.get_multiple(
+            session, start_time=start_time, end_time=end_time, page=page,
+            per_page=per_page, visibility=visibility)
+    else:
+        # Regular users can only see their own events at most
+        response = await CalendarEvent.get_multiple_with_visibility(
+            session, start_time=start_time, end_time=end_time, page=page,
+            per_page=per_page, visibility=visibility, user_id=current_user.id)
     return response
 
 
