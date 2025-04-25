@@ -1,4 +1,4 @@
-"""to modify
+"""Implement SQLIntEnum to store IntEnum as integer
 
 Revision ID: f21c94cd8a2f
 Revises: 1e8ec14d8183
