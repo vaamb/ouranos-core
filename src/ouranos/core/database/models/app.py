@@ -882,6 +882,8 @@ class CalendarEvent(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     level: Mapped[gv.WarningLevel] = mapped_column(SQLIntEnum(gv.WarningLevel), default=gv.WarningLevel.low)
+    visibility: Mapped[CalendarEventVisibility] = mapped_column(
+        SQLIntEnum(CalendarEventVisibility), default=CalendarEventVisibility.users)
     title: Mapped[str] = mapped_column(sa.String(length=256))
     description: Mapped[Optional[str]] = mapped_column(sa.String(length=2048))
     created_on: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
@@ -889,7 +891,6 @@ class CalendarEvent(Base):
     start_time: Mapped[datetime] = mapped_column(UtcDateTime)
     end_time: Mapped[datetime] = mapped_column(UtcDateTime)
     active: Mapped[bool] = mapped_column(default=True)
-    visibility: Mapped[CalendarEventVisibility] = mapped_column(default=CalendarEventVisibility.users)
 
     # relationship
     user: Mapped[list["User"]] = relationship(back_populates="calendar")
@@ -909,7 +910,7 @@ class CalendarEvent(Base):
             stmt = stmt.where(cls.visibility <= visibility)
         # If visibility is private, should return all the events with a level
         #  lower than private and the private events created by the user
-        if visibility == CalendarEventVisibility.private:
+        else:
             stmt = stmt.where(
                 (cls.visibility <= CalendarEventVisibility.users)
                 | (cls.created_by == user_id)
