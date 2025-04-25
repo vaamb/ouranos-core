@@ -171,7 +171,7 @@ class UserMixin(ToDictMixin):
 
 
 class AnonymousUser(UserMixin):
-    id: int = -1
+    id: None = None
     username: str | None = None
     role: None = None
     firstname: str | None = None
