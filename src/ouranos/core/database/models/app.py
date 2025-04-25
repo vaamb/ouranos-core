@@ -26,7 +26,7 @@ from ouranos import current_app
 from ouranos.core.config import consts
 from ouranos.core.database.models.abc import Base, CRUDMixin, ToDictMixin
 from ouranos.core.database.models.caches import cache_users
-from ouranos.core.database.models.types import PathType, UtcDateTime
+from ouranos.core.database.models.types import PathType, SQLIntEnum, UtcDateTime
 from ouranos.core.database.models.utils import paginate
 from ouranos.core.database.utils import ArchiveLink
 from ouranos.core.email import send_gaia_templated_email
@@ -826,7 +826,7 @@ class FlashMessage(Base):
     __archive_link__ = ArchiveLink("warnings", "recent")
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    level: Mapped[gv.WarningLevel] = mapped_column(default=gv.WarningLevel.low)
+    level: Mapped[gv.WarningLevel] = mapped_column(SQLIntEnum(gv.WarningLevel), default=gv.WarningLevel.low)
     title: Mapped[str] = mapped_column(sa.String(length=256))
     description: Mapped[Optional[str]] = mapped_column(sa.String(length=2048))
     created_on: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
@@ -881,7 +881,7 @@ class CalendarEvent(Base):
     __bind_key__ = "app"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    level: Mapped[gv.WarningLevel] = mapped_column(default=gv.WarningLevel.low)
+    level: Mapped[gv.WarningLevel] = mapped_column(SQLIntEnum(gv.WarningLevel), default=gv.WarningLevel.low)
     title: Mapped[str] = mapped_column(sa.String(length=256))
     description: Mapped[Optional[str]] = mapped_column(sa.String(length=2048))
     created_on: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())

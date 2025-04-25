@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import abstractmethod
 from datetime import datetime, time, timedelta, timezone
 from enum import Enum
-from typing import Literal, Optional, Sequence, Self, TypedDict
+from typing import Literal, Optional, Sequence, Self
 from uuid import UUID
 
 from dispatcher import AsyncDispatcher
@@ -30,7 +30,7 @@ from ouranos.core.database.models.caches import (
     cache_ecosystems_recent, cache_engines_recent)
 from ouranos.core.database.models.caching import (
     CachedCRUDMixin, cached, create_hashable_key, sessionless_hashkey)
-from ouranos.core.database.models.types import UtcDateTime
+from ouranos.core.database.models.types import SQLIntEnum, UtcDateTime
 from ouranos.core.database.models.utils import TIME_LIMITS
 from ouranos.core.database.utils import ArchiveLink
 from ouranos.core.utils import create_time_window, timeWindow
@@ -1141,7 +1141,7 @@ class SensorAlarm(Base):
     measure: Mapped[str] = mapped_column(sa.String(length=32), sa.ForeignKey("measures.name"))
     position: Mapped[gv.Position] = mapped_column()
     delta: Mapped[float] = mapped_column()
-    level: Mapped[gv.WarningLevel] = mapped_column()
+    level: Mapped[gv.WarningLevel] = mapped_column(SQLIntEnum(gv.WarningLevel), default=gv.WarningLevel.low)
     timestamp_from: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
     timestamp_to: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp(), onupdate=func.current_timestamp())
     timestamp_max: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
@@ -1319,7 +1319,7 @@ class GaiaWarning(Base):
     __archive_link__ = ArchiveLink("warnings", "recent")
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    level: Mapped[gv.WarningLevel] = mapped_column(default=gv.WarningLevel.low)
+    level: Mapped[gv.WarningLevel] = mapped_column(SQLIntEnum(gv.WarningLevel), default=gv.WarningLevel.low)
     title: Mapped[str] = mapped_column(sa.String(length=256))
     description: Mapped[str] = mapped_column(sa.String(length=2048))
     created_on: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
