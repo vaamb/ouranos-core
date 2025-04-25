@@ -26,7 +26,7 @@ class UserCreationPayload(BaseModel):
 
 
 class UserInfo(BaseModel):
-    id: int = -1
+    id: int | None = None
     username: str | None = None
     firstname: str | None = None
     lastname: str | None = None
