@@ -38,6 +38,7 @@ class PathType(TypeDecorator):
 
 class SQLIntEnum(TypeDecorator):
     impl = Integer
+    cache_ok = True
 
     def __init__(self, enum_type, *args, **kwargs):
         super().__init__(*args, **kwargs)
