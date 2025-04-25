@@ -1,8 +1,9 @@
 from datetime import datetime, timezone
+from enum import IntEnum
 from pathlib import Path
 
 from anyio import Path as ioPath
-from sqlalchemy.types import DateTime, String, TypeDecorator
+from sqlalchemy.types import DateTime, Integer, String, TypeDecorator
 
 
 class UtcDateTime(TypeDecorator):
@@ -33,3 +34,20 @@ class PathType(TypeDecorator):
         if value is not None:
             return ioPath(value)
         return value
+
+
+class SQLIntEnum(TypeDecorator):
+    impl = Integer
+    cache_ok = True
+
+    def __init__(self, enum_type, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._enum_type = enum_type
+
+    def process_bind_param(self, value, dialect):
+        if isinstance(value, IntEnum):
+            return value.value
+        return value
+
+    def process_result_value(self, value, dialect):
+        return self._enum_type(value)
