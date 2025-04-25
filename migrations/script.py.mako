@@ -25,24 +25,18 @@ depends_on: Union[str, Sequence[str], None] = ${repr(depends_on)}
 def upgrade(engine_name: str) -> None:
     globals()["upgrade_%s" % engine_name]()
 
-
 def downgrade(engine_name: str) -> None:
     globals()["downgrade_%s" % engine_name]()
 
-<%
-    db_names = config.get_main_option("databases")
-%>
-
+<% db_names = config.get_main_option("databases") %>
 ## generate an "upgrade_<xyz>() / downgrade_<xyz>()" function
 ## for each database name in the ini file.
-
 % for db_name in re.split(r',\s*', db_names):
-
 def upgrade_${db_name}() -> None:
     ${context.get("%s_upgrades" % db_name, "pass")}
 
-
 def downgrade_${db_name}() -> None:
     ${context.get("%s_downgrades" % db_name, "pass")}
+
 
 % endfor
