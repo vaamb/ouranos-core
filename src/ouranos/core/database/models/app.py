@@ -901,11 +901,8 @@ class CalendarEvent(Base):
             visibility: CalendarEventVisibility,
             user_id: int | None,
     ) -> Select:
-        if visibility > CalendarEventVisibility.public and user_id is None:
-            raise ValueError(
-                "user_id is required to see events with a visibility level "
-                "higher than 'public'"
-            )
+        if user_id is None:
+            visibility = CalendarEventVisibility.public
         # If `visibility` is less than private, should return all the events
         #  with a level lower or equal to `visibility`
         if visibility < CalendarEventVisibility.private:
