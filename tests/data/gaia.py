@@ -236,7 +236,7 @@ turn_actuator_payload: gv.TurnActuatorPayloadDict = {
 
 
 gaia_warning = {
-    "level": "low",
+    "level": gv.WarningLevel.low,
     "title": "Not a problem",
     "description": "Super low level warning",
     "created_on": timestamp_now,
