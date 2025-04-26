@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Annotated
 
 from fastapi import (
@@ -35,11 +35,14 @@ async def get_events(
         *,
         start_time: Annotated[
             str | None,
-            Query(description="Lower bound as ISO (8601) formatted datetime"),
+            Query(description="ISO (8601) formatted datetime from which the "
+                              "research will be done. Default to now."),
         ] = None,
         end_time: Annotated[
             str | None,
-            Query(description="Upper bound as ISO (8601) formatted datetime"),
+            Query(description="ISO (8601) formatted datetime up to which the "
+                              "research will be done. Default to one month from "
+                              "start_time."),
         ] = None,
         visibility: Annotated[
             str | None,
@@ -51,7 +54,11 @@ async def get_events(
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     start_time: datetime | None = http_datetime(start_time)
+    if start_time is None:
+        start_time = datetime.now()
     end_time: datetime | None = http_datetime(end_time)
+    if end_time is None:
+        end_time = start_time + timedelta(days=30)
     visibility = safe_enum_from_name(CalendarEventVisibility, visibility)
     if current_user.can(Permission.ADMIN):
         # Admins can see all events
