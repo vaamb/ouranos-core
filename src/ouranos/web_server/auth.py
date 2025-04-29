@@ -86,15 +86,14 @@ class SessionInfo(BaseModel):
         )
         return self.iat < time_limit
 
-    def to_dict(self, refresh_iat: bool = False) -> dict:
-        if refresh_iat:
-            iat = datetime.now(timezone.utc).replace(microsecond=0)
-        else:
-            iat = self.iat
+    def refresh_iat(self):
+        self.iat = datetime.now(timezone.utc).replace(microsecond=0)
+
+    def to_dict(self) -> dict:
         return {
             "id": self.id,
             "user_id": self.user_id,
-            "iat": iat,
+            "iat": self.iat,
             "exp": (
                 datetime.now(timezone.utc).replace(microsecond=0)
                 + timedelta(seconds=SESSION_TOKEN_VALIDITY)
@@ -102,11 +101,8 @@ class SessionInfo(BaseModel):
             "remember": self.remember is True,
         }
 
-    def to_token(
-            self,
-            refresh_iat: bool = False,
-    ) -> str:
-        return Tokenizer.dumps(self.to_dict(refresh_iat))
+    def to_token(self) -> str:
+        return Tokenizer.dumps(self.to_dict())
 
     @classmethod
     def from_token(
@@ -150,7 +146,8 @@ class Authenticator:
         session_id = _create_session_id(user_agent)
         session_info = SessionInfo(
             id=session_id, user_id=user.id, remember=remember)
-        token = session_info.to_token(refresh_iat=True)
+        session_info.refresh_iat()
+        token = session_info.to_token()
         self.response.set_cookie(LOGIN_NAME.COOKIE.value, token, httponly=True)
         return token
 
