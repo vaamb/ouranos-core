@@ -151,10 +151,16 @@ class Authenticator:
         session_id = _create_session_id(user_agent)
         session_info = SessionInfo(
             id=session_id, user_id=user.id, remember=remember)
-        session_info.refresh_iat()
-        token = session_info.to_token()
-        self.response.set_cookie(LOGIN_NAME.COOKIE.value, token, httponly=True)
-        return token
+        if session_info.remember:
+            # Set a cookie expiration date
+            expires = session_info.exp
+        else:
+            # Use a session cookie
+            expires = None
+        session_cookie = session_info.to_token()
+        self.response.set_cookie(
+            LOGIN_NAME.COOKIE.value, session_cookie, expires=expires, httponly=True)
+        return session_cookie
 
     def logout(self) -> None:
         self.response.delete_cookie(LOGIN_NAME.COOKIE.value, httponly=True)
