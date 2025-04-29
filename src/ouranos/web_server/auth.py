@@ -68,14 +68,19 @@ basic_auth = HTTPBasic()
 cookie_bearer_auth = HTTPCookieBearer()
 
 
-def _now():
+def _now() -> datetime:
     return datetime.now(timezone.utc).replace(microsecond=0)
+
+
+def _get_exp_dt() -> datetime:
+    return _now() + timedelta(seconds=SESSION_TOKEN_VALIDITY)
 
 
 class SessionInfo(BaseModel):
     id: str
     user_id: int
     iat: datetime = Field(default_factory=_now)
+    exp: datetime = Field(default_factory=_get_exp_dt)
     remember: bool = False
 
     @property
@@ -86,18 +91,18 @@ class SessionInfo(BaseModel):
         )
         return self.iat < time_limit
 
-    def refresh_iat(self):
-        self.iat = datetime.now(timezone.utc).replace(microsecond=0)
+    def refresh_iat(self) -> None:
+        self.iat = _now()
+
+    def refresh_exp(self) -> None:
+        self.exp = _get_exp_dt()
 
     def to_dict(self) -> dict:
         return {
             "id": self.id,
             "user_id": self.user_id,
             "iat": self.iat,
-            "exp": (
-                datetime.now(timezone.utc).replace(microsecond=0)
-                + timedelta(seconds=SESSION_TOKEN_VALIDITY)
-            ),
+            "exp": self.exp,
             "remember": self.remember is True,
         }
 
