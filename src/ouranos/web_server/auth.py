@@ -68,14 +68,19 @@ basic_auth = HTTPBasic()
 cookie_bearer_auth = HTTPCookieBearer()
 
 
-def _now():
+def _now() -> datetime:
     return datetime.now(timezone.utc).replace(microsecond=0)
+
+
+def _get_exp_dt() -> datetime:
+    return _now() + timedelta(seconds=SESSION_TOKEN_VALIDITY)
 
 
 class SessionInfo(BaseModel):
     id: str
     user_id: int
     iat: datetime = Field(default_factory=_now)
+    exp: datetime = Field(default_factory=_get_exp_dt)
     remember: bool = False
 
     @property
@@ -86,27 +91,23 @@ class SessionInfo(BaseModel):
         )
         return self.iat < time_limit
 
-    def to_dict(self, refresh_iat: bool = False) -> dict:
-        if refresh_iat:
-            iat = datetime.now(timezone.utc).replace(microsecond=0)
-        else:
-            iat = self.iat
+    def refresh_iat(self) -> None:
+        self.iat = _now()
+
+    def refresh_exp(self) -> None:
+        self.exp = _get_exp_dt()
+
+    def to_dict(self) -> dict:
         return {
             "id": self.id,
             "user_id": self.user_id,
-            "iat": iat,
-            "exp": (
-                datetime.now(timezone.utc).replace(microsecond=0)
-                + timedelta(seconds=SESSION_TOKEN_VALIDITY)
-            ),
+            "iat": self.iat,
+            "exp": self.exp,
             "remember": self.remember is True,
         }
 
-    def to_token(
-            self,
-            refresh_iat: bool = False,
-    ) -> str:
-        return Tokenizer.dumps(self.to_dict(refresh_iat))
+    def to_token(self) -> str:
+        return Tokenizer.dumps(self.to_dict())
 
     @classmethod
     def from_token(
@@ -150,9 +151,16 @@ class Authenticator:
         session_id = _create_session_id(user_agent)
         session_info = SessionInfo(
             id=session_id, user_id=user.id, remember=remember)
-        token = session_info.to_token(refresh_iat=True)
-        self.response.set_cookie(LOGIN_NAME.COOKIE.value, token, httponly=True)
-        return token
+        if session_info.remember:
+            # Set a cookie expiration date
+            expires = session_info.exp
+        else:
+            # Use a session cookie
+            expires = None
+        session_cookie = session_info.to_token()
+        self.response.set_cookie(
+            LOGIN_NAME.COOKIE.value, session_cookie, expires=expires, httponly=True)
+        return session_cookie
 
     def logout(self) -> None:
         self.response.delete_cookie(LOGIN_NAME.COOKIE.value, httponly=True)
@@ -220,9 +228,16 @@ def get_session_info(
         response.delete_cookie(LOGIN_NAME.COOKIE.value, httponly=True)
         return None
     else:
-        # Reset the token exp field
-        renewed_token = session_info.to_token()
-        response.set_cookie(LOGIN_NAME.COOKIE.value, renewed_token, httponly=True)
+        session_info.refresh_exp()
+        if session_info.remember:
+            # Refresh the cookie expiration date
+            expires = session_info.exp
+        else:
+            # Keep a session cookie
+            expires = None
+        renewed_cookie = session_info.to_token()
+        response.set_cookie(
+            LOGIN_NAME.COOKIE.value, renewed_cookie, expires=expires, httponly=True)
         return session_info
 
 
