@@ -75,6 +75,15 @@ def create_app(config: dict | None = None) -> FastAPI:
         logger.warning(secret)
     logger.debug("Initializing FastAPI application")
 
+    @asynccontextmanager
+    async def lifespan(app_: FastAPI):
+        logger.info("Ouranos web server worker successfully started")
+        if not sky_watcher_cache.is_init:
+            await sky_watcher_cache.init()
+        await dispatcher.start(retry=True, block=False)
+        yield
+        await dispatcher.stop()
+
     app = FastAPI(
         title=config.get("APP_NAME"),
         version=config.get("VERSION"),
@@ -84,6 +93,7 @@ def create_app(config: dict | None = None) -> FastAPI:
         docs_url="/api/docs",
         redoc_url="/api/redoc",
         default_response_class=JSONResponse,
+        lifespan=lifespan,
     )
 
     # Set up CORS
@@ -223,22 +233,4 @@ def create_app(config: dict | None = None) -> FastAPI:
     logger.debug("Initializing aio caches")
     sky_watcher_cache = CacheFactory.get("sky_watcher")
 
-    @asynccontextmanager
-    async def lifespan(app_: FastAPI):
-        logger.info("Ouranos web server worker successfully started")
-        if not sky_watcher_cache.is_init:
-            await sky_watcher_cache.init()
-        await dispatcher.start(retry=True, block=False)
-        yield
-        await dispatcher.stop()
-
-    app.router.lifespan_context = lifespan
-
     return app
-
-"""
-def create_app(config_class=DevelopmentConfig):
-    logger.debug("Adding wiki static folder")
-    # from ouranos.app.wiki.routing import bp as wiki_bp
-    # app.register_blueprint(wiki_bp)
-"""
