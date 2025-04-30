@@ -234,10 +234,3 @@ def create_app(config: dict | None = None) -> FastAPI:
     sky_watcher_cache = CacheFactory.get("sky_watcher")
 
     return app
-
-"""
-def create_app(config_class=DevelopmentConfig):
-    logger.debug("Adding wiki static folder")
-    # from ouranos.app.wiki.routing import bp as wiki_bp
-    # app.register_blueprint(wiki_bp)
-"""
