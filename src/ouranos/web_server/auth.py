@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos import current_app
 from ouranos.core.config.consts import (
-    LOGIN_NAME, SESSION_FRESHNESS, SESSION_TOKEN_VALIDITY, TOKEN_SUBS)
+    LOGIN_NAME, SESSION_FRESHNESS, SESSION_TOKEN_VALIDITY)
 from ouranos.core.database.models.app import (
     anonymous_user, Permission, User, UserMixin)
 from ouranos.core.exceptions import (
