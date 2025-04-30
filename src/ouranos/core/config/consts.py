@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from enum import Enum
+from enum import StrEnum
 
 
 START_TIME = datetime.now(timezone.utc).replace(microsecond=0)
@@ -17,19 +17,19 @@ SUPPORTED_IMAGE_EXTENSIONS = {"gif", "jpeg", "jpg", "png", "svg", "webp"}
 
 # Login
 SESSION_FRESHNESS = 15 * 60 * 60
-SESSION_TOKEN_VALIDITY = 7 * 24 * 60 * 60
+SESSION_TOKEN_VALIDITY = 31 * 24 * 60 * 60
 
 REGISTRATION_TOKEN_VALIDITY = 24 * 60 * 60
 PASSWORD_RESET_TOKEN_VALIDITY = 10 * 60
 
 
-class TOKEN_SUBS(Enum):
-    REGISTRATION: str = "registration"
-    CONFIRMATION: str = "confirmation"
-    RESET_PASSWORD: str = "reset_password"
-    CAMERA_UPLOAD: str = "camera_upload"
+class TOKEN_SUBS(StrEnum):
+    REGISTRATION = "registration"
+    CONFIRMATION = "confirmation"
+    RESET_PASSWORD = "reset_password"
+    CAMERA_UPLOAD = "camera_upload"
 
 
-class LOGIN_NAME(Enum):
-    COOKIE: str = "session"
-    HEADER: str = "Authorization"
+class LOGIN_NAME(StrEnum):
+    COOKIE = "session"
+    HEADER = "Authorization"

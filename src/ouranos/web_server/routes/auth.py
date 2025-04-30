@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Response,Query, status
 from fastapi.security import HTTPBasicCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,8 +13,8 @@ from ouranos.core.config.consts import REGISTRATION_TOKEN_VALIDITY, TOKEN_SUBS
 from ouranos.core.database.models.app import (
     anonymous_user, RoleName, User, UserMixin, UserTokenInfoDict)
 from ouranos.web_server.auth import (
-    Authenticator, basic_auth, check_token, get_current_user,
-    login_manager, is_admin)
+    Authenticator, basic_auth, check_token, get_current_user, get_session_info,
+    is_admin, login_manager, refresh_session_cookie_expiration, SessionInfo)
 from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.validate.auth import (
     LoginInfo, UserCreationPayload, UserInvitationPayload,
@@ -66,18 +66,23 @@ async def logout(
 
 @router.get("/current_user", response_model=UserInfo)
 async def get_current_user_info(
-        current_user: UserMixin = Depends(get_current_user),  # Cannot use Annotated here
+        response: Response,
+        session_info: Annotated[SessionInfo, Depends(get_session_info)],
+        session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    current_user = await get_current_user(session_info, session)
+    if current_user.is_authenticated:
+        refresh_session_cookie_expiration(session_info, response)
     return current_user
 
 
 @router.put("/current_user", response_model=UserInfo)
-async def update_current_user_info(
+async def update_current_user_last_seen(
         *,
         current_user: UserMixin = Depends(get_current_user),  # Cannot use Annotated here
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    if current_user != anonymous_user:
+    if current_user.is_authenticated:
         await User.update(
             session,
             user_id=current_user.id,

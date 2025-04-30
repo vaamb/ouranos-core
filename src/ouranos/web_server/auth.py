@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos import current_app
 from ouranos.core.config.consts import (
-    LOGIN_NAME, SESSION_FRESHNESS, SESSION_TOKEN_VALIDITY, TOKEN_SUBS)
+    LOGIN_NAME, SESSION_FRESHNESS, SESSION_TOKEN_VALIDITY)
 from ouranos.core.database.models.app import (
     anonymous_user, Permission, User, UserMixin)
 from ouranos.core.exceptions import (
@@ -228,17 +228,23 @@ def get_session_info(
         response.delete_cookie(LOGIN_NAME.COOKIE.value, httponly=True)
         return None
     else:
-        session_info.refresh_exp()
-        if session_info.remember:
-            # Refresh the cookie expiration date
-            expires = session_info.exp
-        else:
-            # Keep a session cookie
-            expires = None
-        renewed_cookie = session_info.to_token()
-        response.set_cookie(
-            LOGIN_NAME.COOKIE.value, renewed_cookie, expires=expires, httponly=True)
         return session_info
+
+
+def refresh_session_cookie_expiration(
+        session_info: Optional[SessionInfo],
+        response: Response,
+) -> None:
+    session_info.refresh_exp()
+    if session_info.remember:
+        # Refresh the cookie expiration date
+        expires = session_info.exp
+    else:
+        # Keep a session cookie
+        expires = None
+    renewed_cookie = session_info.to_token()
+    response.set_cookie(
+        LOGIN_NAME.COOKIE.value, renewed_cookie, expires=expires, httponly=True)
 
 
 async def get_current_user(
