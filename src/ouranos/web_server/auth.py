@@ -228,7 +228,6 @@ def get_session_info(
         response.delete_cookie(LOGIN_NAME.COOKIE.value, httponly=True)
         return None
     else:
-        refresh_session_cookie_expiration(session_info, response)
         return session_info
 
 
