@@ -77,12 +77,12 @@ async def get_current_user_info(
 
 
 @router.put("/current_user", response_model=UserInfo)
-async def update_current_user_info(
+async def update_current_user_last_seen(
         *,
         current_user: UserMixin = Depends(get_current_user),  # Cannot use Annotated here
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    if current_user != anonymous_user:
+    if current_user.is_authenticated:
         await User.update(
             session,
             user_id=current_user.id,
