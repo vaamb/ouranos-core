@@ -228,17 +228,24 @@ def get_session_info(
         response.delete_cookie(LOGIN_NAME.COOKIE.value, httponly=True)
         return None
     else:
-        session_info.refresh_exp()
-        if session_info.remember:
-            # Refresh the cookie expiration date
-            expires = session_info.exp
-        else:
-            # Keep a session cookie
-            expires = None
-        renewed_cookie = session_info.to_token()
-        response.set_cookie(
-            LOGIN_NAME.COOKIE.value, renewed_cookie, expires=expires, httponly=True)
+        refresh_session_cookie_expiration(session_info, response)
         return session_info
+
+
+def refresh_session_cookie_expiration(
+        session_info: Optional[SessionInfo],
+        response: Response,
+) -> None:
+    session_info.refresh_exp()
+    if session_info.remember:
+        # Refresh the cookie expiration date
+        expires = session_info.exp
+    else:
+        # Keep a session cookie
+        expires = None
+    renewed_cookie = session_info.to_token()
+    response.set_cookie(
+        LOGIN_NAME.COOKIE.value, renewed_cookie, expires=expires, httponly=True)
 
 
 async def get_current_user(
