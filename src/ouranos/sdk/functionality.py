@@ -28,6 +28,7 @@ class _SetUp:
 
 
 class BaseFunctionality(ABC):
+    __is_microservice: bool
     _runner = Runner()
     workers: int = 0
 
@@ -67,8 +68,7 @@ class BaseFunctionality(ABC):
         if not self.is_root:
             self.logger.info(f"Creating Ouranos' {self.name.capitalize()}")
 
-        microservice = issubclass(self.__class__, Functionality)
-        if microservice and "memory://" in self.config["DISPATCHER_URL"]:
+        if self.__is_microservice and "memory://" in self.config["DISPATCHER_URL"]:
             self.logger.warning(
                 "Using Ouranos as microservices and the memory-based dispatcher "
                 "or cache server, this could lead to errors as some data won't "
@@ -180,6 +180,8 @@ class BaseFunctionality(ABC):
 
 
 class Functionality(BaseFunctionality, ABC):
+    __is_microservice = True
+
     def __init__(
             self,
             config_profile: "profile_type" = None,

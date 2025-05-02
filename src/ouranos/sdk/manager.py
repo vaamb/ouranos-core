@@ -30,6 +30,8 @@ class FunctionalityWrapper:
 
 
 class FunctionalityManager(BaseFunctionality, ABC):
+    __is_microservice = False
+
     def __init__(
             self,
             config_profile: "profile_type" = None,
