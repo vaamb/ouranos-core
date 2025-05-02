@@ -120,6 +120,14 @@ class FunctionalityManager(BaseFunctionality, ABC):
                 self.init_func(functionality_wrapper)
                 await self.init_async_func(functionality_wrapper)
 
+    async def post_shutdown(self) -> None:
+        for functionality_wrapper in self.functionalities.values():
+            if functionality_wrapper.workers > 0:
+                # Will be done in subprocess
+                pass
+            else:
+                await functionality_wrapper.instance.post_shutdown()
+
     @staticmethod
     def run_in_subprocess(functionality_wrapper: FunctionalityWrapper) -> None:
         functionality_cls = functionality_wrapper.functionality_cls
