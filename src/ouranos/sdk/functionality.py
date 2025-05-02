@@ -49,7 +49,7 @@ class BaseFunctionality(ABC):
         if not self.is_proc_name_setup():
             # Change process name
             from setproctitle import setproctitle
-            if self.is_root:
+            if "ouranos" in self.name:
                 setproctitle(f"ouranos")
             else:
                 setproctitle(f"ouranos-{self.name}")
