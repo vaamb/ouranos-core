@@ -30,7 +30,7 @@ class FunctionalityWrapper:
 
 
 class FunctionalityManager(BaseFunctionality, ABC):
-    __is_microservice = False
+    _is_microservice = False
 
     def __init__(
             self,
