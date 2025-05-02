@@ -37,7 +37,6 @@ class BaseFunctionality(ABC):
             config_override: dict | None = None,
             *,
             auto_setup_config: bool = True,
-            microservice: bool = True,
             root: bool = False,
             **kwargs
     ) -> None:
@@ -68,6 +67,7 @@ class BaseFunctionality(ABC):
         if not self.is_root:
             self.logger.info(f"Creating Ouranos' {self.name.capitalize()}")
 
+        microservice = issubclass(self.__class__, Functionality)
         if microservice and "memory://" in self.config["DISPATCHER_URL"]:
             self.logger.warning(
                 "Using Ouranos as microservices and the memory-based dispatcher "
