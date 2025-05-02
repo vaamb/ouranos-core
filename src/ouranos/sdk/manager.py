@@ -87,7 +87,7 @@ class FunctionalityManager(BaseFunctionality, ABC):
     add_functionality = wrap_functionality
 
     @staticmethod
-    def init_func(functionality_wrapper: FunctionalityWrapper) -> None:
+    def instantiate_functionality(functionality_wrapper: FunctionalityWrapper) -> None:
         if functionality_wrapper.workers > 0:
             functionality_name = format_functionality_name(
                 functionality_wrapper.functionality_cls)
@@ -117,7 +117,7 @@ class FunctionalityManager(BaseFunctionality, ABC):
                 # Will be done in subprocess
                 pass
             else:
-                self.init_func(functionality_wrapper)
+                self.instantiate_functionality(functionality_wrapper)
                 await self.init_async_func(functionality_wrapper)
 
     async def post_shutdown(self) -> None:
