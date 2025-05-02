@@ -99,6 +99,21 @@ class BaseFunctionality(ABC):
         cache_path = Path(cache_uri.split("///")[1])
         cache_path.unlink(missing_ok=True)
 
+    async def initialize(self) -> None:
+        await self.init_the_db()
+        scheduler.start()
+
+    async def post_initialize(self) -> None:
+        pass
+
+    async def post_shutdown(self) -> None:
+        pass
+
+    async def clear(self) -> None:
+        scheduler.remove_all_jobs()
+        scheduler.shutdown()
+        await self.clean_the_db()
+
     async def startup(self):
         if not self._status:
             # Start the functionality
@@ -138,9 +153,6 @@ class BaseFunctionality(ABC):
                 f"{self.__class__.__name__} is not running"
             )
 
-    async def init_async(self):
-        pass
-
     @abstractmethod
     async def _startup(self):
         raise NotImplementedError
@@ -154,17 +166,15 @@ class BaseFunctionality(ABC):
         asyncio.run(self._run())
 
     async def _run(self):
-        await self.init_the_db()
-        await self.init_async()
-        scheduler.start()
+        await self.initialize()
+        await self.post_initialize()
         await self.startup()
         self.logger.info(
             f"{self.name.replace('_', ' ').capitalize()} running (Press CTRL+C to quit)")
         await self._runner.run_until_stop()
         await self.shutdown()
-        scheduler.remove_all_jobs()
-        scheduler.shutdown()
-        await self.clean_the_db()
+        await self.post_shutdown()
+        await self.clear()
 
     def stop(self):
         self._runner.stop()

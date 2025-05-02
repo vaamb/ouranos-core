@@ -109,9 +109,9 @@ class FunctionalityManager(BaseFunctionality, ABC):
                 f"Functionality '{functionality_name}' should be run as a "
                 f"worker"
             )
-        await functionality_wrapper.instance.init_async()
+        await functionality_wrapper.instance.post_initialize()
 
-    async def init_async(self):
+    async def post_initialize(self):
         for functionality_wrapper in self.functionalities.values():
             if functionality_wrapper.workers > 0:
                 # Will be done in subprocess
