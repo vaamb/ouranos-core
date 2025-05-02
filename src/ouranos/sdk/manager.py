@@ -87,7 +87,7 @@ class FunctionalityManager(BaseFunctionality, ABC):
     add_functionality = wrap_functionality
 
     @staticmethod
-    def init_func(functionality_wrapper: FunctionalityWrapper) -> None:
+    def instantiate_functionality(functionality_wrapper: FunctionalityWrapper) -> None:
         if functionality_wrapper.workers > 0:
             functionality_name = format_functionality_name(
                 functionality_wrapper.functionality_cls)
@@ -101,7 +101,9 @@ class FunctionalityManager(BaseFunctionality, ABC):
         functionality_wrapper.instance = functionality
 
     @staticmethod
-    async def init_async_func(functionality_wrapper: FunctionalityWrapper) -> None:
+    async def post_initialize_functionality(
+            functionality_wrapper: FunctionalityWrapper,
+    ) -> None:
         if functionality_wrapper.workers > 0:
             functionality_name = format_functionality_name(
                 functionality_wrapper.functionality_cls)
@@ -109,16 +111,24 @@ class FunctionalityManager(BaseFunctionality, ABC):
                 f"Functionality '{functionality_name}' should be run as a "
                 f"worker"
             )
-        await functionality_wrapper.instance.init_async()
+        await functionality_wrapper.instance.post_initialize()
 
-    async def init_async(self):
+    async def post_initialize(self) -> None:
         for functionality_wrapper in self.functionalities.values():
             if functionality_wrapper.workers > 0:
                 # Will be done in subprocess
                 pass
             else:
-                self.init_func(functionality_wrapper)
-                await self.init_async_func(functionality_wrapper)
+                self.instantiate_functionality(functionality_wrapper)
+                await self.post_initialize_functionality(functionality_wrapper)
+
+    async def post_shutdown(self) -> None:
+        for functionality_wrapper in self.functionalities.values():
+            if functionality_wrapper.workers > 0:
+                # Will be done in subprocess
+                pass
+            else:
+                await functionality_wrapper.instance.post_shutdown()
 
     @staticmethod
     def run_in_subprocess(functionality_wrapper: FunctionalityWrapper) -> None:
