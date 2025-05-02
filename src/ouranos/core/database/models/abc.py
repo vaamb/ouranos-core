@@ -183,7 +183,6 @@ class CRUDMixin:
             if cls._on_conflict_do is None:
                 cls._on_conflict_do = cls._get_on_conflict_do()
             stmt = cls._on_conflict_do(stmt, _on_conflict_do)
-        x = 1
         await session.execute(stmt)
 
     @classmethod
