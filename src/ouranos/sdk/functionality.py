@@ -43,8 +43,6 @@ class BaseFunctionality(ABC):
     ) -> None:
         self.name = format_functionality_name(self.__class__)
         self.is_root = root
-        if self.is_root:
-            microservice = False
         if not self.is_proc_name_setup():
             # Change process name
             from setproctitle import setproctitle
