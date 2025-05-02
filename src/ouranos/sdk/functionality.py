@@ -163,15 +163,17 @@ class BaseFunctionality(ABC):
         asyncio.run(self._run())
 
     async def _run(self):
-        await self.initialize()
-        await self.post_initialize()
+        if self.is_root:
+            await self.initialize()
+            await self.post_initialize()
         await self.startup()
         self.logger.info(
             f"{self.name.replace('_', ' ').capitalize()} running (Press CTRL+C to quit)")
         await self._runner.run_until_stop()
         await self.shutdown()
-        await self.post_shutdown()
-        await self.clear()
+        if self.is_root:
+            await self.post_shutdown()
+            await self.clear()
 
     def stop(self):
         self._runner.stop()
