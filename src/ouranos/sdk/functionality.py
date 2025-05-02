@@ -206,13 +206,12 @@ class Functionality(BaseFunctionality, ABC):
         :param root: bool, Whether the functionality is managing other (sub)-
         functionalities or not. Should remain `False` for most cases.
         """
-        if kwargs.get("root"):
-            del kwargs["root"]
+        root = kwargs.pop("root", False)
         super().__init__(
             config_profile,
             config_override,
             auto_setup_config=auto_setup_config,
-            root=False,
+            root=root,
             **kwargs
         )
 
