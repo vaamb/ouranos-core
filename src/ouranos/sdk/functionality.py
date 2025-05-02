@@ -29,7 +29,6 @@ class _SetUp:
 
 class BaseFunctionality(ABC):
     _runner = Runner()
-    _proc_name_setup: bool = False
     workers: int = 0
 
     def __init__(
