@@ -78,7 +78,6 @@ class FunctionalityManager(BaseFunctionality, ABC):
         kwargs = {
             "config_override": self.config_override,
             "auto_setup_config": workers > 0,
-            "microservice": workers > 0,
             "root": False,
         }
 
