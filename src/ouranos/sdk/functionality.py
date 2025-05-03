@@ -66,7 +66,7 @@ class BaseFunctionality(ABC):
             self.logger: Logger = getLogger(f"ouranos.{self.name}")
 
         if not self.is_root:
-            self.logger.info(f"Creating Ouranos' {self.name.capitalize()}")
+            self.logger.info(f"Creating Ouranos' {self.__class__.__name__}")
 
         if self._is_microservice and "memory://" in self.config["DISPATCHER_URL"]:
             self.logger.warning(
@@ -119,7 +119,7 @@ class BaseFunctionality(ABC):
                 self.logger.info(f"Starting Ouranos process [{pid}]")
             else:
                 self.logger.info(
-                    f"Starting Ouranos' {self.name.replace('_', ' ').capitalize()} "
+                    f"Starting Ouranos' {self.__class__.__name__} "
                     f"process [{pid}]"
                 )
             await self._startup()
@@ -136,7 +136,7 @@ class BaseFunctionality(ABC):
                 self.logger.info(f"Stopping")
             else:
                 self.logger.info(
-                    f"Stopping Ouranos' {self.name.replace('_', ' ').capitalize()}")
+                    f"Stopping Ouranos' {self.__class__.__name__}")
             try:
                 await self._shutdown()
             except asyncio.CancelledError as e:
@@ -168,7 +168,7 @@ class BaseFunctionality(ABC):
             await self.post_initialize()
         await self.startup()
         self.logger.info(
-            f"{self.name.replace('_', ' ').capitalize()} running (Press CTRL+C to quit)")
+            f"{self.__class__.__name__} running (Press CTRL+C to quit)")
         await self._runner.run_until_stop()
         await self.shutdown()
         if self.is_root:
