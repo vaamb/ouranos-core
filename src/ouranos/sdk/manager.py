@@ -30,6 +30,8 @@ class FunctionalityWrapper:
 
 
 class FunctionalityManager(BaseFunctionality, ABC):
+    _is_microservice = False
+
     def __init__(
             self,
             config_profile: "profile_type" = None,
@@ -77,8 +79,8 @@ class FunctionalityManager(BaseFunctionality, ABC):
 
         kwargs = {
             "config_override": self.config_override,
-            "auto_setup_config": False,
-            "microservice": False if workers == 0 else True,
+            "auto_setup_config": workers > 0,
+            "root": False,
         }
 
         self.functionalities[func_name] = FunctionalityWrapper(

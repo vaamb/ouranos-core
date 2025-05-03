@@ -28,8 +28,8 @@ class _SetUp:
 
 
 class BaseFunctionality(ABC):
+    _is_microservice: bool
     _runner = Runner()
-    _proc_name_setup: bool = False
     workers: int = 0
 
     def __init__(
@@ -38,18 +38,15 @@ class BaseFunctionality(ABC):
             config_override: dict | None = None,
             *,
             auto_setup_config: bool = True,
-            microservice: bool = True,
             root: bool = False,
             **kwargs
     ) -> None:
         self.name = format_functionality_name(self.__class__)
         self.is_root = root
-        if self.is_root:
-            microservice = False
         if not self.is_proc_name_setup():
             # Change process name
             from setproctitle import setproctitle
-            if self.is_root:
+            if "ouranos" in self.name:
                 setproctitle(f"ouranos")
             else:
                 setproctitle(f"ouranos-{self.name}")
@@ -69,9 +66,9 @@ class BaseFunctionality(ABC):
             self.logger: Logger = getLogger(f"ouranos.{self.name}")
 
         if not self.is_root:
-            self.logger.info(f"Creating Ouranos' {self.name.capitalize()}")
+            self.logger.info(f"Creating Ouranos' {self.__class__.__name__}")
 
-        if microservice and "memory://" in self.config["DISPATCHER_URL"]:
+        if self._is_microservice and "memory://" in self.config["DISPATCHER_URL"]:
             self.logger.warning(
                 "Using Ouranos as microservices and the memory-based dispatcher "
                 "or cache server, this could lead to errors as some data won't "
@@ -122,7 +119,7 @@ class BaseFunctionality(ABC):
                 self.logger.info(f"Starting Ouranos process [{pid}]")
             else:
                 self.logger.info(
-                    f"Starting Ouranos' {self.name.replace('_', ' ').capitalize()} "
+                    f"Starting Ouranos' {self.__class__.__name__} "
                     f"process [{pid}]"
                 )
             await self._startup()
@@ -139,7 +136,7 @@ class BaseFunctionality(ABC):
                 self.logger.info(f"Stopping")
             else:
                 self.logger.info(
-                    f"Stopping Ouranos' {self.name.replace('_', ' ').capitalize()}")
+                    f"Stopping Ouranos' {self.__class__.__name__}")
             try:
                 await self._shutdown()
             except asyncio.CancelledError as e:
@@ -166,21 +163,25 @@ class BaseFunctionality(ABC):
         asyncio.run(self._run())
 
     async def _run(self):
-        await self.initialize()
-        await self.post_initialize()
+        if self.is_root:
+            await self.initialize()
+            await self.post_initialize()
         await self.startup()
         self.logger.info(
-            f"{self.name.replace('_', ' ').capitalize()} running (Press CTRL+C to quit)")
+            f"{self.__class__.__name__} running (Press CTRL+C to quit)")
         await self._runner.run_until_stop()
         await self.shutdown()
-        await self.post_shutdown()
-        await self.clear()
+        if self.is_root:
+            await self.post_shutdown()
+            await self.clear()
 
     def stop(self):
         self._runner.stop()
 
 
 class Functionality(BaseFunctionality, ABC):
+    _is_microservice = True
+
     def __init__(
             self,
             config_profile: "profile_type" = None,
@@ -206,13 +207,12 @@ class Functionality(BaseFunctionality, ABC):
         :param root: bool, Whether the functionality is managing other (sub)-
         functionalities or not. Should remain `False` for most cases.
         """
-        if kwargs.get("root"):
-            del kwargs["root"]
+        root = kwargs.pop("root", False)
         super().__init__(
             config_profile,
             config_override,
             auto_setup_config=auto_setup_config,
-            root=False,
+            root=root,
             **kwargs
         )
 

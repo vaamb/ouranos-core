@@ -36,7 +36,7 @@ def main(
     receives all the environmental data and logs in into a database that can be
     searched by other functionalities
     """
-    run_functionality_forever(Aggregator, config_profile)
+    run_functionality_forever(Aggregator, config_profile, root=True)
 
 
 class Aggregator(Functionality):

@@ -41,7 +41,7 @@ def main(
     can also send data to the Aggregator that will dispatch them to the
     requested Gaia's instance
     """
-    run_functionality_forever(WebServer, config_profile)
+    run_functionality_forever(WebServer, config_profile, root=True)
 
 
 class WebServer(Functionality):
