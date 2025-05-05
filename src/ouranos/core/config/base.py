@@ -10,7 +10,7 @@ class BaseConfig:
     DEVELOPMENT = False
     TESTING = False
 
-    WORKERS = 0
+    GLOBAL_WORKERS_LIMIT = None
 
     DIR = os.environ.get("OURANOS_DIR") or os.getcwd()
 
@@ -168,7 +168,7 @@ class BaseConfigDict(TypedDict):
     DEVELOPMENT: bool
     TESTING: bool
 
-    WORKERS: int | None
+    GLOBAL_WORKERS_LIMIT: int | None
 
     DIR: str | Path
     LOG_DIR: str | Path

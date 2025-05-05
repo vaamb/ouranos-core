@@ -73,7 +73,7 @@ class FunctionalityManager(BaseFunctionality, ABC):
             f"{func_name.upper()}_WORKERS")
         if func_workers_limit is not None and workers > func_workers_limit:
             workers = func_workers_limit
-        global_workers_limit: int | None = self.config["WORKERS"]
+        global_workers_limit: int | None = self.config["GLOBAL_WORKERS_LIMIT"]
         if global_workers_limit is not None and workers > global_workers_limit:
             workers = global_workers_limit
 
