@@ -60,6 +60,13 @@ class BaseFunctionality(ABC):
             self.config = self.config.copy()
             self.config.update(config_override)
 
+        workers = self.config.get(f"{self.name.upper()}_WORKERS")
+        if workers is not None:
+            self.workers = workers
+        global_workers_limit: int | None = self.config["GLOBAL_WORKERS_LIMIT"]
+        if global_workers_limit is not None and self.workers > global_workers_limit:
+            self.workers = global_workers_limit
+
         if self.is_root:
             self.logger: Logger = getLogger(f"ouranos")
         else:

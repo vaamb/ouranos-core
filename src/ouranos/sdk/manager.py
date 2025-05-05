@@ -69,10 +69,6 @@ class FunctionalityManager(BaseFunctionality, ABC):
     def wrap_functionality(self, functionality: Type[Functionality]) -> None:
         workers = functionality.workers
         func_name = format_functionality_name(functionality)
-        func_workers_limit: int | None = self.config.get(
-            f"{func_name.upper()}_WORKERS")
-        if func_workers_limit is not None and workers > func_workers_limit:
-            workers = func_workers_limit
         global_workers_limit: int | None = self.config["GLOBAL_WORKERS_LIMIT"]
         if global_workers_limit is not None and workers > global_workers_limit:
             workers = global_workers_limit
