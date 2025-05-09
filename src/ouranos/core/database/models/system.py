@@ -86,7 +86,7 @@ class SystemDataRecord(BaseSystemData, RecordMixin):
                 (cls.timestamp > time_window.start) &
                 (cls.timestamp <= time_window.end)
             )
-            .order_by(cls.timestamp_to.asc())
+            .order_by(cls.timestamp.asc())
         )
         if system_uid:
             if isinstance(system_uid, str):
@@ -113,7 +113,7 @@ class SystemDataRecord(BaseSystemData, RecordMixin):
                 (cls.timestamp > time_window.start) &
                 (cls.timestamp <= time_window.end)
             )
-            .order_by(cls.timestamp_to.asc())
+            .order_by(cls.timestamp.asc())
         )
         if system_uid:
             if isinstance(system_uid, str):
