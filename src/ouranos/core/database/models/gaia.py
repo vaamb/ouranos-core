@@ -1055,7 +1055,11 @@ class SensorDataCache(BaseSensorData, CacheMixin):
             .group_by(cls.sensor_uid, cls.measure)
             .subquery()
         )
-        stmt = select(cls).join(sub_stmt, cls.id == sub_stmt.c.id)
+        stmt = (
+            select(cls)
+            .join(sub_stmt, cls.id == sub_stmt.c.id)
+            .order_by(cls.timestamp.asc())
+        )
 
         local_vars = locals()
         args = "ecosystem_uid", "sensor_uid", "measure"
@@ -1089,6 +1093,7 @@ class SensorDataCache(BaseSensorData, CacheMixin):
             .join(sub_stmt, cls.id == sub_stmt.c.id)
             .where(cls.sensor_uid == sensor_uid)
             .where(cls.measure == measure)
+            .order_by(cls.timestamp.asc())
         )
         result = await session.execute(stmt)
         return result.all()
@@ -1124,6 +1129,7 @@ class SensorDataRecord(BaseSensorDataRecord):
                 (cls.timestamp > time_window.start)
                 & (cls.timestamp <= time_window.end)
             )
+            .order_by(cls.timestamp.asc())
         )
         result = await session.execute(stmt)
         return result.all()
@@ -1196,6 +1202,7 @@ class SensorAlarm(Base):
         stmt = (
             select(cls)
             .where(cls.timestamp_to > time_limit)
+            .order_by(cls.timestamp_to.asc())
         )
         if ecosystem_uid is not None:
             if isinstance(ecosystem_uid, str):
@@ -1298,6 +1305,7 @@ class BaseActuatorRecord(Base, RecordMixin):
                 (cls.timestamp > time_window.start)
                 & (cls.timestamp <= time_window.end)
             )
+            .order_by(cls.timestamp.asc())
         )
         result = await session.execute(stmt)
         return result.all()
