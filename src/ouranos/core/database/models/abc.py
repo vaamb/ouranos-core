@@ -364,6 +364,7 @@ class RecordMixin(CRUDMixin):
                 (cls.timestamp > time_window.start)
                 & (cls.timestamp <= time_window.end)
             )
+        stmt = stmt.order_by(cls.timestamp.asc())
         result = await session.execute(stmt)
         return result.scalars().all()
 
