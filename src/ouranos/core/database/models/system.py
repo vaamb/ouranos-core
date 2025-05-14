@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Self, Sequence
 
 import sqlalchemy as sa
-from sqlalchemy import select
+from sqlalchemy import select, UniqueConstraint
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql.functions import func, max as sa_max
@@ -126,47 +126,32 @@ class SystemDataRecord(BaseSystemData, RecordMixin):
 class SystemDataCache(BaseSystemData, CacheMixin):
     __tablename__ = "system_temp"
     __bind_key__ = "transient"
+    __table_args__ = (
+        UniqueConstraint(
+            "system_uid",
+            name="_no_repost_constraint"
+        ),
+    )
 
     @classmethod
     def get_ttl(cls) -> int:
         return 90
 
     @classmethod
-    async def get_recent(
-            cls,
-            session: AsyncSession,
-            system_uid: str | list | None = None
-    ) -> Sequence[Self]:
-        await cls.remove_expired(session)
-        sub_stmt = (
-            select(cls.id, sa_max(cls.timestamp))
-            .group_by(cls.system_uid)
-            .subquery()
-        )
-        stmt = select(cls).join(sub_stmt, cls.id == sub_stmt.c.id)
-        if system_uid:
-            if isinstance(system_uid, str):
-                system_uid = [system_uid, ]
-            stmt = stmt.where(cls.system_uid.in_(system_uid))
-        result = await session.execute(stmt)
-        return result.scalars().all()
-
-    @classmethod
     async def get_recent_timed_values(
             cls,
             session: AsyncSession,
+            /,
             system_uid: str | list | None = None
     ) -> list[timed_value]:
-        await cls.remove_expired(session)
-        sub_stmt = (
-            select(cls.id, sa_max(cls.timestamp))
-            .group_by(cls.system_uid)
-            .subquery()
+        time_limit = datetime.now(timezone.utc) - timedelta(seconds=cls.get_ttl())
+        stmt = (
+            select(
+                cls.timestamp, cls.CPU_used, cls.CPU_temp, cls.RAM_process,
+                cls.RAM_used, cls.DISK_used,
+            )
+            .where(cls.timestamp > time_limit)
         )
-        stmt = select(
-            cls.timestamp, cls.CPU_used, cls.CPU_temp, cls.RAM_process,
-            cls.RAM_used, cls.DISK_used,
-        ).join(sub_stmt, cls.id == sub_stmt.c.id)
         if system_uid:
             if isinstance(system_uid, str):
                 system_uid = [system_uid, ]
