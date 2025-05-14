@@ -369,7 +369,7 @@ class RecordMixin(CRUDMixin):
         return result.scalars().all()
 
 
-class CacheMixin:
+class CacheMixin(CRUDMixin):
     timestamp: Mapped[datetime]
 
     @classmethod
@@ -385,19 +385,19 @@ class CacheMixin:
             values: dict | list[dict]
     ) -> None:
         await cls.remove_expired(session)
-        insert = cls._get_insert()
-        stmt = insert(cls).values(values)
-        await session.execute(stmt)
+        await cls.create_multiple(session, values=values, _on_conflict_do="update")
 
     @classmethod
-    @abstractmethod
     async def get_recent(
             cls: Base,
             session: AsyncSession,
-            **kwargs
+            **lookup_keys: list[lookup_keys_type] | lookup_keys_type | None,
     ) -> Sequence[Base]:
-        """Must start by calling `await cls.remove_expired(session)`"""
-        raise NotImplementedError
+        stmt = cls._generate_get_query(**lookup_keys)
+        time_limit = datetime.now(timezone.utc) - timedelta(seconds=cls.get_ttl())
+        stmt = stmt.where(cls.timestamp > time_limit)
+        result = await session.execute(stmt)
+        return result.scalars().all()
 
     @classmethod
     async def remove_expired(cls, session: AsyncSession) -> None:
