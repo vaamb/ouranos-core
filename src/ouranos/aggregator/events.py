@@ -720,7 +720,7 @@ class GaiaEvents(AsyncEventHandler):
 
         async with db.scoped_session() as session:
             recent_sensors_record = await SensorDataCache.get_recent(
-                session, discard_logged=True)
+                session, logged=False)
             # Filter data that needs to be logged into db
             for record in recent_sensors_record:
                 if record.timestamp.minute % logging_period == 0:

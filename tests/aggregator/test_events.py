@@ -5,6 +5,7 @@ from copy import copy
 from datetime import datetime,timedelta, timezone
 
 import pytest
+from sqlalchemy import delete
 
 import gaia_validators as gv
 from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
@@ -368,6 +369,7 @@ async def test_log_sensors_data(
 
     async with ecosystem_aware_db.scoped_session() as session:
         await SensorDataCache.clear(session)
+        await session.execute(delete(SensorDataRecord))
 
 
 @pytest.mark.asyncio
@@ -414,7 +416,10 @@ async def test_on_buffered_sensors_data(
                 time_window=create_time_window(
                     end_time=datetime.now(timezone.utc) + timedelta(days=1))
             )
-        )[0]
+        )
+        assert len(temperature_data) == 1
+        temperature_data = temperature_data[0]
+
         assert temperature_data.ecosystem_uid == \
                g_data.buffered_data_temperature.ecosystem_uid
         assert temperature_data.sensor_uid == g_data.buffered_data_temperature.sensor_uid
