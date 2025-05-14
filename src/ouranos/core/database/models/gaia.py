@@ -65,6 +65,14 @@ class InConfigMixin:
         raise NotImplementedError
 
 
+class _Return:
+    def __init__(self, return_value):
+        self.return_value = return_value
+
+    def __call__(self):
+        return self.return_value
+
+
 # ---------------------------------------------------------------------------
 #   Ecosystems-related models, located in db_main and db_archive
 # ---------------------------------------------------------------------------
@@ -430,7 +438,7 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
         }
 
     async def get_current_data(self, session: AsyncSession) -> Sequence[SensorDataCache]:
-        return await SensorDataCache.get_recent(session, self.uid)
+        return await SensorDataCache.get_recent(session, ecosystem_uid=self.uid)
 
     async def get_actuator_state(
             self,
@@ -999,13 +1007,7 @@ class Plant(Base, CachedCRUDMixin, InConfigMixin):
 # ---------------------------------------------------------------------------
 class BaseSensorData(Base):
     __abstract__ = True
-    __table_args__ = (
-        UniqueConstraint(
-            "measure", "timestamp", "value", "ecosystem_uid", "sensor_uid",
-            name="_no_repost_constraint"
-        ),
-    )
-    _lookup_keys = ["measure", "timestamp", "value", "ecosystem_uid", "sensor_uid"]
+    _lookup_keys = ["ecosystem_uid", "sensor_uid", "measure"]
 
     id: Mapped[int] = mapped_column(primary_key=True)
     timestamp: Mapped[datetime] = mapped_column(UtcDateTime)
@@ -1033,47 +1035,18 @@ class BaseSensorData(Base):
 class SensorDataCache(BaseSensorData, CacheMixin):
     __tablename__ = "sensor_temp"
     __bind_key__ = "transient"
+    __table_args__ = (
+        UniqueConstraint(
+            "ecosystem_uid", "sensor_uid", "measure",
+            name="_no_repost_constraint"
+        ),
+    )
 
-    logged: Mapped[bool] = mapped_column(default=False)
+    logged: Mapped[bool] = mapped_column(default=False, onupdate=_Return(False))
 
     @classmethod
     def get_ttl(cls) -> int:
         return current_app.config["ECOSYSTEM_TIMEOUT"]
-
-    @classmethod
-    async def get_recent(
-            cls,
-            session: AsyncSession,
-            ecosystem_uid: str | list | None = None,
-            sensor_uid: str | list | None = None,
-            measure: str | list | None = None,
-            discard_logged: bool = False,
-    ) -> Sequence[Self]:
-        await cls.remove_expired(session)
-        sub_stmt = (
-            select(cls.id, sa_max(cls.timestamp))
-            .group_by(cls.sensor_uid, cls.measure)
-            .subquery()
-        )
-        stmt = (
-            select(cls)
-            .join(sub_stmt, cls.id == sub_stmt.c.id)
-            .order_by(cls.timestamp.asc())
-        )
-
-        local_vars = locals()
-        args = "ecosystem_uid", "sensor_uid", "measure"
-        for arg in args:
-            value = local_vars.get(arg)
-            if value:
-                if isinstance(value, str):
-                    value = value.split(",")
-                hardware_attr = getattr(cls, arg)
-                stmt = stmt.where(hardware_attr.in_(value))
-        if discard_logged:
-            stmt = stmt.where(cls.logged == False)
-        result = await session.execute(stmt)
-        return result.scalars().all()
 
     @classmethod
     async def get_recent_timed_values(
@@ -1101,6 +1074,12 @@ class SensorDataCache(BaseSensorData, CacheMixin):
 
 class BaseSensorDataRecord(BaseSensorData, RecordMixin):
     __abstract__ = True
+    __table_args__ = (
+        UniqueConstraint(
+            "measure", "timestamp", "value", "ecosystem_uid", "sensor_uid",
+            name="_no_repost_constraint"
+        ),
+    )
 
 
 class SensorDataRecord(BaseSensorDataRecord):
