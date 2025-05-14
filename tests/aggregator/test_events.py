@@ -5,6 +5,7 @@ from copy import copy
 from datetime import datetime,timedelta, timezone
 
 import pytest
+from sqlalchemy import delete
 
 import gaia_validators as gv
 from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
@@ -368,6 +369,7 @@ async def test_log_sensors_data(
 
     async with ecosystem_aware_db.scoped_session() as session:
         await SensorDataCache.clear(session)
+        await session.execute(delete(SensorDataRecord))
 
 
 @pytest.mark.asyncio
