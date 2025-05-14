@@ -71,8 +71,6 @@ async def get_current_user_info(
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     current_user = await get_current_user(session_info, session)
-    if current_user.is_authenticated:
-        refresh_session_cookie_expiration(session_info, response)
     return current_user
 
 
@@ -88,6 +86,17 @@ async def update_current_user_last_seen(
             user_id=current_user.id,
             values={"last_seen": datetime.now(timezone.utc)}
         )
+
+
+@router.get("/refresh_session")
+async def refresh_session_cookie(
+        response: Response,
+        session_info: Annotated[SessionInfo, Depends(get_session_info)],
+        session: Annotated[AsyncSession, Depends(get_session)],
+):
+    current_user = await get_current_user(session_info, session)
+    if current_user.is_authenticated:
+        refresh_session_cookie_expiration(session_info, response)
 
 
 @router.post("/register",
