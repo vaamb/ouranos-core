@@ -1007,7 +1007,6 @@ class Plant(Base, CachedCRUDMixin, InConfigMixin):
 # ---------------------------------------------------------------------------
 class BaseSensorData(Base):
     __abstract__ = True
-    _lookup_keys = ["ecosystem_uid", "sensor_uid", "measure"]
 
     id: Mapped[int] = mapped_column(primary_key=True)
     timestamp: Mapped[datetime] = mapped_column(UtcDateTime)
@@ -1035,6 +1034,7 @@ class BaseSensorData(Base):
 class SensorDataCache(BaseSensorData, CacheMixin):
     __tablename__ = "sensor_temp"
     __bind_key__ = "transient"
+    _lookup_keys = ["ecosystem_uid", "sensor_uid", "measure"]
     __table_args__ = (
         UniqueConstraint(
             "ecosystem_uid", "sensor_uid", "measure",
@@ -1074,9 +1074,10 @@ class SensorDataCache(BaseSensorData, CacheMixin):
 
 class BaseSensorDataRecord(BaseSensorData, RecordMixin):
     __abstract__ = True
+    _lookup_keys = ["timestamp", "ecosystem_uid", "sensor_uid", "measure", "value"]
     __table_args__ = (
         UniqueConstraint(
-            "measure", "timestamp", "value", "ecosystem_uid", "sensor_uid",
+            "timestamp", "ecosystem_uid", "sensor_uid", "measure", "value",
             name="_no_repost_constraint"
         ),
     )
