@@ -414,7 +414,10 @@ async def test_on_buffered_sensors_data(
                 time_window=create_time_window(
                     end_time=datetime.now(timezone.utc) + timedelta(days=1))
             )
-        )[0]
+        )
+        assert len(temperature_data) == 1
+        temperature_data = temperature_data[0]
+
         assert temperature_data.ecosystem_uid == \
                g_data.buffered_data_temperature.ecosystem_uid
         assert temperature_data.sensor_uid == g_data.buffered_data_temperature.sensor_uid

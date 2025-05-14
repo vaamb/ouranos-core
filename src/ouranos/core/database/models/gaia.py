@@ -1074,10 +1074,10 @@ class SensorDataCache(BaseSensorData, CacheMixin):
 
 class BaseSensorDataRecord(BaseSensorData, RecordMixin):
     __abstract__ = True
-    _lookup_keys = ["timestamp", "ecosystem_uid", "sensor_uid", "measure", "value"]
+    _lookup_keys = ["timestamp", "ecosystem_uid", "sensor_uid", "measure"]
     __table_args__ = (
         UniqueConstraint(
-            "timestamp", "ecosystem_uid", "sensor_uid", "measure", "value",
+            "timestamp", "ecosystem_uid", "sensor_uid", "measure",
             name="_no_repost_constraint"
         ),
     )
