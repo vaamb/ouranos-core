@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import asyncio
 from collections import namedtuple
-from typing import Type
+from typing import Type, TypeVar
 
 from click import Command, Option
 
 from ouranos.sdk import Functionality, run_functionality_forever
 
+
+F = TypeVar("F", bound=Functionality)
 
 Route = namedtuple("Route", ("path", "endpoint"))
 
@@ -15,21 +17,26 @@ Route = namedtuple("Route", ("path", "endpoint"))
 class Plugin:
     def __init__(
             self,
-            functionality: Type[Functionality],
+            functionality: Type[F],
             name: str | None = None,
             command: Command | None = None,
             routes: list[Route] | None = None,
             **kwargs,
     ) -> None:
-        self._functionality: Type[Functionality] = functionality
+        self._functionality: Type[F] = functionality
         self._kwargs = kwargs
+        self._instance: F | None = None
         self.name: str = name or functionality.__name__.lower()
         self._command: Command | None = command
         self._routes: list[Route] = routes or []
 
     @property
-    def functionality_cls(self) -> Type[Functionality]:
+    def functionality_cls(self) -> Type[F]:
         return self._functionality
+
+    @property
+    def instance(self) -> F:
+        return self._instance
 
     def has_command(self) -> bool:
         return self._command is not None
