@@ -3,8 +3,10 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Annotated
 
+from datetime import timedelta
 from fastapi import (
     APIRouter, Body, Depends, HTTPException, Path, Query, status)
+import humanize
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from dispatcher import AsyncDispatcher
@@ -589,7 +591,10 @@ async def turn_actuator(
         await ecosystem.turn_actuator(
             dispatcher, actuator_type, mode, countdown)
         if countdown:
-            extra = f" in {countdown} seconds"
+            humanized_countdown = humanize.time.precisedelta(
+                timedelta(seconds=countdown), minimum_unit="seconds",
+                format="%0.0f")
+            extra = f" in {humanized_countdown}"
         else:
             extra = ""
         return (
