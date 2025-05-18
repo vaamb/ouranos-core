@@ -19,8 +19,10 @@ class Plugin:
             name: str | None = None,
             command: Command | None = None,
             routes: list[Route] | None = None,
+            **kwargs,
     ) -> None:
         self._functionality: Type[Functionality] = functionality
+        self._kwargs = kwargs
         self.name: str = name or functionality.__name__.lower()
         self._command: Command | None = command
         self._routes: list[Route] = routes or []
