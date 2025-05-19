@@ -84,6 +84,11 @@ class BaseFunctionality(ABC):
 
         self._status = False
 
+    @property
+    def need_subprocess(self) -> bool:
+        # Can be overwritten to tweak how subprocesses are implemented
+        return self.workers > 0
+
     def is_proc_name_setup(self) -> bool:
         return _SetUp.proc_name
 
