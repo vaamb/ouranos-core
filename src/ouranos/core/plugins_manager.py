@@ -62,30 +62,30 @@ class PluginManager:
             for pkg in self.iter_entry_points(omit_excluded):
                 self.plugins[pkg.name] = pkg
 
-    def init_plugins(self, microservice: bool = True):
+    def init_plugins(self, microservice: bool = True) -> None:
         plugins = [*self.plugins]
         plugins.sort()
         for plugin_name in plugins:
             self.init_plugin(plugin_name, microservice)
 
-    def init_plugin(self, plugin_name: str, microservice: bool = True):
+    def init_plugin(self, plugin_name: str, microservice: bool = True) -> None:
         plugin = self.plugins[plugin_name]
         functionality_cls = plugin.functionality_cls
         self.functionalities[plugin_name] = functionality_cls(
             microservice=microservice)
 
-    async def start_plugins(self):
+    async def start_plugins(self) -> None:
         for plugin_name in self.functionalities:
             await self.start_plugin(plugin_name)
 
-    async def start_plugin(self, plugin_name):
+    async def start_plugin(self, plugin_name: str) -> None:
         await self.functionalities[plugin_name].startup()
 
-    async def stop_plugins(self):
+    async def stop_plugins(self) -> None:
         for plugin_name in self.functionalities:
             await self.stop_plugin(plugin_name)
 
-    async def stop_plugin(self, plugin_name):
+    async def stop_plugin(self, plugin_name: str) -> None:
         await self.functionalities[plugin_name].shutdown()
 
     def register_plugins_routes(
