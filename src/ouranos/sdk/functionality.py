@@ -118,7 +118,7 @@ class BaseFunctionality(ABC):
         scheduler.shutdown()
         await self.clean_the_db()
 
-    async def startup(self):
+    async def startup(self) -> None:
         if not self._status:
             # Start the functionality
             pid = os.getpid()
@@ -136,7 +136,7 @@ class BaseFunctionality(ABC):
                 f"{self.__class__.__name__} has already started"
             )
 
-    async def shutdown(self):
+    async def shutdown(self) -> None:
         if self._status:
             # Stop the functionality
             if self.is_root:
@@ -158,29 +158,35 @@ class BaseFunctionality(ABC):
             )
 
     @abstractmethod
-    async def _startup(self):
+    async def _startup(self) -> None:
         raise NotImplementedError
 
     @abstractmethod
-    async def _shutdown(self):
+    async def _shutdown(self) -> None:
         raise NotImplementedError
 
-    def run(self):
-        setup_loop()
-        asyncio.run(self._run())
-
-    async def _run(self):
+    async def pre_run(self) -> None:
         if self.is_root:
             await self.initialize()
             await self.post_initialize()
         await self.startup()
         self.logger.info(
             f"{self.__class__.__name__} running (Press CTRL+C to quit)")
-        await self._runner.run_until_stop()
+
+    async def post_run(self) -> None:
         await self.shutdown()
         if self.is_root:
             await self.post_shutdown()
             await self.clear()
+
+    def run(self) -> None:
+        setup_loop()
+        asyncio.run(self._run())
+
+    async def _run(self) -> None:
+        await self.pre_run()
+        await self._runner.run_until_stop()
+        await self.post_run()
 
     def stop(self):
         self._runner.stop()
