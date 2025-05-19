@@ -65,6 +65,14 @@ class Plugin:
     def instance(self) -> F:
         return self._instance
 
+    @property
+    def kwargs(self) -> dict:
+        return self._kwargs
+
+    @kwargs.setter
+    def kwargs(self, value: dict):
+        self._kwargs.update(value)
+
     def _run_in_subprocess(self) -> None:
         self._instance = self._functionality(**self._kwargs)
         self._instance.run()
