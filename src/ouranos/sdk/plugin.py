@@ -34,6 +34,7 @@ class Plugin:
             name: str | None = None,
             command: Command | None = None,
             routes: list[Route] | None = None,
+            description: str | None = None,
             config_profile: profile_type = None,
             **kwargs,
     ) -> None:
@@ -57,6 +58,7 @@ class Plugin:
         self.name: str = name or format_functionality_name(functionality)
         self._command: Command | None = command
         self._routes: list[Route] = routes or []
+        self._description: str | None = description
         self._kwargs = kwargs
         self._kwargs["config_profile"] = config_profile
 
@@ -173,7 +175,7 @@ class Plugin:
     @property
     def command(self) -> Command:
         if self._command is None:
-            @click.command(self.name)
+            @click.command(self.name, help=self._description)
             @click.option(
                 "--config-profile",
                 type=str,
