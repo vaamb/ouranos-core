@@ -60,6 +60,14 @@ class Plugin:
         self._kwargs = kwargs
         self._kwargs["config_profile"] = config_profile
 
+    def __repr__(self) -> str:
+        return f"<Plugin({self.name}, status={self._status})>"
+
+    def __lt__(self, other) -> bool:
+        if not isinstance(other, Plugin):
+            return NotImplemented
+        return self.name < other.name
+
     @property
     def is_started(self) -> bool:
         return self._status
