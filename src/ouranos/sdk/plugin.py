@@ -155,7 +155,7 @@ class Plugin:
 
     async def _run_as_standalone(self) -> None:
         await self.start()
-        await self._instance.run_until_stop()
+        await self._functionality._runner.run_until_stop()
         await self.stop()
 
     # Command
