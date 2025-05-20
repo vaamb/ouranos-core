@@ -145,7 +145,7 @@ class Plugin:
         if not self._status:
             raise RuntimeError(f"{self.name} is not running")
         try:
-            if self.has_subprocesses:
+            if self.has_subprocesses():
                 for process in self._subprocesses:
                     process.terminate()
                     process.join()
