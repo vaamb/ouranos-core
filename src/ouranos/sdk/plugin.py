@@ -122,10 +122,11 @@ class Plugin:
         try:
             if workers:
                 assert not self._instance
-                for _ in range(workers):
+                for worker in range(workers):
                     process = spawn.Process(
                         target=self._run_in_subprocess,
                         daemon=True,
+                        name=f"{self.functionality_cls.__name__}-{worker}",
                     )
                     process.start()
                     self._subprocesses.append(process)
