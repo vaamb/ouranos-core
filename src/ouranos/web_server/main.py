@@ -5,11 +5,10 @@ import asyncio
 import typing as t
 from typing import Callable
 
-import click
 import uvicorn
 from uvicorn.loops.auto import auto_loop_setup
 
-from ouranos.sdk import Functionality, Plugin, run_functionality_forever
+from ouranos.sdk import Functionality, Plugin
 from ouranos.web_server.system_monitor import SystemMonitor
 
 
@@ -21,27 +20,6 @@ class _AppWrapper:
     def __init__(self, start: Callable[[], None], stop: Callable[[], None]):
         self.start = start
         self.stop = stop
-
-
-@click.command()
-@click.option(
-    "--config-profile",
-    type=str,
-    default=None,
-    help="Configuration profile to use as defined in config.py.",
-    show_default=True,
-)
-def main(
-        config_profile: str | None,
-) -> None:
-    """Launch Ouranos'Web server
-
-    The Web server is the main communication point between Ouranos and the user.
-    It provides a web api that allows the user to get data from the database. It
-    can also send data to the Aggregator that will dispatch them to the
-    requested Gaia's instance
-    """
-    run_functionality_forever(WebServer, config_profile, root=True)
 
 
 class WebServer(Functionality):
@@ -117,4 +95,13 @@ class WebServer(Functionality):
         self._app.stop()
 
 
-web_server_plugin = Plugin(functionality=WebServer)
+web_server_plugin = Plugin(
+    functionality=WebServer,
+    description="""Launch Ouranos' Web server
+
+    The Web server is the main communication point between Ouranos and the user.
+    It provides a web api that allows the user to get data from the database. It
+    can also send data to the Aggregator that will dispatch them to the
+    requested Gaia's instance
+    """,
+)

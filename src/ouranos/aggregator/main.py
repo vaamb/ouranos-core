@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import typing as t
 
-import click
-
 from dispatcher import AsyncAMQPDispatcher, AsyncRedisDispatcher
 
 from ouranos.aggregator.archiver import Archiver
@@ -12,31 +10,11 @@ from ouranos.aggregator.file_server import FileServer
 from ouranos.aggregator.sky_watcher import SkyWatcher
 from ouranos.core.dispatchers import DispatcherFactory
 from ouranos.core.globals import scheduler
-from ouranos.sdk import Functionality, Plugin, run_functionality_forever
+from ouranos.sdk import Functionality, Plugin
 
 
 if t.TYPE_CHECKING:
     from ouranos.core.config import profile_type
-
-
-@click.command()
-@click.option(
-    "--config-profile",
-    type=str,
-    default=None,
-    help="Configuration profile to use as defined in config.py.",
-    show_default=True,
-)
-def main(
-        config_profile: str | None,
-) -> None:
-    """Launch Ouranos'Aggregator
-
-    The Aggregator is the main data entry point from Gaia's instances. It
-    receives all the environmental data and logs in into a database that can be
-    searched by other functionalities
-    """
-    run_functionality_forever(Aggregator, config_profile, root=True)
 
 
 class Aggregator(Functionality):
@@ -181,4 +159,12 @@ class Aggregator(Functionality):
             pass  # Aggregator was not started
 
 
-aggregator_plugin = Plugin(Aggregator)
+aggregator_plugin = Plugin(
+    Aggregator,
+    description="""Launch Ouranos' Aggregator
+
+    The Aggregator is the main data entry point from Gaia's instances. It
+    receives all the environmental data and logs in into a database that can be
+    searched by other functionalities
+    """,
+)
