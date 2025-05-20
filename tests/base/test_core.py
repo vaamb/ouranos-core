@@ -28,13 +28,21 @@ async def test_functionality(config: ConfigDict):
 
 @pytest.mark.asyncio
 async def test_plugin_no_worker(dummy_plugin: Plugin):
+    manager_dict = {}
+    dummy_plugin.kwargs = {"manager_dict": manager_dict}
+
     await dummy_plugin.start()
     assert dummy_plugin.instance
     assert not dummy_plugin.has_subprocesses()
-    assert dummy_plugin.instance.value == 42
+
+    assert manager_dict["value"] == 42
 
     await dummy_plugin.stop()
-    assert dummy_plugin.instance.value is None
+
+    assert manager_dict["value"] is None
+
+    # Cleanup
+    dummy_plugin.kwargs = {}
 
 
 @pytest.mark.asyncio
