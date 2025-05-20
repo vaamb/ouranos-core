@@ -7,7 +7,8 @@ from multiprocessing.context import SpawnContext, SpawnProcess
 import typing as t
 from typing import Type, TypeVar
 
-from click import Command, Option
+import click
+from click import Command
 
 from ouranos import current_app, setup_loop
 from ouranos.core.config import ConfigHelper
@@ -164,18 +165,18 @@ class Plugin:
     @property
     def command(self) -> Command:
         if self._command is None:
-            func = asyncio.run(
-                run_functionality_forever(self.functionality_cls)
-            )
-            command = Command("main", callback=func)
-            option = Option(
+            @click.command(self.name)
+            @click.option(
                 "--config-profile",
                 type=str,
                 default=None,
                 help="Configuration profile to use as defined in config.py.",
-                show_default=True
+                show_default=True,
             )
-            command.params.append(option)
+            def command(config_profile: str | None) -> None:
+                self._kwargs.update({"config_profile": config_profile})
+                self.run_as_standalone()
+
             self._command = command
         return self._command
 
