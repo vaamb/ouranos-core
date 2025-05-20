@@ -4,13 +4,18 @@ import asyncio
 from collections import namedtuple
 import multiprocessing
 from multiprocessing.context import SpawnContext, SpawnProcess
+import typing as t
 from typing import Type, TypeVar
 
 from click import Command, Option
 
-from ouranos import setup_loop
+from ouranos import current_app, setup_loop
+from ouranos.core.config import ConfigHelper
 from ouranos.sdk import Functionality, run_functionality_forever
 from ouranos.sdk.functionality import format_functionality_name
+
+if t.TYPE_CHECKING:
+    from ouranos.core.config import profile_type
 
 
 F = TypeVar("F", bound=Functionality)
@@ -28,6 +33,7 @@ class Plugin:
             name: str | None = None,
             command: Command | None = None,
             routes: list[Route] | None = None,
+            config_profile: profile_type = None,
             **kwargs,
     ) -> None:
         """Create a new plugin.
@@ -51,6 +57,7 @@ class Plugin:
         self._command: Command | None = command
         self._routes: list[Route] = routes or []
         self._kwargs = kwargs
+        self._kwargs["config_profile"] = config_profile
         self._kwargs["auto_setup_config"] = self._functionality.workers > 0
 
     @property
@@ -73,6 +80,22 @@ class Plugin:
     def kwargs(self, value: dict):
         self._kwargs.update(value)
 
+    def compute_number_of_workers(self) -> int:
+        # The config is required in order to compute the actual number of
+        #  workers needed (we need to compare the functionality and the config)
+        if not ConfigHelper.config_is_set():
+            config_profile = self._kwargs["config_profile"]
+            ConfigHelper.set_config_and_configure_logging(config_profile)
+
+        workers = self._functionality.workers
+        func_workers = current_app.config.get(f"{self.name.upper()}_WORKERS")
+        if func_workers is not None:
+            workers = func_workers
+        global_workers_limit: int | None = current_app.config["GLOBAL_WORKERS_LIMIT"]
+        if global_workers_limit is not None:
+            workers = min(workers, global_workers_limit)
+        return workers
+
     def _run_in_subprocess(self) -> None:
         self._instance = self._functionality(**self._kwargs)
         self._instance.run()
@@ -85,10 +108,11 @@ class Plugin:
         will be started in one or more subprocesses."""
         if self._status:
             raise RuntimeError(f"{self.name} has already started")
+        workers = self.compute_number_of_workers()
         try:
-            if self._functionality.need_subprocess:
+            if workers:
                 assert not self._instance
-                for _ in range(self._functionality.workers):
+                for _ in range(workers):
                     process = spawn.Process(
                         target=self._run_in_subprocess,
                         daemon=True,
