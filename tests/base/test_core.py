@@ -32,7 +32,6 @@ async def test_plugin_manager():
 
     assert(plugin_manager.plugins["dummy-plugin"] == dummy_plugin)
 
-    plugin_manager.init_plugins()
     await plugin_manager.start_plugins()
     with pytest.raises(RuntimeError):
         await plugin_manager.start_plugins()

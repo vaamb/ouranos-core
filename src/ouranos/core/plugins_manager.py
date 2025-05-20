@@ -8,7 +8,7 @@ from fastapi import APIRouter, FastAPI
 from fastapi.responses import JSONResponse
 
 from ouranos import current_app
-from ouranos.sdk import Functionality, Plugin
+from ouranos.sdk import Plugin
 
 
 class PluginManager:
@@ -26,7 +26,6 @@ class PluginManager:
         self.logger: Logger = getLogger("ouranos.plugin_manager")
         self.omitted: set = self._get_omitted()
         self.plugins: dict[str, Plugin] = {}
-        self.functionalities: dict[str, Functionality] = {}
 
     def _get_omitted(self) -> set:
         omitted_str = current_app.config["PLUGINS_OMITTED"]
@@ -72,31 +71,19 @@ class PluginManager:
             for plugin in self.iter_plugins(omit_excluded):
                 self.plugins[plugin.name] = plugin
 
-    def init_plugins(self, microservice: bool = True) -> None:
-        plugins = [*self.plugins]
-        plugins.sort()
-        for plugin_name in plugins:
-            self.init_plugin(plugin_name, microservice)
-
-    def init_plugin(self, plugin_name: str, microservice: bool = True) -> None:
-        plugin = self.plugins[plugin_name]
-        functionality_cls = plugin.functionality_cls
-        self.functionalities[plugin_name] = functionality_cls(
-            microservice=microservice)
-
     async def start_plugins(self) -> None:
-        for plugin_name in self.functionalities:
+        for plugin_name in self.plugins:
             await self.start_plugin(plugin_name)
 
     async def start_plugin(self, plugin_name: str) -> None:
-        await self.functionalities[plugin_name].startup()
+        await self.plugins[plugin_name].start()
 
     async def stop_plugins(self) -> None:
-        for plugin_name in self.functionalities:
+        for plugin_name in self.plugins:
             await self.stop_plugin(plugin_name)
 
     async def stop_plugin(self, plugin_name: str) -> None:
-        await self.functionalities[plugin_name].shutdown()
+        await self.plugins[plugin_name].stop()
 
     def register_plugins_routes(
             self,
@@ -104,7 +91,7 @@ class PluginManager:
             json_response: JSONResponse = JSONResponse,
     ) -> None:
         if not self.plugins:
-            self.register_plugins()
+            raise RuntimeError("Plugins should be registered first.")
         for pkg in self.plugins.values():
             if pkg.has_route():
                 self.register_routes(pkg, router, json_response)
