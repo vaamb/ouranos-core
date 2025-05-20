@@ -58,7 +58,6 @@ class Plugin:
         self._routes: list[Route] = routes or []
         self._kwargs = kwargs
         self._kwargs["config_profile"] = config_profile
-        self._kwargs["auto_setup_config"] = self._functionality.workers > 0
 
     @property
     def is_started(self) -> bool:

@@ -52,7 +52,7 @@ class BaseFunctionality(ABC):
                 setproctitle(f"ouranos-{self.name}")
             self.proc_name_has_been_setup()
 
-        if auto_setup_config and not ConfigHelper.config_is_set():
+        if not ConfigHelper.config_is_set():
             ConfigHelper.set_config_and_configure_logging(config_profile)
 
         self.config: ConfigDict = current_app.config
@@ -64,16 +64,13 @@ class BaseFunctionality(ABC):
             self.logger: Logger = getLogger(f"ouranos")
         else:
             self.logger: Logger = getLogger(f"ouranos.{self.name}")
-
-        if not self.is_root:
             self.logger.info(f"Creating Ouranos' {self.__class__.__name__}")
 
         if self._is_microservice and "memory://" in self.config["DISPATCHER_URL"]:
             self.logger.warning(
-                "Using Ouranos as microservices and the memory-based dispatcher "
-                "or cache server, this could lead to errors as some data won't "
-                "be transferred between the different microservices"
-            )
+                "Using Ouranos as microservices and the memory-based dispatcher. "
+                "This could lead to errors as some data won't "
+                "be transferred between the different microservices.")
 
         self._status = False
 
