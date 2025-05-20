@@ -5,7 +5,8 @@ import pytest
 from ouranos import current_app
 from ouranos.core.config import ConfigDict
 from ouranos.core.plugins_manager import PluginManager
-from ouranos.sdk.tests.plugin import DummyFunctionality, dummy_plugin
+from ouranos.sdk.plugin import Plugin
+from ouranos.sdk.tests.plugin import DummyFunctionality
 
 
 def test_current_app(config: ConfigDict):
@@ -16,7 +17,7 @@ def test_current_app(config: ConfigDict):
 
 
 @pytest.mark.asyncio
-async def test_functionality(config):
+async def test_functionality(config: ConfigDict):
     functionality = DummyFunctionality(auto_setup_config=False)
     assert functionality.config == config
     await functionality.startup()
@@ -26,11 +27,22 @@ async def test_functionality(config):
 
 
 @pytest.mark.asyncio
-async def test_plugin_manager():
+async def test_plugin_no_worker(dummy_plugin: Plugin):
+    await dummy_plugin.start()
+    assert dummy_plugin.instance
+    assert not dummy_plugin.has_subprocesses()
+    assert dummy_plugin.instance.value == 42
+
+    await dummy_plugin.stop()
+    assert dummy_plugin.instance.value is None
+
+
+@pytest.mark.asyncio
+async def test_plugin_manager(dummy_plugin: Plugin):
     plugin_manager = PluginManager()
     plugin_manager.register_plugins()
 
-    assert(plugin_manager.plugins["dummy-plugin"] == dummy_plugin)
+    assert(plugin_manager.plugins["dummy-plugin"].name == dummy_plugin.name)
 
     await plugin_manager.start_plugins()
     with pytest.raises(RuntimeError):
