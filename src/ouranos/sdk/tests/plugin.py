@@ -9,7 +9,6 @@ class DummyFunctionality(Functionality):
 
     async def _startup(self):
         self.dict["value"] = 42
-        x = 1
 
     async def _shutdown(self):
         self.dict["value"] = None

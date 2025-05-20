@@ -1,4 +1,6 @@
+from multiprocessing import Manager
 from pathlib import Path
+from time import sleep
 
 import pytest
 
@@ -40,6 +42,33 @@ async def test_plugin_no_worker(dummy_plugin: Plugin):
     await dummy_plugin.stop()
 
     assert manager_dict["value"] is None
+
+    # Cleanup
+    dummy_plugin.kwargs = {}
+
+
+@pytest.mark.asyncio
+async def test_plugin_worker(dummy_plugin: Plugin):
+    dummy_plugin._functionality.workers = 1
+
+    with Manager() as manager:
+        manager_dict = manager.dict()
+        dummy_plugin.kwargs = {"manager_dict": manager_dict}
+
+        await dummy_plugin.start()
+        assert not dummy_plugin.instance
+        assert dummy_plugin.has_subprocesses()
+        assert len(dummy_plugin._subprocesses) == 1
+
+        sleep(2)  # Allow the subprocess to start and the functionality to init
+        assert manager_dict["value"] == 42
+
+        await dummy_plugin.stop()
+
+        sleep(2)
+        assert manager_dict["value"] is None
+
+    dummy_plugin._functionality.workers = 0
 
     # Cleanup
     dummy_plugin.kwargs = {}
