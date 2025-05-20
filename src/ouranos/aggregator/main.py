@@ -12,7 +12,7 @@ from ouranos.aggregator.file_server import FileServer
 from ouranos.aggregator.sky_watcher import SkyWatcher
 from ouranos.core.dispatchers import DispatcherFactory
 from ouranos.core.globals import scheduler
-from ouranos.sdk import Functionality, run_functionality_forever
+from ouranos.sdk import Functionality, Plugin, run_functionality_forever
 
 
 if t.TYPE_CHECKING:
@@ -179,3 +179,6 @@ class Aggregator(Functionality):
             pass  # Handled by uvicorn or by Api
         except RuntimeError:
             pass  # Aggregator was not started
+
+
+aggregator_plugin = Plugin(Aggregator)

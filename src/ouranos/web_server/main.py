@@ -9,7 +9,7 @@ import click
 import uvicorn
 from uvicorn.loops.auto import auto_loop_setup
 
-from ouranos.sdk import Functionality, run_functionality_forever
+from ouranos.sdk import Functionality, Plugin, run_functionality_forever
 from ouranos.web_server.system_monitor import SystemMonitor
 
 
@@ -115,3 +115,6 @@ class WebServer(Functionality):
     async def _shutdown(self):
         await self.system_monitor.stop()
         self._app.stop()
+
+
+web_server_plugin = Plugin(functionality=WebServer)

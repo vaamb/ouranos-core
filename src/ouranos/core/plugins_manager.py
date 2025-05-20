@@ -38,29 +38,39 @@ class PluginManager:
             omitted.add(self.test_plugin_name)
         return omitted
 
-    def iter_entry_points(
-            self,
-            omit_excluded: bool = True
-    ) -> Iterator[Plugin]:
+    def iter_entry_points(self) -> Iterator[Plugin]:
         for entry_point in entry_points(group=self.entry_point):
             pkg = entry_point.load()
             if isinstance(pkg, Plugin):
-                if current_app.config["TESTING"]:
-                    if pkg.name == self.test_plugin_name:
-                        yield pkg
-                    else:
-                        continue
+                yield pkg
 
-                if not omit_excluded:
-                    yield pkg
+    def iter_plugins(self, omit_excluded: bool = True) -> Iterator[Plugin]:
+        from ouranos.aggregator.main import aggregator_plugin
+        from ouranos.web_server.main import web_server_plugin
 
-                if pkg.name not in self.omitted:
-                    yield pkg
+        entry_plugins = [plugin for plugin in self.iter_entry_points()]
+        entry_plugins.sort()
+
+        plugins = [aggregator_plugin, web_server_plugin] + entry_plugins
+
+        for plugin in plugins:
+            # During testing, we only want to yield the test plugin
+            if current_app.config["TESTING"]:
+                if plugin.name == self.test_plugin_name:
+                    yield plugin
+                else:
+                    continue
+
+            if not omit_excluded:
+                yield plugin
+
+            if plugin.name not in self.omitted:
+                yield plugin
 
     def register_plugins(self, omit_excluded: bool = True) -> None:
         if not self.plugins:
-            for pkg in self.iter_entry_points(omit_excluded):
-                self.plugins[pkg.name] = pkg
+            for plugin in self.iter_plugins(omit_excluded):
+                self.plugins[plugin.name] = plugin
 
     def init_plugins(self, microservice: bool = True) -> None:
         plugins = [*self.plugins]
