@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections import namedtuple
+from logging import getLogger, Logger
 import multiprocessing
 from multiprocessing.context import SpawnContext, SpawnProcess
 import typing as t
@@ -12,7 +13,7 @@ from click import Command
 
 from ouranos import current_app, setup_loop
 from ouranos.core.config import ConfigHelper
-from ouranos.sdk import Functionality, run_functionality_forever
+from ouranos.sdk import Functionality
 from ouranos.sdk.functionality import format_functionality_name
 
 if t.TYPE_CHECKING:
@@ -51,11 +52,12 @@ class Plugin:
         :param routes: The routes to register.
         :param kwargs: The kwargs to pass to the functionality.
         """
+        self.name: str = name or format_functionality_name(functionality)
+        self.logger: Logger = getLogger(f"ouranos.{self.name}-plugin")
         self._functionality: Type[F] = functionality
         self._instance: F | None = None
         self._subprocesses: list[SpawnProcess] = []
         self._status: bool = False
-        self.name: str = name or format_functionality_name(functionality)
         self._command: Command | None = command
         self._routes: list[Route] = routes or []
         self._description: str | None = description
@@ -135,7 +137,7 @@ class Plugin:
                 self._instance = self._functionality(**self._kwargs)
                 await self._instance.pre_run()
         except Exception as e:
-            self._functionality.logger.error(
+            self.logger.error(
                 f"Error while starting. Error msg: "
                 f"`{e.__class__.__name__}: {e}`")
         else:
@@ -153,7 +155,7 @@ class Plugin:
             else:
                 await self._instance.post_run()
         except Exception as e:
-            self._functionality.logger.error(
+            self.logger.error(
                 f"Error while shutting down. Error msg: "
                 f"`{e.__class__.__name__}: {e}`")
         else:
