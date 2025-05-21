@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 import typing as t
 from typing import Type
+import warnings
 
 from ouranos import current_app, db, scheduler, setup_loop
 from ouranos.core.config import ConfigHelper
@@ -230,5 +231,10 @@ def run_functionality_forever(
         *args,
         **kwargs
 ):
+    warnings.warn(
+        "`run_functionality_forever` is deprecated, run the functionality "
+        "via a `Plugin` instead",
+        DeprecationWarning
+    )
     functionality = functionality_cls(config_profile, *args, **kwargs)
     functionality.run()

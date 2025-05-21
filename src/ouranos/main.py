@@ -7,7 +7,7 @@ import click
 
 from ouranos.cli import RootCommand
 from ouranos.core.plugins_manager import PluginManager
-from ouranos.sdk import run_functionality_forever, BaseFunctionality
+from ouranos.sdk import BaseFunctionality
 
 if t.TYPE_CHECKING:
     from ouranos.core.config import profile_type
@@ -44,8 +44,8 @@ def main(
     process
     """
     if ctx.invoked_subcommand is None:
-        run_functionality_forever(
-            Ouranos, config_profile, use_multiprocess=use_multiprocess)
+        ouranos = Ouranos(config_profile, use_multiprocess=use_multiprocess)
+        ouranos.run()
 
 
 class Ouranos(BaseFunctionality):
