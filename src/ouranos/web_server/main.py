@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 import asyncio
+import socket
 import typing as t
 from typing import Callable
 
-import uvicorn
-from uvicorn.loops.auto import auto_loop_setup
+from uvicorn import Config, Server
 
+from ouranos.core.config import ConfigHelper
 from ouranos.sdk import Functionality, Plugin
 from ouranos.web_server.system_monitor import SystemMonitor
 
@@ -20,6 +21,23 @@ class _AppWrapper:
     def __init__(self, start: Callable[[], None], stop: Callable[[], None]):
         self.start = start
         self.stop = stop
+
+
+class ServerWithOuranosConfig(Server):
+    """An uvicorn server that sets the Ouranos config when starting to serve"""
+    def __init__(
+            self,
+            config: Config,
+            ouranos_config: "profile_type" = None,
+    ) -> None:
+        super().__init__(config)
+        self.ouranos_config = ouranos_config
+
+    async def serve(self, sockets: list[socket.socket] | None = None) -> None:
+        if not ConfigHelper.config_is_set():
+            ConfigHelper.set_config_and_configure_logging(self.ouranos_config)
+        with self.capture_signals():
+            await self._serve(sockets)
 
 
 class WebServer(Functionality):
@@ -43,40 +61,45 @@ class WebServer(Functionality):
         """
         super().__init__(config_profile, config_override, **kwargs)
         self.system_monitor = SystemMonitor()
-        use_subprocess: bool = (
-            self.config["API_SERVER_RELOAD"] or
-            self.config["API_WORKERS"] > 1
-        )
-        auto_loop_setup(use_subprocess)
-        host: str = self.config["API_HOST"]
-        port: int = self.config["API_PORT"]
-        self.server_cfg = uvicorn.Config(
-            "ouranos.web_server.factory:create_app", factory=True,
-            host=host, port=port,
-            workers=self.config["API_WORKERS"],
-            loop="auto",
+
+        workers = self.config["WEB_SERVER_WORKERS"] or self.config["API_WORKERS"] or 0
+        global_workers_limit: int | None = self.config["GLOBAL_WORKERS_LIMIT"]
+        if global_workers_limit is not None:
+            workers = min(workers, global_workers_limit)
+
+        # Configure uvicorn server
+        server_cfg = Config(
+            "ouranos.web_server.factory:create_app", factory=True, loop="auto",
+            host=self.config["API_HOST"], port=self.config["API_PORT"],
+            workers=workers,
+            reload=self.config["WEB_SERVER_RELOAD"], reload_delay=0.5,
             log_config=None, server_header=False, date_header=False,
         )
-        self.server = uvicorn.Server(self.server_cfg)
-        self._app: _AppWrapper
-        if self.server_cfg.should_reload:
-            # TODO: make it work, handle stop and shutdown
+        self.server = ServerWithOuranosConfig(server_cfg)
+        self.app: _AppWrapper
+
+        # Reloading server
+        if self.server.config.should_reload:
             from uvicorn.supervisors import ChangeReload
 
-            sock = self.server_cfg.bind_socket()
+            sock = self.server.config.bind_socket()
             reload = ChangeReload(
-                self.server_cfg, target=self.server.run, sockets=[sock]
-            )
-            self._app = _AppWrapper(reload.run, reload.shutdown)
-        elif self.server_cfg.workers > 1:
+                self.server.config, target=self.server.run, sockets=[sock])
+
+            self.app = _AppWrapper(reload.run, reload.should_exit.set)
+
+        # Multiprocess server
+        elif workers > 0:
             # Works on linux, not on Windows
             from uvicorn.supervisors import Multiprocess
 
-            sock = self.server_cfg.bind_socket()
+            sock = self.server.config.bind_socket()
             multi = Multiprocess(
-                self.server_cfg, target=self.server.run, sockets=[sock]
-            )
-            self._app = _AppWrapper(multi.startup, multi.shutdown)
+                self.server.config, target=self.server.run, sockets=[sock])
+
+            self.app = _AppWrapper(multi.run, multi.should_exit.set)
+
+        # Single process server
         else:
             def start():
                 asyncio.ensure_future(self.server.serve())
@@ -84,15 +107,16 @@ class WebServer(Functionality):
             def stop():
                 self.server.should_exit = True
 
-            self._app = _AppWrapper(start, stop)
+            self.app = _AppWrapper(start, stop)
 
     async def _startup(self):
-        self._app.start()
+        self.app.start()
         await self.system_monitor.start()
 
     async def _shutdown(self):
         await self.system_monitor.stop()
-        self._app.stop()
+        self.app.stop()
+        await asyncio.sleep(1)  # Allow ChangeReload and Multiprocess to exit
 
 
 web_server_plugin = Plugin(
@@ -105,3 +129,6 @@ web_server_plugin = Plugin(
     requested Gaia's instance
     """,
 )
+
+# The web server directly manages its workers via uvicorn
+web_server_plugin.compute_number_of_workers = lambda: 0

@@ -54,6 +54,7 @@ class BaseFunctionality(ABC):
                 setproctitle(f"ouranos-{self.name}")
             self.proc_name_has_been_setup()
 
+        self.config_profile = config_profile
         if not ConfigHelper.config_is_set():
             ConfigHelper.set_config_and_configure_logging(config_profile)
 
