@@ -5,11 +5,9 @@ import typing as t
 
 import click
 
-from ouranos.aggregator import Aggregator
 from ouranos.cli import RootCommand
-from ouranos.sdk import FunctionalityManager, run_functionality_forever
-from ouranos.web_server import WebServer
-
+from ouranos.core.plugins_manager import PluginManager
+from ouranos.sdk import run_functionality_forever, BaseFunctionality
 
 if t.TYPE_CHECKING:
     from ouranos.core.config import profile_type
@@ -50,12 +48,14 @@ def main(
             Ouranos, config_profile, use_multiprocess=use_multiprocess)
 
 
-class Ouranos(FunctionalityManager):
+class Ouranos(BaseFunctionality):
+    _is_microservice = False
+
     def __init__(
             self,
             config_profile: "profile_type" = None,
             config_override: dict | None = None,
-            **kwargs
+            **kwargs,
     ) -> None:
         """The master functionality.
         This functionality is able to launch all the other functionalities,
@@ -68,11 +68,19 @@ class Ouranos(FunctionalityManager):
         parameters for the configuration.
         :param kwargs: Other parameters to pass to the base class.
         """
-        functionalities = [WebServer, Aggregator]
-        super().__init__(
-            config_profile, config_override, functionalities=functionalities,
-            **kwargs)
-        self.register_plugins()
+        super().__init__(config_profile, config_override, root=True, **kwargs)
+        self.plugin_manager = PluginManager()
+        # Register all the plugins at the beginning as it allows to load all the
+        #  models needed
+        self.plugin_manager.register_plugins()
+
+    async def _startup(self) -> None:
+        for plugin in self.plugin_manager.plugins.values():
+            await plugin.start()
+
+    async def _shutdown(self) -> None:
+        for plugin in self.plugin_manager.plugins.values():
+            await plugin.stop()
 
 
 if __name__ == "__main__":
