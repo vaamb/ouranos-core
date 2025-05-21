@@ -7,6 +7,7 @@ import click
 
 from ouranos.cli import RootCommand
 from ouranos.core.plugins_manager import PluginManager
+from ouranos.core.utils import parse_str_value
 from ouranos.sdk import BaseFunctionality
 
 if t.TYPE_CHECKING:
@@ -19,24 +20,39 @@ if t.TYPE_CHECKING:
     context_settings={"auto_envvar_prefix": "OURANOS"}
 )
 @click.option(
-    "--config-profile",
+    "--config-profile", "-c",
     type=str,
     default=None,
     help="Configuration profile to use as defined in config.py.",
+    show_default=True,
+)
+@click.option(
+    "--config-override", "-co",
+    type=str,
+    multiple=True,
+    default=None,
+    help="Config parameters to override written as key=value.",
     show_default=True,
 )
 @click.pass_context
 def main(
         ctx: click.Context,
         config_profile: str | None,
+        config_override: list[str],
 ):
     """Launch Ouranos
 
     Launch all the functionalities linked to Ouranos as a single monolithic
     process
     """
+    config_override_str = config_override
+    config_override = {}
+    for overridden in config_override_str:
+        key, value = overridden.split("=")
+        config_override[key] = parse_str_value(value)
+
     if ctx.invoked_subcommand is None:
-        ouranos = Ouranos(config_profile)
+        ouranos = Ouranos(config_profile, config_override=config_override)
         ouranos.run()
 
 
