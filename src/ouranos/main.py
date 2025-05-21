@@ -25,18 +25,10 @@ if t.TYPE_CHECKING:
     help="Configuration profile to use as defined in config.py.",
     show_default=True,
 )
-@click.option(
-    "--use-multiprocess",
-    type=bool,
-    default=False,
-    help="Launch compatible functionalities as separate processes.",
-    show_default=True,
-)
 @click.pass_context
 def main(
         ctx: click.Context,
         config_profile: str | None,
-        use_multiprocess: bool,
 ):
     """Launch Ouranos
 
@@ -44,7 +36,7 @@ def main(
     process
     """
     if ctx.invoked_subcommand is None:
-        ouranos = Ouranos(config_profile, use_multiprocess=use_multiprocess)
+        ouranos = Ouranos(config_profile)
         ouranos.run()
 
 
