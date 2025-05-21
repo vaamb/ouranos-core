@@ -163,7 +163,8 @@ class Plugin:
 
     def run_as_standalone(self) -> None:
         setup_loop()
-        self._kwargs["is_root"] = True
+        self._kwargs["root"] = True
+        self._kwargs["microservice"] = True
         asyncio.run(self._run_as_standalone())
 
     async def _run_as_standalone(self) -> None:

@@ -40,6 +40,7 @@ class BaseFunctionality(ABC):
             *,
             auto_setup_config: bool = True,
             root: bool = False,
+            microservice: bool | None = None,
             **kwargs
     ) -> None:
         self.name = format_functionality_name(self.__class__)
@@ -67,6 +68,8 @@ class BaseFunctionality(ABC):
             self.logger: Logger = getLogger(f"ouranos.{self.name}")
             self.logger.info(f"Creating Ouranos' {self.__class__.__name__}")
 
+        if microservice is not None:
+            self._is_microservice = microservice
         if self._is_microservice and "memory://" in self.config["DISPATCHER_URL"]:
             self.logger.warning(
                 "Using Ouranos as microservices and the memory-based dispatcher. "

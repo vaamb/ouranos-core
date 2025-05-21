@@ -76,6 +76,10 @@ class Ouranos(BaseFunctionality):
 
     async def _startup(self) -> None:
         for plugin in self.plugin_manager.plugins.values():
+            kwargs = plugin.kwargs
+            kwargs["root"] = False
+            kwargs["microservice"] = False
+            plugin.kwargs = kwargs
             await plugin.start()
 
     async def _shutdown(self) -> None:
