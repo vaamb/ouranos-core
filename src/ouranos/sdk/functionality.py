@@ -4,10 +4,10 @@ import asyncio
 from abc import ABC, abstractmethod
 from logging import Logger, getLogger
 import os
-from pathlib import Path
 import re
 import typing as t
 from typing import Type
+import warnings
 
 from ouranos import current_app, db, scheduler, setup_loop
 from ouranos.core.config import ConfigHelper
@@ -23,209 +23,149 @@ if t.TYPE_CHECKING:
 pattern = re.compile(r'(?<!^)(?=[A-Z])')
 
 
-class _SetUp:
-    proc_name = False
+class _State:
+    common_initialized: bool = False
 
 
-class BaseFunctionality(ABC):
-    _is_microservice: bool
+class Functionality(ABC):
+    _is_microservice: bool = True
     _runner = Runner()
     workers: int = 0
 
     def __init__(
             self,
-            config_profile: "profile_type" = None,
-            config_override: dict | None = None,
+            config: ConfigDict,
             *,
-            auto_setup_config: bool = True,
-            root: bool = False,
+            microservice: bool | None = None,
             **kwargs
     ) -> None:
-        self.name = format_functionality_name(self.__class__)
-        self.is_root = root
-        if not self.is_proc_name_setup():
-            # Change process name
-            from setproctitle import setproctitle
-            if "ouranos" in self.name:
-                setproctitle(f"ouranos")
-            else:
-                setproctitle(f"ouranos-{self.name}")
-            self.proc_name_has_been_setup()
-
-        if auto_setup_config and not ConfigHelper.config_is_set():
-            ConfigHelper.set_config_and_configure_logging(config_profile)
-
-        self.config: ConfigDict = current_app.config
-        if config_override:
-            self.config = self.config.copy()
-            self.config.update(config_override)
-
-        if self.is_root:
-            self.logger: Logger = getLogger(f"ouranos")
-        else:
-            self.logger: Logger = getLogger(f"ouranos.{self.name}")
-
-        if not self.is_root:
-            self.logger.info(f"Creating Ouranos' {self.__class__.__name__}")
-
-        if self._is_microservice and "memory://" in self.config["DISPATCHER_URL"]:
-            self.logger.warning(
-                "Using Ouranos as microservices and the memory-based dispatcher "
-                "or cache server, this could lead to errors as some data won't "
-                "be transferred between the different microservices"
-            )
-
-        self._status = False
-
-    def is_proc_name_setup(self) -> bool:
-        return _SetUp.proc_name
-
-    def proc_name_has_been_setup(self) -> None:
-        _SetUp.proc_name = True
-
-    async def init_the_db(self, generate_registration_token: bool = True) -> None:
-        self.logger.info("Initializing the database")
-        db.init(current_app.config)
-        await create_base_data(self.logger)
-        if generate_registration_token:
-            await print_registration_token(self.logger)
-
-    async def clean_the_db(self) -> None:
-        self.logger.info("Cleaning the database cache")
-        cache_uri = self.config["SQLALCHEMY_BINDS"]["transient"]
-        cache_path = Path(cache_uri.split("///")[1])
-        cache_path.unlink(missing_ok=True)
-
-    async def initialize(self) -> None:
-        await self.init_the_db()
-        scheduler.start()
-
-    async def post_initialize(self) -> None:
-        pass
-
-    async def post_shutdown(self) -> None:
-        pass
-
-    async def clear(self) -> None:
-        scheduler.remove_all_jobs()
-        scheduler.shutdown()
-        await self.clean_the_db()
-
-    async def startup(self):
-        if not self._status:
-            # Start the functionality
-            pid = os.getpid()
-            if self.is_root:
-                self.logger.info(f"Starting Ouranos process [{pid}]")
-            else:
-                self.logger.info(
-                    f"Starting Ouranos' {self.__class__.__name__} "
-                    f"process [{pid}]"
-                )
-            await self._startup()
-            self._status = True
-        else:
-            raise RuntimeError(
-                f"{self.__class__.__name__} has already started"
-            )
-
-    async def shutdown(self):
-        if self._status:
-            # Stop the functionality
-            if self.is_root:
-                self.logger.info(f"Stopping")
-            else:
-                self.logger.info(
-                    f"Stopping Ouranos' {self.__class__.__name__}")
-            try:
-                await self._shutdown()
-            except asyncio.CancelledError as e:
-                self.logger.error(
-                    f"Error while shutting down. Error msg: "
-                    f"`{e.__class__.__name__}: {e}`"
-                )
-            self._status = False
-        else:
-            raise RuntimeError(
-                f"{self.__class__.__name__} is not running"
-            )
-
-    @abstractmethod
-    async def _startup(self):
-        raise NotImplementedError
-
-    @abstractmethod
-    async def _shutdown(self):
-        raise NotImplementedError
-
-    def run(self):
-        setup_loop()
-        asyncio.run(self._run())
-
-    async def _run(self):
-        if self.is_root:
-            await self.initialize()
-            await self.post_initialize()
-        await self.startup()
-        self.logger.info(
-            f"{self.__class__.__name__} running (Press CTRL+C to quit)")
-        await self._runner.run_until_stop()
-        await self.shutdown()
-        if self.is_root:
-            await self.post_shutdown()
-            await self.clear()
-
-    def stop(self):
-        self._runner.stop()
-
-
-class Functionality(BaseFunctionality, ABC):
-    _is_microservice = True
-
-    def __init__(
-            self,
-            config_profile: "profile_type" = None,
-            config_override: dict | None = None,
-            *,
-            auto_setup_config: bool = True,
-            **kwargs
-    ):
         """ Create a new `Functionality` instance.
         `Functionality` instances are the base working units of Ouranos. They
         can be divided into core functionalities (the aggregator and the web
         api) and all the plugins.
 
-        :param config_profile: The configuration profile to provide. Either a
-        `BaseConfig` or its subclass, a str corresponding to a profile name
-        accessible in a `config.py` file, or None to take the default profile.
-        :param config_override: A dictionary containing some overriding
-        parameters for the configuration.
-        :param auto_setup_config: bool, Whether to automatically set up the
-        configuration or not. Should remain `True` for most cases, except during
-        testing or when config is set up manually prior to the use of the
-        `Functionality`
-        :param root: bool, Whether the functionality is managing other (sub)-
-        functionalities or not. Should remain `False` for most cases.
+        :param config: The configuration to provide as a `BaseConfigDict`.
+        :param microservice: Whether the functionality is run as a microservice.
+                             If set to false, some config checks will be done.
         """
-        root = kwargs.pop("root", False)
-        super().__init__(
-            config_profile,
-            config_override,
-            auto_setup_config=auto_setup_config,
-            root=root,
-            **kwargs
-        )
+        self.name = format_functionality_name(self.__class__)
+        self.logger: Logger = getLogger(f"ouranos.{self.name}")
+        self.config: ConfigDict = config
+
+        if microservice is not None:
+            self._is_microservice = microservice
+        if self._is_microservice and "memory://" in self.config["DISPATCHER_URL"]:
+            self.logger.warning(
+                "Using Ouranos as microservices and the memory-based dispatcher. "
+                "This could lead to errors as some data won't "
+                "be transferred between the different microservices.")
+
+        self._status = False
+
+    def _fmt_exc(self, e: BaseException) -> str:
+        return f"`{e.__class__.__name__}: {e}`"
+
+    async def init_the_db(self, generate_registration_token: bool = True) -> None:
+        self.logger.info("Initializing the database")
+        db.init(self.config)
+        await create_base_data(self.logger)
+        if generate_registration_token:
+            await print_registration_token(self.logger)
+
+    # Functions automatically called during the lifecycle
+    async def _init_common(self) -> None:
+        await self.init_the_db()
+        scheduler.start()
+        _State.common_initialized = True
+
+    async def _clear_common(self) -> None:
+        scheduler.remove_all_jobs()
+        scheduler.shutdown()
+
+    # Functions automatically called during the lifecycle that can be tweaked
+    async def initialize(self) -> None:
+        pass
+
+    @abstractmethod
+    async def _startup(self) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def _shutdown(self) -> None:
+        raise NotImplementedError
+
+    async def post_shutdown(self) -> None:
+        pass
+
+    # Lifecycle functions
+    async def startup(self) -> None:
+        if self._status:
+            raise RuntimeError(
+                f"{self.__class__.__name__} has already started"
+            )
+        pid = os.getpid()
+        self.logger.info(
+            f"Starting Ouranos' {self.__class__.__name__} [{pid}]")
+        try:
+            if not _State.common_initialized:
+                await self._init_common()
+            await self.initialize()
+            await self._startup()
+        except Exception as e:
+            self.logger.error(
+                f"Error while starting [{pid}]. Error msg: {self._fmt_exc(e)}")
+        else:
+            self.logger.info(
+                f"Ouranos' {self.__class__.__name__} has been started [{pid}]")
+            self._status = True
+
+    async def shutdown(self) -> None:
+        if not self._status:
+            raise RuntimeError(
+                f"Ouranos' {self.__class__.__name__} is not running"
+            )
+        # Stop the functionality
+        pid = os.getpid()
+        self.logger.info(
+            f"Stopping Ouranos' {self.__class__.__name__} [{pid}]")
+        try:
+            await self._shutdown()
+            await self.post_shutdown()
+        except asyncio.CancelledError as e:
+            self.logger.error(
+                f"Error while shutting down. Error msg: {self._fmt_exc(e)}")
+        else:
+            self._status = False
+            self.logger.info(
+                f"Ouranos' {self.__class__.__name__} has been stopped [{pid}]")
+
+    def run(self) -> None:
+        setup_loop()
+        asyncio.run(self._run())
+
+    async def _run(self) -> None:
+        await self.startup()
+        await self._runner.run_until_stop()
+        await self.shutdown()
+
+    def stop(self):
+        self._runner.stop()
 
 
-def format_functionality_name(functionality: Type[BaseFunctionality]) -> str:
+def format_functionality_name(functionality: Type[Functionality]) -> str:
     return pattern.sub('_', functionality.__name__).lower()
 
 
 def run_functionality_forever(
-        functionality_cls: Type[BaseFunctionality],
+        functionality_cls: Type[Functionality],
         config_profile: str | None = None,
         *args,
         **kwargs
 ):
+    warnings.warn(
+        "`run_functionality_forever` is deprecated, run the functionality "
+        "via a `Plugin` instead",
+        DeprecationWarning
+    )
     functionality = functionality_cls(config_profile, *args, **kwargs)
     functionality.run()

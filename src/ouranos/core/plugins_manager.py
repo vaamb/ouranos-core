@@ -8,7 +8,7 @@ from fastapi import APIRouter, FastAPI
 from fastapi.responses import JSONResponse
 
 from ouranos import current_app
-from ouranos.sdk import Functionality, Plugin
+from ouranos.sdk import Plugin
 
 
 class PluginManager:
@@ -26,7 +26,6 @@ class PluginManager:
         self.logger: Logger = getLogger("ouranos.plugin_manager")
         self.omitted: set = self._get_omitted()
         self.plugins: dict[str, Plugin] = {}
-        self.functionalities: dict[str, Functionality] = {}
 
     def _get_omitted(self) -> set:
         omitted_str = current_app.config["PLUGINS_OMITTED"]
@@ -38,55 +37,54 @@ class PluginManager:
             omitted.add(self.test_plugin_name)
         return omitted
 
-    def iter_entry_points(
-            self,
-            omit_excluded: bool = True
-    ) -> Iterator[Plugin]:
+    def iter_entry_points(self) -> Iterator[Plugin]:
         for entry_point in entry_points(group=self.entry_point):
             pkg = entry_point.load()
             if isinstance(pkg, Plugin):
-                if current_app.config["TESTING"]:
-                    if pkg.name == self.test_plugin_name:
-                        yield pkg
-                    else:
-                        continue
+                yield pkg
 
-                if not omit_excluded:
-                    yield pkg
+    def iter_plugins(self, omit_excluded: bool = True) -> Iterator[Plugin]:
+        from ouranos.aggregator.main import aggregator_plugin
+        from ouranos.web_server.main import web_server_plugin
 
-                if pkg.name not in self.omitted:
-                    yield pkg
+        entry_plugins = [plugin for plugin in self.iter_entry_points()]
+        entry_plugins.sort()
+
+        plugins = [aggregator_plugin, web_server_plugin, *entry_plugins]
+
+        for plugin in plugins:
+            # During testing, we only want to yield the test plugin
+            if current_app.config["TESTING"]:
+                if plugin.name == self.test_plugin_name:
+                    yield plugin
+                else:
+                    continue
+
+            if not omit_excluded:
+                yield plugin
+
+            if plugin.name not in self.omitted:
+                yield plugin
 
     def register_plugins(self, omit_excluded: bool = True) -> None:
         if not self.plugins:
-            for pkg in self.iter_entry_points(omit_excluded):
-                self.plugins[pkg.name] = pkg
+            for plugin in self.iter_plugins(omit_excluded):
+                self.plugins[plugin.name] = plugin
 
-    def init_plugins(self, microservice: bool = True):
-        plugins = [*self.plugins]
-        plugins.sort()
-        for plugin_name in plugins:
-            self.init_plugin(plugin_name, microservice)
-
-    def init_plugin(self, plugin_name: str, microservice: bool = True):
-        plugin = self.plugins[plugin_name]
-        functionality_cls = plugin.functionality_cls
-        self.functionalities[plugin_name] = functionality_cls(
-            microservice=microservice)
-
-    async def start_plugins(self):
-        for plugin_name in self.functionalities:
+    async def start_plugins(self) -> None:
+        for plugin_name in self.plugins:
             await self.start_plugin(plugin_name)
 
-    async def start_plugin(self, plugin_name):
-        await self.functionalities[plugin_name].startup()
+    async def start_plugin(self, plugin_name: str) -> None:
+        self.plugins[plugin_name].setup_config(current_app.config)
+        await self.plugins[plugin_name].start()
 
-    async def stop_plugins(self):
-        for plugin_name in self.functionalities:
+    async def stop_plugins(self) -> None:
+        for plugin_name in self.plugins:
             await self.stop_plugin(plugin_name)
 
-    async def stop_plugin(self, plugin_name):
-        await self.functionalities[plugin_name].shutdown()
+    async def stop_plugin(self, plugin_name: str) -> None:
+        await self.plugins[plugin_name].stop()
 
     def register_plugins_routes(
             self,
@@ -94,7 +92,7 @@ class PluginManager:
             json_response: JSONResponse = JSONResponse,
     ) -> None:
         if not self.plugins:
-            self.register_plugins()
+            raise RuntimeError("Plugins should be registered first.")
         for pkg in self.plugins.values():
             if pkg.has_route():
                 self.register_routes(pkg, router, json_response)

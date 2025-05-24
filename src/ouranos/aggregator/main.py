@@ -1,49 +1,21 @@
 from __future__ import annotations
 
-import typing as t
-
-import click
-
 from dispatcher import AsyncAMQPDispatcher, AsyncRedisDispatcher
 
 from ouranos.aggregator.archiver import Archiver
 from ouranos.aggregator.events import GaiaEvents
 from ouranos.aggregator.file_server import FileServer
 from ouranos.aggregator.sky_watcher import SkyWatcher
+from ouranos.core.config import ConfigDict
 from ouranos.core.dispatchers import DispatcherFactory
 from ouranos.core.globals import scheduler
-from ouranos.sdk import Functionality, run_functionality_forever
-
-
-if t.TYPE_CHECKING:
-    from ouranos.core.config import profile_type
-
-
-@click.command()
-@click.option(
-    "--config-profile",
-    type=str,
-    default=None,
-    help="Configuration profile to use as defined in config.py.",
-    show_default=True,
-)
-def main(
-        config_profile: str | None,
-) -> None:
-    """Launch Ouranos'Aggregator
-
-    The Aggregator is the main data entry point from Gaia's instances. It
-    receives all the environmental data and logs in into a database that can be
-    searched by other functionalities
-    """
-    run_functionality_forever(Aggregator, config_profile, root=True)
+from ouranos.sdk import Functionality, Plugin
 
 
 class Aggregator(Functionality):
     def __init__(
             self,
-            config_profile: "profile_type" = None,
-            config_override: dict | None = None,
+            config: ConfigDict,
             **kwargs
     ) -> None:
         """The Gaia data aggregator.
@@ -58,7 +30,7 @@ class Aggregator(Functionality):
         parameters for the configuration.
         :param kwargs: Other parameters to pass to the base class.
         """
-        super().__init__(config_profile, config_override, **kwargs)
+        super().__init__(config, **kwargs)
         gaia_broker_uri: str = self.config["GAIA_COMMUNICATION_URL"]
         if not self._check_broker_protocol(gaia_broker_uri, {"amqp", "redis"}):
             raise ValueError(
@@ -179,3 +151,14 @@ class Aggregator(Functionality):
             pass  # Handled by uvicorn or by Api
         except RuntimeError:
             pass  # Aggregator was not started
+
+
+aggregator_plugin = Plugin(
+    Aggregator,
+    description="""Launch Ouranos' Aggregator
+
+    The Aggregator is the main data entry point from Gaia's instances. It
+    receives all the environmental data and logs in into a database that can be
+    searched by other functionalities
+    """,
+)
