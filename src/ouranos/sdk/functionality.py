@@ -81,6 +81,9 @@ class Functionality(ABC):
 
         self._status = False
 
+    def _fmt_exc(self, e: BaseException) -> str:
+        return f"`{e.__class__.__name__}: {e}`"
+
     async def init_the_db(self, generate_registration_token: bool = True) -> None:
         self.logger.info("Initializing the database")
         db.init(current_app.config)
@@ -94,9 +97,6 @@ class Functionality(ABC):
             await self.init_the_db()
         scheduler.start()
 
-    async def post_initialize(self) -> None:
-        pass
-
     async def post_shutdown(self) -> None:
         pass
 
@@ -109,16 +109,15 @@ class Functionality(ABC):
             raise RuntimeError(
                 f"{self.__class__.__name__} has already started"
             )
-        # Start the functionality
         pid = os.getpid()
         self.logger.info(
             f"Starting Ouranos' {self.__class__.__name__} [{pid}]")
         try:
+            await self.initialize()
             await self._startup()
         except Exception as e:
             self.logger.error(
-                f"Error while starting. Error msg: "
-                f"`{e.__class__.__name__}: {e}`")
+                f"Error while starting [{pid}]. Error msg: {self._fmt_exc(e)}")
         else:
             self.logger.info(
                 f"Ouranos' {self.__class__.__name__} has been started [{pid}]")
@@ -135,10 +134,10 @@ class Functionality(ABC):
             f"Stopping Ouranos' {self.__class__.__name__} [{pid}]")
         try:
             await self._shutdown()
+            await self.post_shutdown()
         except asyncio.CancelledError as e:
             self.logger.error(
-                f"Error while shutting down. Error msg: "
-                f"`{e.__class__.__name__}: {e}`")
+                f"Error while shutting down. Error msg: {self._fmt_exc(e)}")
         else:
             self._status = False
             self.logger.info(
@@ -152,27 +151,14 @@ class Functionality(ABC):
     async def _shutdown(self) -> None:
         raise NotImplementedError
 
-    async def pre_run(self) -> None:
-        await self.initialize()
-        await self.post_initialize()
-        await self.startup()
-        pid = os.getpid()
-        self.logger.info(
-            f"{self.__class__.__name__} running [{pid}] (Press CTRL+C to quit)")
-
-    async def post_run(self) -> None:
-        await self.shutdown()
-        await self.post_shutdown()
-        await self.clear()
-
     def run(self) -> None:
         setup_loop()
         asyncio.run(self._run())
 
     async def _run(self) -> None:
-        await self.pre_run()
+        await self.startup()
         await self._runner.run_until_stop()
-        await self.post_run()
+        await self.shutdown()
 
     def stop(self):
         self._runner.stop()
