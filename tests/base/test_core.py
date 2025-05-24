@@ -58,7 +58,6 @@ async def test_plugin_worker(config: ConfigDict, dummy_plugin: Plugin):
         dummy_plugin.kwargs = {"manager_dict": manager_dict}
 
         await dummy_plugin.start()
-        assert not dummy_plugin.instance
         assert dummy_plugin.has_subprocesses()
         assert len(dummy_plugin._subprocesses) == 1
 

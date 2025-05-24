@@ -112,7 +112,8 @@ class Plugin:
         return workers
 
     def _run_in_subprocess(self) -> None:
-        self._instance = self._functionality(**self._kwargs)
+        if not ConfigHelper.config_is_set():
+            ConfigHelper.set_config_and_configure_logging(self.config)
         self._instance.run()
 
     def has_subprocesses(self) -> bool:
@@ -126,9 +127,9 @@ class Plugin:
         if self.config is None:
             raise RuntimeError("The config is not set. Please call setup_config()")
         workers = self.compute_number_of_workers()
+        self._instance = self._functionality(**self._kwargs)
         try:
             if workers:
-                assert not self._instance
                 for worker in range(workers):
                     process = spawn.Process(
                         target=self._run_in_subprocess,
@@ -139,7 +140,6 @@ class Plugin:
                     self._subprocesses.append(process)
             else:
                 assert not self._subprocesses
-                self._instance = self._functionality(**self._kwargs)
                 await self._instance.startup()
         except Exception as e:
             self.logger.error(
