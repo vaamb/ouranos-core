@@ -23,7 +23,12 @@ if t.TYPE_CHECKING:
 pattern = re.compile(r'(?<!^)(?=[A-Z])')
 
 
+class _State:
+    db_initialized: bool = False
+
+
 class Functionality(ABC):
+    _db_initialized: bool = False
     _is_microservice: bool = True
     _runner = Runner()
     workers: int = 0
@@ -56,22 +61,15 @@ class Functionality(ABC):
         functionalities or not. Should remain `False` for most cases.
         """
         self.name = format_functionality_name(self.__class__)
-        self.is_root = root
+        self.logger: Logger = getLogger(f"ouranos.{self.name}")
 
         self.config_profile = config_profile
         if not ConfigHelper.config_is_set():
             ConfigHelper.set_config_and_configure_logging(config_profile)
-
         self.config: ConfigDict = current_app.config
         if config_override:
             self.config = self.config.copy()
             self.config.update(config_override)
-
-        if self.is_root:
-            self.logger: Logger = getLogger(f"ouranos")
-        else:
-            self.logger: Logger = getLogger(f"ouranos.{self.name}")
-            self.logger.info(f"Creating Ouranos' {self.__class__.__name__}")
 
         if microservice is not None:
             self._is_microservice = microservice
@@ -89,9 +87,11 @@ class Functionality(ABC):
         await create_base_data(self.logger)
         if generate_registration_token:
             await print_registration_token(self.logger)
+        _State.db_initialized = True
 
     async def initialize(self) -> None:
-        await self.init_the_db()
+        if not _State.db_initialized:
+            await self.init_the_db()
         scheduler.start()
 
     async def post_initialize(self) -> None:
@@ -105,43 +105,44 @@ class Functionality(ABC):
         scheduler.shutdown()
 
     async def startup(self) -> None:
-        if not self._status:
-            # Start the functionality
-            pid = os.getpid()
-            if self.is_root:
-                self.logger.info(f"Starting Ouranos process [{pid}]")
-            else:
-                self.logger.info(
-                    f"Starting Ouranos' {self.__class__.__name__} "
-                    f"process [{pid}]"
-                )
-            await self._startup()
-            self._status = True
-        else:
+        if self._status:
             raise RuntimeError(
                 f"{self.__class__.__name__} has already started"
             )
+        # Start the functionality
+        pid = os.getpid()
+        self.logger.info(
+            f"Starting Ouranos' {self.__class__.__name__} [{pid}]")
+        try:
+            await self._startup()
+        except Exception as e:
+            self.logger.error(
+                f"Error while starting. Error msg: "
+                f"`{e.__class__.__name__}: {e}`")
+        else:
+            self.logger.info(
+                f"Ouranos' {self.__class__.__name__} has been started [{pid}]")
+            self._status = True
 
     async def shutdown(self) -> None:
-        if self._status:
-            # Stop the functionality
-            if self.is_root:
-                self.logger.info(f"Stopping")
-            else:
-                self.logger.info(
-                    f"Stopping Ouranos' {self.__class__.__name__}")
-            try:
-                await self._shutdown()
-            except asyncio.CancelledError as e:
-                self.logger.error(
-                    f"Error while shutting down. Error msg: "
-                    f"`{e.__class__.__name__}: {e}`"
-                )
-            self._status = False
-        else:
+        if not self._status:
             raise RuntimeError(
-                f"{self.__class__.__name__} is not running"
+                f"Ouranos' {self.__class__.__name__} is not running"
             )
+        # Stop the functionality
+        pid = os.getpid()
+        self.logger.info(
+            f"Stopping Ouranos' {self.__class__.__name__} [{pid}]")
+        try:
+            await self._shutdown()
+        except asyncio.CancelledError as e:
+            self.logger.error(
+                f"Error while shutting down. Error msg: "
+                f"`{e.__class__.__name__}: {e}`")
+        else:
+            self._status = False
+            self.logger.info(
+                f"Ouranos' {self.__class__.__name__} has been stopped [{pid}]")
 
     @abstractmethod
     async def _startup(self) -> None:
@@ -152,18 +153,17 @@ class Functionality(ABC):
         raise NotImplementedError
 
     async def pre_run(self) -> None:
-        if self.is_root:
-            await self.initialize()
-            await self.post_initialize()
+        await self.initialize()
+        await self.post_initialize()
         await self.startup()
+        pid = os.getpid()
         self.logger.info(
-            f"{self.__class__.__name__} running (Press CTRL+C to quit)")
+            f"{self.__class__.__name__} running [{pid}] (Press CTRL+C to quit)")
 
     async def post_run(self) -> None:
         await self.shutdown()
-        if self.is_root:
-            await self.post_shutdown()
-            await self.clear()
+        await self.post_shutdown()
+        await self.clear()
 
     def run(self) -> None:
         setup_loop()
