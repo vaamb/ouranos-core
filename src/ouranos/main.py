@@ -104,6 +104,7 @@ class Ouranos(Functionality):
         pid = os.getpid()
         self.logger.info(f"Starting Ouranos [{pid}]")
         try:
+            await self._init_common()
             await self.initialize()
             await self._startup()
         except Exception as e:

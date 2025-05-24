@@ -24,11 +24,10 @@ pattern = re.compile(r'(?<!^)(?=[A-Z])')
 
 
 class _State:
-    db_initialized: bool = False
+    common_initialized: bool = False
 
 
 class Functionality(ABC):
-    _db_initialized: bool = False
     _is_microservice: bool = True
     _runner = Runner()
     workers: int = 0
@@ -90,20 +89,33 @@ class Functionality(ABC):
         await create_base_data(self.logger)
         if generate_registration_token:
             await print_registration_token(self.logger)
-        _State.db_initialized = True
 
-    async def initialize(self) -> None:
-        if not _State.db_initialized:
-            await self.init_the_db()
+    # Functions automatically called during the lifecycle
+    async def _init_common(self) -> None:
+        await self.init_the_db()
         scheduler.start()
+        _State.common_initialized = True
+
+    async def _clear_common(self) -> None:
+        scheduler.remove_all_jobs()
+        scheduler.shutdown()
+
+    # Functions automatically called during the lifecycle that can be tweaked
+    async def initialize(self) -> None:
+        pass
+
+    @abstractmethod
+    async def _startup(self) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def _shutdown(self) -> None:
+        raise NotImplementedError
 
     async def post_shutdown(self) -> None:
         pass
 
-    async def clear(self) -> None:
-        scheduler.remove_all_jobs()
-        scheduler.shutdown()
-
+    # Lifecycle functions
     async def startup(self) -> None:
         if self._status:
             raise RuntimeError(
@@ -113,6 +125,8 @@ class Functionality(ABC):
         self.logger.info(
             f"Starting Ouranos' {self.__class__.__name__} [{pid}]")
         try:
+            if not _State.common_initialized:
+                await self._init_common()
             await self.initialize()
             await self._startup()
         except Exception as e:
@@ -142,14 +156,6 @@ class Functionality(ABC):
             self._status = False
             self.logger.info(
                 f"Ouranos' {self.__class__.__name__} has been stopped [{pid}]")
-
-    @abstractmethod
-    async def _startup(self) -> None:
-        raise NotImplementedError
-
-    @abstractmethod
-    async def _shutdown(self) -> None:
-        raise NotImplementedError
 
     def run(self) -> None:
         setup_loop()
