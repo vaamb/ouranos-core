@@ -223,3 +223,19 @@ def check_filename(full_filename: str, extensions: set[str]) -> None:
             f"This file extension is not supported. Extensions supported: "
             f"{humanize_list([*extensions])}"
         )
+
+
+def parse_str_value(value: str) -> int | float | bool | str:
+    try:
+        return int(value)
+    except ValueError:
+        pass
+    try:
+        return float(value)
+    except ValueError:
+        pass
+    if value.lower() == "true":
+        return True
+    if value.lower() == "false":
+        return False
+    return value

@@ -1,1 +1,1 @@
-from ouranos.aggregator.main import Aggregator, main
+from ouranos.aggregator.main import Aggregator, aggregator_plugin

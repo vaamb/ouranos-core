@@ -2,11 +2,16 @@ from ouranos.sdk import Functionality, Plugin
 
 
 class DummyFunctionality(Functionality):
+    def __init__(self, manager_dict = None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.dict = {} if manager_dict is None else manager_dict
+        self.dict["value"] = None
+
     async def _startup(self):
-        pass
+        self.dict["value"] = 42
 
     async def _shutdown(self):
-        pass
+        self.dict["value"] = None
 
 
 dummy_plugin = Plugin(
