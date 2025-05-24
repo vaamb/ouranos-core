@@ -1,6 +1,9 @@
 #!/usr/bin/python3
 from __future__ import annotations
 
+import asyncio
+from logging import getLogger, Logger
+import os
 import typing as t
 
 import click
@@ -77,6 +80,7 @@ class Ouranos(Functionality):
         :param kwargs: Other parameters to pass to the base class.
         """
         super().__init__(config_profile, config_override, root=True, **kwargs)
+        self.logger: Logger = getLogger(f"ouranos")
         self.plugin_manager = PluginManager()
         # Register all the plugins at the beginning as it allows to load all the
         #  models needed
@@ -93,6 +97,37 @@ class Ouranos(Functionality):
     async def _shutdown(self) -> None:
         for plugin in self.plugin_manager.plugins.values():
             await plugin.stop()
+
+    async def startup(self) -> None:
+        if self._status:
+            raise RuntimeError("Ouranos has already started")
+        pid = os.getpid()
+        self.logger.info(f"Starting Ouranos [{pid}]")
+        try:
+            await self.initialize()
+            await self._startup()
+        except Exception as e:
+            self.logger.error(
+                f"Error while starting [{pid}]. Error msg: {self._fmt_exc(e)}")
+        else:
+            self.logger.info(f"Ouranos has been started [{pid}]")
+            self._status = True
+
+    async def shutdown(self) -> None:
+        if not self._status:
+            raise RuntimeError("Ouranos is not running")
+        # Stop the functionality
+        pid = os.getpid()
+        self.logger.info(f"Stopping Ouranos [{pid}]")
+        try:
+            await self._shutdown()
+            await self.post_shutdown()
+        except asyncio.CancelledError as e:
+            self.logger.error(
+                f"Error while shutting down. Error msg: {self._fmt_exc(e)}")
+        else:
+            self._status = False
+            self.logger.info(f"Ouranos has been stopped [{pid}]")
 
 
 if __name__ == "__main__":
