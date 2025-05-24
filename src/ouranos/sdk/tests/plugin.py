@@ -2,8 +2,8 @@ from ouranos.sdk import Functionality, Plugin
 
 
 class DummyFunctionality(Functionality):
-    def __init__(self, manager_dict = None, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, config, manager_dict = None, **kwargs):
+        super().__init__(config, **kwargs)
         self.dict = {} if manager_dict is None else manager_dict
         self.dict["value"] = None
 

@@ -76,6 +76,7 @@ class PluginManager:
             await self.start_plugin(plugin_name)
 
     async def start_plugin(self, plugin_name: str) -> None:
+        self.plugins[plugin_name].setup_config(current_app.config)
         await self.plugins[plugin_name].start()
 
     async def stop_plugins(self) -> None:

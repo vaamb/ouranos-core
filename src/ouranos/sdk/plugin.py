@@ -12,7 +12,7 @@ import click
 from click import Command
 
 from ouranos import current_app, setup_loop
-from ouranos.core.config import ConfigHelper
+from ouranos.core.config import ConfigDict, ConfigHelper
 from ouranos.sdk import Functionality
 from ouranos.sdk.functionality import format_functionality_name
 
@@ -36,8 +36,6 @@ class Plugin:
             command: Command | None = None,
             routes: list[Route] | None = None,
             description: str | None = None,
-            config_profile: profile_type = None,
-            **kwargs,
     ) -> None:
         """Create a new plugin.
 
@@ -61,8 +59,8 @@ class Plugin:
         self._command: Command | None = command
         self._routes: list[Route] = routes or []
         self._description: str | None = description
-        self._kwargs = kwargs
-        self._kwargs["config_profile"] = config_profile
+        self.config: ConfigDict | None = None
+        self._kwargs = {}
 
     def __repr__(self) -> str:
         return f"<Plugin({self.name}, status={self._status})>"
@@ -92,18 +90,23 @@ class Plugin:
     def kwargs(self, value: dict):
         self._kwargs.update(value)
 
+    def setup_config(self, config_profile: profile_type) -> None:
+        if not ConfigHelper.config_is_set():
+            ConfigHelper.set_config_and_configure_logging(config_profile)
+        self.config = current_app.config
+        self._kwargs["config"] = self.config
+
     def compute_number_of_workers(self) -> int:
         # The config is required in order to compute the actual number of
         #  workers needed (we need to compare the functionality and the config)
-        if not ConfigHelper.config_is_set():
-            config_profile = self._kwargs["config_profile"]
-            ConfigHelper.set_config_and_configure_logging(config_profile)
+        if self.config is None:
+            raise RuntimeError("The config is not set. Please call setup_config()")
 
         workers = self._functionality.workers
-        func_workers = current_app.config.get(f"{self.name.upper()}_WORKERS")
+        func_workers = self.config.get(f"{self.name.upper()}_WORKERS")
         if func_workers is not None:
             workers = func_workers
-        global_workers_limit: int | None = current_app.config["GLOBAL_WORKERS_LIMIT"]
+        global_workers_limit: int | None = self.config["GLOBAL_WORKERS_LIMIT"]
         if global_workers_limit is not None:
             workers = min(workers, global_workers_limit)
         return workers
@@ -120,6 +123,8 @@ class Plugin:
         will be started in one or more subprocesses."""
         if self._status:
             raise RuntimeError(f"{self.name} has already started")
+        if self.config is None:
+            raise RuntimeError("The config is not set. Please call setup_config()")
         workers = self.compute_number_of_workers()
         try:
             if workers:
@@ -190,7 +195,7 @@ class Plugin:
                 show_default=True,
             )
             def command(config_profile: str | None) -> None:
-                self._kwargs.update({"config_profile": config_profile})
+                self.setup_config(config_profile)
                 self.run_as_standalone()
 
             self._command = command

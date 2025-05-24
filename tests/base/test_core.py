@@ -20,7 +20,7 @@ def test_current_app(config: ConfigDict):
 
 @pytest.mark.asyncio
 async def test_functionality(config: ConfigDict):
-    functionality = DummyFunctionality(auto_setup_config=False)
+    functionality = DummyFunctionality(config)
     assert functionality.config == config
     await functionality.startup()
     with pytest.raises(RuntimeError):
@@ -29,7 +29,8 @@ async def test_functionality(config: ConfigDict):
 
 
 @pytest.mark.asyncio
-async def test_plugin_no_worker(dummy_plugin: Plugin):
+async def test_plugin_no_worker(config: ConfigDict, dummy_plugin: Plugin):
+    dummy_plugin.setup_config(config)
     manager_dict = {}
     dummy_plugin.kwargs = {"manager_dict": manager_dict}
 
@@ -48,7 +49,8 @@ async def test_plugin_no_worker(dummy_plugin: Plugin):
 
 
 @pytest.mark.asyncio
-async def test_plugin_worker(dummy_plugin: Plugin):
+async def test_plugin_worker(config: ConfigDict, dummy_plugin: Plugin):
+    dummy_plugin.setup_config(config)
     dummy_plugin._functionality.workers = 1
 
     with Manager() as manager:

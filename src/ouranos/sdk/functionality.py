@@ -34,11 +34,8 @@ class Functionality(ABC):
 
     def __init__(
             self,
-            config_profile: "profile_type" = None,
-            config_override: dict | None = None,
+            config: ConfigDict,
             *,
-            auto_setup_config: bool = True,
-            root: bool = False,
             microservice: bool | None = None,
             **kwargs
     ) -> None:
@@ -62,13 +59,9 @@ class Functionality(ABC):
         self.name = format_functionality_name(self.__class__)
         self.logger: Logger = getLogger(f"ouranos.{self.name}")
 
-        self.config_profile = config_profile
         if not ConfigHelper.config_is_set():
-            ConfigHelper.set_config_and_configure_logging(config_profile)
+            ConfigHelper.set_config_and_configure_logging(config)
         self.config: ConfigDict = current_app.config
-        if config_override:
-            self.config = self.config.copy()
-            self.config.update(config_override)
 
         if microservice is not None:
             self._is_microservice = microservice

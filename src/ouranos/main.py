@@ -4,17 +4,14 @@ from __future__ import annotations
 import asyncio
 from logging import getLogger, Logger
 import os
-import typing as t
 
 import click
 
 from ouranos.cli import RootCommand
+from ouranos.core.config import ConfigDict, ConfigHelper
 from ouranos.core.plugins_manager import PluginManager
 from ouranos.core.utils import parse_str_value
 from ouranos.sdk import Functionality
-
-if t.TYPE_CHECKING:
-    from ouranos.core.config import profile_type
 
 
 @click.command(
@@ -55,7 +52,11 @@ def main(
         config_override[key] = parse_str_value(value)
 
     if ctx.invoked_subcommand is None:
-        ouranos = Ouranos(config_profile, config_override=config_override)
+        config = ConfigHelper.set_config_and_configure_logging(config_profile)
+        config.update(config_override)
+        ConfigHelper._config = None
+        #ConfigHelper.set_config(config)
+        ouranos = Ouranos(config)
         ouranos.run()
 
 
@@ -64,8 +65,7 @@ class Ouranos(Functionality):
 
     def __init__(
             self,
-            config_profile: "profile_type" = None,
-            config_override: dict | None = None,
+            config: ConfigDict,
             **kwargs,
     ) -> None:
         """The master functionality.
@@ -79,7 +79,7 @@ class Ouranos(Functionality):
         parameters for the configuration.
         :param kwargs: Other parameters to pass to the base class.
         """
-        super().__init__(config_profile, config_override, root=True, **kwargs)
+        super().__init__(config, root=True, **kwargs)
         self.logger: Logger = getLogger(f"ouranos")
         self.plugin_manager = PluginManager()
         # Register all the plugins at the beginning as it allows to load all the
@@ -89,6 +89,7 @@ class Ouranos(Functionality):
     async def _startup(self) -> None:
         for plugin in self.plugin_manager.plugins.values():
             kwargs = plugin.kwargs
+            kwargs["config"] = self.config
             kwargs["root"] = False
             kwargs["microservice"] = False
             plugin.kwargs = kwargs

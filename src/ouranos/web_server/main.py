@@ -3,18 +3,13 @@ from __future__ import annotations
 
 import asyncio
 import socket
-import typing as t
 from typing import Callable
 
 from uvicorn import Config, Server
 
-from ouranos.core.config import ConfigHelper
+from ouranos.core.config import ConfigDict, ConfigHelper
 from ouranos.sdk import Functionality, Plugin
 from ouranos.web_server.system_monitor import SystemMonitor
-
-
-if t.TYPE_CHECKING:
-    from ouranos.core.config import profile_type
 
 
 class _AppWrapper:
@@ -28,7 +23,7 @@ class ServerWithOuranosConfig(Server):
     def __init__(
             self,
             config: Config,
-            ouranos_config: "profile_type" = None,
+            ouranos_config: ConfigDict,
     ) -> None:
         super().__init__(config)
         self.ouranos_config = ouranos_config
@@ -43,8 +38,7 @@ class ServerWithOuranosConfig(Server):
 class WebServer(Functionality):
     def __init__(
             self,
-            config_profile: "profile_type" = None,
-            config_override: dict | None = None,
+            config: ConfigDict,
             **kwargs
     ) -> None:
         """The web-facing API and socketio events.
@@ -59,7 +53,7 @@ class WebServer(Functionality):
         parameters for the configuration.
         :param kwargs: Other parameters to pass to the base class.
         """
-        super().__init__(config_profile, config_override, **kwargs)
+        super().__init__(config, **kwargs)
         self.system_monitor = SystemMonitor()
 
         workers = self.config["WEB_SERVER_WORKERS"] or self.config["API_WORKERS"] or 0
@@ -75,7 +69,7 @@ class WebServer(Functionality):
             reload=self.config["WEB_SERVER_RELOAD"], reload_delay=0.5,
             log_config=None, server_header=False, date_header=False,
         )
-        self.server = ServerWithOuranosConfig(server_cfg)
+        self.server = ServerWithOuranosConfig(server_cfg, ouranos_config=self.config)
         self.app: _AppWrapper
 
         # Reloading server
