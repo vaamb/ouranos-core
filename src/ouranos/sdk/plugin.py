@@ -83,6 +83,10 @@ class Plugin:
         return self._instance
 
     @property
+    def subprocesses(self) -> list[SpawnProcess]:
+        return self._subprocesses
+
+    @property
     def kwargs(self) -> dict:
         return self._kwargs
 
