@@ -13,15 +13,14 @@ from ouranos.core.config.base import BaseConfig, BaseConfigDict
 from ouranos.core.logging import configure_logging
 
 
-# TODO: find a better alternative as ConfigDict is both a TypedDict and an
-#  ImmutableDict. For now: use the TypedDict for type hinting
-ConfigDict = BaseConfigDict
-profile_type: Type[BaseConfig] | str | None
-
-
 class ImmutableDict(dict):
     def __setitem__(self, key, value):
         raise AttributeError
+
+
+
+ConfigDict = TypeVar("ConfigDict", bound=(BaseConfigDict | ImmutableDict))
+profile_type: ConfigDict | Type[BaseConfig] | str | None
 
 
 app_info = {
@@ -126,19 +125,17 @@ class ConfigHelper:
         :return: the config as a dict
         """
         if cls._config is not None:
-            raise RuntimeError(
-                "Trying to setup config a second time"
-            )
-        if isclass(profile):
-            if issubclass(profile, BaseConfig):
-                config_cls: Type[BaseConfig] = profile
-            else:
-                raise ValueError(
-                    "Class-based profile need to be a subclass of `BaseConfig`"
-                )
-        else:
+            raise RuntimeError("Trying to setup config a second time")
+        if isclass(profile) and issubclass(profile, BaseConfig):
+            config_cls: Type[BaseConfig] = profile
+            cls._config = cls._config_dict_from_class(config_cls, **params)
+        elif profile is None or isinstance(profile, str):
             config_cls = cls._get_config_class(profile)
-        cls._config = cls._config_dict_from_class(config_cls, **params)
+            cls._config = cls._config_dict_from_class(config_cls, **params)
+        elif isinstance(profile, ImmutableDict):
+            cls._config = profile
+        else:
+            raise ValueError("Invalid config profile")
         return cls._config
 
     @classmethod
