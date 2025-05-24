@@ -92,12 +92,6 @@ class BaseFunctionality(ABC):
         if generate_registration_token:
             await print_registration_token(self.logger)
 
-    async def clean_the_db(self) -> None:
-        self.logger.info("Cleaning the database cache")
-        cache_uri = self.config["SQLALCHEMY_BINDS"]["transient"]
-        cache_path = Path(cache_uri.split("///")[1])
-        cache_path.unlink(missing_ok=True)
-
     async def initialize(self) -> None:
         await self.init_the_db()
         scheduler.start()
@@ -111,7 +105,6 @@ class BaseFunctionality(ABC):
     async def clear(self) -> None:
         scheduler.remove_all_jobs()
         scheduler.shutdown()
-        await self.clean_the_db()
 
     async def startup(self) -> None:
         if not self._status:
