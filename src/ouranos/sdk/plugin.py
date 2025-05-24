@@ -162,8 +162,10 @@ class Plugin:
             self._status = False
 
     def run_as_standalone(self) -> None:
+        from setproctitle import setproctitle
+        setproctitle(f"ouranos-{self.name}")
+
         setup_loop()
-        self._kwargs["root"] = True
         self._kwargs["microservice"] = True
         asyncio.run(self._run_as_standalone())
 

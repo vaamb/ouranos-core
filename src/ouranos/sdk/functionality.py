@@ -23,10 +23,6 @@ if t.TYPE_CHECKING:
 pattern = re.compile(r'(?<!^)(?=[A-Z])')
 
 
-class _SetUp:
-    proc_name = False
-
-
 class Functionality(ABC):
     _is_microservice: bool = True
     _runner = Runner()
@@ -61,14 +57,6 @@ class Functionality(ABC):
         """
         self.name = format_functionality_name(self.__class__)
         self.is_root = root
-        if not self.is_proc_name_setup():
-            # Change process name
-            from setproctitle import setproctitle
-            if "ouranos" in self.name:
-                setproctitle(f"ouranos")
-            else:
-                setproctitle(f"ouranos-{self.name}")
-            self.proc_name_has_been_setup()
 
         self.config_profile = config_profile
         if not ConfigHelper.config_is_set():
@@ -94,12 +82,6 @@ class Functionality(ABC):
                 "be transferred between the different microservices.")
 
         self._status = False
-
-    def is_proc_name_setup(self) -> bool:
-        return _SetUp.proc_name
-
-    def proc_name_has_been_setup(self) -> None:
-        _SetUp.proc_name = True
 
     async def init_the_db(self, generate_registration_token: bool = True) -> None:
         self.logger.info("Initializing the database")
