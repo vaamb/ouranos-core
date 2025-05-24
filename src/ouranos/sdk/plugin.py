@@ -47,8 +47,9 @@ class Plugin:
         :param functionality: The functionality to register.
         :param name: The name of the plugin.
         :param command: The click command to register.
-        :param routes: The routes to register.
-        :param kwargs: The kwargs to pass to the functionality.
+        :param routes: The FastAPI routes to register.
+        :param description: The description of the plugin. Will be used in the
+                            help of the click command.
         """
         self.name: str = name or format_functionality_name(functionality)
         self.logger: Logger = getLogger(f"ouranos.{self.name}-plugin")
@@ -75,7 +76,7 @@ class Plugin:
         return self._status
 
     @property
-    def functionality_cls(self) -> Type[F]:
+    def functionality(self) -> Type[F]:
         return self._functionality
 
     @property
@@ -138,7 +139,7 @@ class Plugin:
                     process = spawn.Process(
                         target=self._run_in_subprocess,
                         daemon=True,
-                        name=f"{self.functionality_cls.__name__}-{worker}",
+                        name=f"{self.functionality.__name__}-{worker}",
                     )
                     process.start()
                     self._subprocesses.append(process)

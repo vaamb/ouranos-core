@@ -50,7 +50,7 @@ class PluginManager:
         entry_plugins = [plugin for plugin in self.iter_entry_points()]
         entry_plugins.sort()
 
-        plugins = [aggregator_plugin, web_server_plugin] + entry_plugins
+        plugins = [aggregator_plugin, web_server_plugin, *entry_plugins]
 
         for plugin in plugins:
             # During testing, we only want to yield the test plugin

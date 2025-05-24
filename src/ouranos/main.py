@@ -52,10 +52,10 @@ def main(
         config_override[key] = parse_str_value(value)
 
     if ctx.invoked_subcommand is None:
-        config = ConfigHelper.set_config_and_configure_logging(config_profile)
+        config = ConfigHelper.set_config(config_profile)
         config.update(config_override)
         ConfigHelper._config = None
-        #ConfigHelper.set_config(config)
+        ConfigHelper.set_config_and_configure_logging(config)
         ouranos = Ouranos(config)
         ouranos.run()
 
@@ -72,14 +72,9 @@ class Ouranos(Functionality):
         This functionality is able to launch all the other functionalities,
         either core functionalities (the Webserver, the Aggregator) or plugins.
 
-        :param config_profile: The configuration profile to provide. Either a
-        `BaseConfig` or its subclass, a str corresponding to a profile name
-        accessible in a `config.py` file, or None to take the default profile.
-        :param config_override: A dictionary containing some overriding
-        parameters for the configuration.
-        :param kwargs: Other parameters to pass to the base class.
+        :param config: The configuration to provide as a `BaseConfigDict`.
         """
-        super().__init__(config, root=True, **kwargs)
+        super().__init__(config, **kwargs)
         self.logger: Logger = getLogger(f"ouranos")
         self.plugin_manager = PluginManager()
         # Register all the plugins at the beginning as it allows to load all the
@@ -88,11 +83,11 @@ class Ouranos(Functionality):
 
     async def _startup(self) -> None:
         for plugin in self.plugin_manager.plugins.values():
-            kwargs = plugin.kwargs
-            kwargs["config"] = self.config
-            kwargs["root"] = False
-            kwargs["microservice"] = False
-            plugin.kwargs = kwargs
+            plugin.setup_config(self.config)
+            plugin.kwargs = {
+                "root": False,
+                "microservice": False,
+            }
             await plugin.start()
 
     async def _shutdown(self) -> None:

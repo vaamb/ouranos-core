@@ -44,24 +44,13 @@ class Functionality(ABC):
         can be divided into core functionalities (the aggregator and the web
         api) and all the plugins.
 
-        :param config_profile: The configuration profile to provide. Either a
-        `BaseConfig` or its subclass, a str corresponding to a profile name
-        accessible in a `config.py` file, or None to take the default profile.
-        :param config_override: A dictionary containing some overriding
-        parameters for the configuration.
-        :param auto_setup_config: bool, Whether to automatically set up the
-        configuration or not. Should remain `True` for most cases, except during
-        testing or when config is set up manually prior to the use of the
-        `Functionality`
-        :param root: bool, Whether the functionality is managing other (sub)-
-        functionalities or not. Should remain `False` for most cases.
+        :param config: The configuration to provide as a `BaseConfigDict`.
+        :param microservice: Whether the functionality is run as a microservice.
+                             If set to false, some config checks will be done.
         """
         self.name = format_functionality_name(self.__class__)
         self.logger: Logger = getLogger(f"ouranos.{self.name}")
-
-        if not ConfigHelper.config_is_set():
-            ConfigHelper.set_config_and_configure_logging(config)
-        self.config: ConfigDict = current_app.config
+        self.config: ConfigDict = config
 
         if microservice is not None:
             self._is_microservice = microservice
@@ -78,7 +67,7 @@ class Functionality(ABC):
 
     async def init_the_db(self, generate_registration_token: bool = True) -> None:
         self.logger.info("Initializing the database")
-        db.init(current_app.config)
+        db.init(self.config)
         await create_base_data(self.logger)
         if generate_registration_token:
             await print_registration_token(self.logger)
