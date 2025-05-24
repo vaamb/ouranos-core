@@ -4,7 +4,6 @@ import asyncio
 from abc import ABC, abstractmethod
 from logging import Logger, getLogger
 import os
-from pathlib import Path
 import re
 import typing as t
 from typing import Type
@@ -28,8 +27,8 @@ class _SetUp:
     proc_name = False
 
 
-class BaseFunctionality(ABC):
-    _is_microservice: bool
+class Functionality(ABC):
+    _is_microservice: bool = True
     _runner = Runner()
     workers: int = 0
 
@@ -43,6 +42,23 @@ class BaseFunctionality(ABC):
             microservice: bool | None = None,
             **kwargs
     ) -> None:
+        """ Create a new `Functionality` instance.
+        `Functionality` instances are the base working units of Ouranos. They
+        can be divided into core functionalities (the aggregator and the web
+        api) and all the plugins.
+
+        :param config_profile: The configuration profile to provide. Either a
+        `BaseConfig` or its subclass, a str corresponding to a profile name
+        accessible in a `config.py` file, or None to take the default profile.
+        :param config_override: A dictionary containing some overriding
+        parameters for the configuration.
+        :param auto_setup_config: bool, Whether to automatically set up the
+        configuration or not. Should remain `True` for most cases, except during
+        testing or when config is set up manually prior to the use of the
+        `Functionality`
+        :param root: bool, Whether the functionality is managing other (sub)-
+        functionalities or not. Should remain `False` for most cases.
+        """
         self.name = format_functionality_name(self.__class__)
         self.is_root = root
         if not self.is_proc_name_setup():
@@ -180,50 +196,12 @@ class BaseFunctionality(ABC):
         self._runner.stop()
 
 
-class Functionality(BaseFunctionality, ABC):
-    _is_microservice = True
-
-    def __init__(
-            self,
-            config_profile: "profile_type" = None,
-            config_override: dict | None = None,
-            *,
-            auto_setup_config: bool = True,
-            **kwargs
-    ):
-        """ Create a new `Functionality` instance.
-        `Functionality` instances are the base working units of Ouranos. They
-        can be divided into core functionalities (the aggregator and the web
-        api) and all the plugins.
-
-        :param config_profile: The configuration profile to provide. Either a
-        `BaseConfig` or its subclass, a str corresponding to a profile name
-        accessible in a `config.py` file, or None to take the default profile.
-        :param config_override: A dictionary containing some overriding
-        parameters for the configuration.
-        :param auto_setup_config: bool, Whether to automatically set up the
-        configuration or not. Should remain `True` for most cases, except during
-        testing or when config is set up manually prior to the use of the
-        `Functionality`
-        :param root: bool, Whether the functionality is managing other (sub)-
-        functionalities or not. Should remain `False` for most cases.
-        """
-        root = kwargs.pop("root", False)
-        super().__init__(
-            config_profile,
-            config_override,
-            auto_setup_config=auto_setup_config,
-            root=root,
-            **kwargs
-        )
-
-
-def format_functionality_name(functionality: Type[BaseFunctionality]) -> str:
+def format_functionality_name(functionality: Type[Functionality]) -> str:
     return pattern.sub('_', functionality.__name__).lower()
 
 
 def run_functionality_forever(
-        functionality_cls: Type[BaseFunctionality],
+        functionality_cls: Type[Functionality],
         config_profile: str | None = None,
         *args,
         **kwargs

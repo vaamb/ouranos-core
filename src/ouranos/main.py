@@ -8,7 +8,7 @@ import click
 from ouranos.cli import RootCommand
 from ouranos.core.plugins_manager import PluginManager
 from ouranos.core.utils import parse_str_value
-from ouranos.sdk import BaseFunctionality
+from ouranos.sdk import Functionality
 
 if t.TYPE_CHECKING:
     from ouranos.core.config import profile_type
@@ -56,7 +56,7 @@ def main(
         ouranos.run()
 
 
-class Ouranos(BaseFunctionality):
+class Ouranos(Functionality):
     _is_microservice = False
 
     def __init__(
