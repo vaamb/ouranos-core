@@ -5,7 +5,7 @@ import logging
 import os
 from pathlib import Path
 import sys
-from typing import Type
+from typing import Type, TypeVar
 
 from ouranos import __version__ as version
 from ouranos.core.config import consts
@@ -17,6 +17,8 @@ class ImmutableDict(dict):
     def __setitem__(self, key, value):
         raise AttributeError
 
+    def __reduce__(self):
+        return ImmutableDict, (dict(self),)
 
 
 ConfigDict = TypeVar("ConfigDict", bound=(BaseConfigDict | ImmutableDict))
