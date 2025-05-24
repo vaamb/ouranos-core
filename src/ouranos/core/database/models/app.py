@@ -363,7 +363,7 @@ class User(Base, UserMixin):
             subject="Invitation to Gaia",
             recipients=[email],
             frontend_address=url,
-            logo_address=f"{url}/favicon.ico",
+            logo_address=f"{url}/favicon.svg",
             token=token,
             expiration_delay=humanize.time.precisedelta(
                 timedelta(seconds=expiration_delay), minimum_unit="hours",
@@ -390,7 +390,7 @@ class User(Base, UserMixin):
             subject="Welcome to Gaia",
             recipients=[self.email],
             frontend_address=url,
-            logo_address=f"{url}/favicon.ico",
+            logo_address=f"{url}/favicon.svg",
             token=token,
             expiration_delay=humanize.time.precisedelta(
                 timedelta(seconds=expiration_delay), minimum_unit="hours",
@@ -417,7 +417,7 @@ class User(Base, UserMixin):
             subject="Reset your password",
             recipients=[self.email],
             frontend_address=url,
-            logo_address=f"{url}/favicon.ico",
+            logo_address=f"{url}/favicon.svg",
             token=token,
             expiration_delay=humanize.time.precisedelta(
                 timedelta(seconds=expiration_delay), minimum_unit="hours",
