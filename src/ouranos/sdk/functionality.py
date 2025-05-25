@@ -5,19 +5,13 @@ from abc import ABC, abstractmethod
 from logging import Logger, getLogger
 import os
 import re
-import typing as t
 from typing import Type
 import warnings
 
-from ouranos import current_app, db, scheduler, setup_loop
-from ouranos.core.config import ConfigHelper
-from ouranos.core.database.init import (
-    create_base_data, print_registration_token)
+from ouranos import db, scheduler, setup_loop
+from ouranos.core.config import ConfigDict
+from ouranos.core.database.init import create_base_data
 from ouranos.sdk.runner import Runner
-
-
-if t.TYPE_CHECKING:
-    from ouranos.core.config import ConfigDict, profile_type
 
 
 pattern = re.compile(r'(?<!^)(?=[A-Z])')
@@ -65,12 +59,10 @@ class Functionality(ABC):
     def _fmt_exc(self, e: BaseException) -> str:
         return f"`{e.__class__.__name__}: {e}`"
 
-    async def init_the_db(self, generate_registration_token: bool = True) -> None:
+    async def init_the_db(self) -> None:
         self.logger.info("Initializing the database")
         db.init(self.config)
         await create_base_data(self.logger)
-        if generate_registration_token:
-            await print_registration_token(self.logger)
 
     # Functions automatically called during the lifecycle
     async def _init_common(self) -> None:

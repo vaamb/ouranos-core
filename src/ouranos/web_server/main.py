@@ -8,6 +8,7 @@ from typing import Callable
 from uvicorn import Config, Server
 
 from ouranos.core.config import ConfigDict, ConfigHelper
+from ouranos.core.database.init import print_registration_token
 from ouranos.sdk import Functionality, Plugin
 from ouranos.web_server.system_monitor import SystemMonitor
 
@@ -102,6 +103,9 @@ class WebServer(Functionality):
                 self.server.should_exit = True
 
             self.app = _AppWrapper(start, stop)
+
+    async def initialize(self) -> None:
+        await print_registration_token(self.logger)
 
     async def _startup(self):
         self.app.start()
