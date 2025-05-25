@@ -25,7 +25,7 @@ class RootCommand(MultiCommand):
             config_profile = self._get_config_profile(ctx)
             ConfigHelper.set_config_and_configure_logging(config_profile)
         pm: PluginManager = PluginManager()
-        pm.register_plugins()
+        pm.register_plugins(omit_excluded=False)  # Allow to launch an omitted plugin
         plugin = pm.plugins.get(cmd_name)
         if plugin is None:
             return None
@@ -35,5 +35,5 @@ class RootCommand(MultiCommand):
         config_profile = self._get_config_profile(ctx)
         ConfigHelper.set_config_and_configure_logging(config_profile)
         pm: PluginManager = PluginManager()
-        pm.register_plugins()
+        pm.register_plugins(omit_excluded=False)  # List all plugins installed
         return [plugin_name for plugin_name in pm.plugins.keys()]
