@@ -13,6 +13,7 @@ from click import Command
 
 from ouranos import current_app, setup_loop
 from ouranos.core.config import ConfigDict, ConfigHelper
+from ouranos.core.utils import parse_str_value
 from ouranos.sdk import Functionality
 from ouranos.sdk.functionality import format_functionality_name
 
@@ -95,9 +96,14 @@ class Plugin:
     def kwargs(self, value: dict):
         self._kwargs.update(value)
 
-    def setup_config(self, config_profile: profile_type) -> None:
+    def setup_config(
+            self,
+            config_profile: profile_type,
+            config_override: dict | None = None,
+    ) -> None:
         if not ConfigHelper.config_is_set():
-            ConfigHelper.set_config_and_configure_logging(config_profile)
+            ConfigHelper.set_config_and_configure_logging(
+                config_profile, config_override)
         self.config = current_app.config
         self._kwargs["config"] = self.config
 
@@ -193,14 +199,31 @@ class Plugin:
         if self._command is None:
             @click.command(self.name, help=self._description)
             @click.option(
-                "--config-profile",
+                "--config-profile", "-c",
                 type=str,
                 default=None,
                 help="Configuration profile to use as defined in config.py.",
                 show_default=True,
             )
-            def command(config_profile: str | None) -> None:
-                self.setup_config(config_profile)
+            @click.option(
+                "--config-override", "-co",
+                type=str,
+                multiple=True,
+                default=None,
+                help="Config parameters to override written as key=value.",
+                show_default=True,
+            )
+            def command(
+                    config_profile: str | None,
+                    config_override: list[str],
+            ) -> None:
+                config_override_str = config_override
+                config_override = {}
+                for overridden in config_override_str:
+                    key, value = overridden.split("=")
+                    config_override[key] = parse_str_value(value)
+
+                self.setup_config(config_profile, config_override)
                 self.run_as_standalone()
 
             self._command = command
