@@ -52,10 +52,8 @@ def main(
         config_override[key] = parse_str_value(value)
 
     if ctx.invoked_subcommand is None:
-        config = ConfigHelper.set_config(config_profile)
-        config.update(config_override)
-        ConfigHelper._config = None
-        ConfigHelper.set_config_and_configure_logging(config)
+        config = ConfigHelper.set_config_and_configure_logging(
+            config_profile, config_override)
         ouranos = Ouranos(config)
         ouranos.run()
 

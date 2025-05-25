@@ -80,11 +80,7 @@ class ConfigHelper:
                 )
 
     @classmethod
-    def _config_dict_from_class(
-            cls,
-            config_cls: Type[BaseConfig],
-            **params,
-    ) -> ConfigDict:
+    def _config_dict_from_class(cls, config_cls: Type[BaseConfig]) -> dict:
         if not issubclass(config_cls, BaseConfig):
             raise ValueError("'obj' needs to be a subclass of `BaseConfig`")
         config_inst = config_cls()
@@ -97,9 +93,7 @@ class ConfigHelper:
                 config_dict[key] = attr()
             else:
                 config_dict[key] = attr
-        config_dict.update(params)
-        config_dict.update(app_info)
-        return ImmutableDict(config_dict)
+        return config_dict
 
     @classmethod
     def config_is_set(cls) -> None:
@@ -119,34 +113,38 @@ class ConfigHelper:
     def set_config(
             cls,
             profile: profile_type = None,
-            **params,
+            config_override: dict | None = None,
     ) -> ConfigDict:
         """
         :param profile: name of the config class to use
-        :param params: Parameters to override config
-        :return: the config as a dict
+        :param config_override: Dict to override the config
+        :return: An immutable dict
         """
         if cls._config is not None:
             raise RuntimeError("Trying to setup config a second time")
         if isclass(profile) and issubclass(profile, BaseConfig):
             config_cls: Type[BaseConfig] = profile
-            cls._config = cls._config_dict_from_class(config_cls, **params)
+            config_dict = cls._config_dict_from_class(config_cls)
         elif profile is None or isinstance(profile, str):
             config_cls = cls._get_config_class(profile)
-            cls._config = cls._config_dict_from_class(config_cls, **params)
+            config_dict = cls._config_dict_from_class(config_cls)
         elif isinstance(profile, ImmutableDict):
-            cls._config = profile
+            config_dict = {**profile}
         else:
             raise ValueError("Invalid config profile")
+        config_override = config_override or {}
+        config_dict.update(config_override)
+        config_dict.update(app_info)
+        cls._config = ImmutableDict(config_dict)
         return cls._config
 
     @classmethod
     def set_config_and_configure_logging(
             cls,
             profile: profile_type = None,
-            **params,
+            config_override: dict | None = None,
     ) -> ConfigDict:
-        config = cls.set_config(profile, **params)
+        config = cls.set_config(profile, config_override)
         configure_logging(config=config, log_dir=get_log_dir())
         return config
 
