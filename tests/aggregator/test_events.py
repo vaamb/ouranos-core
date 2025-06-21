@@ -12,8 +12,9 @@ from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
 from ouranos.aggregator.events import GaiaEvents
 from ouranos.core.database.models.gaia import (
-    ActuatorState, Chaos, Ecosystem, Engine, EnvironmentParameter, Hardware,
-    NycthemeralCycle, Place, SensorAlarm, SensorDataCache, SensorDataRecord)
+    ActuatorRecord, ActuatorState, Chaos, Ecosystem, Engine,
+    EnvironmentParameter, Hardware, NycthemeralCycle, Place, SensorAlarm,
+    SensorDataCache, SensorDataRecord)
 from ouranos.core.exceptions import NotRegisteredError
 from ouranos.core.utils import create_time_window
 
@@ -467,6 +468,65 @@ async def test_on_actuators_data(
     wrong_payload = {}
     with pytest.raises(Exception):
         await events_handler.on_sensors_data(g_data.engine_sid, [wrong_payload])
+
+
+@pytest.mark.asyncio
+async def test_on_buffered_actuators_data(
+        mock_dispatcher: MockAsyncDispatcher,
+        events_handler: GaiaEvents,
+        ecosystem_aware_db: AsyncSQLAlchemyWrapper,
+):
+    # Create test data for buffered actuators
+    now = datetime.now(timezone.utc)
+    buffered_actuator_data = gv.BufferedActuatorsStatePayloadDict(
+        uuid=g_data.request_uuid,
+        data=[
+            gv.BufferedActuatorRecord(
+                ecosystem_uid=g_data.ecosystem_uid,
+                type=g_data.light_state.type,
+                active=True,
+                mode=gv.ActuatorMode.manual,
+                status=True,
+                level=75.5,
+                timestamp=now,
+            )
+        ],
+    )
+
+    # Call the method
+    await events_handler.on_buffered_actuators_data(
+        g_data.engine_sid, buffered_actuator_data)
+
+    # Verify that the data has been logged
+    async with ecosystem_aware_db.scoped_session() as session:
+        # Check if the actuator state was updated in the database
+        actuator_records = await ActuatorRecord.get_multiple(
+            session,
+            ecosystem_uid=g_data.ecosystem_uid,
+            type=gv.HardwareType.light,
+            timestamp=now,
+        )
+
+        assert len(actuator_records) == 1
+        actuator_record = actuator_records[0]
+        assert actuator_record is not None
+        assert actuator_record.active is True
+        assert actuator_record.mode == gv.ActuatorMode.manual
+        assert actuator_record.status is True
+        assert actuator_record.level == 75.5
+
+    # Verify the acknowledgment was sent
+    emitted = mock_dispatcher.emit_store[0]
+    assert emitted["namespace"] == "gaia"
+    assert emitted["room"] == g_data.engine_sid
+    assert emitted["event"] == "buffered_data_ack"
+    result: gv.RequestResultDict = emitted["data"]
+    assert result["uuid"] == g_data.request_uuid
+    assert result["status"] == gv.Result.success
+
+    # Verify that the wrong payload raises an exception
+    with pytest.raises(Exception):
+        await events_handler.on_buffered_actuators_data(g_data.engine_sid, [{}])
 
 
 @pytest.mark.asyncio
