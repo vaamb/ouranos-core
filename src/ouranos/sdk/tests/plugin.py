@@ -7,10 +7,10 @@ class DummyFunctionality(Functionality):
         self.dict = {} if manager_dict is None else manager_dict
         self.dict["value"] = None
 
-    async def _startup(self):
+    async def startup(self):
         self.dict["value"] = 42
 
-    async def _shutdown(self):
+    async def shutdown(self):
         self.dict["value"] = None
 
 

@@ -181,7 +181,8 @@ class Plugin:
                     process.start()
                     self._subprocesses.append(process)
             else:
-                await self._instance.startup()
+                assert not self._subprocesses
+                await self._instance.complete_startup()
         except Exception as e:
             self.logger.error(f"Failed to start: {self._fmt_exc(e)}")
             raise
@@ -211,8 +212,7 @@ class Plugin:
                             process.join()
                 self._subprocesses.clear()
             else:
-                # Cleanup main instance
-                await self._instance.shutdown()
+                await self._instance.complete_shutdown()
         except Exception as e:
             self.logger.error(f"Error during shutdown: {self._fmt_exc(e)}")
             raise
