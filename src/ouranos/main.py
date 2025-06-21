@@ -79,7 +79,7 @@ class Ouranos(Functionality):
         #  models needed
         self.plugin_manager.register_plugins()
 
-    async def _startup(self) -> None:
+    async def startup(self) -> None:
         for plugin in self.plugin_manager.plugins.values():
             plugin.setup_config(self.config)
             plugin.kwargs = {
@@ -88,11 +88,11 @@ class Ouranos(Functionality):
             }
             await plugin.start()
 
-    async def _shutdown(self) -> None:
+    async def shutdown(self) -> None:
         for plugin in self.plugin_manager.plugins.values():
             await plugin.stop()
 
-    async def startup(self) -> None:
+    async def complete_startup(self) -> None:
         if self._status:
             raise RuntimeError("Ouranos has already started")
         pid = os.getpid()
@@ -100,7 +100,7 @@ class Ouranos(Functionality):
         try:
             await self._init_common()
             await self.initialize()
-            await self._startup()
+            await self.startup()
         except Exception as e:
             self.logger.error(
                 f"Error while starting [{pid}]. Error msg: {self._fmt_exc(e)}")
@@ -108,14 +108,14 @@ class Ouranos(Functionality):
             self.logger.info(f"Ouranos has been started [{pid}]")
             self._status = True
 
-    async def shutdown(self) -> None:
+    async def complete_shutdown(self) -> None:
         if not self._status:
             raise RuntimeError("Ouranos is not running")
         # Stop the functionality
         pid = os.getpid()
         self.logger.info(f"Stopping Ouranos [{pid}]")
         try:
-            await self._shutdown()
+            await self.shutdown()
             await self.post_shutdown()
         except asyncio.CancelledError as e:
             self.logger.error(

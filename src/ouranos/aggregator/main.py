@@ -131,13 +131,13 @@ class Aggregator(Functionality):
             misfire_grace_time=10
         )
 
-    async def _startup(self) -> None:
+    async def startup(self) -> None:
         await self.start_gaia_events_dispatcher()
         await self.archiver.start()
         await self.sky_watcher.start()
         await self.file_server.start()
 
-    async def _shutdown(self) -> None:
+    async def shutdown(self) -> None:
         try:
             if self.file_server.started:
                 await self.file_server.stop()
