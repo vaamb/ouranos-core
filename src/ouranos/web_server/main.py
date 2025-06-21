@@ -107,11 +107,11 @@ class WebServer(Functionality):
     async def initialize(self) -> None:
         await print_registration_token(self.logger)
 
-    async def _startup(self):
+    async def startup(self):
         self.app.start()
         await self.system_monitor.start()
 
-    async def _shutdown(self):
+    async def shutdown(self):
         await self.system_monitor.stop()
         self.app.stop()
         await asyncio.sleep(1)  # Allow ChangeReload and Multiprocess to exit

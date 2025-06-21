@@ -22,10 +22,10 @@ def test_current_app(config: ConfigDict):
 async def test_functionality(config: ConfigDict):
     functionality = DummyFunctionality(config)
     assert functionality.config == config
-    await functionality.startup()
+    await functionality.complete_startup()
     with pytest.raises(RuntimeError):
-        await functionality.startup()
-    await functionality.shutdown()
+        await functionality.complete_startup()
+    await functionality.complete_shutdown()
 
 
 @pytest.mark.asyncio

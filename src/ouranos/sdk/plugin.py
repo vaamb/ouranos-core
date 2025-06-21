@@ -151,7 +151,7 @@ class Plugin:
                     self._subprocesses.append(process)
             else:
                 assert not self._subprocesses
-                await self._instance.startup()
+                await self._instance.complete_startup()
         except Exception as e:
             self.logger.error(
                 f"Error while starting. Error msg: "
@@ -169,7 +169,7 @@ class Plugin:
                     process.terminate()
                     process.join()
             else:
-                await self._instance.shutdown()
+                await self._instance.complete_shutdown()
         except Exception as e:
             self.logger.error(
                 f"Error while shutting down. Error msg: "

@@ -6,10 +6,10 @@ from ouranos.aggregator.main import Aggregator
 @pytest.mark.asyncio
 async def test_aggregator(config):
     aggregator = Aggregator(config)
-    await aggregator.startup()
+    await aggregator.complete_startup()
     with pytest.raises(RuntimeError):
-        await aggregator.startup()
+        await aggregator.complete_startup()
 
-    await aggregator.shutdown()
+    await aggregator.complete_shutdown()
 
 # TODO: add other tests
