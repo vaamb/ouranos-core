@@ -11,7 +11,7 @@ import warnings
 from ouranos import db, scheduler, setup_loop
 from ouranos.core.config import ConfigDict
 from ouranos.core.database.init import create_base_data
-from ouranos.sdk.runner import Runner
+from ouranos.sdk.runner import Runner, runner
 
 
 pattern = re.compile(r'(?<!^)(?=[A-Z])')
@@ -23,7 +23,7 @@ class _State:
 
 class Functionality(ABC):
     _is_microservice: bool = True
-    _runner: ClassVar[Runner] = Runner()
+    _runner: ClassVar[Runner] = runner
     workers: int = 0
 
     def __init__(

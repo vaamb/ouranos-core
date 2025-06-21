@@ -1059,13 +1059,13 @@ class GaiaEvents(AsyncEventHandler):
         if data["status"]:
             self.logger.info("Received a request to start the sky watcher.")
             if not self.aggregator.sky_watcher.started:
-                await self.aggregator.sky_watcher.start()
+                await self.aggregator.sky_watcher.startup()
             else:
                 self.logger.info("Sky watcher is already running.")
         else:
             self.logger.info("Received a request to stop the sky watcher.")
             if self.aggregator.sky_watcher.started:
-                await self.aggregator.sky_watcher.stop()
+                await self.aggregator.sky_watcher.shutdown()
             else:
                 self.logger.info("Sky watcher is not running.")
 

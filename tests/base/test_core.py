@@ -34,13 +34,13 @@ async def test_plugin_no_worker(config: ConfigDict, dummy_plugin: Plugin):
     manager_dict = {}
     dummy_plugin.kwargs = {"manager_dict": manager_dict}
 
-    await dummy_plugin.start()
+    await dummy_plugin.startup()
     assert dummy_plugin.instance
     assert not dummy_plugin.has_subprocesses()
 
     assert manager_dict["value"] == 42
 
-    await dummy_plugin.stop()
+    await dummy_plugin.shutdown()
 
     assert manager_dict["value"] is None
 
@@ -57,14 +57,14 @@ async def test_plugin_worker(config: ConfigDict, dummy_plugin: Plugin):
         manager_dict = manager.dict()
         dummy_plugin.kwargs = {"manager_dict": manager_dict}
 
-        await dummy_plugin.start()
+        await dummy_plugin.startup()
         assert dummy_plugin.has_subprocesses()
         assert len(dummy_plugin._subprocesses) == 1
 
         sleep(2)  # Allow the subprocess to start and the functionality to init
         assert manager_dict["value"] == 42
 
-        await dummy_plugin.stop()
+        await dummy_plugin.shutdown()
 
         sleep(2)
         assert manager_dict["value"] is None

@@ -47,3 +47,6 @@ class Runner:
     async def shutdown(self):
         # TODO: look more closely what happens when closing loop
         await asyncio.sleep(0.4)
+
+
+runner = Runner()

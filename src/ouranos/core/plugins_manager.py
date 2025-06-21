@@ -77,14 +77,14 @@ class PluginManager:
 
     async def start_plugin(self, plugin_name: str) -> None:
         self.plugins[plugin_name].setup_config(current_app.config)
-        await self.plugins[plugin_name].start()
+        await self.plugins[plugin_name].startup()
 
     async def stop_plugins(self) -> None:
         for plugin_name in self.plugins:
             await self.stop_plugin(plugin_name)
 
     async def stop_plugin(self, plugin_name: str) -> None:
-        await self.plugins[plugin_name].stop()
+        await self.plugins[plugin_name].shutdown()
 
     def register_plugins_routes(
             self,

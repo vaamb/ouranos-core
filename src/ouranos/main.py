@@ -86,11 +86,11 @@ class Ouranos(Functionality):
                 "root": False,
                 "microservice": False,
             }
-            await plugin.start()
+            await plugin.startup()
 
     async def shutdown(self) -> None:
         for plugin in self.plugin_manager.plugins.values():
-            await plugin.stop()
+            await plugin.shutdown()
 
     async def complete_startup(self) -> None:
         if self._status:
