@@ -3,11 +3,14 @@ from __future__ import annotations
 from asyncio import sleep
 from copy import copy, deepcopy
 from datetime import datetime,timedelta, timezone
+import os
 
+import numpy as np
 import pytest
 from sqlalchemy import delete
 
 import gaia_validators as gv
+from gaia_validators.image import SerializableImage, SerializableImagePayload
 from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
 from ouranos.aggregator.events import GaiaEvents
@@ -727,3 +730,82 @@ async def test_turn_actuator(
     wrong_payload = {}
     with pytest.raises(Exception):
         await events_handler.turn_actuator(g_data.engine_sid, wrong_payload)
+
+
+@pytest.mark.asyncio
+async def test_picture_arrays(
+        mock_dispatcher: MockAsyncDispatcher,
+        events_handler: GaiaEvents,
+        ecosystem_aware_db: AsyncSQLAlchemyWrapper,
+):
+    """Test the picture_arrays method.
+
+    This test verifies that:
+    1. The method correctly processes incoming picture data
+    2. Saves the image to the correct location
+    3. Updates the database with the image metadata
+    4. Emits the correct event with the updated picture information
+    """
+    # Setup test data
+    camera_uid = "test_camera_1"
+    timestamp = datetime.now(timezone.utc)
+
+    # Create a test image (2x2 RGB image)
+    test_image_data = np.zeros((2, 2, 3), dtype=np.uint8)
+    test_image_data[0, 0] = [255, 0, 0]    # Red
+    test_image_data[0, 1] = [0, 255, 0]    # Green
+    test_image_data[1, 0] = [0, 0, 255]    # Blue
+    test_image_data[1, 1] = [255, 255, 0]  # Yellow
+
+    # Create serializable image
+    image = SerializableImage(
+        array=test_image_data,
+        metadata={
+            "camera_uid": camera_uid,
+            "timestamp": timestamp.isoformat(),
+            "test_metadata": "test_value"
+        }
+    )
+
+    # Create payload
+    payload = SerializableImagePayload(
+        uid=g_data.ecosystem_uid,
+        data=[image]
+    )
+
+    # Call the method
+    await events_handler.picture_arrays(
+        sid=g_data.engine_sid,
+        data=payload.serialize(),
+    )
+
+    # Verify that the image array was saved
+    expected_image_path = events_handler.camera_dir / g_data.ecosystem_uid / f"{camera_uid}.jpeg"
+    assert os.path.exists(expected_image_path), "Image file was not saved"
+
+    # Verify that the metadata has been logged
+    from ouranos.core.database.models.gaia import CameraPicture
+    async with ecosystem_aware_db.scoped_session() as session:
+        picture = await CameraPicture.get(
+            session,
+            ecosystem_uid=g_data.ecosystem_uid,
+            camera_uid=camera_uid
+        )
+        assert picture is not None, "Camera picture was not saved to database"
+        assert picture.path == f"camera_stream/{g_data.ecosystem_uid}/{camera_uid}.jpeg"
+        assert picture.dimension == [2, 2, 3]
+        assert picture.depth == "uint8"
+        assert picture.timestamp == timestamp
+        assert picture.other_metadata == {"test_metadata": "test_value"}
+
+    # Verify the re emitted event
+    assert len(mock_dispatcher.emit_store) > 0, "No events were emitted"
+    picture_event = mock_dispatcher.emit_store[0]
+    assert picture_event is not None, "picture_arrays event was not emitted"
+    assert picture_event["namespace"] == "application-internal"
+    assert picture_event["data"]["ecosystem_uid"] == g_data.ecosystem_uid
+    assert len(picture_event["data"]["updated_pictures"]) == 1
+    updated_pic = picture_event["data"]["updated_pictures"][0]
+    assert updated_pic["camera_uid"] == camera_uid
+    assert updated_pic["path"] == f"camera_stream/{g_data.ecosystem_uid}/{camera_uid}.jpeg"
+    assert updated_pic["timestamp"] == timestamp
