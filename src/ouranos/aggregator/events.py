@@ -410,8 +410,9 @@ class GaiaEvents(AsyncEventHandler):
             data: list[gv.EnvironmentConfigPayloadDict],
             engine_uid: str
     ) -> None:
-        self.logger.debug(
-            f"Received 'environmental_parameters' from engine: {engine_uid}")
+        self.logger.warning(
+            f"Received deprecated 'environmental_parameters' event from engine: "
+            f"{engine_uid}")
         async with self.session(sid) as session:
             session["init_data"].discard("environmental_parameters")
         ecosystems_to_log: list[str] = []
@@ -493,7 +494,7 @@ class GaiaEvents(AsyncEventHandler):
             engine_uid: str
     ) -> None:
         self.logger.debug(
-            f"Received 'nycthemeral_cycle' from engine: {engine_uid}")
+            f"Received 'nycthemeral_info' from engine: {engine_uid}")
         async with self.session(sid) as session:
             session["init_data"].discard("nycthemeral_info")
         ecosystems_to_log: list[str] = []
