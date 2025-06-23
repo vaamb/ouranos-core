@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from asyncio import sleep
-from copy import copy
+from copy import copy, deepcopy
 from datetime import datetime,timedelta, timezone
 
 import pytest
@@ -139,7 +139,15 @@ async def test_on_base_info(
         events_handler: GaiaEvents,
         naive_db: AsyncSQLAlchemyWrapper,
 ):
+    # Set up the session with init_data
+    async with events_handler.session(g_data.engine_sid) as session:
+        session["init_data"] = {"base_info"}
+
+    # Call the method
     await events_handler.on_base_info(g_data.engine_sid, [g_data.base_info_payload])
+
+    # Verify the re emitted event
+    assert len(mock_dispatcher.emit_store) == 1
     emitted = mock_dispatcher.emit_store[0]
     assert emitted["event"] == "ecosystem_status"
     assert emitted["data"] == [
@@ -147,12 +155,18 @@ async def test_on_base_info(
     ]
     assert emitted["namespace"] == "application-internal"
 
+    # Verify the session
+    async with events_handler.session(g_data.engine_sid) as session:
+        assert not session["init_data"]
+
+    # Verify that the data has been logged
     async with naive_db.scoped_session() as session:
         ecosystem = await Ecosystem.get(session, uid=g_data.ecosystem_uid)
         assert ecosystem.engine_uid == g_data.base_info["engine_uid"]
         assert ecosystem.name == g_data.base_info["name"]
         assert ecosystem.status == g_data.base_info["status"]
 
+    # Verify that the wrong payload raises an exception
     wrong_payload = {}
     with pytest.raises(Exception):
         await events_handler.on_base_info(g_data.engine_sid, [wrong_payload])
@@ -164,8 +178,25 @@ async def test_on_management(
         events_handler: GaiaEvents,
         ecosystem_aware_db: AsyncSQLAlchemyWrapper,
 ):
+    # Set up the session with init_data
+    async with events_handler.session(g_data.engine_sid) as session:
+        session["init_data"] = {"management"}
+
+    # Call the method
     await events_handler.on_management(g_data.engine_sid, [g_data.management_payload])
 
+    # Verify the re emitted event
+    assert len(mock_dispatcher.emit_store) == 1
+    emitted = mock_dispatcher.emit_store[0]
+    assert emitted["event"] == "management"
+    assert emitted["data"] == [g_data.management_payload]
+    assert emitted["namespace"] == "application-internal"
+
+    # Verify the session
+    async with events_handler.session(g_data.engine_sid) as session:
+        assert not session["init_data"]
+
+    # Compute the expected management flag value
     management_value = 0
     for management in gv.ManagementFlags:
         try:
@@ -174,16 +205,17 @@ async def test_on_management(
         except KeyError:
             pass
 
+    # Verify that the data has been logged
     async with ecosystem_aware_db.scoped_session() as session:
         ecosystem = await Ecosystem.get(session, uid=g_data.ecosystem_uid)
         assert ecosystem.management == management_value
 
-    wrong_payload = {}
+    # Verify that the wrong payload raises an exception
     with pytest.raises(Exception):
-        await events_handler.on_management(g_data.engine_sid, [wrong_payload])
+        await events_handler.on_management(g_data.engine_sid, [{}])
 
 
-# TODO: split
+# Deprecated
 @pytest.mark.asyncio
 async def test_on_environmental_parameters(
         mock_dispatcher: MockAsyncDispatcher,
@@ -214,9 +246,26 @@ async def test_on_chaos_parameters(
         events_handler: GaiaEvents,
         ecosystem_aware_db: AsyncSQLAlchemyWrapper,
 ):
+    # Set up the session with init_data
+    async with events_handler.session(g_data.engine_sid) as session:
+        session["init_data"] = {"chaos_parameters"}
+
+    # Call the method
     await events_handler.on_chaos_parameters(
         g_data.engine_sid, [g_data.chaos_payload])
 
+    # Verify the re emitted event
+    assert len(mock_dispatcher.emit_store) == 1
+    emitted = mock_dispatcher.emit_store[0]
+    assert emitted["event"] == "chaos_parameters"
+    assert emitted["data"] == [g_data.chaos_payload]
+    assert emitted["namespace"] == "application-internal"
+
+    # Verify the session
+    async with events_handler.session(g_data.engine_sid) as session:
+        assert not session["init_data"]
+
+    # Verify that the data has been logged
     async with ecosystem_aware_db.scoped_session() as session:
         chaos = await Chaos.get(session, ecosystem_uid=g_data.ecosystem_uid)
         assert chaos.ecosystem_uid == g_data.ecosystem_uid
@@ -226,6 +275,10 @@ async def test_on_chaos_parameters(
         assert chaos.beginning is None
         assert chaos.end is None
 
+    # Verify that the wrong payload raises an exception
+    with pytest.raises(Exception):
+        await events_handler.on_management(g_data.engine_sid, [{}])
+
 
 @pytest.mark.asyncio
 async def test_on_nycthemeral_info(
@@ -233,9 +286,28 @@ async def test_on_nycthemeral_info(
         events_handler: GaiaEvents,
         ecosystem_aware_db: AsyncSQLAlchemyWrapper,
 ):
+    # Set up the session with init_data
+    async with events_handler.session(g_data.engine_sid) as session:
+        session["init_data"] = {"nycthemeral_info"}
+
+    # Call the method
     await events_handler.on_nycthemeral_info(
         g_data.engine_sid, [g_data.nycthemeral_info_payload])
 
+    # Verify the re emitted event
+    assert len(mock_dispatcher.emit_store) == 1
+    emitted = mock_dispatcher.emit_store[0]
+    assert emitted["event"] == "nycthemeral_info"
+    truncated_payload = deepcopy(g_data.nycthemeral_info_payload)
+    truncated_payload["data"].pop("target")
+    assert emitted["data"] == [truncated_payload]
+    assert emitted["namespace"] == "application-internal"
+
+    # Verify the session
+    async with events_handler.session(g_data.engine_sid) as session:
+        assert not session["init_data"]
+
+    # Verify that the data has been logged
     async with ecosystem_aware_db.scoped_session() as session:
         lighting = await NycthemeralCycle.get(session, ecosystem_uid=g_data.ecosystem_uid)
         assert lighting.ecosystem_uid == g_data.ecosystem_uid
@@ -245,6 +317,10 @@ async def test_on_nycthemeral_info(
         assert lighting.day == g_data.sky["day"]
         assert lighting.night == g_data.sky["night"]
 
+    # Verify that the wrong payload raises an exception
+    with pytest.raises(Exception):
+        await events_handler.on_nycthemeral_info(g_data.engine_sid, [{}])
+
 
 @pytest.mark.asyncio
 async def test_on_climate(
@@ -252,15 +328,31 @@ async def test_on_climate(
         events_handler: GaiaEvents,
         ecosystem_aware_db: AsyncSQLAlchemyWrapper,
 ):
+    # Set up the session with init_data
+    async with events_handler.session(g_data.engine_sid) as session:
+        session["init_data"] = {"climate"}
+
+    # Call the method
     await events_handler.on_climate(
         g_data.engine_sid, [g_data.climate_payload])
 
+    # There is no re emitted event
+
+    # Verify the session
+    async with events_handler.session(g_data.engine_sid) as session:
+        assert not session["init_data"]
+
+    # Verify that the data has been logged
     async with ecosystem_aware_db.scoped_session() as session:
         environment_parameter = await EnvironmentParameter.get(
             session, ecosystem_uid=g_data.ecosystem_uid, parameter=g_data.climate["parameter"])
         assert environment_parameter.day == g_data.climate["day"]
         assert environment_parameter.night == g_data.climate["night"]
         assert environment_parameter.hysteresis == g_data.climate["hysteresis"]
+
+    # Verify that the wrong payload raises an exception
+    with pytest.raises(Exception):
+        await events_handler.on_climate(g_data.engine_sid, [{}])
 
 
 @pytest.mark.asyncio
@@ -269,8 +361,20 @@ async def test_on_hardware(
         events_handler: GaiaEvents,
         ecosystem_aware_db: AsyncSQLAlchemyWrapper,
 ):
+    # Set up the session with init_data
+    async with events_handler.session(g_data.engine_sid) as session:
+        session["init_data"] = {"hardware"}
+
+    # Call the method
     await events_handler.on_hardware(g_data.engine_sid, [g_data.hardware_payload])
 
+    # There is no re emitted event
+
+    # Verify the session
+    async with events_handler.session(g_data.engine_sid) as session:
+        assert not session["init_data"]
+
+    # Verify that the data has been logged
     async with ecosystem_aware_db.scoped_session() as session:
         hardware = await Hardware.get(session, uid=g_data.hardware_data["uid"])
         assert hardware.name == g_data.hardware_data["name"]
@@ -284,9 +388,9 @@ async def test_on_hardware(
         measures_data.sort()
         assert measures == measures_data
 
-    wrong_payload = {}
+    # Verify that the wrong payload raises an exception
     with pytest.raises(Exception):
-        await events_handler.on_hardware(g_data.engine_sid, [wrong_payload])
+        await events_handler.on_hardware(g_data.engine_sid, [{}])
 
 
 @pytest.mark.asyncio
@@ -453,8 +557,26 @@ async def test_on_actuators_data(
         events_handler: GaiaEvents,
         ecosystem_aware_db: AsyncSQLAlchemyWrapper,
 ):
+    # Set up the session with init_data
+    async with events_handler.session(g_data.engine_sid) as session:
+        session["init_data"] = {"actuators_data"}
+
+    # Call the method
     await events_handler.on_actuators_data(
         g_data.engine_sid, [g_data.actuator_state_payload])
+
+    # Verify the re emitted event
+    assert len(mock_dispatcher.emit_store) == 1
+    emitted = mock_dispatcher.emit_store[0]
+    assert emitted["event"] == "actuators_data"
+    assert len(emitted["data"]) == 6
+    assert emitted["namespace"] == "application-internal"
+
+    # Verify that the session has been updated
+    async with events_handler.session(g_data.engine_sid) as session:
+        assert not session["init_data"]
+
+    # Verify that the data has been logged
     async with ecosystem_aware_db.scoped_session() as session:
         logged_light_state = (
             await ActuatorState.get(
@@ -465,9 +587,9 @@ async def test_on_actuators_data(
         assert logged_light_state.mode == g_data.light_state.mode
         assert logged_light_state.status == g_data.light_state.status
 
-    wrong_payload = {}
+    # Verify that the wrong payload raises an exception
     with pytest.raises(Exception):
-        await events_handler.on_sensors_data(g_data.engine_sid, [wrong_payload])
+        await events_handler.on_sensors_data(g_data.engine_sid, [{}])
 
 
 @pytest.mark.asyncio

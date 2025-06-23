@@ -88,10 +88,7 @@ def events_handler(
 ):
     mock_dispatcher._sessions[g_data.engine_sid] = {
         "engine_uid": g_data.engine_uid,
-        "init_data": {
-            "base_info", "environmental_parameters", "hardware", "management",
-            "actuator_data", "light_data",
-        }
+        "init_data": set()
     }
     yield events_handler_module
     mock_dispatcher.clear_store()
