@@ -77,6 +77,7 @@ def events_handler_module(mock_aggregator, mock_dispatcher: MockAsyncDispatcher)
     events_handler = GaiaEvents(mock_aggregator)  # noqa
     mock_aggregator.event_handler = events_handler
     events_handler.internal_dispatcher = mock_dispatcher
+    events_handler.stream_dispatcher = mock_dispatcher
     mock_dispatcher.register_event_handler(events_handler)
     return events_handler
 

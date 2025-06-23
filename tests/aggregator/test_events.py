@@ -4,15 +4,18 @@ from asyncio import sleep
 from copy import copy, deepcopy
 from datetime import datetime,timedelta, timezone
 import os
+from pathlib import Path
 
 import numpy as np
 import pytest
 from sqlalchemy import delete
 
+from dispatcher import AsyncDispatcher
 import gaia_validators as gv
 from gaia_validators.image import SerializableImage, SerializableImagePayload
 from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
+from ouranos import current_app
 from ouranos.aggregator.events import GaiaEvents
 from ouranos.core.database.models.gaia import (
     ActuatorRecord, ActuatorState, Chaos, Ecosystem, Engine,
@@ -29,9 +32,19 @@ def test_handler(
         mock_dispatcher: MockAsyncDispatcher,
         events_handler: GaiaEvents
 ):
+    # Test basic initialization
     assert events_handler._dispatcher == mock_dispatcher
     assert events_handler.namespace == "gaia"
     assert len(mock_dispatcher.emit_store) == 0
+
+    # Test initial state
+    assert isinstance(events_handler._internal_dispatcher, AsyncDispatcher)
+    assert isinstance(events_handler._stream_dispatcher, AsyncDispatcher)
+    assert events_handler._alarms_data == []
+
+    # Test camera directory initialization
+    expected_camera_dir = Path(current_app.static_dir) / "camera_stream"
+    assert str(events_handler.camera_dir) == str(expected_camera_dir)
 
 
 @pytest.mark.asyncio
