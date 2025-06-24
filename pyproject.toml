@@ -71,3 +71,6 @@ version = {attr = "ouranos.__version__"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "session"
