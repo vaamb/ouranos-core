@@ -17,7 +17,7 @@ import gaia_validators as gv
 from gaia_validators.image import SerializableImage, SerializableImagePayload
 from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
-from ouranos import current_app
+from ouranos import current_app, json
 from ouranos.aggregator.events import GaiaEvents
 from ouranos.aggregator.sky_watcher import SkyWatcher
 from ouranos.core.database.models.gaia import (
@@ -787,6 +787,62 @@ async def test_update_service(
     )
     # Verify the sky watcher was stopped
     assert events_handler.aggregator.sky_watcher.started is False
+
+
+@pytest.mark.asyncio
+async def test_crud(
+        mock_dispatcher: MockAsyncDispatcher,
+        events_handler: GaiaEvents,
+        ecosystem_aware_db: AsyncSQLAlchemyWrapper,
+):
+    """Test the CRUD operation request handling.
+    
+    Verifies that the crud method correctly processes a CRUD request by:
+    1. Creating a CRUD request record in the database
+    2. Emitting a 'crud' event to the target engine
+    3. Including the correct routing and action information
+    """
+    # Test data
+    test_uuid = "12345678-1234-5678-1234-567812345678"
+    test_action = "create"
+    test_target = "hardware"
+    test_data = {"key": "value"}
+    
+    # Create test payload
+    crud_payload = {
+        "uuid": test_uuid,
+        "routing": {
+            "engine_uid": g_data.engine_uid,
+            "ecosystem_uid": g_data.ecosystem_uid
+        },
+        "action": test_action,
+        "target": test_target,
+        "data": test_data
+    }
+    
+    # Call the method
+    await events_handler.crud(g_data.engine_sid, crud_payload)
+    
+    # Verify the CRUD request was created in the database
+    async with ecosystem_aware_db.scoped_session() as session:
+        crud_request = await CrudRequest.get(session, uuid=UUID(test_uuid))
+        assert crud_request is not None
+        assert crud_request.engine_uid == g_data.engine_uid
+        assert crud_request.ecosystem_uid == g_data.ecosystem_uid
+        assert crud_request.action == test_action
+        assert crud_request.target == test_target
+        assert crud_request.payload == json.dumps(test_data)
+        
+        # Cleanup
+        await session.delete(crud_request)
+        await session.commit()
+    
+    # Verify the event was emitted
+    assert len(mock_dispatcher.emit_store) == 1
+    emitted = mock_dispatcher.emit_store[0]
+    assert emitted["event"] == "crud"
+    assert emitted["namespace"] == "gaia"
+    assert emitted["data"] == crud_payload
 
 
 @pytest.mark.asyncio
