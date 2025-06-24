@@ -286,8 +286,8 @@ class SkyWatcher:
         if not self.started:
             raise RuntimeError("SkyWatcher is not started")
         self.logger.debug("Stopping SkyWatcher")
-        if scheduler.get_job("weather"):
+        if scheduler.get_job("sky_watcher-weather"):
             scheduler.remove_job("sky_watcher-weather")
-        if scheduler.get_job("suntimes"):
+        if scheduler.get_job("sky_watcher-sun_times"):
             scheduler.remove_job("sky_watcher-sun_times")
         self._started = False
