@@ -788,6 +788,15 @@ async def test_on_buffered_actuators_data(
     await events_handler.on_buffered_actuators_data(
         g_data.engine_sid, buffered_actuator_data)
 
+    # Verify the re emitted event
+    emitted = mock_dispatcher.emit_store[0]
+    assert emitted["namespace"] == "gaia"
+    assert emitted["room"] == g_data.engine_sid
+    assert emitted["event"] == "buffered_data_ack"
+    result: gv.RequestResultDict = emitted["data"]
+    assert result["uuid"] == g_data.request_uuid
+    assert result["status"] == gv.Result.success
+
     # Verify that the data has been logged
     async with ecosystem_aware_db.scoped_session() as session:
         # Check if the actuator state was updated in the database
@@ -805,15 +814,6 @@ async def test_on_buffered_actuators_data(
         assert actuator_record.mode == gv.ActuatorMode.manual
         assert actuator_record.status is True
         assert actuator_record.level == 75.5
-
-    # Verify the acknowledgment was sent
-    emitted = mock_dispatcher.emit_store[0]
-    assert emitted["namespace"] == "gaia"
-    assert emitted["room"] == g_data.engine_sid
-    assert emitted["event"] == "buffered_data_ack"
-    result: gv.RequestResultDict = emitted["data"]
-    assert result["uuid"] == g_data.request_uuid
-    assert result["status"] == gv.Result.success
 
     # Verify that the wrong payload raises an exception
     with pytest.raises(Exception):
@@ -1012,7 +1012,14 @@ async def test_crud(
     
     # Call the method
     await events_handler.crud(g_data.engine_sid, crud_payload)
-    
+
+    # Verify the re emitted event
+    assert len(mock_dispatcher.emit_store) == 1
+    emitted = mock_dispatcher.emit_store[0]
+    assert emitted["event"] == "crud"
+    assert emitted["namespace"] == "gaia"
+    assert emitted["data"] == crud_payload
+
     # Verify the CRUD request was created in the database
     async with ecosystem_aware_db.scoped_session() as session:
         crud_request = await CrudRequest.get(session, uuid=UUID(test_uuid))
@@ -1026,13 +1033,6 @@ async def test_crud(
         # Cleanup
         await session.delete(crud_request)
         await session.commit()
-    
-    # Verify the event was emitted
-    assert len(mock_dispatcher.emit_store) == 1
-    emitted = mock_dispatcher.emit_store[0]
-    assert emitted["event"] == "crud"
-    assert emitted["namespace"] == "gaia"
-    assert emitted["data"] == crud_payload
 
 
 @pytest.mark.asyncio
@@ -1136,6 +1136,18 @@ async def test_picture_arrays(
         data=payload.serialize(),
     )
 
+    # Verify the re emitted event
+    assert len(mock_dispatcher.emit_store) > 0, "No events were emitted"
+    picture_event = mock_dispatcher.emit_store[0]
+    assert picture_event is not None, "picture_arrays event was not emitted"
+    assert picture_event["namespace"] == "application-internal"
+    assert picture_event["data"]["ecosystem_uid"] == g_data.ecosystem_uid
+    assert len(picture_event["data"]["updated_pictures"]) == 1
+    updated_pic = picture_event["data"]["updated_pictures"][0]
+    assert updated_pic["camera_uid"] == camera_uid
+    assert updated_pic["path"] == f"camera_stream/{g_data.ecosystem_uid}/{camera_uid}.jpeg"
+    assert updated_pic["timestamp"] == timestamp
+
     # Verify that the image array was saved
     expected_image_path = events_handler.camera_dir / g_data.ecosystem_uid / f"{camera_uid}.jpeg"
     assert os.path.exists(expected_image_path), "Image file was not saved"
@@ -1154,15 +1166,3 @@ async def test_picture_arrays(
         assert picture.depth == "uint8"
         assert picture.timestamp == timestamp
         assert picture.other_metadata == {"test_metadata": "test_value"}
-
-    # Verify the re emitted event
-    assert len(mock_dispatcher.emit_store) > 0, "No events were emitted"
-    picture_event = mock_dispatcher.emit_store[0]
-    assert picture_event is not None, "picture_arrays event was not emitted"
-    assert picture_event["namespace"] == "application-internal"
-    assert picture_event["data"]["ecosystem_uid"] == g_data.ecosystem_uid
-    assert len(picture_event["data"]["updated_pictures"]) == 1
-    updated_pic = picture_event["data"]["updated_pictures"][0]
-    assert updated_pic["camera_uid"] == camera_uid
-    assert updated_pic["path"] == f"camera_stream/{g_data.ecosystem_uid}/{camera_uid}.jpeg"
-    assert updated_pic["timestamp"] == timestamp
