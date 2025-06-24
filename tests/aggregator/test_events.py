@@ -5,6 +5,7 @@ from copy import copy, deepcopy
 from datetime import datetime,timedelta, timezone
 import os
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 import pytest
@@ -17,6 +18,7 @@ from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
 from ouranos import current_app
 from ouranos.aggregator.events import GaiaEvents
+from ouranos.aggregator.sky_watcher import SkyWatcher
 from ouranos.core.database.models.gaia import (
     ActuatorRecord, ActuatorState, Chaos, Ecosystem, Engine,
     EnvironmentParameter, Hardware, NycthemeralCycle, Place, SensorAlarm,
@@ -743,6 +745,47 @@ async def test_turn_actuator(
     wrong_payload = {}
     with pytest.raises(Exception):
         await events_handler.turn_actuator(g_data.engine_sid, wrong_payload)
+
+
+@pytest.mark.asyncio
+async def test_update_service(
+        mock_dispatcher: MockAsyncDispatcher,
+        events_handler: GaiaEvents,
+        ecosystem_aware_db: AsyncSQLAlchemyWrapper,
+        sky_watcher: SkyWatcher,
+):
+    # Assert the sky watcher is not started
+    assert events_handler.aggregator.sky_watcher is sky_watcher
+    assert sky_watcher.started is False
+
+    # Test updating weather service (valid service)
+    await events_handler.update_service(
+        sid=g_data.engine_sid,
+        data={"name": "weather", "status": True},
+    )
+
+    # Verify the sky watcher was started
+    assert sky_watcher.started is True
+
+    # Test updating with an invalid service name
+    with patch.object(events_handler.logger, 'error') as mock_error:
+        await events_handler.update_service(
+            sid=g_data.engine_sid,
+            data={"name": "wrong_service", "status": True},
+        )
+        # Verify error was logged for invalid service
+        mock_error.assert_called_once_with(
+            "Received an update for service 'wrong_service', but only the "
+            "weather service is supported."
+        )
+
+    # Test stopping the weather service
+    await events_handler.update_service(
+        sid=g_data.engine_sid,
+        data={"name": "weather", "status": False},
+    )
+    # Verify the sky watcher was stopped
+    assert events_handler.aggregator.sky_watcher.started is False
 
 
 @pytest.mark.asyncio

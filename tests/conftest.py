@@ -30,6 +30,9 @@ def config(tmp_path_factory):
     Config.MAIL_USERNAME = admin.username
     Config.MAIL_PASSWORD = admin.password
 
+    Config.HOME_COORDINATES = (42, 0)
+    Config.OPEN_WEATHER_MAP_API_KEY = "key"
+
     config = setup_config(Config)
     _db.init(config)
     yield config

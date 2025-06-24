@@ -63,7 +63,9 @@ def mock_aggregator():
 def sky_watcher(mock_aggregator):
     sky_watcher = SkyWatcher()
     mock_aggregator.sky_watcher = sky_watcher
-    return sky_watcher
+    yield sky_watcher
+    if sky_watcher.started:
+        sky_watcher.stop()
 
 
 @pytest.fixture(scope="module")
