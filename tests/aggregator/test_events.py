@@ -170,7 +170,7 @@ async def test_on_base_info(
     emitted = mock_dispatcher.emit_store[0]
     assert emitted["event"] == "ecosystem_status"
     assert emitted["data"] == [
-        {"status": g_data.base_info["status"], 'uid': g_data.base_info["uid"]}
+        {"status": g_data.base_info["status"], "uid": g_data.base_info["uid"]}
     ]
     assert emitted["namespace"] == "application-internal"
 
@@ -422,11 +422,11 @@ async def test_on_sensors_data(
     emitted = mock_dispatcher.emit_store[0]
     assert emitted["event"] == "current_sensors_data"
     assert emitted["data"] == [{
-        'ecosystem_uid': g_data.sensors_data_payload["uid"],
-        'sensor_uid': g_data.sensor_record.sensor_uid,
-        'measure': g_data.sensor_record.measure,
-        'timestamp': g_data.sensors_data["timestamp"],
-        'value': g_data.sensor_record.value
+        "ecosystem_uid": g_data.sensors_data_payload["uid"],
+        "sensor_uid": g_data.sensor_record.sensor_uid,
+        "measure": g_data.sensor_record.measure,
+        "timestamp": g_data.sensors_data["timestamp"],
+        "value": g_data.sensor_record.value
     }]
     assert emitted["namespace"] == "application-internal"
 
@@ -769,7 +769,7 @@ async def test_update_service(
     assert sky_watcher.started is True
 
     # Test updating with an invalid service name
-    with patch.object(events_handler.logger, 'error') as mock_error:
+    with patch.object(events_handler.logger, "error") as mock_error:
         await events_handler.update_service(
             sid=g_data.engine_sid,
             data={"name": "wrong_service", "status": True},
