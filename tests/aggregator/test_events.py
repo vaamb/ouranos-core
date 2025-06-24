@@ -35,6 +35,14 @@ def test_handler(
         mock_dispatcher: MockAsyncDispatcher,
         events_handler: GaiaEvents
 ):
+    """Test the basic initialization and properties of the GaiaEvents handler.
+    
+    Verifies that:
+    - The handler is properly initialized with the provided dispatcher
+    - The namespace is correctly set to "gaia"
+    - The internal and stream dispatchers are properly initialized
+    - The camera directory is correctly set up
+    """
     # Test basic initialization
     assert events_handler._dispatcher == mock_dispatcher
     assert events_handler.namespace == "gaia"
@@ -56,6 +64,12 @@ async def test_registration_wrapper(
         events_handler: GaiaEvents,
         ecosystem_aware_db: AsyncSQLAlchemyWrapper  # noqa
 ):
+    """Test the registration wrapper functionality.
+    
+    Verifies that:
+    - The handler properly processes engine pings
+    - Proper error is raised when session is not registered
+    """
     payload: gv.EnginePingPayloadDict = {
         "engine_uid": g_data.engine_uid,
         "timestamp": datetime.now(timezone.utc),
@@ -78,6 +92,11 @@ async def test_on_connect(
         mock_dispatcher: MockAsyncDispatcher,
         events_handler: GaiaEvents
 ):
+    """Test the on_connect event handler.
+    
+    Verifies that:
+    - A register event is emitted with the correct parameters
+    """
     await events_handler.on_connect(g_data.engine_sid, "")
     emitted = mock_dispatcher.emit_store[0]
     assert emitted["event"] == "register"
@@ -90,6 +109,13 @@ async def test_on_disconnect(
         events_handler: GaiaEvents,
         engine_aware_db: AsyncSQLAlchemyWrapper  # noqa
 ):
+    """Test the on_disconnect event handler.
+    
+    Verifies that:
+    - The session is properly cleaned up
+    - Ecosystem status is updated to disconnected
+    - Correct event is emitted with the updated status
+    """
     await events_handler.on_disconnect(g_data.engine_sid)
 
     assert mock_dispatcher._sessions[g_data.engine_sid] == {}
@@ -106,6 +132,14 @@ async def test_on_register_engine(
         events_handler: GaiaEvents,
         naive_db: AsyncSQLAlchemyWrapper,
 ):
+    """Test the engine registration process.
+    
+    Verifies that:
+    - Registration acknowledgment is sent back to the engine
+    - Engine information is stored in the session
+    - Engine details are saved to the database
+    - Invalid payloads raise appropriate exceptions
+    """
     payload = gv.EnginePayload(
         engine_uid=g_data.engine_uid,
         address=g_data.ip_address
@@ -133,6 +167,12 @@ async def test_on_ping(
         events_handler: GaiaEvents,
         ecosystem_aware_db: AsyncSQLAlchemyWrapper,
 ):
+    """Test the ping handler for engine heartbeats.
+    
+    Verifies that:
+    - The engine's last_seen timestamp is updated on ping
+    - The ecosystem status is properly processed
+    """
     async with ecosystem_aware_db.scoped_session() as session:
         engine = await Engine.get(session, uid=g_data.engine_uid)
         start = copy(engine.last_seen)
@@ -158,6 +198,14 @@ async def test_on_base_info(
         events_handler: GaiaEvents,
         naive_db: AsyncSQLAlchemyWrapper,
 ):
+    """Test handling of ecosystem base information.
+    
+    Verifies that:
+    - Ecosystem status event is emitted with correct data
+    - Session init_data is properly cleared
+    - Ecosystem data is correctly saved to the database
+    - Invalid payloads raise appropriate exceptions
+    """
     # Set up the session with init_data
     async with events_handler.session(g_data.engine_sid) as session:
         session["init_data"] = {"base_info"}
@@ -197,6 +245,14 @@ async def test_on_management(
         events_handler: GaiaEvents,
         ecosystem_aware_db: AsyncSQLAlchemyWrapper,
 ):
+    """Test handling of ecosystem management settings.
+    
+    Verifies that:
+    - Management event is emitted with correct data
+    - Session init_data is properly cleared
+    - Management flags are correctly calculated and stored
+    - Invalid payloads raise appropriate exceptions
+    """
     # Set up the session with init_data
     async with events_handler.session(g_data.engine_sid) as session:
         session["init_data"] = {"management"}
@@ -234,13 +290,22 @@ async def test_on_management(
         await events_handler.on_management(g_data.engine_sid, [{}])
 
 
-# Deprecated
 @pytest.mark.asyncio
+@pytest.mark.deprecated
 async def test_on_environmental_parameters(
         mock_dispatcher: MockAsyncDispatcher,
         events_handler: GaiaEvents,
         ecosystem_aware_db: AsyncSQLAlchemyWrapper,
 ):
+    """[Deprecated] Test handling of environmental parameters.
+    
+    Note: This test is for backward compatibility and may be removed in future versions.
+    
+    Verifies that:
+    - Nycthemeral cycle data is correctly processed
+    - Climate parameters are properly stored
+    - Invalid payloads raise appropriate exceptions
+    """
     await events_handler.on_environmental_parameters(
         g_data.engine_sid, [g_data.environmental_payload])
 
@@ -265,6 +330,14 @@ async def test_on_chaos_parameters(
         events_handler: GaiaEvents,
         ecosystem_aware_db: AsyncSQLAlchemyWrapper,
 ):
+    """Test handling of chaos parameters for an ecosystem.
+    
+    Verifies that:
+    - Chaos parameters event is emitted with correct data
+    - Session init_data is properly cleared
+    - Chaos parameters are correctly stored in the database
+    - Invalid payloads raise appropriate exceptions
+    """
     # Set up the session with init_data
     async with events_handler.session(g_data.engine_sid) as session:
         session["init_data"] = {"chaos_parameters"}
@@ -305,6 +378,15 @@ async def test_on_nycthemeral_info(
         events_handler: GaiaEvents,
         ecosystem_aware_db: AsyncSQLAlchemyWrapper,
 ):
+    """Test handling of nycthemeral (day/night cycle) information.
+    
+    Verifies that:
+    - Nycthemeral info event is emitted with correct data
+    - Session init_data is properly cleared
+    - Lighting cycle data is correctly stored in the database
+    - Target lighting settings are properly handled
+    - Invalid payloads raise appropriate exceptions
+    """
     # Set up the session with init_data
     async with events_handler.session(g_data.engine_sid) as session:
         session["init_data"] = {"nycthemeral_info"}
@@ -347,6 +429,14 @@ async def test_on_climate(
         events_handler: GaiaEvents,
         ecosystem_aware_db: AsyncSQLAlchemyWrapper,
 ):
+    """Test handling of climate control parameters.
+    
+    Verifies that:
+    - Session init_data is properly cleared
+    - Climate parameters are correctly stored in the database
+    - No events are emitted (as per design)
+    - Invalid payloads raise appropriate exceptions
+    """
     # Set up the session with init_data
     async with events_handler.session(g_data.engine_sid) as session:
         session["init_data"] = {"climate"}
@@ -380,6 +470,15 @@ async def test_on_hardware(
         events_handler: GaiaEvents,
         ecosystem_aware_db: AsyncSQLAlchemyWrapper,
 ):
+    """Test handling of hardware information.
+    
+    Verifies that:
+    - Session init_data is properly cleared
+    - Hardware details are correctly stored in the database
+    - Hardware measures are properly associated
+    - No events are emitted (as per design)
+    - Invalid payloads raise appropriate exceptions
+    """
     # Set up the session with init_data
     async with events_handler.session(g_data.engine_sid) as session:
         session["init_data"] = {"hardware"}
@@ -418,6 +517,15 @@ async def test_on_sensors_data(
         events_handler: GaiaEvents,
         ecosystem_aware_db: AsyncSQLAlchemyWrapper,
 ):
+    """Test handling of real-time sensor data.
+    
+    Verifies that:
+    - Current sensor data event is emitted with correct data
+    - Sensor data is properly cached
+    - Alarms are processed and stored
+    - Data is properly formatted in the emitted event
+    - Invalid payloads raise appropriate exceptions
+    """
     await events_handler.on_sensors_data(g_data.engine_sid, [g_data.sensors_data_payload])
     emitted = mock_dispatcher.emit_store[0]
     assert emitted["event"] == "current_sensors_data"
@@ -457,6 +565,14 @@ async def test_log_sensors_data(
         events_handler: GaiaEvents,
         ecosystem_aware_db: AsyncSQLAlchemyWrapper,
 ):
+    """Test logging of sensor data to persistent storage.
+    
+    Verifies that:
+    - Cached sensor data is properly logged to the database
+    - Alarm data is properly associated with sensor readings
+    - Timestamps are correctly preserved
+    - Data integrity is maintained during the logging process
+    """
     # Cache new data (rely on `test_on_sensors_data`)
     # Clear sensor data cache, then populate it without calling the sensors data event, then continue
     await events_handler.on_sensors_data(g_data.engine_sid, [g_data.sensors_data_payload])
@@ -502,6 +618,13 @@ async def test_on_places_list(
         events_handler: GaiaEvents,
         engine_aware_db: AsyncSQLAlchemyWrapper,
 ):
+    """Test handling of place information.
+    
+    Verifies that:
+    - Place information is correctly stored in the database
+    - Geographic coordinates are properly saved
+    - Place data is associated with the correct engine
+    """
     await events_handler.on_places_list(
         g_data.engine_sid, g_data.places_payload)
 
@@ -521,6 +644,15 @@ async def test_on_buffered_sensors_data(
         events_handler: GaiaEvents,
         ecosystem_aware_db: AsyncSQLAlchemyWrapper,
 ):
+    """Test handling of buffered sensor data batches.
+    
+    Verifies that:
+    - Buffered sensor data is properly processed
+    - Acknowledgment is sent back to the sender
+    - Data is correctly stored in the database
+    - Duplicate data handling works as expected
+    - Invalid payloads raise appropriate exceptions
+    """
     await events_handler.on_buffered_sensors_data(
         g_data.engine_sid, g_data.buffered_data_payload)
     emitted = mock_dispatcher.emit_store[0]
@@ -576,6 +708,15 @@ async def test_on_actuators_data(
         events_handler: GaiaEvents,
         ecosystem_aware_db: AsyncSQLAlchemyWrapper,
 ):
+    """Test handling of real-time actuator data.
+    
+    Verifies that:
+    - Actuator data event is emitted with correct data
+    - Session init_data is properly cleared
+    - Actuator states are correctly stored
+    - Multiple actuator types are handled properly
+    - Invalid payloads raise appropriate exceptions
+    """
     # Set up the session with init_data
     async with events_handler.session(g_data.engine_sid) as session:
         session["init_data"] = {"actuators_data"}
@@ -617,6 +758,15 @@ async def test_on_buffered_actuators_data(
         events_handler: GaiaEvents,
         ecosystem_aware_db: AsyncSQLAlchemyWrapper,
 ):
+    """Test handling of buffered actuator data batches.
+    
+    Verifies that:
+    - Buffered actuator data is properly processed
+    - Acknowledgment is sent back to the sender
+    - Actuator states are correctly stored in the database
+    - Different actuator modes and statuses are handled
+    - Invalid payloads raise appropriate exceptions
+    """
     # Create test data for buffered actuators
     now = datetime.now(timezone.utc)
     buffered_actuator_data = gv.BufferedActuatorsStatePayloadDict(
@@ -676,6 +826,14 @@ async def test_on_health_data(
         events_handler: GaiaEvents,
         ecosystem_aware_db: AsyncSQLAlchemyWrapper,
 ):
+    """Test handling of ecosystem health data.
+    
+    Verifies that:
+    - Health data is properly stored in the database
+    - Sensor readings are correctly associated with ecosystems
+    - Timestamps and values are preserved
+    - Invalid payloads raise appropriate exceptions
+    """
     await events_handler.on_health_data(
         g_data.engine_sid, [g_data.health_data_payload])
 
@@ -700,6 +858,14 @@ async def test_on_light_data(
         events_handler: GaiaEvents,
         ecosystem_aware_db: AsyncSQLAlchemyWrapper,
 ):
+    """Test handling of lighting schedule data.
+    
+    Verifies that:
+    - Lighting schedule is correctly stored in the database
+    - Morning and evening time windows are properly saved
+    - Data is associated with the correct ecosystem
+    - Invalid payloads raise appropriate exceptions
+    """
     await events_handler.on_light_data(g_data.engine_sid, [g_data.light_data_payload])
 
     async with ecosystem_aware_db.scoped_session() as session:
@@ -719,6 +885,13 @@ async def test_turn_light(
         mock_dispatcher: MockAsyncDispatcher,
         events_handler: GaiaEvents
 ):
+    """Test the turn_light command handler.
+    
+    Verifies that:
+    - The turn_actuator event is emitted with correct parameters
+    - Payload is properly validated and formatted
+    - The event is emitted to the correct namespace
+    """
     await events_handler.turn_light(g_data.engine_sid, g_data.turn_actuator_payload)
     validated_data = gv.TurnActuatorPayload(**g_data.turn_actuator_payload).model_dump()
     emitted = mock_dispatcher.emit_store[0]
@@ -736,6 +909,14 @@ async def test_turn_actuator(
         mock_dispatcher: MockAsyncDispatcher,
         events_handler: GaiaEvents
 ):
+    """Test the generic turn_actuator command handler.
+    
+    Verifies that:
+    - The turn_actuator event is emitted with correct parameters
+    - Different actuator types are handled correctly
+    - Payload validation works as expected
+    - The event is emitted to the correct namespace
+    """
     await events_handler.turn_actuator(g_data.engine_sid, g_data.turn_actuator_payload)
     validated_data = gv.TurnActuatorPayload(**g_data.turn_actuator_payload).model_dump()
     emitted = mock_dispatcher.emit_store[0]
@@ -755,6 +936,15 @@ async def test_update_service(
         ecosystem_aware_db: AsyncSQLAlchemyWrapper,
         sky_watcher: SkyWatcher,
 ):
+    """Test the service update functionality.
+    
+    Verifies that:
+    - Service updates are properly processed
+    - SkyWatcher is notified of the update
+    - Database is updated with the new service information
+    - Appropriate events are emitted
+    - Error conditions are handled gracefully
+    """
     # Assert the sky watcher is not started
     assert events_handler.aggregator.sky_watcher is sky_watcher
     assert sky_watcher.started is False
