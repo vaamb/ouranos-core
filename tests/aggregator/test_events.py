@@ -6,6 +6,7 @@ from datetime import datetime,timedelta, timezone
 import os
 from pathlib import Path
 from unittest.mock import patch
+from uuid import UUID
 
 import numpy as np
 import pytest
@@ -20,7 +21,7 @@ from ouranos import current_app
 from ouranos.aggregator.events import GaiaEvents
 from ouranos.aggregator.sky_watcher import SkyWatcher
 from ouranos.core.database.models.gaia import (
-    ActuatorRecord, ActuatorState, Chaos, Ecosystem, Engine,
+    ActuatorRecord, ActuatorState, Chaos, CrudRequest, Ecosystem, Engine,
     EnvironmentParameter, Hardware, NycthemeralCycle, Place, SensorAlarm,
     SensorDataCache, SensorDataRecord)
 from ouranos.core.exceptions import NotRegisteredError
@@ -786,6 +787,60 @@ async def test_update_service(
     )
     # Verify the sky watcher was stopped
     assert events_handler.aggregator.sky_watcher.started is False
+
+
+@pytest.mark.asyncio
+async def test_on_crud_result(
+        mock_dispatcher: MockAsyncDispatcher,
+        events_handler: GaiaEvents,
+        ecosystem_aware_db: AsyncSQLAlchemyWrapper,
+):
+    """Test the handling of CRUD operation results.
+    
+    Verifies that the on_crud_result method correctly processes and stores the result
+    of a CRUD operation by:
+    1. Creating a test CRUD request in the database
+    2. Simulating a CRUD result with a success status and message
+    3. Verifying the CRUD request is updated with the provided status and message
+    4. Cleaning up the test data
+    """
+    # Setup: Create a test CRUD request in the database
+    test_uuid = UUID("12345678-1234-5678-1234-567812345678")
+    test_status = "success"
+    test_message = "Operation completed successfully"
+    
+    # Create a test CRUD request
+    async with ecosystem_aware_db.scoped_session() as session:
+        await CrudRequest.create(
+            session,
+            uuid=test_uuid,
+            values={
+                "engine_uid": g_data.engine_uid,
+                "ecosystem_uid": g_data.ecosystem_uid,
+                "action": "create",
+                "target": "hardware",
+                "payload": "{}",
+            },
+        )
+        await session.commit()
+
+    # Call the method with test data
+    test_data = {
+        "uuid": str(test_uuid),
+        "status": test_status,
+        "message": test_message,
+    }
+    await events_handler.on_crud_result(g_data.engine_sid, test_data)
+    
+    # Verify the CRUD request was updated
+    async with ecosystem_aware_db.scoped_session() as session:
+        updated_request = await CrudRequest.get(session, uuid=test_uuid)
+        assert updated_request.result == test_status
+        assert updated_request.message == test_message
+        
+        # Cleanup
+        await session.delete(updated_request)
+        await session.commit()
 
 
 @pytest.mark.asyncio
