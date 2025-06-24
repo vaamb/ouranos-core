@@ -279,9 +279,7 @@ class SkyWatcher:
             "cron", hour="0", minute="1", misfire_grace_time=15 * 60,
             id="sky_watcher-suntimes",
         )
-        x = 1
         await asyncio.gather(*tasks)
-        x = 1
         self._started = True
 
     async def stop(self) -> None:
