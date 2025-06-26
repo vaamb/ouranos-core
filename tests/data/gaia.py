@@ -64,6 +64,7 @@ base_info_payload: gv.BaseInfoConfigPayloadDict = \
 management_data: gv.ManagementConfigDict = {
     "sensors": True,
     "light": True,
+    "camera": True,
     "climate": True,
     "watering": False,
     "health": False,

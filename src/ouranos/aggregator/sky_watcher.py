@@ -60,12 +60,16 @@ class WeatherDataCurrent(BaseModel):
     def parse_summary(cls, value):
         if not value:
             return None
+        if isinstance(value, str):
+            return value
         return value[0]["description"]
 
     @field_validator("icon", mode="before")
     def parse_icon(cls, value):
         if not value:
             return None
+        if isinstance(value, str):
+            return value
         return value[0]["icon"]
 
 
@@ -81,18 +85,24 @@ class WeatherDataDay(WeatherDataHour):
     def parse_temperature(cls, value):
         if not value:
             return None
+        if isinstance(value, float):
+            return value
         return value["day"]
 
     @field_validator("temperature_min", mode="before")
     def parse_temperature_min(cls, value):
         if not value:
             return None
+        if isinstance(value, float):
+            return value
         return value["min"]
 
     @field_validator("temperature_max", mode="before")
     def parse_temperature_max(cls, value):
         if not value:
             return None
+        if isinstance(value, float):
+            return value
         return value["max"]
 
 
@@ -118,6 +128,32 @@ async def get_weather_data(coordinates: gv.Coordinates, api_key: str) -> Weather
                 return WeatherData.model_validate(raw_data)
     except (ClientError, asyncio.TimeoutError) as e:
         raise ConnectionError from e
+
+
+async def get_weather_test_data(coordinates: gv.Coordinates, api_key: str) -> WeatherData:
+    base = {
+        "timestamp": datetime.now(),
+        "temperature": 25.0,
+        "humidity": 60.0,
+        "dew_point": 10.3,
+        "wind_speed": 25.8,
+        "cloud_cover": 82.0,
+        "summary": "Cloudy",
+        "icon": "02d",
+    }
+    return WeatherData(**{
+        "current": base,
+        "hourly": [{
+            **base,
+            "precipitation_probability": 20.0,
+        }],
+        "daily": [{
+            **base,
+            "precipitation_probability": 80.0,
+            "temperature_min": 21.0,
+            "temperature_max": 42.0,
+        }],
+    })
 
 
 # -------------------------------------------------------------------------------
@@ -176,6 +212,8 @@ class SkyWatcher:
                 "in the config class in order to update the weather forecast.")
             return
         try:
+            if current_app.config["TESTING"]:
+                get_weather_data = get_weather_test_data
             weather_data = await get_weather_data(self._coordinates, self._API_key)
         except ConnectionError:
             self.logger.error(
@@ -248,8 +286,9 @@ class SkyWatcher:
         if not self.started:
             raise RuntimeError("SkyWatcher is not started")
         self.logger.debug("Stopping SkyWatcher")
-        if scheduler.get_job("weather"):
+        await self._aio_cache.clear()
+        if scheduler.get_job("sky_watcher-weather"):
             scheduler.remove_job("sky_watcher-weather")
-        if scheduler.get_job("suntimes"):
+        if scheduler.get_job("sky_watcher-sun_times"):
             scheduler.remove_job("sky_watcher-sun_times")
         self._started = False

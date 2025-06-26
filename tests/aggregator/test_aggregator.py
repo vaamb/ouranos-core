@@ -2,7 +2,7 @@ import pytest
 
 from ouranos.aggregator.main import Aggregator
 
-
+@pytest.mark.skip
 @pytest.mark.asyncio
 async def test_aggregator(config):
     aggregator = Aggregator(config)

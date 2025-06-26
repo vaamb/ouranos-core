@@ -63,7 +63,9 @@ def mock_aggregator():
 def sky_watcher(mock_aggregator):
     sky_watcher = SkyWatcher()
     mock_aggregator.sky_watcher = sky_watcher
-    return sky_watcher
+    yield sky_watcher
+    if sky_watcher.started:
+        sky_watcher.stop()
 
 
 @pytest.fixture(scope="module")
@@ -77,6 +79,7 @@ def events_handler_module(mock_aggregator, mock_dispatcher: MockAsyncDispatcher)
     events_handler = GaiaEvents(mock_aggregator)  # noqa
     mock_aggregator.event_handler = events_handler
     events_handler.internal_dispatcher = mock_dispatcher
+    events_handler.stream_dispatcher = mock_dispatcher
     mock_dispatcher.register_event_handler(events_handler)
     return events_handler
 
@@ -88,10 +91,7 @@ def events_handler(
 ):
     mock_dispatcher._sessions[g_data.engine_sid] = {
         "engine_uid": g_data.engine_uid,
-        "init_data": {
-            "base_info", "environmental_parameters", "hardware", "management",
-            "actuator_data", "light_data",
-        }
+        "init_data": set()
     }
     yield events_handler_module
     mock_dispatcher.clear_store()

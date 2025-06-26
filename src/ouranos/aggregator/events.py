@@ -410,8 +410,9 @@ class GaiaEvents(AsyncEventHandler):
             data: list[gv.EnvironmentConfigPayloadDict],
             engine_uid: str
     ) -> None:
-        self.logger.debug(
-            f"Received 'environmental_parameters' from engine: {engine_uid}")
+        self.logger.warning(
+            f"Received deprecated 'environmental_parameters' event from engine: "
+            f"{engine_uid}")
         async with self.session(sid) as session:
             session["init_data"].discard("environmental_parameters")
         ecosystems_to_log: list[str] = []
@@ -493,7 +494,7 @@ class GaiaEvents(AsyncEventHandler):
             engine_uid: str
     ) -> None:
         self.logger.debug(
-            f"Received 'nycthemeral_cycle' from engine: {engine_uid}")
+            f"Received 'nycthemeral_info' from engine: {engine_uid}")
         async with self.session(sid) as session:
             session["init_data"].discard("nycthemeral_info")
         ecosystems_to_log: list[str] = []
@@ -1059,13 +1060,13 @@ class GaiaEvents(AsyncEventHandler):
         if data["status"]:
             self.logger.info("Received a request to start the sky watcher.")
             if not self.aggregator.sky_watcher.started:
-                await self.aggregator.sky_watcher.startup()
+                await self.aggregator.sky_watcher.start()
             else:
                 self.logger.info("Sky watcher is already running.")
         else:
             self.logger.info("Received a request to stop the sky watcher.")
             if self.aggregator.sky_watcher.started:
-                await self.aggregator.sky_watcher.shutdown()
+                await self.aggregator.sky_watcher.stop()
             else:
                 self.logger.info("Sky watcher is not running.")
 
