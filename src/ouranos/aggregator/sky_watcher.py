@@ -213,8 +213,10 @@ class SkyWatcher:
             return
         try:
             if current_app.config["TESTING"]:
-                get_weather_data = get_weather_test_data
-            weather_data = await get_weather_data(self._coordinates, self._API_key)
+                get_weather_data_imp = get_weather_test_data
+            else:
+                get_weather_data_imp = get_weather_data
+            weather_data = await get_weather_data_imp(self._coordinates, self._API_key)
         except ConnectionError:
             self.logger.error(
                 "Ouranos is not connected to the internet, could not update "
