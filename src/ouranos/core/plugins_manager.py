@@ -71,20 +71,29 @@ class PluginManager:
             for plugin in self.iter_plugins(omit_excluded):
                 self.plugins[plugin.name] = plugin
 
+    def get_plugin(self, plugin_name: str) -> Plugin | None:
+        return self.plugins.get(plugin_name)
+
     async def start_plugins(self) -> None:
         for plugin_name in self.plugins:
             await self.start_plugin(plugin_name)
 
     async def start_plugin(self, plugin_name: str) -> None:
-        self.plugins[plugin_name].setup_config(current_app.config)
-        await self.plugins[plugin_name].startup()
+        plugin = self.get_plugin(plugin_name)
+        if plugin is None:
+            raise ValueError(f"Plugin {plugin_name} not found")
+        plugin.setup_config(current_app.config)
+        await plugin.startup()
 
     async def stop_plugins(self) -> None:
         for plugin_name in self.plugins:
             await self.stop_plugin(plugin_name)
 
     async def stop_plugin(self, plugin_name: str) -> None:
-        await self.plugins[plugin_name].shutdown()
+        plugin = self.get_plugin(plugin_name)
+        if plugin is None:
+            raise ValueError(f"Plugin {plugin_name} not found")
+        await plugin.shutdown()
 
     def register_plugins_routes(
             self,
