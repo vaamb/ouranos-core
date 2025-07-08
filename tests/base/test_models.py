@@ -1,7 +1,9 @@
 import pytest
 from datetime import datetime, timezone
+from unittest.mock import patch
 from typing import Optional
 
+from cachetools import TTLCache
 from sqlalchemy import UniqueConstraint
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Mapped, mapped_column
@@ -10,6 +12,7 @@ from sqlalchemy.sql import desc, func
 from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
 from ouranos.core.database.models.abc import Base, CRUDMixin
+from ouranos.core.database.models.caching import CachedCRUDMixin, create_hashable_key
 from ouranos.core.database.models.types import UtcDateTime
 
 
@@ -41,6 +44,10 @@ class TestModelMultiKeys(Base, CRUDMixin):
             name="_uq_firstname_lastname"
         ),
     )
+
+
+class TestModelCached(TestModelSingleKey, CachedCRUDMixin):
+    _cache = TTLCache(maxsize=2, ttl=60)
 
 
 @pytest.mark.asyncio
@@ -315,3 +322,47 @@ class TestCRUDMixinMultiKeys:
                 firstname="charlie",
                 lastname="brown",
             ) is None
+
+
+@pytest.mark.asyncio
+class TestCachedCRUDMixin:
+    async def test_cache(self, db: AsyncSQLAlchemyWrapper):
+        async with db.scoped_session() as session:
+            # Create a new record
+            await TestModelCached.create(
+                session,
+                name="John",
+                values={"age": 30, "hobby": "coding"},
+            )
+            assert len(TestModelCached._cache) == 0
+
+            # Retrieve the record
+            obj = await TestModelCached.get(session, name="John")
+            assert obj is not None
+            assert obj.name == "John"
+
+            # Verify it has been cached
+            assert len(TestModelCached._cache) == 1
+            assert create_hashable_key(name="John") in TestModelCached._cache
+
+            # Verify no request is made
+            with patch.object(CRUDMixin, "get") as mock_get:
+                obj = await TestModelCached.get(session, name="John")
+                assert obj is not None
+                assert obj.name == "John"
+                assert mock_get.call_count == 0
+
+            # Verify that update resets the cache
+            await TestModelCached.update(
+                session,
+                name="John",
+                values={"age": 31},
+            )
+            assert len(TestModelCached._cache) == 0
+
+            # Recache the record
+            await TestModelCached.get(session, name="John")
+
+            # Verify that delete resets the cache
+            await TestModelCached.delete(session, name="John")
+            assert len(TestModelCached._cache) == 0
