@@ -797,6 +797,7 @@ class GaiaEvents(AsyncEventHandler):
                     namespace="/gaia",
                     to=sender_sid
                 )
+                raise
             else:
                 await self.emit(
                     "buffered_data_ack",
@@ -841,7 +842,12 @@ class GaiaEvents(AsyncEventHandler):
     ) -> None:
         self.logger.debug(
             f"Received 'buffered_sensors_data' from {engine_uid}")
-        await self._handle_buffered_sensors_data(sid, data)
+        try:
+            await self._handle_buffered_sensors_data(sid, data)
+        except Exception as e:
+            self.logger.error(
+                f"Encountered an error when trying to handle buffered sensors data."
+                f"Error msg: `{e.__class__.__name__}: {e}`")
 
     @registration_required
     @validate_payload(RootModel[list[gv.ActuatorsDataPayload]])
@@ -935,12 +941,17 @@ class GaiaEvents(AsyncEventHandler):
             }
             for record in data["data"]
         ]
-        await self._handle_buffered_records(
-            record_model=ActuatorRecord,
-            records=records,
-            exchange_uuid=exchange_uuid,
-            sender_sid=sid
-        )
+        try:
+            await self._handle_buffered_records(
+                record_model=ActuatorRecord,
+                records=records,
+                exchange_uuid=exchange_uuid,
+                sender_sid=sid
+            )
+        except Exception as e:
+            self.logger.error(
+                f"Encountered an error when trying to handle buffered actuators data."
+                f"Error msg: `{e.__class__.__name__}: {e}`")
 
     @registration_required
     @validate_payload(RootModel[list[gv.HealthDataPayload]])
@@ -1012,7 +1023,12 @@ class GaiaEvents(AsyncEventHandler):
     ) -> None:
         self.logger.debug(
             f"Received 'buffered_health_data' from {engine_uid}")
-        await self._handle_buffered_sensors_data(sid, data)
+        try:
+            await self._handle_buffered_sensors_data(sid, data)
+        except Exception as e:
+            self.logger.error(
+                f"Encountered an error when trying to handle buffered health data."
+                f"Error msg: `{e.__class__.__name__}: {e}`")
 
     @registration_required
     @validate_payload(RootModel[list[gv.LightDataPayload]])
