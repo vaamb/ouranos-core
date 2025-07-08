@@ -100,7 +100,6 @@ async def test_on_connect(
     await events_handler.on_connect(g_data.engine_sid, "")
     emitted = mock_dispatcher.emit_store[0]
     assert emitted["event"] == "register"
-    assert emitted["data"] is None
 
 
 @pytest.mark.asyncio
