@@ -331,38 +331,38 @@ class TestCachedCRUDMixin:
             # Create a new record
             await TestModelCached.create(
                 session,
-                name="John",
+                name="Eve",
                 values={"age": 30, "hobby": "coding"},
             )
             assert len(TestModelCached._cache) == 0
 
             # Retrieve the record
-            obj = await TestModelCached.get(session, name="John")
+            obj = await TestModelCached.get(session, name="Eve")
             assert obj is not None
-            assert obj.name == "John"
+            assert obj.name == "Eve"
 
             # Verify it has been cached
             assert len(TestModelCached._cache) == 1
-            assert create_hashable_key(name="John") in TestModelCached._cache
+            assert create_hashable_key(name="Eve") in TestModelCached._cache
 
             # Verify no request is made
             with patch.object(CRUDMixin, "get") as mock_get:
-                obj = await TestModelCached.get(session, name="John")
+                obj = await TestModelCached.get(session, name="Eve")
                 assert obj is not None
-                assert obj.name == "John"
+                assert obj.name == "Eve"
                 assert mock_get.call_count == 0
 
             # Verify that update resets the cache
             await TestModelCached.update(
                 session,
-                name="John",
+                name="Eve",
                 values={"age": 31},
             )
             assert len(TestModelCached._cache) == 0
 
             # Recache the record
-            await TestModelCached.get(session, name="John")
+            await TestModelCached.get(session, name="Eve")
 
             # Verify that delete resets the cache
-            await TestModelCached.delete(session, name="John")
+            await TestModelCached.delete(session, name="Eve")
             assert len(TestModelCached._cache) == 0
