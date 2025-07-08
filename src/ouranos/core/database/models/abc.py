@@ -93,9 +93,13 @@ class Base(db.Model, ToDictMixin):
 
                 def impl(stmt: Insert, action: str) -> Insert:
                     if action == "nothing":
-                        unique = cls._get_lookup_keys()[0]
+                        pk_cols = inspect(cls).primary_key
+                        if len(pk_cols) == 1:
+                            unique_col = pk_cols[0].name
+                        else:
+                            unique_col = "id" if hasattr(cls, "id") else cls._get_lookup_keys()[0]
                         stmt = stmt.on_duplicate_key_update(
-                            {unique: getattr(stmt.inserted, unique)},
+                            {unique_col: getattr(stmt.inserted, unique_col)},
                         )
                     elif action == "update":
                         stmt = stmt.on_duplicate_key_update(
