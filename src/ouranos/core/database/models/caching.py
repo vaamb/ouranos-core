@@ -260,6 +260,15 @@ def clearer_hash(
     return create_hashable_key(**lookup_keys)
 
 
+def clearer_hash_no_values(
+        cls: Type[Base],
+        session: AsyncSession,
+        /,
+        **lookup_keys,
+) -> tuple:
+    return create_hashable_key(**lookup_keys)
+
+
 class CachedCRUDMixin(CRUDMixin):
     _cache: MutableMapping
 
@@ -302,7 +311,7 @@ class CachedCRUDMixin(CRUDMixin):
         return await super().update(session, values=values, **lookup_keys)
 
     @classmethod
-    @clearing_method(key=clearer_hash)
+    @clearing_method(key=clearer_hash_no_values)
     async def delete(
             cls,
             session: AsyncSession,
