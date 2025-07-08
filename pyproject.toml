@@ -75,5 +75,9 @@ where = ["src"]
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "session"
 
+[tool.ruff]
+# In addition to the standard set of exclusions, omit all tests, plus a specific file.
+extend-exclude = ["tests/web_server/routes/test_routes.py"]
+
 [tool.ruff.lint]
 ignore = ["E402", "F401"]
