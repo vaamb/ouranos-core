@@ -552,7 +552,7 @@ async def test_on_sensors_data(
     assert alarm_data["level"] == g_data.alarm_record.level
 
     # Test new payload
-    new_payload = copy(g_data.sensors_data_payload)
+    new_payload = deepcopy(g_data.sensors_data_payload)
     new_payload["data"]["records"][0] = gv.SensorRecord(
         g_data.hardware_uid, g_data.measure_name, 21, None)
 
