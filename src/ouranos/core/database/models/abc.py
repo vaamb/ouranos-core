@@ -4,12 +4,13 @@ from abc import abstractmethod
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 import typing as t
-from typing import Callable, Literal, NamedTuple, Self, Sequence
+from typing import Callable, Literal, NamedTuple, Self, Sequence, TypeAlias
 from uuid import UUID
 from warnings import warn
 
 from sqlalchemy import (
-    and_, delete, Insert, inspect, Select, select, table, UnaryExpression, update)
+    and_, delete, Insert, inspect, Select, select, table, UnaryExpression,
+    UniqueConstraint, update)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped
 
@@ -19,7 +20,7 @@ from ouranos import db
 from ouranos.core.utils import timeWindow
 
 
-lookup_keys_type: str | Enum | UUID | bool
+lookup_keys_type: TypeAlias = str | Enum | UUID | bool
 
 
 class ToDictMixin:
@@ -42,11 +43,55 @@ class Base(db.Model, ToDictMixin):
     _insert: Callable[[table], Insert] | None = None
     _on_conflict_do: Callable[[Insert, str], Insert] | None = None
 
+    __lookup_keys: list[str] | None = None
+
     @classmethod
     def _get_lookup_keys(cls: Base) -> list[str]:
-        if cls._lookup_keys is None:
-            cls._lookup_keys = [column.name for column in inspect(cls).primary_key]
-        return cls._lookup_keys
+        if cls.__lookup_keys is None:
+            # Get the lookup keys
+            if cls._lookup_keys is None:
+                cls.__lookup_keys = [column.name for column in inspect(cls).primary_key]
+            else:
+                cls.__lookup_keys = cls._lookup_keys
+            # Make sure the lookup keys are valid columns
+            for lookup_key in cls.__lookup_keys:
+                if not hasattr(cls, lookup_key):
+                    raise ValueError(
+                        f"Lookup key {lookup_key} is not a column of {cls.__tablename__}"
+                    )
+            # Make sure there is a unique constraint on the lookup keys
+            if len(cls.__lookup_keys) == 0:
+                raise ValueError(
+                    f"Table {cls.__tablename__} has no lookup key"
+                )
+            elif len(cls.__lookup_keys) == 1:
+                # Get the unique constraint from the columns "unique" and "primary_key" args
+                columns = inspect(cls).columns
+                if not (
+                    cls.__lookup_keys[0] in [column.name for column in columns if column.primary_key]
+                    or cls.__lookup_keys[0] in [column.name for column in columns if column.unique]
+                ):
+                    raise ValueError(
+                        f"Table {cls.__tablename__} has no unique constraint on "
+                        f"the lookup key {cls.__lookup_keys[0]}"
+                    )
+            else:
+                # Get the first explicit unique constraint from __table_args__
+                unique: list[str] = []
+                if hasattr(cls, "__table_args__"):
+                    for arg in cls.__table_args__:
+                        if isinstance(arg, UniqueConstraint):
+                            unique.extend([column.name for column in arg.columns])
+                            break
+                if (
+                    not unique
+                    or not all(lookup_key in unique for lookup_key in cls.__lookup_keys)
+                ):
+                    raise ValueError(
+                        f"Table {cls.__tablename__} has no unique constraint on "
+                        f"the lookup keys {cls.__lookup_keys}"
+                    )
+        return cls.__lookup_keys
 
     @classmethod
     def _check_lookup_keys(cls: Base, *lookup_keys: str) -> None:
