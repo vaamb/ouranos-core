@@ -4,7 +4,7 @@ from abc import abstractmethod
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 import typing as t
-from typing import Callable, Literal, NamedTuple, Self, Sequence
+from typing import Callable, Literal, NamedTuple, Self, Sequence, TypeAlias
 from uuid import UUID
 from warnings import warn
 
@@ -20,7 +20,7 @@ from ouranos import db
 from ouranos.core.utils import timeWindow
 
 
-lookup_keys_type: str | Enum | UUID | bool
+lookup_keys_type: TypeAlias = str | Enum | UUID | bool
 
 
 class ToDictMixin:
