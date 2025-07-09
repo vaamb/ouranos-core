@@ -508,6 +508,12 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
 
 class ActuatorState(Base, CRUDMixin):
     __tablename__ = "actuator_states"
+    __table_args__ = (
+        UniqueConstraint(
+            "ecosystem_uid", "type",
+            name="uq_actuator_states_ecosystem_uid"
+        ),
+    )
 
     ecosystem_uid: Mapped[str] = mapped_column(sa.ForeignKey("ecosystems.uid"), primary_key=True)
     type: Mapped[gv.HardwareType] = mapped_column(primary_key=True)
@@ -594,6 +600,12 @@ class Chaos(Base, CRUDMixin):
 
 class EnvironmentParameter(Base, CRUDMixin):
     __tablename__ = "environment_parameters"
+    __table_args__ = (
+        UniqueConstraint(
+            "ecosystem_uid", "parameter",
+            name="uq_environment_parameters_ecosystem_uid"
+        ),
+    )
 
     ecosystem_uid: Mapped[str] = mapped_column(
         sa.String(length=8), sa.ForeignKey("ecosystems.uid"), primary_key=True)
@@ -936,7 +948,7 @@ class Measure(Base, CachedCRUDMixin):
     _cache = cache_measures
 
     id: Mapped[int] = mapped_column(primary_key=True)  # Use this as PK as the name might be changed
-    name: Mapped[str] = mapped_column(sa.String(length=32))
+    name: Mapped[str] = mapped_column(sa.String(length=32), unique=True)
     unit: Mapped[Optional[str]] = mapped_column(sa.String(length=32))
 
     # relationships
@@ -1471,6 +1483,12 @@ class CrudRequest(Base, CRUDMixin):
 # ---------------------------------------------------------------------------
 class CameraPicture(Base, CRUDMixin):
     __tablename__ = "camera_pictures_info"
+    __table_args__ = (
+        UniqueConstraint(
+            "ecosystem_uid", "camera_uid",
+            name="uq_camera_pictures_info",
+        ),
+    )
 
     ecosystem_uid: Mapped[str] = mapped_column(
         sa.String(length=8), sa.ForeignKey("ecosystems.uid"), primary_key=True)
