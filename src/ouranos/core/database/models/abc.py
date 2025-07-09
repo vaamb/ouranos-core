@@ -38,12 +38,43 @@ class ToDictMixin:
 class Base(db.Model, ToDictMixin):
     __abstract__ = True
 
-    _lookup_keys: list[str] | None = None
     _dialect: str | None = None
     _insert: Callable[[table], Insert] | None = None
-    _on_conflict_do: Callable[[Insert, str], Insert] | None = None
 
+    @classmethod
+    def _get_dialect(cls) -> str:
+        if cls._dialect is None:
+            table = db.Model.metadata.tables[cls.__tablename__]
+            bind_key = table.info.get("bind_key", None)
+            engine = db.get_engine_for_bind(bind_key)
+            cls._dialect = engine.dialect.name
+        return cls._dialect
+
+    @classmethod
+    def _get_insert(cls) -> Callable[[table], Insert]:
+        """Get a dialect-specific `insert`"""
+        if cls._insert is None:
+            dialect = cls._get_dialect()
+            if dialect in ["mariadb", "mysql"]:
+                from sqlalchemy.dialects.mysql import insert
+                cls._insert = insert
+            elif dialect == "postgresql":
+                from sqlalchemy.dialects.postgresql import insert
+                cls._insert = insert
+            elif dialect == "sqlite":
+                from sqlalchemy.dialects.sqlite import insert
+                cls._insert = insert
+            else:
+                from sqlalchemy import insert
+                cls._insert = insert
+        return cls._insert
+
+
+class CRUDMixin:
+    _lookup_keys: list[str] | None = None
     __lookup_keys: list[str] | None = None
+
+    _on_conflict_do: Callable[[Insert, str], Insert] | None = None
 
     @classmethod
     def _get_lookup_keys(cls: Base) -> list[str]:
@@ -98,34 +129,6 @@ class Base(db.Model, ToDictMixin):
         valid_lookup_keys = cls._get_lookup_keys()
         if not all(lookup_key in lookup_keys for lookup_key in valid_lookup_keys):
             raise ValueError("You should provide all the lookup keys")
-
-    @classmethod
-    def _get_dialect(cls) -> str:
-        if cls._dialect is None:
-            table = db.Model.metadata.tables[cls.__tablename__]
-            bind_key = table.info.get("bind_key", None)
-            engine = db.get_engine_for_bind(bind_key)
-            cls._dialect = engine.dialect.name
-        return cls._dialect
-
-    @classmethod
-    def _get_insert(cls) -> Callable[[table], Insert]:
-        """Get a dialect-specific `insert`"""
-        if cls._insert is None:
-            dialect = cls._get_dialect()
-            if dialect in ["mariadb", "mysql"]:
-                from sqlalchemy.dialects.mysql import insert
-                cls._insert = insert
-            elif dialect == "postgresql":
-                from sqlalchemy.dialects.postgresql import insert
-                cls._insert = insert
-            elif dialect == "sqlite":
-                from sqlalchemy.dialects.sqlite import insert
-                cls._insert = insert
-            else:
-                from sqlalchemy import insert
-                cls._insert = insert
-        return cls._insert
 
     @classmethod
     def _get_on_conflict_do(cls) -> Callable[[Insert, str], Insert]:
@@ -213,8 +216,6 @@ class Base(db.Model, ToDictMixin):
             cls._on_conflict_do = impl
         return cls._on_conflict_do
 
-
-class CRUDMixin:
     @classmethod
     async def create(
             cls: Base,
