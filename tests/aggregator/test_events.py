@@ -526,6 +526,7 @@ async def test_on_sensors_data(
     - Invalid payloads raise appropriate exceptions
     """
     await events_handler.on_sensors_data(g_data.engine_sid, [g_data.sensors_data_payload])
+
     emitted = mock_dispatcher.emit_store[0]
     assert emitted["event"] == "current_sensors_data"
     assert emitted["data"] == [{
@@ -550,10 +551,34 @@ async def test_on_sensors_data(
     assert alarm_data["delta"] == g_data.alarm_record.delta
     assert alarm_data["level"] == g_data.alarm_record.level
 
+    # Test new payload
+    new_payload = deepcopy(g_data.sensors_data_payload)
+    new_payload["data"]["records"][0] = gv.SensorRecord(
+        g_data.hardware_uid, g_data.measure_name, 21, None)
+
+    await events_handler.on_sensors_data(g_data.engine_sid, [new_payload])
+
+    emitted = mock_dispatcher.emit_store[1]
+    assert emitted["event"] == "current_sensors_data"
+    assert emitted["data"] == [{
+        "ecosystem_uid": g_data.sensors_data_payload["uid"],
+        "sensor_uid": g_data.sensor_record.sensor_uid,
+        "measure": g_data.sensor_record.measure,
+        "timestamp": g_data.sensors_data["timestamp"],
+        "value": 21
+    }]
+
+    # Verify the cache, it should have been updated
+    async with ecosystem_aware_db.scoped_session() as session:
+        sensor_data = (await SensorDataCache.get_recent(session))[0]
+        assert sensor_data.value == 21
+
+    # Test wrong payload
     wrong_payload = {}
     with pytest.raises(Exception):
         await events_handler.on_sensors_data(g_data.engine_sid, [wrong_payload])
 
+    # Clear the cache
     async with ecosystem_aware_db.scoped_session() as session:
         await SensorDataCache.clear(session)
 
