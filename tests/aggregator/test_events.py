@@ -652,8 +652,10 @@ async def test_on_buffered_sensors_data(
     - Duplicate data handling works as expected
     - Invalid payloads raise appropriate exceptions
     """
+    # Handle unique buffered data
     await events_handler.on_buffered_sensors_data(
         g_data.engine_sid, g_data.buffered_data_payload)
+
     emitted = mock_dispatcher.emit_store[0]
     assert emitted["namespace"] == "gaia"
     assert emitted["room"] == g_data.engine_sid
@@ -663,14 +665,12 @@ async def test_on_buffered_sensors_data(
     assert result["status"] == gv.Result.success
 
     async with ecosystem_aware_db.scoped_session() as session:
-        temperature_data = (
-            await SensorDataRecord.get_records(
-                session,
-                sensor_uid=g_data.hardware_uid,
-                measure="temperature",
-                time_window=create_time_window(
-                    end_time=datetime.now(timezone.utc) + timedelta(days=1))
-            )
+        temperature_data = await SensorDataRecord.get_records(
+            session,
+            sensor_uid=g_data.hardware_uid,
+            measure="temperature",
+            time_window=create_time_window(
+                end_time=datetime.now(timezone.utc) + timedelta(days=1))
         )
         assert len(temperature_data) == 1
         temperature_data = temperature_data[0]
@@ -682,19 +682,28 @@ async def test_on_buffered_sensors_data(
         assert temperature_data.value == g_data.buffered_data_temperature.value
         assert temperature_data.timestamp == g_data.buffered_data_temperature.timestamp
 
-    # TODO: fix as it currently doesn't fail but yet doesn't save duplicate
-    """
-    # Resend same data to have an integrity error
-    await events_handler.on_buffered_sensors_data(g_data.engine_sid, buffered_data_payload)
+    # Test duplicate data handling
+    await events_handler.on_buffered_sensors_data(
+        g_data.engine_sid, g_data.buffered_data_payload)
+
     emitted = mock_dispatcher.emit_store[0]
     assert emitted["namespace"] == "gaia"
     assert emitted["room"] == g_data.engine_sid
     assert emitted["event"] == "buffered_data_ack"
     result: gv.RequestResultDict = emitted["data"]
-    assert result["uuid"] == request_uuid
-    assert result["status"] == gv.Result.failure
-    assert "IntegrityError" in result["message"]
-    """
+    assert result["uuid"] == g_data.request_uuid
+    assert result["status"] == gv.Result.success
+
+    async with ecosystem_aware_db.scoped_session() as session:
+        temperature_data = await SensorDataRecord.get_records(
+            session,
+            sensor_uid=g_data.hardware_uid,
+            measure="temperature",
+            time_window=create_time_window(
+                end_time=datetime.now(timezone.utc) + timedelta(days=1))
+        )
+        # Make sure we only have one record for temperature
+        assert len(temperature_data) == 1
 
     wrong_payload = {}
     with pytest.raises(Exception):
