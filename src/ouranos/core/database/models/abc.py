@@ -4,15 +4,15 @@ from abc import abstractmethod
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 import typing as t
-from typing import Callable, Literal, NamedTuple, Self, Sequence, TypeAlias
+from typing import Callable, Literal, NamedTuple, Self, Sequence, Type, TypeAlias
 from uuid import UUID
 from warnings import warn
 
 from sqlalchemy import (
-    and_, delete, Insert, inspect, Select, select, table, UnaryExpression,
+    and_, Column, delete, Insert, inspect, Select, select, table, UnaryExpression,
     UniqueConstraint, update)
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Mapped
+from sqlalchemy.orm import Mapped, MappedColumn
 
 from gaia_validators import missing
 
@@ -79,49 +79,42 @@ class CRUDMixin:
     @classmethod
     def _get_lookup_keys(cls: Base) -> list[str]:
         if cls.__lookup_keys is None:
-            # Get the lookup keys
-            if cls._lookup_keys is None:
-                cls.__lookup_keys = [column.name for column in inspect(cls).primary_key]
+            # Get the columns with a unique constraint
+            # Try to get a unique constraint from the table args
+            unique: list[str] = []
+            if hasattr(cls, "__table_args__"):
+                for arg in cls.__table_args__:
+                    if isinstance(arg, UniqueConstraint):
+                        unique = [column.name for column in arg.columns]
+                        break
+            # Try to get a unique constraint from the columns "unique" and "primary_key" args
             else:
-                cls.__lookup_keys = cls._lookup_keys
-            # Make sure the lookup keys are valid columns
-            for lookup_key in cls.__lookup_keys:
-                if not hasattr(cls, lookup_key):
-                    raise ValueError(
-                        f"Lookup key {lookup_key} is not a column of {cls.__tablename__}"
-                    )
-            # Make sure there is a unique constraint on the lookup keys
-            if len(cls.__lookup_keys) == 0:
+                columns: list[Column] = inspect(cls).columns
+                unique = [column.name for column in columns if column.unique]
+                if not unique:
+                    unique = [column.name for column in columns if column.primary_key]
+            if not unique:
                 raise ValueError(
-                    f"Table {cls.__tablename__} has no lookup key"
+                    f"Table {cls.__tablename__} has no unique constraint"
                 )
-            elif len(cls.__lookup_keys) == 1:
-                # Get the unique constraint from the columns "unique" and "primary_key" args
-                columns = inspect(cls).columns
-                if not (
-                    cls.__lookup_keys[0] in [column.name for column in columns if column.primary_key]
-                    or cls.__lookup_keys[0] in [column.name for column in columns if column.unique]
-                ):
-                    raise ValueError(
-                        f"Table {cls.__tablename__} has no unique constraint on "
-                        f"the lookup key {cls.__lookup_keys[0]}"
-                    )
+
+            # If the lookup keys are not set, use the unique constraint
+            if not cls._lookup_keys:
+                cls.__lookup_keys = unique
+            # If the lookup keys are set, make sure they are valid
             else:
-                # Get the first explicit unique constraint from __table_args__
-                unique: list[str] = []
-                if hasattr(cls, "__table_args__"):
-                    for arg in cls.__table_args__:
-                        if isinstance(arg, UniqueConstraint):
-                            unique.extend([column.name for column in arg.columns])
-                            break
-                if (
-                    not unique
-                    or not all(lookup_key in unique for lookup_key in cls.__lookup_keys)
-                ):
+                # Make sure the lookup keys are valid columns
+                for lookup_key in cls._lookup_keys:
+                    if not hasattr(cls, lookup_key):
+                        raise ValueError(
+                            f"Lookup key {lookup_key} is not a column of {cls.__tablename__}"
+                        )
+                if not all(lookup_key in unique for lookup_key in cls._lookup_keys):
                     raise ValueError(
                         f"Table {cls.__tablename__} has no unique constraint on "
-                        f"the lookup keys {cls.__lookup_keys}"
+                        f"the lookup keys {cls._lookup_keys}"
                     )
+                cls.__lookup_keys = cls._lookup_keys
         return cls.__lookup_keys
 
     @classmethod
@@ -131,7 +124,9 @@ class CRUDMixin:
             raise ValueError("You should provide all the lookup keys")
 
     @classmethod
-    def _get_on_conflict_do(cls) -> Callable[[Insert, str], Insert]:
+    def _get_on_conflict_do(
+            cls: Type[Base] | Type[CRUDMixin],
+    ) -> Callable[[Insert, str], Insert]:
         if cls._on_conflict_do is None:
             dialect = cls._get_dialect()
 
@@ -141,13 +136,8 @@ class CRUDMixin:
 
                 def impl(stmt: Insert, action: str) -> Insert:
                     if action == "nothing":
-                        pk_cols = inspect(cls).primary_key
-                        if len(pk_cols) == 1:
-                            unique_col = pk_cols[0].name
-                        else:
-                            unique_col = "id" if hasattr(cls, "id") else cls._get_lookup_keys()[0]
                         stmt = stmt.on_duplicate_key_update(
-                            {unique_col: getattr(stmt.inserted, unique_col)},
+                            {cls._lookup_keys[0]: getattr(stmt.inserted, cls._lookup_keys[0])},
                         )
                     elif action == "update":
                         stmt = stmt.on_duplicate_key_update(
