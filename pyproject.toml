@@ -41,7 +41,7 @@ dependencies = [
     # From git
     "event-dispatcher @ git+https://github.com/vaamb/event-dispatcher.git@0.5.1",
     "gaia-validators @ git+https://github.com/vaamb/gaia-validators.git@0.7.0",
-    "sqlalchemy-wrapper @ git+https://github.com/vaamb/sqlalchemy-wrapper.git",
+    "sqlalchemy-wrapper @ git+https://github.com/vaamb/sqlalchemy-wrapper.git@0.3.0",
 ]
 
 [project.entry-points."ouranos.plugins"]
