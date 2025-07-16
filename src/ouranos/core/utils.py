@@ -82,8 +82,8 @@ def create_time_window(
     else:
         if window_length is None:
             raise ValueError(
-                f"Cannot create a time window without a start time or a window "
-                f"length."
+                "Cannot create a time window without a start time or a window "
+                "length."
             )
         start = end - timedelta(days=window_length)
     if start > end:

@@ -24,7 +24,8 @@ from gaia_validators import missing, safe_enum_from_name
 
 from ouranos import current_app
 from ouranos.core.config import consts
-from ouranos.core.database.models.abc import Base, CRUDMixin, ToDictMixin
+from ouranos.core.database.models.abc import (
+    Base, CRUDMixin, lookup_keys_type, ToDictMixin)
 from ouranos.core.database.models.caches import cache_users
 from ouranos.core.database.models.types import PathType, SQLIntEnum, UtcDateTime
 from ouranos.core.database.models.utils import paginate
@@ -41,9 +42,6 @@ class _UnfilledCls:
 
 
 _Unfilled = _UnfilledCls()
-
-
-lookup_keys_type: str | Enum | UUID | bool
 
 
 # ---------------------------------------------------------------------------
@@ -623,7 +621,6 @@ class User(Base, UserMixin):
             page: int = 0,
             per_page: int = 20,
     ) -> Sequence[Self]:
-        start_page: int = page * per_page
         stmt = (
             select(cls)
             .order_by(cls.username)
@@ -1349,7 +1346,7 @@ class WikiArticle(Base, WikiTagged, CRUDMixin, WikiObject):
 
     @property
     def content_name(self) -> str:
-        return f"content.md"
+        return "content.md"
 
     @property
     def content_path(self) -> ioPath:
@@ -1380,7 +1377,7 @@ class WikiArticle(Base, WikiTagged, CRUDMixin, WikiObject):
             session, article_id=self.id, limit=2,
             order_by=WikiArticleModification.version.desc())
         if len(modifications) == 1:
-            current_name = f"EMPTY"
+            current_name = "EMPTY"
             next_name = f"diff_{modifications[0].version:03}.md"
         elif len(modifications) == 2:
             current_name = f"diff_{modifications[1].version:03}.md"

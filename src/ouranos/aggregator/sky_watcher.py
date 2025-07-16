@@ -232,7 +232,6 @@ class SkyWatcher:
             self.logger.debug("Weather data updated")
 
             # Dispatch data
-            now = datetime.now()
             await self.dispatcher.emit(
                 "weather_current", data=weather_data_dict["current"],
                 namespace="application-internal")

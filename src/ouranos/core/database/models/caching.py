@@ -10,10 +10,9 @@ from uuid import UUID
 from cachetools import keys
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ouranos.core.database.models.abc import Base, CRUDMixin
+from ouranos.core.database.models.abc import Base, CRUDMixin, lookup_keys_type
 
 
-lookup_keys_type: str | Enum | UUID | bool
 _KT = TypeVar("_KT")
 
 

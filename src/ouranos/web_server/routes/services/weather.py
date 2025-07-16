@@ -71,7 +71,7 @@ async def get_current_forecast():
 
 
 @router.get("/forecast/hourly", response_model=list[HourlyWeatherInfo])
-async def get_current_forecast():
+async def get_hourly_forecast():
     await init_cache_if_needed()
     response = await sky_watcher_cache.get("weather_hourly", None)
     if response:
@@ -80,7 +80,7 @@ async def get_current_forecast():
 
 
 @router.get("/forecast/daily", response_model=list[DailyWeatherInfo])
-async def get_current_forecast():
+async def get_daily_forecast():
     await init_cache_if_needed()
     response = await sky_watcher_cache.get("weather_daily", None)
     if response:

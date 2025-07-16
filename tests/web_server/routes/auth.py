@@ -171,7 +171,7 @@ async def test_user_confirmation_token_expired(db: AsyncSQLAlchemyWrapper, clien
 
 
 @pytest.mark.asyncio
-async def test_user_confirmation_token_expired(db: AsyncSQLAlchemyWrapper, client: TestClient):
+async def test_user_confirmation_sucess(db: AsyncSQLAlchemyWrapper, client: TestClient):
     async with db.scoped_session() as session:
         user = await User.get_by(session, username=operator.username)
     assert user.confirmed_at is None

@@ -162,7 +162,7 @@ class Engine(Base, CachedCRUDMixin):
             if not all(isinstance(id_, lst_type) for id_ in engines_id[1:]):
                 raise ValueError(
                     "All the elements should either be engines 'uid' or 'sid'")
-        if lst_type == str:
+        if lst_type is str:
             # Received an engine uid
             stmt = select(cls).where(cls.uid.in_(engines_id))
         else:
@@ -762,8 +762,8 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
         uid = lookup_keys.get("uid") or values.get("uid", None)
         if uid is None:
             raise ValueError(
-                f"Provide 'uid' either as a parameter or as a key in the "
-                f"updated info")
+                "Provide 'uid' either as a parameter or as a key in the "
+                "updated info")
         measures = values.pop("measures", [])
         plants = values.pop("plants", [])
         await super().update(session, uid=uid, values=values)
