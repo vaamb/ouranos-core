@@ -391,7 +391,7 @@ async def test_delete_picture(
 
 @pytest.mark.asyncio
 async def test_get_articles(client: TestClient):
-    response = client.get(f"/api/app/services/wiki/articles")
+    response = client.get("/api/app/services/wiki/articles")
     assert response.status_code == 200
 
     data = json.loads(response.text)

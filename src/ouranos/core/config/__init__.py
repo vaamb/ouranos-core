@@ -5,7 +5,7 @@ import logging
 import os
 from pathlib import Path
 import sys
-from typing import Type, TypeVar
+from typing import Type, TypeAlias, TypeVar
 
 from ouranos import __version__ as version
 from ouranos.core.config import consts
@@ -22,7 +22,7 @@ class ImmutableDict(dict):
 
 
 ConfigDict = TypeVar("ConfigDict", bound=(BaseConfigDict | ImmutableDict))
-profile_type: ConfigDict | Type[BaseConfig] | str | None
+profile_type: TypeAlias = ConfigDict | Type[BaseConfig] | str | None
 
 
 app_info = {

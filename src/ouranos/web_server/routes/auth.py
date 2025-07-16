@@ -11,7 +11,7 @@ from gaia_validators import safe_enum_from_name
 
 from ouranos.core.config.consts import REGISTRATION_TOKEN_VALIDITY, TOKEN_SUBS
 from ouranos.core.database.models.app import (
-    anonymous_user, RoleName, User, UserMixin, UserTokenInfoDict)
+    RoleName, User, UserMixin, UserTokenInfoDict)
 from ouranos.web_server.auth import (
     Authenticator, basic_auth, check_token, get_current_user, get_session_info,
     is_admin, login_manager, refresh_session_cookie_expiration, SessionInfo)

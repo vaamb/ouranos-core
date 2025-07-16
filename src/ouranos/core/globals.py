@@ -15,7 +15,7 @@ from ouranos.core.database.base import CustomMeta, custom_metadata
 from ouranos.core.utils import json
 
 
-logger: Logger = getLogger(f"ouranos")
+logger: Logger = getLogger("ouranos")
 
 
 class _DynamicVar:

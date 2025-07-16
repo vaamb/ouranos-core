@@ -356,7 +356,7 @@ async def create_article(
                 "author_id": current_user.id,
             },
         )
-        return f"A new wiki article was successfully created."
+        return "A new wiki article was successfully created."
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -631,7 +631,7 @@ async def upload_picture(
                 "extension": file.filename.split(".")[1],
             },
         )
-        return f"A new wiki picture was successfully uploaded."
+        return "A new wiki picture was successfully uploaded."
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

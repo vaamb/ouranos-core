@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from functools import wraps
 import logging
 import typing as t
-from typing import Callable, cast, Type, TypedDict, TypeVar
+from typing import Callable, cast, Type, TypeAlias, TypedDict, TypeVar
 from uuid import UUID
 
 from anyio import Path as ioPath
@@ -36,7 +36,7 @@ if t.TYPE_CHECKING:
 
 PT = TypeVar("PT", dict, list[dict])
 
-data_type: dict | list | str | tuple | None
+data_type: TypeAlias = dict | list | str | tuple | None
 
 
 class SensorDataRecordDict(TypedDict):
@@ -192,9 +192,9 @@ class GaiaEvents(AsyncEventHandler):
             sid: UUID,
             environ: dict,
     ) -> None:
-        self.logger.info(f"Connected to the message broker.")
+        self.logger.info("Connected to the message broker.")
         await self.emit("register", ttl=5)
-        self.logger.info(f"Requesting connected 'Gaia' instances to register.")
+        self.logger.info("Requesting connected 'Gaia' instances to register.")
 
     async def on_disconnect(
             self,
@@ -505,7 +505,7 @@ class GaiaEvents(AsyncEventHandler):
                     await self.get_ecosystem_name(session, uid=uid))
                 nycthemeral_cycle = payload["data"]
                 # TODO: handle target
-                target = nycthemeral_cycle.pop("target")
+                target = nycthemeral_cycle.pop("target")  # noqa
                 await NycthemeralCycle.update_or_create(
                     session, ecosystem_uid=uid, values=nycthemeral_cycle)
 
@@ -689,7 +689,7 @@ class GaiaEvents(AsyncEventHandler):
         await self.internal_dispatcher.emit(
             "current_sensors_data", data=sensors_data,
             namespace="application-internal", ttl=15)
-        self.logger.debug(f"Sent `current_sensors_data` to the web API")
+        self.logger.debug("Sent `current_sensors_data` to the web API")
         # Log current data in memory DB
         async with db.scoped_session() as session:
             await SensorDataCache.insert_data(session, sensors_data)
@@ -760,7 +760,7 @@ class GaiaEvents(AsyncEventHandler):
             "historic_sensors_data_update", data=records_to_create,
             namespace="application-internal", ttl=15)
         self.logger.debug(
-            f"Sent `historic_sensors_data_update` to the web API")
+            "Sent `historic_sensors_data_update` to the web API")
 
         async with db.scoped_session() as session:
             # Log historic data in the DB

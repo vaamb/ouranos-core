@@ -74,3 +74,16 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "session"
+
+[tool.ruff]
+# In addition to the standard set of exclusions, omit all tests, plus a specific file.
+extend-exclude = ["tests/web_server/routes/test_routes.py"]
+
+[tool.ruff.lint]
+ignore = [
+    "E402",  # module level import not at top of file
+    "E711",  # comparison to None should be 'if cond is None:'  # Interferes with SQLAlchemy
+    "E712",  # comparison to True should be 'if cond is True:'  # Interferes with SQLAlchemy
+    "F401",  # unused import
+    "F403",  # undefined local with import star  # TODO: fix
+]

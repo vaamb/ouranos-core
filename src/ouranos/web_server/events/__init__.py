@@ -18,7 +18,7 @@ from ouranos.web_server.events.decorators import permission_required
 ADMIN_ROOM = "administrator"
 CAMERA_STREAM_ROOM = "camera_stream"
 
-logger: Logger = getLogger(f"aggregator.socketio")
+logger: Logger = getLogger("aggregator.socketio")
 
 
 class ClientEvents(AsyncNamespace):

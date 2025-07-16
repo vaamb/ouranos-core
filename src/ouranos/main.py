@@ -73,7 +73,7 @@ class Ouranos(Functionality):
         :param config: The configuration to provide as a `BaseConfigDict`.
         """
         super().__init__(config, **kwargs)
-        self.logger: Logger = getLogger(f"ouranos")
+        self.logger: Logger = getLogger("ouranos")
         self.plugin_manager = PluginManager()
         # Register all the plugins at the beginning as it allows to load all the
         #  models needed

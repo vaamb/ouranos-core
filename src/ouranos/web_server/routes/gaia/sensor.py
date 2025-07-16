@@ -93,7 +93,7 @@ async def get_ecosystem_sensors_skeleton(
 
 
 @router.get("/sensor/data/current", response_model=list[EcosystemSensorData])
-async def get_measures_available(
+async def get_current_data(
         *,
         ecosystems_id: Annotated[list[str] | None, Query(description=eids_desc)] = None,
         in_config: Annotated[bool | None, Query(description=in_config_desc)] = None,
