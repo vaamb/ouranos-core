@@ -85,5 +85,4 @@ ignore = [
     "E711",  # comparison to None should be 'if cond is None:'  # Interferes with SQLAlchemy
     "E712",  # comparison to True should be 'if cond is True:'  # Interferes with SQLAlchemy
     "F401",  # unused import
-    "F403",  # undefined local with import star  # TODO: fix
 ]
