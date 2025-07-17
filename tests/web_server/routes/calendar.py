@@ -9,6 +9,7 @@ from ouranos import json
 from ouranos.core.database.models.app import CalendarEvent
 
 from tests.data.app import calendar_event_public, calendar_event_users
+from tests.web_server.class_fixtures import EventsAware, ServicesEnabled, UsersAware
 
 
 title = "Just a test ..."
@@ -23,7 +24,7 @@ creation_payload = {
 }
 
 
-class TestCalendar:
+class TestCalendar(EventsAware, ServicesEnabled, UsersAware):
     def test_calendar_public(self, client: TestClient):
         response = client.get("/api/app/services/calendar")
         assert response.status_code == 200
@@ -52,7 +53,7 @@ class TestCalendar:
 
 
 @pytest.mark.asyncio
-class TestEvent:
+class TestEvent(EventsAware, ServicesEnabled, UsersAware):
     def test_event_creation_failure_unauthorized(self, client: TestClient):
         response = client.post(
             "/api/app/services/calendar/u",

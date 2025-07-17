@@ -52,13 +52,14 @@ async def get_engine(
 
 
 @router.delete("/u/{uid}",
+               status_code=status.HTTP_202_ACCEPTED,
                dependencies=[Depends(is_operator)])
 async def delete_engine(
         uid: Annotated[str, Path(description="An engine uid")],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     engine = await engine_or_abort(session, uid)
-    await Engine.delete(session, engine.uid)
+    await Engine.delete(session, uid=engine.uid)
     return f"Engine {uid} deleted"
 
 

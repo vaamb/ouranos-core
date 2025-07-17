@@ -7,9 +7,10 @@ from ouranos import json
 
 import tests.data.gaia as g_data
 from tests.utils import MockAsyncDispatcher
+from tests.web_server.class_fixtures import HardwareAware, UsersAware
 
 
-class TestHardware:
+class TestHardware(HardwareAware, UsersAware):
     def test_hardware(self, client: TestClient):
         response = client.get("/api/gaia/ecosystem/hardware")
         assert response.status_code == 200

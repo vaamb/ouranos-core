@@ -38,7 +38,7 @@ def config(tmp_path_factory):
     yield config
 
 
-@pytest_asyncio.fixture(scope="module", autouse=True)
+@pytest_asyncio.fixture(scope="class", autouse=True)
 async def db(config: ConfigDict):
     from ouranos.core.database import models  # noqa
     from ouranos.core.database.models import caches
