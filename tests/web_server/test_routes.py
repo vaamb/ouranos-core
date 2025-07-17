@@ -11,7 +11,7 @@ from .routes.hardware import TestHardware
 from .routes.protected import (
     TestAdminProtection, TestAuthenticatedProtection, TestOperatorProtection)
 from .routes.sensor import TestMeasuresAvailable, TestSensorsData, TestSensorsSkeleton
-from .routes.services import test_route_protection
+from .routes.services import TestServicesRouteProtection
 from .routes.system import TestSystem
 from .routes.user import TestUser
 from .routes.warning import TestWarning
