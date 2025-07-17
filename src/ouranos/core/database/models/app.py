@@ -572,6 +572,8 @@ class User(Base, UserMixin):
             )
             result = await session.execute(stmt)
             user = result.scalar_one_or_none()
+            if user is None:
+                return None
             cache_users[user_id] = user
             session.expunge(user)
             session.expunge(user.role)
