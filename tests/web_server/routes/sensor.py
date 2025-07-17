@@ -10,6 +10,7 @@ from ouranos.core.database.models.gaia import Ecosystem
 from ouranos.core.utils import create_time_window
 
 import tests.data.gaia as g_data
+from tests.web_server.class_fixtures import HardwareAware, SensorsAware, UsersAware
 
 
 class TestMeasuresAvailable:
@@ -19,7 +20,7 @@ class TestMeasuresAvailable:
 
 
 @pytest.mark.asyncio
-class TestSensorsSkeleton:
+class TestSensorsSkeleton(HardwareAware):
     async def test_ecosystems_sensors_skeleton(
             self,
             client: TestClient,
@@ -61,7 +62,7 @@ class TestSensorsSkeleton:
         assert datetime.fromisoformat(data["span"][1]) == skeleton["span"][1]
 
 
-class TestSensorsData:
+class TestSensorsData(SensorsAware):
     def test_current_data(self, client: TestClient):
         response = client.get("/api/gaia/ecosystem/sensor/data/current")
         assert response.status_code == 200

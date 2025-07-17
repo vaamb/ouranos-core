@@ -1,7 +1,9 @@
 from fastapi.testclient import TestClient
 
+from tests.web_server.class_fixtures import UsersAware
 
-class TestAuthenticatedProtection:
+
+class TestAuthenticatedProtection(UsersAware):
     def test_access_auth_from_anon(self, client: TestClient):
         response = client.get("/api/tests/is_authenticated")
         assert response.status_code == 403
@@ -22,7 +24,7 @@ class TestAuthenticatedProtection:
         assert response.text == '"Success"'
 
 
-class TestOperatorProtection:
+class TestOperatorProtection(UsersAware):
     def test_access_operator_from_anon(self, client: TestClient):
         response = client.get("/api/tests/is_operator")
         assert response.status_code == 403
@@ -42,7 +44,7 @@ class TestOperatorProtection:
         assert response.text == '"Success"'
 
 
-class TestAdminProtection:
+class TestAdminProtection(UsersAware):
     def test_access_admin_from_anon(self, client: TestClient):
         response = client.get("/api/tests/is_admin")
         assert response.status_code == 403
