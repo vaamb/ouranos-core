@@ -201,20 +201,7 @@ class GaiaEvents(AsyncEventHandler):
             sid: UUID,
             *args,  # noqa
     ) -> None:
-        self.leave_room("engines")
-        async with self.session(sid) as session:
-            session.clear()
-        async with db.scoped_session() as session:
-            engine = await Engine.get_by_id(session, engine_id=sid)
-            if engine is None:
-                return
-            await self.internal_dispatcher.emit(
-                "ecosystem_status",
-                {ecosystem.uid: {"status": ecosystem.status, "connected": False}
-                 for ecosystem in engine.ecosystems},
-                namespace="application-internal"
-            )
-            self.logger.info(f"Engine {engine.uid} disconnected")
+        self.logger.info(f"Disconnected from the message broker.")
 
     @validate_payload(gv.EnginePayload)
     async def on_register_engine(
