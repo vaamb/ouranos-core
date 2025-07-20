@@ -307,7 +307,6 @@ class TestInitializationDataExchange(EcosystemAware):
         with pytest.raises(Exception):
             await events_handler.on_management(g_data.engine_sid, [{}])
 
-    @pytest.mark.deprecated
     async def test_on_environmental_parameters(
             self,
             mock_dispatcher: MockAsyncDispatcher,
