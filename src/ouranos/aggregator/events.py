@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from dispatcher import AsyncDispatcher, AsyncEventHandler
 import gaia_validators as gv
 from gaia_validators.image import SerializableImage, SerializableImagePayload
+from typing_extensions import deprecated
 
 from ouranos import current_app, db, json
 from ouranos.core.config.consts import TOKEN_SUBS
@@ -388,7 +389,7 @@ class GaiaEvents(AsyncEventHandler):
             namespace="application-internal"
         )
 
-    # TODO: remove later
+    @deprecated("Use the chaos, nycthemeral and climate events instead")
     @registration_required
     @validate_payload(RootModel[list[gv.EnvironmentConfigPayload]])
     async def on_environmental_parameters(
