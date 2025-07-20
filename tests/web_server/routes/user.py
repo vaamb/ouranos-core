@@ -6,9 +6,11 @@ from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 from ouranos import json
 from ouranos.core.database.models.app import User
 
+from tests.class_fixtures import UsersAware
+
 
 @pytest.mark.asyncio
-class TestUser:
+class TestUser(UsersAware):
     def test_get_users_fail_not_admin(self, client_operator: TestClient):
         response = client_operator.get("/api/user")
         assert response.status_code == 403

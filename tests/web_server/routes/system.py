@@ -6,9 +6,10 @@ from ouranos import json
 from ouranos.core.config.consts import START_TIME
 
 import tests.data.system as g_data
+from tests.class_fixtures import SystemAware, UsersAware
 
 
-class TestSystem:
+class TestSystem(SystemAware, UsersAware):
     def test_route_anonymous(self, client: TestClient):
         server_uid = g_data.system_dict["uid"]
         response = client.get(f"/api/system/{server_uid}")

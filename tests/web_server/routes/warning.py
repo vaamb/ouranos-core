@@ -7,10 +7,11 @@ from ouranos import json
 from ouranos.core.database.models.gaia import GaiaWarning
 
 import tests.data.gaia as g_data
+from tests.class_fixtures import GaiaWarningsAware, UsersAware
 
 
 @pytest.mark.asyncio
-class TestWarning:
+class TestWarning(GaiaWarningsAware, UsersAware):
     def test_warning(self, client: TestClient):
         response = client.get("/api/gaia/warning")
         assert response.status_code == 200

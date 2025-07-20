@@ -1,7 +1,9 @@
 from fastapi.testclient import TestClient
 
+from tests.class_fixtures import ServicesEnabled
 
-class TestWeather:
+
+class TestWeather(ServicesEnabled):
     def test_sun_times(self, client: TestClient):
         response = client.get("/api/app/services/weather/sun_times")
         assert response.status_code == 204

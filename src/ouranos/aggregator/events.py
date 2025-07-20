@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from dispatcher import AsyncDispatcher, AsyncEventHandler
 import gaia_validators as gv
 from gaia_validators.image import SerializableImage, SerializableImagePayload
+from typing_extensions import deprecated
 
 from ouranos import current_app, db, json
 from ouranos.core.config.consts import TOKEN_SUBS
@@ -201,20 +202,7 @@ class GaiaEvents(AsyncEventHandler):
             sid: UUID,
             *args,  # noqa
     ) -> None:
-        self.leave_room("engines")
-        async with self.session(sid) as session:
-            session.clear()
-        async with db.scoped_session() as session:
-            engine = await Engine.get_by_id(session, engine_id=sid)
-            if engine is None:
-                return
-            await self.internal_dispatcher.emit(
-                "ecosystem_status",
-                {ecosystem.uid: {"status": ecosystem.status, "connected": False}
-                 for ecosystem in engine.ecosystems},
-                namespace="application-internal"
-            )
-            self.logger.info(f"Engine {engine.uid} disconnected")
+        self.logger.info("Disconnected from the message broker.")
 
     @validate_payload(gv.EnginePayload)
     async def on_register_engine(
@@ -401,7 +389,7 @@ class GaiaEvents(AsyncEventHandler):
             namespace="application-internal"
         )
 
-    # TODO: remove later
+    @deprecated("Use the chaos, nycthemeral and climate events instead")
     @registration_required
     @validate_payload(RootModel[list[gv.EnvironmentConfigPayload]])
     async def on_environmental_parameters(

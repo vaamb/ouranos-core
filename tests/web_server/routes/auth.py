@@ -12,6 +12,7 @@ from ouranos.core.database.models.app import anonymous_user, User
 from ouranos.core.utils import Tokenizer
 
 from tests.data.auth import admin, operator
+from tests.class_fixtures import UsersAware
 
 
 registration_payload = {
@@ -21,7 +22,7 @@ registration_payload = {
 }
 
 
-class TestLogin:
+class TestLogin(UsersAware):
     def test_login_no_credential(self, client: TestClient):
         response = client.get("/api/auth/login")
         assert response.status_code == 401
@@ -58,7 +59,7 @@ class TestLogin:
         assert "Logged out" in response.text
 
 
-class TestCurrentUser:
+class TestCurrentUser(UsersAware):
     def test_current_user_anonymous(self, client: TestClient):
         response = client.get("/api/auth/current_user")
         assert response.status_code == 200
@@ -75,7 +76,7 @@ class TestCurrentUser:
 
 
 @pytest.mark.asyncio
-class TestRegister:
+class TestRegister(UsersAware):
     def test_register_no_token(self, client: TestClient):
         response = client.post("/api/auth/register")
         assert response.status_code == 422
@@ -149,7 +150,7 @@ class TestRegister:
 
 
 @pytest.mark.asyncio
-class TestUserConfirmation:
+class TestUserConfirmation(UsersAware):
     async def test_user_confirmation_token_expired(self, db: AsyncSQLAlchemyWrapper, client: TestClient):
         async with db.scoped_session() as session:
             user = await User.get_by(session, username=operator.username)
@@ -183,7 +184,7 @@ class TestUserConfirmation:
 
 
 @pytest.mark.asyncio
-class TestUserResetPassword:
+class TestUserResetPassword(UsersAware):
     async def test_user_reset_password_token_expired(self, db: AsyncSQLAlchemyWrapper, client: TestClient):
         # User need to be confirmed to update his password
         async with db.scoped_session() as session:
@@ -242,7 +243,7 @@ class TestUserResetPassword:
         assert user.password_hash != old_hash
 
 
-class TestRegistrationToken:
+class TestRegistrationToken(UsersAware):
     def test_registration_token_failure(self, client: TestClient):
         response = client.post("/api/auth/registration_token")
         assert response.status_code == 403

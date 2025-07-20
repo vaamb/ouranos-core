@@ -7,10 +7,11 @@ from ouranos import json
 from ouranos.core.database.models.gaia import Engine
 
 import tests.data.gaia as g_data
+from tests.class_fixtures import EngineAware, UsersAware
 
 
 @pytest.mark.asyncio
-class TestEngineCore:
+class TestEngineCore(EngineAware, UsersAware):
     async def test_engines(
             self,
             client: TestClient,
@@ -24,7 +25,7 @@ class TestEngineCore:
             engines = await Engine.get_multiple_by_id(session, engines_id=None)
             assert data[0]["uid"] == engines[0].uid
             assert data[0]["address"] == engines[0].address
-            assert data[0]["ecosystems"][0]["uid"] == engines[0].ecosystems[0].uid
+            assert len(data[0]["ecosystems"]) == 0
 
     @pytest.mark.asyncio
     async def test_engine_unique(
@@ -40,16 +41,21 @@ class TestEngineCore:
             engine = await Engine.get(session, uid=g_data.engine_uid)
             assert data["uid"] == engine.uid
             assert data["address"] == engine.address
-            assert data["ecosystems"][0]["uid"] == engine.ecosystems[0].uid
+            assert len(data["ecosystems"]) == 0
 
     def test_engine_unique_wrong_id(self, client: TestClient):
         response = client.get("/api/gaia/engine/u/wrong_id")
         assert response.status_code == 404
 
     def test_engine_delete_request_failure_anon(self, client: TestClient):
-        response = client.delete("/api/gaia/engine/u/{ecosystem_uid}")
+        response = client.delete(f"/api/gaia/engine/u/{g_data.engine_uid}")
         assert response.status_code == 403
 
+    def test_engine_delete_request_failure_not_found(self, client_operator: TestClient):
+        engine_uid = "wrong_id"
+        response = client_operator.delete(f"/api/gaia/engine/u/{engine_uid}")
+        assert response.status_code == 404
+
     def test_engine_delete_request_success(self, client_operator: TestClient):
-        response = client_operator.delete(f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}")
+        response = client_operator.delete(f"/api/gaia/engine/u/{g_data.engine_uid}")
         assert response.status_code == 202

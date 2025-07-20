@@ -349,6 +349,14 @@ class User(Base, UserMixin):
             raise ValueError(
                 "Email should be defined either as a parameter or in `user_info`"
             )
+        user = await User.get_by(session, email=email)
+        if user is not None:
+            raise ValueError("The email address is already used by another user")
+        username = user_info.get("username")
+        if username is not None:
+            user = await User.get_by(session, username=username)
+            if user is not None:
+                raise ValueError("The username is already taken by another user")
         user_info["email"] = email  # Be consistent
         url = current_app.config["FRONTEND_URL"]
         if not url:

@@ -1,19 +1,35 @@
 from datetime import datetime, time
 
 from fastapi.testclient import TestClient
+import pytest
 
 import gaia_validators as gv
 
 from ouranos import json
+from ouranos.core.database.models.gaia import Ecosystem, Engine
 
 import tests.data.gaia as g_data
 from tests.utils import MockAsyncDispatcher
+from tests.class_fixtures import (
+    ActuatorsAware, EcosystemAware, EnvironmentAware, UsersAware)
 
 
 # ------------------------------------------------------------------------------
 #   Base ecosystem info
 # ------------------------------------------------------------------------------
-class TestEcosystemCore:
+class TestEcosystemCore(EcosystemAware, UsersAware):
+    @pytest.mark.asyncio
+    async def test_engine_relationship(self, client: TestClient, db):
+        async with db.scoped_session() as session:
+            engines = await Engine.get_multiple_by_id(session, engines_id=None)
+            ecosystems = await Ecosystem.get_multiple_by_id(
+                session, ecosystems_id=None)
+            assert len(engines) == 1
+            assert len(ecosystems) == 1
+            assert len(engines[0].ecosystems) == 1
+            assert ecosystems[0].engine.uid == engines[0].uid
+            assert engines[0].ecosystems[0].uid == ecosystems[0].uid
+
     def test_ecosystems(self, client: TestClient):
         response = client.get("/api/gaia/ecosystem")
         assert response.status_code == 200
@@ -127,7 +143,7 @@ class TestEcosystemCore:
 # ------------------------------------------------------------------------------
 #   Ecosystem management
 # ------------------------------------------------------------------------------
-class TestEcosystemManagement:
+class TestEcosystemManagement(EcosystemAware, UsersAware):
     def test_managements_available(self,client: TestClient):
         response = client.get("/api/gaia/ecosystem/managements_available")
         assert response.status_code == 200
@@ -196,7 +212,7 @@ class TestEcosystemManagement:
 # ------------------------------------------------------------------------------
 #   Ecosystem light
 # ------------------------------------------------------------------------------
-class TestEcosystemLight:
+class TestEcosystemLight(EnvironmentAware, UsersAware):
     def test_light(self, client: TestClient):
         response = client.get("/api/gaia/ecosystem/light")
         assert response.status_code == 200
@@ -261,7 +277,7 @@ class TestEcosystemLight:
 # ------------------------------------------------------------------------------
 #   Ecosystem environment parameters
 # ------------------------------------------------------------------------------
-class TestEcosystemEnvironmentParameters:
+class TestEcosystemEnvironmentParameters(EnvironmentAware, UsersAware):
     def test_environment_parameter(self, client: TestClient):
         response = client.get("/api/gaia/ecosystem/environment_parameter")
         assert response.status_code == 200
@@ -396,7 +412,7 @@ class TestEcosystemEnvironmentParameters:
 # ------------------------------------------------------------------------------
 #   Ecosystem actuators state
 # ------------------------------------------------------------------------------
-class TestEcosystemActuators:
+class TestEcosystemActuators(ActuatorsAware, UsersAware):
     def test_get_actuator_records(self, client: TestClient):
         actuator = g_data.actuator_record.type.name
         response = client.get(

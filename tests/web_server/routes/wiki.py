@@ -11,10 +11,11 @@ from ouranos.core.utils import slugify
 from tests.data.app import (
     wiki_article_content, wiki_article_name, wiki_picture_name, wiki_topic_name)
 from tests.data.auth import operator
+from tests.class_fixtures import ServicesEnabled, UsersAware, WikiAware
 
 
 @pytest.mark.asyncio
-class TestWikiTopics:
+class TestWikiTopics(ServicesEnabled, UsersAware, WikiAware):
     async def test_get_topics(self, client: TestClient, db: AsyncSQLAlchemyWrapper):
         response = client.get("/api/app/services/wiki/topics")
         assert response.status_code == 200
@@ -122,7 +123,7 @@ class TestWikiTopics:
 
 
 @pytest.mark.asyncio
-class TestWikiArticles:
+class TestWikiArticles(ServicesEnabled, UsersAware, WikiAware):
     async def test_get_articles(self, client: TestClient):
         response = client.get("/api/app/services/wiki/articles")
         assert response.status_code == 200
@@ -261,7 +262,7 @@ class TestWikiArticles:
 
 
 @pytest.mark.asyncio
-class TestWikiPictures:
+class TestWikiPictures(ServicesEnabled, UsersAware, WikiAware):
     async def test_create_picture_unauthorized(self, client: TestClient):
         response = client.post(
             f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}/"
@@ -369,7 +370,7 @@ class TestWikiPictures:
             assert picture is None
 
 @pytest.mark.asyncio
-class TestWikiNotFound:
+class TestWikiNotFound(ServicesEnabled, UsersAware, WikiAware):
     async def test_error_404(self, client: TestClient):
         wrong = "so wrong it doesn't match"
 
