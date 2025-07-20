@@ -9,7 +9,7 @@ from ouranos import json
 from ouranos.core.database.models.app import CalendarEvent
 
 from tests.data.app import calendar_event_public, calendar_event_users
-from class_fixtures import EventsAware, ServicesEnabled, UsersAware
+from tests.class_fixtures import EventsAware, ServicesEnabled, UsersAware
 
 
 title = "Just a test ..."

@@ -6,7 +6,7 @@ from ouranos import json
 from ouranos.core.config.consts import START_TIME
 
 import tests.data.system as g_data
-from class_fixtures import SystemAware, UsersAware
+from tests.class_fixtures import SystemAware, UsersAware
 
 
 class TestSystem(SystemAware, UsersAware):

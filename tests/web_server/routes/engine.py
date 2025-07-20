@@ -7,7 +7,7 @@ from ouranos import json
 from ouranos.core.database.models.gaia import Engine
 
 import tests.data.gaia as g_data
-from class_fixtures import EngineAware, UsersAware
+from tests.class_fixtures import EngineAware, UsersAware
 
 
 @pytest.mark.asyncio

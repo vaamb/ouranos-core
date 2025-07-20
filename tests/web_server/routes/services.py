@@ -1,7 +1,6 @@
 from fastapi.testclient import TestClient
 
 
-
 class TestServicesRouteProtection:
     def test_route_protection(self, client: TestClient, db):
         response = client.put("/api/app/services/u/weather", json={"status": True})
