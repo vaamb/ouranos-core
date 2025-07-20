@@ -1,16 +1,9 @@
 from __future__ import annotations
 
 import pytest
-import pytest_asyncio
-
-from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
-
-import gaia_validators as gv
 
 from ouranos.aggregator.events import GaiaEvents
 from ouranos.aggregator.sky_watcher import SkyWatcher
-from ouranos.core.database.init import create_base_data
-from ouranos.core.database.models.gaia import Ecosystem, Engine, Hardware
 
 import tests.data.gaia as g_data
 from tests.utils import MockAsyncDispatcher
