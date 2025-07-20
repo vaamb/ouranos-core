@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from tests.web_server.class_fixtures import UsersAware
+from class_fixtures import UsersAware
 
 
 class TestAuthenticatedProtection(UsersAware):

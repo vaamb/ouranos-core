@@ -10,7 +10,7 @@ from ouranos.core.database.models.gaia import Ecosystem, Engine
 
 import tests.data.gaia as g_data
 from tests.utils import MockAsyncDispatcher
-from tests.web_server.class_fixtures import (
+from class_fixtures import (
     ActuatorsAware, EcosystemAware, EnvironmentAware, UsersAware)
 
 

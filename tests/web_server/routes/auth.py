@@ -12,7 +12,7 @@ from ouranos.core.database.models.app import anonymous_user, User
 from ouranos.core.utils import Tokenizer
 
 from tests.data.auth import admin, operator
-from tests.web_server.class_fixtures import UsersAware
+from class_fixtures import UsersAware
 
 
 registration_payload = {

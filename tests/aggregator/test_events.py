@@ -27,7 +27,7 @@ from ouranos.core.database.models.gaia import (
 from ouranos.core.exceptions import NotRegisteredError
 from ouranos.core.utils import create_time_window
 
-from tests.aggregator.class_fixtures import EcosystemAware, EngineAware, HardwareAware
+from tests.class_fixtures import EcosystemAware, EngineAware, HardwareAware
 import tests.data.gaia as g_data
 from tests.utils import MockAsyncDispatcher
 

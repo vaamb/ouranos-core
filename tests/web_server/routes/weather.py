@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from tests.web_server.class_fixtures import ServicesEnabled
+from class_fixtures import ServicesEnabled
 
 
 class TestWeather(ServicesEnabled):

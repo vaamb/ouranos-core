@@ -11,7 +11,7 @@ from ouranos.core.utils import slugify
 from tests.data.app import (
     wiki_article_content, wiki_article_name, wiki_picture_name, wiki_topic_name)
 from tests.data.auth import operator
-from tests.web_server.class_fixtures import ServicesEnabled, UsersAware, WikiAware
+from class_fixtures import ServicesEnabled, UsersAware, WikiAware
 
 
 @pytest.mark.asyncio

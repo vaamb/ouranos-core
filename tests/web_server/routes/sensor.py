@@ -10,7 +10,7 @@ from ouranos.core.database.models.gaia import Ecosystem
 from ouranos.core.utils import create_time_window
 
 import tests.data.gaia as g_data
-from tests.web_server.class_fixtures import HardwareAware, SensorsAware, UsersAware
+from class_fixtures import HardwareAware, SensorsAware
 
 
 class TestMeasuresAvailable:

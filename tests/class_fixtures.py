@@ -67,17 +67,18 @@ class HardwareAware(EcosystemAware):
     @pytest_asyncio.fixture(scope="class", autouse=True)
     async def add_hardware(self, db: AsyncSQLAlchemyWrapper, add_ecosystem):
         async with db.scoped_session() as session:
-            uid = g_data.ecosystem_uid
-            hardware = gv.HardwareConfig(**g_data.hardware_data).model_dump()
-            hardware_uid = hardware.pop("uid")
-            hardware.pop("multiplexer_model")
-            hardware["ecosystem_uid"] = uid
-            await Hardware.create(session, uid=hardware_uid, values=hardware)
+            hardware_config = [g_data.hardware_data, g_data.camera_config]
+            for hardware in hardware_config:
+                hardware = gv.HardwareConfig(**hardware).model_dump()
+                hardware_uid = hardware.pop("uid")
+                hardware["ecosystem_uid"] = g_data.ecosystem_uid
+                del hardware["multiplexer_model"]
+                await Hardware.create(session, uid=hardware_uid, values=hardware)
 
 
 class SensorsAware(HardwareAware):
     @pytest_asyncio.fixture(scope="class", autouse=True)
-    async def add_sensors(self, db: AsyncSQLAlchemyWrapper, add_ecosystem):
+    async def add_sensors(self, db: AsyncSQLAlchemyWrapper, add_hardware):
         async with db.scoped_session() as session:
             adapted_sensor_record = {
                 "ecosystem_uid": g_data.ecosystem_uid,
@@ -95,7 +96,7 @@ class SensorsAware(HardwareAware):
 
 class ActuatorsAware(HardwareAware):
     @pytest_asyncio.fixture(scope="class", autouse=True)
-    async def add_actuators(self, db: AsyncSQLAlchemyWrapper, add_ecosystem):
+    async def add_actuators(self, db: AsyncSQLAlchemyWrapper, add_hardware):
         async with db.scoped_session() as session:
             uid = g_data.ecosystem_uid
             actuator_state = {

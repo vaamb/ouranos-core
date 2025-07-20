@@ -7,7 +7,7 @@ from ouranos import json
 
 import tests.data.gaia as g_data
 from tests.utils import MockAsyncDispatcher
-from tests.web_server.class_fixtures import HardwareAware, UsersAware
+from class_fixtures import HardwareAware, UsersAware
 
 
 class TestHardware(HardwareAware, UsersAware):

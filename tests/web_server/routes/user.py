@@ -6,7 +6,7 @@ from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 from ouranos import json
 from ouranos.core.database.models.app import User
 
-from tests.web_server.class_fixtures import UsersAware
+from class_fixtures import UsersAware
 
 
 @pytest.mark.asyncio
