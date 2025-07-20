@@ -26,7 +26,7 @@ window_length_query = Query(
                            "provided.")
 
 
-class get_time_window:  # noqa: 801
+class get_time_window:  # noqa: N801
     def __init__(
             self,
             rounding: int,

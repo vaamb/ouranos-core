@@ -84,7 +84,7 @@ class TestUserMail(UsersAware):
                 await User.send_invitation_email(session, user_info=user_info)
 
     async def test_invitation_success(self, db: AsyncSQLAlchemyWrapper):
-        email_address = f"nottaken@fakemail.com"
+        email_address = "nottaken@fakemail.com"
         async with db.scoped_session() as session:
             async with Email.record_messages() as outbox:
                 await User.send_invitation_email(session, email=email_address)

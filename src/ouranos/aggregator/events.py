@@ -202,7 +202,7 @@ class GaiaEvents(AsyncEventHandler):
             sid: UUID,
             *args,  # noqa
     ) -> None:
-        self.logger.info(f"Disconnected from the message broker.")
+        self.logger.info("Disconnected from the message broker.")
 
     @validate_payload(gv.EnginePayload)
     async def on_register_engine(
