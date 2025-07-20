@@ -16,40 +16,6 @@ import tests.data.gaia as g_data
 from tests.utils import MockAsyncDispatcher
 
 
-@pytest_asyncio.fixture(scope="module", autouse=True)
-async def naive_db(db: AsyncSQLAlchemyWrapper):
-    from ouranos.core.database import models  # noqa
-    yield db
-    await db.drop_all()
-    await db.create_all()
-    await create_base_data()
-
-
-@pytest_asyncio.fixture(scope="module")
-async def engine_aware_db(naive_db: AsyncSQLAlchemyWrapper):
-    async with naive_db.scoped_session() as session:
-        engine = g_data.engine_dict.copy()
-        uid = engine.pop("uid")
-        await Engine.create(session, uid=uid, values=engine)
-        hardware_config = [g_data.hardware_data.copy(), g_data.camera_config.copy()]
-        for hardware in hardware_config:
-            hardware = gv.HardwareConfig(**hardware).model_dump()
-            hardware_uid = hardware.pop("uid")
-            hardware["ecosystem_uid"] = g_data.ecosystem_uid
-            del hardware["multiplexer_model"]
-            await Hardware.create(session, uid=hardware_uid, values=hardware)
-    return naive_db
-
-
-@pytest_asyncio.fixture(scope="module")
-async def ecosystem_aware_db(engine_aware_db: AsyncSQLAlchemyWrapper):
-    async with engine_aware_db.scoped_session() as session:
-        ecosystem = {**g_data.ecosystem_dict}
-        uid = ecosystem.pop("uid")
-        await Ecosystem.update_or_create(session, uid=uid, values=ecosystem)
-    return engine_aware_db
-
-
 @pytest.fixture(scope="module")
 def mock_aggregator():
     class MockAggregator:
