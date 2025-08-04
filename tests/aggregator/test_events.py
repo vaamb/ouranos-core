@@ -542,20 +542,22 @@ class TestInitializationDataExchange(EcosystemAware):
         async with events_handler.session(g_data.engine_sid) as session:
             session["init_data"] = {"plants"}
 
-        # TODO: make it work
+        async with db.scoped_session() as session:
+            hardware = await Hardware.get(session, uid=g_data.hardware_data["uid"])
+            if hardware:
+                await Hardware.delete(session, uid=g_data.hardware_uid)
+
         # Call the method with hardware missing from the DB
-        #with pytest.raises(RuntimeError):
-        #    await events_handler.on_plants(g_data.engine_sid, [g_data.plants_payload])
+        with pytest.raises(RuntimeError):
+            await events_handler.on_plants(g_data.engine_sid, [g_data.plants_payload])
 
         # Add the hardware to the DB
         async with db.scoped_session() as session:
-            hardware = await Hardware.get(session, uid=g_data.hardware_data["uid"])
-            if hardware is None:
-                hardware_data = gv.HardwareConfig(**g_data.hardware_data).model_dump()
-                hardware_data.pop("uid")
-                hardware_data.pop("multiplexer_model")
-                hardware_data["ecosystem_uid"] = g_data.ecosystem_uid
-                await Hardware.create(session, uid=g_data.hardware_uid, values=hardware_data)
+            hardware_data = gv.HardwareConfig(**g_data.hardware_data).model_dump()
+            hardware_data.pop("uid")
+            hardware_data.pop("multiplexer_model")
+            hardware_data["ecosystem_uid"] = g_data.ecosystem_uid
+            await Hardware.create(session, uid=g_data.hardware_uid, values=hardware_data)
 
         # Call the method
         await events_handler.on_plants(g_data.engine_sid, [g_data.plants_payload])
