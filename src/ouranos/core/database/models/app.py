@@ -3,10 +3,9 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 import difflib
 import enum
-from enum import Enum, IntEnum, IntFlag, StrEnum
+from enum import IntEnum, IntFlag, StrEnum
 import re
 from typing import Optional, Self, Sequence, TypedDict
-from uuid import UUID
 
 from anyio import Path as ioPath
 from argon2 import PasswordHasher
@@ -25,7 +24,7 @@ from gaia_validators import missing, safe_enum_from_name
 from ouranos import current_app
 from ouranos.core.config import consts
 from ouranos.core.database.models.abc import (
-    Base, CRUDMixin, lookup_keys_type, ToDictMixin)
+    Base, CRUDMixin, lookup_keys_type, on_conflict_opt, ToDictMixin)
 from ouranos.core.database.models.caches import cache_users
 from ouranos.core.database.models.types import PathType, SQLIntEnum, UtcDateTime
 from ouranos.core.database.models.utils import paginate
@@ -1134,10 +1133,12 @@ class WikiTag(Base, CRUDMixin, AsyncAttrs):
             session: AsyncSession,
             /,
             values: dict | None = None,
+            _on_conflict_do: on_conflict_opt = None,
             **lookup_keys: lookup_keys_type,
     ) -> None:
         lookup_keys["slug"] = slugify(lookup_keys["name"])
-        await super().create(session, values=values, **lookup_keys)
+        await super().create(
+            session, values=values, _on_conflict_do=_on_conflict_do,**lookup_keys)
 
     @classmethod
     async def create_multiple(
@@ -1145,10 +1146,12 @@ class WikiTag(Base, CRUDMixin, AsyncAttrs):
             session: AsyncSession,
             /,
             values: list[dict],
+            _on_conflict_do: on_conflict_opt = None,
     ) -> None:
         for value in values:
             value["slug"] = slugify(value["name"])
-        await super().create_multiple(session, values=values)
+        await super().create_multiple(
+            session, values=values, _on_conflict_do=_on_conflict_do)
 
 
 class WikiTagged:
@@ -1247,6 +1250,7 @@ class WikiTopic(Base, WikiTagged, CRUDMixin, WikiObject):
             session: AsyncSession,
             /,
             values: dict | None = None,
+            _on_conflict_do: on_conflict_opt = None,
             **lookup_keys: lookup_keys_type,
     ) -> None:
         values = values or {}
@@ -1257,7 +1261,8 @@ class WikiTopic(Base, WikiTagged, CRUDMixin, WikiObject):
         values["path"] = cls.get_rel_path(topic_dir)
         # Create the topic info
         tags_name: list[str] = values.pop("tags_name", [])
-        await super().create(session, values=values, **lookup_keys)
+        await super().create(
+            session, values=values, _on_conflict_do=_on_conflict_do, **lookup_keys)
         if tags_name:
             topic = await cls.get(session, **lookup_keys)
             await topic.attach_tags(
@@ -1407,6 +1412,7 @@ class WikiArticle(Base, WikiTagged, CRUDMixin, WikiObject):
             session: AsyncSession,
             /,
             values: dict | None = None,  # Must contain "content": str and "author_id": int
+            _on_conflict_do: on_conflict_opt = None,
             **lookup_keys: lookup_keys_type,  # Must contain "topic_name": str and "name": str
     ) -> None:
         values = values or {}
@@ -1426,7 +1432,8 @@ class WikiArticle(Base, WikiTagged, CRUDMixin, WikiObject):
         content = values.pop("content")
         author_id = values.pop("author_id")
         tags_name: list[str] = values.pop("tags_name", [])
-        await super().create(session, values=values, **lookup_keys)
+        await super().create(
+            session, values=values, _on_conflict_do=_on_conflict_do, **lookup_keys)
         article = await cls.get(session, topic_name=topic_name, name=name)
         if tags_name:
             await article.attach_tags(
@@ -1593,6 +1600,7 @@ class WikiArticleModification(Base, CRUDMixin):
             session: AsyncSession,
             /,
             values: dict | None = None,  # modification_type, author_id
+            _on_conflict_do: on_conflict_opt = None,
             **lookup_keys: lookup_keys_type,  # article_id
     ) -> None:
         # Get version number
@@ -1605,7 +1613,8 @@ class WikiArticleModification(Base, CRUDMixin):
         rel_path = article.path / f"diff_{version:03}.md"
         values["path"] = str(rel_path)
         # Create the entry
-        await super().create(session, values=values, **lookup_keys)
+        await super().create(
+            session, _on_conflict_do=_on_conflict_do, values=values, **lookup_keys)
 
     @classmethod
     async def get_latest_version(
@@ -1718,6 +1727,7 @@ class WikiPicture(Base, WikiTagged, CRUDMixin, WikiObject):
             session: AsyncSession,
             /,
             values: dict | None = None,  # author_id, content, extension
+            _on_conflict_do: on_conflict_opt = None,
             **lookup_keys: lookup_keys_type,  # article_id, name
     ) -> None:
         topic_name = lookup_keys.pop("topic_name")
@@ -1740,7 +1750,8 @@ class WikiPicture(Base, WikiTagged, CRUDMixin, WikiObject):
         # Create the picture info
         content = values.pop("content")
         tags_name: list[str] = values.pop("tags_name", [])
-        await super().create(session, values=values, **lookup_keys)
+        await super().create(
+            session, values=values, _on_conflict_do=_on_conflict_do, **lookup_keys)
         if tags_name:
             await article.attach_tags(
                 session, AssociationWikiTagPicture,

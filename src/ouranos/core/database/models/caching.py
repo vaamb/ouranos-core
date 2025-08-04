@@ -1,16 +1,15 @@
 from __future__ import annotations
 
 import asyncio
-from enum import Enum
 import functools
 from contextlib import AbstractContextManager
 from typing import Any, Callable, MutableMapping, Optional, Self, Type, TypeVar
-from uuid import UUID
 
 from cachetools import keys
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ouranos.core.database.models.abc import Base, CRUDMixin, lookup_keys_type
+from ouranos.core.database.models.abc import (
+    Base, CRUDMixin, lookup_keys_type, on_conflict_opt)
 
 
 _KT = TypeVar("_KT")
@@ -254,6 +253,7 @@ def clearer_hash(
         session: AsyncSession,
         /,
         values: dict,
+        _on_conflict_do: on_conflict_opt = None,
         **lookup_keys,
 ) -> tuple:
     return create_hashable_key(**lookup_keys)
@@ -284,9 +284,11 @@ class CachedCRUDMixin(CRUDMixin):
             session: AsyncSession,
             /,
             values: dict | None = None,
+            _on_conflict_do: on_conflict_opt = None,
             **lookup_keys: lookup_keys_type,
     ) -> Self | None:
-        return await super().create(session, values=values, **lookup_keys)
+        return await super().create(
+            session, values=values, _on_conflict_do=_on_conflict_do, **lookup_keys)
 
     @classmethod
     @cached_method(key=cached_hash)

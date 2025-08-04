@@ -21,7 +21,7 @@ import gaia_validators as gv
 from ouranos import current_app
 from ouranos.core.config.consts import ECOSYSTEM_TIMEOUT
 from ouranos.core.database.models.abc import (
-    Base, CacheMixin, CRUDMixin, RecordMixin)
+    Base, CacheMixin, CRUDMixin, on_conflict_opt, RecordMixin)
 from ouranos.core.database.models.caches import (
     cache_ecosystems, cache_ecosystems_has_recent_data, cache_engines,
     cache_hardware, cache_measures, cache_plants, cache_sensors_data_skeleton,
@@ -735,11 +735,13 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
             session: AsyncSession,
             /,
             values: gv.HardwareConfigDict | None = None,
+            _on_conflict_do: on_conflict_opt = None,
             **lookup_keys: str | Enum | UUID,
     ) -> None:
         measures: list[gv.Measure | gv.MeasureDict] = values.pop("measures", [])
         plants = values.pop("plants", [])
-        await super().create(session, values=values, **lookup_keys)
+        await super().create(
+            session, values=values, _on_conflict_do=_on_conflict_do, **lookup_keys)
         if any((measures, plants)):
             hardware_obj = await cls.get(session, uid=lookup_keys["uid"])
             if measures:

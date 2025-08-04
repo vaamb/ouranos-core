@@ -12,7 +12,7 @@ from sqlalchemy import (
     and_, Column, delete, Insert, inspect, Select, select, table, UnaryExpression,
     UniqueConstraint, update)
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Mapped, MappedColumn
+from sqlalchemy.orm import Mapped
 
 from gaia_validators import missing
 
@@ -21,6 +21,7 @@ from ouranos.core.utils import timeWindow
 
 
 lookup_keys_type: TypeAlias = str | Enum | UUID | bool
+on_conflict_opt: TypeAlias = Literal["update", "nothing"] | None
 
 
 class ToDictMixin:
@@ -212,7 +213,7 @@ class CRUDMixin:
             session: AsyncSession,
             /,
             values: dict | None = None,
-            _on_conflict_do: Literal["update", "nothing"] | None = None,
+            _on_conflict_do: on_conflict_opt = None,
             **lookup_keys: lookup_keys_type,
     ) -> None:
         cls._check_lookup_keys(*lookup_keys.keys())
@@ -231,7 +232,7 @@ class CRUDMixin:
             session: AsyncSession,
             /,
             values: list[dict] | list[NamedTuple],
-            _on_conflict_do: Literal["update", "nothing"] | None = None,
+            _on_conflict_do: on_conflict_opt = None,
     ) -> None:
         insert = cls._get_insert()
         stmt = insert(cls).values(values)
