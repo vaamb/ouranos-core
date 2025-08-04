@@ -968,8 +968,8 @@ class Plant(Base, CachedCRUDMixin, InConfigMixin):
     uid: Mapped[str] = mapped_column(sa.String(length=16), primary_key=True)
     ecosystem_uid: Mapped[str] = mapped_column(sa.ForeignKey("ecosystems.uid"))
     name: Mapped[str] = mapped_column(sa.String(length=32))
-    species: Mapped[Optional[int]] = mapped_column(sa.String(length=32), index=True)
-    sowing_date: Mapped[Optional[datetime]] = mapped_column()
+    species: Mapped[Optional[str]] = mapped_column(sa.String(length=32), index=True)
+    sowing_date: Mapped[Optional[datetime]] = mapped_column(UtcDateTime)
 
     # relationships
     ecosystem = relationship("Ecosystem", back_populates="plants", lazy="selectin")
