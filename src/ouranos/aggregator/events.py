@@ -26,7 +26,7 @@ from ouranos.core.database.models.app import ServiceName
 from ouranos.core.database.models.gaia import (
     ActuatorRecord, ActuatorState, Chaos, CrudRequest, Ecosystem, Engine,
     EnvironmentParameter, Hardware, NycthemeralCycle, Place, CameraPicture,
-    SensorAlarm, SensorDataRecord, SensorDataCache)
+    Plant, SensorAlarm, SensorDataRecord, SensorDataCache)
 from ouranos.core.exceptions import NotRegisteredError
 from ouranos.core.utils import humanize_list, Tokenizer
 
@@ -218,7 +218,7 @@ class GaiaEvents(AsyncEventHandler):
             session["engine_uid"] = engine_uid
             session["init_data"] = {
                 "base_info", "chaos_parameters", "nycthemeral_info",
-                "climate", "hardware", "management", "actuators_data",
+                "climate", "hardware", "plants", "management", "actuators_data",
             }
         now = datetime.now(timezone.utc)
         engine_info = {
@@ -584,6 +584,46 @@ class GaiaEvents(AsyncEventHandler):
         self.logger.debug(
             f"Logged hardware info from ecosystem(s): {humanize_list(ecosystems_to_log)}"
         )
+
+    @registration_required
+    @validate_payload(RootModel[list[gv.PlantConfigPayload]])
+    async def on_plants(
+            self,
+            sid: UUID,  # noqa
+            data: list[gv.PlantConfigPayloadDict],
+            engine_uid: str
+    ) -> None:
+        self.logger.debug(f"Received 'plants' from engine: {engine_uid}")
+        async with self.session(sid) as session:
+            session["init_data"].discard("plants")
+        ecosystems_to_log: list[str] = []
+        async with db.scoped_session() as session:
+            for payload in data:
+                plants_in_config = []
+                uid = payload["uid"]
+                ecosystems_to_log.append(
+                    await self.get_ecosystem_name(session, uid=uid))
+                for plant in payload["data"]:
+                    plant_uid = plant.pop("uid")  # noqa
+                    plants_in_config.append(plant_uid)
+                    plant["ecosystem_uid"] = uid  # noqa
+                    plant["in_config"] = True  # noqa
+                    await Plant.update_or_create(
+                        session, uid=plant_uid, values=plant)
+
+                # Remove hardware not in `ecosystems.cfg` anymore
+                stmt = (
+                    select(Plant.uid)
+                    .where(Plant.ecosystem_uid == uid)
+                    .where(Hardware.uid.not_in(plants_in_config))
+                )
+                result = await session.execute(stmt)
+                not_used = result.all()
+                for plant_row in not_used:
+                    await Plant.update(session, uid=plant_row[0], values={"in_config": False})
+            self.logger.debug(
+                f"Logged plants info from ecosystem(s): {humanize_list(ecosystems_to_log)}"
+            )
 
     # --------------------------------------------------------------------------
     #   Events Gaia -> Aggregator -> Api
