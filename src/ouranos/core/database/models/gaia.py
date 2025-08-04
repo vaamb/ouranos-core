@@ -637,9 +637,9 @@ AssociationHardwareMeasure = Table(
 )
 
 
-AssociationActuatorPlant = Table(
-    "association_actuators_plants", Base.metadata,
-    sa.Column("sensor_uid",
+AssociationHardwarePlant = Table(
+    "association_hardware_plants", Base.metadata,
+    sa.Column("hardware_uid",
               sa.String(length=16),
               sa.ForeignKey("hardware.uid")),
     sa.Column("plant_uid",
@@ -668,7 +668,7 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
         back_populates="hardware", secondary=AssociationHardwareMeasure,
         lazy="selectin")
     plants: Mapped[list["Plant"]] = relationship(
-        back_populates="sensors", secondary=AssociationActuatorPlant,
+        back_populates="sensors", secondary=AssociationHardwarePlant,
         lazy="selectin")
     sensor_records: Mapped[list["SensorDataRecord"]] = relationship(
         back_populates="sensor")
@@ -685,8 +685,8 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
             plants: list[str],
     ) -> None:
         stmt = (
-            delete(AssociationActuatorPlant)
-            .where(AssociationActuatorPlant.c.sensor_uid == self.uid)
+            delete(AssociationHardwarePlant)
+            .where(AssociationHardwarePlant.c.hardware_uid == self.uid)
         )
         await session.execute(stmt)
 
@@ -697,8 +697,8 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
                 continue
                 # raise RuntimeError("Plants should be registered before hardware")
             stmt = (
-                insert(AssociationActuatorPlant)
-                .values(sensor_uid=self.uid, plant_uid=plant.uid)
+                insert(AssociationHardwarePlant)
+                .values(hardware_uid=self.uid, plant_uid=plant.uid)
             )
             await session.execute(stmt)
         await session.commit()
@@ -974,7 +974,7 @@ class Plant(Base, CachedCRUDMixin, InConfigMixin):
     # relationships
     ecosystem = relationship("Ecosystem", back_populates="plants", lazy="selectin")
     sensors = relationship(
-        "Hardware", back_populates="plants", secondary=AssociationActuatorPlant,
+        "Hardware", back_populates="plants", secondary=AssociationHardwarePlant,
         lazy="selectin")
 
     @classmethod
