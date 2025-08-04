@@ -728,7 +728,7 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
             **lookup_keys: str | Enum | UUID,
     ) -> None:
         measures: list[gv.Measure | gv.MeasureDict] = values.pop("measures", [])
-        plants = values.pop("plants", [])
+        values.pop("plants", [])
         await super().create(
             session, values=values, _on_conflict_do=_on_conflict_do, **lookup_keys)
         if measures:
@@ -751,7 +751,7 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
                 "Provide 'uid' either as a parameter or as a key in the "
                 "updated info")
         measures = values.pop("measures", [])
-        plants = values.pop("plants", [])
+        values.pop("plants", [])
         await super().update(session, uid=uid, values=values)
         if measures:
             await cls.attach_measures(session, uid, measures)
