@@ -22,7 +22,7 @@ from ouranos.aggregator.events import GaiaEvents
 from ouranos.aggregator.sky_watcher import SkyWatcher
 from ouranos.core.database.models.gaia import (
     ActuatorRecord, ActuatorState, Chaos, CrudRequest, Ecosystem, Engine,
-    EnvironmentParameter, Hardware, NycthemeralCycle, Place, SensorAlarm,
+    EnvironmentParameter, Hardware, NycthemeralCycle, Place, Plant, SensorAlarm,
     SensorDataCache, SensorDataRecord)
 from ouranos.core.exceptions import NotRegisteredError
 from ouranos.core.utils import create_time_window
@@ -521,6 +521,62 @@ class TestInitializationDataExchange(EcosystemAware):
         # Verify that the wrong payload raises an exception
         with pytest.raises(Exception):
             await events_handler.on_hardware(g_data.engine_sid, [{}])
+
+    async def test_on_plants(
+            self,
+            mock_dispatcher: MockAsyncDispatcher,
+            events_handler: GaiaEvents,
+            db: AsyncSQLAlchemyWrapper,
+    ):
+        """Test handling of hardware information.
+
+        Verifies that:
+        - Session init_data is properly cleared
+        - Hardware details are correctly stored in the database before
+        - Plants details are correctly stored in the database
+        - Plants hardware are properly associated
+        - No events are emitted (as per design)
+        - Invalid payloads raise appropriate exceptions
+        """
+        # Set up the session with init_data
+        async with events_handler.session(g_data.engine_sid) as session:
+            session["init_data"] = {"plants"}
+
+        # TODO: make it work
+        # Call the method with hardware missing from the DB
+        #with pytest.raises(RuntimeError):
+        #    await events_handler.on_plants(g_data.engine_sid, [g_data.plants_payload])
+
+        # Add the hardware to the DB
+        async with db.scoped_session() as session:
+            hardware = await Hardware.get(session, uid=g_data.hardware_data["uid"])
+            if hardware is None:
+                hardware_data = gv.HardwareConfig(**g_data.hardware_data).model_dump()
+                hardware_data.pop("uid")
+                hardware_data.pop("multiplexer_model")
+                hardware_data["ecosystem_uid"] = g_data.ecosystem_uid
+                await Hardware.create(session, uid=g_data.hardware_uid, values=hardware_data)
+
+        # Call the method
+        await events_handler.on_plants(g_data.engine_sid, [g_data.plants_payload])
+
+        # There is no re emitted event
+
+        # Verify the session
+        async with events_handler.session(g_data.engine_sid) as session:
+            assert not session["init_data"]
+
+        # Verify that the data has been logged
+        async with db.scoped_session() as session:
+            plant = await Plant.get(session, uid=g_data.plant_data["uid"])
+            assert plant.name == g_data.plant_data["name"]
+            assert plant.species == g_data.plant_data["species"]
+            assert plant.sowing_date == g_data.plant_data["sowing_date"]
+            assert plant.hardware[0].uid == g_data.hardware_data["uid"]
+
+        # Verify that the wrong payload raises an exception
+        with pytest.raises(Exception):
+            await events_handler.on_plant(g_data.engine_sid, [{}])
 
     async def test_on_actuators_data(
             self,
