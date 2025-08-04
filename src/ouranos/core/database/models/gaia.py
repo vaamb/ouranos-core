@@ -628,6 +628,7 @@ class EnvironmentParameter(Base, CRUDMixin):
 
 AssociationHardwareMeasure = Table(
     "association_hardware_measures", Base.metadata,
+    sa.Column("id", sa.Integer, primary_key=True),
     sa.Column("hardware_uid",
               sa.String(length=16),
               sa.ForeignKey("hardware.uid")),
@@ -639,6 +640,7 @@ AssociationHardwareMeasure = Table(
 
 AssociationHardwarePlant = Table(
     "association_hardware_plants", Base.metadata,
+    sa.Column("id", sa.Integer, primary_key=True),
     sa.Column("hardware_uid",
               sa.String(length=16),
               sa.ForeignKey("hardware.uid")),
