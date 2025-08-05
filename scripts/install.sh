@@ -1,94 +1,180 @@
 #!/bin/bash
 
-echo "Installing Ouranos"
+# Exit on error, unset variable, and pipefail
+set -euo pipefail
 
-# Create ouranos dir and sub dirs
-mkdir -p "ouranos"; cd "ouranos"
-OURANOS_DIR=$PWD
+# Constants
+readonly OURANOS_VERSION="0.9.0"
+readonly MIN_PYTHON_VERSION="3.11"
 
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Function to print error messages
+error_exit() {
+    echo -e "${RED}Error: $1${NC}" >&2
+    exit 1
+}
+
+# Function to print info messages
+info() {
+    echo -e "${GREEN}$1${NC}"
+}
+
+# Function to print warning messages
+warn() {
+    echo -e "${YELLOW}Warning: $1${NC}"
+}
+
+# Function to check if command exists
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+# Check for required commands
+for cmd in git python3 systemctl; do
+    if ! command_exists "$cmd"; then
+        error_exit "$cmd is required but not installed."
+    fi
+done
+
+# Check Python version
+python3 -c "import sys; exit(0) if sys.version_info >= (${MIN_PYTHON_VERSION//./,}) else exit(1)" || 
+    error_exit "Python ${MIN_PYTHON_VERSION} or higher is required"
+
+info "Installing Ouranos"
+
+# Create ouranos directory
+OURANOS_DIR="${PWD}/ouranos"
+mkdir -p "${OURANOS_DIR}" || error_exit "Failed to create directory: ${OURANOS_DIR}"
+cd "${OURANOS_DIR}" || error_exit "Failed to change to directory: ${OURANOS_DIR}"
+
+info "Creating Python virtual environment..."
 if [ ! -d "python_venv" ]; then
-  echo "Creating a python virtual environment"
-  python3 -m venv python_venv
+    python3 -m venv "${OURANOS_DIR}/python_venv" || 
+        error_exit "Failed to create Python virtual environment"
 fi
-source python_venv/bin/activate
 
-mkdir -p "logs"
-mkdir -p "scripts"
-mkdir -p "lib"; cd "lib"
+# Activate virtual environment
+# shellcheck source=/dev/null
+source "${OURANOS_DIR}/python_venv/bin/activate" || 
+    error_exit "Failed to activate Python virtual environment"
 
-# Get Ouranos and install the package
-if [ ! -d "ouranos-core" ]; then
-  echo "Getting Ouranos repository"
-  git clone --branch stable https://github.com/vaamb/ouranos-core.git > /dev/null
-  if [ $? = 0 ] ; then
-    cd "ouranos-core"
-  else
-    echo "Failed to get Ouranos repository from git";
-    exit 2
-  fi
-  echo "Updating pip setuptools and wheel"
-  pip install --upgrade pip setuptools wheel
+# Create required directories
+for dir in logs scripts lib; do
+    mkdir -p "${OURANOS_DIR}/${dir}" || 
+        error_exit "Failed to create directory: ${OURANOS_DIR}/${dir}"
+done
+
+# Get Ouranos repository
+info "Cloning Ouranos repository..."
+if [ ! -d "${OURANOS_DIR}/lib/ouranos-core" ]; then
+    if ! git clone --branch "${OURANOS_VERSION}" \
+            "https://github.com/vaamb/ouranos-core.git" \
+            "${OURANOS_DIR}/lib/ouranos-core" > /dev/null 2>&1; then
+        error_exit "Failed to clone Ouranos repository"
+    fi
+    
+    cd "${OURANOS_DIR}/lib/ouranos-core" || 
+        error_exit "Failed to enter Ouranos directory"
+    
+    info "Updating Python packaging tools..."
+    pip install --upgrade pip setuptools wheel || 
+        error_exit "Failed to update Python packaging tools"
 else
-  echo "Detecting an existing installation, you should update it if needed. Stopping"
-  exit 1
+    error_exit "Ouranos installation detected at ${OURANOS_DIR}/lib/ouranos-core. Please update using the update script."
 fi
-echo "Installing Ouranos and its dependencies"
-pip install -e .
+
+# Install Ouranos
+info "Installing Ouranos and its dependencies..."
+pip install -e . || error_exit "Failed to install Ouranos"
 deactivate
 
-# Make Ouranos scripts easily available
-cp -r scripts/ $OURANOS_DIR/
+# Copy scripts
+cp -r "${OURANOS_DIR}/lib/ouranos-core/scripts/"* "${OURANOS_DIR}/scripts/" || 
+    error_exit "Failed to copy scripts"
+chmod +x "${OURANOS_DIR}/scripts/"*.sh
 
-cd "$OURANOS_DIR/scripts/"
-chmod +x start.sh stop.sh update.sh
+# Update .profile
+info "Updating shell profile..."
 
-# Copy vars and utility function to .profile
-if [ $(grep -ic "#>>>Ouranos variables>>>" $HOME/.profile) -eq 1 ]; then
-  sed -i "/#>>>Ouranos variables>>>/,/#<<<Ouranos variables<<</d" $HOME/.profile;
+# Remove existing Ouranos section if it exists
+if grep -q "#>>>Ouranos variables>>>" "${HOME}/.profile"; then
+    sed -i "/#>>>Ouranos variables>>>/,/#<<<Ouranos variables<<</d" "${HOME}/.profile"
 fi
 
-echo "
+cat >> "${HOME}/.profile" << EOF
 #>>>Ouranos variables>>>
 # Ouranos root directory
-export OURANOS_DIR=$OURANOS_DIR
+export OURANOS_DIR="${OURANOS_DIR}"
 
-# Ouranos utility function to start and stop the main application
+# Ouranos utility function to manage the application
 ouranos() {
   case \$1 in
-    start) \$OURANOS_DIR/scripts/start.sh ;;
-    stop) \$OURANOS_DIR/scripts/stop.sh ;;
-    stdout) tail \$OURANOS_DIR/logs/stdout ;;
-    update) \$OURANOS_DIR/scripts/update.sh ;;
-    *) echo 'Need an argument in start, stop, stdout or update' ;;
+    start) "${OURANOS_DIR}/scripts/start.sh" ;;
+    stop) "${OURANOS_DIR}/scripts/stop.sh" ;;
+    restart) "${OURANOS_DIR}/scripts/stop.sh" && "${OURANOS_DIR}/scripts/start.sh" ;;
+    status) systemctl status ouranos.service ;;
+    logs) tail -f "${OURANOS_DIR}/logs/ouranos.log" ;;
+    update) "${OURANOS_DIR}/scripts/update.sh" ;;
+    *) echo "Usage: ouranos {start|stop|restart|status|logs|update}" ;;
   esac
 }
-complete -W 'start stop stdout update' ouranos
+complete -W "start stop restart status logs update" ouranos
 #<<<Ouranos variables<<<
-" >> $HOME/.profile;
+EOF
 
-source $HOME/.profile
+# shellcheck source=/dev/null
+source "${HOME}/.profile"
 
-# Create the service file
-echo "[Unit]
+# Create systemd service file
+info "Setting up systemd service..."
+SERVICE_FILE="${OURANOS_DIR}/scripts/ouranos.service"
+
+cat > "${SERVICE_FILE}" << EOF
+[Unit]
 Description=Ouranos service
+After=network.target
 
 [Service]
-Environment=OURANOS_DIR=$OURANOS_DIR
+Environment=OURANOS_DIR="${OURANOS_DIR}"
 Type=simple
-User=$USER
+User=${USER}
+WorkingDirectory=${OURANOS_DIR}
 Restart=always
-RestartSec=1
-ExecStart=$OURANOS_DIR/scripts/start.sh
-ExecStop=$OURANOS_DIR/scripts/stop.sh
+RestartSec=10
+ExecStart=${OURANOS_DIR}/scripts/start.sh
+ExecStop=${OURANOS_DIR}/scripts/stop.sh
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=ouranos
 
 [Install]
 WantedBy=multi-user.target
-" > $OURANOS_DIR/scripts/ouranos.service
+EOF
 
-sudo cp $OURANOS_DIR/scripts/ouranos.service /etc/systemd/system/
-sudo systemctl daemon-reload
+# Install service
+if ! sudo cp "${SERVICE_FILE}" "/etc/systemd/system/ouranos.service"; then
+    warn "Failed to copy service file. You may need to run with sudo."
+else
+    sudo systemctl daemon-reload || 
+        warn "Failed to reload systemd daemon"
+fi
 
-echo "Ouranos installed. To run it, either use \`ouranos start\` or go to the ouranos directory, activate the virtual environment and run \`python main.py\` or \`python -m ouranos\`"
-echo "Alternatively, you can start Ouranos as a service with \`sudo systemctl start ouranos.service \` and enable it to run at startup with \`sudo systemctl enable ouranos.service \`"
+info    "\nInstallation completed successfully!"
+echo -e "\nTo get started:"
+echo -e "1. Source your profile: ${YELLOW}source ~/.profile${NC}"
+echo -e "2. Start Ouranos: ${YELLOW}ouranos start${NC}"
+echo -e "\nOther useful commands:"
+echo -e "  ouranos stop     # Stop the service"
+echo -e "  ouranos restart  # Restart the service"
+echo -e "  ouranos status   # Check service status"
+echo -e "  ouranos logs     # View logs"
+echo -e "\nTo run as a system service:"
+echo -e "  sudo systemctl start ouranos.service"
+echo -e "  sudo systemctl enable ouranos.service  # Start on boot"
 
-exit
+exit 0
