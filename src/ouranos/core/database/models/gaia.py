@@ -662,7 +662,7 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
     address: Mapped[str] = mapped_column(sa.String(length=32))
     type: Mapped[gv.HardwareType] = mapped_column()
     model: Mapped[str] = mapped_column(sa.String(length=32))
-    last_log: Mapped[Optional[datetime]] = mapped_column()
+    last_log: Mapped[Optional[datetime]] = mapped_column(UtcDateTime)
 
     # relationships
     ecosystem: Mapped["Ecosystem"] = relationship(back_populates="hardware")
