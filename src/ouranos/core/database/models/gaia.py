@@ -628,6 +628,7 @@ class EnvironmentParameter(Base, CRUDMixin):
 
 AssociationHardwareMeasure = Table(
     "association_hardware_measures", Base.metadata,
+    sa.Column("id", sa.Integer, primary_key=True),
     sa.Column("hardware_uid",
               sa.String(length=16),
               sa.ForeignKey("hardware.uid")),
@@ -637,9 +638,10 @@ AssociationHardwareMeasure = Table(
 )
 
 
-AssociationActuatorPlant = Table(
-    "association_actuators_plants", Base.metadata,
-    sa.Column("sensor_uid",
+AssociationHardwarePlant = Table(
+    "association_hardware_plants", Base.metadata,
+    sa.Column("id", sa.Integer, primary_key=True),
+    sa.Column("hardware_uid",
               sa.String(length=16),
               sa.ForeignKey("hardware.uid")),
     sa.Column("plant_uid",
@@ -668,7 +670,7 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
         back_populates="hardware", secondary=AssociationHardwareMeasure,
         lazy="selectin")
     plants: Mapped[list["Plant"]] = relationship(
-        back_populates="sensors", secondary=AssociationActuatorPlant,
+        back_populates="hardware", secondary=AssociationHardwarePlant,
         lazy="selectin")
     sensor_records: Mapped[list["SensorDataRecord"]] = relationship(
         back_populates="sensor")
@@ -679,41 +681,14 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
             f"ecosystem_uid={self.ecosystem_uid})>"
         )
 
-    async def attach_plants(
-            self,
-            session: AsyncSession,
-            plants: list[str],
-    ) -> None:
-        stmt = (
-            delete(AssociationActuatorPlant)
-            .where(AssociationActuatorPlant.c.sensor_uid == self.uid)
-        )
-        await session.execute(stmt)
-
-        for p in plants:
-            plant = await Plant.get(session, uid=p)
-            if plant is None:
-                # TODO: enforce
-                continue
-                # raise RuntimeError("Plants should be registered before hardware")
-            stmt = (
-                insert(AssociationActuatorPlant)
-                .values(sensor_uid=self.uid, plant_uid=plant.uid)
-            )
-            await session.execute(stmt)
-        await session.commit()
-
+    @classmethod
     async def attach_measures(
-            self,
+            cls,
             session: AsyncSession,
+            hardware_uid: str,
             measures: list[gv.Measure | gv.MeasureDict],
     ) -> None:
-        stmt = (
-            delete(AssociationHardwareMeasure)
-            .where(AssociationHardwareMeasure.c.hardware_uid == self.uid)
-        )
-        await session.execute(stmt)
-
+        measures_to_add = []
         for m in measures:
             if hasattr(m, "model_dump"):
                 m = m.model_dump()
@@ -722,11 +697,25 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
             if measure is None:
                 await Measure.create(session, name=m["name"], values={"unit": m["unit"]})
                 measure = await Measure.get(session, name=m["name"])
-            stmt = (
-                insert(AssociationHardwareMeasure)
-                .values(hardware_uid=self.uid, measure_id=measure.id)
-            )
-            await session.execute(stmt)
+            measures_to_add.append({
+                "hardware_uid": hardware_uid,
+                "measure_id": measure.id,
+            })
+        # Add the new hardware
+        stmt = (
+            insert(AssociationHardwareMeasure)
+            .values(measures_to_add)
+        )
+        await session.execute(stmt)
+        # Remove the old hardware
+        to_keep = [m["measure_id"] for m in measures_to_add]
+        stmt = (
+            delete(AssociationHardwareMeasure)
+            .where(AssociationHardwareMeasure.c.hardware_uid == hardware_uid)
+            # Must be kept separate or it won't compile properly
+            .where(AssociationHardwareMeasure.c.measure_id.not_in(to_keep))
+        )
+        await session.execute(stmt)
         await session.commit()
 
     @classmethod
@@ -739,19 +728,14 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
             **lookup_keys: str | Enum | UUID,
     ) -> None:
         measures: list[gv.Measure | gv.MeasureDict] = values.pop("measures", [])
-        plants = values.pop("plants", [])
+        values.pop("plants", [])
         await super().create(
             session, values=values, _on_conflict_do=_on_conflict_do, **lookup_keys)
-        if any((measures, plants)):
-            hardware_obj = await cls.get(session, uid=lookup_keys["uid"])
-            if measures:
-                await hardware_obj.attach_measures(session, measures)
-            if plants:
-                await hardware_obj.attach_plants(session, plants)
+        if measures:
+            await cls.attach_measures(session, lookup_keys["uid"], measures)
             # Clear cache as measures and/or plants have been added
             hash_key = create_hashable_key(**lookup_keys)
             cls._cache.pop(hash_key, None)
-            await session.commit()
 
     @classmethod
     async def update(
@@ -767,18 +751,13 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
                 "Provide 'uid' either as a parameter or as a key in the "
                 "updated info")
         measures = values.pop("measures", [])
-        plants = values.pop("plants", [])
+        values.pop("plants", [])
         await super().update(session, uid=uid, values=values)
-        if any((measures, plants)):
-            hardware_obj = await cls.get(session, uid=uid)
-            if measures:
-                await hardware_obj.attach_measures(session, measures)
-            if plants:
-                await hardware_obj.attach_plants(session, plants)
+        if measures:
+            await cls.attach_measures(session, uid, measures)
             # Clear cache as measures and/or plants have been added
             hash_key = create_hashable_key(**lookup_keys)
             cls._cache.pop(hash_key, None)
-            await session.commit()
 
     @staticmethod
     def get_models_available() -> list[str]:
@@ -968,14 +947,85 @@ class Plant(Base, CachedCRUDMixin, InConfigMixin):
     uid: Mapped[str] = mapped_column(sa.String(length=16), primary_key=True)
     ecosystem_uid: Mapped[str] = mapped_column(sa.ForeignKey("ecosystems.uid"))
     name: Mapped[str] = mapped_column(sa.String(length=32))
-    species: Mapped[Optional[int]] = mapped_column(sa.String(length=32), index=True)
-    sowing_date: Mapped[Optional[datetime]] = mapped_column()
+    species: Mapped[Optional[str]] = mapped_column(sa.String(length=32), index=True)
+    sowing_date: Mapped[Optional[datetime]] = mapped_column(UtcDateTime)
 
     # relationships
-    ecosystem = relationship("Ecosystem", back_populates="plants", lazy="selectin")
-    sensors = relationship(
-        "Hardware", back_populates="plants", secondary=AssociationActuatorPlant,
+    ecosystem: Mapped[list[Ecosystem]] = relationship(
+        "Ecosystem", back_populates="plants", lazy="selectin")
+    hardware: Mapped[list[Hardware]] = relationship(
+        "Hardware", back_populates="plants", secondary=AssociationHardwarePlant,
         lazy="selectin")
+
+    @classmethod
+    async def attach_hardware(
+            cls,
+            session: AsyncSession,
+            plant_uid: str,
+            hardware: list[str],
+    ) -> None:
+        hardware_to_add = []
+        for hardware_uid in hardware:
+            hardware = await Hardware.get(session, uid=hardware_uid)
+            if hardware is None:
+                raise RuntimeError("Hardware should be registered before plants")
+            hardware_to_add.append({
+                "hardware_uid": hardware.uid,
+                "plant_uid": plant_uid
+            })
+        # Add the new hardware
+        stmt = (
+            insert(AssociationHardwarePlant)
+            .values(hardware_to_add)
+        )
+        await session.execute(stmt)
+        # Remove the old hardware
+        to_keep = [h["hardware_uid"] for h in hardware_to_add]
+        stmt = (
+            delete(AssociationHardwarePlant)
+            .where(AssociationHardwarePlant.c.plant_uid == plant_uid)
+            # Must be kept separate or it won't compile properly
+            .where(AssociationHardwarePlant.c.hardware_uid.not_in(to_keep))
+        )
+        await session.execute(stmt)
+        await session.commit()
+
+    @classmethod
+    async def create(
+            cls,
+            session: AsyncSession,
+            /,
+            values: gv.HardwareConfigDict | None = None,
+            **lookup_keys: str | Enum | UUID,
+    ) -> None:
+        hardware = values.pop("hardware", [])
+        await super().create(session, values=values, **lookup_keys)
+        if hardware:
+            await cls.attach_hardware(session, lookup_keys["uid"], hardware)
+            # Clear cache as hardware have been added
+            hash_key = create_hashable_key(**lookup_keys)
+            cls._cache.pop(hash_key, None)
+
+    @classmethod
+    async def update(
+            cls,
+            session: AsyncSession,
+            /,
+            values: dict,
+            **lookup_keys: str | Enum,
+    ) -> None:
+        uid = lookup_keys.get("uid") or values.get("uid", None)
+        if uid is None:
+            raise ValueError(
+                "Provide 'uid' either as a parameter or as a key in the "
+                "updated info")
+        hardware = values.pop("hardware", [])
+        await super().update(session, uid=uid, values=values)
+        if hardware:
+            await cls.attach_hardware(session, lookup_keys["uid"], hardware)
+            # Clear cache as hardware have been added
+            hash_key = create_hashable_key(**lookup_keys)
+            cls._cache.pop(hash_key, None)
 
     @classmethod
     async def get_by_id(

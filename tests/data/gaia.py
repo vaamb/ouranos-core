@@ -149,6 +149,19 @@ hardware_payload: gv.HardwareConfigPayloadDict = \
     wrap_ecosystem_data_payload([hardware_data])
 
 
+plant_data: gv.PlantConfigDict = {
+    "uid": plant_uid,
+    "name": "TestPlant",
+    "species": "TestSpecies",
+    "sowing_date": timestamp_now,
+    "hardware": [hardware_uid],
+}
+
+
+plants_payload: gv.PlantConfigPayloadDict = \
+    wrap_ecosystem_data_payload([plant_data])
+
+
 measure_record = gv.MeasureAverage(
     measure_name,
     42,
