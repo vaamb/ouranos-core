@@ -33,6 +33,7 @@ def upgrade_ecosystems() -> None:
 
     op.rename_table("association_actuators_plants", "association_hardware_plants")
     with op.batch_alter_table("association_hardware_plants") as batch_op:
+        batch_op.alter_column("sensor_uid", new_column_name="hardware_uid")
         batch_op.add_column(sa.Column("id", sa.Integer(), autoincrement=True))
         batch_op.create_primary_key("id_pk", columns=["id"])
         batch_op.alter_column("id", nullable=False)
@@ -43,6 +44,7 @@ def downgrade_ecosystems() -> None:
 
     op.rename_table("association_hardware_plants", "association_actuators_plants")
     with op.batch_alter_table("association_actuators_plants") as batch_op:
+        batch_op.alter_column("hardware_uid", new_column_name="sensor_uid")
         batch_op.drop_column("id")
 
 def upgrade_app() -> None:
