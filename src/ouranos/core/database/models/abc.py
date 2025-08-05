@@ -12,11 +12,12 @@ from sqlalchemy import (
     and_, Column, delete, Insert, inspect, Select, select, table, UnaryExpression,
     UniqueConstraint, update)
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Mapped
+from sqlalchemy.orm import Mapped, mapped_column
 
 from gaia_validators import missing
 
 from ouranos import db
+from ouranos.core.database.models.types import UtcDateTime
 from ouranos.core.utils import timeWindow
 
 
@@ -386,7 +387,7 @@ class RecordMixin(CRUDMixin):
     """Records are Models with at least one `timestamp` column that can be
     queried with a `timeWindow`"""
 
-    timestamp: Mapped[datetime]
+    timestamp: Mapped[datetime] = mapped_column(UtcDateTime)
 
     @classmethod
     async def get_records(
@@ -411,7 +412,7 @@ class RecordMixin(CRUDMixin):
 
 
 class CacheMixin(CRUDMixin):
-    timestamp: Mapped[datetime]
+    timestamp: Mapped[datetime] = mapped_column(UtcDateTime)
 
     @classmethod
     @abstractmethod
