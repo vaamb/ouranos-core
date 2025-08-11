@@ -8,15 +8,6 @@ readonly DATETIME=$(date +%Y%m%d_%H%M%S)
 readonly LOG_FILE="/tmp/ouranos_stop_${DATETIME}.log"
 . "./logging.sh"
 
-# Function to check if Ouranos is running
-is_running() {
-    if pgrep -f "python3 -m ouranos" > /dev/null; then
-        return 0
-    else
-        return 1
-    fi
-}
-
 # Check if OURANOS_DIR is set
 if [[ -z "${OURANOS_DIR:-}" ]]; then
     log ERROR "OURANOS_DIR environment variable is not set. Please source your profile or run the install script first."
@@ -33,6 +24,15 @@ mkdir -p "${OURANOS_DIR}/logs" || log ERROR "Failed to create logs directory"
 # Log stop attempt
 log INFO "Attempting to stop Ouranos..."
 
+# Function to check if Ouranos is running
+is_running() {
+    if pgrep -f "ouranos" > /dev/null; then
+        return 0
+    else
+        return 1
+    fi
+}
+
 # Check if Ouranos is running
 if ! is_running; then
     log INFO "No running instance of Ouranos found."
@@ -47,7 +47,7 @@ if ! is_running; then
 fi
 
 # Get the PID of the running process
-OURANOS_PID=$(pgrep -f "python3 -m ouranos")
+OURANOS_PID=$(pgrep -f "ouranos")
 
 if [[ -z "$OURANOS_PID" ]]; then
     log ERROR "Could not determine Ouranos process ID"

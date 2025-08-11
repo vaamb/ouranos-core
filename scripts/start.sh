@@ -21,21 +21,9 @@ fi
 # Create logs directory if it doesn't exist
 mkdir -p "${OURANOS_DIR}/logs" || log ERROR "Failed to create logs directory"
 
-# Redirect all output to log file
-exec > >(tee -a "${OURANOS_DIR}/logs/ouranos.log") 2>&1
-
-# Function to check if Ouranos is running
-is_running() {
-    if pgrep -f "python3 -m ouranos" > /dev/null; then
-        return 0
-    else
-        return 1
-    fi
-}
-
 # Check if already running
-if is_running; then
-    PID=$(pgrep -f "python3 -m ouranos")
+if pgrep -f "ouranos" > /dev/null; then
+    PID=$(pgrep -f "ouranos" | head -n 1)
     log WARN "Ouranos is already running with PID $PID"
     log INFO "If you want to restart, please run: ouranos restart"
     exit 0
@@ -56,23 +44,24 @@ if ! source "python_venv/bin/activate"; then
 fi
 
 # Start Ouranos
-log INFO "$(date) - Starting Ouranos..."
-log INFO "Logging to: ${OURANOS_DIR}/logs/ouranos.log"
+log INFO "Starting Ouranos..."
 
 # Run Ouranos in the background and log the PID
-nohup python3 -m ouranos > "${OURANOS_DIR}/logs/ouranos.log" 2>&1 &
-OURANOS_PID=$!
+nohup python3 -m ouranos > "${OURANOS_DIR}/logs/stdout" 2>&1 &
+log INFO "Ouranos stdout and stderr output redirected to ${GAIA_DIR}/logs/stdout"
 
+OURANOS_PID=$!
 echo "$OURANOS_PID" > "${OURANOS_DIR}/ouranos.pid"
 
 # Verify that Ouranos started successfully
 sleep 2
+
+# Check if process is still running
 if ! kill -0 "$OURANOS_PID" 2>/dev/null; then
     log ERROR "Failed to start Ouranos. Check the logs at ${OURANOS_DIR}/logs/ouranos.log for details.
 $(tail -n 20 "${OURANOS_DIR}/logs/ouranos.log")"
 fi
 
-log INFO "Ouranos started successfully with PID $OURANOS_PID"
-log INFO "To view logs: tail -f ${OURANOS_DIR}/logs/ouranos.log"
+log SUCCESS "Ouranos started successfully with PID $OURANOS_PID"
 
 exit 0
