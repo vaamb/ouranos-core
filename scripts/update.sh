@@ -150,6 +150,31 @@ done
 # Deactivate virtual environment
 deactivate 2>/dev/null || true
 
+# Update scripts
+cp -r "${OURANOS_DIR}/lib/ouranos-core/scripts/"* "${OURANOS_DIR}/scripts/" ||
+    error_exit "Failed to copy scripts"
+chmod +x "${OURANOS_DIR}/scripts/"*.sh
+
+# Update .profile
+log "INFO" "Updating shell profile..."
+
+${OURANOS_DIR}/scripts/gen_profile.sh "${OURANOS_DIR}" ||
+    log "ERROR" "Failed to update shell profile"
+
+info "Setting up systemd service..."
+SERVICE_FILE="${OURANOS_DIR}/scripts/ouranos.service"
+
+${OURANOS_DIR}/scripts/gen_service.sh "${OURANOS_DIR}" "${SERVICE_FILE}" ||
+    log "ERROR" "Failed to generate systemd service"
+
+# Update service
+if ! sudo cp "${SERVICE_FILE}" "/etc/systemd/system/ouranos.service"; then
+    log "WARN" "Failed to copy service file. You may need to run with sudo."
+else
+    sudo systemctl daemon-reload ||
+        log "WARN" "Failed to reload systemd daemon"
+fi
+
 log INFO "\nUpdate complete!"
 
 # Show final instructions

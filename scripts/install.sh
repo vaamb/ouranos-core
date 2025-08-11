@@ -6,6 +6,7 @@ set -euo pipefail
 # Version requirements
 readonly MIN_PYTHON_VERSION="3.11"
 readonly OURANOS_VERSION="0.9.0"
+readonly OURANOS_REPO="https://github.com/vaamb/ouranos-core.git"
 
 # Default values
 OURANOS_DIR="${PWD}/ouranos"
@@ -57,8 +58,7 @@ done
 # Get Ouranos repository
 log INFO "Cloning Ouranos repository..."
 if [ ! -d "${OURANOS_DIR}/lib/ouranos-core" ]; then
-    if ! git clone --branch "${OURANOS_VERSION}" \
-            "https://github.com/vaamb/ouranos-core.git" \
+    if ! git clone --branch "${OURANOS_VERSION}" "${OURANOS_REPO}" \
             "${OURANOS_DIR}/lib/ouranos-core" > /dev/null 2>&1; then
         log ERROR "Failed to clone Ouranos repository"
     fi
@@ -86,60 +86,14 @@ chmod +x "${OURANOS_DIR}/scripts/"*.sh
 # Update .profile
 log INFO "Updating shell profile..."
 
-# Remove existing Ouranos section if it exists
-if grep -q "#>>>Ouranos variables>>>" "${HOME}/.profile"; then
-    sed -i "/#>>>Ouranos variables>>>/,/#<<<Ouranos variables<<</d" "${HOME}/.profile"
-fi
+${OURANOS_DIR}/scripts/gen_profile.sh "${OURANOS_DIR}" ||
+    log ERROR "Failed to update shell profile"
 
-cat >> "${HOME}/.profile" << EOF
-#>>>Ouranos variables>>>
-# Ouranos root directory
-export OURANOS_DIR="${OURANOS_DIR}"
-
-# Ouranos utility function to manage the application
-ouranos() {
-  case \$1 in
-    start) "${OURANOS_DIR}/scripts/start.sh" ;;
-    stop) "${OURANOS_DIR}/scripts/stop.sh" ;;
-    restart) "${OURANOS_DIR}/scripts/stop.sh" && "${OURANOS_DIR}/scripts/start.sh" ;;
-    status) systemctl status ouranos.service ;;
-    logs) tail -f "${OURANOS_DIR}/logs/ouranos.log" ;;
-    update) "${OURANOS_DIR}/scripts/update.sh" ;;
-    *) echo "Usage: ouranos {start|stop|restart|status|logs|update}" ;;
-  esac
-}
-complete -W "start stop restart status logs update" ouranos
-#<<<Ouranos variables<<<
-EOF
-
-# shellcheck source=/dev/null
-source "${HOME}/.profile"
-
-# Create systemd service file
-log INFO "Setting up systemd service..."
+info "Setting up systemd service..."
 SERVICE_FILE="${OURANOS_DIR}/scripts/ouranos.service"
 
-cat > "${SERVICE_FILE}" << EOF
-[Unit]
-Description=Ouranos service
-After=network.target
-
-[Service]
-Environment=OURANOS_DIR="${OURANOS_DIR}"
-Type=simple
-User=${USER}
-WorkingDirectory=${OURANOS_DIR}
-Restart=always
-RestartSec=10
-ExecStart=${OURANOS_DIR}/scripts/start.sh
-ExecStop=${OURANOS_DIR}/scripts/stop.sh
-StandardOutput=syslog
-StandardError=syslog
-SyslogIdentifier=ouranos
-
-[Install]
-WantedBy=multi-user.target
-EOF
+${OURANOS_DIR}/scripts/gen_service.sh "${OURANOS_DIR}" "${SERVICE_FILE}" ||
+    log ERROR "Failed to generate systemd service"
 
 # Install service
 if ! sudo cp "${SERVICE_FILE}" "/etc/systemd/system/ouranos.service"; then
