@@ -149,6 +149,14 @@ update_repo() {
 }
 
 update_packages() {
+    # In dry-run, don't activate venv or install; just show intended repo changes
+    if [[ "${DRY_RUN}" == true ]]; then
+        for OURANOS_PKG in "${OURANOS_DIR}/lib"/ouranos-*; do
+          update_repo "$OURANOS_PKG"
+        done
+        return 0
+    fi
+
     # Activate virtual environment
     # shellcheck source=/dev/null
     if ! source "python_venv/bin/activate"; then
@@ -224,24 +232,40 @@ main () {
     check_requirements
     log SUCCESS "System requirements met"
 
-    log INFO "Creating backup..."
-    create_backup
-    log SUCCESS "Backup created at ${BACKUP_DIR}"
+    if [[ "${DRY_RUN}" == false ]]; then
+        log INFO "Creating backup..."
+        create_backup
+        log SUCCESS "Backup created at ${BACKUP_DIR}"
+    else
+        log INFO "Dry run mode: no changes will be made. Showing intended operations."
+    fi
 
     log INFO "Updating Ouranos packages..."
     update_packages
     log SUCCESS "Packages updated successfully"
 
-    log INFO "Making scripts more easily accessible..."
-    update_scripts
+    if [[ "${DRY_RUN}" == false ]]; then
+        log INFO "Making scripts more easily accessible..."
+        update_scripts
+    else
+        log INFO "Dry run: skipping scripts update"
+    fi
 
-    log INFO "Updating shell profile..."
-    update_profile
-    log SUCCESS "Profile updated successfully"
+    if [[ "${DRY_RUN}" == false ]]; then
+        log INFO "Updating shell profile..."
+        update_profile
+        log SUCCESS "Profile updated successfully"
+    else
+        log INFO "Dry run: skipping profile update"
+    fi
 
-    log INFO "Updating systemd service..."
-    update_service
-    log SUCCESS "Systemd service updated successfully"
+    if [[ "${DRY_RUN}" == false ]]; then
+        log INFO "Updating systemd service..."
+        update_service
+        log SUCCESS "Systemd service updated successfully"
+    else
+        log INFO "Dry run: skipping systemd service update"
+    fi
 
     # Display completion message
 
