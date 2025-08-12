@@ -8,6 +8,8 @@ readonly DATETIME=$(date +%Y%m%d_%H%M%S)
 readonly LOG_FILE="/tmp/ouranos_update_${DATETIME}.log"
 . "./logging.sh"
 
+readonly BACKUP_DIR="/tmp/ouranos_backup_${DATETIME}"
+
 # Constants
 DRY_RUN=false
 FORCE_UPDATE=false
@@ -42,28 +44,30 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Check if OURANOS_DIR is set
-if [[ -z "${OURANOS_DIR:-}" ]]; then
-    log ERROR "OURANOS_DIR environment variable is not set. Please source your profile or run the install script first."
-fi
+check_requirements() {
+    # Check if OURANOS_DIR is set
+    if [[ -z "${OURANOS_DIR:-}" ]]; then
+        log ERROR "OURANOS_DIR environment variable is not set. Please source your profile or run the install script first."
+    fi
 
-# Check if the directory exists
-if [[ ! -d "$OURANOS_DIR" ]]; then
-    log ERROR "Ouranos directory not found at $OURANOS_DIR. Please check your installation."
-fi
+    # Check if the directory exists
+    if [[ ! -d "$OURANOS_DIR" ]]; then
+        log ERROR "Ouranos directory not found at $OURANOS_DIR. Please check your installation."
+    fi
 
-cd "$OURANOS_DIR" || log ERROR "Failed to change to Ouranos directory: $OURANOS_DIR"
+    cd "$OURANOS_DIR" || log ERROR "Failed to change to Ouranos directory: $OURANOS_DIR"
 
-# Check if virtual environment exists
-if [[ ! -d "python_venv" ]]; then
-    log ERROR "Python virtual environment not found. Please run the install script first."
-fi
+    # Check if virtual environment exists
+    if [[ ! -d "python_venv" ]]; then
+        log ERROR "Python virtual environment not found. Please run the install script first."
+    fi
+}
 
-# Activate virtual environment
-# shellcheck source=/dev/null
-if ! source "python_venv/bin/activate"; then
-    log ERROR "Failed to activate Python virtual environment"
-fi
+create_backup() {
+    # Create backup directory
+    cp -r "$OURANOS_DIR" "$BACKUP_DIR" ||
+        log ERROR "Failed to create backup directory: $BACKUP_DIR"
+}
 
 # Function to update a single repository
 update_repo() {
@@ -143,51 +147,113 @@ update_repo() {
     return 0
 }
 
-# Main update process
-log INFO "Starting Ouranos update..."
+update_packages() {
+    # Activate virtual environment
+    # shellcheck source=/dev/null
+    if ! source "python_venv/bin/activate"; then
+        log ERROR "Failed to activate Python virtual environment"
+    fi
 
-# Update ouranos-core
-for OURANOS_PKG in "${OURANOS_DIR}/lib"/ouranos-*; do
-  update_repo "$OURANOS_PKG"
-done
+    # Update ouranos-* packages
+    for OURANOS_PKG in "${OURANOS_DIR}/lib"/ouranos-*; do
+      update_repo "$OURANOS_PKG"
+    done
 
-# Deactivate virtual environment
-deactivate 2>/dev/null || true
+    # Deactivate virtual environment
+    deactivate 2>/dev/null || true
+}
 
-# Update scripts
-cp -r "${OURANOS_DIR}/lib/ouranos-core/scripts/"* "${OURANOS_DIR}/scripts/" ||
-    log ERROR "Failed to copy scripts"
-chmod +x "${OURANOS_DIR}/scripts/"*.sh
+update_scripts() {
+    # Update scripts
+    cp -r "${OURANOS_DIR}/lib/ouranos-core/scripts/"* "${OURANOS_DIR}/scripts/" ||
+        log ERROR "Failed to copy scripts"
+    chmod +x "${OURANOS_DIR}/scripts/"*.sh
+}
 
-# Update .profile
-log "INFO" "Updating shell profile..."
+update_profile() {
+    ${OURANOS_DIR}/scripts/gen_profile.sh "${OURANOS_DIR}" ||
+        log ERROR "Failed to update shell profile"
+}
 
-${OURANOS_DIR}/scripts/gen_profile.sh "${OURANOS_DIR}" ||
-    log "ERROR" "Failed to update shell profile"
+update_service() {
+    local service_file="${OURANOS_DIR}/scripts/ouranos.service"
 
-info "Setting up systemd service..."
-SERVICE_FILE="${OURANOS_DIR}/scripts/ouranos.service"
+    ${OURANOS_DIR}/scripts/gen_service.sh "${OURANOS_DIR}" "${service_file}" ||
+        log ERROR "Failed to generate systemd service"
 
-${OURANOS_DIR}/scripts/gen_service.sh "${OURANOS_DIR}" "${SERVICE_FILE}" ||
-    log "ERROR" "Failed to generate systemd service"
+    # Update service
+    if ! sudo cp "${service_file}" "/etc/systemd/system/ouranos.service"; then
+        log WARN "Failed to copy service file. You may need to run with sudo."
+    else
+        sudo systemctl daemon-reload ||
+            log WARN "Failed to reload systemd daemon"
+    fi
+}
 
-# Update service
-if ! sudo cp "${SERVICE_FILE}" "/etc/systemd/system/ouranos.service"; then
-    log "WARN" "Failed to copy service file. You may need to run with sudo."
-else
-    sudo systemctl daemon-reload ||
-        log "WARN" "Failed to reload systemd daemon"
-fi
+# Cleanup function to run on exit
+cleanup() {
+    local exit_code=$?
 
-log INFO "\nUpdate complete!"
+    if [ ${exit_code} -ne 0 ]; then
+        log WARN "Update failed. Check the log file for details: ${LOG_FILE}"
+        if [[ -d "${BACKUP_DIR}" && "${DRY_RUN}" == false ]]; then
+            log WARN "Attempting rollback from backup..."
+            rm -rf "${OURANOS_DIR}"
+            cp -r "${BACKUP_DIR}" "${OURANOS_DIR}"
+        fi
+    else
+        if [[ -d "${BACKUP_DIR}" ]]; then
+            rm -rf "${BACKUP_DIR}"
+        fi
+        log SUCCESS "Update completed successfully!"
+    fi
 
-# Show final instructions
-if [[ "$DRY_RUN" == false ]]; then
-    echo -e "\nTo apply the updates, please restart the Ouranos service with one of these commands:"
-    echo -e "  ${YELLOW}ouranos restart${NC}    # If using the ouranos command"
-    echo -e "  ${YELLOW}sudo systemctl restart ouranos.service${NC}  # If using systemd"
-else
-    echo -e "\nThis was a dry run. No changes were made. Use ${YELLOW}$0${NC} without --dry-run to perform the updates."
-fi
+    # Reset terminal colors
+    echo -e "${NC}"
+    exit ${exit_code}
+}
 
-exit 0
+main () {
+    # Set up trap for cleanup on exit
+    trap cleanup EXIT
+
+    log INFO "Starting Ouranos update..."
+
+    log INFO "Checking system requirements..."
+    check_requirements
+    log SUCCESS "System requirements met"
+
+    log INFO "Creating backup..."
+    create_backup
+    log SUCCESS "Backup created at ${BACKUP_DIR}"
+
+    log INFO "Updating Ouranos packages..."
+    update_packages
+    log SUCCESS "Packages updated successfully"
+
+    log INFO "Making scripts more easily accessible..."
+    update_scripts
+
+    log INFO "Updating shell profile..."
+    update_profile
+    log SUCCESS "Profile updated successfully"
+
+    log INFO "Updating systemd service..."
+    update_service
+    log SUCCESS "Systemd service updated successfully"
+
+    # Display completion message
+
+    if [[ "$DRY_RUN" == false ]]; then
+        echo -e "\n${GREEN}✔ Update completed successfully!${NC}"
+        echo -e "\nTo apply the updates, please restart the Ouranos service with one of these commands:"
+        echo -e "  ${YELLOW}ouranos restart${NC}                         # If using the ouranos command"
+        echo -e "  ${YELLOW}sudo systemctl restart ouranos.service${NC}  # If using systemd"
+    else
+        echo -e "\nThis was a dry run. No changes were made. Use ${YELLOW}$0${NC} without --dry-run to perform the updates."
+    fi
+
+    exit 0
+}
+
+main "$@"
