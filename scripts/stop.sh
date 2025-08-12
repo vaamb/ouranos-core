@@ -27,11 +27,23 @@ log INFO "Attempting to stop Ouranos..."
 
 # Function to check if Ouranos is running
 is_running() {
-    if pgrep -f "ouranos" > /dev/null; then
-        return 0
-    else
-        return 1
+    # Prefer PID file when available
+    if [[ -f "${OURANOS_DIR}/ouranos.pid" ]]; then
+        local pid
+        pid=$(cat "${OURANOS_DIR}/ouranos.pid" 2>/dev/null || echo "")
+        if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+            echo "$pid"
+            return 0
+        fi
     fi
+
+    # Fallback to strict process match
+    if pgrep -f "python3 -m ouranos" > /dev/null; then
+        pgrep -f "python3 -m ouranos" | head -n1
+        return 0
+    fi
+
+    return 1
 }
 
 # Check if Ouranos is running
@@ -47,8 +59,8 @@ if ! is_running; then
     exit 0
 fi
 
-# Get the PID of the running process
-OURANOS_PID=$(pgrep -f "ouranos")
+# Get the PID of the running process (prefer PID from is_running)
+OURANOS_PID=$(is_running || true)
 
 if [[ -z "$OURANOS_PID" ]]; then
     log ERROR "Could not determine Ouranos process ID"
@@ -78,8 +90,8 @@ if kill -15 "$OURANOS_PID" 2>/dev/null; then
     fi
 
     # Verify the process was actually stopped
-    if is_running; then
-        log ERROR "Failed to stop Ouranos. Process still running with PID: $(pgrep -f "ouranos")"
+    if is_running > /dev/null; then
+        log ERROR "Failed to stop Ouranos. Process still running with PID: $(pgrep -f "ouranos" | head -n1)"
     fi
 
     log INFO "Ouranos stopped successfully."
