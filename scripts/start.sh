@@ -6,7 +6,8 @@ set -euo pipefail
 # Load logging functions
 readonly DATETIME=$(date +%Y%m%d_%H%M%S)
 readonly LOG_FILE="/tmp/ouranos_start_${DATETIME}.log"
-. "./logging.sh"
+readonly SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+. "${SCRIPT_DIR}/logging.sh"
 
 # Check if OURANOS_DIR is set
 if [[ -z "${OURANOS_DIR:-}" ]]; then
@@ -58,8 +59,8 @@ sleep 2
 
 # Check if process is still running
 if ! kill -0 "$OURANOS_PID" 2>/dev/null; then
-    log ERROR "Failed to start Ouranos. Check the logs at ${OURANOS_DIR}/logs/ouranos.log for details.
-$(tail -n 20 "${OURANOS_DIR}/logs/ouranos.log")"
+    log ERROR "Failed to start Ouranos. Check the logs at ${LOG_FILE}.
+               $(tail -n 20 "${LOG_FILE}")"
 fi
 
 log SUCCESS "Ouranos started successfully with PID $OURANOS_PID"

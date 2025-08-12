@@ -6,7 +6,8 @@ set -euo pipefail
 # Load logging functions
 readonly DATETIME=$(date +%Y%m%d_%H%M%S)
 readonly LOG_FILE="/tmp/ouranos_stop_${DATETIME}.log"
-. "./logging.sh"
+readonly SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+. "${SCRIPT_DIR}/logging.sh"
 
 # Check if OURANOS_DIR is set
 if [[ -z "${OURANOS_DIR:-}" ]]; then
@@ -78,7 +79,7 @@ if kill -15 "$OURANOS_PID" 2>/dev/null; then
 
     # Verify the process was actually stopped
     if is_running; then
-        log ERROR "Failed to stop Ouranos. Process still running with PID: $(pgrep -f "python3 -m ouranos")"
+        log ERROR "Failed to stop Ouranos. Process still running with PID: $(pgrep -f "ouranos")"
     fi
 
     log INFO "Ouranos stopped successfully."
