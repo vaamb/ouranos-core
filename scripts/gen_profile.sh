@@ -1,4 +1,15 @@
-OURANOS_DIR=${1}
+#!/bin/bash
+
+# Exit on error, unset variable, and pipefail
+set -euo pipefail
+
+INSTALL_DIR="${1:-}"
+
+# Validate argument
+if [[ -z "${INSTALL_DIR}" ]]; then
+  echo "Usage: $0 <ouranos_install_dir>" >&2
+  exit 1
+fi
 
 # Remove existing Ouranos section if it exists
 if grep -q "#>>>Ouranos variables>>>" "${HOME}/.profile"; then
@@ -8,7 +19,7 @@ fi
 cat >> "${HOME}/.profile" << EOF
 #>>>Ouranos variables>>>
 # Ouranos root directory
-export OURANOS_DIR="${OURANOS_DIR}"
+export OURANOS_DIR="${INSTALL_DIR}"
 
 # Ouranos utility function to manage the application
 ouranos() {
