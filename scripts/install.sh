@@ -82,7 +82,7 @@ install_ouranos() {
 
         cd "${OURANOS_DIR}/lib/ouranos-core" ||
             log ERROR "Failed to enter Ouranos directory"
-    else:
+    else
         log ERROR "Ouranos installation detected at ${OURANOS_DIR}/lib/ouranos-core. Please update using the update script."
     fi
 

@@ -1,4 +1,4 @@
-GAIA_DIR=${1}
+OURANOS_DIR=${1}
 SERVICE_FILE=${2}
 
 # Create systemd service file

@@ -48,7 +48,7 @@ log INFO "Starting Ouranos..."
 
 # Run Ouranos in the background and log the PID
 nohup python3 -m ouranos > "${OURANOS_DIR}/logs/stdout" 2>&1 &
-log INFO "Ouranos stdout and stderr output redirected to ${GAIA_DIR}/logs/stdout"
+log INFO "Ouranos stdout and stderr output redirected to ${OURANOS_DIR}/logs/stdout"
 
 OURANOS_PID=$!
 echo "$OURANOS_PID" > "${OURANOS_DIR}/ouranos.pid"

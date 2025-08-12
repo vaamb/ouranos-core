@@ -1,4 +1,4 @@
-GAIA_DIR=${1}
+OURANOS_DIR=${1}
 
 # Remove existing Ouranos section if it exists
 if grep -q "#>>>Ouranos variables>>>" "${HOME}/.profile"; then
@@ -25,9 +25,6 @@ ouranos() {
 complete -W "start stop restart status logs update" ouranos
 #<<<Ouranos variables<<<
 EOF
-
-# shellcheck source=/dev/null
-source "${HOME}/.profile"
 
 # shellcheck source=/dev/null
 source "${HOME}/.profile"

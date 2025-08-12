@@ -8,6 +8,10 @@ readonly DATETIME=$(date +%Y%m%d_%H%M%S)
 readonly LOG_FILE="/tmp/ouranos_update_${DATETIME}.log"
 . "./logging.sh"
 
+# Constants
+DRY_RUN=false
+FORCE_UPDATE=false
+
 # Function to display help
 show_help() {
     echo "Usage: $0 [options]"
@@ -82,7 +86,7 @@ update_repo() {
     has_changes=$(git status --porcelain)
 
     if [[ -n "$has_changes" ]]; then
-        warn "$repo_name has uncommitted changes. Stashing them..."
+        log WARN "$repo_name has uncommitted changes. Stashing them..."
         if [[ "$DRY_RUN" == false ]]; then
             git stash save "Stashed by Ouranos update script"
         fi
@@ -152,7 +156,7 @@ deactivate 2>/dev/null || true
 
 # Update scripts
 cp -r "${OURANOS_DIR}/lib/ouranos-core/scripts/"* "${OURANOS_DIR}/scripts/" ||
-    error_exit "Failed to copy scripts"
+    log ERROR "Failed to copy scripts"
 chmod +x "${OURANOS_DIR}/scripts/"*.sh
 
 # Update .profile

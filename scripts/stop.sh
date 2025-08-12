@@ -67,7 +67,7 @@ if kill -15 "$OURANOS_PID" 2>/dev/null; then
 
     # Check if process is still running
     if kill -0 "$OURANOS_PID" 2>/dev/null; then
-        warn "Graceful shutdown failed. Force killing the process..."
+        log WARN "Graceful shutdown failed. Force killing the process..."
         kill -9 "$OURANOS_PID" 2>/dev/null || true
     fi
 
