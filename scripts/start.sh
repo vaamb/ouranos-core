@@ -23,8 +23,8 @@ fi
 mkdir -p "${OURANOS_DIR}/logs" || log ERROR "Failed to create logs directory"
 
 # Check if already running
-if pgrep -f "ouranos" > /dev/null; then
-    PID=$(pgrep -f "ouranos" | head -n 1)
+if pgrep -f "python3 -m ouranos" > /dev/null; then
+    PID=$(pgrep -f "python3 -m ouranos" | head -n 1)
     log WARN "Ouranos is already running with PID $PID"
     log INFO "If you want to restart, please run: ouranos restart"
     exit 0

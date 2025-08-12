@@ -26,20 +26,25 @@ mkdir -p "${OURANOS_DIR}/logs" || log ERROR "Failed to create logs directory"
 log INFO "Attempting to stop Ouranos..."
 
 # Function to check if Ouranos is running
-is_running() {
+get_ouranos_pid() {
     # Prefer PID file when available
     if [[ -f "${OURANOS_DIR}/ouranos.pid" ]]; then
         local pid
         pid=$(cat "${OURANOS_DIR}/ouranos.pid" 2>/dev/null || echo "")
         if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
             echo "$pid"
-            return 0
         fi
-    fi
-
     # Fallback to strict process match
-    if pgrep -f "python3 -m ouranos" > /dev/null; then
+    else
         pgrep -f "python3 -m ouranos" | head -n1
+    fi
+}
+
+is_running() {
+    # Check if Ouranos is running
+    local pid
+    pid=$(get_ouranos_pid)
+    if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
         return 0
     fi
 
@@ -60,7 +65,7 @@ if ! is_running; then
 fi
 
 # Get the PID of the running process (prefer PID from is_running)
-OURANOS_PID=$(is_running || true)
+OURANOS_PID=$(get_ouranos_pid)
 
 if [[ -z "$OURANOS_PID" ]]; then
     log ERROR "Could not determine Ouranos process ID"
@@ -73,8 +78,8 @@ if kill -15 "$OURANOS_PID" 2>/dev/null; then
     # Wait for the process to terminate
     TIMEOUT=10  # seconds
     while (( TIMEOUT-- > 0 )) && kill -0 "$OURANOS_PID" 2>/dev/null; do
-        sleep 1
         echo -n "."
+        sleep 1
     done
     echo
 
@@ -91,7 +96,7 @@ if kill -15 "$OURANOS_PID" 2>/dev/null; then
 
     # Verify the process was actually stopped
     if is_running > /dev/null; then
-        log ERROR "Failed to stop Ouranos. Process still running with PID: $(pgrep -f "ouranos" | head -n1)"
+        log ERROR "Failed to stop Ouranos. Process still running with PID: $OURANOS_PID)"
     fi
 
     log INFO "Ouranos stopped successfully."
