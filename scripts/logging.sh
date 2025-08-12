@@ -10,11 +10,19 @@ readonly ERROR=ERROR
 readonly SUCCESS=SUCCESS
 
 # Colors for output
-readonly RED='\033[38;5;001m'
-readonly GREEN='\033[38;5;002m'
-readonly YELLOW='\033[38;5;220m'
-readonly LIGHT_YELLOW='\033[38;5;011m'
-readonly NC='\033[0m' # No Color
+if [[ -t 1 ]]; then
+    readonly RED='\033[38;5;001m'
+    readonly GREEN='\033[38;5;002m'
+    readonly YELLOW='\033[38;5;220m'
+    readonly LIGHT_YELLOW='\033[38;5;011m'
+    readonly NC='\033[0m' # No Color
+else
+    readonly RED=""
+    readonly GREEN=""
+    readonly YELLOW=""
+    readonly LIGHT_YELLOW=""
+    readonly NC=""
+fi
 
 # Function to log messages
 log() {
