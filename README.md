@@ -13,7 +13,7 @@ Ouranos is still in development and might not work properly.
 Installation
 ------------
 
-Ouranos is written in Python (v. >= 3.9) and requires some extra dependencies,
+Ouranos is written in Python (v. >= 3.11) and requires some extra dependencies,
 some that might not be shipped with Python.
 
 Make sure you have them before trying to install Ouranos.
