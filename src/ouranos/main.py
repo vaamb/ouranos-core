@@ -95,6 +95,11 @@ class Ouranos(Functionality):
     async def complete_startup(self) -> None:
         if self._status:
             raise RuntimeError("Ouranos has already started")
+
+        import setproctitle
+
+        setproctitle.setproctitle("ouranos")
+
         pid = os.getpid()
         self.logger.info(f"Starting Ouranos [{pid}]")
         try:

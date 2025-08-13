@@ -36,7 +36,7 @@ get_ouranos_pid() {
         fi
     # Fallback to strict process match
     else
-        pgrep -f "python3 -m ouranos" | head -n1
+        pgrep -x "ouranos" | head -n1
     fi
 }
 
