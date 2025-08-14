@@ -24,16 +24,17 @@ export OURANOS_DIR="${INSTALL_DIR}"
 # Ouranos utility function to manage the application
 ouranos() {
   case \$1 in
-    start) "${OURANOS_DIR}/scripts/start.sh" ;;
-    stop) "${OURANOS_DIR}/scripts/stop.sh" ;;
-    restart) "${OURANOS_DIR}/scripts/stop.sh" && "${OURANOS_DIR}/scripts/start.sh" ;;
+    start) "\${OURANOS_DIR}/scripts/start.sh" ;;
+    stop) "\${OURANOS_DIR}/scripts/stop.sh" ;;
+    restart) "\${OURANOS_DIR}/scripts/stop.sh" && "\${OURANOS_DIR}/scripts/start.sh" ;;
     status) systemctl status ouranos.service ;;
-    logs) tail -f "${OURANOS_DIR}/logs/ouranos.log" ;;
-    update) "${OURANOS_DIR}/scripts/update.sh" ;;
+    logs) tail -f "\${OURANOS_DIR}/logs/ouranos.log" ;;
+    stdout) tail -f "\${OURANOS_DIR}/logs/stdout" ;;
+    update) "\${OURANOS_DIR}/scripts/update.sh" ;;
     *) echo "Usage: ouranos {start|stop|restart|status|logs|update}" ;;
   esac
 }
-complete -W "start stop restart status logs update" ouranos
+complete -W "start stop restart status logs stdout update" ouranos
 #<<<Ouranos variables<<<
 EOF
 
