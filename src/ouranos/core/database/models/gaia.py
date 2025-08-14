@@ -399,7 +399,7 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
     ) -> dict:
         level = level or [i for i in gv.HardwareLevel]
         sensors = await Sensor.get_multiple(
-            session, time_window=time_window, level=level)
+            session, time_window=time_window, ecosystem_uid=self.uid, level=level)
         sensors_by_measure: dict[str, list[dict[str, str]]] = {}
         for sensor in sensors:
             for measure in sensor.measures:
