@@ -3,6 +3,23 @@
 # Exit on error, unset variable, and pipefail
 set -euo pipefail
 
+# Default values
+FOREGROUND=false
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -f|--foreground)
+            FOREGROUND=true
+            shift
+            ;;
+        *)
+            log ERROR "Unknown parameter: $1"
+            exit 1
+            ;;
+    esac
+done
+
 # Load logging functions
 readonly DATETIME=$(date +%Y%m%d_%H%M%S)
 readonly LOG_FILE="/tmp/ouranos_start_${DATETIME}.log"
@@ -47,13 +64,28 @@ fi
 # Start Ouranos
 log INFO "Starting Ouranos..."
 
-# Run Ouranos in the background and log the PID
-nohup python3 -m ouranos > "${OURANOS_DIR}/logs/stdout" 2>&1 &
-log INFO "Ouranos stdout and stderr output redirected to ${OURANOS_DIR}/logs/stdout"
+if [ "$FOREGROUND" = true ]; then
+    log INFO "Running in foreground mode (logs will be shown in terminal)"
+    # Run Ouranos in the foreground
+    python3 -m ouranos
+    EXIT_CODE=$?
 
-OURANOS_PID=$!
-echo "$OURANOS_PID" > "${OURANOS_DIR}/ouranos.pid"
+    # Clean up and exit with the same code as Ouranos
+    deactivate || log WARN "Failed to deactivate virtual environment"
+    log INFO "Ouranos process exited with code $EXIT_CODE"
+    exit $EXIT_CODE
+else
+    # Run Ouranos in the background and log the PID
+    nohup python3 -m ouranos > "${OURANOS_DIR}/logs/stdout" 2>&1 &
+    log INFO "Ouranos started in background mode"
+    log INFO "Ouranos stdout and stderr output redirected to ${OURANOS_DIR}/logs/stdout"
 
+    deactivate ||
+            log ERROR "Failed to deactivate virtual environment"
+
+    OURANOS_PID=$!
+    echo "$OURANOS_PID" > "${OURANOS_DIR}/ouranos.pid"
+fi
 # Verify that Ouranos started successfully
 sleep 2
 
