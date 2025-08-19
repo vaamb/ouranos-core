@@ -615,7 +615,7 @@ class GaiaEvents(AsyncEventHandler):
                 stmt = (
                     select(Plant.uid)
                     .where(Plant.ecosystem_uid == uid)
-                    .where(Hardware.uid.not_in(plants_in_config))
+                    .where(Plant.uid.not_in(plants_in_config))
                 )
                 result = await session.execute(stmt)
                 not_used = result.all()
