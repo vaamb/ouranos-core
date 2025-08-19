@@ -11,7 +11,7 @@ from ouranos.core.database.models.app import (
     WikiTopic)
 from ouranos.core.database.models.gaia import (
     ActuatorRecord, ActuatorState, Ecosystem, Engine, EnvironmentParameter,
-    GaiaWarning, Hardware, NycthemeralCycle, SensorDataCache, SensorDataRecord)
+    GaiaWarning, Hardware, NycthemeralCycle, Plant, SensorDataCache, SensorDataRecord)
 from ouranos.core.database.models.system import (
     System, SystemDataCache, SystemDataRecord)
 
@@ -74,6 +74,11 @@ class HardwareAware(EcosystemAware):
                 hardware["ecosystem_uid"] = g_data.ecosystem_uid
                 del hardware["multiplexer_model"]
                 await Hardware.create(session, uid=hardware_uid, values=hardware)
+
+            plant_data = g_data.plant_data.copy()
+            uid = plant_data.pop("uid")
+            plant_data["ecosystem_uid"] = g_data.ecosystem_uid
+            await Plant.create(session, uid=uid, values=plant_data)
 
 
 class SensorsAware(HardwareAware):
