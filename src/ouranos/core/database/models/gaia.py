@@ -995,7 +995,7 @@ class Plant(Base, CachedCRUDMixin, InConfigMixin):
             cls,
             session: AsyncSession,
             /,
-            values: gv.HardwareConfigDict | None = None,
+            values: gv.PlantConfigDict | None = None,
             **lookup_keys: str | Enum | UUID,
     ) -> None:
         hardware = values.pop("hardware", [])

@@ -52,6 +52,11 @@ class HardwareUpdatePayload(gv.AnonymousHardwareConfig):
         return value
 
 
+class PlantSummary(BaseModel):
+    uid: str
+    name: str
+
+
 class _HardwareInfo(BaseModel):
     uid: str
 
@@ -59,6 +64,7 @@ class _HardwareInfo(BaseModel):
 class HardwareInfo(gv.AnonymousHardwareConfig, _HardwareInfo):
     ecosystem_uid: str
     last_log: datetime | None = None
+    plants: list[PlantSummary]
 
     model_config = ConfigDict(
         extra="ignore",
