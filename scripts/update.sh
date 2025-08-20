@@ -37,7 +37,7 @@ while [[ $# -gt 0 ]]; do
             FORCE_UPDATE=true
             shift
             ;;
-        -a|--all)
+        -c|--core)
             UPDATE_ALL=false
             shift
             ;;
