@@ -200,4 +200,7 @@ main() {
     exit 0
 }
 
-main "$@"
+if [ "${BASH_SOURCE[0]}" -ef "$0" ]
+then
+    main "$@"
+fi
