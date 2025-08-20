@@ -20,16 +20,16 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# Check if OURANOS_DIR is set
+if [[ -z "${OURANOS_DIR:-}" ]]; then
+    echo "OURANOS_DIR environment variable is not set. Please source your profile or run the install script first."
+    exit 1
+fi
+
 # Load logging functions
 readonly DATETIME=$(date +%Y%m%d_%H%M%S)
 readonly LOG_FILE="/tmp/ouranos_start_${DATETIME}.log"
-readonly SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-. "${SCRIPT_DIR}/logging.sh"
-
-# Check if OURANOS_DIR is set
-if [[ -z "${OURANOS_DIR:-}" ]]; then
-    log ERROR "OURANOS_DIR environment variable is not set. Please source your profile or run the install script first."
-fi
+source "${OURANOS_DIR}/scripts/utils/logging.sh" "${LOG_FILE}"
 
 # Check if the directory exists
 if [[ ! -d "$OURANOS_DIR" ]]; then

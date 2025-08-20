@@ -15,7 +15,7 @@ OURANOS_DIR="${PWD}/ouranos"
 readonly DATETIME=$(date +%Y%m%d_%H%M%S)
 readonly LOG_FILE="/tmp/ouranos_install_${DATETIME}.log"
 readonly SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-. "${SCRIPT_DIR}/logging.sh"
+source "${SCRIPT_DIR}/utils/logging.sh" "${LOG_FILE}"
 
 check_requirements() {
     local missing_deps=()
@@ -107,14 +107,14 @@ copy_scripts() {
 
 # Update .profile
 update_profile() {
-    ${OURANOS_DIR}/scripts/gen_profile.sh "${OURANOS_DIR}" ||
+    "${OURANOS_DIR}/scripts/utils/gen_profile.sh" "${OURANOS_DIR}" ||
         log ERROR "Failed to update shell profile"
 }
 
 install_service() {
     local service_file="${OURANOS_DIR}/scripts/ouranos.service"
 
-    ${OURANOS_DIR}/scripts/gen_service.sh "${OURANOS_DIR}" "${service_file}" ||
+    "${OURANOS_DIR}/scripts/utils/gen_service.sh" "${OURANOS_DIR}" "${service_file}" ||
         log ERROR "Failed to generate systemd service"
 
     # Install service
