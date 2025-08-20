@@ -14,6 +14,7 @@ readonly BACKUP_DIR="/tmp/ouranos_backup_${DATETIME}"
 # Constants
 DRY_RUN=false
 FORCE_UPDATE=false
+UPDATE_ALL=true
 
 # Function to display help
 show_help() {
@@ -21,6 +22,7 @@ show_help() {
     echo "Options:"
     echo "  -d, --dry-run    Show what would be updated without making changes"
     echo "  -f, --force      Force update even if already at the latest version"
+    echo "  -c, --core       Update the core package only"
     echo "  -h, --help       Show this help message and exit"
 }
 
@@ -33,6 +35,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -f|--force)
             FORCE_UPDATE=true
+            shift
+            ;;
+        -c|--core)
+            UPDATE_ALL=false
             shift
             ;;
         -h|--help)
@@ -181,10 +187,14 @@ update_packages() {
         fi
     fi
 
-    # Update ouranos-* packages
-    for OURANOS_PKG in "${OURANOS_DIR}/lib"/ouranos-*; do
-      update_package "$OURANOS_PKG"
-    done
+    if [[ "${UPDATE_ALL}" == true ]]; then
+        # Update ouranos-* packages
+        for OURANOS_PKG in "${OURANOS_DIR}/lib"/ouranos-*; do
+          update_package "$OURANOS_PKG"
+        done
+    else
+        update_package "${OURANOS_DIR}/lib/ouranos-core"
+    fi
 
     if [[ "${DRY_RUN}" == false ]]; then
         # Deactivate virtual environment
