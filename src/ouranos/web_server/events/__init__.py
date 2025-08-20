@@ -5,7 +5,7 @@ from logging import getLogger, Logger
 
 from dispatcher import AsyncDispatcher, AsyncEventHandler
 import gaia_validators as gv
-from socketio import AsyncNamespace, AsyncManager
+from socketio import AsyncNamespace, AsyncManager, AsyncServer
 
 from ouranos import db
 from ouranos.core.database.models.app import Permission, User
@@ -24,6 +24,7 @@ logger: Logger = getLogger("aggregator.socketio")
 class ClientEvents(AsyncNamespace):
     def __init__(self, namespace=None):
         super().__init__(namespace=namespace)
+        self.server: AsyncServer | None = None
         self._ouranos_dispatcher: AsyncDispatcher | None = None
 
     @property
@@ -57,7 +58,7 @@ class ClientEvents(AsyncNamespace):
             async with db.scoped_session() as session:
                 user = await login_manager.get_user(session, session_info.user_id)
             if user.can(Permission.ADMIN):
-                self.server.enter_room(sid, ADMIN_ROOM)
+                await self.server.enter_room(sid, ADMIN_ROOM)
             await self.emit(
                 "login_ack",
                 data={"result": gv.Result.success},
@@ -66,7 +67,7 @@ class ClientEvents(AsyncNamespace):
             )
 
     async def on_logout(self, sid, token: str):
-        self.server.leave_room(sid, ADMIN_ROOM)
+        await self.server.leave_room(sid, ADMIN_ROOM)
         await self.emit(
             "logout_ack",
             data={"result": gv.Result.success},
@@ -104,7 +105,7 @@ class ClientEvents(AsyncNamespace):
                 namespace="/",
                 room=sid
             )
-        self.server.enter_room(sid, room_name)
+        await self.server.enter_room(sid, room_name)
         await self.emit(
             "join_room_ack",
             data={"result": gv.Result.success,},
@@ -123,7 +124,7 @@ class ClientEvents(AsyncNamespace):
                 namespace="/",
                 room=sid
             )
-        self.server.leave_room(sid, room_name)
+        await self.server.leave_room(sid, room_name)
         await self.emit(
             "leave_room_ack",
             data={"result": gv.Result.success,},
