@@ -70,17 +70,10 @@ create_backup() {
         log ERROR "Failed to create backup directory: $BACKUP_DIR"
 }
 
-# Function to update a single repository
-update_repo() {
+update_git_repo() {
     local repo_dir="$1"
-    local repo_name=$(basename "$repo_dir")
-
-    echo -e "\n${GREEN}Checking $repo_name...${NC}"
-
-    if [[ ! -d "$repo_dir/.git" ]]; then
-        log WARN "$repo_dir is not a git repository. Skipping."
-        return 1
-    fi
+    local repo_name
+    repo_name=$(basename "$repo_dir")
 
     cd "$repo_dir" || return 1
 
@@ -98,7 +91,7 @@ update_repo() {
     fi
 
     # Fetch all updates
-    echo "Fetching updates for $repo_name..."
+    log INFO "Fetching updates for $repo_name..."
     if [[ "$DRY_RUN" == false ]]; then
         git fetch --all --tags --prune
     fi
@@ -109,70 +102,97 @@ update_repo() {
     local latest_tag
     latest_tag=$(git describe --tags "$(git rev-list --tags --max-count=1 2>/dev/null)" 2>/dev/null || echo "No tags found")
 
-    echo "Current version: $current_tag"
-    echo "Latest version:  $latest_tag"
+    log "Current version: $current_tag"
+    log "Latest version:  $latest_tag"
 
     if [[ "$current_tag" == "$latest_tag" && "$FORCE_UPDATE" == false ]]; then
-        echo "$repo_name is already at the latest version. Use -f to force update."
+        log INFO "$repo_name is already at the latest version. Use -f to force update."
         return 0
     fi
 
     if [[ "$DRY_RUN" == true ]]; then
-        echo "[DRY RUN] Would update $repo_name from $current_tag to $latest_tag"
+        log INFO "[DRY RUN] Would update $repo_name from $current_tag to $latest_tag"
         return 0
     fi
 
     # Checkout the latest tag
-    echo "Updating $repo_name to $latest_tag..."
+    log INFO "Updating $repo_name to $latest_tag..."
     git checkout "$latest_tag"
 
     # Install the package in development mode
     if [[ -f "pyproject.toml" ]]; then
-        echo "Installing $repo_name..."
+        log INFO "Installing $repo_name..."
         pip install -e .
+    else
+        log INFO "No pyproject.toml found in $repo_dir. Skipping installation."
+        return 1
     fi
 
     # Return to the original branch if not on a detached HEAD
     if [[ "$current_branch" != "HEAD" ]]; then
-        echo "Returning to branch $current_branch..."
+        log "Returning to branch $current_branch..."
         git checkout "$current_branch"
 
         # Apply stashed changes if any
         if [[ -n "$has_changes" ]]; then
-            echo "Restoring stashed changes..."
+            log "Restoring stashed changes..."
             git stash pop
         fi
     fi
 
-    echo "$repo_name updated to $latest_tag"
+    log INFO "$repo_name updated to $latest_tag"
+}
+
+# Function to update a single repository
+update_package() {
+    local package_dir="$1"
+    local package_name
+    package_name=$(basename "package_dir")
+
+    log INFO "Checking package_name..."
+
+    # Check if the package has an update script and is not ouranos-core (or it will recursively update itself)
+    # For now, make sure ouranos updates entirely via git
+    if [[ -f "${package_dir}/scripts/update.sh" && "${package_name}" != "ouranos-core" ]]; then
+        # Run the update script
+        log INFO "${package_name} has an update script. Running it..."
+        if [[ "$DRY_RUN" == false ]]; then
+            bash "${package_dir}/scripts/update.sh"
+        fi
+    elif [[ -d "${package_dir}/.git" ]]; then
+        update_git_repo "$package_dir"
+    else
+        log WARN "${package_name} has no update script and is not a git repository. Skipping."
+        return 1
+    fi
+
+    log SUCCESS "${package_name} updated successfully"
+
     return 0
 }
 
 update_packages() {
     # In dry-run, don't activate venv or install; just show intended repo changes
-    if [[ "${DRY_RUN}" == true ]]; then
-        for OURANOS_PKG in "${OURANOS_DIR}/lib"/ouranos-*; do
-          update_repo "$OURANOS_PKG"
-        done
-        return 0
-    fi
-
-    # Activate virtual environment
-    # shellcheck source=/dev/null
-    if ! source "python_venv/bin/activate"; then
-        log ERROR "Failed to activate Python virtual environment"
+    if [[ "${DRY_RUN}" == false ]]; then
+        # Activate virtual environment
+        # shellcheck source=/dev/null
+        if ! source "python_venv/bin/activate"; then
+            log ERROR "Failed to activate Python virtual environment"
+        fi
     fi
 
     # Update ouranos-* packages
     for OURANOS_PKG in "${OURANOS_DIR}/lib"/ouranos-*; do
-      update_repo "$OURANOS_PKG"
+      update_package "$OURANOS_PKG"
     done
 
-    # Deactivate virtual environment
-    deactivate 2>/dev/null || true
+    if [[ "${DRY_RUN}" == false ]]; then
+        # Deactivate virtual environment
+        deactivate 2>/dev/null || true
+    fi
 }
 
-update_scripts() {
+update_core_scripts() {
     # Update scripts
     cp -r "${OURANOS_DIR}/lib/ouranos-core/scripts/"* "${OURANOS_DIR}/scripts/" ||
         log ERROR "Failed to copy scripts"
@@ -180,14 +200,14 @@ update_scripts() {
 }
 
 update_profile() {
-    ${OURANOS_DIR}/scripts/gen_profile.sh "${OURANOS_DIR}" ||
+    "${OURANOS_DIR}/scripts/gen_profile.sh" "${OURANOS_DIR}" ||
         log ERROR "Failed to update shell profile"
 }
 
 update_service() {
     local service_file="${OURANOS_DIR}/scripts/ouranos.service"
 
-    ${OURANOS_DIR}/scripts/gen_service.sh "${OURANOS_DIR}" "${service_file}" ||
+    "${OURANOS_DIR}/scripts/gen_service.sh" "${OURANOS_DIR}" "${service_file}" ||
         log ERROR "Failed to generate systemd service"
 
     # Update service
@@ -203,7 +223,7 @@ update_service() {
 cleanup() {
     local exit_code=$?
 
-    if [ ${exit_code} -ne 0 ]; then
+    if [ "${exit_code}" -ne 0 ]; then
         log WARN "Update failed. Check the log file for details: ${LOG_FILE}"
         if [[ -d "${BACKUP_DIR}" && "${DRY_RUN}" == false ]]; then
             log WARN "Attempting rollback from backup..."
@@ -219,7 +239,7 @@ cleanup() {
 
     # Reset terminal colors
     echo -e "${NC}"
-    exit ${exit_code}
+    exit "${exit_code}"
 }
 
 main () {
@@ -246,7 +266,7 @@ main () {
 
     if [[ "${DRY_RUN}" == false ]]; then
         log INFO "Making scripts more easily accessible..."
-        update_scripts
+        update_core_scripts
     else
         log INFO "Dry run: skipping scripts update"
     fi
