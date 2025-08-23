@@ -30,6 +30,10 @@ class HardwareType(BaseModel):
 
 
 class HardwareUpdatePayload(gv.AnonymousHardwareConfig):
+    model_config = ConfigDict(
+        extra="ignore",
+    )
+
     name: str | MissingValue = missing
     level: gv.HardwareLevel | MissingValue = missing
     address: str | MissingValue = missing
@@ -39,7 +43,7 @@ class HardwareUpdatePayload(gv.AnonymousHardwareConfig):
     measures: list[str] | MissingValue = missing
     plant_uid: list[str] | MissingValue = missing
 
-    @field_validator("type", mode="before")
+    @field_validator("level", mode="before")
     def parse_level(cls, value):
         if isinstance(value, str):
             return safe_enum_from_name(gv.HardwareLevel, value)
@@ -62,13 +66,13 @@ class _HardwareInfo(BaseModel):
 
 
 class HardwareInfo(gv.AnonymousHardwareConfig, _HardwareInfo):
-    ecosystem_uid: str
-    last_log: datetime | None = None
-    plants: list[PlantSummary]
-
     model_config = ConfigDict(
         extra="ignore",
     )
+
+    ecosystem_uid: str
+    last_log: datetime | None = None
+    plants: list[PlantSummary]
 
     @field_serializer("type")
     def serialize_type(self, value: gv.HardwareType, _info) -> str:
