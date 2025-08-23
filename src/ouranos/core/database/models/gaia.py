@@ -23,7 +23,8 @@ from ouranos.core.config.consts import ECOSYSTEM_TIMEOUT
 from ouranos.core.database.models.abc import (
     Base, CacheMixin, CRUDMixin, on_conflict_opt, RecordMixin)
 from ouranos.core.database.models.caches import (
-    cache_ecosystems, cache_ecosystems_has_recent_data, cache_engines,
+    cache_ecosystems, cache_ecosystems_has_recent_data,
+    cache_ecosystems_has_recent_actuator, cache_engines,
     cache_hardware, cache_measures, cache_plants, cache_sensors_data_skeleton,
     cache_sensors_value, cache_warnings)
 from ouranos.core.database.models.caches import (
@@ -361,15 +362,48 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
             session, uid=self.uid, level=level)
         return result
 
+    @classmethod
+    @cached(cache_ecosystems_has_recent_actuator, key=sessionless_hashkey)
+    async def check_if_recent_actuator_data(
+            cls,
+            session: AsyncSession,
+            /,
+            uid: str,
+            actuator_type: gv.HardwareType | None = None,
+    ) -> bool:
+        if actuator_type:
+            actuator_type = gv.safe_enum_from_name(gv.HardwareType, actuator_type)
+            if not actuator_type in gv.HardwareType.actuator:
+                raise ValueError(f"{actuator_type} is not a valid actuator")
+        time_limit = datetime.now(timezone.utc) - timedelta(hours=TIME_LIMITS.SENSORS)
+        stmt = (
+            select(ActuatorRecord)
+            .where(
+                ActuatorRecord.ecosystem_uid == uid,
+                ActuatorRecord.timestamp >= time_limit,
+                ActuatorRecord.active == True,
+            )
+            .limit(1)
+        )
+        result = await session.execute(stmt)
+        return bool(result.one_or_none())
+
+    async def has_recent_actuator_data(
+            self,
+            session: AsyncSession,
+            /,
+            actuator_type: gv.HardwareType | None = None,
+    ) -> bool:
+        result = await Ecosystem.check_if_recent_actuator_data(
+            session, uid=self.uid, actuator_type=actuator_type)
+        return result
+
     async def get_functionalities(self, session: AsyncSession) -> dict:
         return {
             "uid": self.uid,
             "name": self.name,
             **self.management_dict,
-            "switches": any((
-                self.management_dict.get("climate"),
-                self.management_dict.get("light")
-            )),
+            "actuators": await self.has_recent_actuator_data(session),
             "ecosystem_data": await self.has_recent_sensor_data(
                 session, level=gv.HardwareLevel.ecosystem),
             "environment_data": await self.has_recent_sensor_data(
