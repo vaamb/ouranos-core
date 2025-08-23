@@ -364,37 +364,39 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
 
     @classmethod
     @cached(cache_ecosystems_has_recent_actuator, key=sessionless_hashkey)
-    async def check_if_recent_actuator_data(
+    async def check_if_active_actuator(
             cls,
             session: AsyncSession,
             /,
             uid: str,
             actuator_type: gv.HardwareType | None = None,
     ) -> bool:
+        stmt = (
+            select(ActuatorState)
+            .where(
+                ActuatorState.ecosystem_uid == uid,
+                ActuatorState.active == True,
+            )
+            .limit(1)
+        )
         if actuator_type:
             actuator_type = gv.safe_enum_from_name(gv.HardwareType, actuator_type)
             if actuator_type not in gv.HardwareType.actuator:
                 raise ValueError(f"{actuator_type} is not a valid actuator")
-        time_limit = datetime.now(timezone.utc) - timedelta(hours=TIME_LIMITS.SENSORS)
-        stmt = (
-            select(ActuatorRecord)
-            .where(
-                ActuatorRecord.ecosystem_uid == uid,
-                ActuatorRecord.timestamp >= time_limit,
-                ActuatorRecord.active == True,
+            stmt = (
+                stmt
+                .where(ActuatorState.type == actuator_type)
             )
-            .limit(1)
-        )
         result = await session.execute(stmt)
         return bool(result.one_or_none())
 
-    async def has_recent_actuator_data(
+    async def has_active_actuator(
             self,
             session: AsyncSession,
             /,
             actuator_type: gv.HardwareType | None = None,
     ) -> bool:
-        result = await Ecosystem.check_if_recent_actuator_data(
+        result = await Ecosystem.check_if_active_actuator(
             session, uid=self.uid, actuator_type=actuator_type)
         return result
 
@@ -403,7 +405,7 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
             "uid": self.uid,
             "name": self.name,
             **self.management_dict,
-            "actuators": await self.has_recent_actuator_data(session),
+            "actuators": await self.has_active_actuator(session),
             "ecosystem_data": await self.has_recent_sensor_data(
                 session, level=gv.HardwareLevel.ecosystem),
             "environment_data": await self.has_recent_sensor_data(
