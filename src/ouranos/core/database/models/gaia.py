@@ -373,7 +373,7 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
     ) -> bool:
         if actuator_type:
             actuator_type = gv.safe_enum_from_name(gv.HardwareType, actuator_type)
-            if not actuator_type in gv.HardwareType.actuator:
+            if actuator_type not in gv.HardwareType.actuator:
                 raise ValueError(f"{actuator_type} is not a valid actuator")
         time_limit = datetime.now(timezone.utc) - timedelta(hours=TIME_LIMITS.SENSORS)
         stmt = (
