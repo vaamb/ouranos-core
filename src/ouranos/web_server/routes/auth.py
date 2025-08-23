@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from logging import getLogger, Logger
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Response,Query, status
@@ -151,9 +152,10 @@ async def register_new_user(
             try:
                 await user.send_confirmation_email()
             except NotImplementedError as e:
-                raise HTTPException(
-                    status_code=status.HTTP_501_NOT_IMPLEMENTED,
-                    detail=str(e),
+                logger: Logger = getLogger("ouranos.web_server.auth")
+                logger.error(
+                    f"Error while sending confirmation email."
+                    f"Error msg: `{e.__class__.__name__}: {e}`"
                 )
         return {
             "msg": "You are registered.",
