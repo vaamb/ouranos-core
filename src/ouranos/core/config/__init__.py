@@ -64,13 +64,12 @@ class ConfigHelper:
                             isclass(obj) and issubclass(obj, BaseConfig)
                             and obj is not BaseConfig
                     ):
-                        if name == "DEFAULT_CONFIG":
-                            cfgs[None] = obj
-                        else:
-                            name = name.lower().replace("config", "")
-                            cfgs[name] = obj
+                        name = name.lower().replace("config", "").strip("_")
+                        if name in ("", "default"):
+                            name = None
+                        cfgs[name] = obj
             if profile is not None:
-                profile = profile.lower().replace("config", "")
+                profile = profile.lower().replace("config", "").strip("_")
             cfg: Type[BaseConfig] = cfgs.get(profile)
             if cfg:
                 return cfg
