@@ -24,7 +24,7 @@ from ouranos.core.database.models.abc import (
     Base, CacheMixin, CRUDMixin, on_conflict_opt, RecordMixin)
 from ouranos.core.database.models.caches import (
     cache_ecosystems, cache_ecosystems_has_recent_data,
-    cache_ecosystems_has_recent_actuator, cache_engines,
+    cache_ecosystems_has_active_actuator, cache_engines,
     cache_hardware, cache_measures, cache_plants, cache_sensors_data_skeleton,
     cache_sensors_value, cache_warnings)
 from ouranos.core.database.models.caches import (
@@ -363,7 +363,7 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
         return result
 
     @classmethod
-    @cached(cache_ecosystems_has_recent_actuator, key=sessionless_hashkey)
+    @cached(cache_ecosystems_has_active_actuator, key=sessionless_hashkey)
     async def check_if_active_actuator(
             cls,
             session: AsyncSession,

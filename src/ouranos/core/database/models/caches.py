@@ -18,7 +18,7 @@ cache_engines_recent = TTLCache(maxsize=1, ttl=30)
 cache_ecosystems = LRUCache(maxsize=_ecosystem_caches_size)
 cache_ecosystems_recent = TTLCache(maxsize=1, ttl=30)
 cache_ecosystems_has_recent_data = TTLCache(maxsize=_ecosystem_caches_size * 2, ttl=60)
-cache_ecosystems_has_recent_actuator = TTLCache(maxsize=_ecosystem_caches_size, ttl=60)
+cache_ecosystems_has_active_actuator = TTLCache(maxsize=_ecosystem_caches_size, ttl=60)
 # Hardware caches
 cache_hardware = LRUCache(maxsize=_hardware_caches_size)
 # Sensor caches
