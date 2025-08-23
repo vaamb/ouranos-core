@@ -152,7 +152,7 @@ async def register_new_user(
             try:
                 await user.send_confirmation_email()
             except NotImplementedError as e:
-                logger: Logger = getLogger(f"ouranos.web_server.auth")
+                logger: Logger = getLogger("ouranos.web_server.auth")
                 logger.error(
                     f"Error while sending confirmation email."
                     f"Error msg: `{e.__class__.__name__}: {e}`"
