@@ -42,7 +42,7 @@ class BaseConfig:
 
     # Logging config
     LOG_TO_STDOUT = True
-    LOG_TO_FILE = False
+    LOG_TO_FILE = True
     LOG_TO_DB = False
 
     # Brokers config
