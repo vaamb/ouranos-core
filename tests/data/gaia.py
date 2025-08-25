@@ -109,16 +109,6 @@ climate: gv.ClimateConfigDict = {
 climate_payload = wrap_ecosystem_data_payload([climate])
 
 
-environmental_payload: gv.EnvironmentConfigPayloadDict = \
-    wrap_ecosystem_data_payload(
-        gv.EnvironmentConfig(
-            chaos=chaos,
-            nycthemeral_cycle=sky,
-            climate=[climate]
-        ).model_dump()
-    )
-
-
 hardware_data: gv.HardwareConfigDict = {
     "uid": hardware_uid,
     "name": "TestThermometer",
