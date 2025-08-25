@@ -389,53 +389,6 @@ class GaiaEvents(AsyncEventHandler):
             namespace="application-internal"
         )
 
-    @deprecated("Use the chaos, nycthemeral and climate events instead")
-    @registration_required
-    @validate_payload(RootModel[list[gv.EnvironmentConfigPayload]])
-    async def on_environmental_parameters(
-            self,
-            sid: UUID,  # noqa
-            data: list[gv.EnvironmentConfigPayloadDict],
-            engine_uid: str
-    ) -> None:
-        self.logger.warning(
-            f"Received deprecated 'environmental_parameters' event from engine: "
-            f"{engine_uid}")
-        async with self.session(sid) as session:
-            session["init_data"].discard("environmental_parameters")
-        ecosystems_to_log: list[str] = []
-        async with db.scoped_session() as session:
-            for payload in data:
-                uid: str = payload["uid"]
-                ecosystems_to_log.append(
-                    await self.get_ecosystem_name(session, uid=uid))
-                ecosystem = payload["data"]
-                nycthemeral_cycle = ecosystem["nycthemeral_cycle"]
-                # TODO: handle target
-                nycthemeral_cycle.pop("target")
-                await NycthemeralCycle.update_or_create(
-                    session, ecosystem_uid=uid, values=nycthemeral_cycle)
-                environment_parameters_in_config: list[str] = []
-                for param in ecosystem["climate"]:
-                    environment_parameters_in_config.append(param["parameter"])
-                    parameter = param.pop("parameter")  # noqa
-                    await EnvironmentParameter.update_or_create(
-                        session, ecosystem_uid=uid, parameter=parameter,
-                        values=param)
-
-                # Remove environmental parameters not used anymore
-                stmt = (
-                    delete(EnvironmentParameter)
-                    .where(EnvironmentParameter.ecosystem_uid == uid)
-                    .where(EnvironmentParameter.parameter.not_in(environment_parameters_in_config))
-                )
-                await session.execute(stmt)
-
-        self.logger.debug(
-            f"Logged environmental parameters from ecosystem(s): "
-            f"{humanize_list(ecosystems_to_log)}"
-        )
-
     @registration_required
     @validate_payload(RootModel[list[gv.ChaosParametersPayload]])
     @dispatch_to_application

@@ -307,38 +307,6 @@ class TestInitializationDataExchange(EcosystemAware):
         with pytest.raises(Exception):
             await events_handler.on_management(g_data.engine_sid, [{}])
 
-    async def test_on_environmental_parameters(
-            self,
-            mock_dispatcher: MockAsyncDispatcher,
-            events_handler: GaiaEvents,
-            db: AsyncSQLAlchemyWrapper,
-    ):
-        """[Deprecated] Test handling of environmental parameters.
-
-        Note: This test is for backward compatibility and may be removed in future versions.
-
-        Verifies that:
-        - Nycthemeral cycle data is correctly processed
-        - Climate parameters are properly stored
-        - Invalid payloads raise appropriate exceptions
-        """
-        await events_handler.on_environmental_parameters(
-            g_data.engine_sid, [g_data.environmental_payload])
-
-        async with db.scoped_session() as session:
-            light = await NycthemeralCycle.get(session, ecosystem_uid=g_data.ecosystem_uid)
-            assert light.lighting == g_data.sky["lighting"]
-
-            environment_parameter = await EnvironmentParameter.get(
-                session, ecosystem_uid=g_data.ecosystem_uid, parameter=g_data.climate["parameter"])
-            assert environment_parameter.day == g_data.climate["day"]
-            assert environment_parameter.night == g_data.climate["night"]
-            assert environment_parameter.hysteresis == g_data.climate["hysteresis"]
-
-        wrong_payload = {}
-        with pytest.raises(Exception):
-            await events_handler.on_environmental_parameters(g_data.engine_sid, [wrong_payload])
-
     async def test_on_chaos_parameters(
             self,
             mock_dispatcher: MockAsyncDispatcher,
