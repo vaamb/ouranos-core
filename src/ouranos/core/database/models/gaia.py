@@ -730,7 +730,7 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
             .where(AssociationHardwareMeasure.c.hardware_uid == hardware_uid)
         )
         result = await session.execute(stmt)
-        measures_already_attached = {row[0] for row in result.all()}
+        measures_already_attached: set[int] = {row[0] for row in result.all()}
         # Accumulator for measures to add
         measures_to_add: list[dict[str, str | int]] = []
         for m in measures:
@@ -741,12 +741,13 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
             if measure is None:
                 await Measure.create(session, name=m["name"], values={"unit": m["unit"]})
                 measure = await Measure.get(session, name=m["name"])
-            if measure.id not in measures_already_attached:
+            if measure.id in measures_already_attached:
+                measures_already_attached.remove(measure.id)
+            else:
                 measures_to_add.append({
                     "hardware_uid": hardware_uid,
                     "measure_id": measure.id,
                 })
-            measures_already_attached.remove(measure.id)
         # Link the new measures
         if measures_to_add:
             stmt = (
@@ -1017,19 +1018,20 @@ class Plant(Base, CachedCRUDMixin, InConfigMixin):
             .where(AssociationHardwarePlant.c.plant_uid == plant_uid)
         )
         result = await session.execute(stmt)
-        hardware_already_attached: str[str] = {row[0] for row in result.all()}
+        hardware_already_attached: set[int] = {row[0] for row in result.all()}
         # Accumulator for hardware to add
         hardware_to_add: list[dict[str, str | int]] = []
         for hardware_uid in hardware_uids:
             hardware: Hardware | None = await Hardware.get(session, uid=hardware_uid)
             if hardware is None:
                 continue
-            if hardware.uid not in hardware_already_attached:
+            if hardware.uid in hardware_already_attached:
+                hardware_already_attached.remove(hardware.uid)
+            else:
                 hardware_to_add.append({
                     "hardware_uid": hardware.uid,
                     "plant_uid": plant_uid
                 })
-            hardware_already_attached.remove(hardware.uid)
         # Link the new hardware
         if hardware_to_add:
             stmt = (
