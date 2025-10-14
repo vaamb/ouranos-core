@@ -724,7 +724,15 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
             hardware_uid: str,
             measures: list[gv.Measure | gv.MeasureDict],
     ) -> None:
-        measures_to_add = []
+        # Get measures already attached to the hardware
+        stmt = (
+            select(AssociationHardwareMeasure.c.measure_id)
+            .where(AssociationHardwareMeasure.c.hardware_uid == hardware_uid)
+        )
+        result = await session.execute(stmt)
+        measures_already_attached: set[int] = {row[0] for row in result.all()}
+        # Accumulator for measures to add
+        measures_to_add: list[dict[str, str | int]] = []
         for m in measures:
             if hasattr(m, "model_dump"):
                 m = m.model_dump()
@@ -733,26 +741,30 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
             if measure is None:
                 await Measure.create(session, name=m["name"], values={"unit": m["unit"]})
                 measure = await Measure.get(session, name=m["name"])
-            measures_to_add.append({
-                "hardware_uid": hardware_uid,
-                "measure_id": measure.id,
-            })
-        # Add the new hardware
-        stmt = (
-            insert(AssociationHardwareMeasure)
-            .values(measures_to_add)
-        )
-        await session.execute(stmt)
-        # Remove the old hardware
-        to_keep = [m["measure_id"] for m in measures_to_add]
-        stmt = (
-            delete(AssociationHardwareMeasure)
-            .where(AssociationHardwareMeasure.c.hardware_uid == hardware_uid)
-            # Must be kept separate or it won't compile properly
-            .where(AssociationHardwareMeasure.c.measure_id.not_in(to_keep))
-        )
-        await session.execute(stmt)
-        await session.commit()
+            if measure.id in measures_already_attached:
+                measures_already_attached.remove(measure.id)
+            else:
+                measures_to_add.append({
+                    "hardware_uid": hardware_uid,
+                    "measure_id": measure.id,
+                })
+        # Link the new measures
+        if measures_to_add:
+            stmt = (
+                insert(AssociationHardwareMeasure)
+                .values(measures_to_add)
+            )
+            await session.execute(stmt)
+        # Unlink the measures not linked anymore
+        if measures_already_attached:
+            stmt = (
+                delete(AssociationHardwareMeasure)
+                .where(AssociationHardwareMeasure.c.hardware_uid == hardware_uid)
+                # Must be kept separate or it won't compile properly
+                .where(AssociationHardwareMeasure.c.measure_id.in_(measures_already_attached))
+            )
+            await session.execute(stmt)
+            await session.commit()
 
     @classmethod
     async def create(
@@ -998,33 +1010,45 @@ class Plant(Base, CachedCRUDMixin, InConfigMixin):
             cls,
             session: AsyncSession,
             plant_uid: str,
-            hardware: list[str],
+            hardware_uids: list[str],
     ) -> None:
-        hardware_to_add = []
-        for hardware_uid in hardware:
-            hardware = await Hardware.get(session, uid=hardware_uid)
+        # Get hardware already attached to the plant
+        stmt = (
+            select(AssociationHardwarePlant.c.hardware_uid)
+            .where(AssociationHardwarePlant.c.plant_uid == plant_uid)
+        )
+        result = await session.execute(stmt)
+        hardware_already_attached: set[int] = {row[0] for row in result.all()}
+        # Accumulator for hardware to add
+        hardware_to_add: list[dict[str, str | int]] = []
+        for hardware_uid in hardware_uids:
+            hardware: Hardware | None = await Hardware.get(session, uid=hardware_uid)
             if hardware is None:
                 raise RuntimeError("Hardware should be registered before plants")
-            hardware_to_add.append({
-                "hardware_uid": hardware.uid,
-                "plant_uid": plant_uid
-            })
-        # Add the new hardware
-        stmt = (
-            insert(AssociationHardwarePlant)
-            .values(hardware_to_add)
-        )
-        await session.execute(stmt)
-        # Remove the old hardware
-        to_keep = [h["hardware_uid"] for h in hardware_to_add]
-        stmt = (
-            delete(AssociationHardwarePlant)
-            .where(AssociationHardwarePlant.c.plant_uid == plant_uid)
-            # Must be kept separate or it won't compile properly
-            .where(AssociationHardwarePlant.c.hardware_uid.not_in(to_keep))
-        )
-        await session.execute(stmt)
-        await session.commit()
+            if hardware.uid in hardware_already_attached:
+                hardware_already_attached.remove(hardware.uid)
+            else:
+                hardware_to_add.append({
+                    "hardware_uid": hardware.uid,
+                    "plant_uid": plant_uid
+                })
+        # Link the new hardware
+        if hardware_to_add:
+            stmt = (
+                insert(AssociationHardwarePlant)
+                .values(hardware_to_add)
+            )
+            await session.execute(stmt)
+        # Unlink the hardware not linked anymore
+        if hardware_already_attached:
+            stmt = (
+                delete(AssociationHardwarePlant)
+                .where(AssociationHardwarePlant.c.plant_uid == plant_uid)
+                # Must be kept separate or it won't compile properly
+                .where(AssociationHardwarePlant.c.hardware_uid.in_(hardware_already_attached))
+            )
+            await session.execute(stmt)
+            await session.commit()
 
     @classmethod
     async def create(
