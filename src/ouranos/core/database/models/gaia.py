@@ -1024,7 +1024,7 @@ class Plant(Base, CachedCRUDMixin, InConfigMixin):
         for hardware_uid in hardware_uids:
             hardware: Hardware | None = await Hardware.get(session, uid=hardware_uid)
             if hardware is None:
-                continue
+                raise RuntimeError("Hardware should be registered before plants")
             if hardware.uid in hardware_already_attached:
                 hardware_already_attached.remove(hardware.uid)
             else:
