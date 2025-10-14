@@ -5,7 +5,7 @@ set -euo pipefail
 
 # Version requirements
 readonly MIN_PYTHON_VERSION="3.11"
-readonly OURANOS_VERSION="0.9.0"
+readonly OURANOS_VERSION="0.10.0"
 readonly OURANOS_REPO="https://github.com/vaamb/ouranos-core.git"
 
 # Default values
