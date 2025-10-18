@@ -596,7 +596,7 @@ class TestInitializationDataExchange(EcosystemAware):
 
         # Verify that the wrong payload raises an exception
         with pytest.raises(Exception):
-            await events_handler.on_sensors_data(g_data.engine_sid, [{}])
+            await events_handler.on_actuators_data(g_data.engine_sid, [{}])
 
 
 @pytest.mark.asyncio
@@ -1070,6 +1070,7 @@ class TestBufferedDataExchange(HardwareAware):
                 gv.BufferedActuatorRecord(
                     ecosystem_uid=g_data.ecosystem_uid,
                     type=g_data.light_state.type,
+                    group=g_data.light_state.group,
                     active=True,
                     mode=gv.ActuatorMode.manual,
                     status=True,

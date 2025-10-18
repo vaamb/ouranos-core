@@ -857,18 +857,19 @@ class GaiaEvents(AsyncEventHandler):
         records_to_log: list[AwareActuatorStateRecordDict] = []
         async with db.scoped_session() as session:
             for payload in data:
+                ecosystem_uid = payload["uid"]
                 records = payload["data"]
                 logged.append(
                     await self.get_ecosystem_name(session, uid=payload["uid"]))
                 for record in records:
                     record: gv.ActuatorStateRecord
-                    ecosystem_uid=payload["uid"]
-                    type_=record[0].name
+                    type_ = record[0].name
+                    #group = record[1]
                     common_data: gv.ActuatorStateDict = {
-                        "active": record[1],
-                        "mode": record[2],
-                        "status": record[3],
-                        "level": record[4],
+                        "active": record[2],
+                        "mode": record[3],
+                        "status": record[4],
+                        "level": record[5],
                     }
                     await ActuatorState.update_or_create(
                         session,
@@ -881,7 +882,7 @@ class GaiaEvents(AsyncEventHandler):
                         "type": type_,
                         **common_data
                     }))
-                    timestamp = record[5]
+                    timestamp = record[6]
                     if timestamp is not None:
                         records_to_log.append(cast(AwareActuatorStateRecordDict, {
                             "ecosystem_uid": ecosystem_uid,
@@ -917,11 +918,12 @@ class GaiaEvents(AsyncEventHandler):
             {
                 "ecosystem_uid": record[0],
                 "type": record[1],
-                "active": record[2],
-                "mode": record[3],
-                "status": record[4],
-                "level": record[5],
-                "timestamp": record[6],
+                #"group": record[2],
+                "active": record[3],
+                "mode": record[4],
+                "status": record[5],
+                "level": record[6],
+                "timestamp": record[7],
             }
             for record in data["data"]
         ]
