@@ -44,10 +44,12 @@ class EnvironmentAware(EcosystemAware):
     async def add_environment_parameters(self, db: AsyncSQLAlchemyWrapper, add_ecosystem):
         async with db.scoped_session() as session:
             uid = g_data.ecosystem_uid
-            environment_parameter = g_data.climate.copy()
-            parameter = environment_parameter.pop("parameter")
+            climate_config = g_data.climate.copy()
+            parameter = climate_config.pop("parameter")
+            del climate_config["linked_actuators"]
+            del climate_config["linked_measure"]
             await EnvironmentParameter.create(
-                session, ecosystem_uid=uid, parameter=parameter, values=environment_parameter)
+                session, ecosystem_uid=uid, parameter=parameter, values=climate_config)
 
             await NycthemeralCycle.create(
                 session,

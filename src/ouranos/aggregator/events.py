@@ -474,12 +474,14 @@ class GaiaEvents(AsyncEventHandler):
                 ecosystems_to_log.append(
                     await self.get_ecosystem_name(session, uid=uid))
                 environment_parameters_in_config: list[str] = []
-                for param in payload["data"]:
-                    environment_parameters_in_config.append(param["parameter"])
-                    parameter = param.pop("parameter")  # noqa
+                for climate_config in payload["data"]:
+                    environment_parameters_in_config.append(climate_config["parameter"])
+                    parameter = climate_config.pop("parameter")  # noqa
+                    del climate_config["linked_measure"]
+                    del climate_config["linked_actuators"]
                     await EnvironmentParameter.update_or_create(
                         session, ecosystem_uid=uid, parameter=parameter,
-                        values=param)
+                        values=climate_config)
 
                 # Remove environmental parameters not used anymore
                 stmt = (
