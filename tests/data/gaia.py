@@ -65,11 +65,12 @@ management_data: gv.ManagementConfigDict = {
     "sensors": True,
     "light": True,
     "camera": True,
+    "database": False,
+    "weather": False,
+    "alarms": False,
     "climate": True,
     "watering": False,
     "health": False,
-    "database": False,
-    "alarms": False,
     "pictures": False,
 }
 
@@ -103,6 +104,11 @@ climate: gv.ClimateConfigDict = {
     "night": 21,
     "hysteresis": 5,
     "alarm": None,
+    "linked_actuators": gv.ActuatorCoupleDict(**{
+        "increase": "heater",
+        "decrease": "cooler",
+    }),
+    "linked_measure": "temperature"
 }
 
 
@@ -115,6 +121,7 @@ hardware_data: gv.HardwareConfigDict = {
     "address": "GPIO_7",
     "type": gv.HardwareType.sensor.name,
     "level": gv.HardwareLevel.environment.name,
+    "groups": {"__type__"},
     "model": "virtualDHT22",
     "measures": ["temperature|°C"],
     "plants": [plant_uid],
@@ -128,6 +135,7 @@ camera_config: gv.HardwareConfigDict = {
     "address": "PICAMERA",
     "type": gv.HardwareType.camera.name,
     "level": gv.HardwareLevel.ecosystem.name,
+    "groups": {"__type__"},
     "model": "virtualDHT22",
     "measures": ["MPRI|"],
     "plants": [],
@@ -169,6 +177,7 @@ sensor_record = gv.SensorRecord(
 
 actuator_record = gv.ActuatorStateRecord(
     gv.HardwareType.light,
+    gv.HardwareType.light.name,
     True,
     gv.ActuatorMode.manual,
     True,
@@ -277,6 +286,7 @@ buffered_data_payload = gv.BufferedSensorsDataPayloadDict(
 def get_actuator_state(actuator_type: gv.HardwareType) -> gv.ActuatorStateRecord:
     return gv.ActuatorStateRecord(
         type=actuator_type,
+        group=actuator_type.name,
         active=True,
         mode=gv.ActuatorMode.automatic,
         status=False,
