@@ -73,6 +73,7 @@ class HardwareAware(EcosystemAware):
                 hardware_uid = hardware.pop("uid")
                 hardware["ecosystem_uid"] = g_data.ecosystem_uid
                 del hardware["multiplexer_model"]
+                del hardware["groups"]
                 await Hardware.create(session, uid=hardware_uid, values=hardware)
 
             plant_data = g_data.plant_data.copy()

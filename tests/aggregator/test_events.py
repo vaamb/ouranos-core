@@ -522,8 +522,9 @@ class TestInitializationDataExchange(EcosystemAware):
         # Add the hardware to the DB
         async with db.scoped_session() as session:
             hardware_data = gv.HardwareConfig(**g_data.hardware_data).model_dump()
-            hardware_data.pop("uid")
-            hardware_data.pop("multiplexer_model")
+            del hardware_data["uid"]
+            del hardware_data["multiplexer_model"]
+            del hardware_data["groups"]
             hardware_data["ecosystem_uid"] = g_data.ecosystem_uid
             await Hardware.create(session, uid=g_data.hardware_uid, values=hardware_data)
 
