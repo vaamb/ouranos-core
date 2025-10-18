@@ -522,8 +522,9 @@ class TestInitializationDataExchange(EcosystemAware):
         # Add the hardware to the DB
         async with db.scoped_session() as session:
             hardware_data = gv.HardwareConfig(**g_data.hardware_data).model_dump()
-            hardware_data.pop("uid")
-            hardware_data.pop("multiplexer_model")
+            del hardware_data["uid"]
+            del hardware_data["multiplexer_model"]
+            del hardware_data["groups"]
             hardware_data["ecosystem_uid"] = g_data.ecosystem_uid
             await Hardware.create(session, uid=g_data.hardware_uid, values=hardware_data)
 
@@ -595,7 +596,7 @@ class TestInitializationDataExchange(EcosystemAware):
 
         # Verify that the wrong payload raises an exception
         with pytest.raises(Exception):
-            await events_handler.on_sensors_data(g_data.engine_sid, [{}])
+            await events_handler.on_actuators_data(g_data.engine_sid, [{}])
 
 
 @pytest.mark.asyncio
@@ -1069,6 +1070,7 @@ class TestBufferedDataExchange(HardwareAware):
                 gv.BufferedActuatorRecord(
                     ecosystem_uid=g_data.ecosystem_uid,
                     type=g_data.light_state.type,
+                    group=g_data.light_state.group,
                     active=True,
                     mode=gv.ActuatorMode.manual,
                     status=True,
