@@ -197,12 +197,10 @@ anonymous_user = AnonymousUser()
 AssociationUserRecap = Table(
     "association_user_recap",
     Base.metadata,
-    sa.Column("user_uid",
-              sa.Integer,
-              sa.ForeignKey("users.id")),
-    sa.Column("channel_id",
-              sa.Integer,
-              sa.ForeignKey("communication_channels.id")),
+    sa.Column("id", sa.Integer, primary_key=True),
+    sa.Column("user_uid", sa.Integer, sa.ForeignKey("users.id")),
+    sa.Column("channel_id", sa.Integer, sa.ForeignKey("communication_channels.id")),
+    UniqueConstraint("user_uid", "channel_id", name="uq_user_uid_channel_id"),
     info={"bind_key": "app"}
 )
 
@@ -1084,8 +1082,10 @@ class ModificationType(StrEnum):
 AssociationWikiTagTopic = Table(
     "association_wiki_tag_topic",
     Base.metadata,
+    sa.Column("id", sa.Integer, primary_key=True),
     sa.Column("tag_id", sa.Integer, sa.ForeignKey("wiki_tags.id")),
     sa.Column("topic_id", sa.Integer, sa.ForeignKey("wiki_topics.id")),
+    UniqueConstraint("tag_id", "topic_id", name="uq_tag_id_topic_id"),
     info={"bind_key": "app"},
 )
 
@@ -1093,8 +1093,10 @@ AssociationWikiTagTopic = Table(
 AssociationWikiTagArticle = Table(
     "association_wiki_tag_article",
     Base.metadata,
+    sa.Column("id", sa.Integer, primary_key=True),
     sa.Column("tag_id", sa.Integer, sa.ForeignKey("wiki_tags.id")),
     sa.Column("article_id", sa.Integer, sa.ForeignKey("wiki_articles.id")),
+    UniqueConstraint("tag_id", "article_id", name="uq_tag_id_article_id"),
     info={"bind_key": "app"},
 )
 
@@ -1102,8 +1104,10 @@ AssociationWikiTagArticle = Table(
 AssociationWikiTagPicture = Table(
     "association_wiki_tag_picture",
     Base.metadata,
+    sa.Column("id", sa.Integer, primary_key=True),
     sa.Column("tag_id", sa.Integer, sa.ForeignKey("wiki_tags.id")),
     sa.Column("picture_id", sa.Integer, sa.ForeignKey("wiki_pictures.id")),
+    UniqueConstraint("tag_id", "picture_id", name="uq_tag_id_picture_id"),
     info={"bind_key": "app"},
 )
 
