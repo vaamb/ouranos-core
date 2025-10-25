@@ -665,24 +665,18 @@ class EnvironmentParameter(Base, CRUDMixin):
 AssociationHardwareMeasure = Table(
     "association_hardware_measures", Base.metadata,
     sa.Column("id", sa.Integer, primary_key=True),
-    sa.Column("hardware_uid",
-              sa.String(length=16),
-              sa.ForeignKey("hardware.uid")),
-    sa.Column("measure_id",
-              sa.Integer,
-              sa.ForeignKey("measures.id")),
+    sa.Column("hardware_uid", sa.String(length=16), sa.ForeignKey("hardware.uid")),
+    sa.Column("measure_id", sa.Integer, sa.ForeignKey("measures.id")),
+    UniqueConstraint("hardware_uid", "measure_id", name="uq_hardware_uid_measure_id"),
 )
 
 
 AssociationHardwarePlant = Table(
     "association_hardware_plants", Base.metadata,
     sa.Column("id", sa.Integer, primary_key=True),
-    sa.Column("hardware_uid",
-              sa.String(length=16),
-              sa.ForeignKey("hardware.uid")),
-    sa.Column("plant_uid",
-              sa.String(length=16),
-              sa.ForeignKey("plants.uid")),
+    sa.Column("hardware_uid", sa.String(length=16), sa.ForeignKey("hardware.uid")),
+    sa.Column("plant_uid", sa.String(length=16), sa.ForeignKey("plants.uid")),
+    UniqueConstraint("hardware_uid", "plant_uid", name="uq_hardware_uid_plant_uid"),
 )
 
 
