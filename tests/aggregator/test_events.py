@@ -23,7 +23,7 @@ from ouranos.aggregator.sky_watcher import SkyWatcher
 from ouranos.core.database.models.gaia import (
     ActuatorRecord, ActuatorState, Chaos, CrudRequest, Ecosystem, Engine,
     EnvironmentParameter, Hardware, NycthemeralCycle, Place, Plant, SensorAlarm,
-    SensorDataCache, SensorDataRecord, Weather)
+    SensorDataCache, SensorDataRecord, WeatherEvent)
 from ouranos.core.exceptions import NotRegisteredError
 from ouranos.core.utils import create_time_window
 
@@ -496,7 +496,7 @@ class TestInitializationDataExchange(EcosystemAware):
 
         # Verify that the data has been logged
         async with db.scoped_session() as session:
-            weather = await Weather.get(
+            weather = await WeatherEvent.get(
                 session, ecosystem_uid=g_data.ecosystem_uid, parameter=g_data.weather["parameter"])
             assert weather.pattern == g_data.weather["pattern"]
             assert weather.duration == g_data.weather["duration"]

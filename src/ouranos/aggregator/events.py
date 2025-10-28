@@ -25,7 +25,7 @@ from ouranos.core.database.models.app import ServiceName
 from ouranos.core.database.models.gaia import (
     ActuatorRecord, ActuatorState, Chaos, CrudRequest, Ecosystem, Engine,
     EnvironmentParameter, Hardware, NycthemeralCycle, Place, CameraPicture,
-    Plant, SensorAlarm, SensorDataRecord, SensorDataCache, Weather)
+    Plant, SensorAlarm, SensorDataRecord, SensorDataCache, WeatherEvent)
 from ouranos.core.exceptions import NotRegisteredError
 from ouranos.core.utils import humanize_list, Tokenizer
 
@@ -514,19 +514,19 @@ class GaiaEvents(AsyncEventHandler):
                 uid: str = payload["uid"]
                 ecosystems_to_log.append(
                     await self.get_ecosystem_name(session, uid=uid))
-                weathers_in_config: list[str] = []
+                weather_events_in_config: list[str] = []
                 for weather_config in payload["data"]:
-                    weathers_in_config.append(weather_config["parameter"])
+                    weather_events_in_config.append(weather_config["parameter"])
                     parameter = weather_config.pop("parameter")  # noqa
-                    await Weather.update_or_create(
+                    await WeatherEvent.update_or_create(
                         session, ecosystem_uid=uid, parameter=parameter,
                         values=weather_config)
 
                 # Remove environmental parameters not used anymore
                 stmt = (
-                    delete(Weather)
-                    .where(Weather.ecosystem_uid == uid)
-                    .where(Weather.parameter.not_in(weathers_in_config))
+                    delete(WeatherEvent)
+                    .where(WeatherEvent.ecosystem_uid == uid)
+                    .where(WeatherEvent.parameter.not_in(weather_events_in_config))
                 )
                 await session.execute(stmt)
 

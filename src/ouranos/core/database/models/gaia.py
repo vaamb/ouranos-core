@@ -195,7 +195,7 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
     lighting: Mapped["NycthemeralCycle"] = relationship(back_populates="ecosystem", uselist=False, lazy="selectin")
     chaos: Mapped["Chaos"] = relationship(back_populates="ecosystem", uselist=False, lazy="selectin")
     environment_parameters: Mapped[list["EnvironmentParameter"]] = relationship(back_populates="ecosystem")
-    weathers: Mapped[list[Weather]] = relationship(back_populates="ecosystem")
+    weathers: Mapped[list[WeatherEvent]] = relationship(back_populates="ecosystem")
     hardware: Mapped[list[Hardware]] = relationship(back_populates="ecosystem")
     plants: Mapped[list["Plant"]] = relationship(back_populates="ecosystem")
     sensor_records: Mapped[list["SensorDataRecord"]] = relationship(back_populates="ecosystem")
@@ -663,12 +663,12 @@ class EnvironmentParameter(Base, CRUDMixin):
         )
 
 
-class Weather(Base, CRUDMixin):
-    __tablename__ = "weathers"
+class WeatherEvent(Base, CRUDMixin):
+    __tablename__ = "weather_events"
     __table_args__ = (
         UniqueConstraint(
             "ecosystem_uid", "parameter",
-            name="uq_weathers_ecosystem_uid"
+            name="uq_weather_events_ecosystem_uid"
         ),
     )
 
