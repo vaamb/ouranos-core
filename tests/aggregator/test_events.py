@@ -101,7 +101,9 @@ class TestEngineRegistration:
         """Test the engine registration process.
 
         Verifies that:
+        - The "init_data" store session is properly initialized
         - Registration acknowledgment is sent back to the engine
+        - Camera token is sent back to the engine
         - Engine information is stored in the session
         - Engine details are saved to the database
         - Invalid payloads raise appropriate exceptions
@@ -110,13 +112,32 @@ class TestEngineRegistration:
             engine_uid=g_data.engine_uid,
             address=g_data.ip_address
         ).model_dump()
+
+        # Call the method
         await events_handler.on_register_engine(g_data.engine_sid, payload)
-        emitted = mock_dispatcher.emit_store[0]
+
+        # Verify the session
+        async with events_handler.session(g_data.engine_sid) as session:
+            assert session["engine_uid"] == g_data.engine_uid
+            assert session["init_data"] == {
+                "base_info", "chaos_parameters", "nycthemeral_info",
+                "climate", "hardware", "plants", "management", "actuators_data",
+            }
+
+        # Verify the re emitted events
+        assert len(mock_dispatcher.emit_store) == 2
+
+        emitted = mock_dispatcher.emit_store.popleft()
         assert emitted["event"] == "registration_ack"
         assert emitted["namespace"] == "gaia"
         assert emitted["room"] == g_data.engine_sid
-        assert mock_dispatcher._sessions[g_data.engine_sid]["engine_uid"] == g_data.engine_uid
 
+        emitted = mock_dispatcher.emit_store.popleft()
+        assert emitted["event"] == "camera_token"
+        assert emitted["namespace"] == "gaia"
+        assert emitted["room"] == g_data.engine_sid
+
+        # Verify that the data has been logged
         async with db.scoped_session() as session:
             engine = await Engine.get(session, uid=g_data.engine_uid)
             assert engine.uid == g_data.engine_uid
