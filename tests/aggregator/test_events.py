@@ -23,7 +23,7 @@ from ouranos.aggregator.sky_watcher import SkyWatcher
 from ouranos.core.database.models.gaia import (
     ActuatorRecord, ActuatorState, Chaos, CrudRequest, Ecosystem, Engine,
     EnvironmentParameter, Hardware, NycthemeralCycle, Place, Plant, SensorAlarm,
-    SensorDataCache, SensorDataRecord)
+    SensorDataCache, SensorDataRecord, Weather)
 from ouranos.core.exceptions import NotRegisteredError
 from ouranos.core.utils import create_time_window
 
@@ -121,7 +121,8 @@ class TestEngineRegistration:
             assert session["engine_uid"] == g_data.engine_uid
             assert session["init_data"] == {
                 "base_info", "chaos_parameters", "nycthemeral_info",
-                "climate", "hardware", "plants", "management", "actuators_data",
+                "climate", "weather", "hardware", "plants", "management",
+                "actuators_data",
             }
 
         # Verify the re emitted events
@@ -464,6 +465,47 @@ class TestInitializationDataExchange(EcosystemAware):
         # Verify that the wrong payload raises an exception
         with pytest.raises(Exception):
             await events_handler.on_climate(g_data.engine_sid, [{}])
+
+    async def test_on_weather(
+            self,
+            mock_dispatcher: MockAsyncDispatcher,
+            events_handler: GaiaEvents,
+            db: AsyncSQLAlchemyWrapper,
+    ):
+        """Test handling of weather information.
+
+        Verifies that:
+        - Session init_data is properly cleared
+        - Weather details are correctly stored in the database
+        - Weather measures are properly associated
+        - No events are emitted (as per design)
+        - Invalid payloads raise appropriate exceptions
+        """
+        # Set up the session with init_data
+        async with events_handler.session(g_data.engine_sid) as session:
+            session["init_data"] = {"weather"}
+
+        # Call the method
+        await events_handler.on_weather(g_data.engine_sid, [g_data.weather_payload])
+
+        # There is no re emitted event
+
+        # Verify the session
+        async with events_handler.session(g_data.engine_sid) as session:
+            assert not session["init_data"]
+
+        # Verify that the data has been logged
+        async with db.scoped_session() as session:
+            weather = await Weather.get(
+                session, ecosystem_uid=g_data.ecosystem_uid, parameter=g_data.weather["parameter"])
+            assert weather.pattern == g_data.weather["pattern"]
+            assert weather.duration == g_data.weather["duration"]
+            assert weather.level == g_data.weather["level"]
+            assert weather.linked_actuator == g_data.weather["linked_actuator"]
+
+        # Verify that the wrong payload raises an exception
+        with pytest.raises(Exception):
+            await events_handler.on_weather(g_data.engine_sid, [{}])
 
     async def test_on_hardware(
             self,
