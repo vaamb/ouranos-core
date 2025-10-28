@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import deque
 from typing import cast, TypedDict
 
 from dispatcher import AsyncDispatcher
@@ -17,7 +18,7 @@ class MockAsyncDispatcher(AsyncDispatcher):
 
     def __init__(self, namespace: str):
         super().__init__(namespace)
-        self.emit_store: list[EmitDict] = []
+        self.emit_store: deque[EmitDict] = deque()
 
     async def emit(
             self,
