@@ -115,6 +115,18 @@ climate: gv.ClimateConfigDict = {
 climate_payload = wrap_ecosystem_data_payload([climate])
 
 
+weather: gv.WeatherConfigDict = {
+    "parameter": gv.WeatherParameter.rain,
+    "pattern": "0 8 * * *",
+    "duration": 0.5,
+    "level": 100,
+    "linked_actuator": "rainer",
+}
+
+
+weather_payload = wrap_ecosystem_data_payload([weather])
+
+
 hardware_data: gv.HardwareConfigDict = {
     "uid": hardware_uid,
     "name": "TestThermometer",

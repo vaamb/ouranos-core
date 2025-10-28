@@ -17,7 +17,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from dispatcher import AsyncDispatcher, AsyncEventHandler
 import gaia_validators as gv
 from gaia_validators.image import SerializableImage, SerializableImagePayload
-from typing_extensions import deprecated
 
 from ouranos import current_app, db, json
 from ouranos.core.config.consts import TOKEN_SUBS
@@ -26,7 +25,7 @@ from ouranos.core.database.models.app import ServiceName
 from ouranos.core.database.models.gaia import (
     ActuatorRecord, ActuatorState, Chaos, CrudRequest, Ecosystem, Engine,
     EnvironmentParameter, Hardware, NycthemeralCycle, Place, CameraPicture,
-    Plant, SensorAlarm, SensorDataRecord, SensorDataCache)
+    Plant, SensorAlarm, SensorDataRecord, SensorDataCache, WeatherEvent)
 from ouranos.core.exceptions import NotRegisteredError
 from ouranos.core.utils import humanize_list, Tokenizer
 
@@ -218,7 +217,8 @@ class GaiaEvents(AsyncEventHandler):
             session["engine_uid"] = engine_uid
             session["init_data"] = {
                 "base_info", "chaos_parameters", "nycthemeral_info",
-                "climate", "hardware", "plants", "management", "actuators_data",
+                "climate", "weather", "hardware", "plants", "management",
+                "actuators_data",
             }
         now = datetime.now(timezone.utc)
         engine_info = {
@@ -493,6 +493,45 @@ class GaiaEvents(AsyncEventHandler):
 
         self.logger.debug(
             f"Logged climate parameters from ecosystem(s): "
+            f"{humanize_list(ecosystems_to_log)}"
+        )
+
+    @registration_required
+    @validate_payload(RootModel[list[gv.WeatherConfigPayload]])
+    async def on_weather(
+            self,
+            sid: UUID,  # noqa
+            data: list[gv.WeatherConfigPayloadDict],
+            engine_uid: str
+    ) -> None:
+        self.logger.debug(
+            f"Received 'climate' from engine: {engine_uid}")
+        async with self.session(sid) as session:
+            session["init_data"].discard("weather")
+        ecosystems_to_log: list[str] = []
+        async with db.scoped_session() as session:
+            for payload in data:
+                uid: str = payload["uid"]
+                ecosystems_to_log.append(
+                    await self.get_ecosystem_name(session, uid=uid))
+                weather_events_in_config: list[str] = []
+                for weather_config in payload["data"]:
+                    weather_events_in_config.append(weather_config["parameter"])
+                    parameter = weather_config.pop("parameter")  # noqa
+                    await WeatherEvent.update_or_create(
+                        session, ecosystem_uid=uid, parameter=parameter,
+                        values=weather_config)
+
+                # Remove environmental parameters not used anymore
+                stmt = (
+                    delete(WeatherEvent)
+                    .where(WeatherEvent.ecosystem_uid == uid)
+                    .where(WeatherEvent.parameter.not_in(weather_events_in_config))
+                )
+                await session.execute(stmt)
+
+        self.logger.debug(
+            f"Logged weather parameters from ecosystem(s): "
             f"{humanize_list(ecosystems_to_log)}"
         )
 
