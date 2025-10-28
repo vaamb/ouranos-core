@@ -195,8 +195,9 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
     lighting: Mapped["NycthemeralCycle"] = relationship(back_populates="ecosystem", uselist=False, lazy="selectin")
     chaos: Mapped["Chaos"] = relationship(back_populates="ecosystem", uselist=False, lazy="selectin")
     environment_parameters: Mapped[list["EnvironmentParameter"]] = relationship(back_populates="ecosystem")
+    weathers: Mapped[list[Weather]] = relationship(back_populates="ecosystem")
+    hardware: Mapped[list[Hardware]] = relationship(back_populates="ecosystem")
     plants: Mapped[list["Plant"]] = relationship(back_populates="ecosystem")
-    hardware: Mapped[list["Hardware"]] = relationship(back_populates="ecosystem")
     sensor_records: Mapped[list["SensorDataRecord"]] = relationship(back_populates="ecosystem")
     actuator_records: Mapped[list["ActuatorRecord"]] = relationship(back_populates="ecosystem")
 
@@ -659,6 +660,33 @@ class EnvironmentParameter(Base, CRUDMixin):
         return (
             f"<EnvironmentParameter({self.ecosystem_uid}, parameter={self.parameter}, "
             f"day={self.day}, night={self.night}, hysteresis={self.hysteresis})>"
+        )
+
+
+class Weather(Base, CRUDMixin):
+    __tablename__ = "weathers"
+    __table_args__ = (
+        UniqueConstraint(
+            "ecosystem_uid", "parameter",
+            name="uq_weathers_ecosystem_uid"
+        ),
+    )
+
+    ecosystem_uid: Mapped[str] = mapped_column(
+        sa.String(length=8), sa.ForeignKey("ecosystems.uid"), primary_key=True)
+    parameter: Mapped[str] = mapped_column(sa.String(length=24), primary_key=True)
+    pattern: Mapped[str] = mapped_column(sa.String(length=24), primary_key=True)
+    duration: Mapped[float] = mapped_column(sa.Float(precision=2))
+    level: Mapped[float] = mapped_column(sa.Float(precision=2))
+    linked_actuator: Mapped[Optional[str]] = mapped_column(sa.String(length=16))
+
+    # relationships
+    ecosystem: Mapped[Ecosystem] = relationship(back_populates="weathers", lazy="selectin")
+
+    def __repr__(self) -> str:
+        return (
+            f"<Weather({self.ecosystem_uid}, parameter={self.parameter}, "
+            f"pattern={self.pattern}, linked_actuator={self.linked_actuator})>"
         )
 
 
