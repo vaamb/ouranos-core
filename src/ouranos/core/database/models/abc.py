@@ -369,7 +369,7 @@ class CRUDMixin:
 
     @classmethod
     async def update_or_create(
-            cls: Base,
+            cls: Self,
             session: AsyncSession,
             /,
             values: dict | None = None,
@@ -381,6 +381,19 @@ class CRUDMixin:
             await cls.create(session, values=values, **lookup_keys)
         elif values:
             await cls.update(session, values=values, **lookup_keys)
+
+    @classmethod
+    async def get_or_create(
+            cls: Self,
+            session: AsyncSession,
+            /,
+            values: dict | None = None,
+            **lookup_keys: lookup_keys_type,
+    ) -> Self:
+        obj = await cls.get(session, **lookup_keys)
+        if obj is None:
+            await cls.create(session, values=values, **lookup_keys)
+        return await cls.get(session, **lookup_keys)
 
 
 class RecordMixin(CRUDMixin):
