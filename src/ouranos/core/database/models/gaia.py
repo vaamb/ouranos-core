@@ -690,6 +690,15 @@ class WeatherEvent(Base, CRUDMixin):
         )
 
 
+AssociationHardwareGroup = Table(
+    "association_hardware_groups", Base.metadata,
+    sa.Column("id", sa.Integer, primary_key=True),
+    sa.Column("hardware_uid", sa.String(length=16), sa.ForeignKey("hardware.uid")),
+    sa.Column("group_id", sa.Integer, sa.ForeignKey("hardware_groups.id")),
+    UniqueConstraint("hardware_uid", "group_id", name="uq_hardware_uid_group_id"),
+)
+
+
 AssociationHardwareMeasure = Table(
     "association_hardware_measures", Base.metadata,
     sa.Column("id", sa.Integer, primary_key=True),
@@ -723,14 +732,14 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
     last_log: Mapped[Optional[datetime]] = mapped_column(UtcDateTime)
 
     # relationships
-    ecosystem: Mapped["Ecosystem"] = relationship(back_populates="hardware")
-    measures: Mapped[list["Measure"]] = relationship(
-        back_populates="hardware", secondary=AssociationHardwareMeasure,
-        lazy="selectin")
-    plants: Mapped[list["Plant"]] = relationship(
-        back_populates="hardware", secondary=AssociationHardwarePlant,
-        lazy="selectin")
-    sensor_records: Mapped[list["SensorDataRecord"]] = relationship(
+    ecosystem: Mapped[Ecosystem] = relationship(back_populates="hardware")
+    groups: Mapped[list[HardwareGroup]] = relationship(
+        back_populates="hardware", secondary=AssociationHardwareGroup, lazy="selectin")
+    measures: Mapped[list[Measure]] = relationship(
+        back_populates="hardware", secondary=AssociationHardwareMeasure, lazy="selectin")
+    plants: Mapped[list[Plant]] = relationship(
+        back_populates="hardware", secondary=AssociationHardwarePlant, lazy="selectin")
+    sensor_records: Mapped[list[SensorDataRecord]] = relationship(
         back_populates="sensor")
 
     def __repr__(self) -> str:
@@ -989,6 +998,21 @@ class Actuator(Hardware):
             stmt = cls._add_time_window_to_stmt(stmt, time_window)
         result = await session.execute(stmt)
         return result.unique().scalars().all()
+
+
+class HardwareGroup(Base, CRUDMixin):
+    __tablename__ = "hardware_groups"
+    _lookup_keys = ["name"]
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(sa.String(length=32), unique=True)
+
+    # relationships
+    hardware: Mapped[list[Hardware]] = relationship(
+        "Hardware", back_populates="groups", secondary=AssociationHardwareGroup)
+
+    def __repr__(self) -> str:
+        return f"<HardwareGroup({self.name})>"
 
 
 class Measure(Base, CachedCRUDMixin):
