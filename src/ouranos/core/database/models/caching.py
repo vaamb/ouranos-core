@@ -252,7 +252,7 @@ def clearer_hash(
         cls: Type[Base],
         session: AsyncSession,
         /,
-        values: dict = None,
+        values: dict | None = None,
         _on_conflict_do: on_conflict_opt = None,
         **lookup_keys,
 ) -> tuple:
