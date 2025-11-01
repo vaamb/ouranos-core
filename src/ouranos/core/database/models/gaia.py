@@ -651,9 +651,22 @@ class EnvironmentParameter(Base, CRUDMixin):
     night: Mapped[float] = mapped_column(sa.Float(precision=2))
     hysteresis: Mapped[float] = mapped_column(sa.Float(precision=2), default=0.0)
     alarm: Mapped[Optional[float]] = mapped_column(sa.Float(precision=2), default=None)
+    linked_actuator_group_increase_id: Mapped[Optional[int]] = \
+        mapped_column(sa.ForeignKey("hardware_groups.id"))
+    linked_actuator_group_decrease_id: Mapped[Optional[int]] = \
+        mapped_column(sa.ForeignKey("hardware_groups.id"))
+    linked_measure_id: Mapped[Optional[int]] = mapped_column(sa.ForeignKey("measures.id"))
 
     # relationships
-    ecosystem: Mapped["Ecosystem"] = relationship(
+    ecosystem: Mapped[Ecosystem] = relationship(
+        back_populates="environment_parameters", lazy="selectin")
+    linked_actuator_group_increase: Mapped[Optional[HardwareGroup]] = relationship(
+        back_populates="environment_parameters_increase", lazy="selectin",
+        primaryjoin="EnvironmentParameter.linked_actuator_group_increase_id == HardwareGroup.id")
+    linked_actuator_group_decrease: Mapped[Optional[HardwareGroup]] = relationship(
+        back_populates="environment_parameters_decrease", lazy="selectin",
+        primaryjoin="EnvironmentParameter.linked_actuator_group_decrease_id == HardwareGroup.id")
+    linked_measure: Mapped[Optional[Measure]] = relationship(
         back_populates="environment_parameters", lazy="selectin")
 
     def __repr__(self) -> str:
@@ -1010,6 +1023,12 @@ class HardwareGroup(Base, CRUDMixin):
     # relationships
     hardware: Mapped[list[Hardware]] = relationship(
         "Hardware", back_populates="groups", secondary=AssociationHardwareGroup)
+    environment_parameters_increase: Mapped[list[EnvironmentParameter]] = relationship(
+        back_populates="linked_actuator_group_increase",
+        primaryjoin="HardwareGroup.id == EnvironmentParameter.linked_actuator_group_increase_id")
+    environment_parameters_decrease: Mapped[list[EnvironmentParameter]] = relationship(
+        back_populates="linked_actuator_group_decrease",
+        primaryjoin="HardwareGroup.id == EnvironmentParameter.linked_actuator_group_decrease_id")
 
     def __repr__(self) -> str:
         return f"<HardwareGroup({self.name})>"
@@ -1025,8 +1044,10 @@ class Measure(Base, CachedCRUDMixin):
     unit: Mapped[Optional[str]] = mapped_column(sa.String(length=32))
 
     # relationships
-    hardware: Mapped[list["Hardware"]] = relationship(
+    hardware: Mapped[list[Hardware]] = relationship(
         back_populates="measures", secondary=AssociationHardwareMeasure)
+    environment_parameters: Mapped[list[EnvironmentParameter]] = relationship(
+        back_populates="linked_measure")
 
     def __repr__(self) -> str:
         return f"<Measure({self.name}, unit={self.unit})>"
