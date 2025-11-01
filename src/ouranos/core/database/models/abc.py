@@ -11,6 +11,7 @@ from warnings import warn
 from sqlalchemy import (
     and_, Column, delete, Insert, inspect, Select, select, table, UnaryExpression,
     UniqueConstraint, update)
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -375,12 +376,16 @@ class CRUDMixin:
             values: dict | None = None,
             **lookup_keys: lookup_keys_type,
     ) -> None:
-        #cls._check_lookup_keys(*lookup_keys.keys())
         obj = await cls.get(session, **lookup_keys)
-        if not obj:
-            await cls.create(session, values=values, **lookup_keys)
-        elif values:
-            await cls.update(session, values=values, **lookup_keys)
+        if obj is None:
+            try:
+                await cls.create(session, values=values, **lookup_keys)
+            except IntegrityError:
+                # The object was created in the meantime, fallback to update
+                pass
+            else:
+                return
+        await cls.update(session, values=values, **lookup_keys)
 
     @classmethod
     async def get_or_create(
@@ -392,7 +397,11 @@ class CRUDMixin:
     ) -> Self:
         obj = await cls.get(session, **lookup_keys)
         if obj is None:
-            await cls.create(session, values=values, **lookup_keys)
+            try:
+                await cls.create(session, values=values, **lookup_keys)
+            except IntegrityError:
+                # The object has been created in the meantime
+                pass
         return await cls.get(session, **lookup_keys)
 
 
