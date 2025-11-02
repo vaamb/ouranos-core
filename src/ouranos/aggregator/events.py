@@ -23,9 +23,9 @@ from ouranos.core.config.consts import TOKEN_SUBS
 from ouranos.core.database.models.abc import RecordMixin
 from ouranos.core.database.models.app import ServiceName
 from ouranos.core.database.models.gaia import (
-    ActuatorRecord, ActuatorState, Chaos, CrudRequest, Ecosystem, Engine,
-    EnvironmentParameter, Hardware, NycthemeralCycle, Place, CameraPicture,
-    Plant, SensorAlarm, SensorDataRecord, SensorDataCache, WeatherEvent)
+    ActuatorRecord, ActuatorState, CameraPicture, Chaos, CrudRequest, Ecosystem,
+    Engine, EnvironmentParameter, Hardware, HardwareGroup, Measure, NycthemeralCycle,
+    Place, Plant, SensorAlarm, SensorDataRecord, SensorDataCache, WeatherEvent)
 from ouranos.core.exceptions import NotRegisteredError
 from ouranos.core.utils import humanize_list, Tokenizer
 
@@ -477,8 +477,16 @@ class GaiaEvents(AsyncEventHandler):
                 for climate_config in payload["data"]:
                     environment_parameters_in_config.append(climate_config["parameter"])
                     parameter = climate_config.pop("parameter")  # noqa
-                    del climate_config["linked_measure"]
-                    del climate_config["linked_actuators"]
+                    linked_measure: str | None = climate_config.pop("linked_measure", None)
+                    if linked_measure is not None:
+                        measure = await Measure.get_or_create(session, name=linked_measure)
+                        climate_config["linked_measure_id"] = measure.id
+                    linked_actuators: gv.ActuatorCouple | None = climate_config.pop("linked_actuators", None)
+                    if linked_actuators is not None:
+                        actuator_increase = await HardwareGroup.get_or_create(session, name=linked_actuators["increase"])
+                        actuator_decrease = await HardwareGroup.get_or_create(session, name=linked_actuators["decrease"])
+                        climate_config["linked_actuator_group_increase_id"] = actuator_increase.id
+                        climate_config["linked_actuator_group_decrease_id"] = actuator_decrease.id
                     await EnvironmentParameter.update_or_create(
                         session, ecosystem_uid=uid, parameter=parameter,
                         values=climate_config)

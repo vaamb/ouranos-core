@@ -783,6 +783,9 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
             m: gv.MeasureDict
             measure = await Measure.get_or_create(
                 session, name=m["name"], values={"unit": m["unit"]})
+            if measure.unit != m["unit"]:
+                await Measure.update(session, name=m["name"], values={"unit": m["unit"]})
+                measure = await Measure.get(session, name=m["name"])
             if measure.id in measures_already_attached:
                 measures_already_attached.remove(measure.id)
             else:
