@@ -651,9 +651,22 @@ class EnvironmentParameter(Base, CRUDMixin):
     night: Mapped[float] = mapped_column(sa.Float(precision=2))
     hysteresis: Mapped[float] = mapped_column(sa.Float(precision=2), default=0.0)
     alarm: Mapped[Optional[float]] = mapped_column(sa.Float(precision=2), default=None)
+    linked_actuator_group_increase_id: Mapped[Optional[int]] = \
+        mapped_column(sa.ForeignKey("hardware_groups.id"))
+    linked_actuator_group_decrease_id: Mapped[Optional[int]] = \
+        mapped_column(sa.ForeignKey("hardware_groups.id"))
+    linked_measure_id: Mapped[Optional[int]] = mapped_column(sa.ForeignKey("measures.id"))
 
     # relationships
-    ecosystem: Mapped["Ecosystem"] = relationship(
+    ecosystem: Mapped[Ecosystem] = relationship(
+        back_populates="environment_parameters", lazy="selectin")
+    linked_actuator_group_increase: Mapped[Optional[HardwareGroup]] = relationship(
+        back_populates="environment_parameters_increase", lazy="selectin",
+        primaryjoin="EnvironmentParameter.linked_actuator_group_increase_id == HardwareGroup.id")
+    linked_actuator_group_decrease: Mapped[Optional[HardwareGroup]] = relationship(
+        back_populates="environment_parameters_decrease", lazy="selectin",
+        primaryjoin="EnvironmentParameter.linked_actuator_group_decrease_id == HardwareGroup.id")
+    linked_measure: Mapped[Optional[Measure]] = relationship(
         back_populates="environment_parameters", lazy="selectin")
 
     def __repr__(self) -> str:
@@ -690,6 +703,15 @@ class WeatherEvent(Base, CRUDMixin):
         )
 
 
+AssociationHardwareGroup = Table(
+    "association_hardware_groups", Base.metadata,
+    sa.Column("id", sa.Integer, primary_key=True),
+    sa.Column("hardware_uid", sa.String(length=16), sa.ForeignKey("hardware.uid")),
+    sa.Column("group_id", sa.Integer, sa.ForeignKey("hardware_groups.id")),
+    UniqueConstraint("hardware_uid", "group_id", name="uq_hardware_uid_group_id"),
+)
+
+
 AssociationHardwareMeasure = Table(
     "association_hardware_measures", Base.metadata,
     sa.Column("id", sa.Integer, primary_key=True),
@@ -723,14 +745,14 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
     last_log: Mapped[Optional[datetime]] = mapped_column(UtcDateTime)
 
     # relationships
-    ecosystem: Mapped["Ecosystem"] = relationship(back_populates="hardware")
-    measures: Mapped[list["Measure"]] = relationship(
-        back_populates="hardware", secondary=AssociationHardwareMeasure,
-        lazy="selectin")
-    plants: Mapped[list["Plant"]] = relationship(
-        back_populates="hardware", secondary=AssociationHardwarePlant,
-        lazy="selectin")
-    sensor_records: Mapped[list["SensorDataRecord"]] = relationship(
+    ecosystem: Mapped[Ecosystem] = relationship(back_populates="hardware")
+    groups: Mapped[list[HardwareGroup]] = relationship(
+        back_populates="hardware", secondary=AssociationHardwareGroup, lazy="selectin")
+    measures: Mapped[list[Measure]] = relationship(
+        back_populates="hardware", secondary=AssociationHardwareMeasure, lazy="selectin")
+    plants: Mapped[list[Plant]] = relationship(
+        back_populates="hardware", secondary=AssociationHardwarePlant, lazy="selectin")
+    sensor_records: Mapped[list[SensorDataRecord]] = relationship(
         back_populates="sensor")
 
     def __repr__(self) -> str:
@@ -761,6 +783,10 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
             m: gv.MeasureDict
             measure = await Measure.get_or_create(
                 session, name=m["name"], values={"unit": m["unit"]})
+            # We need to update the measure if it was registered through a "climate" event
+            if measure.unit != m["unit"]:
+                await Measure.update(session, name=m["name"], values={"unit": m["unit"]})
+                measure = await Measure.get(session, name=m["name"])
             if measure.id in measures_already_attached:
                 measures_already_attached.remove(measure.id)
             else:
@@ -787,6 +813,52 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
             await session.commit()
 
     @classmethod
+    async def attach_groups(
+            cls,
+            session: AsyncSession,
+            hardware_uid: str,
+            groups: set[str],
+            base_type: str,
+    ) -> None:
+        # Get groups already attached to the hardware
+        stmt = (
+            select(AssociationHardwareGroup.c.group_id)
+            .where(AssociationHardwareGroup.c.hardware_uid == hardware_uid)
+        )
+        result = await session.execute(stmt)
+        groups_already_attached: set[int] = {row[0] for row in result.all()}
+        # Accumulator for groups to add
+        groups_to_add: list[dict[str, str | int]] = []
+        for g in groups:
+            if g == "__type__":
+                g = base_type
+            group = await HardwareGroup.get_or_create(session, name=g)
+            if group.id in groups_already_attached:
+                groups_already_attached.remove(group.id)
+            else:
+                groups_to_add.append({
+                    "hardware_uid": hardware_uid,
+                    "group_id": group.id,
+                })
+        # Link the new measures
+        if groups_to_add:
+            stmt = (
+                insert(AssociationHardwareGroup)
+                .values(groups_to_add)
+            )
+            await session.execute(stmt)
+        # Unlink the measures not linked anymore
+        if groups_already_attached:
+            stmt = (
+                delete(AssociationHardwareGroup)
+                .where(AssociationHardwareGroup.c.hardware_uid == hardware_uid)
+                # Must be kept separate or it won't compile properly
+                .where(AssociationHardwareGroup.c.group_id.in_(groups_already_attached))
+            )
+            await session.execute(stmt)
+            await session.commit()
+
+    @classmethod
     async def create(
             cls,
             session: AsyncSession,
@@ -796,11 +868,15 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
             **lookup_keys: str | Enum | UUID,
     ) -> None:
         measures: list[gv.Measure | gv.MeasureDict] = values.pop("measures", [])
+        groups: set[str] = values.pop("groups", set())
         values.pop("plants", [])
         await super().create(
             session, values=values, _on_conflict_do=_on_conflict_do, **lookup_keys)
         if measures:
             await cls.attach_measures(session, lookup_keys["uid"], measures)
+        if groups:
+            await cls.attach_groups(session, lookup_keys["uid"], groups, values["type"].name)
+        if any((*groups, *measures)):
             # Clear cache as measures and/or plants have been added
             hash_key = create_hashable_key(**lookup_keys)
             cls._cache.pop(hash_key, None)
@@ -991,6 +1067,27 @@ class Actuator(Hardware):
         return result.unique().scalars().all()
 
 
+class HardwareGroup(Base, CRUDMixin):
+    __tablename__ = "hardware_groups"
+    _lookup_keys = ["name"]
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(sa.String(length=32), unique=True)
+
+    # relationships
+    hardware: Mapped[list[Hardware]] = relationship(
+        "Hardware", back_populates="groups", secondary=AssociationHardwareGroup)
+    environment_parameters_increase: Mapped[list[EnvironmentParameter]] = relationship(
+        back_populates="linked_actuator_group_increase",
+        primaryjoin="HardwareGroup.id == EnvironmentParameter.linked_actuator_group_increase_id")
+    environment_parameters_decrease: Mapped[list[EnvironmentParameter]] = relationship(
+        back_populates="linked_actuator_group_decrease",
+        primaryjoin="HardwareGroup.id == EnvironmentParameter.linked_actuator_group_decrease_id")
+
+    def __repr__(self) -> str:
+        return f"<HardwareGroup({self.name})>"
+
+
 class Measure(Base, CachedCRUDMixin):
     __tablename__ = "measures"
     _lookup_keys = ["name"]
@@ -1001,8 +1098,10 @@ class Measure(Base, CachedCRUDMixin):
     unit: Mapped[Optional[str]] = mapped_column(sa.String(length=32))
 
     # relationships
-    hardware: Mapped[list["Hardware"]] = relationship(
+    hardware: Mapped[list[Hardware]] = relationship(
         back_populates="measures", secondary=AssociationHardwareMeasure)
+    environment_parameters: Mapped[list[EnvironmentParameter]] = relationship(
+        back_populates="linked_measure")
 
     def __repr__(self) -> str:
         return f"<Measure({self.name}, unit={self.unit})>"

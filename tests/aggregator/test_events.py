@@ -461,6 +461,12 @@ class TestInitializationDataExchange(EcosystemAware):
             assert environment_parameter.day == g_data.climate["day"]
             assert environment_parameter.night == g_data.climate["night"]
             assert environment_parameter.hysteresis == g_data.climate["hysteresis"]
+            assert environment_parameter.linked_actuator_group_increase.name == \
+                   g_data.climate["linked_actuators"]["increase"]
+            assert environment_parameter.linked_actuator_group_decrease.name == \
+                   g_data.climate["linked_actuators"]["decrease"]
+            assert environment_parameter.linked_measure.name == \
+                   g_data.climate["linked_measure"]
 
         # Verify that the wrong payload raises an exception
         with pytest.raises(Exception):
@@ -537,17 +543,28 @@ class TestInitializationDataExchange(EcosystemAware):
 
         # Verify that the data has been logged
         async with db.scoped_session() as session:
+            # Test single attributes
             hardware = await Hardware.get(session, uid=g_data.hardware_data["uid"])
             assert hardware.name == g_data.hardware_data["name"]
             assert hardware.level.name == g_data.hardware_data["level"]
             assert hardware.address == g_data.hardware_data["address"]
             assert hardware.type.name == g_data.hardware_data["type"]
             assert hardware.model == g_data.hardware_data["model"]
+            # Test measures
             measures = [f"{measure.name}|{measure.unit}" for measure in hardware.measures]
             measures.sort()
             measures_data = copy(g_data.hardware_data["measures"])
             measures_data.sort()
             assert measures == measures_data
+            # Test groups
+            groups = [g.name for g in hardware.groups]
+            groups.sort()
+            assert "__type__" not in groups
+            groups_data = [*g_data.hardware_data["groups"]]
+            groups_data.sort()
+            if "__type__" in groups_data:
+                groups_data[groups_data.index("__type__")] = hardware.type.name
+            assert groups == groups_data
 
         # Verify that the wrong payload raises an exception
         with pytest.raises(Exception):
