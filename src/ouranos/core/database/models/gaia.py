@@ -783,6 +783,7 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
             m: gv.MeasureDict
             measure = await Measure.get_or_create(
                 session, name=m["name"], values={"unit": m["unit"]})
+            # We need to update the measure if it was registered through a "climate" event
             if measure.unit != m["unit"]:
                 await Measure.update(session, name=m["name"], values={"unit": m["unit"]})
                 measure = await Measure.get(session, name=m["name"])
