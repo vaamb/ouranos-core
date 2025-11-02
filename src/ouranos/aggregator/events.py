@@ -477,16 +477,6 @@ class GaiaEvents(AsyncEventHandler):
                 for climate_config in payload["data"]:
                     environment_parameters_in_config.append(climate_config["parameter"])
                     parameter = climate_config.pop("parameter")  # noqa
-                    linked_measure: str | None = climate_config.pop("linked_measure", None)
-                    if linked_measure is not None:
-                        measure = await Measure.get_or_create(session, name=linked_measure)
-                        climate_config["linked_measure_id"] = measure.id
-                    linked_actuators: gv.ActuatorCouple | None = climate_config.pop("linked_actuators", None)
-                    if linked_actuators is not None:
-                        actuator_increase = await HardwareGroup.get_or_create(session, name=linked_actuators["increase"])
-                        actuator_decrease = await HardwareGroup.get_or_create(session, name=linked_actuators["decrease"])
-                        climate_config["linked_actuator_group_increase_id"] = actuator_increase.id
-                        climate_config["linked_actuator_group_decrease_id"] = actuator_decrease.id
                     await EnvironmentParameter.update_or_create(
                         session, ecosystem_uid=uid, parameter=parameter,
                         values=climate_config)
