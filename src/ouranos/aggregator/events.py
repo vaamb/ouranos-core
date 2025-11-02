@@ -568,7 +568,6 @@ class GaiaEvents(AsyncEventHandler):
                     hardware["in_config"] = True  # noqa
                     # TODO: register multiplexer ?
                     del hardware["multiplexer_model"]  # noqa
-                    del hardware["groups"]  # noqa
                     if hardware["type"] == gv.HardwareType.camera:
                         hardware["level"] = gv.HardwareLevel.ecosystem
                     await Hardware.update_or_create(

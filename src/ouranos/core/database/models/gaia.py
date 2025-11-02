@@ -812,6 +812,52 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
             await session.commit()
 
     @classmethod
+    async def attach_groups(
+            cls,
+            session: AsyncSession,
+            hardware_uid: str,
+            groups: set[str],
+            base_type: str,
+    ) -> None:
+        # Get groups already attached to the hardware
+        stmt = (
+            select(AssociationHardwareGroup.c.group_id)
+            .where(AssociationHardwareGroup.c.hardware_uid == hardware_uid)
+        )
+        result = await session.execute(stmt)
+        groups_already_attached: set[int] = {row[0] for row in result.all()}
+        # Accumulator for groups to add
+        groups_to_add: list[dict[str, str | int]] = []
+        for g in groups:
+            if g == "__type__":
+                g = base_type
+            group = await HardwareGroup.get_or_create(session, name=g)
+            if group.id in groups_already_attached:
+                groups_already_attached.remove(group.id)
+            else:
+                groups_to_add.append({
+                    "hardware_uid": hardware_uid,
+                    "group_id": group.id,
+                })
+        # Link the new measures
+        if groups_to_add:
+            stmt = (
+                insert(AssociationHardwareGroup)
+                .values(groups_to_add)
+            )
+            await session.execute(stmt)
+        # Unlink the measures not linked anymore
+        if groups_already_attached:
+            stmt = (
+                delete(AssociationHardwareGroup)
+                .where(AssociationHardwareGroup.c.hardware_uid == hardware_uid)
+                # Must be kept separate or it won't compile properly
+                .where(AssociationHardwareGroup.c.group_id.in_(groups_already_attached))
+            )
+            await session.execute(stmt)
+            await session.commit()
+
+    @classmethod
     async def create(
             cls,
             session: AsyncSession,
@@ -821,11 +867,15 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
             **lookup_keys: str | Enum | UUID,
     ) -> None:
         measures: list[gv.Measure | gv.MeasureDict] = values.pop("measures", [])
+        groups: set[str] = values.pop("groups", set())
         values.pop("plants", [])
         await super().create(
             session, values=values, _on_conflict_do=_on_conflict_do, **lookup_keys)
         if measures:
             await cls.attach_measures(session, lookup_keys["uid"], measures)
+        if groups:
+            await cls.attach_groups(session, lookup_keys["uid"], groups, values["type"].name)
+        if any((*groups, *measures)):
             # Clear cache as measures and/or plants have been added
             hash_key = create_hashable_key(**lookup_keys)
             cls._cache.pop(hash_key, None)
