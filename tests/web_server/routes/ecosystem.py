@@ -301,6 +301,12 @@ class TestEcosystemEnvironmentParameters(EnvironmentAware, UsersAware):
         assert parameter_1["day"] == g_data.climate["day"]
         assert parameter_1["night"] == g_data.climate["night"]
         assert parameter_1["hysteresis"] == g_data.climate["hysteresis"]
+        assert parameter_1["alarm"] == g_data.climate["alarm"]
+        assert parameter_1["linked_actuator_group_increase"] == \
+               g_data.climate["linked_actuators"]["increase"]
+        assert parameter_1["linked_actuator_group_decrease"] == \
+               g_data.climate["linked_actuators"]["decrease"]
+        assert parameter_1["linked_measure"] == g_data.climate["linked_measure"]
 
     def test_environment_parameter_creation_request_failure_user(self, client_user: TestClient):
         response = client_user.post(

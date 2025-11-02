@@ -78,6 +78,14 @@ class TestHardware(HardwareAware, UsersAware):
             "name": "temperature",
             "unit": "°C"
         }
+        # Test groups
+        data["groups"].sort()
+        assert "__type__" not in data["groups"]
+        groups_data = [*g_data.hardware_data["groups"]]
+        groups_data.sort()
+        if "__type__" in groups_data:
+            groups_data[groups_data.index("__type__")] = g_data.hardware_data["type"]
+        assert data["groups"] == groups_data
         # TODO: re enable by linking Hardware to Plant
         #assert data["plants"] == g_data.hardware_data["plants"]
 
