@@ -559,7 +559,7 @@ class TestInitializationDataExchange(EcosystemAware):
             # Test groups
             groups = [g.name for g in hardware.groups]
             groups.sort()
-            assert not "__type__" in groups
+            assert "__type__" not in groups
             groups_data = [*g_data.hardware_data["groups"]]
             groups_data.sort()
             if "__type__" in groups_data:
