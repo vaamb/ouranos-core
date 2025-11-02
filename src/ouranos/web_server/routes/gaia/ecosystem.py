@@ -26,7 +26,7 @@ from ouranos.web_server.validate.gaia.ecosystem import (
     EcosystemManagementUpdatePayload, EcosystemManagementInfo, ManagementInfo,
     EcosystemLightInfo, NycthemeralCycleUpdatePayload,
     EnvironmentParameterCreationPayload, EnvironmentParameterUpdatePayload,
-    EnvironmentParameterInfo,
+    EnvironmentParameterInfo, EnvironmentParametersInfo,
     EcosystemActuatorInfo, EcosystemActuatorRecords, EcosystemTurnActuatorPayload)
 
 
@@ -343,7 +343,7 @@ async def update_ecosystem_lighting(
 #   Ecosystem environment parameters
 # ------------------------------------------------------------------------------
 @router.get("/environment_parameter",
-            response_model=list[EnvironmentParameterInfo])
+            response_model=list[EnvironmentParametersInfo])
 async def get_ecosystems_environment_parameters(
         *,
         ecosystems_id: Annotated[list[str] | None, Query(description=eids_desc)] = None,
@@ -365,7 +365,7 @@ async def get_ecosystems_environment_parameters(
 
 
 @router.get("/u/{ecosystem_uid}/environment_parameter",
-            response_model=EnvironmentParameterInfo)
+            response_model=EnvironmentParametersInfo)
 async def get_ecosystem_environment_parameters(
         *,
         ecosystem_uid: Annotated[str, Path(description=euid_desc)],
@@ -417,7 +417,7 @@ async def create_environment_parameter(
 
 
 @router.get("/u/{ecosystem_uid}/environment_parameter/u/{parameter}",
-            response_model=EnvironmentParameterCreationPayload)
+            response_model=EnvironmentParameterInfo)
 async def get_ecosystem_environment_parameter(
         *,
         ecosystem_uid: Annotated[str, Path(description=euid_desc)],

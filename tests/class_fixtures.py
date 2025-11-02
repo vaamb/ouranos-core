@@ -46,8 +46,6 @@ class EnvironmentAware(EcosystemAware):
             uid = g_data.ecosystem_uid
             climate_config = g_data.climate.copy()
             parameter = climate_config.pop("parameter")
-            del climate_config["linked_actuators"]
-            del climate_config["linked_measure"]
             await EnvironmentParameter.create(
                 session, ecosystem_uid=uid, parameter=parameter, values=climate_config)
 
