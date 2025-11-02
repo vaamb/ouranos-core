@@ -675,6 +675,27 @@ class EnvironmentParameter(Base, CRUDMixin):
             f"day={self.day}, night={self.night}, hysteresis={self.hysteresis})>"
         )
 
+    @classmethod
+    async def create(
+            cls,
+            session: AsyncSession,
+            /,
+            values: gv.ClimateConfigDict | None = None,
+            _on_conflict_do: on_conflict_opt = None,
+            **lookup_keys: str | Enum | UUID,
+    ) -> None:
+        linked_measure: str | None = values.pop("linked_measure", None)
+        if linked_measure is not None:
+            measure = await Measure.get_or_create(session, name=linked_measure)
+            values["linked_measure_id"] = measure.id
+        linked_actuators: gv.ActuatorCouple | None = values.pop("linked_actuators", None)
+        if linked_actuators is not None:
+            actuator_increase = await HardwareGroup.get_or_create(session, name=linked_actuators["increase"])
+            actuator_decrease = await HardwareGroup.get_or_create(session, name=linked_actuators["decrease"])
+            values["linked_actuator_group_increase_id"] = actuator_increase.id
+            values["linked_actuator_group_decrease_id"] = actuator_decrease.id
+        await super().create(session, values=values, _on_conflict_do=_on_conflict_do, **lookup_keys)
+
 
 class WeatherEvent(Base, CRUDMixin):
     __tablename__ = "weather_events"
