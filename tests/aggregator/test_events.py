@@ -570,6 +570,9 @@ class TestInitializationDataExchange(EcosystemAware):
                 groups_data[groups_data.index("__type__")] = hardware.type.name
             assert groups == groups_data
 
+        # Test the behavior when receiving hardware data with existing uid
+        await events_handler.on_hardware(g_data.engine_sid, [g_data.hardware_payload])
+
         # Verify that the wrong payload raises an exception
         with pytest.raises(Exception):
             await events_handler.on_hardware(g_data.engine_sid, [{}])
