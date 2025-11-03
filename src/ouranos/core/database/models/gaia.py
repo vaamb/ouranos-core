@@ -960,10 +960,14 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
                 "Provide 'uid' either as a parameter or as a key in the "
                 "updated info")
         measures = values.pop("measures", [])
+        groups: set[str] = values.pop("groups", set())
         values.pop("plants", [])
         await super().update(session, uid=uid, values=values)
         if measures:
             await cls.attach_measures(session, uid, measures)
+        if groups:
+            await cls.attach_groups(session, uid, groups, values["type"].name)
+        if any((*groups, *measures)):
             # Clear cache as measures and/or plants have been added
             hash_key = create_hashable_key(**lookup_keys)
             cls._cache.pop(hash_key, None)
