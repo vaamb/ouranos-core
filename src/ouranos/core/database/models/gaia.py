@@ -25,8 +25,8 @@ from ouranos.core.database.models.abc import (
 from ouranos.core.database.models.caches import (
     cache_ecosystems, cache_ecosystems_has_recent_data,
     cache_ecosystems_has_active_actuator, cache_engines,
-    cache_hardware, cache_measures, cache_plants, cache_sensors_data_skeleton,
-    cache_sensors_value, cache_warnings)
+    cache_hardware, cache_hardware_groups, cache_measures, cache_plants,
+    cache_sensors_data_skeleton, cache_sensors_value, cache_warnings)
 from ouranos.core.database.models.caches import (
     cache_ecosystems_recent, cache_engines_recent)
 from ouranos.core.database.models.caching import (
@@ -676,6 +676,32 @@ class EnvironmentParameter(Base, CRUDMixin):
         )
 
     @classmethod
+    async def _link_measure(
+            cls,
+            session: AsyncSession,
+            /,
+            linked_measure: str,
+            values: gv.ClimateConfigDict,
+    ) -> gv.ClimateConfigDict:
+        measure = await Measure.get_or_create(session, name=linked_measure)
+        values["linked_measure_id"] = measure.id
+        return values
+
+    @classmethod
+    async def _link_actuator_group(
+            cls,
+            session: AsyncSession,
+            /,
+            linked_actuators: dict[Literal["increase", "decrease"], str],
+            values: gv.ClimateConfigDict,
+    ) -> gv.ClimateConfigDict:
+        actuator_increase = await HardwareGroup.get_or_create(session, name=linked_actuators["increase"])
+        actuator_decrease = await HardwareGroup.get_or_create(session, name=linked_actuators["decrease"])
+        values["linked_actuator_group_increase_id"] = actuator_increase.id
+        values["linked_actuator_group_decrease_id"] = actuator_decrease.id
+        return values
+
+    @classmethod
     async def create(
             cls,
             session: AsyncSession,
@@ -686,15 +712,33 @@ class EnvironmentParameter(Base, CRUDMixin):
     ) -> None:
         linked_measure: str | None = values.pop("linked_measure", None)
         if linked_measure is not None:
-            measure = await Measure.get_or_create(session, name=linked_measure)
-            values["linked_measure_id"] = measure.id
+            values = await cls._link_measure(session, linked_measure, values)
+        linked_actuators: dict | None = values.pop("linked_actuators", None)
+        if linked_actuators is not None:
+            values = await cls._link_actuator_group(session, linked_actuators, values)
+        await super().create(
+            session, values=values, _on_conflict_do=_on_conflict_do, **lookup_keys)
+
+    @classmethod
+    async def update(
+            cls,
+            session: AsyncSession,
+            /,
+            values: gv.ClimateConfigDict,
+            **lookup_keys: str | Enum,
+    ) -> None:
+        # Extract ecosystem_uid and parameter
+        ecosystem_uid = lookup_keys.pop("ecosystem_uid")
+        parameter = lookup_keys.pop("parameter")
+        # Link measure and actuators
+        linked_measure: str | None = values.pop("linked_measure", None)
+        if linked_measure is not None:
+            values = await cls._link_measure(session, linked_measure, values)
         linked_actuators: gv.ActuatorCouple | None = values.pop("linked_actuators", None)
         if linked_actuators is not None:
-            actuator_increase = await HardwareGroup.get_or_create(session, name=linked_actuators["increase"])
-            actuator_decrease = await HardwareGroup.get_or_create(session, name=linked_actuators["decrease"])
-            values["linked_actuator_group_increase_id"] = actuator_increase.id
-            values["linked_actuator_group_decrease_id"] = actuator_decrease.id
-        await super().create(session, values=values, _on_conflict_do=_on_conflict_do, **lookup_keys)
+            values = await cls._link_actuator_group(session, linked_actuators, values)
+        await super().update(
+            session, ecosystem_uid=ecosystem_uid, parameter=parameter, values=values)
 
 
 class WeatherEvent(Base, CRUDMixin):
@@ -916,10 +960,14 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
                 "Provide 'uid' either as a parameter or as a key in the "
                 "updated info")
         measures = values.pop("measures", [])
+        groups: set[str] = values.pop("groups", set())
         values.pop("plants", [])
         await super().update(session, uid=uid, values=values)
         if measures:
             await cls.attach_measures(session, uid, measures)
+        if groups:
+            await cls.attach_groups(session, uid, groups, values["type"].name)
+        if any((*groups, *measures)):
             # Clear cache as measures and/or plants have been added
             hash_key = create_hashable_key(**lookup_keys)
             cls._cache.pop(hash_key, None)
@@ -1088,9 +1136,10 @@ class Actuator(Hardware):
         return result.unique().scalars().all()
 
 
-class HardwareGroup(Base, CRUDMixin):
+class HardwareGroup(Base, CachedCRUDMixin):
     __tablename__ = "hardware_groups"
     _lookup_keys = ["name"]
+    _cache = cache_hardware_groups
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(sa.String(length=32), unique=True)

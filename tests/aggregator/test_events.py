@@ -230,6 +230,10 @@ class TestStartInitializationDataExchange(EngineAware):
             assert place.longitude == g_data.place_dict.coordinates.longitude
             assert place.latitude == g_data.place_dict.coordinates.latitude
 
+        # Test the behavior when receiving places again
+        await events_handler.on_places_list(
+            g_data.engine_sid, g_data.places_payload)
+
     async def test_on_base_info(
             self,
             mock_dispatcher: MockAsyncDispatcher,
@@ -271,10 +275,13 @@ class TestStartInitializationDataExchange(EngineAware):
             assert ecosystem.name == g_data.base_info["name"]
             assert ecosystem.status == g_data.base_info["status"]
 
+        # Test the behavior when receiving base info with existing ecosystem uid
+        await events_handler.on_base_info(
+            g_data.engine_sid, [g_data.base_info_payload])
+
         # Verify that the wrong payload raises an exception
-        wrong_payload = {}
         with pytest.raises(Exception):
-            await events_handler.on_base_info(g_data.engine_sid, [wrong_payload])
+            await events_handler.on_base_info(g_data.engine_sid, {})
 
 
 @pytest.mark.asyncio
@@ -325,6 +332,10 @@ class TestInitializationDataExchange(EcosystemAware):
             ecosystem = await Ecosystem.get(session, uid=g_data.ecosystem_uid)
             assert ecosystem.management == management_value
 
+        # Test the behavior when receiving management with existing ecosystem uid
+        await events_handler.on_management(
+            g_data.engine_sid, [g_data.management_payload])
+
         # Verify that the wrong payload raises an exception
         with pytest.raises(Exception):
             await events_handler.on_management(g_data.engine_sid, [{}])
@@ -371,6 +382,10 @@ class TestInitializationDataExchange(EcosystemAware):
             assert chaos.duration == g_data.chaos["duration"]
             assert chaos.beginning is None
             assert chaos.end is None
+
+        # Test the behavior when receiving chaos parameters with existing ecosystem uid
+        await events_handler.on_chaos_parameters(
+            g_data.engine_sid, [g_data.chaos_payload])
 
         # Verify that the wrong payload raises an exception
         with pytest.raises(Exception):
@@ -422,6 +437,10 @@ class TestInitializationDataExchange(EcosystemAware):
             assert lighting.day == g_data.sky["day"]
             assert lighting.night == g_data.sky["night"]
 
+        # Test the behavior when receiving nycthemeral info with existing ecosystem uid
+        await events_handler.on_nycthemeral_info(
+            g_data.engine_sid, [g_data.nycthemeral_info_payload])
+
         # Verify that the wrong payload raises an exception
         with pytest.raises(Exception):
             await events_handler.on_nycthemeral_info(g_data.engine_sid, [{}])
@@ -468,6 +487,10 @@ class TestInitializationDataExchange(EcosystemAware):
             assert environment_parameter.linked_measure.name == \
                    g_data.climate["linked_measure"]
 
+        # Test the behavior when receiving climate data with existing ecosystem uid and parameter
+        await events_handler.on_climate(
+            g_data.engine_sid, [g_data.climate_payload])
+
         # Verify that the wrong payload raises an exception
         with pytest.raises(Exception):
             await events_handler.on_climate(g_data.engine_sid, [{}])
@@ -508,6 +531,9 @@ class TestInitializationDataExchange(EcosystemAware):
             assert weather.duration == g_data.weather["duration"]
             assert weather.level == g_data.weather["level"]
             assert weather.linked_actuator == g_data.weather["linked_actuator"]
+
+        # Test the behavior when receiving weather data with existing ecosystem uid and parameter
+        await events_handler.on_weather(g_data.engine_sid, [g_data.weather_payload])
 
         # Verify that the wrong payload raises an exception
         with pytest.raises(Exception):
@@ -565,6 +591,9 @@ class TestInitializationDataExchange(EcosystemAware):
             if "__type__" in groups_data:
                 groups_data[groups_data.index("__type__")] = hardware.type.name
             assert groups == groups_data
+
+        # Test the behavior when receiving hardware data with existing uid
+        await events_handler.on_hardware(g_data.engine_sid, [g_data.hardware_payload])
 
         # Verify that the wrong payload raises an exception
         with pytest.raises(Exception):
@@ -625,9 +654,12 @@ class TestInitializationDataExchange(EcosystemAware):
             assert plant.sowing_date == g_data.plant_data["sowing_date"]
             assert plant.hardware[0].uid == g_data.hardware_data["uid"]
 
+        # Test the behavior when receiving plant data with existing uid
+        await events_handler.on_plants(g_data.engine_sid, [g_data.plants_payload])
+
         # Verify that the wrong payload raises an exception
         with pytest.raises(Exception):
-            await events_handler.on_plant(g_data.engine_sid, [{}])
+            await events_handler.on_plants(g_data.engine_sid, [{}])
 
     async def test_on_actuators_data(
             self,
@@ -673,6 +705,9 @@ class TestInitializationDataExchange(EcosystemAware):
             assert logged_light_state.active == g_data.light_state.active
             assert logged_light_state.mode == g_data.light_state.mode
             assert logged_light_state.status == g_data.light_state.status
+
+        # Test the behavior when receiving actuator data with existing uid
+        await events_handler.on_actuators_data(g_data.engine_sid, [g_data.actuator_state_payload])
 
         # Verify that the wrong payload raises an exception
         with pytest.raises(Exception):
