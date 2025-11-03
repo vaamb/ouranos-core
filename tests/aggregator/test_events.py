@@ -468,6 +468,10 @@ class TestInitializationDataExchange(EcosystemAware):
             assert environment_parameter.linked_measure.name == \
                    g_data.climate["linked_measure"]
 
+        # Test the behavior when receiving climate data with existing ecosystem uid and parameter
+        await events_handler.on_climate(
+            g_data.engine_sid, [g_data.climate_payload])
+
         # Verify that the wrong payload raises an exception
         with pytest.raises(Exception):
             await events_handler.on_climate(g_data.engine_sid, [{}])
