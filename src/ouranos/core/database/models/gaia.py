@@ -25,8 +25,8 @@ from ouranos.core.database.models.abc import (
 from ouranos.core.database.models.caches import (
     cache_ecosystems, cache_ecosystems_has_recent_data,
     cache_ecosystems_has_active_actuator, cache_engines,
-    cache_hardware, cache_measures, cache_plants, cache_sensors_data_skeleton,
-    cache_sensors_value, cache_warnings)
+    cache_hardware, cache_hardware_groups, cache_measures, cache_plants,
+    cache_sensors_data_skeleton, cache_sensors_value, cache_warnings)
 from ouranos.core.database.models.caches import (
     cache_ecosystems_recent, cache_engines_recent)
 from ouranos.core.database.models.caching import (
@@ -1136,9 +1136,10 @@ class Actuator(Hardware):
         return result.unique().scalars().all()
 
 
-class HardwareGroup(Base, CRUDMixin):
+class HardwareGroup(Base, CachedCRUDMixin):
     __tablename__ = "hardware_groups"
     _lookup_keys = ["name"]
+    _cache = cache_hardware_groups
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(sa.String(length=32), unique=True)
