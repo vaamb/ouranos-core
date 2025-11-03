@@ -8,8 +8,8 @@ cache_users = LRUCache(maxsize=32)
 # Gaia
 # Caches size
 _engine_caches_size = 4
-_ecosystem_caches_size = _engine_caches_size * 4
-_hardware_caches_size = _ecosystem_caches_size * 2
+_ecosystem_caches_size = _engine_caches_size * 2
+_hardware_caches_size = _ecosystem_caches_size * 8
 _system_cache_size = 2
 # Engine caches
 cache_engines = LRUCache(maxsize=_engine_caches_size)
