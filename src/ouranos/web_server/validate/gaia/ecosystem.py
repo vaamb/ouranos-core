@@ -146,7 +146,7 @@ class NycthemeralCycleUpdatePayload(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-#   Ecosystem climate parameter
+#   Ecosystem environment parameter
 # ---------------------------------------------------------------------------
 class EnvironmentParameterCreationPayload(gv.ClimateConfig):
     model_config = ConfigDict(
@@ -198,7 +198,7 @@ class EnvironmentParameterInfo(_EnvironmentParameterInfo):
         return value
 
 
-class EnvironmentParametersInfo(BaseModel):
+class EcosystemEnvironmentParametersInfo(BaseModel):
     uid: str
     name: str
     environment_parameters: list[EnvironmentParameterInfo]

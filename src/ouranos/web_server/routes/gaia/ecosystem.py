@@ -26,7 +26,7 @@ from ouranos.web_server.validate.gaia.ecosystem import (
     EcosystemManagementUpdatePayload, EcosystemManagementInfo, ManagementInfo,
     EcosystemLightInfo, NycthemeralCycleUpdatePayload,
     EnvironmentParameterCreationPayload, EnvironmentParameterUpdatePayload,
-    EnvironmentParameterInfo, EnvironmentParametersInfo,
+    EnvironmentParameterInfo, EcosystemEnvironmentParametersInfo,
     EcosystemActuatorInfo, EcosystemActuatorRecords, EcosystemTurnActuatorPayload)
 
 
@@ -56,7 +56,7 @@ async def environment_parameter_or_abort(
     if not environment_parameter:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="No environment_parameter found"
+            detail="No environment parameter found"
         )
     return environment_parameter
 
@@ -343,7 +343,7 @@ async def update_ecosystem_lighting(
 #   Ecosystem environment parameters
 # ------------------------------------------------------------------------------
 @router.get("/environment_parameter",
-            response_model=list[EnvironmentParametersInfo])
+            response_model=list[EcosystemEnvironmentParametersInfo])
 async def get_ecosystems_environment_parameters(
         *,
         ecosystems_id: Annotated[list[str] | None, Query(description=eids_desc)] = None,
@@ -365,7 +365,7 @@ async def get_ecosystems_environment_parameters(
 
 
 @router.get("/u/{ecosystem_uid}/environment_parameter",
-            response_model=EnvironmentParametersInfo)
+            response_model=EcosystemEnvironmentParametersInfo)
 async def get_ecosystem_environment_parameters(
         *,
         ecosystem_uid: Annotated[str, Path(description=euid_desc)],
