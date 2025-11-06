@@ -9,7 +9,8 @@ import gaia_validators as gv
 from gaia_validators import MissingValue, missing, safe_enum_from_name
 
 from ouranos.core.database.models.gaia import (
-    ActuatorState, Ecosystem, EnvironmentParameter, HardwareGroup, Measure)
+    ActuatorState, Ecosystem, EnvironmentParameter, HardwareGroup, Measure,
+    WeatherEvent)
 from ouranos.core.validate.base import BaseModel
 from ouranos.core.validate.utils import sqlalchemy_to_pydantic
 
@@ -202,6 +203,40 @@ class EcosystemEnvironmentParametersInfo(BaseModel):
     uid: str
     name: str
     environment_parameters: list[EnvironmentParameterInfo]
+
+
+# ---------------------------------------------------------------------------
+#   Ecosystem weather events
+# ---------------------------------------------------------------------------
+class WeatherEventCreationPayload(gv.WeatherConfig):
+    model_config = ConfigDict(
+        extra="ignore",
+    )
+
+
+class WeatherEventUpdatePayload(BaseModel):
+    pattern: str | MissingValue = missing
+    duration: float | MissingValue = missing
+    level: float | MissingValue = missing
+    linked_actuator: str | None | MissingValue = missing
+
+
+WeatherEventInfo = sqlalchemy_to_pydantic(
+    WeatherEvent,
+    base=BaseModel,
+    exclude=[
+        "ecosystem_uid",
+    ],
+    extra_fields={
+        "uid": (str, Field(validation_alias="ecosystem_uid")),
+    },
+)
+
+
+class EcosystemWeatherEventsInfo(BaseModel):
+    uid: str
+    name: str
+    weather_events: list[WeatherEventInfo]
 
 
 # ---------------------------------------------------------------------------
