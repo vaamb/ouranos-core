@@ -11,7 +11,8 @@ from ouranos.core.database.models.app import (
     WikiTopic)
 from ouranos.core.database.models.gaia import (
     ActuatorRecord, ActuatorState, Ecosystem, Engine, EnvironmentParameter,
-    GaiaWarning, Hardware, NycthemeralCycle, Plant, SensorDataCache, SensorDataRecord)
+    GaiaWarning, Hardware, NycthemeralCycle, Plant, SensorDataCache,
+    SensorDataRecord, WeatherEvent)
 from ouranos.core.database.models.system import (
     System, SystemDataCache, SystemDataRecord)
 
@@ -39,7 +40,7 @@ class EcosystemAware(EngineAware):
             await Ecosystem.create(session, uid=uid, values=ecosystem)
 
 
-class EnvironmentAware(EcosystemAware):
+class ClimateAware(EcosystemAware):
     @pytest_asyncio.fixture(scope="class", autouse=True)
     async def add_environment_parameters(self, db: AsyncSQLAlchemyWrapper, add_ecosystem):
         async with db.scoped_session() as session:
@@ -48,6 +49,11 @@ class EnvironmentAware(EcosystemAware):
             parameter = climate_config.pop("parameter")
             await EnvironmentParameter.create(
                 session, ecosystem_uid=uid, parameter=parameter, values=climate_config)
+
+            weather_config = g_data.weather.copy()
+            parameter = weather_config.pop("parameter")
+            await WeatherEvent.create(
+                session, ecosystem_uid=uid, parameter=parameter, values=weather_config)
 
             await NycthemeralCycle.create(
                 session,

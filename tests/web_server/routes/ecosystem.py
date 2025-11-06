@@ -11,7 +11,7 @@ from ouranos.core.database.models.gaia import Ecosystem, Engine
 import tests.data.gaia as g_data
 from tests.utils import MockAsyncDispatcher
 from tests.class_fixtures import (
-    ActuatorsAware, EcosystemAware, EnvironmentAware, UsersAware)
+    ActuatorsAware, EcosystemAware, ClimateAware, UsersAware)
 
 
 # ------------------------------------------------------------------------------
@@ -212,7 +212,7 @@ class TestEcosystemManagement(EcosystemAware, UsersAware):
 # ------------------------------------------------------------------------------
 #   Ecosystem light
 # ------------------------------------------------------------------------------
-class TestEcosystemLight(EnvironmentAware, UsersAware):
+class TestEcosystemLight(ClimateAware, UsersAware):
     def test_light(self, client: TestClient):
         response = client.get("/api/gaia/ecosystem/light")
         assert response.status_code == 200
@@ -277,7 +277,7 @@ class TestEcosystemLight(EnvironmentAware, UsersAware):
 # ------------------------------------------------------------------------------
 #   Ecosystem environment parameters
 # ------------------------------------------------------------------------------
-class TestEcosystemEnvironmentParameters(EnvironmentAware, UsersAware):
+class TestEcosystemEnvironmentParameters(ClimateAware, UsersAware):
     def test_environment_parameter(self, client: TestClient):
         response = client.get("/api/gaia/ecosystem/environment_parameter")
         assert response.status_code == 200
