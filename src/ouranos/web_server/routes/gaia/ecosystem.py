@@ -347,7 +347,10 @@ async def update_ecosystem_lighting(
 async def get_ecosystems_environment_parameters(
         *,
         ecosystems_id: Annotated[list[str] | None, Query(description=eids_desc)] = None,
-        parameters: Annotated[str | None, Query(description=env_parameter_desc)] = None,
+        parameters: Annotated[
+            list[gv.ClimateParameter] | None,
+            Query(description=env_parameter_desc),
+        ] = None,
         in_config: Annotated[bool | None, Query(description=in_config_desc)] = None,
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
@@ -369,7 +372,10 @@ async def get_ecosystems_environment_parameters(
 async def get_ecosystem_environment_parameters(
         *,
         ecosystem_uid: Annotated[str, Path(description=euid_desc)],
-        parameters: Annotated[str | None, Query(description=env_parameter_desc)] = None,
+        parameters: Annotated[
+            list[gv.ClimateParameter] | None,
+            Query(description=env_parameter_desc),
+        ] = None,
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     ecosystem = await ecosystem_or_abort(session, ecosystem_uid)
