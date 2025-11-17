@@ -10,6 +10,7 @@ import gaia_validators as gv
 from gaia_validators import MissingValue, missing, safe_enum_from_name
 
 from ouranos.core.validate.base import BaseModel
+from ouranos.core.database.models.gaia import HardwareGroup
 
 
 T = TypeVar("T", bound=Enum)
@@ -73,6 +74,12 @@ class HardwareInfo(gv.AnonymousHardwareConfig, _HardwareInfo):
     ecosystem_uid: str
     last_log: datetime | None = None
     plants: list[PlantSummary]
+
+    @field_validator("groups", mode="before")
+    def parse_groups(cls, value: list[HardwareGroup]):
+        if isinstance(value, list):
+            return {group.name for group in value}
+        return value
 
     @field_serializer("type")
     def serialize_type(self, value: gv.HardwareType, _info) -> str:

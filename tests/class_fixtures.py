@@ -11,7 +11,8 @@ from ouranos.core.database.models.app import (
     WikiTopic)
 from ouranos.core.database.models.gaia import (
     ActuatorRecord, ActuatorState, Ecosystem, Engine, EnvironmentParameter,
-    GaiaWarning, Hardware, NycthemeralCycle, Plant, SensorDataCache, SensorDataRecord)
+    GaiaWarning, Hardware, NycthemeralCycle, Plant, SensorDataCache,
+    SensorDataRecord, WeatherEvent)
 from ouranos.core.database.models.system import (
     System, SystemDataCache, SystemDataRecord)
 
@@ -39,17 +40,20 @@ class EcosystemAware(EngineAware):
             await Ecosystem.create(session, uid=uid, values=ecosystem)
 
 
-class EnvironmentAware(EcosystemAware):
+class ClimateAware(EcosystemAware):
     @pytest_asyncio.fixture(scope="class", autouse=True)
     async def add_environment_parameters(self, db: AsyncSQLAlchemyWrapper, add_ecosystem):
         async with db.scoped_session() as session:
             uid = g_data.ecosystem_uid
             climate_config = g_data.climate.copy()
             parameter = climate_config.pop("parameter")
-            del climate_config["linked_actuators"]
-            del climate_config["linked_measure"]
             await EnvironmentParameter.create(
                 session, ecosystem_uid=uid, parameter=parameter, values=climate_config)
+
+            weather_config = g_data.weather.copy()
+            parameter = weather_config.pop("parameter")
+            await WeatherEvent.create(
+                session, ecosystem_uid=uid, parameter=parameter, values=weather_config)
 
             await NycthemeralCycle.create(
                 session,
@@ -75,7 +79,6 @@ class HardwareAware(EcosystemAware):
                 hardware_uid = hardware.pop("uid")
                 hardware["ecosystem_uid"] = g_data.ecosystem_uid
                 del hardware["multiplexer_model"]
-                del hardware["groups"]
                 await Hardware.create(session, uid=hardware_uid, values=hardware)
 
             plant_data = g_data.plant_data.copy()

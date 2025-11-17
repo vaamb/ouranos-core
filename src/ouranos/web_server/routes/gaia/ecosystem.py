@@ -14,7 +14,7 @@ import gaia_validators as gv
 from gaia_validators import safe_enum_from_name
 
 from ouranos.core.database.models.gaia import (
-    Ecosystem, EnvironmentParameter, NycthemeralCycle)
+    Ecosystem, EnvironmentParameter, NycthemeralCycle, WeatherEvent)
 from ouranos.core.dispatchers import DispatcherFactory
 from ouranos.core.utils import timeWindow
 from ouranos.web_server.auth import is_operator
@@ -26,7 +26,9 @@ from ouranos.web_server.validate.gaia.ecosystem import (
     EcosystemManagementUpdatePayload, EcosystemManagementInfo, ManagementInfo,
     EcosystemLightInfo, NycthemeralCycleUpdatePayload,
     EnvironmentParameterCreationPayload, EnvironmentParameterUpdatePayload,
-    EnvironmentParameterInfo,
+    EnvironmentParameterInfo, EcosystemEnvironmentParametersInfo,
+    WeatherEventCreationPayload, WeatherEventUpdatePayload, WeatherEventInfo,
+    EcosystemWeatherEventsInfo,
     EcosystemActuatorInfo, EcosystemActuatorRecords, EcosystemTurnActuatorPayload)
 
 
@@ -39,6 +41,9 @@ router = APIRouter(
 
 env_parameter_desc = (
     "The environment parameter targeted. Leave empty to select them all")
+
+weather_param_desc = (
+    "The weather parameter targeted. Leave empty to select them all")
 
 HardwareTypeName = StrEnum(
     "HardwareTypeName",
@@ -56,9 +61,24 @@ async def environment_parameter_or_abort(
     if not environment_parameter:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="No environment_parameter found"
+            detail="No environment parameter found"
         )
     return environment_parameter
+
+
+async def weather_event_or_abort(
+        session: AsyncSession,
+        ecosystem_uid: str,
+        parameter: str,
+) -> WeatherEvent:
+    weather_event = await WeatherEvent.get(
+        session, ecosystem_uid=ecosystem_uid, parameter=parameter)
+    if not weather_event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No weather event found"
+        )
+    return weather_event
 
 
 # ------------------------------------------------------------------------------
@@ -232,7 +252,7 @@ async def get_ecosystem_management(
 @router.put("/u/{ecosystem_uid}/management",
             status_code=status.HTTP_202_ACCEPTED,
             dependencies=[Depends(is_operator)])
-async def update_management(
+async def update_ecosystem_management(
         ecosystem_uid: Annotated[str, Path(description=euid_desc)],
         payload: Annotated[
             EcosystemManagementUpdatePayload,
@@ -266,7 +286,7 @@ async def update_management(
 #        upon ecosystem creation
 # ------------------------------------------------------------------------------
 @router.get("/light", response_model=list[EcosystemLightInfo])
-async def get_ecosystems_light(
+async def get_ecosystems_lighting(
         *,
         ecosystems_id: Annotated[list[str] | None, Query(description=eids_desc)] = None,
         in_config: Annotated[bool | None, Query(description=in_config_desc)] = None,
@@ -343,7 +363,7 @@ async def update_ecosystem_lighting(
 #   Ecosystem environment parameters
 # ------------------------------------------------------------------------------
 @router.get("/environment_parameter",
-            response_model=list[EnvironmentParameterInfo])
+            response_model=list[EcosystemEnvironmentParametersInfo])
 async def get_ecosystems_environment_parameters(
         *,
         ecosystems_id: Annotated[list[str] | None, Query(description=eids_desc)] = None,
@@ -368,7 +388,7 @@ async def get_ecosystems_environment_parameters(
 
 
 @router.get("/u/{ecosystem_uid}/environment_parameter",
-            response_model=EnvironmentParameterInfo)
+            response_model=EcosystemEnvironmentParametersInfo)
 async def get_ecosystem_environment_parameters(
         *,
         ecosystem_uid: Annotated[str, Path(description=euid_desc)],
@@ -391,7 +411,7 @@ async def get_ecosystem_environment_parameters(
 @router.post("/u/{ecosystem_uid}/environment_parameter/u",
              status_code=status.HTTP_202_ACCEPTED,
              dependencies=[Depends(is_operator)])
-async def create_environment_parameter(
+async def create_ecosystem_environment_parameter(
         ecosystem_uid: Annotated[str, Path(description=euid_desc)],
         payload: Annotated[
             EnvironmentParameterCreationPayload,
@@ -423,7 +443,7 @@ async def create_environment_parameter(
 
 
 @router.get("/u/{ecosystem_uid}/environment_parameter/u/{parameter}",
-            response_model=EnvironmentParameterCreationPayload)
+            response_model=EnvironmentParameterInfo)
 async def get_ecosystem_environment_parameter(
         *,
         ecosystem_uid: Annotated[str, Path(description=euid_desc)],
@@ -442,7 +462,7 @@ async def get_ecosystem_environment_parameter(
 @router.put("/u/{ecosystem_uid}/environment_parameter/u/{parameter}",
             status_code=status.HTTP_202_ACCEPTED,
             dependencies=[Depends(is_operator)])
-async def update_environment_parameter(
+async def update_ecosystem_environment_parameter(
         ecosystem_uid: Annotated[str, Path(description=euid_desc)],
         parameter: Annotated[
             gv.ClimateParameter,
@@ -479,7 +499,7 @@ async def update_environment_parameter(
 @router.delete("/u/{ecosystem_uid}/environment_parameter/u/{parameter}",
                status_code=status.HTTP_202_ACCEPTED,
                dependencies=[Depends(is_operator)])
-async def delete_environment_parameter(
+async def delete_ecosystem_environment_parameter(
         ecosystem_uid: Annotated[str, Path(description=euid_desc)],
         parameter: Annotated[
             gv.ClimateParameter,
@@ -502,6 +522,174 @@ async def delete_environment_parameter(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"Failed to send environment parameter update order to engine "
+                f"for ecosystem '{ecosystem_uid}'. Error msg: `{e.__class__.__name__}: {e}`",
+            ),
+        )
+
+
+# ------------------------------------------------------------------------------
+#   Weather events
+# ------------------------------------------------------------------------------
+@router.get("/weather_event",
+            response_model=list[EcosystemWeatherEventsInfo])
+async def get_ecosystems_weather_events(
+        *,
+        ecosystems_id: Annotated[list[str] | None, Query(description=eids_desc)] = None,
+        parameters: Annotated[
+            list[gv.WeatherParameter] | None | None,
+            Query(description=weather_param_desc)
+        ] = None,
+        in_config: Annotated[bool | None, Query(description=in_config_desc)] = None,
+        session: Annotated[AsyncSession, Depends(get_session)],
+):
+    ecosystems = await Ecosystem.get_multiple_by_id(
+        session, ecosystems_id=ecosystems_id, in_config=in_config)
+    response = [
+        {
+            "uid": ecosystem.uid,
+            "name": ecosystem.name,
+            "weather_events": await WeatherEvent.get_multiple(
+            session, ecosystem_uid=[ecosystem.uid, ], parameter=parameters)
+        } for ecosystem in ecosystems
+    ]
+    return response
+
+
+@router.get("/u/{ecosystem_uid}/weather_event",
+            response_model=EcosystemWeatherEventsInfo)
+async def get_ecosystem_weather_events(
+        *,
+        ecosystem_uid: Annotated[str, Path(description=euid_desc)],
+        parameters: Annotated[
+            list[gv.WeatherParameter] | None | None,
+            Query(description=weather_param_desc)
+        ] = None,
+        session: Annotated[AsyncSession, Depends(get_session)],
+):
+    ecosystem = await ecosystem_or_abort(session, ecosystem_uid)
+    response = {
+        "uid": ecosystem.uid,
+        "name": ecosystem.name,
+        "weather_events": await WeatherEvent.get_multiple(
+            session, ecosystem_uid=[ecosystem.uid, ], parameter=parameters)
+    }
+    return response
+
+
+@router.post("/u/{ecosystem_uid}/weather_event/u",
+             status_code=status.HTTP_202_ACCEPTED,
+             dependencies=[Depends(is_operator)])
+async def create_ecosystem_weather_event(
+        ecosystem_uid: Annotated[str, Path(description=euid_desc)],
+        payload: Annotated[
+            WeatherEventCreationPayload,
+            Body(description="Creation information about the weather event"),
+        ],
+        session: Annotated[AsyncSession, Depends(get_session)],
+):
+    ecosystem = await ecosystem_or_abort(session, ecosystem_uid)
+    weather_event_dict = payload.model_dump()
+    parameter = weather_event_dict["parameter"]
+    try:
+        safe_enum_from_name(gv.WeatherParameter, parameter)
+        await emit_crud_event(
+            ecosystem, gv.CrudAction.create, "weather_event",
+            weather_event_dict)
+        return (
+            f"Request to create the weather event '{parameter}' "
+            f"successfully sent to engine '{ecosystem.engine_uid}'"
+        )
+    except Exception as e:
+        HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Failed to send weather event creation order to engine "
+                f"for ecosystem '{ecosystem_uid}'. Error "
+                f"msg: `{e.__class__.__name__}: {e}`",
+            ),
+        )
+
+
+@router.get("/u/{ecosystem_uid}/weather_event/u/{parameter}",
+            response_model=WeatherEventInfo)
+async def get_ecosystem_weather_event(
+        *,
+        ecosystem_uid: Annotated[str, Path(description=euid_desc)],
+        parameter: Annotated[
+            gv.WeatherParameter,
+            Path(description="A weather parameter"),
+        ],
+        session: Annotated[AsyncSession, Depends(get_session)],
+):
+    ecosystem = await ecosystem_or_abort(session, ecosystem_uid)
+    weather_event = await weather_event_or_abort(
+        session, ecosystem.uid, parameter)
+    return weather_event
+
+
+@router.put("/u/{ecosystem_uid}/weather_event/u/{parameter}",
+            status_code=status.HTTP_202_ACCEPTED,
+            dependencies=[Depends(is_operator)])
+async def update_ecosystem_weather_event(
+        ecosystem_uid: Annotated[str, Path(description=euid_desc)],
+        parameter: Annotated[
+            gv.WeatherParameter,
+            Path(description="A weather parameter"),
+        ],
+        payload: Annotated[
+            WeatherEventUpdatePayload,
+            Body(description="Updated information about the weather parameters"),
+        ],
+        session: Annotated[AsyncSession, Depends(get_session)],
+):
+    ecosystem = await ecosystem_or_abort(session, ecosystem_uid)
+    await weather_event_or_abort(session, ecosystem.uid, parameter)
+    weather_event_dict = payload.model_dump(exclude_defaults=True)
+    weather_event_dict["parameter"] = parameter
+    try:
+        await emit_crud_event(
+            ecosystem, gv.CrudAction.update, "weather_event",
+            weather_event_dict)
+        return (
+            f"Request to update the weather parameter '{parameter}' "
+            f"successfully sent to engine '{ecosystem.engine_uid}'"
+        )
+    except Exception as e:
+        HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Failed to send environment parameter update order to engine "
+                f"for ecosystem '{ecosystem_uid}'. Error msg: `{e.__class__.__name__}: {e}`",
+            ),
+        )
+
+
+@router.delete("/u/{ecosystem_uid}/weather_event/u/{parameter}",
+               status_code=status.HTTP_202_ACCEPTED,
+               dependencies=[Depends(is_operator)])
+async def delete_ecosystem_weather_event(
+        ecosystem_uid: Annotated[str, Path(description=euid_desc)],
+        parameter: Annotated[
+            gv.WeatherParameter,
+            Path(description="A climate parameter"),
+        ],
+        session: Annotated[AsyncSession, Depends(get_session)],
+):
+    ecosystem = await ecosystem_or_abort(session, ecosystem_uid)
+    await weather_event_or_abort(session, ecosystem.uid, parameter)
+    try:
+        await emit_crud_event(
+            ecosystem, gv.CrudAction.delete, "weather_event",
+            parameter)
+        return (
+            f"Request to delete the weather parameter '{parameter}' "
+            f"successfully sent to engine '{ecosystem.engine_uid}'"
+        )
+    except Exception as e:
+        HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Failed to send weather parameter update order to engine "
                 f"for ecosystem '{ecosystem_uid}'. Error msg: `{e.__class__.__name__}: {e}`",
             ),
         )
