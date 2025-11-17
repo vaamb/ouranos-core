@@ -252,7 +252,7 @@ async def get_ecosystem_management(
 @router.put("/u/{ecosystem_uid}/management",
             status_code=status.HTTP_202_ACCEPTED,
             dependencies=[Depends(is_operator)])
-async def update_management(
+async def update_ecosystem_management(
         ecosystem_uid: Annotated[str, Path(description=euid_desc)],
         payload: Annotated[
             EcosystemManagementUpdatePayload,
@@ -286,7 +286,7 @@ async def update_management(
 #        upon ecosystem creation
 # ------------------------------------------------------------------------------
 @router.get("/light", response_model=list[EcosystemLightInfo])
-async def get_ecosystems_light(
+async def get_ecosystems_lighting(
         *,
         ecosystems_id: Annotated[list[str] | None, Query(description=eids_desc)] = None,
         in_config: Annotated[bool | None, Query(description=in_config_desc)] = None,
@@ -405,7 +405,7 @@ async def get_ecosystem_environment_parameters(
 @router.post("/u/{ecosystem_uid}/environment_parameter/u",
              status_code=status.HTTP_202_ACCEPTED,
              dependencies=[Depends(is_operator)])
-async def create_environment_parameter(
+async def create_ecosystem_environment_parameter(
         ecosystem_uid: Annotated[str, Path(description=euid_desc)],
         payload: Annotated[
             EnvironmentParameterCreationPayload,
@@ -456,7 +456,7 @@ async def get_ecosystem_environment_parameter(
 @router.put("/u/{ecosystem_uid}/environment_parameter/u/{parameter}",
             status_code=status.HTTP_202_ACCEPTED,
             dependencies=[Depends(is_operator)])
-async def update_environment_parameter(
+async def update_ecosystem_environment_parameter(
         ecosystem_uid: Annotated[str, Path(description=euid_desc)],
         parameter: Annotated[
             gv.ClimateParameter,
@@ -493,7 +493,7 @@ async def update_environment_parameter(
 @router.delete("/u/{ecosystem_uid}/environment_parameter/u/{parameter}",
                status_code=status.HTTP_202_ACCEPTED,
                dependencies=[Depends(is_operator)])
-async def delete_environment_parameter(
+async def delete_ecosystem_environment_parameter(
         ecosystem_uid: Annotated[str, Path(description=euid_desc)],
         parameter: Annotated[
             gv.ClimateParameter,
@@ -573,7 +573,7 @@ async def get_ecosystem_weather_events(
 @router.post("/u/{ecosystem_uid}/weather_event/u",
              status_code=status.HTTP_202_ACCEPTED,
              dependencies=[Depends(is_operator)])
-async def create_weather_event(
+async def create_ecosystem_weather_event(
         ecosystem_uid: Annotated[str, Path(description=euid_desc)],
         payload: Annotated[
             WeatherEventCreationPayload,
@@ -624,7 +624,7 @@ async def get_ecosystem_weather_event(
 @router.put("/u/{ecosystem_uid}/weather_event/u/{parameter}",
             status_code=status.HTTP_202_ACCEPTED,
             dependencies=[Depends(is_operator)])
-async def update_weather_event(
+async def update_ecosystem_weather_event(
         ecosystem_uid: Annotated[str, Path(description=euid_desc)],
         parameter: Annotated[
             gv.WeatherParameter,
@@ -661,7 +661,7 @@ async def update_weather_event(
 @router.delete("/u/{ecosystem_uid}/weather_event/u/{parameter}",
                status_code=status.HTTP_202_ACCEPTED,
                dependencies=[Depends(is_operator)])
-async def delete_weather_event(
+async def delete_ecosystem_weather_event(
         ecosystem_uid: Annotated[str, Path(description=euid_desc)],
         parameter: Annotated[
             gv.WeatherParameter,
