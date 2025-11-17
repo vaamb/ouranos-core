@@ -587,7 +587,7 @@ async def create_ecosystem_weather_event(
     try:
         safe_enum_from_name(gv.WeatherParameter, parameter)
         await emit_crud_event(
-            ecosystem, gv.CrudAction.create, "weather_parameter",
+            ecosystem, gv.CrudAction.create, "weather_event",
             weather_event_dict)
         return (
             f"Request to create the weather event '{parameter}' "
@@ -642,7 +642,7 @@ async def update_ecosystem_weather_event(
     weather_event_dict["parameter"] = parameter
     try:
         await emit_crud_event(
-            ecosystem, gv.CrudAction.update, "weather_parameter",
+            ecosystem, gv.CrudAction.update, "weather_event",
             weather_event_dict)
         return (
             f"Request to update the weather parameter '{parameter}' "
@@ -673,7 +673,7 @@ async def delete_ecosystem_weather_event(
     await weather_event_or_abort(session, ecosystem.uid, parameter)
     try:
         await emit_crud_event(
-            ecosystem, gv.CrudAction.delete, "weather_parameter",
+            ecosystem, gv.CrudAction.delete, "weather_event",
             parameter)
         return (
             f"Request to delete the weather parameter '{parameter}' "

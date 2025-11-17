@@ -475,7 +475,7 @@ class TestEcosystemWeatherEvents(ClimateAware, UsersAware):
         assert dispatched["data"]["routing"]["engine_uid"] == g_data.engine_uid
         assert dispatched["data"]["routing"]["ecosystem_uid"] == g_data.ecosystem_uid
         assert dispatched["data"]["action"] == gv.CrudAction.create
-        assert dispatched["data"]["target"] == "weather_parameter"
+        assert dispatched["data"]["target"] == "weather_event"
         assert dispatched["data"]["data"]["parameter"] == payload["parameter"]
         assert dispatched["data"]["data"]["pattern"] == payload["pattern"]
         assert dispatched["data"]["data"]["duration"] == payload["duration"]
@@ -527,7 +527,7 @@ class TestEcosystemWeatherEvents(ClimateAware, UsersAware):
         assert dispatched["data"]["routing"]["engine_uid"] == g_data.engine_uid
         assert dispatched["data"]["routing"]["ecosystem_uid"] == g_data.ecosystem_uid
         assert dispatched["data"]["action"] == gv.CrudAction.update
-        assert dispatched["data"]["target"] == "weather_parameter"
+        assert dispatched["data"]["target"] == "weather_event"
         assert dispatched["data"]["data"]["parameter"] == parameter
         assert dispatched["data"]["data"]["pattern"] == payload["pattern"]
         assert dispatched["data"]["data"]["duration"] == payload["duration"]
@@ -554,7 +554,7 @@ class TestEcosystemWeatherEvents(ClimateAware, UsersAware):
         assert dispatched["data"]["routing"]["engine_uid"] == g_data.engine_uid
         assert dispatched["data"]["routing"]["ecosystem_uid"] == g_data.ecosystem_uid
         assert dispatched["data"]["action"] == gv.CrudAction.delete
-        assert dispatched["data"]["target"] == "weather_parameter"
+        assert dispatched["data"]["target"] == "weather_event"
         assert dispatched["data"]["data"] == parameter
 
 
