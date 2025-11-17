@@ -416,6 +416,149 @@ class TestEcosystemEnvironmentParameters(ClimateAware, UsersAware):
 
 
 # ------------------------------------------------------------------------------
+#   Weather events
+# ------------------------------------------------------------------------------
+class TestEcosystemWeatherEvents(ClimateAware, UsersAware):
+    def test_get_weather_events(self, client: TestClient):
+        response = client.get("/api/gaia/ecosystem/weather_event")
+        assert response.status_code == 200
+
+        data = json.loads(response.text)[0]
+        assert data["uid"] == g_data.ecosystem_uid
+        event_1 = data["weather_events"][0]
+        assert event_1["parameter"] == g_data.weather["parameter"]
+        assert event_1["pattern"] == g_data.weather["pattern"]
+        assert event_1["duration"] == g_data.weather["duration"]
+        assert event_1["level"] == g_data.weather["level"]
+        assert event_1["linked_actuator"] == g_data.weather["linked_actuator"]
+
+    def test_get_ecosystem_weather_events(self, client: TestClient):
+        response = client.get(
+            f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/weather_event")
+        assert response.status_code == 200
+
+        data = json.loads(response.text)
+        assert data["uid"] == g_data.ecosystem_uid
+        event_1 = data["weather_events"][0]
+        assert event_1["parameter"] == g_data.weather["parameter"]
+        assert event_1["pattern"] == g_data.weather["pattern"]
+        assert event_1["duration"] == g_data.weather["duration"]
+        assert event_1["level"] == g_data.weather["level"]
+        assert event_1["linked_actuator"] == g_data.weather["linked_actuator"]
+
+    def test_create_ecosystem_weather_event_failure_user(self, client_user: TestClient):
+        response = client_user.post(
+            f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/weather_event/u")
+        assert response.status_code == 403
+
+    def test_create_ecosystem_weather_event_failure_payload(self, client_operator: TestClient):
+        response = client_operator.post(
+            f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/weather_event/u")
+        assert response.status_code == 422
+
+    def test_create_ecosystem_weather_event_success(
+            self,
+            client_operator: TestClient,
+            mock_dispatcher: MockAsyncDispatcher,
+    ):
+        payload = g_data.weather.copy()
+        payload["parameter"] = gv.WeatherParameter.rain
+
+        response = client_operator.post(
+            f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/weather_event/u",
+            json=payload,
+        )
+        assert response.status_code == 202
+
+        dispatched = mock_dispatcher.emit_store[0]
+        assert dispatched["event"] == "crud"
+        assert dispatched["data"]["routing"]["engine_uid"] == g_data.engine_uid
+        assert dispatched["data"]["routing"]["ecosystem_uid"] == g_data.ecosystem_uid
+        assert dispatched["data"]["action"] == gv.CrudAction.create
+        assert dispatched["data"]["target"] == "weather_parameter"
+        assert dispatched["data"]["data"]["parameter"] == payload["parameter"]
+        assert dispatched["data"]["data"]["pattern"] == payload["pattern"]
+        assert dispatched["data"]["data"]["duration"] == payload["duration"]
+        assert dispatched["data"]["data"]["level"] == payload["level"]
+        assert dispatched["data"]["data"]["linked_actuator"] == payload["linked_actuator"]
+
+    def test_get_ecosystem_weather_event(self, client: TestClient):
+        parameter = g_data.weather["parameter"]
+        response = client.get(
+            f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/weather_event/u/{parameter}"
+        )
+        assert response.status_code == 200
+
+        data = json.loads(response.text)
+        assert data["parameter"] == g_data.weather["parameter"]
+        assert data["pattern"] == g_data.weather["pattern"]
+        assert data["duration"] == g_data.weather["duration"]
+        assert data["level"] == g_data.weather["level"]
+        assert data["linked_actuator"] == g_data.weather["linked_actuator"]
+
+    def test_update_ecosystem_weather_event_failure_user(self, client_user: TestClient):
+        response = client_user.put(
+            f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/weather_event/u/rain")
+        assert response.status_code == 403
+
+    def test_update_ecosystem_weather_event_failure_payload(self, client_operator: TestClient):
+        response = client_operator.put(
+            f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/weather_event/u/rain")
+        assert response.status_code == 422
+
+    def test_update_ecosystem_weather_event_success(
+            self,
+            client_operator: TestClient,
+            mock_dispatcher: MockAsyncDispatcher,
+    ):
+        parameter = "rain"
+        payload = g_data.weather.copy()
+        del payload["parameter"]
+        payload["duration"] = 42.0
+
+        response = client_operator.put(
+            f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/weather_event/u/{parameter}",
+            json=payload,
+        )
+        assert response.status_code == 202
+
+        dispatched = mock_dispatcher.emit_store[0]
+        assert dispatched["event"] == "crud"
+        assert dispatched["data"]["routing"]["engine_uid"] == g_data.engine_uid
+        assert dispatched["data"]["routing"]["ecosystem_uid"] == g_data.ecosystem_uid
+        assert dispatched["data"]["action"] == gv.CrudAction.update
+        assert dispatched["data"]["target"] == "weather_parameter"
+        assert dispatched["data"]["data"]["parameter"] == parameter
+        assert dispatched["data"]["data"]["pattern"] == payload["pattern"]
+        assert dispatched["data"]["data"]["duration"] == payload["duration"]
+        assert dispatched["data"]["data"]["level"] == payload["level"]
+        assert dispatched["data"]["data"]["linked_actuator"] == payload["linked_actuator"]
+
+    def test_environment_parameter_delete_request_failure_user(self, client: TestClient):
+        response = client.delete(
+            f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/weather_event/u/temperature")
+        assert response.status_code == 403
+
+    def test_environment_parameter_delete_request_success(
+            self,
+            client_operator: TestClient,
+            mock_dispatcher: MockAsyncDispatcher,
+    ):
+        parameter = g_data.weather["parameter"]
+        response = client_operator.delete(
+            f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/weather_event/u/{parameter}")
+        assert response.status_code == 202
+
+        dispatched = mock_dispatcher.emit_store[0]
+        assert dispatched["event"] == "crud"
+        assert dispatched["data"]["routing"]["engine_uid"] == g_data.engine_uid
+        assert dispatched["data"]["routing"]["ecosystem_uid"] == g_data.ecosystem_uid
+        assert dispatched["data"]["action"] == gv.CrudAction.delete
+        assert dispatched["data"]["target"] == "weather_parameter"
+        assert dispatched["data"]["data"] == parameter
+
+
+# ------------------------------------------------------------------------------
 #   Ecosystem actuators state
 # ------------------------------------------------------------------------------
 class TestEcosystemActuators(ActuatorsAware, UsersAware):
