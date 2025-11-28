@@ -9,7 +9,7 @@ import typing as t
 from typing import ClassVar, Type, TypeVar
 
 import click
-from click import Command
+from click import Command, Group
 
 from ouranos import current_app, setup_loop
 from ouranos.core.config import ConfigDict, ConfigHelper
@@ -23,6 +23,7 @@ if t.TYPE_CHECKING:
 
 
 F = TypeVar("F", bound=Functionality)
+C = TypeVar("C", bound=[Command | Group])
 
 multiprocessing.allow_connection_pickling()
 spawn: SpawnContext = multiprocessing.get_context("spawn")
@@ -35,7 +36,7 @@ class Plugin:
 
     def __init__(
             self,
-            functionality: Type[F],
+            functionality: Type[F] | None = None,
             name: str | None = None,
             command: Command | None = None,
             routes: list[Route] | None = None,
@@ -242,40 +243,43 @@ class Plugin:
         """Check if the plugin has a CLI command."""
         return self._command is not None
 
+    def create_run_command(self, cmd_cls: Type[C] | None = None) -> C:
+        @click.command(self.name, cls=cmd_cls, help=self._description)
+        @click.option(
+            "--config-profile", "-c",
+            type=str,
+            default=None,
+            help="Configuration profile to use as defined in config.py.",
+            show_default=True,
+        )
+        @click.option(
+            "--config-override", "-co",
+            type=str,
+            multiple=True,
+            help="Configuration overrides in key=value format",
+            show_default=True,
+        )
+        def command(
+                config_profile: str | None,
+                config_override: list[str],
+        ) -> None:
+            """Run the plugin as a standalone service."""
+            config_override_str = config_override
+            config_override = {}
+            for overridden in config_override_str:
+                key, value = overridden.split("=")
+                config_override[key] = parse_str_value(value)
+
+            self.setup_config(config_profile, config_override)
+            self.run_as_standalone()
+
+        return command
+
     @property
     def command(self) -> Command:
         """Get or create the CLI command for the plugin."""
         if self._command is None:
-            @click.command(self.name, help=self._description)
-            @click.option(
-                "--config-profile", "-c",
-                type=str,
-                default=None,
-                help="Configuration profile to use as defined in config.py.",
-                show_default=True,
-            )
-            @click.option(
-                "--config-override", "-co",
-                type=str,
-                multiple=True,
-                help="Configuration overrides in key=value format",
-                show_default=True,
-            )
-            def command(
-                    config_profile: str | None,
-                    config_override: list[str],
-            ) -> None:
-                """Run the plugin as a standalone service."""
-                config_override_str = config_override
-                config_override = {}
-                for overridden in config_override_str:
-                    key, value = overridden.split("=")
-                    config_override[key] = parse_str_value(value)
-
-                self.setup_config(config_profile, config_override)
-                self.run_as_standalone()
-
-            self._command = command
+            self._command = self.create_run_command()
         return self._command
 
     # Routes
