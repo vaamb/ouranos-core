@@ -60,6 +60,11 @@ class PluginManager:
                 else:
                     continue
 
+            # In production, we don't want to yield the test plugin
+            if not current_app.config["DEVELOPMENT"]:
+                if plugin.name == self.test_plugin_name:
+                    continue
+
             if not omit_excluded:
                 yield plugin
 
