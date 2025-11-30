@@ -166,14 +166,12 @@ _EnvironmentParameterInfo = sqlalchemy_to_pydantic(
     EnvironmentParameter,
     base=BaseModel,
     exclude=[
-        "alarm",
         "ecosystem_uid",
         "linked_actuator_group_decrease_id",
         "linked_actuator_group_increase_id",
         "linked_measure_id",
     ],
     extra_fields={
-        "alarm": (Optional[float], ...),
         "uid": (str, Field(validation_alias="ecosystem_uid")),
         "linked_actuator_group_increase": (Optional[str], ...),
         "linked_actuator_group_decrease": (Optional[str], ...),
