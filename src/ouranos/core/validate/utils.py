@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Type
+from typing import Any, Optional, Type
 
 from pydantic import BaseModel, create_model
 from sqlalchemy import Column, inspect
@@ -25,11 +25,15 @@ def sqlalchemy_to_pydantic(
         name = column.key
         if name in exclude:
             continue
+        # Get python type
         try:
             python_type = column.type.python_type
         except Exception:
             # Column type is a custom type implementing a base sqlalchemy type
             python_type = column.type.impl.python_type
+        if column.nullable:
+            python_type = Optional[python_type]
+        # Get default value
         default = None
         if column.default is None and not column.nullable:
             default = ...
