@@ -157,6 +157,10 @@ class Plugin:
         """Check if any subprocesses are running."""
         return bool(self._subprocesses)
 
+    async def check_requirements(self) -> None:
+        """Check if the requirements to start the plugin are met"""
+        pass
+
     async def startup(self) -> None:
         """Start the functionality, optionally in subprocesses.
 
@@ -166,6 +170,8 @@ class Plugin:
             raise RuntimeError(f"{self.name} already started")
         if self.config is None:
             raise RuntimeError("Config not set. Call setup_config() first")
+
+        await self.check_requirements()
 
         workers = self.compute_number_of_workers()
         self._instance = self._functionality(**self._kwargs)
