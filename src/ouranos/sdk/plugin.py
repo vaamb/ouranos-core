@@ -238,11 +238,24 @@ class Plugin:
 
     async def _run_as_standalone(self) -> None:
         """Internal async method for standalone execution."""
+        # Don't show the traceback on error if not in debugging mode
+        if not self.config["DEBUG"]:
+            import sys
+
+            def exception_handler(exception_type, exception, traceback):
+                print(f"{exception_type.__name__}: {exception}")
+
+            sys.excepthook = exception_handler
+
         try:
             await self.startup()
             await self._runner.run_until_stop()
+        except Exception as e:
+            self.logger.error(f"Error during run: {self._fmt_exc(e)}")
+            raise
         finally:
-            await self.shutdown()
+            if self.is_started:
+                await self.shutdown()
 
     # Command handling
     def has_command(self) -> bool:
