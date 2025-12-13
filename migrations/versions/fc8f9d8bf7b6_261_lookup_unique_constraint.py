@@ -39,9 +39,9 @@ def upgrade_ecosystems() -> None:
         batch_op.create_unique_constraint(
             "uq_measures_name", ["name"])
 
-    with op.batch_alter_table("measures") as batch_op:
+    with op.batch_alter_table("camera_pictures_info") as batch_op:
         batch_op.create_unique_constraint(
-            "camera_pictures_info", ["ecosystem_uid", "camera_uid"])
+            "uq_camera_pictures_info", ["ecosystem_uid", "camera_uid"])
 
 def downgrade_ecosystems() -> None:
     with op.batch_alter_table("actuator_states") as batch_op:
@@ -53,8 +53,8 @@ def downgrade_ecosystems() -> None:
     with op.batch_alter_table("measures") as batch_op:
         batch_op.drop_constraint("uq_measures_name", type_="unique")
 
-    with op.batch_alter_table("measures") as batch_op:
-        batch_op.drop_constraint("camera_pictures_info", type_="unique")
+    with op.batch_alter_table("camera_pictures_info") as batch_op:
+        batch_op.drop_constraint("uq_camera_pictures_info", type_="unique")
 
 
 def upgrade_app() -> None:
