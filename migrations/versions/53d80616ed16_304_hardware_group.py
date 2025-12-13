@@ -44,11 +44,11 @@ def upgrade_ecosystems() -> None:
     with op.batch_alter_table("environment_parameters") as batch_op:
         batch_op.add_column(sa.Column("linked_actuator_group_increase_id", sa.Integer(), nullable=True))
         batch_op.create_foreign_key(
-            "fk_environment_parameters_linked_actuator_group_increase_id_hardware_groups",
+            "fk_environment_parameters_linked_actuator_group_increase",
             "hardware_groups", ["linked_actuator_group_increase_id"], ["id"])
         batch_op.add_column(sa.Column("linked_actuator_group_decrease_id", sa.Integer(), nullable=True))
         batch_op.create_foreign_key(
-            "fk_environment_parameters_linked_actuator_group_decrease_id_hardware_groups",
+            "fk_environment_parameters_linked_actuator_group_decrease",
             "hardware_groups", ["linked_actuator_group_decrease_id"], ["id"])
         batch_op.add_column(sa.Column("linked_measure_id", sa.Integer(), nullable=True))
         batch_op.create_foreign_key(
