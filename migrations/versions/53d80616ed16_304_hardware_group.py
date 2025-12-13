@@ -26,21 +26,6 @@ def downgrade(engine_name: str) -> None:
 
 
 def upgrade_ecosystems() -> None:
-    op.create_table(
-        "association_hardware_groups",
-        sa.Column("id", sa.Integer(), autoincrement=True, primary_key=True),
-        sa.Column("hardware_uid", sa.VARCHAR(length=16), nullable=False),
-        sa.Column("group_id", sa.Integer(), nullable=False),
-        sa.PrimaryKeyConstraint("id", name=op.f("pk_association_hardware_groups")),
-        sa.ForeignKeyConstraint(
-            ["group_id"], ["hardware_groups.id"],
-            name=op.f("fk_association_hardware_groups_group_id_hardware_groups")),
-        sa.ForeignKeyConstraint(
-            ["hardware_uid"], ["hardware.uid"],
-            name=op.f("fk_association_hardware_groups_hardware_uid_hardware")),
-        if_not_exists=True,
-    )
-
     with op.batch_alter_table("environment_parameters") as batch_op:
         batch_op.add_column(sa.Column("linked_actuator_group_increase_id", sa.Integer(), nullable=True))
         batch_op.create_foreign_key(
