@@ -56,6 +56,11 @@ class Functionality(ABC):
                 "This could lead to errors as some data won't "
                 "be transferred between the different microservices.")
 
+    @property
+    def started(self) -> bool:
+        """Return whether the functionality has started."""
+        return self._status
+
     def _fmt_exc(self, e: BaseException) -> str:
         """Format exception for logging."""
         return f"Error msg: `{e.__class__.__name__}: {e}`"
@@ -112,7 +117,7 @@ class Functionality(ABC):
 
     async def complete_startup(self) -> None:
         """Start the functionality and all required resources."""
-        if self._status:
+        if self.started:
             raise RuntimeError(f"{self.__class__.__name__} has already started")
 
         pid = os.getpid()
@@ -131,7 +136,7 @@ class Functionality(ABC):
 
     async def complete_shutdown(self) -> None:
         """Shutdown the functionality and clean up resources."""
-        if not self._status:
+        if not self.started:
             raise RuntimeError(f"Ouranos' {self.__class__.__name__} is not running")
             
         pid = os.getpid()
@@ -171,7 +176,7 @@ class Functionality(ABC):
             # `run_until_stop()` cannot raise
             await self._runner.run_until_stop()
 
-        if self._status:
+        if self.started:
             try:
                 await self.complete_shutdown()
             except Exception as e:
@@ -181,7 +186,7 @@ class Functionality(ABC):
 
     def stop(self) -> None:
         """Stop the functionality gracefully."""
-        if not self._status:
+        if not self.started:
             return
 
         self._runner.stop()
