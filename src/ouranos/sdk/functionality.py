@@ -160,7 +160,10 @@ class Functionality(ABC):
             if not getattr(e, "logged", False):
                 # The error should not have happened and is not logged, raise it anyway
                 raise e
-            if reraise or self.config["DEBUG"] or self.config["TESTING"]:
+            if (
+                    reraise
+                    or self.config["DEVELOPMENT"] or self.config["DEBUG"] or self.config["TESTING"]
+            ):
                 raise e
 
     async def _run(self) -> None:
@@ -175,14 +178,14 @@ class Functionality(ABC):
         else:
             # `run_until_stop()` cannot raise
             await self._runner.run_until_stop()
-
-        if self.started:
-            try:
-                await self.complete_shutdown()
-            except Exception as e:
-                self.logger.error(f"Error while shutting down [{pid}]. {self._fmt_exc(e)}")
-                e.logged = True
-                raise e
+        finally:
+            if self.started:
+                try:
+                    await self.complete_shutdown()
+                except Exception as e:
+                    self.logger.error(f"Error while shutting down [{pid}]. {self._fmt_exc(e)}")
+                    e.logged = True
+                    raise e
 
     def stop(self) -> None:
         """Stop the functionality gracefully."""
