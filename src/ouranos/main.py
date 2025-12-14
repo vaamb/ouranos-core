@@ -102,15 +102,13 @@ class Ouranos(Functionality):
 
         pid = os.getpid()
         self.logger.info(f"Starting Ouranos [{pid}]")
-        try:
-            await self._init_common()
-            await self.initialize()
-            await self.startup()
-        except Exception as e:
-            self.logger.error(f"Error while starting [{pid}]. {self._fmt_exc(e)}")
-        else:
-            self.logger.info(f"Ouranos has been started [{pid}]")
-            self._status = True
+
+        await self._init_common()
+        await self.initialize()
+        await self.startup()
+
+        self.logger.info(f"Ouranos has been started [{pid}]")
+        self._status = True
 
     async def complete_shutdown(self) -> None:
         if not self._status:
@@ -118,6 +116,7 @@ class Ouranos(Functionality):
         # Stop the functionality
         pid = os.getpid()
         self.logger.info(f"Stopping Ouranos [{pid}]")
+
         try:
             await self.shutdown()
             await self.post_shutdown()

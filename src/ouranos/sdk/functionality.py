@@ -62,40 +62,35 @@ class Functionality(ABC):
 
     async def init_the_db(self) -> None:
         """Initialize the database."""
-        try:
-            self.logger.info("Initializing the database")
-            db.init(self.config)
-            await create_db_tables()
-            if not self.config["TESTING"]:  # Revisions aren't used in tests (yet ?)
-                await check_db_revision()
-            await insert_default_data()
-        except Exception as e:
-            self.logger.error(f"Database initialization failed. {self._fmt_exc(e)}")
-            raise
+        self.logger.info("Initializing the database")
+        db.init(self.config)
+        await create_db_tables()
+        if not self.config["TESTING"]:  # Revisions aren't used in tests (yet ?)
+            await check_db_revision()
+        await insert_default_data()
+        self.logger.debug("Database initialized")
+
+    async def init_the_scheduler(self) -> None:
+        self.logger.info("Initializing the scheduler")
+        scheduler.start()
+        self.logger.debug("Scheduler initialized")
 
     async def _init_common(self) -> None:
         """Initialize common resources."""
         if _State.common_initialized:
             return
 
-        try:
-            await self.init_the_db()
-            scheduler.start()
-            _State.common_initialized = True
-        except Exception as e:
-            self.logger.error(f"Common initialization failed. {self._fmt_exc(e)}")
-            raise
+        await self.init_the_db()
+        await self.init_the_scheduler()
+        _State.common_initialized = True
 
     async def _clear_common(self) -> None:
         """Clear common resources."""
         if not _State.common_initialized:
             return
 
-        try:
-            scheduler.remove_all_jobs()
-            scheduler.shutdown()
-        except Exception as e:
-            self.logger.error(f"Failed to clear common resources. {self._fmt_exc(e)}")
+        scheduler.remove_all_jobs()
+        scheduler.shutdown()
 
     async def initialize(self) -> None:
         """Hook for subclasses to initialize resources."""
@@ -122,17 +117,17 @@ class Functionality(ABC):
 
         pid = os.getpid()
         self.logger.info(f"Starting Ouranos' {self.__class__.__name__} [{pid}]")
-        
+
         try:
             await self._init_common()
-            await self.initialize()
-            await self.startup()
-        except Exception as e:
-            self.logger.error(f"Error while starting [{pid}]. {self._fmt_exc(e)}")
+        except Exception:
+            await self._clear_common()
             raise
-        else:
-            self.logger.info(f"Ouranos' {self.__class__.__name__} started successfully [{pid}]")
-            self._status = True
+        await self.initialize()
+        await self.startup()
+
+        self.logger.info(f"Ouranos' {self.__class__.__name__} started successfully [{pid}]")
+        self._status = True
 
     async def complete_shutdown(self) -> None:
         """Shutdown the functionality and clean up resources."""
@@ -145,25 +140,37 @@ class Functionality(ABC):
         try:
             await self.shutdown()
             await self.post_shutdown()
-        except asyncio.CancelledError:
-            self.logger.warning("Shutdown was cancelled")
-        finally:
+        except asyncio.CancelledError as e:
+            self.logger.error(f"Error while shutting down [{pid}]. {self._fmt_exc(e)}")
+        else:
             self._status = False
             self.logger.info(f"Ouranos' {self.__class__.__name__} stopped [{pid}]")
 
     def run(self) -> None:
         """Run the functionality until completion or interruption."""
-        try:
-            setup_loop()
-            asyncio.run(self._run())
-        except Exception as e:
-            self.logger.error(f"Fatal error in run loop. {self._fmt_exc(e)}")
-            raise
+        setup_loop()
+        asyncio.run(self._run())
 
     async def _run(self) -> None:
-        await self.complete_startup()
-        await self._runner.run_until_stop()
-        await self.complete_shutdown()
+        pid = os.getpid()
+        try:
+            await self.complete_startup()
+        except Exception as e:
+            self.logger.error(f"Error while starting [{pid}]. {self._fmt_exc(e)}")
+            self.logger.info(f"Ouranos' {self.__class__.__name__} will stop [{pid}]")
+            if self.config["DEBUG"]:
+                raise
+        else:
+            # `run_until_stop()` cannot raise
+            await self._runner.run_until_stop()
+
+        if self._status:
+            try:
+                await self.complete_shutdown()
+            except Exception as e:
+                self.logger.error(f"Error while shutting down [{pid}]. {self._fmt_exc(e)}")
+                if self.config["DEBUG"]:
+                    raise
 
     def stop(self) -> None:
         """Stop the functionality gracefully."""
