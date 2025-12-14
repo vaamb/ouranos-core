@@ -56,47 +56,46 @@ class Functionality(ABC):
                 "This could lead to errors as some data won't "
                 "be transferred between the different microservices.")
 
+    @property
+    def started(self) -> bool:
+        """Return whether the functionality has started."""
+        return self._status
+
     def _fmt_exc(self, e: BaseException) -> str:
         """Format exception for logging."""
-        return f"`{e.__class__.__name__}: {e}`"
+        return f"Error msg: `{e.__class__.__name__}: {e}`"
 
     async def init_the_db(self) -> None:
         """Initialize the database."""
-        try:
-            self.logger.info("Initializing the database")
-            db.init(self.config)
-            await create_db_tables()
-            if not self.config["TESTING"]:  # Revisions aren't used in tests (yet ?)
-                await check_db_revision()
-            await insert_default_data()
-        except Exception as e:
-            self.logger.error(f"Database initialization failed: {self._fmt_exc(e)}")
-            raise
+        self.logger.info("Initializing the database")
+        db.init(self.config)
+        await create_db_tables()
+        if not self.config["TESTING"]:  # Revisions aren't used in tests (yet ?)
+            await check_db_revision()
+        await insert_default_data()
+        self.logger.debug("Database initialized")
+
+    async def init_the_scheduler(self) -> None:
+        self.logger.info("Initializing the scheduler")
+        scheduler.start()
+        self.logger.debug("Scheduler initialized")
 
     async def _init_common(self) -> None:
         """Initialize common resources."""
         if _State.common_initialized:
             return
 
-        try:
-            await self.init_the_db()
-            scheduler.start()
-            _State.common_initialized = True
-        except Exception as e:
-            self.logger.error(f"Common initialization failed: {self._fmt_exc(e)}")
-            raise
+        await self.init_the_db()
+        await self.init_the_scheduler()
+        _State.common_initialized = True
 
     async def _clear_common(self) -> None:
         """Clear common resources."""
         if not _State.common_initialized:
             return
 
-        try:
-            scheduler.remove_all_jobs()
-            scheduler.shutdown()
-        except Exception as e:
-            self.logger.error(f"Failed to clear common resources: {self._fmt_exc(e)}")
-            raise
+        scheduler.remove_all_jobs()
+        scheduler.shutdown()
 
     async def initialize(self) -> None:
         """Hook for subclasses to initialize resources."""
@@ -118,26 +117,26 @@ class Functionality(ABC):
 
     async def complete_startup(self) -> None:
         """Start the functionality and all required resources."""
-        if self._status:
+        if self.started:
             raise RuntimeError(f"{self.__class__.__name__} has already started")
 
         pid = os.getpid()
         self.logger.info(f"Starting Ouranos' {self.__class__.__name__} [{pid}]")
-        
+
         try:
             await self._init_common()
-            await self.initialize()
-            await self.startup()
-        except Exception as e:
-            self.logger.error(f"Error while starting [{pid}]: {self._fmt_exc(e)}")
+        except Exception:
+            await self._clear_common()
             raise
-        else:
-            self.logger.info(f"Ouranos' {self.__class__.__name__} started successfully [{pid}]")
-            self._status = True
+        await self.initialize()
+        await self.startup()
+
+        self.logger.info(f"Ouranos' {self.__class__.__name__} started successfully [{pid}]")
+        self._status = True
 
     async def complete_shutdown(self) -> None:
         """Shutdown the functionality and clean up resources."""
-        if not self._status:
+        if not self.started:
             raise RuntimeError(f"Ouranos' {self.__class__.__name__} is not running")
             
         pid = os.getpid()
@@ -146,29 +145,51 @@ class Functionality(ABC):
         try:
             await self.shutdown()
             await self.post_shutdown()
-        except asyncio.CancelledError:
-            self.logger.warning("Shutdown was cancelled")
-        finally:
+        except asyncio.CancelledError as e:
+            self.logger.error(f"Error while shutting down [{pid}]. {self._fmt_exc(e)}")
+        else:
             self._status = False
             self.logger.info(f"Ouranos' {self.__class__.__name__} stopped [{pid}]")
 
-    def run(self) -> None:
+    def run(self, reraise: bool = False) -> None:
         """Run the functionality until completion or interruption."""
+        setup_loop()
         try:
-            setup_loop()
             asyncio.run(self._run())
         except Exception as e:
-            self.logger.error(f"Fatal error in run loop: {self._fmt_exc(e)}")
-            raise
+            if not getattr(e, "logged", False):
+                # The error should not have happened and is not logged, raise it anyway
+                raise e
+            if (
+                    reraise
+                    or self.config["DEVELOPMENT"] or self.config["DEBUG"] or self.config["TESTING"]
+            ):
+                raise e
 
     async def _run(self) -> None:
-        await self.complete_startup()
-        await self._runner.run_until_stop()
-        await self.complete_shutdown()
+        pid = os.getpid()
+        try:
+            await self.complete_startup()
+        except Exception as e:
+            self.logger.error(f"Error while starting [{pid}]. {self._fmt_exc(e)}")
+            self.logger.info(f"Will stop [{pid}]")
+            e.logged = True
+            raise e
+        else:
+            # `run_until_stop()` cannot raise
+            await self._runner.run_until_stop()
+        finally:
+            if self.started:
+                try:
+                    await self.complete_shutdown()
+                except Exception as e:
+                    self.logger.error(f"Error while shutting down [{pid}]. {self._fmt_exc(e)}")
+                    e.logged = True
+                    raise e
 
     def stop(self) -> None:
         """Stop the functionality gracefully."""
-        if not self._status:
+        if not self.started:
             return
 
         self._runner.stop()
