@@ -146,10 +146,17 @@ class Functionality(ABC):
             self._status = False
             self.logger.info(f"Ouranos' {self.__class__.__name__} stopped [{pid}]")
 
-    def run(self) -> None:
+    def run(self, reraise: bool = False) -> None:
         """Run the functionality until completion or interruption."""
         setup_loop()
-        asyncio.run(self._run())
+        try:
+            asyncio.run(self._run())
+        except Exception as e:
+            if not getattr(e, "logged", False):
+                # The error should not have happened and is not logged, raise it anyway
+                raise e
+            if reraise or self.config["DEBUG"] or self.config["TESTING"]:
+                raise e
 
     async def _run(self) -> None:
         pid = os.getpid()
@@ -158,8 +165,8 @@ class Functionality(ABC):
         except Exception as e:
             self.logger.error(f"Error while starting [{pid}]. {self._fmt_exc(e)}")
             self.logger.info(f"Ouranos' {self.__class__.__name__} will stop [{pid}]")
-            if self.config["DEBUG"] or self.config["TESTING"]:
-                raise
+            e.logged = True
+            raise e
         else:
             # `run_until_stop()` cannot raise
             await self._runner.run_until_stop()
@@ -169,8 +176,8 @@ class Functionality(ABC):
                 await self.complete_shutdown()
             except Exception as e:
                 self.logger.error(f"Error while shutting down [{pid}]. {self._fmt_exc(e)}")
-                if self.config["DEBUG"] or self.config["TESTING"]:
-                    raise
+                e.logged = True
+                raise e
 
     def stop(self) -> None:
         """Stop the functionality gracefully."""

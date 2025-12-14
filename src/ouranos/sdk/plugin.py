@@ -148,9 +148,9 @@ class Plugin:
         try:
             if not ConfigHelper.config_is_set():
                 ConfigHelper.set_config_and_configure_logging(self.config)
-            self._instance.run()
+            self._instance.run(reraise=True)
         except Exception as e:
-            self.logger.error(f"Subprocess failed. {e}")
+            self.logger.error(f"Subprocess failed. {self._fmt_exc(e)}")
             raise
 
     def has_subprocesses(self) -> bool:
