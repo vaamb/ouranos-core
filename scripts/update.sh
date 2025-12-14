@@ -152,13 +152,13 @@ update_git_repo() {
 update_ouranos_core() {
     log INFO "Updating ouranos-core..."
 
-    if [[ "$DRY_RUN" == false ]]; then
-        # Update ouranos-core git repository
-        log INFO "Updating ouranos-core git repository..."
-        update_git_repo "${OURANOS_DIR}/lib/ouranos-core"
+    # Update ouranos-core git repository
+    log INFO "Updating ouranos-core git repository..."
+    update_git_repo "${OURANOS_DIR}/lib/ouranos-core"
 
-        # Update database
-        log INFO "Upgrading database..."
+    # Update database
+    log INFO "Upgrading database..."
+    if [[ "$DRY_RUN" == false ]]; then
         alembic upgrade head
     fi
 }
@@ -187,9 +187,7 @@ update_package() {
         fi
     elif [[ -d "${package_dir}/.git" ]]; then
       log INFO "${package_name} is a git repository. Updating it..."
-       if [[ "$DRY_RUN" == false ]]; then
-          update_git_repo "$package_dir"
-       fi
+      update_git_repo "$package_dir"
     else
         log WARN "${package_name} has no update script and is not a git repository. Skipping."
         return 1
@@ -216,11 +214,10 @@ update_packages() {
 
         # Update remaining ouranos-* packages
         for OURANOS_PKG in "${OURANOS_DIR}/lib"/ouranos-*; do
-          package_name=$(basename "${package_dir}")
-          if [[package_name != "ouranos-core"]]; then
-            update_package "$OURANOS_PKG"
-          fi
-
+            package_name=$(basename "${package_dir}")
+            if [[ "${package_name}" != "ouranos-core" ]]; then
+               update_package "$OURANOS_PKG"
+            fi
         done
     else
         update_ouranos_core
