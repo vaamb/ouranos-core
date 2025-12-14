@@ -148,24 +148,48 @@ update_git_repo() {
     log INFO "$repo_name updated to $latest_tag"
 }
 
-# Function to update a single repository
+# Function to update ouranos-core
+update_ouranos_core() {
+    log INFO "Updating ouranos-core..."
+
+    if [[ "$DRY_RUN" == false ]]; then
+        # Update ouranos-core git repository
+        log INFO "Updating ouranos-core git repository..."
+        update_git_repo "${OURANOS_DIR}/lib/ouranos-core"
+
+        # Update database
+        log INFO "Upgrading database..."
+        alembic upgrade head
+    fi
+}
+
+# Function to update a package other than ouranos-core
 update_package() {
     local package_dir="$1"
     local package_name
-    package_name=$(basename "package_dir")
+    package_name=$(basename "${package_dir}")
 
-    log INFO "Checking package_name..."
+    # Don't allow updating ouranos-core via this function
+    if [[package_name == "ouranos-core"]]; then
+        log ERROR "Use \`update_ouranos_core\` to update ouranos-core"
+        return 1
+    fi
+
+    log INFO "Checking ${package_name}..."
 
     # Check if the package has an update script and is not ouranos-core (or it will recursively update itself)
     # For now, make sure ouranos updates entirely via git
-    if [[ -f "${package_dir}/scripts/update.sh" && "${package_name}" != "ouranos-core" ]]; then
+    if [[ -f "${package_dir}/scripts/update.sh" ]]; then
         # Run the update script
         log INFO "${package_name} has an update script. Running it..."
         if [[ "$DRY_RUN" == false ]]; then
             bash "${package_dir}/scripts/update.sh"
         fi
     elif [[ -d "${package_dir}/.git" ]]; then
-        update_git_repo "$package_dir"
+      log INFO "${package_name} is a git repository. Updating it..."
+       if [[ "$DRY_RUN" == false ]]; then
+          update_git_repo "$package_dir"
+       fi
     else
         log WARN "${package_name} has no update script and is not a git repository. Skipping."
         return 1
@@ -187,12 +211,19 @@ update_packages() {
     fi
 
     if [[ "${UPDATE_ALL}" == true ]]; then
-        # Update ouranos-* packages
+        # Update ouranos-core
+        update_ouranos_core
+
+        # Update remaining ouranos-* packages
         for OURANOS_PKG in "${OURANOS_DIR}/lib"/ouranos-*; do
-          update_package "$OURANOS_PKG"
+          package_name=$(basename "${package_dir}")
+          if [[package_name != "ouranos-core"]]; then
+            update_package "$OURANOS_PKG"
+          fi
+
         done
     else
-        update_package "${OURANOS_DIR}/lib/ouranos-core"
+        update_ouranos_core
     fi
 
     if [[ "${DRY_RUN}" == false ]]; then
