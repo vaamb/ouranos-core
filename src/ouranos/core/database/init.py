@@ -1,5 +1,3 @@
-from logging import getLogger, Logger
-
 from alembic.config import Config as AlembicConfig
 from alembic.script import ScriptDirectory
 from sqlalchemy import text
@@ -8,9 +6,6 @@ from ouranos import db, current_app
 from ouranos.core.config import get_db_dir
 from ouranos.core.database.models.app import User
 from ouranos.core.utils import humanize_list
-
-
-logger: Logger = getLogger("ouranos")
 
 
 async def create_db_tables():
@@ -30,35 +25,21 @@ async def create_db_tables():
     from ouranos.core.database.models import gaia  # noqa
     from ouranos.core.database.models import system  # noqa
 
-    try:
-        await db.create_all()
-    except Exception as e:
-        logger.error(
-            f"An error occurred while creating models."
-            f"Error msg: `{e.__class__.__name__}: {e}`"
-        )
-        raise e
+    await db.create_all()
 
 
 async def insert_default_data():
     from ouranos.core.database.models import app
 
     async with db.scoped_session() as session:
-        try:
-            await app.CommunicationChannel.insert_channels(session)
-            await app.Role.insert_roles(session)
-            await app.Service.insert_services(session)
-            await app.Service.update_email_service_status(session)
-            await app.User.insert_gaia(session)
-        except Exception as e:
-            logger.error(
-                f"An error occurred while creating base data."
-                f"Error msg: `{e.__class__.__name__}: {e}`"
-            )
-            raise e
+        await app.CommunicationChannel.insert_channels(session)
+        await app.Role.insert_roles(session)
+        await app.Service.insert_services(session)
+        await app.Service.update_email_service_status(session)
+        await app.User.insert_gaia(session)
 
 
-async def _check_db_revision_impl() -> None:
+async def check_db_revision() -> None:
     alembic_cfg = AlembicConfig("alembic.ini")
     script = ScriptDirectory.from_config(alembic_cfg)
     head = script.get_current_head()
@@ -84,25 +65,7 @@ async def _check_db_revision_impl() -> None:
         )
 
 
-async def check_db_revision() -> None:
-    try:
-        await _check_db_revision_impl()
-    except Exception as e:
-        logger.error(
-            f"An error occurred while checking the database revision."
-            f"Error msg: {e}"
-        )
-        raise e
-
-
 async def print_registration_token():
     async with db.scoped_session() as session:
-        try:
-            token = await User.create_invitation_token(session)
-            print(f"registration token: {token}")
-        except Exception as e:
-            logger.error(
-                f"An error occurred while generating the invitation token."
-                f"Error msg: `{e.__class__.__name__}: {e}`"
-            )
-            raise e
+        token = await User.create_invitation_token(session)
+        print(f"registration token: {token}")
