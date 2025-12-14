@@ -158,7 +158,7 @@ class Functionality(ABC):
         except Exception as e:
             self.logger.error(f"Error while starting [{pid}]. {self._fmt_exc(e)}")
             self.logger.info(f"Ouranos' {self.__class__.__name__} will stop [{pid}]")
-            if self.config["DEBUG"]:
+            if self.config["DEBUG"] or self.config["TESTING"]:
                 raise
         else:
             # `run_until_stop()` cannot raise
@@ -169,7 +169,7 @@ class Functionality(ABC):
                 await self.complete_shutdown()
             except Exception as e:
                 self.logger.error(f"Error while shutting down [{pid}]. {self._fmt_exc(e)}")
-                if self.config["DEBUG"]:
+                if self.config["DEBUG"] or self.config["TESTING"]:
                     raise
 
     def stop(self) -> None:
