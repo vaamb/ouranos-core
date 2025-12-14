@@ -1,12 +1,14 @@
 from logging import getLogger, Logger
 
-
 from ouranos import db, current_app
 from ouranos.core.config import get_db_dir
 from ouranos.core.database.models.app import User
 
 
-async def create_base_data(logger: Logger = getLogger()):
+logger: Logger = getLogger("ouranos")
+
+
+async def create_db_tables():
     create_db_dir = False
     if "sqlite" in current_app.config["SQLALCHEMY_DATABASE_URI"]:
         create_db_dir = True
@@ -16,11 +18,26 @@ async def create_base_data(logger: Logger = getLogger()):
             break
     if create_db_dir:
         get_db_dir()
+
+    # Import the models so they are registered
+    from ouranos.core.database.models import app  # noqa
+    from ouranos.core.database.models import archives  # noqa
+    from ouranos.core.database.models import gaia  # noqa
+    from ouranos.core.database.models import system  # noqa
+
+    try:
+        await db.create_all()
+    except Exception as e:
+        logger.error(
+            f"An error occurred while creating models."
+            f"Error msg: `{e.__class__.__name__}: {e}`"
+        )
+        raise e
+
+
+async def insert_default_data():
     from ouranos.core.database.models import app
-    from ouranos.core.database.models import archives
-    from ouranos.core.database.models import gaia
-    from ouranos.core.database.models import system
-    await db.create_all()
+
     async with db.scoped_session() as session:
         try:
             await app.CommunicationChannel.insert_channels(session)
@@ -29,7 +46,10 @@ async def create_base_data(logger: Logger = getLogger()):
             await app.Service.update_email_service_status(session)
             await app.User.insert_gaia(session)
         except Exception as e:
-            logger.error(e)
+            logger.error(
+                f"An error occurred while creating base data."
+                f"Error msg: `{e.__class__.__name__}: {e}`"
+            )
             raise e
 
 
