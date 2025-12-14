@@ -10,7 +10,8 @@ import warnings
 
 from ouranos import db, scheduler, setup_loop
 from ouranos.core.config import ConfigDict
-from ouranos.core.database.init import create_db_tables, insert_default_data
+from ouranos.core.database.init import (
+    check_db_revision, create_db_tables, insert_default_data)
 from ouranos.sdk.runner import Runner, runner
 
 
@@ -65,6 +66,8 @@ class Functionality(ABC):
             self.logger.info("Initializing the database")
             db.init(self.config)
             await create_db_tables()
+            if not self.config["TESTING"]:  # Revisions aren't used in tests (yet ?)
+                await check_db_revision()
             await insert_default_data()
         except Exception as e:
             self.logger.error(f"Database initialization failed: {self._fmt_exc(e)}")
