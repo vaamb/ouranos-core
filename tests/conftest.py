@@ -3,7 +3,7 @@ import pytest_asyncio
 
 from ouranos import Config, db as _db, setup_config
 from ouranos.core.config import ConfigDict
-from ouranos.core.database.init import create_base_data
+from ouranos.core.database.init import create_db_tables, insert_default_data
 
 from .data.auth import admin
 
@@ -42,8 +42,8 @@ def config(tmp_path_factory):
 async def db(config: ConfigDict):
     from ouranos.core.database import models  # noqa
     from ouranos.core.database.models import caches
-    await _db.create_all()
-    await create_base_data()
+    await create_db_tables()
+    await insert_default_data()
 
     yield _db
 
