@@ -172,7 +172,7 @@ class Functionality(ABC):
             await self.complete_startup()
         except Exception as e:
             self.logger.error(f"Error while starting [{pid}]. {self._fmt_exc(e)}")
-            self.logger.info(f"Ouranos' {self.__class__.__name__} will stop [{pid}]")
+            self.logger.info(f"Will stop [{pid}]")
             e.logged = True
             raise e
         else:
