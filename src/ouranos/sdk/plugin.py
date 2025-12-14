@@ -145,13 +145,9 @@ class Plugin:
 
     def _run_in_subprocess(self) -> None:
         """Run functionality in a subprocess."""
-        try:
-            if not ConfigHelper.config_is_set():
-                ConfigHelper.set_config_and_configure_logging(self.config)
-            self._instance.run(reraise=True)
-        except Exception as e:
-            self.logger.error(f"Subprocess failed. {self._fmt_exc(e)}")
-            raise
+        if not ConfigHelper.config_is_set():
+            ConfigHelper.set_config_and_configure_logging(self.config)
+        self._instance.run(reraise=True)
 
     def has_subprocesses(self) -> bool:
         """Check if any subprocesses are running."""
@@ -171,31 +167,28 @@ class Plugin:
         if self.config is None:
             raise RuntimeError("Config not set. Call setup_config() first")
 
+        self.logger.info(f"Starting {self.name}")
         await self.check_requirements()
 
         workers = self.compute_number_of_workers()
         self._instance = self._functionality(**self._kwargs)
 
-        try:
-            if workers > 0:
-                for worker in range(workers):
-                    process_name = f"{self.functionality.__name__}-{worker}"
-                    process = spawn.Process(
-                        target=self._run_in_subprocess,
-                        daemon=True,
-                        name=process_name,
-                    )
-                    process.start()
-                    self._subprocesses.append(process)
-            else:
-                assert not self._subprocesses
-                await self._instance.complete_startup()
-        except Exception as e:
-            self.logger.error(f"Failed to start. {self._fmt_exc(e)}")
-            raise
+        if workers > 0:
+            for worker in range(workers):
+                process_name = f"{self.functionality.__name__}-{worker}"
+                process = spawn.Process(
+                    target=self._run_in_subprocess,
+                    daemon=True,
+                    name=process_name,
+                )
+                process.start()
+                self._subprocesses.append(process)
         else:
-            self._status = True
-            self.logger.info(f"Started {self.name} with {workers} workers")
+            assert not self._subprocesses
+            await self._instance.complete_startup()
+
+        self._status = True
+        self.logger.info(f"Started {self.name} with {workers} workers")
 
     async def shutdown(self) -> None:
         """Stop the functionality and cleanup resources.
@@ -205,27 +198,25 @@ class Plugin:
         if not self._status:
             raise RuntimeError(f"{self.name} is not running")
 
-        try:
-            if self.has_subprocesses():
-                # Cleanup subprocesses
-                for process in self._subprocesses:
+        self.logger.info(f"Stopping {self.name}")
+
+        if self.has_subprocesses():
+            # Cleanup subprocesses
+            for process in self._subprocesses:
+                if process.is_alive():
+                    process.terminate()
+                    process.join(timeout=5.0)
                     if process.is_alive():
-                        process.terminate()
-                        process.join(timeout=5.0)
-                        if process.is_alive():
-                            self.logger.warning(
-                                f"Process {process.name} did not terminate cleanly")
-                            process.kill()
-                            process.join()
-                self._subprocesses.clear()
-            else:
-                await self._instance.complete_shutdown()
-        except Exception as e:
-            self.logger.error(f"Error during shutdown. {self._fmt_exc(e)}")
-            raise
-        finally:
-            self._status = False
-            self.logger.info(f"Stopped {self.name}")
+                        self.logger.warning(
+                            f"Process {process.name} did not terminate cleanly")
+                        process.kill()
+                        process.join()
+            self._subprocesses.clear()
+        else:
+            await self._instance.complete_shutdown()
+
+        self._status = False
+        self.logger.info(f"Stopped {self.name}")
 
     def run_as_standalone(self) -> None:
         """Run the functionality as a standalone process."""
@@ -234,7 +225,12 @@ class Plugin:
 
         setup_loop()
         self._kwargs["microservice"] = True
-        asyncio.run(self._run_as_standalone())
+
+        try:
+            asyncio.run(self._run_as_standalone())
+        except Exception as e:
+            if self.config["DEVELOPMENT"] or self.config["DEBUG"] or self.config["TESTING"]:
+                raise e
 
     async def _run_as_standalone(self) -> None:
         """Internal async method for standalone execution."""
@@ -249,13 +245,18 @@ class Plugin:
 
         try:
             await self.startup()
-            await self._runner.run_until_stop()
         except Exception as e:
-            self.logger.error(f"Error while running. {self._fmt_exc(e)}")
+            self.logger.error(f"Error starting. {self._fmt_exc(e)}")
             raise
+        else:
+            await self._runner.run_until_stop()
         finally:
             if self.is_started:
-                await self.shutdown()
+                try:
+                    await self.shutdown()
+                except Exception as e:
+                    self.logger.error(f"Error while shutting down. {self._fmt_exc(e)}")
+                    raise
 
     # Command handling
     def has_command(self) -> bool:
