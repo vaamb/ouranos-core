@@ -68,6 +68,9 @@ async def _check_db_revision_impl() -> None:
     not_up_to_date: list[str] = []
     db_binds = db.get_binds_list()
     for bind in db_binds:
+        # Transient tables are generated when starting an instance and so don't need revision
+        if bind == "transient":
+            continue
         engine = db.get_engine_for_bind(bind)
         async with engine.connect() as connection:
             result = await connection.execute(text("SELECT * FROM alembic_version"))
