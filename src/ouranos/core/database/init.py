@@ -53,11 +53,14 @@ async def insert_default_data():
             raise e
 
 
-async def print_registration_token(logger: Logger):
+async def print_registration_token():
     async with db.scoped_session() as session:
         try:
             token = await User.create_invitation_token(session)
             print(f"registration token: {token}")
         except Exception as e:
-            logger.error(e)
+            logger.error(
+                f"An error occurred while generating the invitation token."
+                f"Error msg: `{e.__class__.__name__}: {e}`"
+            )
             raise e

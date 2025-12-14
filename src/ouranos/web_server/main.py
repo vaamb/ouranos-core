@@ -105,7 +105,7 @@ class WebServer(Functionality):
             self.app = _AppWrapper(start, stop)
 
     async def initialize(self) -> None:
-        await print_registration_token(self.logger)
+        await print_registration_token()
 
     async def startup(self):
         self.app.start()
