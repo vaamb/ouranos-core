@@ -48,7 +48,6 @@ class TestFunctionality:
 
             def __init__(self, config, **kwargs):
                 super().__init__(config, **kwargs)
-                self.started = False
                 self.cleaned_up = False
                 self.initialized = False
                 self.post_shutdown_called = False
@@ -59,7 +58,7 @@ class TestFunctionality:
 
             async def startup(self) -> None:
                 """Mark startup as complete."""
-                self.started = True
+                pass
 
             async def shutdown(self) -> None:
                 """Mark shutdown as complete."""
