@@ -74,7 +74,7 @@ class Plugin:
         return self.name < other.name
 
     def _fmt_exc(self, e: BaseException) -> str:
-        return f"`{e.__class__.__name__}: {e}`"
+        return f"Error msg: `{e.__class__.__name__}: {e}`"
 
     @property
     def is_started(self) -> bool:
@@ -150,7 +150,7 @@ class Plugin:
                 ConfigHelper.set_config_and_configure_logging(self.config)
             self._instance.run()
         except Exception as e:
-            self.logger.error(f"Subprocess failed: {e}")
+            self.logger.error(f"Subprocess failed. {e}")
             raise
 
     def has_subprocesses(self) -> bool:
@@ -191,7 +191,7 @@ class Plugin:
                 assert not self._subprocesses
                 await self._instance.complete_startup()
         except Exception as e:
-            self.logger.error(f"Failed to start: {self._fmt_exc(e)}")
+            self.logger.error(f"Failed to start. {self._fmt_exc(e)}")
             raise
         else:
             self._status = True
@@ -221,7 +221,7 @@ class Plugin:
             else:
                 await self._instance.complete_shutdown()
         except Exception as e:
-            self.logger.error(f"Error during shutdown: {self._fmt_exc(e)}")
+            self.logger.error(f"Error during shutdown. {self._fmt_exc(e)}")
             raise
         finally:
             self._status = False
@@ -251,7 +251,7 @@ class Plugin:
             await self.startup()
             await self._runner.run_until_stop()
         except Exception as e:
-            self.logger.error(f"Error during run: {self._fmt_exc(e)}")
+            self.logger.error(f"Error while running. {self._fmt_exc(e)}")
             raise
         finally:
             if self.is_started:

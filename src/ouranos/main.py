@@ -107,8 +107,7 @@ class Ouranos(Functionality):
             await self.initialize()
             await self.startup()
         except Exception as e:
-            self.logger.error(
-                f"Error while starting [{pid}]. Error msg: {self._fmt_exc(e)}")
+            self.logger.error(f"Error while starting [{pid}]. {self._fmt_exc(e)}")
         else:
             self.logger.info(f"Ouranos has been started [{pid}]")
             self._status = True
@@ -123,8 +122,7 @@ class Ouranos(Functionality):
             await self.shutdown()
             await self.post_shutdown()
         except asyncio.CancelledError as e:
-            self.logger.error(
-                f"Error while shutting down. Error msg: {self._fmt_exc(e)}")
+            self.logger.error(f"Error while shutting down [{pid}]. {self._fmt_exc(e)}")
         else:
             self._status = False
             self.logger.info(f"Ouranos has been stopped [{pid}]")

@@ -58,7 +58,7 @@ class Functionality(ABC):
 
     def _fmt_exc(self, e: BaseException) -> str:
         """Format exception for logging."""
-        return f"`{e.__class__.__name__}: {e}`"
+        return f"Error msg: `{e.__class__.__name__}: {e}`"
 
     async def init_the_db(self) -> None:
         """Initialize the database."""
@@ -70,7 +70,7 @@ class Functionality(ABC):
                 await check_db_revision()
             await insert_default_data()
         except Exception as e:
-            self.logger.error(f"Database initialization failed: {self._fmt_exc(e)}")
+            self.logger.error(f"Database initialization failed. {self._fmt_exc(e)}")
             raise
 
     async def _init_common(self) -> None:
@@ -83,7 +83,7 @@ class Functionality(ABC):
             scheduler.start()
             _State.common_initialized = True
         except Exception as e:
-            self.logger.error(f"Common initialization failed: {self._fmt_exc(e)}")
+            self.logger.error(f"Common initialization failed. {self._fmt_exc(e)}")
             raise
 
     async def _clear_common(self) -> None:
@@ -95,8 +95,7 @@ class Functionality(ABC):
             scheduler.remove_all_jobs()
             scheduler.shutdown()
         except Exception as e:
-            self.logger.error(f"Failed to clear common resources: {self._fmt_exc(e)}")
-            raise
+            self.logger.error(f"Failed to clear common resources. {self._fmt_exc(e)}")
 
     async def initialize(self) -> None:
         """Hook for subclasses to initialize resources."""
@@ -129,7 +128,7 @@ class Functionality(ABC):
             await self.initialize()
             await self.startup()
         except Exception as e:
-            self.logger.error(f"Error while starting [{pid}]: {self._fmt_exc(e)}")
+            self.logger.error(f"Error while starting [{pid}]. {self._fmt_exc(e)}")
             raise
         else:
             self.logger.info(f"Ouranos' {self.__class__.__name__} started successfully [{pid}]")
@@ -158,7 +157,7 @@ class Functionality(ABC):
             setup_loop()
             asyncio.run(self._run())
         except Exception as e:
-            self.logger.error(f"Fatal error in run loop: {self._fmt_exc(e)}")
+            self.logger.error(f"Fatal error in run loop. {self._fmt_exc(e)}")
             raise
 
     async def _run(self) -> None:
