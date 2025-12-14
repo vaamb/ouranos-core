@@ -1,4 +1,5 @@
-from alembic.config import Config as AlembicConfig
+from pathlib import Path
+
 from alembic.script import ScriptDirectory
 from sqlalchemy import text
 
@@ -40,8 +41,9 @@ async def insert_default_data():
 
 
 async def check_db_revision() -> None:
-    alembic_cfg = AlembicConfig("alembic.ini")
-    script = ScriptDirectory.from_config(alembic_cfg)
+    project_root = Path(__file__).parents[4]
+    migration_dir = project_root / "migrations"
+    script = ScriptDirectory(migration_dir)
     head = script.get_current_head()
     if head is None:
         raise Exception("No head revision found")
