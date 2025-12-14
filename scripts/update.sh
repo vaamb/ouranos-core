@@ -186,8 +186,8 @@ update_package() {
             bash "${package_dir}/scripts/update.sh"
         fi
     elif [[ -d "${package_dir}/.git" ]]; then
-      log INFO "${package_name} is a git repository. Updating it..."
-      update_git_repo "$package_dir"
+        log INFO "${package_name} is a git repository. Updating it..."
+        update_git_repo "$package_dir"
     else
         log WARN "${package_name} has no update script and is not a git repository. Skipping."
         return 1
@@ -216,7 +216,7 @@ update_packages() {
         for OURANOS_PKG in "${OURANOS_DIR}/lib"/ouranos-*; do
             package_name=$(basename "${package_dir}")
             if [[ "${package_name}" != "ouranos-core" ]]; then
-               update_package "$OURANOS_PKG"
+                update_package "$OURANOS_PKG"
             fi
         done
     else
