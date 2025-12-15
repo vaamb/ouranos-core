@@ -1,5 +1,5 @@
 [project]
-name = "ouranos"
+name = "ouranos-core"
 description = "An app to manage Gaia instances"
 authors = [
     {name = "Valentin Ambroise", email = "valentin.ambroise@outlook.com"}
