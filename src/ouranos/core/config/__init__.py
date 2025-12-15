@@ -11,6 +11,7 @@ from ouranos import __version__ as version
 from ouranos.core.config import consts
 from ouranos.core.config.base import BaseConfig, BaseConfigDict
 from ouranos.core.logging import configure_logging
+from ouranos.core.utils import stripped_warning
 
 
 class ImmutableDict(dict):
@@ -39,16 +40,18 @@ class ConfigHelper:
         logger = logging.getLogger("ouranos.config_helper")
         lookup_dir = os.environ.get("OURANOS_DIR")
         if lookup_dir is not None:
-            logger.info("Trying to get Ouranos config from 'OURANOS_DIR'.")
+            stripped_warning("Trying to get Ouranos config from 'OURANOS_DIR'.")
         else:
-            logger.info("Trying to get Ouranos config from current directory.")
+            stripped_warning("Trying to get Ouranos config from current directory.")
             lookup_dir = os.getcwd()
 
         sys.path.insert(0, str(lookup_dir))
 
         try:
             import config
-        except ImportError:
+        except ImportError as e:
+            stripped_warning(
+                f"Could not load config module. Error msg: `{e.__class__.__name__}: {e}`")
             if profile is None:
                 return BaseConfig
             else:
