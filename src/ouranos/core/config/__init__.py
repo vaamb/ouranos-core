@@ -37,7 +37,6 @@ class ConfigHelper:
 
     @classmethod
     def _get_config_class(cls, profile: str | None = None) -> Type[BaseConfig]:
-        logger = logging.getLogger("ouranos.config_helper")
         lookup_dir = os.environ.get("OURANOS_DIR")
         if lookup_dir is not None:
             stripped_warning("Trying to get Ouranos config from 'OURANOS_DIR'.")
