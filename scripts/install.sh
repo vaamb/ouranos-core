@@ -15,7 +15,66 @@ OURANOS_DIR="${PWD}/ouranos"
 readonly DATETIME=$(date +%Y%m%d_%H%M%S)
 readonly LOG_FILE="/tmp/ouranos_install_${DATETIME}.log"
 readonly SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-source "${SCRIPT_DIR}/utils/logging.sh" "${LOG_FILE}"
+
+#>>>Logging>>>
+# Constants for log levels
+readonly INFO="INFO"
+readonly WARN="WARN"
+readonly ERROR="ERROR"
+readonly SUCCESS="SUCCESS"
+
+# Colors for output
+if [[ -t 1 ]]; then
+    readonly RED='\033[38;5;001m'
+    readonly GREEN='\033[38;5;002m'
+    readonly YELLOW='\033[38;5;220m'
+    readonly LIGHT_YELLOW='\033[38;5;011m'
+    readonly NC='\033[0m' # No Color
+else
+    readonly RED=""
+    readonly GREEN=""
+    readonly YELLOW=""
+    readonly LIGHT_YELLOW=""
+    readonly NC=""
+fi
+
+# Function to log messages
+log() {
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+
+    case "$1" in
+        INFO)
+            echo -e "${LIGHT_YELLOW}$2${NC}"
+            echo -e "[${timestamp}] [INFO] $2" >> "${LOGGING_FILE}"
+            ;;
+        WARN)
+            echo -e "${YELLOW}Warning: $2${NC}"
+            echo -e "[${timestamp}] [WARNING] $2" >> "${LOGGING_FILE}"
+            ;;
+        ERROR)
+            echo -e "${RED}Error: $2${NC}"
+            echo -e "[${timestamp}] [ERROR] $2" >> "${LOGGING_FILE}"
+            exit 1
+            ;;
+        SUCCESS)
+            echo -e "${GREEN}$2${NC}"
+            echo -e "[${timestamp}] [SUCCESS] $2" >> "${LOGGING_FILE}"
+            ;;
+        *)
+            echo -e "$1"
+            echo -e "[${timestamp}] $1" >> "${LOGGING_FILE}"
+            ;;
+    esac
+}
+
+log INFO "Log file: ${LOGGING_FILE}"
+#<<<Logging<<<
+
+check_no_installation() {
+    if [ -d "${OURANOS_DIR}" ]; then
+        log ERROR "Ouranos appears to be already installed at ${OURANOS_DIR}"
+    fi
+}
 
 check_requirements() {
     local missing_deps=()
@@ -27,7 +86,7 @@ check_requirements() {
     }
 
     # Check for required commands
-    for cmd in git python3 systemctl; do
+    for cmd in git python3 systemctl uv; do
         if ! command_exists "${cmd}"; then
             missing_deps+=("${cmd}")
         fi
@@ -35,9 +94,6 @@ check_requirements() {
 
     if [ ${#missing_deps[@]} -gt 0 ]; then
         log WARN "Missing required dependencies: ${missing_deps[*]}"
-        log INFO "Attempting to install missing dependencies..."
-            sudo apt-get update && sudo apt-get install -y "${missing_deps[@]}" ||
-                log ERROR "Failed to install required packages"
     fi
 
     # Check Python version
@@ -57,52 +113,31 @@ create_directories() {
     done
 }
 
-setup_python_venv() {
-    # Setup Python virtual environment
-    if [ ! -d "python_venv" ]; then
-        python3 -m venv "${OURANOS_DIR}/python_venv" ||
-            log ERROR "Failed to create Python virtual environment"
-    else
-        log WARN "Virtual environment already exists at ${OURANOS_DIR}/python_venv"
+get_ouranos_core() {
+    # Get Ouranos-core repository
+    log INFO "Cloning Ouranos-core repository..."
+
+    if ! git clone --branch "${OURANOS_VERSION}" "${OURANOS_REPO}" \
+            "${OURANOS_DIR}/lib/ouranos-core" > /dev/null 2>&1; then
+        log ERROR "Failed to clone Ouranos repository"
     fi
-}
-
-install_ouranos() {
-    # Activate virtual environment
-    # shellcheck source=/dev/null
-    source "${OURANOS_DIR}/python_venv/bin/activate" ||
-        log ERROR "Failed to activate Python virtual environment"
-
-    # Get Ouranos repository
-    log INFO "Cloning Ouranos repository..."
-    if [ ! -d "${OURANOS_DIR}/lib/ouranos-core" ]; then
-        if ! git clone --branch "${OURANOS_VERSION}" "${OURANOS_REPO}" \
-                "${OURANOS_DIR}/lib/ouranos-core" > /dev/null 2>&1; then
-            log ERROR "Failed to clone Ouranos repository"
-        fi
-
-        cd "${OURANOS_DIR}/lib/ouranos-core" ||
-            log ERROR "Failed to enter Ouranos directory"
-    else
-        log ERROR "Ouranos installation detected at ${OURANOS_DIR}/lib/ouranos-core. Please update using the update script."
-    fi
-
-    log INFO "Updating Python packaging tools..."
-    pip install --upgrade pip setuptools wheel ||
-        log ERROR "Failed to update Python packaging tools"
-
-    # Install Ouranos
-    log INFO "Installing Ouranos and its dependencies..."
-    pip install -e . || log ERROR "Failed to install Ouranos"
-    deactivate ||
-        log ERROR "Failed to deactivate virtual environment"
 }
 
 copy_scripts() {
-    # Copy scripts
+    # Copy scripts from ouranos-core to ouranos/scripts
     cp -r "${OURANOS_DIR}/lib/ouranos-core/scripts/"* "${OURANOS_DIR}/scripts/" ||
         log ERROR "Failed to copy scripts"
     chmod +x "${OURANOS_DIR}/scripts/"*.sh
+}
+
+setup_uv_and_sync() {
+    # Generate the master pyproject.toml
+    "${OURANOS_DIR}/lib/ouranos-core/scripts/utils/gen_pyproject.sh" "${OURANOS_DIR}" ||
+        log ERROR "Failed to generate Ouranos pyproject.toml"
+
+    # Sync virtual environment
+    uv sync --all-packages ||
+        log ERROR "Failed to create Python virtual environment and sync it"
 }
 
 # Update .profile
@@ -162,16 +197,16 @@ main() {
     create_directories
     log SUCCESS "Directories created successfully."
 
-    log INFO "Creating Python virtual environment..."
-    setup_python_venv
-    log SUCCESS "Python virtual environment created successfully."
-
-    log INFO "Installing Ouranos ..."
-    install_ouranos
-    log SUCCESS "Ouranos installed successfully"
+    log INFO "Getting Ouranos-core repository..."
+    get_ouranos_core
+    log SUCCESS "Ouranos-core repository cloned successfully."
 
     log INFO "Making scripts more easily accessible..."
     copy_scripts
+
+    log INFO "Setting up virtual environment and syncing packages..."
+    setup_uv_and_sync
+    log SUCCESS "Virtual environment set up and packages synced successfully."
 
     log INFO "Updating shell profile..."
     update_profile
