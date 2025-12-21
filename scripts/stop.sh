@@ -3,23 +3,16 @@
 # Exit on error, unset variable, and pipefail
 set -euo pipefail
 
+# Check if OURANOS_DIR is set
+if [[ -z "${OURANOS_DIR:-}" ]]; then
+    echo "OURANOS_DIR environment variable is not set. Please source your profile or run the install script first."
+    exit 1
+fi
+
 # Load logging functions
 readonly DATETIME=$(date +%Y%m%d_%H%M%S)
 readonly LOG_FILE="/tmp/ouranos_stop_${DATETIME}.log"
 source "${OURANOS_DIR}/scripts/utils/logging.sh" "${LOG_FILE}"
-
-# Check if OURANOS_DIR is set
-if [[ -z "${OURANOS_DIR:-}" ]]; then
-    log ERROR "OURANOS_DIR environment variable is not set. Please source your profile or run the install script first."
-fi
-
-# Check if the directory exists
-if [[ ! -d "$OURANOS_DIR" ]]; then
-    log ERROR "Ouranos directory not found at $OURANOS_DIR. Please check your installation."
-fi
-
-# Ensure logs directory exists
-mkdir -p "${OURANOS_DIR}/logs" || log ERROR "Failed to create logs directory"
 
 # Log stop attempt
 log INFO "Attempting to stop Ouranos..."
