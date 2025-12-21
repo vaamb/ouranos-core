@@ -36,6 +36,7 @@ class HardwareUpdatePayload(gv.AnonymousHardwareConfig):
     )
 
     name: str | MissingValue = missing
+    active: bool | MissingValue = missing
     level: gv.HardwareLevel | MissingValue = missing
     address: str | MissingValue = missing
     type: gv.HardwareType | MissingValue = missing
