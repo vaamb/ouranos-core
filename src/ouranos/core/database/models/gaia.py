@@ -803,6 +803,7 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
     ecosystem_uid: Mapped[str] = mapped_column(
         sa.String(length=8), sa.ForeignKey("ecosystems.uid"))
     name: Mapped[str] = mapped_column(sa.String(length=32))
+    active: Mapped[bool] = mapped_column(default=True)
     level: Mapped[gv.HardwareLevel] = mapped_column()
     address: Mapped[str] = mapped_column(sa.String(length=32))
     type: Mapped[gv.HardwareType] = mapped_column()
