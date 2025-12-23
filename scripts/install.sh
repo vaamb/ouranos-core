@@ -45,29 +45,29 @@ log() {
     case "$1" in
         INFO)
             echo -e "${LIGHT_YELLOW}$2${NC}"
-            echo -e "[${timestamp}] [INFO] $2" >> "${LOGGING_FILE}"
+            echo -e "[${timestamp}] [INFO] $2" >> "${LOG_FILE}"
             ;;
         WARN)
             echo -e "${YELLOW}Warning: $2${NC}"
-            echo -e "[${timestamp}] [WARNING] $2" >> "${LOGGING_FILE}"
+            echo -e "[${timestamp}] [WARNING] $2" >> "${LOG_FILE}"
             ;;
         ERROR)
             echo -e "${RED}Error: $2${NC}"
-            echo -e "[${timestamp}] [ERROR] $2" >> "${LOGGING_FILE}"
+            echo -e "[${timestamp}] [ERROR] $2" >> "${LOG_FILE}"
             exit 1
             ;;
         SUCCESS)
             echo -e "${GREEN}$2${NC}"
-            echo -e "[${timestamp}] [SUCCESS] $2" >> "${LOGGING_FILE}"
+            echo -e "[${timestamp}] [SUCCESS] $2" >> "${LOG_FILE}"
             ;;
         *)
             echo -e "$1"
-            echo -e "[${timestamp}] $1" >> "${LOGGING_FILE}"
+            echo -e "[${timestamp}] $1" >> "${LOG_FILE}"
             ;;
     esac
 }
 
-log INFO "Log file: ${LOGGING_FILE}"
+log INFO "Log file: ${LOG_FILE}"
 #<<<Logging<<<
 
 check_no_installation() {
