@@ -128,6 +128,9 @@ copy_scripts() {
     cp -r "${OURANOS_DIR}/lib/ouranos-core/scripts/"* "${OURANOS_DIR}/scripts/" ||
         log ERROR "Failed to copy scripts"
     chmod +x "${OURANOS_DIR}/scripts/"*.sh
+    chmod +x "${OURANOS_DIR}/scripts/utils/"*.sh
+    # Remove ouranos-core update.sh
+    rm "${OURANOS_DIR}/scripts/update.sh"
 }
 
 setup_uv_and_sync() {
