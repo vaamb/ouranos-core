@@ -884,7 +884,6 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
             session: AsyncSession,
             hardware_uid: str,
             groups: set[str],
-            base_type: str,
     ) -> None:
         # Get groups already attached to the hardware
         stmt = (
@@ -897,7 +896,7 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
         groups_to_add: list[dict[str, str | int]] = []
         for g in groups:
             if g == "__type__":
-                g = base_type
+                raise ValueError("__type__ is not a valid group name")
             group = await HardwareGroup.get_or_create(session, name=g)
             if group.id in groups_already_attached:
                 groups_already_attached.remove(group.id)
@@ -941,7 +940,7 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
         if measures:
             await cls.attach_measures(session, lookup_keys["uid"], measures)
         if groups:
-            await cls.attach_groups(session, lookup_keys["uid"], groups, values["type"].name)
+            await cls.attach_groups(session, lookup_keys["uid"], groups)
         if any((*groups, *measures)):
             # Clear cache as measures and/or plants have been added
             hash_key = create_hashable_key(**lookup_keys)
@@ -967,7 +966,7 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
         if measures:
             await cls.attach_measures(session, uid, measures)
         if groups:
-            await cls.attach_groups(session, uid, groups, values["type"].name)
+            await cls.attach_groups(session, uid, groups)
         if any((*groups, *measures)):
             # Clear cache as measures and/or plants have been added
             hash_key = create_hashable_key(**lookup_keys)
