@@ -57,24 +57,12 @@ check_requirements() {
         log ERROR "uv is not installed. Please install it first."
     fi
 
-    # Check if OURANOS_DIR is set
-    if [[ -z "${OURANOS_DIR:-}" ]]; then
-        log ERROR "OURANOS_DIR environment variable is not set. Please source your profile or run the installation script first."
-    fi
-
-    # Check if the directory exists
-    if [[ ! -d "$OURANOS_DIR" ]]; then
-        log ERROR "Ouranos directory not found at $OURANOS_DIR. Please check your installation."
+    # Check if OURANOS_DIR is set and the directory exists
+    if [[ ! -d "${OURANOS_DIR}" ]]; then
+        log ERROR "OURANOS_DIR environment variable is not set or the directory does not exist. Please source your profile or run the installation script first."
     fi
 
     cd "$OURANOS_DIR" || log ERROR "Failed to change to Ouranos directory: $OURANOS_DIR"
-
-    # Check if virtual environment exists
-    if [[ ! -d "${OURANOS_DIR}/.venv" ]]; then
-        log INFO "uv virtual environment not found. Creating it..."
-        uv venv
-        # log ERROR "Python virtual environment not found. Please run the installation script first."
-    fi
 }
 
 create_backup() {
@@ -179,8 +167,15 @@ update_package() {
 }
 
 update_packages() {
+    # Check if virtual environment exists
+    if [[ ! -d "${OURANOS_DIR}/.venv" && $DRY_RUN == false ]]; then
+        log INFO "uv virtual environment not found. Creating it..."
+        uv venv
+        # log ERROR "Python virtual environment not found. Please run the installation script first."
+    fi
+
     # In dry-run, don't activate venv or install; just show intended repo changes
-    if [[ "${DRY_RUN}" == false ]]; then
+    if [[ $DRY_RUN == false ]]; then
         # Activate virtual environment
         # shellcheck source=/dev/null
         if ! source ".venv/bin/activate"; then

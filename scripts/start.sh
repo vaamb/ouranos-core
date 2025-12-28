@@ -5,7 +5,7 @@ set -euo pipefail
 
 # Check if OURANOS_DIR is set and the directory exists
 if [[ ! -d "${OURANOS_DIR}" ]]; then
-    echo "OURANOS_DIR environment variable is not set or the directory does not exist. Please source your profile or run the install script first."
+    echo "OURANOS_DIR environment variable is not set or the directory does not exist. Please source your profile or run the installation script first."
     exit 1
 fi
 
