@@ -264,7 +264,7 @@ class Plugin:
         return self._command is not None
 
     def create_run_command(self, cmd_cls: Type[C] | None = None) -> C:
-        @click.command(self.name, cls=cmd_cls, help=self._description)
+        @click.command(self.name.replace("_", "-"), cls=cmd_cls, help=self._description)
         @click.option(
             "--config-profile", "-c",
             type=str,
