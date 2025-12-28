@@ -169,14 +169,14 @@ cleanup() {
     local exit_code=$?
 
     if [ ${exit_code} -ne 0 ]; then
-        log ERROR "Installation failed. Check the log file for details: ${LOG_FILE}"
+        log WARN "Installation failed. Check the log file for details: ${LOG_FILE}"
         rm -r "${OURANOS_DIR}"
     else
         log SUCCESS "Installation completed successfully!"
     fi
 
     # Reset terminal colors
-    echo -e "${NC}"
+    echo -en "${NC}"
     exit ${exit_code}
 }
 
