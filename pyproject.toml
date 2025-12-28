@@ -1,8 +1,8 @@
 [project]
 name = "ouranos-core"
-description = "An app to manage Gaia instances"
+description = "The core app to manage Gaia instances"
 authors = [
-    {name = "Valentin Ambroise", email = "valentin.ambroise@outlook.com"}
+    {name = "Valentin Ambroise"}
 ]
 requires-python = ">=3.11"
 readme = "README.md"
