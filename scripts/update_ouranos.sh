@@ -218,10 +218,17 @@ update_packages() {
 }
 
 update_core_scripts() {
-    # Update scripts
+    # Copy scripts from ouranos-core to ouranos/scripts
     cp -r "${OURANOS_DIR}/lib/ouranos-core/scripts/"* "${OURANOS_DIR}/scripts/" ||
         log ERROR "Failed to copy scripts"
+    # Make scripts executable
     chmod +x "${OURANOS_DIR}/scripts/"*.sh
+    chmod +x "${OURANOS_DIR}/scripts/utils/"*.sh
+    # Convert scripts to unix format
+    dos2unix "${OURANOS_DIR}/scripts/"*.sh
+    dos2unix "${OURANOS_DIR}/scripts/utils/"*.sh
+    # Remove ouranos-core update.sh
+    rm "${OURANOS_DIR}/scripts/update.sh"
 }
 
 update_profile() {
