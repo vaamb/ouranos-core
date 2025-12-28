@@ -52,6 +52,11 @@ while [[ $# -gt 0 ]]; do
 done
 
 check_requirements() {
+    # Check if uv is installed
+    if ! command -v uv &> /dev/null; then
+        log ERROR "uv is not installed. Please install it first."
+    fi
+
     # Check if OURANOS_DIR is set
     if [[ -z "${OURANOS_DIR:-}" ]]; then
         log ERROR "OURANOS_DIR environment variable is not set. Please source your profile or run the installation script first."
