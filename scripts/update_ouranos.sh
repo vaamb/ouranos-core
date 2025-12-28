@@ -30,6 +30,7 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         -d|--dry-run)
             DRY_RUN=true
+            export DRY_RUN
             shift
             ;;
         -f|--force)
@@ -53,7 +54,7 @@ done
 check_requirements() {
     # Check if OURANOS_DIR is set
     if [[ -z "${OURANOS_DIR:-}" ]]; then
-        log ERROR "OURANOS_DIR environment variable is not set. Please source your profile or run the install script first."
+        log ERROR "OURANOS_DIR environment variable is not set. Please source your profile or run the installation script first."
     fi
 
     # Check if the directory exists
@@ -64,8 +65,8 @@ check_requirements() {
     cd "$OURANOS_DIR" || log ERROR "Failed to change to Ouranos directory: $OURANOS_DIR"
 
     # Check if virtual environment exists
-    if [[ ! -d "python_venv" ]]; then
-        log ERROR "Python virtual environment not found. Please run the install script first."
+    if [[ ! -d ".venv" ]]; then
+        log ERROR "Python virtual environment not found. Please run the installation script first."
     fi
 }
 
@@ -124,15 +125,6 @@ update_git_repo() {
     log INFO "Updating $repo_name to $latest_tag..."
     git checkout "$latest_tag"
 
-    # Install the package in development mode
-    if [[ -f "pyproject.toml" ]]; then
-        log INFO "Installing $repo_name..."
-        pip install -e .
-    else
-        log INFO "No pyproject.toml found in $repo_dir. Skipping installation."
-        return 1
-    fi
-
     # Return to the original branch if not on a detached HEAD
     if [[ "$current_branch" != "HEAD" ]]; then
         log "Returning to branch $current_branch..."
@@ -148,32 +140,11 @@ update_git_repo() {
     log INFO "$repo_name updated to $latest_tag"
 }
 
-# Function to update ouranos-core
-update_ouranos_core() {
-    log INFO "Updating ouranos-core..."
-
-    # Update ouranos-core git repository
-    log INFO "Updating ouranos-core git repository..."
-    update_git_repo "${OURANOS_DIR}/lib/ouranos-core"
-
-    # Update database
-    log INFO "Upgrading database..."
-    if [[ "$DRY_RUN" == false ]]; then
-        alembic upgrade head
-    fi
-}
-
 # Function to update a package other than ouranos-core
 update_package() {
     local package_dir="$1"
     local package_name
     package_name=$(basename "${package_dir}")
-
-    # Don't allow updating ouranos-core via this function
-    if [[package_name == "ouranos-core"]]; then
-        log ERROR "Use \`update_ouranos_core\` to update ouranos-core"
-        return 1
-    fi
 
     log INFO "Checking ${package_name}..."
 
@@ -182,9 +153,7 @@ update_package() {
     if [[ -f "${package_dir}/scripts/update.sh" ]]; then
         # Run the update script
         log INFO "${package_name} has an update script. Running it..."
-        if [[ "$DRY_RUN" == false ]]; then
-            bash "${package_dir}/scripts/update.sh"
-        fi
+        bash "${package_dir}/scripts/update.sh"
     elif [[ -d "${package_dir}/.git" ]]; then
         log INFO "${package_name} is a git repository. Updating it..."
         update_git_repo "$package_dir"
@@ -203,14 +172,14 @@ update_packages() {
     if [[ "${DRY_RUN}" == false ]]; then
         # Activate virtual environment
         # shellcheck source=/dev/null
-        if ! source "python_venv/bin/activate"; then
+        if ! source ".venv/bin/activate"; then
             log ERROR "Failed to activate Python virtual environment"
         fi
     fi
 
     if [[ "${UPDATE_ALL}" == true ]]; then
-        # Update ouranos-core
-        update_ouranos_core
+        # First update ouranos-core
+        update_package "${OURANOS_DIR}/lib/ouranos-core"
 
         # Update remaining ouranos-* packages
         for OURANOS_PKG in "${OURANOS_DIR}/lib"/ouranos-*; do
@@ -221,6 +190,12 @@ update_packages() {
         done
     else
         update_ouranos_core
+    fi
+
+    # Update uv lock and packages
+    if [[ "${DRY_RUN}" == false ]]; then
+        cd "$OURANOS_DIR"
+        uv lock --upgrade
     fi
 
     if [[ "${DRY_RUN}" == false ]]; then
