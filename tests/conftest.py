@@ -48,6 +48,10 @@ async def db(config: ConfigDict):
     yield _db
 
     await _db.drop_all()
+
+    for engine in _db.engines.values():
+        await engine.dispose()
+
     # Clear up the caches
     for key, value in caches.__dict__.items():
         if key.startswith("cache_"):

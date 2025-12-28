@@ -97,6 +97,9 @@ class Functionality(ABC):
         scheduler.remove_all_jobs()
         scheduler.shutdown()
 
+        for engine in db.engines.values():
+            await engine.dispose()
+
     async def initialize(self) -> None:
         """Hook for subclasses to initialize resources."""
         pass
