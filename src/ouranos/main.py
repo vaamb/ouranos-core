@@ -136,11 +136,12 @@ async def _fill_db(check_revision: bool = True):
 
 @main.command()
 @click.option(
-    "--check-revision", "-c",
+    "--check-revision/--no-check-revision",
     type=bool,
     default=True,
     help="Check if the database revision is up to date.",
     show_default=True,
+    is_flag=True,
 )
 def fill_db(check_revision: bool = True):
     """Fill the database with the default tables."""
