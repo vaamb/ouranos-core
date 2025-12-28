@@ -45,4 +45,5 @@ class RootCommand(Group):
         self._set_config(ctx)
         pm: PluginManager = PluginManager()
         pm.register_plugins(omit_excluded=False)  # List all plugins installed
-        return sorted(pm.plugins) + sorted(self.commands)
+        # Plugins are already sorted by the PluginManager
+        return [*pm.plugins.keys(), *sorted(self.commands)]
