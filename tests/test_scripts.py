@@ -1,8 +1,12 @@
 from pathlib import Path
 import tomllib
+import typing as t
 from unittest import TestCase
 
 from ouranos import __version__
+
+if t.TYPE_CHECKING:
+    import re
 
 
 def _get_var_value(var_name: str, script_path: Path) -> str:
@@ -11,6 +15,16 @@ def _get_var_value(var_name: str, script_path: Path) -> str:
             if f"{var_name}=" in line:
                 return line.split("=")[1].strip().strip('"')
     raise ValueError(f"Variable {var_name} not found in {script_path}")
+
+
+def _get_pattern(script_path: Path, pattern: re.Pattern) -> str:
+    with open(script_path, "r") as f:
+        script_text = f.read()
+
+    search = pattern.search(script_text)
+    if search is not None:
+        return search.group(0)
+    raise ValueError(f"Pattern {pattern} not found in {script_path}")
 
 
 class TestInstallScript(TestCase):
@@ -43,14 +57,10 @@ class TestInstallScript(TestCase):
 
         pattern = re.compile(r"#>>>Logging>>>.*#<<<Logging<<<", re.DOTALL)
 
-        with open(self.install_script_path, "r") as f:
-            install_script = f.read()
-        with open(self.logging_script_path, "r") as f:
-            logging_script = f.read()
-
-        install_code = pattern.search(install_script).group(0)
+        install_code = _get_pattern(self.install_script_path, pattern)
         install_code = install_code.replace("LOG_FILE", "LOGGING_FILE")
-        logging_code = pattern.search(logging_script).group(0)
+        logging_code = _get_pattern(self.logging_script_path, pattern)
+
         assert install_code == logging_code
 
     def test_copy_sync(self):
@@ -58,11 +68,7 @@ class TestInstallScript(TestCase):
 
         pattern = re.compile(r"#>>>Copy>>>.*#<<<Copy<<<", re.DOTALL)
 
-        with open(self.install_script_path, "r") as f:
-            install_script = f.read()
-        with open(self.update_script_path, "r") as f:
-            update_script = f.read()
+        install_code = _get_pattern(self.install_script_path, pattern)
+        update_code = _get_pattern(self.update_script_path, pattern)
 
-        install_code = pattern.search(install_script).group(0)
-        logging_code = pattern.search(update_script).group(0)
-        assert install_code == logging_code
+        assert install_code == update_code
