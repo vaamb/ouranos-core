@@ -9,6 +9,7 @@ import click
 
 from ouranos.cli import RootCommand
 from ouranos.core.config import ConfigDict, ConfigHelper
+from ouranos.core.database.init import check_db_revision, create_db_tables
 from ouranos.core.plugins_manager import PluginManager
 from ouranos.core.utils import parse_str_value
 from ouranos.sdk import Functionality
@@ -125,6 +126,25 @@ class Ouranos(Functionality):
         else:
             self._status = False
             self.logger.info(f"Ouranos has been stopped [{pid}]")
+
+
+async def _fill_db(check_revision: bool = True):
+    if check_revision:
+        await check_db_revision()
+    await create_db_tables()
+
+
+@main.command()
+@click.option(
+    "--check-revision", "-c",
+    type=bool,
+    default=True,
+    help="Check if the database revision is up to date.",
+    show_default=True,
+)
+def fill_db(check_revision: bool = True):
+    """Fill the database with the default tables."""
+    asyncio.run(_fill_db(check_revision=check_revision))
 
 
 if __name__ == "__main__":
