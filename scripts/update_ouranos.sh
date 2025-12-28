@@ -70,8 +70,10 @@ check_requirements() {
     cd "$OURANOS_DIR" || log ERROR "Failed to change to Ouranos directory: $OURANOS_DIR"
 
     # Check if virtual environment exists
-    if [[ ! -d ".venv" ]]; then
-        log ERROR "Python virtual environment not found. Please run the installation script first."
+    if [[ ! -d "${OURANOS_DIR}/.venv" ]]; then
+        log INFO "uv virtual environment not found. Creating it..."
+        uv venv
+        # log ERROR "Python virtual environment not found. Please run the installation script first."
     fi
 }
 
@@ -191,14 +193,16 @@ update_packages() {
         update_package "${OURANOS_DIR}/lib/ouranos-core"
 
         # Update remaining ouranos-* packages
-        for OURANOS_PKG in "${OURANOS_DIR}/lib"/ouranos-*; do
-            package_name=$(basename "${package_dir}")
+        for pkg_path  in "${OURANOS_DIR}/lib"/ouranos-*; do
+            package_name=$(basename "${pkg_path }")
             if [[ "${package_name}" != "ouranos-core" ]]; then
-                update_package "$OURANOS_PKG"
+                if ! update_package "$pkg_path"; then
+                    log WARN "Failed to update ${package_name}, continuing with other packages..."
+                fi
             fi
         done
     else
-        update_ouranos_core
+        update_package "${OURANOS_DIR}/lib/ouranos-core"
     fi
 
     # Update uv lock and packages
