@@ -205,6 +205,12 @@ update_packages() {
         update_package "${OURANOS_DIR}/lib/ouranos-core"
     fi
 
+    # Update pyproject.toml
+    if [[ "${DRY_RUN}" == false ]]; then
+        "${OURANOS_DIR}/lib/ouranos-core/scripts/utils/gen_pyproject.sh" "${OURANOS_DIR}" ||
+            log ERROR "Failed to update pyproject.toml"
+    fi
+
     # Update uv lock and packages
     if [[ "${DRY_RUN}" == false ]]; then
         cd "$OURANOS_DIR"
