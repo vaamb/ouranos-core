@@ -149,7 +149,6 @@ setup_uv_and_sync() {
     uv sync --all-packages ||
         log ERROR "Failed to create Python virtual environment and sync it"
 
-
     source "${OURANOS_DIR}/.venv/bin/activate" ||
         log ERROR "Failed to activate Python virtual environment"
 
@@ -206,9 +205,7 @@ main() {
     log INFO "Starting Ouranos installation (v${OURANOS_VERSION})"
 
     # Check if already installed
-    if [ -d "${OURANOS_DIR}" ]; then
-        log ERROR "Ouranos appears to be already installed at ${OURANOS_DIR}"
-    fi
+    check_no_installation
 
     # Check requirements and permissions
     log INFO "Checking system requirements..."
