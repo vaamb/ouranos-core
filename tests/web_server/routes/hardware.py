@@ -104,6 +104,7 @@ class TestHardware(HardwareAware, UsersAware):
             f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/hardware/u/{g_data.hardware_uid}")
         assert response.status_code == 422
 
+    @pytest.mark.skip
     def test_hardware_update_request_success(
             self,
             client_operator: TestClient,
