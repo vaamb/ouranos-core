@@ -53,7 +53,7 @@ class Plugin:
         :param routes: FastAPI routes to register.
         :param description: Plugin description for CLI help.
         """
-        self.name: str = name or format_functionality_name(functionality)
+        self.name: str = name or format_functionality_name(functionality).replace("_", "-")
         self.logger: Logger = getLogger(f"ouranos.{self.name}-plugin")
         self._functionality: Type[F] = functionality
         self._instance: F | None = None
