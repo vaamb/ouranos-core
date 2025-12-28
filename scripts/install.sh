@@ -127,15 +127,20 @@ copy_scripts() {
     # Copy scripts from ouranos-core to ouranos/scripts
     cp -r "${OURANOS_DIR}/lib/ouranos-core/scripts/"* "${OURANOS_DIR}/scripts/" ||
         log ERROR "Failed to copy scripts"
+    # Make scripts executable
     chmod +x "${OURANOS_DIR}/scripts/"*.sh
     chmod +x "${OURANOS_DIR}/scripts/utils/"*.sh
+    # Convert scripts to unix format
+    dos2unix "${OURANOS_DIR}/scripts/"*.sh
+    dos2unix "${OURANOS_DIR}/scripts/utils/"*.sh
     # Remove ouranos-core update.sh
     rm "${OURANOS_DIR}/scripts/update.sh"
 }
 
 setup_uv_and_sync() {
     # Generate the master pyproject.toml
-    "${OURANOS_DIR}/lib/ouranos-core/scripts/utils/gen_pyproject.sh" "${OURANOS_DIR}" ||
+    log INFO "Creating the master pyproject.toml"
+    "${OURANOS_DIR}/scripts/utils/gen_pyproject.sh" "${OURANOS_DIR}" ||
         log ERROR "Failed to generate Ouranos pyproject.toml"
 
     # Sync virtual environment
@@ -170,7 +175,7 @@ cleanup() {
 
     if [ ${exit_code} -ne 0 ]; then
         log WARN "Installation failed. Check the log file for details: ${LOG_FILE}"
-        rm -r "${OURANOS_DIR}"
+        yes | rm -r "${OURANOS_DIR}"
     else
         log SUCCESS "Installation completed successfully!"
     fi
