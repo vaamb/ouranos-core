@@ -153,18 +153,22 @@ update_package() {
 
     log INFO "Checking ${package_name}..."
 
-    # Check if the package has an update script and is not ouranos-core (or it will recursively update itself)
-    # For now, make sure ouranos updates entirely via git
-    if [[ -f "${package_dir}/scripts/update.sh" ]]; then
-        # Run the update script
-        log INFO "${package_name} has an update script. Running it..."
-        bash "${package_dir}/scripts/update.sh"
-    elif [[ -d "${package_dir}/.git" ]]; then
-        log INFO "${package_name} is a git repository. Updating it..."
+    # Update the git directory
+    if [[ -d "${package_dir}/.git" ]]; then
         update_git_repo "$package_dir"
     else
-        log WARN "${package_name} has no update script and is not a git repository. Skipping."
+        log WARN "${package_name} is not a git repository. Skipping."
         return 1
+    fi
+
+    # If the package has an update script, run it
+    if [[ -f "${package_dir}/scripts/update.sh" ]]; then
+        if [[ $DRY_RUN == false ]]; then
+            log INFO "${package_name} has an update script. Running it..."
+            source "${package_dir}/scripts/update.sh"
+        else
+            log INFO "[DRY RUN] Would run update script for ${package_name}"
+        fi
     fi
 
     log SUCCESS "${package_name} updated successfully"
