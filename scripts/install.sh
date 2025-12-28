@@ -123,6 +123,7 @@ get_ouranos_core() {
     fi
 }
 
+#>>>Copy>>>
 copy_scripts() {
     # Copy scripts from ouranos-core to ouranos/scripts
     cp -r "${OURANOS_DIR}/lib/ouranos-core/scripts/"* "${OURANOS_DIR}/scripts/" ||
@@ -136,6 +137,7 @@ copy_scripts() {
     # Remove ouranos-core update.sh
     rm "${OURANOS_DIR}/scripts/update.sh"
 }
+#<<<Copy<<<
 
 setup_uv_and_sync() {
     # Generate the master pyproject.toml

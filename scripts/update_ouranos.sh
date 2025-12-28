@@ -217,7 +217,8 @@ update_packages() {
     fi
 }
 
-update_core_scripts() {
+#>>>Copy>>>
+copy_scripts() {
     # Copy scripts from ouranos-core to ouranos/scripts
     cp -r "${OURANOS_DIR}/lib/ouranos-core/scripts/"* "${OURANOS_DIR}/scripts/" ||
         log ERROR "Failed to copy scripts"
@@ -230,6 +231,7 @@ update_core_scripts() {
     # Remove ouranos-core update.sh
     rm "${OURANOS_DIR}/scripts/update.sh"
 }
+#<<<Copy<<<
 
 update_profile() {
     "${OURANOS_DIR}/scripts/gen_profile.sh" "${OURANOS_DIR}" ||
@@ -298,7 +300,7 @@ main () {
 
     if [[ "${DRY_RUN}" == false ]]; then
         log INFO "Making scripts more easily accessible..."
-        update_core_scripts
+        copy_scripts
     else
         log INFO "Dry run: skipping scripts update"
     fi
