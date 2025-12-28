@@ -25,6 +25,11 @@ update_ouranos_core_lib() {
         if ! source "${OURANOS_DIR}/.venv/bin/activate"; then
             log ERROR "Failed to activate Python virtual environment"
         fi
+
+        # Fill the database with the new tables
+        python -m ouranos fill-db
+
+        # Upgrade the database
         alembic upgrade head ||
             log ERROR "Failed to upgrade the database"
         deactivate

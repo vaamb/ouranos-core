@@ -148,6 +148,18 @@ setup_uv_and_sync() {
     # Sync virtual environment
     uv sync --all-packages ||
         log ERROR "Failed to create Python virtual environment and sync it"
+
+
+    source "${OURANOS_DIR}/.venv/bin/activate" ||
+        log ERROR "Failed to activate Python virtual environment"
+
+    # Fill the database
+    python -m ouranos fill-db --no-check-revision
+    # Stamp the database as up to date
+    alembic stamp head
+
+    deactivate ||
+        log ERROR "Failed to deactivate Python virtual environment"
 }
 
 # Update .profile
