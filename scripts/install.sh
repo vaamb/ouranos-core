@@ -3,6 +3,32 @@
 # Exit on error, unset variable, and pipefail
 set -euo pipefail
 
+# Parse command line arguments
+SAFE=true
+
+show_help() {
+    echo "Usage: $0 [options]"
+    echo "Options:"
+    echo "  -u, --unsafe     Install the latest development version"
+    echo "  -h, --help       Show this help message and exit"
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -u|--unsafe)
+            unset SAFE
+            shift
+            ;;
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+        *)
+            log ERROR "Unknown option: $1"
+            ;;
+    esac
+done
+
 # Version requirements
 readonly MIN_PYTHON_VERSION="3.11"
 readonly OURANOS_VERSION="0.10.0"
@@ -117,8 +143,8 @@ get_ouranos_core() {
     # Get Ouranos-core repository
     log INFO "Cloning Ouranos-core repository..."
 
-    if ! git clone --branch "${OURANOS_VERSION}" "${OURANOS_REPO}" \
-            "${OURANOS_DIR}/lib/ouranos-core" > /dev/null 2>&1; then
+    if ! git clone ${SAFE:+--branch "${OURANOS_VERSION}"} "${OURANOS_REPO}" \
+            "${OURANOS_DIR}/lib/ouranos-core"; then
         log ERROR "Failed to clone Ouranos repository"
     fi
 }
