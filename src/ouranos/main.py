@@ -11,6 +11,7 @@ import click
 from ouranos.cli import RootCommand
 from ouranos.core.config import ConfigDict, ConfigHelper
 from ouranos.core.database.init import check_db_revision, create_db_tables
+from ouranos.core.globals import db
 from ouranos.core.plugins_manager import PluginManager
 from ouranos.core.utils import parse_str_value
 from ouranos.sdk import Functionality
@@ -134,6 +135,8 @@ async def _fill_db(check_revision: bool = True):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             ConfigHelper.set_config_and_configure_logging(None)
+    config = ConfigHelper.get_config()
+    db.init(config)
     if check_revision:
         await check_db_revision()
     await create_db_tables()
