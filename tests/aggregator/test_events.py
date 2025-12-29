@@ -569,28 +569,25 @@ class TestInitializationDataExchange(EcosystemAware):
 
         # Verify that the data has been logged
         async with db.scoped_session() as session:
+            input_data = gv.HardwareConfig(**g_data.hardware_data)
             # Test single attributes
             hardware = await Hardware.get(session, uid=g_data.hardware_data["uid"])
-            assert hardware.name == g_data.hardware_data["name"]
-            assert hardware.level.name == g_data.hardware_data["level"]
-            assert hardware.address == g_data.hardware_data["address"]
-            assert hardware.type.name == g_data.hardware_data["type"]
-            assert hardware.model == g_data.hardware_data["model"]
+            assert hardware.name == input_data.name
+            assert hardware.level.name == input_data.level.name
+            assert hardware.address == input_data.address
+            assert hardware.type.name == input_data.type.name
+            assert hardware.model == input_data.model
             # Test measures
-            measures = [f"{measure.name}|{measure.unit}" for measure in hardware.measures]
-            measures.sort()
-            measures_data = copy(g_data.hardware_data["measures"])
-            measures_data.sort()
-            assert measures == measures_data
+            assert (
+                [(m.name, m.unit) for m in sorted(hardware.measures)]
+                == [(m.name, m.unit) for m in sorted(input_data.measures)]
+            )
             # Test groups
-            groups = [g.name for g in hardware.groups]
-            groups.sort()
-            assert "__type__" not in groups
-            groups_data = [*g_data.hardware_data["groups"]]
-            groups_data.sort()
-            if "__type__" in groups_data:
-                groups_data[groups_data.index("__type__")] = hardware.type.name
-            assert groups == groups_data
+            assert (
+                [g.name for g in sorted(hardware.groups)]
+                == sorted(input_data.groups)
+            )
+            assert "__type__" not in input_data.groups
 
         # Test the behavior when receiving hardware data with existing uid
         await events_handler.on_hardware(g_data.engine_sid, [g_data.hardware_payload])
