@@ -133,7 +133,7 @@ create_directories() {
     cd "${OURANOS_DIR}" || log ERROR "Failed to change to directory: ${OURANOS_DIR}"
 
     # Create required directories
-    for dir in logs scripts lib; do
+    for dir in logs scripts lib migrations; do
         mkdir -p "${OURANOS_DIR}/${dir}" ||
             log ERROR "Failed to create directory: ${OURANOS_DIR}/${dir}"
     done
@@ -162,6 +162,11 @@ copy_scripts() {
     dos2unix "${OURANOS_DIR}/scripts/utils/"*.sh
     # Remove ouranos-core update.sh
     rm "${OURANOS_DIR}/scripts/update.sh"
+    # Copy migrations and alembic.ini
+    cp -r "${OURANOS_DIR}/lib/ouranos-core/migrations/"* "${OURANOS_DIR}/migrations/" ||
+        log ERROR "Failed to copy migration scripts"
+    cp -r "${OURANOS_DIR}/lib/ouranos-core/alembic.ini" "${OURANOS_DIR}/" ||
+        log ERROR "Failed to copy alembic.ini"
 }
 #<<<Copy<<<
 
