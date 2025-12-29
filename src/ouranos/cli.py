@@ -26,12 +26,12 @@ class RootCommand(Group):
                 ConfigHelper.set_config_and_configure_logging(config_profile)
 
     def get_command(self, ctx: Context, cmd_name: str) -> Command | None:
+        self._set_config(ctx)
         # If the command is a registered command, return it
         if cmd_name in self.commands:
             return self.commands[cmd_name]
 
         # If the command is a plugin command, return it
-        self._set_config(ctx)
         pm: PluginManager = PluginManager()
         if not pm.plugins:
             pm.register_plugins(omit_excluded=False)  # Allow to launch an omitted plugin

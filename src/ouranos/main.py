@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 from logging import getLogger, Logger
 import os
+import warnings
 
 import click
 
@@ -129,6 +130,10 @@ class Ouranos(Functionality):
 
 
 async def _fill_db(check_revision: bool = True):
+    if not ConfigHelper.config_is_set():
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            ConfigHelper.set_config_and_configure_logging(None)
     if check_revision:
         await check_db_revision()
     await create_db_tables()
