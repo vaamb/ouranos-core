@@ -5,6 +5,7 @@ if [ -z "$LOGGING_FILE" ]; then
   exit 1 # Exit if LOGGING_FILE is not set
 fi
 
+#>>>Logging>>>
 # Constants for log levels
 readonly INFO="INFO"
 readonly WARN="WARN"
@@ -56,3 +57,4 @@ log() {
 }
 
 log INFO "Log file: ${LOGGING_FILE}"
+#<<<Logging<<<

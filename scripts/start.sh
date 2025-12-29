@@ -3,6 +3,12 @@
 # Exit on error, unset variable, and pipefail
 set -euo pipefail
 
+# Check if OURANOS_DIR is set and the directory exists
+if [[ ! -d "${OURANOS_DIR}" ]]; then
+    echo "OURANOS_DIR environment variable is not set or the directory does not exist. Please source your profile or run the installation script first."
+    exit 1
+fi
+
 # Default values
 FOREGROUND=false
 
@@ -20,21 +26,10 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Check if OURANOS_DIR is set
-if [[ -z "${OURANOS_DIR:-}" ]]; then
-    echo "OURANOS_DIR environment variable is not set. Please source your profile or run the install script first."
-    exit 1
-fi
-
 # Load logging functions
 readonly DATETIME=$(date +%Y%m%d_%H%M%S)
 readonly LOG_FILE="/tmp/ouranos_start_${DATETIME}.log"
 source "${OURANOS_DIR}/scripts/utils/logging.sh" "${LOG_FILE}"
-
-# Check if the directory exists
-if [[ ! -d "$OURANOS_DIR" ]]; then
-    log ERROR "Ouranos directory not found at $OURANOS_DIR. Please check your installation."
-fi
 
 # Create logs directory if it doesn't exist
 mkdir -p "${OURANOS_DIR}/logs" || log ERROR "Failed to create logs directory"
@@ -51,13 +46,13 @@ fi
 cd "$OURANOS_DIR" || log ERROR "Failed to change to Ouranos directory: $OURANOS_DIR"
 
 # Check if virtual environment exists
-if [[ ! -d "python_venv" ]]; then
-    log ERROR "Python virtual environment not found. Please run the install script first."
+if [[ ! -d ".venv" ]]; then
+    log ERROR "Python virtual environment not found. Please run the installation script first."
 fi
 
 # Activate virtual environment
 # shellcheck source=/dev/null
-if ! source "python_venv/bin/activate"; then
+if ! source ".venv/bin/activate"; then
     log ERROR "Failed to activate Python virtual environment"
 fi
 
@@ -80,21 +75,21 @@ else
     log INFO "Ouranos started in background mode"
     log INFO "Ouranos stdout and stderr output redirected to ${OURANOS_DIR}/logs/stdout"
 
-    deactivate ||
-            log ERROR "Failed to deactivate virtual environment"
+    deactivate || log ERROR "Failed to deactivate virtual environment"
 
     OURANOS_PID=$!
     echo "$OURANOS_PID" > "${OURANOS_DIR}/ouranos.pid"
+
+    # Verify that Ouranos started successfully
+    sleep 2
+
+    # Check if process is still running
+    if ! kill -0 "$OURANOS_PID" 2>/dev/null; then
+        log ERROR "Failed to start Ouranos. Check the logs at ${LOG_FILE}.
+                   $(tail -n 20 "${LOG_FILE}")"
+    fi
+
+    log SUCCESS "Ouranos started successfully with PID $OURANOS_PID"
+
+    exit 0
 fi
-# Verify that Ouranos started successfully
-sleep 2
-
-# Check if process is still running
-if ! kill -0 "$OURANOS_PID" 2>/dev/null; then
-    log ERROR "Failed to start Ouranos. Check the logs at ${LOG_FILE}.
-               $(tail -n 20 "${LOG_FILE}")"
-fi
-
-log SUCCESS "Ouranos started successfully with PID $OURANOS_PID"
-
-exit 0

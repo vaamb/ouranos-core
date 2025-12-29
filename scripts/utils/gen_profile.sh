@@ -30,7 +30,7 @@ ouranos() {
     status) systemctl status ouranos.service ;;
     logs) tail -f "\${OURANOS_DIR}/logs/ouranos.log" ;;
     stdout) tail -f "\${OURANOS_DIR}/logs/stdout" ;;
-    update) "\${OURANOS_DIR}/scripts/update.sh" ;;
+    update) "\${OURANOS_DIR}/scripts/update_ouranos.sh" ;;
     *) echo "Usage: ouranos {start|stop|restart|status|logs|update}" ;;
   esac
 }
