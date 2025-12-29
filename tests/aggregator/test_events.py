@@ -270,12 +270,13 @@ class TestStartInitializationDataExchange(EngineAware):
 
         # Verify that the data has been logged
         async with db.scoped_session() as session:
+            input_data = gv.BaseInfoConfig(**g_data.base_info)
             ecosystem = await Ecosystem.get(session, uid=g_data.ecosystem_uid)
-            assert ecosystem.engine_uid == g_data.base_info["engine_uid"]
-            assert ecosystem.name == g_data.base_info["name"]
-            assert ecosystem.status == g_data.base_info["status"]
+            assert ecosystem.engine_uid == input_data.engine_uid
+            assert ecosystem.name == input_data.name
+            assert ecosystem.status == input_data.status
 
-        # Test the behavior when receiving base info with existing ecosystem uid
+        # Make sure receiving base info with existing ecosystem uid doesn't screw up
         await events_handler.on_base_info(
             g_data.engine_sid, [g_data.base_info_payload])
 
@@ -375,11 +376,12 @@ class TestInitializationDataExchange(EcosystemAware):
 
         # Verify that the data has been logged
         async with db.scoped_session() as session:
+            input_data = gv.ChaosConfig(**g_data.chaos)
             chaos = await Chaos.get(session, ecosystem_uid=g_data.ecosystem_uid)
             assert chaos.ecosystem_uid == g_data.ecosystem_uid
-            assert chaos.frequency == g_data.chaos["frequency"]
-            assert chaos.intensity == g_data.chaos["intensity"]
-            assert chaos.duration == g_data.chaos["duration"]
+            assert chaos.frequency == input_data.frequency
+            assert chaos.intensity == input_data.intensity
+            assert chaos.duration == input_data.duration
             assert chaos.beginning is None
             assert chaos.end is None
 
@@ -429,13 +431,14 @@ class TestInitializationDataExchange(EcosystemAware):
 
         # Verify that the data has been logged
         async with db.scoped_session() as session:
+            input_data = gv.NycthemeralCycleConfig(**g_data.sky)
             lighting = await NycthemeralCycle.get(session, ecosystem_uid=g_data.ecosystem_uid)
             assert lighting.ecosystem_uid == g_data.ecosystem_uid
-            assert lighting.span == g_data.sky["span"]
-            assert lighting.lighting == g_data.sky["lighting"]
+            assert lighting.span == input_data.span
+            assert lighting.lighting == input_data.lighting
             assert lighting.target is None
-            assert lighting.day == g_data.sky["day"]
-            assert lighting.night == g_data.sky["night"]
+            assert lighting.day == input_data.day
+            assert lighting.night == input_data.night
 
         # Test the behavior when receiving nycthemeral info with existing ecosystem uid
         await events_handler.on_nycthemeral_info(
@@ -475,17 +478,18 @@ class TestInitializationDataExchange(EcosystemAware):
 
         # Verify that the data has been logged
         async with db.scoped_session() as session:
+            input_data = gv.ClimateConfig(**g_data.climate)
             environment_parameter = await EnvironmentParameter.get(
                 session, ecosystem_uid=g_data.ecosystem_uid, parameter=g_data.climate["parameter"])
-            assert environment_parameter.day == g_data.climate["day"]
-            assert environment_parameter.night == g_data.climate["night"]
-            assert environment_parameter.hysteresis == g_data.climate["hysteresis"]
+            assert environment_parameter.day == input_data.day
+            assert environment_parameter.night == input_data.night
+            assert environment_parameter.hysteresis == input_data.hysteresis
             assert environment_parameter.linked_actuator_group_increase.name == \
-                   g_data.climate["linked_actuators"]["increase"]
+                   input_data.linked_actuators.increase
             assert environment_parameter.linked_actuator_group_decrease.name == \
-                   g_data.climate["linked_actuators"]["decrease"]
+                   input_data.linked_actuators.decrease
             assert environment_parameter.linked_measure.name == \
-                   g_data.climate["linked_measure"]
+                   input_data.linked_measure
 
         # Test the behavior when receiving climate data with existing ecosystem uid and parameter
         await events_handler.on_climate(
@@ -525,12 +529,13 @@ class TestInitializationDataExchange(EcosystemAware):
 
         # Verify that the data has been logged
         async with db.scoped_session() as session:
+            input_data = gv.WeatherConfig(**g_data.weather)
             weather = await WeatherEvent.get(
                 session, ecosystem_uid=g_data.ecosystem_uid, parameter=g_data.weather["parameter"])
-            assert weather.pattern == g_data.weather["pattern"]
-            assert weather.duration == g_data.weather["duration"]
-            assert weather.level == g_data.weather["level"]
-            assert weather.linked_actuator == g_data.weather["linked_actuator"]
+            assert weather.pattern == input_data.pattern
+            assert weather.duration == input_data.duration
+            assert weather.level == input_data.level
+            assert weather.linked_actuator == input_data.linked_actuator
 
         # Test the behavior when receiving weather data with existing ecosystem uid and parameter
         await events_handler.on_weather(g_data.engine_sid, [g_data.weather_payload])
@@ -569,28 +574,25 @@ class TestInitializationDataExchange(EcosystemAware):
 
         # Verify that the data has been logged
         async with db.scoped_session() as session:
+            input_data = gv.HardwareConfig(**g_data.hardware_data)
             # Test single attributes
             hardware = await Hardware.get(session, uid=g_data.hardware_data["uid"])
-            assert hardware.name == g_data.hardware_data["name"]
-            assert hardware.level.name == g_data.hardware_data["level"]
-            assert hardware.address == g_data.hardware_data["address"]
-            assert hardware.type.name == g_data.hardware_data["type"]
-            assert hardware.model == g_data.hardware_data["model"]
+            assert hardware.name == input_data.name
+            assert hardware.level.name == input_data.level.name
+            assert hardware.address == input_data.address
+            assert hardware.type.name == input_data.type.name
+            assert hardware.model == input_data.model
             # Test measures
-            measures = [f"{measure.name}|{measure.unit}" for measure in hardware.measures]
-            measures.sort()
-            measures_data = copy(g_data.hardware_data["measures"])
-            measures_data.sort()
-            assert measures == measures_data
+            assert (
+                [(m.name, m.unit) for m in sorted(hardware.measures)]
+                == [(m.name, m.unit) for m in sorted(input_data.measures)]
+            )
             # Test groups
-            groups = [g.name for g in hardware.groups]
-            groups.sort()
-            assert "__type__" not in groups
-            groups_data = [*g_data.hardware_data["groups"]]
-            groups_data.sort()
-            if "__type__" in groups_data:
-                groups_data[groups_data.index("__type__")] = hardware.type.name
-            assert groups == groups_data
+            assert (
+                [g.name for g in sorted(hardware.groups)]
+                == sorted(input_data.groups)
+            )
+            assert "__type__" not in input_data.groups
 
         # Test the behavior when receiving hardware data with existing uid
         await events_handler.on_hardware(g_data.engine_sid, [g_data.hardware_payload])
@@ -648,10 +650,11 @@ class TestInitializationDataExchange(EcosystemAware):
 
         # Verify that the data has been logged
         async with db.scoped_session() as session:
+            input_data = gv.PlantConfig(**g_data.plant_data)
             plant = await Plant.get(session, uid=g_data.plant_data["uid"])
-            assert plant.name == g_data.plant_data["name"]
-            assert plant.species == g_data.plant_data["species"]
-            assert plant.sowing_date == g_data.plant_data["sowing_date"]
+            assert plant.name == input_data.name
+            assert plant.species == input_data.species
+            assert plant.sowing_date == input_data.sowing_date
             assert plant.hardware[0].uid == g_data.hardware_data["uid"]
 
         # Test the behavior when receiving plant data with existing uid
@@ -697,14 +700,14 @@ class TestInitializationDataExchange(EcosystemAware):
 
         # Verify that the data has been logged
         async with db.scoped_session() as session:
+            input_data = g_data.light_state
             logged_light_state = (
                 await ActuatorState.get(
-                    session, ecosystem_uid=g_data.ecosystem_uid, type=gv.HardwareType.light)
-            )
-            assert logged_light_state.type == gv.HardwareType.light
-            assert logged_light_state.active == g_data.light_state.active
-            assert logged_light_state.mode == g_data.light_state.mode
-            assert logged_light_state.status == g_data.light_state.status
+                    session, ecosystem_uid=g_data.ecosystem_uid, type=gv.HardwareType.light))
+            assert logged_light_state.type == input_data.type
+            assert logged_light_state.active == input_data.active
+            assert logged_light_state.mode == input_data.mode
+            assert logged_light_state.status == input_data.status
 
         # Test the behavior when receiving actuator data with existing uid
         await events_handler.on_actuators_data(g_data.engine_sid, [g_data.actuator_state_payload])
@@ -842,6 +845,7 @@ class TestEcosystemBackground(HardwareAware):
         await events_handler.log_sensors_data()
 
         async with db.scoped_session() as session:
+            input_data = g_data.sensor_record
             sensor_data = (
                 await SensorDataRecord.get_records(
                     session,
@@ -854,19 +858,20 @@ class TestEcosystemBackground(HardwareAware):
                 )
             )[0]
             assert sensor_data.ecosystem_uid == g_data.sensors_data_payload["uid"]
-            assert sensor_data.sensor_uid == g_data.sensor_record.sensor_uid
-            assert sensor_data.measure == g_data.sensor_record.measure
-            assert sensor_data.value == g_data.sensor_record.value
+            assert sensor_data.sensor_uid == input_data.sensor_uid
+            assert sensor_data.measure == input_data.measure
+            assert sensor_data.value == input_data.value
             assert sensor_data.timestamp == g_data.sensors_data["timestamp"]
 
+            input_data = g_data.alarm_record
             alarm_data = await SensorAlarm.get_recent(
                 session, sensor_uid=g_data.hardware_uid, measure=g_data.measure_name)
             assert alarm_data.ecosystem_uid == g_data.sensors_data_payload["uid"]
-            assert alarm_data.sensor_uid == g_data.alarm_record.sensor_uid
-            assert alarm_data.measure == g_data.alarm_record.measure
-            assert alarm_data.position == g_data.alarm_record.position
-            assert alarm_data.delta == g_data.alarm_record.delta
-            assert alarm_data.level == g_data.alarm_record.level
+            assert alarm_data.sensor_uid == input_data.sensor_uid
+            assert alarm_data.measure == input_data.measure
+            assert alarm_data.position == input_data.position
+            assert alarm_data.delta == input_data.delta
+            assert alarm_data.level == input_data.level
             assert alarm_data.timestamp_from == g_data.sensors_data["timestamp"]
             assert alarm_data.timestamp_to == g_data.sensors_data["timestamp"]
 
@@ -892,14 +897,15 @@ class TestEcosystemBackground(HardwareAware):
             g_data.engine_sid, [g_data.health_data_payload])
 
         async with db.scoped_session() as session:
+            input_data = g_data.health_record
             health_record = await SensorDataRecord.get(
                 session, ecosystem_uid=g_data.ecosystem_uid,
                 sensor_uid=g_data.health_record.sensor_uid)
             assert health_record.ecosystem_uid == g_data.health_data_payload["uid"]
-            assert health_record.sensor_uid == g_data.health_record.sensor_uid
-            assert health_record.measure == g_data.health_record.measure
-            assert health_record.timestamp == g_data.health_record.timestamp
-            assert health_record.value == g_data.health_record.value
+            assert health_record.sensor_uid == input_data.sensor_uid
+            assert health_record.measure == input_data.measure
+            assert health_record.timestamp == input_data.timestamp
+            assert health_record.value == input_data.value
 
         wrong_payload = {}
         with pytest.raises(Exception):
@@ -922,11 +928,12 @@ class TestEcosystemBackground(HardwareAware):
         await events_handler.on_light_data(g_data.engine_sid, [g_data.light_data_payload])
 
         async with db.scoped_session() as session:
+            input_data = gv.LightData(**g_data.light_data)
             light = await NycthemeralCycle.get(session, ecosystem_uid=g_data.ecosystem_uid)
-            assert light.morning_start == g_data.light_data["morning_start"]
-            assert light.morning_end == g_data.light_data["morning_end"]
-            assert light.evening_start == g_data.light_data["evening_start"]
-            assert light.evening_end == g_data.light_data["evening_end"]
+            assert light.morning_start == input_data.morning_start
+            assert light.morning_end == input_data.morning_end
+            assert light.evening_start == input_data.evening_start
+            assert light.evening_end == input_data.evening_end
 
         wrong_payload = {}
         with pytest.raises(Exception):
@@ -1118,6 +1125,7 @@ class TestBufferedDataExchange(HardwareAware):
         assert result["status"] == gv.Result.success
 
         async with db.scoped_session() as session:
+            input_data = g_data.buffered_data_temperature
             temperature_data = await SensorDataRecord.get_records(
                 session,
                 sensor_uid=g_data.hardware_uid,
@@ -1128,12 +1136,11 @@ class TestBufferedDataExchange(HardwareAware):
             assert len(temperature_data) == 1
             temperature_data = temperature_data[0]
 
-            assert temperature_data.ecosystem_uid == \
-                   g_data.buffered_data_temperature.ecosystem_uid
-            assert temperature_data.sensor_uid == g_data.buffered_data_temperature.sensor_uid
-            assert temperature_data.measure == g_data.buffered_data_temperature.measure
-            assert temperature_data.value == g_data.buffered_data_temperature.value
-            assert temperature_data.timestamp == g_data.buffered_data_temperature.timestamp
+            assert temperature_data.ecosystem_uid == input_data.ecosystem_uid
+            assert temperature_data.sensor_uid == input_data.sensor_uid
+            assert temperature_data.measure == input_data.measure
+            assert temperature_data.value == input_data.value
+            assert temperature_data.timestamp == input_data.timestamp
 
         # Test duplicate data handling
         await events_handler.on_buffered_sensors_data(

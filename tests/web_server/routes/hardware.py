@@ -68,24 +68,20 @@ class TestHardware(HardwareAware, UsersAware):
         assert response.status_code == 200
 
         data = json.loads(response.text)
-        assert data["uid"] == g_data.hardware_data["uid"]
-        assert data["name"] == g_data.hardware_data["name"]
-        assert data["address"] == g_data.hardware_data["address"]
-        assert data["type"] == g_data.hardware_data["type"]
-        assert data["level"] == g_data.hardware_data["level"]
-        assert data["model"] == g_data.hardware_data["model"]
-        assert data["measures"][0] == {
-            "name": "temperature",
-            "unit": "°C"
-        }
+        input_data = gv.HardwareConfig(**g_data.hardware_data)
+        assert data["uid"] == input_data.uid
+        assert data["name"] == input_data.name
+        assert data["address"] == input_data.address
+        assert data["type"] == input_data.type.name
+        assert data["level"] == input_data.level
+        assert data["model"] == input_data.model
+        # Test measures
+        assert sorted(data["measures"]) == \
+               sorted({"name": m.name, "unit": m.unit} for m in input_data.measures)
         # Test groups
-        data["groups"].sort()
+        assert sorted(data["groups"]) == sorted(input_data.groups)
         assert "__type__" not in data["groups"]
-        groups_data = [*g_data.hardware_data["groups"]]
-        groups_data.sort()
-        if "__type__" in groups_data:
-            groups_data[groups_data.index("__type__")] = g_data.hardware_data["type"]
-        assert data["groups"] == groups_data
+
         # TODO: re enable by linking Hardware to Plant
         #assert data["plants"] == g_data.hardware_data["plants"]
 
