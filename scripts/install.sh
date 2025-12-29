@@ -133,7 +133,7 @@ create_directories() {
     cd "${OURANOS_DIR}" || log ERROR "Failed to change to directory: ${OURANOS_DIR}"
 
     # Create required directories
-    for dir in logs scripts lib; do
+    for dir in logs scripts lib migrations; do
         mkdir -p "${OURANOS_DIR}/${dir}" ||
             log ERROR "Failed to create directory: ${OURANOS_DIR}/${dir}"
     done
@@ -162,6 +162,11 @@ copy_scripts() {
     dos2unix "${OURANOS_DIR}/scripts/utils/"*.sh
     # Remove ouranos-core update.sh
     rm "${OURANOS_DIR}/scripts/update.sh"
+    # Copy migrations and alembic.ini
+    cp -r "${OURANOS_DIR}/lib/ouranos-core/migrations/"* "${OURANOS_DIR}/migrations/" ||
+        log ERROR "Failed to copy migration scripts"
+    cp -r "${OURANOS_DIR}/lib/ouranos-core/alembic.ini" "${OURANOS_DIR}/" ||
+        log ERROR "Failed to copy alembic.ini"
 }
 #<<<Copy<<<
 
@@ -177,11 +182,6 @@ setup_uv_and_sync() {
 
     source "${OURANOS_DIR}/.venv/bin/activate" ||
         log ERROR "Failed to activate Python virtual environment"
-
-    # Fill the database
-    python -m ouranos fill-db --no-check-revision
-    # Stamp the database as up to date
-    alembic stamp head
 
     deactivate ||
         log ERROR "Failed to deactivate Python virtual environment"
@@ -265,8 +265,11 @@ main() {
 
     echo -e "\n${GREEN}✔ Installation completed successfully!${NC}"
     echo -e "\n${YELLOW}Next steps:${NC}"
-    echo -e "1. Source your profile: ${YELLOW}source ~/.profile${NC}"
-    echo -e "2. Start Ouranos: ${YELLOW}ouranos start${NC}"
+    echo -e "- Source your profile: ${YELLOW}source ~/.profile${NC}"
+    echo -e "(-) Configure Ouranos"
+    echo -e "- Fill the database with ${YELLOW}python -m ouranos fill-db --no-check-revision${NC}"
+    echo -e "- Stamp the database as up to date with ${YELLOW}alembic stamp head${NC}"
+    echo -e "- Start Ouranos: ${YELLOW}ouranos start${NC}"
     echo -e "\n${YELLOW}Other useful commands:${NC}"
     echo -e "  ouranos stop     # Stop the service"
     echo -e "  ouranos restart  # Restart the service"

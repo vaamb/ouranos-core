@@ -239,6 +239,11 @@ copy_scripts() {
     dos2unix "${OURANOS_DIR}/scripts/utils/"*.sh
     # Remove ouranos-core update.sh
     rm "${OURANOS_DIR}/scripts/update.sh"
+    # Copy migrations and alembic.ini
+    cp -r "${OURANOS_DIR}/lib/ouranos-core/migrations/"* "${OURANOS_DIR}/migrations/" ||
+        log ERROR "Failed to copy migration scripts"
+    cp -r "${OURANOS_DIR}/lib/ouranos-core/alembic.ini" "${OURANOS_DIR}/" ||
+        log ERROR "Failed to copy alembic.ini"
 }
 #<<<Copy<<<
 
