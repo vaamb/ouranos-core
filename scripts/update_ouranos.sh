@@ -3,24 +3,18 @@
 # Exit on error, unset variable, and pipefail
 set -euo pipefail
 
-# Load logging functions
-readonly DATETIME=$(date +%Y%m%d_%H%M%S)
-readonly LOG_FILE="/tmp/ouranos_update_${DATETIME}.log"
-source "${OURANOS_DIR}/scripts/utils/logging.sh" "${LOG_FILE}"
-
-readonly BACKUP_DIR="/tmp/ouranos_backup_${DATETIME}"
-
-# Constants
+# Parse command line arguments
 DRY_RUN=false
 FORCE_UPDATE=false
+SAFE=true
 UPDATE_ALL=true
 
-# Function to display help
 show_help() {
     echo "Usage: $0 [options]"
     echo "Options:"
     echo "  -d, --dry-run    Show what would be updated without making changes"
     echo "  -f, --force      Force update even if already at the latest version"
+    echo "  -u, --unsafe     Install the latest development version"
     echo "  -c, --core       Update the core package only"
     echo "  -h, --help       Show this help message and exit"
 }
@@ -37,6 +31,10 @@ while [[ $# -gt 0 ]]; do
             FORCE_UPDATE=true
             shift
             ;;
+        -u|--unsafe)
+            unset SAFE
+            shift
+            ;;
         -c|--core)
             UPDATE_ALL=false
             shift
@@ -50,6 +48,13 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# Load logging functions
+readonly DATETIME=$(date +%Y%m%d_%H%M%S)
+readonly LOG_FILE="/tmp/ouranos_update_${DATETIME}.log"
+source "${OURANOS_DIR}/scripts/utils/logging.sh" "${LOG_FILE}"
+
+readonly BACKUP_DIR="/tmp/ouranos_backup_${DATETIME}"
 
 check_requirements() {
     # Check if uv is installed
@@ -106,8 +111,8 @@ update_git_repo() {
     log "Current version: $current_tag"
     log "Latest version:  $latest_tag"
 
-    if [[ "$current_tag" == "$latest_tag" && "$FORCE_UPDATE" == false ]]; then
-        log INFO "$repo_name is already at the latest version. Use -f to force update."
+    if [[ "$current_tag" == "$latest_tag" && "$FORCE_UPDATE" == false && -z "$SAFE" ]]; then
+        log INFO "$repo_name is already at the latest version. Use -f to force update or -u to install the latest development version."
         return 0
     fi
 
@@ -118,7 +123,7 @@ update_git_repo() {
 
     # Checkout the latest tag
     log INFO "Updating $repo_name to $latest_tag..."
-    git checkout "$latest_tag"
+    git checkout ${SAFE:+"$latest_tag"}
 
     # Return to the original branch if not on a detached HEAD
     if [[ "$current_branch" != "HEAD" ]]; then
