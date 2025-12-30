@@ -37,9 +37,6 @@ update_ouranos_core_lib() {
 }
 
 main() {
-    # All the backup and cleanup logics are taken care by ouranos scripts
-    check_requirements
-
     # Check if ouranos-core exists
     log INFO "Checking if Ouranos core is installed..."
     check_ouranos_core_lib
