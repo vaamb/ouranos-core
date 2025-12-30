@@ -216,6 +216,7 @@ update_packages() {
         cd "$OURANOS_DIR"
         uv lock --upgrade ||
             log ERROR "Failed to update uv lock"
+        # use --inexact to keep packages not defined in pyproject.toml such as the DB drivers
         uv sync --all-packages --inexact ||
             log ERROR "Failed to update Python virtual environment"
     fi
