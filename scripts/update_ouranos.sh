@@ -214,8 +214,8 @@ update_packages() {
     # Update uv lock and packages
     if [[ "${DRY_RUN}" == false ]]; then
         cd "$OURANOS_DIR"
-        #uv lock --upgrade ||
-        #    log ERROR "Failed to update uv lock"
+        uv lock --upgrade ||
+            log ERROR "Failed to update uv lock"
         uv sync --all-packages --inexact ||
             log ERROR "Failed to update Python virtual environment"
     fi
