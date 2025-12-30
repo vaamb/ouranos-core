@@ -50,32 +50,23 @@ if [[ ! -d ".venv" ]]; then
     log ERROR "Python virtual environment not found. Please run the installation script first."
 fi
 
-# Activate virtual environment
-# shellcheck source=/dev/null
-if ! source ".venv/bin/activate"; then
-    log ERROR "Failed to activate Python virtual environment"
-fi
-
 # Start Ouranos
 log INFO "Starting Ouranos..."
 
 if [ "$FOREGROUND" = true ]; then
     log INFO "Running in foreground mode (logs will be shown in terminal)"
     # Run Ouranos in the foreground
-    python3 -m ouranos
+    uv run python -m ouranos
     EXIT_CODE=$?
 
     # Clean up and exit with the same code as Ouranos
-    deactivate || log WARN "Failed to deactivate virtual environment"
     log INFO "Ouranos process exited with code $EXIT_CODE"
     exit $EXIT_CODE
 else
     # Run Ouranos in the background and log the PID
-    nohup python3 -m ouranos > "${OURANOS_DIR}/logs/stdout" 2>&1 &
+    nohup uv run python -m ouranos > "${OURANOS_DIR}/logs/stdout" 2>&1 &
     log INFO "Ouranos started in background mode"
     log INFO "Ouranos stdout and stderr output redirected to ${OURANOS_DIR}/logs/stdout"
-
-    deactivate || log ERROR "Failed to deactivate virtual environment"
 
     OURANOS_PID=$!
     echo "$OURANOS_PID" > "${OURANOS_DIR}/ouranos.pid"
