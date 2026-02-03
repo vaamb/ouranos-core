@@ -103,7 +103,7 @@ class TestPlugin:
         """
         dummy_plugin.setup_config(config)
         manager_dict = {}
-        dummy_plugin.kwargs = {"manager_dict": manager_dict}
+        dummy_plugin.update_kwargs({"manager_dict": manager_dict})
 
         await dummy_plugin.startup()
         assert dummy_plugin.instance
@@ -140,7 +140,7 @@ class TestPlugin:
 
         with Manager() as manager:
             manager_dict = manager.dict()
-            dummy_plugin.kwargs = {"manager_dict": manager_dict}
+            dummy_plugin.update_kwargs({"manager_dict": manager_dict})
 
             await dummy_plugin.startup()
             assert dummy_plugin.has_subprocesses()

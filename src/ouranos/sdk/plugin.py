@@ -105,7 +105,11 @@ class Plugin:
 
     @kwargs.setter
     def kwargs(self, value: dict):
-        """Update the initialization kwargs."""
+        """Set the initialization kwargs."""
+        self._kwargs = value
+
+    def update_kwargs(self, value: dict) -> None:
+        """Merge additional kwargs into the existing initialization kwargs."""
         self._kwargs.update(value)
 
     def setup_config(
