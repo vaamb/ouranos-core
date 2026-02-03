@@ -23,7 +23,7 @@ if t.TYPE_CHECKING:
 
 
 F = TypeVar("F", bound=Functionality)
-C = TypeVar("C", bound=[Command | Group])
+C = TypeVar("C", bound=Command | Group)
 
 multiprocessing.allow_connection_pickling()
 spawn: SpawnContext = multiprocessing.get_context("spawn")
@@ -53,6 +53,8 @@ class Plugin:
         :param routes: FastAPI routes to register.
         :param description: Plugin description for CLI help.
         """
+        if functionality is None and name is None:
+            raise ValueError("Either 'functionality' or 'name' must be provided")
         self.name: str = name or format_functionality_name(functionality).replace("_", "-")
         self.logger: Logger = getLogger(f"ouranos.{self.name}-plugin")
         self._functionality: Type[F] = functionality
@@ -247,6 +249,7 @@ class Plugin:
         except Exception as e:
             if self.config["DEVELOPMENT"] or self.config["DEBUG"] or self.config["TESTING"]:
                 raise e
+            self.logger.critical(f"Fatal error in {self.name}. {self._fmt_exc(e)}")
 
     async def _run_as_standalone(self) -> None:
         """Internal async method for standalone execution."""
@@ -254,7 +257,7 @@ class Plugin:
         if not self.config["DEBUG"]:
             import sys
 
-            def exception_handler(exception_type, exception, traceback):
+            def exception_handler(exception_type, exception, _traceback):
                 print(f"{exception_type.__name__}: {exception}")
 
             sys.excepthook = exception_handler
@@ -303,7 +306,12 @@ class Plugin:
             config_override_str = config_override
             config_override = {}
             for overridden in config_override_str:
-                key, value = overridden.split("=")
+                if "=" not in overridden:
+                    raise click.BadParameter(
+                        f"Invalid format '{overridden}'. Expected key=value",
+                        param_hint="'--config-override'",
+                    )
+                key, value = overridden.split("=", 1)
                 config_override[key] = parse_str_value(value)
 
             self.setup_config(config_profile, config_override)
