@@ -178,15 +178,27 @@ class Plugin:
         self._instance = self._functionality(**self._kwargs)
 
         if workers > 0:
-            for worker in range(workers):
-                process_name = f"{self.functionality.__name__}-{worker}"
-                process = spawn.Process(
-                    target=self._run_in_subprocess,
-                    daemon=True,
-                    name=process_name,
-                )
-                process.start()
-                self._subprocesses.append(process)
+            try:
+                for worker in range(workers):
+                    process_name = f"{self.functionality.__name__}-{worker}"
+                    process = spawn.Process(
+                        target=self._run_in_subprocess,
+                        daemon=True,
+                        name=process_name,
+                    )
+                    process.start()
+                    self._subprocesses.append(process)
+            except Exception:
+                # Clean up any already-started subprocesses on failure
+                for process in self._subprocesses:
+                    if process.is_alive():
+                        process.terminate()
+                        process.join(timeout=1.0)
+                        if process.is_alive():
+                            process.kill()
+                            process.join()
+                self._subprocesses.clear()
+                raise
         else:
             assert not self._subprocesses
             await self._instance.complete_startup()
