@@ -44,7 +44,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 check_no_installation() {
-    if [ -d "${OURANOS_DIR}" ]; then
+    if [[ -d "${OURANOS_DIR}" ]]; then
         die "Ouranos appears to be already installed at ${OURANOS_DIR}"
     fi
 }
@@ -58,15 +58,23 @@ check_requirements() {
         command -v "$1" >/dev/null 2>&1
     }
 
+    # Map of command -> package name
+    declare -A cmd_to_pkg=(
+        [git]=git
+        [python3]=python3
+        [systemctl]=systemd
+        [uv]=uv
+    )
+
     # Check for required commands
-    for cmd in git python3 systemctl uv; do
+    for cmd in "${!cmd_to_pkg[@]}"; do
         if ! command_exists "${cmd}"; then
-            missing_deps+=("${cmd}")
+            missing_deps+=("${cmd_to_pkg[$cmd]}")
         fi
     done
 
-    if [ ${#missing_deps[@]} -gt 0 ]; then
-        log WARN "Missing required dependencies: ${missing_deps[*]}"
+    if [[ ${#missing_deps[@]} -gt 0 ]]; then
+        log WARN "Missing required packages: ${missing_deps[*]}"
     fi
 
     # Check Python version
@@ -163,13 +171,13 @@ cleanup() {
 
     if [[ "${exit_code}" -ne 0 ]]; then
         log WARN "Installation failed. Check the log file for details: ${LOG_FILE}"
+        log WARN "Partial installation may remain at ${OURANOS_DIR}. Remove it manually before retrying."
     else
         log SUCCESS "Installation completed successfully!"
     fi
 
     # Reset terminal colors
-    echo -en "${NC}"
-    exit ${exit_code}
+    echo -e "${NC}"
 }
 
 main() {
@@ -227,11 +235,8 @@ main() {
     echo -e "  sudo systemctl start ouranos.service"
     echo -e "  sudo systemctl enable ouranos.service  # Start on boot"
     echo -e "\n${YELLOW}For troubleshooting, check the log file:${NC} ${LOG_FILE}"
-
-    exit 0
 }
 
-if [ "${BASH_SOURCE[0]}" -ef "$0" ]
-then
+if [[ "${BASH_SOURCE[0]}" -ef "$0" ]]; then
     main "$@"
 fi
