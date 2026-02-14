@@ -3,6 +3,13 @@
 # Exit on error, unset variable, and pipefail
 set -euo pipefail
 
+# Load logging functions
+readonly DATETIME=$(date +%Y%m%d_%H%M%S)
+readonly LOG_FILE="/tmp/ouranos_update_${DATETIME}.log"
+. "${OURANOS_DIR}/scripts/utils/logging.sh"
+
+readonly BACKUP_DIR="/tmp/ouranos_backup_${DATETIME}"
+
 # Parse command line arguments
 DRY_RUN=false
 FORCE_UPDATE=false
@@ -44,36 +51,30 @@ while [[ $# -gt 0 ]]; do
             exit 0
             ;;
         *)
-            log ERROR "Unknown option: $1"
+            die "Unknown option: $1"
             ;;
     esac
 done
 
-# Load logging functions
-readonly DATETIME=$(date +%Y%m%d_%H%M%S)
-readonly LOG_FILE="/tmp/ouranos_update_${DATETIME}.log"
-source "${OURANOS_DIR}/scripts/utils/logging.sh" "${LOG_FILE}"
-
-readonly BACKUP_DIR="/tmp/ouranos_backup_${DATETIME}"
-
 check_requirements() {
     # Check if uv is installed
     if ! command -v uv &> /dev/null; then
-        log ERROR "uv is not installed. Please install it first."
+        die "uv is not installed. Please install it first."
     fi
 
     # Check if OURANOS_DIR is set and the directory exists
     if [[ ! -d "${OURANOS_DIR}" ]]; then
-        log ERROR "OURANOS_DIR environment variable is not set or the directory does not exist. Please source your profile or run the installation script first."
+        die "OURANOS_DIR environment variable is not set or the directory does not exist. Please source your profile or run the installation script first."
     fi
 
-    cd "$OURANOS_DIR" || log ERROR "Failed to change to Ouranos directory: $OURANOS_DIR"
+    cd "$OURANOS_DIR" ||
+        die "Failed to change to Ouranos directory: $OURANOS_DIR"
 }
 
 create_backup() {
     # Create backup directory
     cp -r "$OURANOS_DIR" "$BACKUP_DIR" ||
-        log ERROR "Failed to create backup directory: $BACKUP_DIR"
+        die "Failed to create backup directory: $BACKUP_DIR"
 }
 
 update_git_repo() {
@@ -184,7 +185,7 @@ update_packages() {
         # Activate virtual environment
         # shellcheck source=/dev/null
         if ! source ".venv/bin/activate"; then
-            log ERROR "Failed to activate Python virtual environment"
+            die "Failed to activate Python virtual environment"
         fi
     fi
 
@@ -208,17 +209,17 @@ update_packages() {
     # Update pyproject.toml
     if [[ "${DRY_RUN}" == false ]]; then
         "${OURANOS_DIR}/lib/ouranos-core/scripts/utils/gen_pyproject.sh" "${OURANOS_DIR}" ||
-            log ERROR "Failed to update pyproject.toml"
+            die "Failed to update pyproject.toml"
     fi
 
     # Update uv lock and packages
     if [[ "${DRY_RUN}" == false ]]; then
         cd "$OURANOS_DIR"
         uv lock --upgrade ||
-            log ERROR "Failed to update uv lock"
+            die "Failed to update uv lock"
         # use --inexact to keep packages not defined in pyproject.toml such as the DB drivers
         uv sync --all-packages --inexact ||
-            log ERROR "Failed to update Python virtual environment"
+            die "Failed to update Python virtual environment"
     fi
 
     if [[ "${DRY_RUN}" == false ]]; then
@@ -231,7 +232,7 @@ update_packages() {
 copy_scripts() {
     # Copy scripts from ouranos-core to ouranos/scripts
     cp -r "${OURANOS_DIR}/lib/ouranos-core/scripts/"* "${OURANOS_DIR}/scripts/" ||
-        log ERROR "Failed to copy scripts"
+        die "Failed to copy scripts"
     # Make scripts executable
     chmod +x "${OURANOS_DIR}/scripts/"*.sh
     chmod +x "${OURANOS_DIR}/scripts/utils/"*.sh
@@ -242,22 +243,22 @@ copy_scripts() {
     rm "${OURANOS_DIR}/scripts/update.sh"
     # Copy migrations and alembic.ini
     cp -r "${OURANOS_DIR}/lib/ouranos-core/migrations/"* "${OURANOS_DIR}/migrations/" ||
-        log ERROR "Failed to copy migration scripts"
+        die "Failed to copy migration scripts"
     cp -r "${OURANOS_DIR}/lib/ouranos-core/alembic.ini" "${OURANOS_DIR}/" ||
-        log ERROR "Failed to copy alembic.ini"
+        die "Failed to copy alembic.ini"
 }
 #<<<Copy<<<
 
 update_profile() {
     "${OURANOS_DIR}/scripts/gen_profile.sh" "${OURANOS_DIR}" ||
-        log ERROR "Failed to update shell profile"
+        log WARN "Failed to update shell profile"
 }
 
 update_service() {
     local service_file="${OURANOS_DIR}/scripts/ouranos.service"
 
     "${OURANOS_DIR}/scripts/gen_service.sh" "${OURANOS_DIR}" "${service_file}" ||
-        log ERROR "Failed to generate systemd service"
+        log WARN "Failed to generate systemd service"
 
     # Update service
     if ! sudo cp "${service_file}" "/etc/systemd/system/ouranos.service"; then

@@ -9,6 +9,12 @@ if [[ ! -d "${OURANOS_DIR}" ]]; then
     exit 1
 fi
 
+# Load logging functions
+readonly DATETIME=$(date +%Y%m%d_%H%M%S)
+rm -f /tmp/ouranos_start_*.log
+readonly LOG_FILE="/tmp/ouranos_start_${DATETIME}.log"
+. "${OURANOS_DIR}/scripts/utils/logging.sh"
+
 # Default values
 FOREGROUND=false
 
@@ -20,19 +26,14 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         *)
-            log ERROR "Unknown parameter: $1"
-            exit 1
+            die "Unknown parameter: $1"
             ;;
     esac
 done
 
-# Load logging functions
-readonly DATETIME=$(date +%Y%m%d_%H%M%S)
-readonly LOG_FILE="/tmp/ouranos_start_${DATETIME}.log"
-source "${OURANOS_DIR}/scripts/utils/logging.sh" "${LOG_FILE}"
-
 # Create logs directory if it doesn't exist
-mkdir -p "${OURANOS_DIR}/logs" || log ERROR "Failed to create logs directory"
+mkdir -p "${OURANOS_DIR}/logs" ||
+    die "Failed to create logs directory"
 
 # Check if already running
 if pgrep -x "ouranos" > /dev/null; then
@@ -43,11 +44,12 @@ if pgrep -x "ouranos" > /dev/null; then
 fi
 
 # Change to Ouranos directory
-cd "$OURANOS_DIR" || log ERROR "Failed to change to Ouranos directory: $OURANOS_DIR"
+cd "$OURANOS_DIR" ||
+    die "Failed to change to Ouranos directory: $OURANOS_DIR"
 
 # Check if virtual environment exists
 if [[ ! -d ".venv" ]]; then
-    log ERROR "Python virtual environment not found. Please run the installation script first."
+    die "Python virtual environment not found. Please run the installation script first."
 fi
 
 # Start Ouranos
@@ -76,8 +78,7 @@ else
 
     # Check if process is still running
     if ! kill -0 "$OURANOS_PID" 2>/dev/null; then
-        log ERROR "Failed to start Ouranos. Check the logs at ${LOG_FILE}.
-                   $(tail -n 20 "${LOG_FILE}")"
+        die "Failed to start Ouranos. Check the logs at ${LOG_FILE}."
     fi
 
     log SUCCESS "Ouranos started successfully with PID $OURANOS_PID"

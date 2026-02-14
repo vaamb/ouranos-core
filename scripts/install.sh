@@ -3,6 +3,20 @@
 # Exit on error, unset variable, and pipefail
 set -euo pipefail
 
+# Version requirements
+readonly MIN_PYTHON_VERSION="3.11"
+readonly OURANOS_VERSION="0.10.0"
+readonly OURANOS_REPO="https://github.com/vaamb/ouranos-core.git"
+
+# Default values
+OURANOS_DIR="${PWD}/ouranos"
+
+# Load logging functions
+readonly DATETIME=$(date +%Y%m%d_%H%M%S)
+readonly LOG_FILE="/tmp/ouranos_install_${DATETIME}.log"
+readonly SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+. "${SCRIPT_DIR}/utils/logging.sh"
+
 # Parse command line arguments
 SAFE=true
 
@@ -24,81 +38,14 @@ while [[ $# -gt 0 ]]; do
             exit 0
             ;;
         *)
-            log ERROR "Unknown option: $1"
+            die "Unknown option: $1"
             ;;
     esac
 done
 
-# Version requirements
-readonly MIN_PYTHON_VERSION="3.11"
-readonly OURANOS_VERSION="0.10.0"
-readonly OURANOS_REPO="https://github.com/vaamb/ouranos-core.git"
-
-# Default values
-OURANOS_DIR="${PWD}/ouranos"
-
-# Load logging functions
-readonly DATETIME=$(date +%Y%m%d_%H%M%S)
-readonly LOG_FILE="/tmp/ouranos_install_${DATETIME}.log"
-readonly SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-
-#>>>Logging>>>
-# Constants for log levels
-readonly INFO="INFO"
-readonly WARN="WARN"
-readonly ERROR="ERROR"
-readonly SUCCESS="SUCCESS"
-
-# Colors for output
-if [[ -t 1 ]]; then
-    readonly RED='\033[38;5;001m'
-    readonly GREEN='\033[38;5;002m'
-    readonly YELLOW='\033[38;5;220m'
-    readonly LIGHT_YELLOW='\033[38;5;011m'
-    readonly NC='\033[0m' # No Color
-else
-    readonly RED=""
-    readonly GREEN=""
-    readonly YELLOW=""
-    readonly LIGHT_YELLOW=""
-    readonly NC=""
-fi
-
-# Function to log messages
-log() {
-    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-
-    case "$1" in
-        INFO)
-            echo -e "${LIGHT_YELLOW}$2${NC}"
-            echo -e "[${timestamp}] [INFO] $2" >> "${LOG_FILE}"
-            ;;
-        WARN)
-            echo -e "${YELLOW}Warning: $2${NC}"
-            echo -e "[${timestamp}] [WARNING] $2" >> "${LOG_FILE}"
-            ;;
-        ERROR)
-            echo -e "${RED}Error: $2${NC}"
-            echo -e "[${timestamp}] [ERROR] $2" >> "${LOG_FILE}"
-            exit 1
-            ;;
-        SUCCESS)
-            echo -e "${GREEN}$2${NC}"
-            echo -e "[${timestamp}] [SUCCESS] $2" >> "${LOG_FILE}"
-            ;;
-        *)
-            echo -e "$1"
-            echo -e "[${timestamp}] $1" >> "${LOG_FILE}"
-            ;;
-    esac
-}
-
-log INFO "Log file: ${LOG_FILE}"
-#<<<Logging<<<
-
 check_no_installation() {
     if [ -d "${OURANOS_DIR}" ]; then
-        log ERROR "Ouranos appears to be already installed at ${OURANOS_DIR}"
+        die "Ouranos appears to be already installed at ${OURANOS_DIR}"
     fi
 }
 
@@ -124,18 +71,20 @@ check_requirements() {
 
     # Check Python version
     python3 -c "import sys; exit(0) if sys.version_info >= (${MIN_PYTHON_VERSION//./,}) else exit(1)" ||
-        log ERROR "Python ${MIN_PYTHON_VERSION} or higher is required"
+        die "Python ${MIN_PYTHON_VERSION} or higher is required"
 }
 
 create_directories() {
     # Create Ouranos directory
-    mkdir -p "${OURANOS_DIR}" || log ERROR "Failed to create directory: ${OURANOS_DIR}"
-    cd "${OURANOS_DIR}" || log ERROR "Failed to change to directory: ${OURANOS_DIR}"
+    mkdir -p "${OURANOS_DIR}" ||
+        die "Failed to create directory: ${OURANOS_DIR}"
+    cd "${OURANOS_DIR}" ||
+        die "Failed to change to directory: ${OURANOS_DIR}"
 
     # Create required directories
     for dir in logs scripts lib migrations; do
         mkdir -p "${OURANOS_DIR}/${dir}" ||
-            log ERROR "Failed to create directory: ${OURANOS_DIR}/${dir}"
+            die "Failed to create directory: ${OURANOS_DIR}/${dir}"
     done
 }
 
@@ -145,7 +94,7 @@ get_ouranos_core() {
 
     if ! git clone ${SAFE:+--branch "${OURANOS_VERSION}"} "${OURANOS_REPO}" \
             "${OURANOS_DIR}/lib/ouranos-core"; then
-        log ERROR "Failed to clone Ouranos repository"
+        die "Failed to clone Ouranos repository"
     fi
 }
 
@@ -153,7 +102,7 @@ get_ouranos_core() {
 copy_scripts() {
     # Copy scripts from ouranos-core to ouranos/scripts
     cp -r "${OURANOS_DIR}/lib/ouranos-core/scripts/"* "${OURANOS_DIR}/scripts/" ||
-        log ERROR "Failed to copy scripts"
+        die "Failed to copy scripts"
     # Make scripts executable
     chmod +x "${OURANOS_DIR}/scripts/"*.sh
     chmod +x "${OURANOS_DIR}/scripts/utils/"*.sh
@@ -164,9 +113,9 @@ copy_scripts() {
     rm "${OURANOS_DIR}/scripts/update.sh"
     # Copy migrations and alembic.ini
     cp -r "${OURANOS_DIR}/lib/ouranos-core/migrations/"* "${OURANOS_DIR}/migrations/" ||
-        log ERROR "Failed to copy migration scripts"
+        die "Failed to copy migration scripts"
     cp -r "${OURANOS_DIR}/lib/ouranos-core/alembic.ini" "${OURANOS_DIR}/" ||
-        log ERROR "Failed to copy alembic.ini"
+        die "Failed to copy alembic.ini"
 }
 #<<<Copy<<<
 
@@ -174,30 +123,30 @@ setup_uv_and_sync() {
     # Generate the master pyproject.toml
     log INFO "Creating the master pyproject.toml"
     "${OURANOS_DIR}/scripts/utils/gen_pyproject.sh" "${OURANOS_DIR}" ||
-        log ERROR "Failed to generate Ouranos pyproject.toml"
+        die "Failed to generate Ouranos pyproject.toml"
 
     # Sync virtual environment
     uv sync --all-packages ||
-        log ERROR "Failed to create Python virtual environment and sync it"
+        die "Failed to create Python virtual environment and sync it"
 
     source "${OURANOS_DIR}/.venv/bin/activate" ||
-        log ERROR "Failed to activate Python virtual environment"
+        die "Failed to activate Python virtual environment"
 
     deactivate ||
-        log ERROR "Failed to deactivate Python virtual environment"
+        die "Failed to deactivate Python virtual environment"
 }
 
 # Update .profile
 update_profile() {
     "${OURANOS_DIR}/scripts/utils/gen_profile.sh" "${OURANOS_DIR}" ||
-        log ERROR "Failed to update shell profile"
+        log WARN "Failed to update shell profile"
 }
 
 install_service() {
     local service_file="${OURANOS_DIR}/scripts/ouranos.service"
 
     "${OURANOS_DIR}/scripts/utils/gen_service.sh" "${OURANOS_DIR}" "${service_file}" ||
-        log ERROR "Failed to generate systemd service"
+        log WARN "Failed to generate systemd service"
 
     # Install service
     if ! sudo cp "${service_file}" "/etc/systemd/system/ouranos.service"; then

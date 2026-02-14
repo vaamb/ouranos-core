@@ -11,8 +11,9 @@ fi
 
 # Load logging functions
 readonly DATETIME=$(date +%Y%m%d_%H%M%S)
+rm -f /tmp/ouranos_stop_*.log
 readonly LOG_FILE="/tmp/ouranos_stop_${DATETIME}.log"
-source "${OURANOS_DIR}/scripts/utils/logging.sh" "${LOG_FILE}"
+. "${OURANOS_DIR}/scripts/utils/logging.sh"
 
 # Log stop attempt
 log INFO "Attempting to stop Ouranos..."
@@ -60,7 +61,7 @@ fi
 OURANOS_PID=$(get_ouranos_pid)
 
 if [[ -z "$OURANOS_PID" ]]; then
-    log ERROR "Could not determine Ouranos process ID"
+    die "Could not determine Ouranos process ID"
 fi
 
 log INFO "Stopping Ouranos (PID: $OURANOS_PID)..."
@@ -88,11 +89,11 @@ if kill -15 "$OURANOS_PID" 2>/dev/null; then
 
     # Verify the process was actually stopped
     if is_running > /dev/null; then
-        log ERROR "Failed to stop Ouranos. Process still running with PID: $OURANOS_PID)"
+        die "Failed to stop Ouranos. Process still running with PID: $OURANOS_PID"
     fi
 
     log INFO "Ouranos stopped successfully."
     exit 0
 else
-    log ERROR "Failed to send stop signal to Ouranos (PID: $OURANOS_PID). You may need to run with sudo."
+    die "Failed to send stop signal to Ouranos (PID: $OURANOS_PID). You may need to run with sudo."
 fi
