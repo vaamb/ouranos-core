@@ -35,7 +35,18 @@ done
 mkdir -p "${OURANOS_DIR}/logs" ||
     die "Failed to create logs directory"
 
-# Check if already running
+# Check if already running — prefer PID file
+if [[ -f "${OURANOS_DIR}/ouranos.pid" ]]; then
+    PID=$(cat "${OURANOS_DIR}/ouranos.pid")
+    if kill -0 "$PID" 2>/dev/null && pgrep -x "ouranos" | grep -qw "$PID"; then
+        log WARN "Ouranos is already running with PID $PID"
+        log INFO "If you want to restart, please run: ouranos restart"
+        exit 0
+    fi
+    # Stale PID file — process is gone, clean up and continue
+    rm -f "${OURANOS_DIR}/ouranos.pid"
+fi
+# Fallback to pgrep if no PID file
 if pgrep -x "ouranos" > /dev/null; then
     PID=$(pgrep -x "ouranos" | head -n 1)
     log WARN "Ouranos is already running with PID $PID"
@@ -55,29 +66,29 @@ fi
 # Start Ouranos
 log INFO "Starting Ouranos..."
 
-if [ "$FOREGROUND" = true ]; then
+if [[ "$FOREGROUND" = true ]]; then
     log INFO "Running in foreground mode (logs will be shown in terminal)"
-    # Run Ouranos in the foreground
     uv run python -m ouranos
     EXIT_CODE=$?
 
-    # Clean up and exit with the same code as Ouranos
     log INFO "Ouranos process exited with code $EXIT_CODE"
-    exit $EXIT_CODE
+    exit "$EXIT_CODE"
 else
-    # Run Ouranos in the background and log the PID
+    # Run Ouranos in the background and capture PID immediately
     nohup uv run python -m ouranos > "${OURANOS_DIR}/logs/stdout" 2>&1 &
-    log INFO "Ouranos started in background mode"
-    log INFO "Ouranos stdout and stderr output redirected to ${OURANOS_DIR}/logs/stdout"
-
     OURANOS_PID=$!
     echo "$OURANOS_PID" > "${OURANOS_DIR}/ouranos.pid"
+    log INFO "Ouranos started in background mode"
+    log INFO "Ouranos stdout and stderr output redirected to ${OURANOS_DIR}/logs/stdout"
 
     # Verify that Ouranos started successfully
     sleep 2
 
     # Check if process is still running
     if ! kill -0 "$OURANOS_PID" 2>/dev/null; then
+        # Process died, check error log
+        # Clean up PID file
+        [[ -f "${OURANOS_DIR}/ouranos.pid" ]] && rm -f "${OURANOS_DIR}/ouranos.pid"
         die "Failed to start Ouranos. Check the logs at ${LOG_FILE}."
     fi
 
