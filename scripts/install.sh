@@ -161,9 +161,8 @@ install_service() {
 cleanup() {
     local exit_code=$?
 
-    if [ ${exit_code} -ne 0 ]; then
+    if [[ "${exit_code}" -ne 0 ]]; then
         log WARN "Installation failed. Check the log file for details: ${LOG_FILE}"
-        yes | rm -r "${OURANOS_DIR}"
     else
         log SUCCESS "Installation completed successfully!"
     fi
