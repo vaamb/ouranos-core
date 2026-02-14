@@ -14,16 +14,13 @@ jobs:
   ruff:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python
-      uses: actions/setup-python@v5
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up uv
+      uses: astral-sh/setup-uv@v5
       with:
-        python-version: 3.x
-        cache: pip
-        cache-dependency-path: pyproject.toml
-    - name: Install dependencies
-      run: |
-        pip install -e . ruff
+        enable-cache: true
+
     - name: Lint with ruff
-      run: |
-        ruff check .
+      run: uvx ruff check .
