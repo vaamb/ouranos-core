@@ -124,7 +124,7 @@ update_git_repo() {
     log INFO "Current version: $current_tag"
     log INFO "Latest version:  $latest_tag"
 
-    if [[ "$current_tag" == "$latest_tag" && "$FORCE_UPDATE" == false && -z "${SAFE:-}" ]]; then
+    if [[ "$current_tag" == "$latest_tag" && "$FORCE_UPDATE" == false && -n "${SAFE:-}" ]]; then
         log INFO "$repo_name is already at the latest version. Use -f to force update or -u to install the latest development version."
         return 0
     fi
