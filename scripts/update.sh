@@ -25,7 +25,8 @@ update_ouranos_core_lib() {
         fi
 
         # Fill the database with the new tables
-        python -m ouranos fill-db
+        python -m ouranos fill-db ||
+            die "Failed to fill the database"
 
         # Upgrade the database
         alembic upgrade head ||
@@ -43,11 +44,9 @@ main() {
     log INFO "Updating Ouranos core..."
     update_ouranos_core_lib
     log SUCCESS "Ouranos core updated successfully!"
-
-    exit 0
 }
 
-if [ "${BASH_SOURCE[0]}" -ef "$0" ]; then
+if [[ "${BASH_SOURCE[0]}" -ef "$0" ]]; then
     echo "This script should be run from the Ouranos update script."
     exit 1
 else
