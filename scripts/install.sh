@@ -120,7 +120,7 @@ check_requirements() {
     done
 
     if [[ ${#missing_deps[@]} -gt 0 ]]; then
-        log WARN "Missing required packages: ${missing_deps[*]}"
+        die "Missing required packages: ${missing_deps[*]}"
     fi
 
     # Check Python version
