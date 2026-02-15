@@ -90,10 +90,22 @@ update_git_repo() {
     local has_changes
     has_changes=$(git status --porcelain)
 
+    local stash_created=false
+
     if [[ -n "$has_changes" ]]; then
         log WARN "$repo_name has uncommitted changes. Stashing them..."
         if [[ "$DRY_RUN" == false ]]; then
-            git stash save "Stashed by Ouranos update script"
+            local stash_count_before
+            stash_count_before=$(git stash list | wc -l)
+            git stash push -m "Stashed by Ouranos update script"
+            local stash_count_after
+            stash_count_after=$(git stash list | wc -l)
+            if [[ "$stash_count_after" -gt "$stash_count_before" ]]; then
+                stash_created=true
+                log INFO "Changes stashed successfully."
+            else
+                log WARN "Stash command ran but no stash was created."
+            fi
         fi
     fi
 
@@ -109,10 +121,10 @@ update_git_repo() {
     local latest_tag
     latest_tag=$(git describe --tags "$(git rev-list --tags --max-count=1 2>/dev/null)" 2>/dev/null || echo "No tags found")
 
-    log "Current version: $current_tag"
-    log "Latest version:  $latest_tag"
+    log INFO "Current version: $current_tag"
+    log INFO "Latest version:  $latest_tag"
 
-    if [[ "$current_tag" == "$latest_tag" && "$FORCE_UPDATE" == false && -z "$SAFE" ]]; then
+    if [[ "$current_tag" == "$latest_tag" && "$FORCE_UPDATE" == false && -z "${SAFE:-}" ]]; then
         log INFO "$repo_name is already at the latest version. Use -f to force update or -u to install the latest development version."
         return 0
     fi
@@ -124,17 +136,20 @@ update_git_repo() {
 
     # Checkout the latest tag
     log INFO "Updating $repo_name to $latest_tag..."
-    git checkout ${SAFE:+"$latest_tag"}
+    git checkout ${SAFE:+"${latest_tag}"}
 
     # Return to the original branch if not on a detached HEAD
     if [[ "$current_branch" != "HEAD" ]]; then
-        log "Returning to branch $current_branch..."
+        log INFO "Returning to branch $current_branch..."
         git checkout "$current_branch"
 
-        # Apply stashed changes if any
-        if [[ -n "$has_changes" ]]; then
-            log "Restoring stashed changes..."
-            git stash pop
+        # Apply stashed changes if we actually stashed
+        if [[ "$stash_created" == true ]]; then
+            log INFO "Restoring stashed changes..."
+            if ! git stash pop; then
+                log WARN "Failed to restore stashed changes (possible merge conflict)."
+                log WARN "Your changes are still in the stash. Use 'git stash list' and 'git stash pop' to recover them manually."
+            fi
         fi
     fi
 
@@ -159,7 +174,7 @@ update_package() {
 
     # If the package has an update script, run it
     if [[ -f "${package_dir}/scripts/update.sh" ]]; then
-        if [[ $DRY_RUN == false ]]; then
+        if [[ "$DRY_RUN" == false ]]; then
             log INFO "${package_name} has an update script. Running it..."
             source "${package_dir}/scripts/update.sh"
         else
@@ -174,14 +189,13 @@ update_package() {
 
 update_packages() {
     # Check if virtual environment exists
-    if [[ ! -d "${OURANOS_DIR}/.venv" && $DRY_RUN == false ]]; then
+    if [[ ! -d "${OURANOS_DIR}/.venv" && "$DRY_RUN" == false ]]; then
         log INFO "uv virtual environment not found. Creating it..."
         uv venv
-        # log ERROR "Python virtual environment not found. Please run the installation script first."
     fi
 
     # In dry-run, don't activate venv or install; just show intended repo changes
-    if [[ $DRY_RUN == false ]]; then
+    if [[ "$DRY_RUN" == false ]]; then
         # Activate virtual environment
         # shellcheck source=/dev/null
         if ! source ".venv/bin/activate"; then
@@ -194,8 +208,8 @@ update_packages() {
         update_package "${OURANOS_DIR}/lib/ouranos-core"
 
         # Update remaining ouranos-* packages
-        for pkg_path  in "${OURANOS_DIR}/lib"/ouranos-*; do
-            package_name=$(basename "${pkg_path }")
+        for pkg_path in "${OURANOS_DIR}/lib"/ouranos-*; do
+            package_name=$(basename "${pkg_path}")
             if [[ "${package_name}" != "ouranos-core" ]]; then
                 if ! update_package "$pkg_path"; then
                     log WARN "Failed to update ${package_name}, continuing with other packages..."
@@ -273,7 +287,7 @@ update_service() {
 cleanup() {
     local exit_code=$?
 
-    if [ "${exit_code}" -ne 0 ]; then
+    if [[ "${exit_code}" -ne 0 ]]; then
         log WARN "Update failed. Check the log file for details: ${LOG_FILE}"
         if [[ -d "${BACKUP_DIR}" && "${DRY_RUN}" == false ]]; then
             log WARN "Attempting rollback from backup..."
@@ -289,7 +303,6 @@ cleanup() {
 
     # Reset terminal colors
     echo -e "${NC}"
-    exit "${exit_code}"
 }
 
 main () {
@@ -348,10 +361,8 @@ main () {
         echo -e "\nThis was a dry run. No changes were made. Use ${YELLOW}$0${NC} without --dry-run to perform the updates."
     fi
 
-    exit 0
 }
 
-if [ "${BASH_SOURCE[0]}" -ef "$0" ]
-then
+if [[ "${BASH_SOURCE[0]}" -ef "$0" ]]; then
     main "$@"
 fi
