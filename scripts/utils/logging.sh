@@ -6,6 +6,7 @@ fi
 # Create the log dir if it doesn't already exist
 mkdir -p "$(dirname "$LOG_FILE")"
 
+#>>>Logging>>>
 # Colors for output
 if [[ -t 1 ]]; then
     readonly RED='\033[38;5;001m'
@@ -52,3 +53,4 @@ die() {
 }
 
 log INFO "Log file: ${LOG_FILE}"
+#<<<Logging<<<
