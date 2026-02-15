@@ -76,7 +76,6 @@ class TestInstallScript(TestCase):
         pattern = re.compile(r"#>>>Logging>>>.*#<<<Logging<<<", re.DOTALL)
 
         install_code = _get_pattern(self.install_script_path, pattern)
-        install_code = install_code.replace("LOG_FILE", "LOGGING_FILE")
         logging_code = _get_pattern(self.logging_script_path, pattern)
 
         assert install_code == logging_code
