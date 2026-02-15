@@ -3,6 +3,13 @@
 # Exit on error, unset variable, and pipefail
 set -euo pipefail
 
+# Load logging functions
+readonly DATETIME=$(date +%Y%m%d_%H%M%S)
+readonly LOG_FILE="/tmp/ouranos_update_${DATETIME}.log"
+. "${OURANOS_DIR}/scripts/utils/logging.sh"
+
+readonly BACKUP_DIR="/tmp/ouranos_backup_${DATETIME}"
+
 # Parse command line arguments
 DRY_RUN=false
 FORCE_UPDATE=false
@@ -44,36 +51,30 @@ while [[ $# -gt 0 ]]; do
             exit 0
             ;;
         *)
-            log ERROR "Unknown option: $1"
+            die "Unknown option: $1"
             ;;
     esac
 done
 
-# Load logging functions
-readonly DATETIME=$(date +%Y%m%d_%H%M%S)
-readonly LOG_FILE="/tmp/ouranos_update_${DATETIME}.log"
-source "${OURANOS_DIR}/scripts/utils/logging.sh" "${LOG_FILE}"
-
-readonly BACKUP_DIR="/tmp/ouranos_backup_${DATETIME}"
-
 check_requirements() {
     # Check if uv is installed
     if ! command -v uv &> /dev/null; then
-        log ERROR "uv is not installed. Please install it first."
+        die "uv is not installed. Please install it first."
     fi
 
     # Check if OURANOS_DIR is set and the directory exists
     if [[ ! -d "${OURANOS_DIR}" ]]; then
-        log ERROR "OURANOS_DIR environment variable is not set or the directory does not exist. Please source your profile or run the installation script first."
+        die "OURANOS_DIR environment variable is not set or the directory does not exist. Please source your profile or run the installation script first."
     fi
 
-    cd "$OURANOS_DIR" || log ERROR "Failed to change to Ouranos directory: $OURANOS_DIR"
+    cd "$OURANOS_DIR" ||
+        die "Failed to change to Ouranos directory: $OURANOS_DIR"
 }
 
 create_backup() {
     # Create backup directory
     cp -r "$OURANOS_DIR" "$BACKUP_DIR" ||
-        log ERROR "Failed to create backup directory: $BACKUP_DIR"
+        die "Failed to create backup directory: $BACKUP_DIR"
 }
 
 update_git_repo() {
@@ -89,10 +90,22 @@ update_git_repo() {
     local has_changes
     has_changes=$(git status --porcelain)
 
+    local stash_created=false
+
     if [[ -n "$has_changes" ]]; then
         log WARN "$repo_name has uncommitted changes. Stashing them..."
         if [[ "$DRY_RUN" == false ]]; then
-            git stash save "Stashed by Ouranos update script"
+            local stash_count_before
+            stash_count_before=$(git stash list | wc -l)
+            git stash push -m "Stashed by Ouranos update script"
+            local stash_count_after
+            stash_count_after=$(git stash list | wc -l)
+            if [[ "$stash_count_after" -gt "$stash_count_before" ]]; then
+                stash_created=true
+                log INFO "Changes stashed successfully."
+            else
+                log WARN "Stash command ran but no stash was created."
+            fi
         fi
     fi
 
@@ -108,10 +121,10 @@ update_git_repo() {
     local latest_tag
     latest_tag=$(git describe --tags "$(git rev-list --tags --max-count=1 2>/dev/null)" 2>/dev/null || echo "No tags found")
 
-    log "Current version: $current_tag"
-    log "Latest version:  $latest_tag"
+    log INFO "Current version: $current_tag"
+    log INFO "Latest version:  $latest_tag"
 
-    if [[ "$current_tag" == "$latest_tag" && "$FORCE_UPDATE" == false && -z "$SAFE" ]]; then
+    if [[ "$current_tag" == "$latest_tag" && "$FORCE_UPDATE" == false && -n "${SAFE:-}" ]]; then
         log INFO "$repo_name is already at the latest version. Use -f to force update or -u to install the latest development version."
         return 0
     fi
@@ -123,17 +136,20 @@ update_git_repo() {
 
     # Checkout the latest tag
     log INFO "Updating $repo_name to $latest_tag..."
-    git checkout ${SAFE:+"$latest_tag"}
+    git checkout ${SAFE:+"${latest_tag}"}
 
     # Return to the original branch if not on a detached HEAD
     if [[ "$current_branch" != "HEAD" ]]; then
-        log "Returning to branch $current_branch..."
+        log INFO "Returning to branch $current_branch..."
         git checkout "$current_branch"
 
-        # Apply stashed changes if any
-        if [[ -n "$has_changes" ]]; then
-            log "Restoring stashed changes..."
-            git stash pop
+        # Apply stashed changes if we actually stashed
+        if [[ "$stash_created" == true ]]; then
+            log INFO "Restoring stashed changes..."
+            if ! git stash pop; then
+                log WARN "Failed to restore stashed changes (possible merge conflict)."
+                log WARN "Your changes are still in the stash. Use 'git stash list' and 'git stash pop' to recover them manually."
+            fi
         fi
     fi
 
@@ -158,7 +174,7 @@ update_package() {
 
     # If the package has an update script, run it
     if [[ -f "${package_dir}/scripts/update.sh" ]]; then
-        if [[ $DRY_RUN == false ]]; then
+        if [[ "$DRY_RUN" == false ]]; then
             log INFO "${package_name} has an update script. Running it..."
             source "${package_dir}/scripts/update.sh"
         else
@@ -173,18 +189,17 @@ update_package() {
 
 update_packages() {
     # Check if virtual environment exists
-    if [[ ! -d "${OURANOS_DIR}/.venv" && $DRY_RUN == false ]]; then
+    if [[ ! -d "${OURANOS_DIR}/.venv" && "$DRY_RUN" == false ]]; then
         log INFO "uv virtual environment not found. Creating it..."
         uv venv
-        # log ERROR "Python virtual environment not found. Please run the installation script first."
     fi
 
     # In dry-run, don't activate venv or install; just show intended repo changes
-    if [[ $DRY_RUN == false ]]; then
+    if [[ "$DRY_RUN" == false ]]; then
         # Activate virtual environment
         # shellcheck source=/dev/null
         if ! source ".venv/bin/activate"; then
-            log ERROR "Failed to activate Python virtual environment"
+            die "Failed to activate Python virtual environment"
         fi
     fi
 
@@ -193,8 +208,8 @@ update_packages() {
         update_package "${OURANOS_DIR}/lib/ouranos-core"
 
         # Update remaining ouranos-* packages
-        for pkg_path  in "${OURANOS_DIR}/lib"/ouranos-*; do
-            package_name=$(basename "${pkg_path }")
+        for pkg_path in "${OURANOS_DIR}/lib"/ouranos-*; do
+            package_name=$(basename "${pkg_path}")
             if [[ "${package_name}" != "ouranos-core" ]]; then
                 if ! update_package "$pkg_path"; then
                     log WARN "Failed to update ${package_name}, continuing with other packages..."
@@ -208,17 +223,17 @@ update_packages() {
     # Update pyproject.toml
     if [[ "${DRY_RUN}" == false ]]; then
         "${OURANOS_DIR}/lib/ouranos-core/scripts/utils/gen_pyproject.sh" "${OURANOS_DIR}" ||
-            log ERROR "Failed to update pyproject.toml"
+            die "Failed to update pyproject.toml"
     fi
 
     # Update uv lock and packages
     if [[ "${DRY_RUN}" == false ]]; then
         cd "$OURANOS_DIR"
         uv lock --upgrade ||
-            log ERROR "Failed to update uv lock"
+            die "Failed to update uv lock"
         # use --inexact to keep packages not defined in pyproject.toml such as the DB drivers
         uv sync --all-packages --inexact ||
-            log ERROR "Failed to update Python virtual environment"
+            die "Failed to update Python virtual environment"
     fi
 
     if [[ "${DRY_RUN}" == false ]]; then
@@ -231,7 +246,7 @@ update_packages() {
 copy_scripts() {
     # Copy scripts from ouranos-core to ouranos/scripts
     cp -r "${OURANOS_DIR}/lib/ouranos-core/scripts/"* "${OURANOS_DIR}/scripts/" ||
-        log ERROR "Failed to copy scripts"
+        die "Failed to copy scripts"
     # Make scripts executable
     chmod +x "${OURANOS_DIR}/scripts/"*.sh
     chmod +x "${OURANOS_DIR}/scripts/utils/"*.sh
@@ -242,22 +257,22 @@ copy_scripts() {
     rm "${OURANOS_DIR}/scripts/update.sh"
     # Copy migrations and alembic.ini
     cp -r "${OURANOS_DIR}/lib/ouranos-core/migrations/"* "${OURANOS_DIR}/migrations/" ||
-        log ERROR "Failed to copy migration scripts"
+        die "Failed to copy migration scripts"
     cp -r "${OURANOS_DIR}/lib/ouranos-core/alembic.ini" "${OURANOS_DIR}/" ||
-        log ERROR "Failed to copy alembic.ini"
+        die "Failed to copy alembic.ini"
 }
 #<<<Copy<<<
 
 update_profile() {
     "${OURANOS_DIR}/scripts/gen_profile.sh" "${OURANOS_DIR}" ||
-        log ERROR "Failed to update shell profile"
+        log WARN "Failed to update shell profile"
 }
 
 update_service() {
     local service_file="${OURANOS_DIR}/scripts/ouranos.service"
 
     "${OURANOS_DIR}/scripts/gen_service.sh" "${OURANOS_DIR}" "${service_file}" ||
-        log ERROR "Failed to generate systemd service"
+        log WARN "Failed to generate systemd service"
 
     # Update service
     if ! sudo cp "${service_file}" "/etc/systemd/system/ouranos.service"; then
@@ -272,7 +287,7 @@ update_service() {
 cleanup() {
     local exit_code=$?
 
-    if [ "${exit_code}" -ne 0 ]; then
+    if [[ "${exit_code}" -ne 0 ]]; then
         log WARN "Update failed. Check the log file for details: ${LOG_FILE}"
         if [[ -d "${BACKUP_DIR}" && "${DRY_RUN}" == false ]]; then
             log WARN "Attempting rollback from backup..."
@@ -288,7 +303,6 @@ cleanup() {
 
     # Reset terminal colors
     echo -e "${NC}"
-    exit "${exit_code}"
 }
 
 main () {
@@ -347,10 +361,8 @@ main () {
         echo -e "\nThis was a dry run. No changes were made. Use ${YELLOW}$0${NC} without --dry-run to perform the updates."
     fi
 
-    exit 0
 }
 
-if [ "${BASH_SOURCE[0]}" -ef "$0" ]
-then
+if [[ "${BASH_SOURCE[0]}" -ef "$0" ]]; then
     main "$@"
 fi

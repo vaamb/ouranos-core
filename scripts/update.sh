@@ -5,10 +5,8 @@ set -euo pipefail
 
 check_ouranos_core_lib() {
     # Check if ouranos-core exists
-    if [ ! -d "${OURANOS_DIR}/lib/ouranos-core" ]; then
-        log ERROR "Ouranos core installation not found at \
-        ${OURANOS_DIR}/lib/ouranos-core. Please install it first using the \
-        Ouranos install script."
+    if [[ ! -d "${OURANOS_DIR}/lib/ouranos-core" ]]; then
+        die "Ouranos core installation not found at ${OURANOS_DIR}/lib/ouranos-core. Please install it first using the Ouranos install script."
     fi
 }
 
@@ -18,20 +16,21 @@ update_ouranos_core_lib() {
     if [[ "$DRY_RUN" == false ]]; then
         # Change to Ouranos lib directory
         cd "${OURANOS_DIR}/lib/ouranos-core" ||
-            log ERROR "Failed to change to directory: ${OURANOS_DIR}/lib/ouranos-core"
+            die "Failed to change to directory: ${OURANOS_DIR}/lib/ouranos-core"
 
         # Activate virtual environment
         # shellcheck source=/dev/null
         if ! source "${OURANOS_DIR}/.venv/bin/activate"; then
-            log ERROR "Failed to activate Python virtual environment"
+            die "Failed to activate Python virtual environment"
         fi
 
         # Fill the database with the new tables
-        python -m ouranos fill-db
+        python -m ouranos fill-db ||
+            die "Failed to fill the database"
 
         # Upgrade the database
         alembic upgrade head ||
-            log ERROR "Failed to upgrade the database"
+            die "Failed to upgrade the database"
         deactivate
     fi
 }
@@ -45,11 +44,9 @@ main() {
     log INFO "Updating Ouranos core..."
     update_ouranos_core_lib
     log SUCCESS "Ouranos core updated successfully!"
-
-    exit 0
 }
 
-if [ "${BASH_SOURCE[0]}" -ef "$0" ]; then
+if [[ "${BASH_SOURCE[0]}" -ef "$0" ]]; then
     echo "This script should be run from the Ouranos update script."
     exit 1
 else
