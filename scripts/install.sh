@@ -3,14 +3,6 @@
 # Exit on error, unset variable, and pipefail
 set -euo pipefail
 
-# Version requirements
-readonly MIN_PYTHON_VERSION="3.11"
-readonly OURANOS_VERSION="0.10.0"
-readonly OURANOS_REPO="https://github.com/vaamb/ouranos-core.git"
-
-# Default values
-OURANOS_DIR="${PWD}/ouranos"
-
 # Load logging functions
 readonly DATETIME=$(date +%Y%m%d_%H%M%S)
 readonly LOG_FILE="/tmp/ouranos_install_${DATETIME}.log"
@@ -63,6 +55,19 @@ die() {
 log INFO "Log file: ${LOG_FILE}"
 #<<<Logging<<<
 
+# Check if already installed
+if [[ -n "${OURANOS_DIR:-}" ]]; then
+    die "Ouranos appears to be already installed at ${OURANOS_DIR}"
+fi
+
+# Version requirements
+readonly MIN_PYTHON_VERSION="3.11"
+readonly OURANOS_VERSION="0.10.0"
+readonly OURANOS_REPO="https://github.com/vaamb/ouranos-core.git"
+
+# Default values
+OURANOS_DIR="${PWD}/ouranos"
+
 # Parse command line arguments
 SAFE=true
 
@@ -88,12 +93,6 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
-
-check_no_installation() {
-    if [[ -d "${OURANOS_DIR}" ]]; then
-        die "Ouranos appears to be already installed at ${OURANOS_DIR}"
-    fi
-}
 
 check_requirements() {
     local missing_deps=()
