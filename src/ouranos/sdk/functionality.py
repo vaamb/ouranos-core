@@ -214,23 +214,3 @@ class Functionality(ABC):
 def format_functionality_name(functionality: Type[Functionality]) -> str:
     """Convert CamelCase class name to snake_case functionality name."""
     return pattern.sub('_', functionality.__name__).lower()
-
-
-def run_functionality_forever(
-        functionality_cls: Type[Functionality],
-        config_profile: str | None = None,
-        *args,
-        **kwargs
-) -> None:
-    """
-    Deprecated: Run a functionality forever.
-    Use Plugin instead.
-    """
-    warnings.warn(
-        "`run_functionality_forever` is deprecated, run the functionality "
-        "via a `Plugin` instead",
-        DeprecationWarning,
-        stacklevel=2
-    )
-    functionality = functionality_cls(config_profile, *args, **kwargs)
-    functionality.run()
