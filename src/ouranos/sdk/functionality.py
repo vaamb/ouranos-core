@@ -141,7 +141,7 @@ class Functionality(ABC):
         """Shutdown the functionality and clean up resources."""
         if not self.started:
             raise RuntimeError(f"Ouranos' {self.__class__.__name__} is not running")
-            
+
         pid = os.getpid()
         self.logger.info(f"Stopping Ouranos' {self.__class__.__name__} [{pid}]")
 
@@ -150,9 +150,9 @@ class Functionality(ABC):
             await self.post_shutdown()
         except asyncio.CancelledError as e:
             self.logger.error(f"Error while shutting down [{pid}]. {self._fmt_exc(e)}")
-        else:
-            self._status = False
-            self.logger.info(f"Ouranos' {self.__class__.__name__} stopped [{pid}]")
+
+        self._status = False
+        self.logger.info(f"Ouranos' {self.__class__.__name__} stopped [{pid}]")
 
     def run(self, reraise: bool = False) -> None:
         """Run the functionality until completion or interruption."""
