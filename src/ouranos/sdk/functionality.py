@@ -26,6 +26,8 @@ class _CommonResourcesState:
         self.used_by += 1
 
     def unregister(self) -> None:
+        if self.used_by <= 0:
+            raise RuntimeError("There are no more registered resources")
         self.used_by -= 1
 
 
@@ -103,7 +105,7 @@ class Functionality(ABC):
         # Decref the common resources
         Functionality._common_resources_state.unregister()
         # If no functionality is using the common resources, clear them
-        if Functionality._common_resources_state.used_by <= 0:
+        if Functionality._common_resources_state.used_by == 0:
             scheduler.remove_all_jobs()
             scheduler.shutdown()
 
