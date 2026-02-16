@@ -6,7 +6,6 @@ from logging import Logger, getLogger
 import os
 import re
 from typing import ClassVar, Type
-import warnings
 
 from ouranos import db, scheduler, setup_loop
 from ouranos.core.config import ConfigDict
