@@ -15,7 +15,7 @@ from ouranos.core.database.init import (
 from ouranos.sdk.runner import Runner, runner
 
 
-pattern = re.compile(r'(?<!^)(?=[A-Z])')
+_PATTERN = re.compile(r'(?<!^)(?=[A-Z])')
 
 
 class _CommonResourcesState:
@@ -213,4 +213,4 @@ class Functionality(ABC):
 
 def format_functionality_name(functionality: Type[Functionality]) -> str:
     """Convert CamelCase class name to snake_case functionality name."""
-    return pattern.sub('_', functionality.__name__).lower()
+    return _PATTERN.sub('_', functionality.__name__).lower()
