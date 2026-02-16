@@ -18,13 +18,23 @@ from ouranos.sdk.runner import Runner, runner
 pattern = re.compile(r'(?<!^)(?=[A-Z])')
 
 
-class _State:
-    common_initialized: bool = False
+class _CommonResourcesState:
+    def __init__(self):
+        self.initialized: bool = False
+        self.used_by: int = 0
+
+    def register(self) -> None:
+        self.used_by += 1
+
+    def unregister(self) -> None:
+        self.used_by -= 1
 
 
 class Functionality(ABC):
-    _is_microservice: bool = True
+    _common_resources_state: ClassVar[_CommonResourcesState] = _CommonResourcesState()
     _runner: ClassVar[Runner] = runner
+
+    _is_microservice: bool = True
     workers: int = 0
 
     def __init__(
@@ -82,23 +92,24 @@ class Functionality(ABC):
 
     async def _init_common(self) -> None:
         """Initialize common resources."""
-        if _State.common_initialized:
-            return
+        if not Functionality._common_resources_state.initialized:
+            await self.init_the_db()
+            await self.init_the_scheduler()
+            Functionality._common_resources_state.initialized = True
 
-        await self.init_the_db()
-        await self.init_the_scheduler()
-        _State.common_initialized = True
+        Functionality._common_resources_state.register()
 
     async def _clear_common(self) -> None:
         """Clear common resources."""
-        if not _State.common_initialized:
-            return
+        # Decref the common resources
+        Functionality._common_resources_state.unregister()
+        # If no functionality is using the common resources, clear them
+        if Functionality._common_resources_state.used_by <= 0:
+            scheduler.remove_all_jobs()
+            scheduler.shutdown()
 
-        scheduler.remove_all_jobs()
-        scheduler.shutdown()
-
-        for engine in db.engines.values():
-            await engine.dispose()
+            for engine in db.engines.values():
+                await engine.dispose()
 
     async def initialize(self) -> None:
         """Hook for subclasses to initialize resources."""
@@ -134,8 +145,8 @@ class Functionality(ABC):
         await self.initialize()
         await self.startup()
 
-        self.logger.info(f"Ouranos' {self.__class__.__name__} started successfully [{pid}]")
         self._status = True
+        self.logger.info(f"Ouranos' {self.__class__.__name__} started successfully [{pid}]")
 
     async def complete_shutdown(self) -> None:
         """Shutdown the functionality and clean up resources."""
@@ -150,6 +161,8 @@ class Functionality(ABC):
             await self.post_shutdown()
         except asyncio.CancelledError as e:
             self.logger.error(f"Error while shutting down [{pid}]. {self._fmt_exc(e)}")
+
+        await self._clear_common()
 
         self._status = False
         self.logger.info(f"Ouranos' {self.__class__.__name__} stopped [{pid}]")
