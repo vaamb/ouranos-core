@@ -119,12 +119,10 @@ class Functionality(ABC):
     @abstractmethod
     async def startup(self) -> None:
         """Start the functionality (implemented by subclasses)."""
-        raise NotImplementedError
 
     @abstractmethod
     async def shutdown(self) -> None:
         """Shutdown the functionality (implemented by subclasses)."""
-        raise NotImplementedError
 
     async def post_shutdown(self) -> None:
         """Hook for subclasses to perform post-shutdown cleanup."""
