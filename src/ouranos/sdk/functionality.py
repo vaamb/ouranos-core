@@ -100,7 +100,6 @@ class Functionality(ABC):
         if not Functionality._common_resources_state.initialized:
             await self.init_the_db()
             await self.init_the_scheduler()
-            Functionality._common_resources_state.initialized = True
 
         Functionality._common_resources_state.register()
 
@@ -164,8 +163,8 @@ class Functionality(ABC):
             await self.post_shutdown()
         except asyncio.CancelledError as e:
             self.logger.error(f"Error while shutting down [{pid}]. {self._fmt_exc(e)}")
-
-        await self._clear_common()
+        finally:
+            await self._clear_common()
 
         self._status = False
         self.logger.info(f"Ouranos' {self.__class__.__name__} stopped [{pid}]")
