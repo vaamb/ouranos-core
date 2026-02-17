@@ -19,8 +19,11 @@ _PATTERN = re.compile(r'(?<!^)(?=[A-Z])')
 
 class _CommonResourcesState:
     def __init__(self):
-        self.initialized: bool = False
         self.used_by: int = 0
+
+    @property
+    def initialized(self) -> bool:
+        return self.used_by > 0
 
     def register(self) -> None:
         self.used_by += 1
