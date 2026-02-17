@@ -61,6 +61,7 @@ class Plugin:
         self._instance: F | None = None
         self._subprocesses: list[SpawnProcess] = []
         self._status: bool = False
+        self._error_logged: bool = False
         self._command: Command | None = command
         self._routes: list[Route] = routes or []
         self._description: str | None = description
@@ -246,10 +247,12 @@ class Plugin:
 
         try:
             asyncio.run(self._run_as_standalone())
-        except Exception as e:
+        except Exception:
+            if not self._error_logged:
+                # The error should not have happened and is not logged, raise it anyway
+                raise
             if self.config["DEVELOPMENT"] or self.config["DEBUG"] or self.config["TESTING"]:
-                raise e
-            self.logger.critical(f"Fatal error in {self.name}. {self._fmt_exc(e)}")
+                raise
 
     async def _run_as_standalone(self) -> None:
         """Internal async method for standalone execution."""
@@ -262,10 +265,12 @@ class Plugin:
 
             sys.excepthook = exception_handler
 
+        self._error_logged = False
         try:
             await self.startup()
         except Exception as e:
             self.logger.error(f"Error starting. {self._fmt_exc(e)}")
+            self._error_logged = True
             raise
         else:
             await self._runner.run_until_stop()
@@ -275,6 +280,7 @@ class Plugin:
                     await self.shutdown()
                 except Exception as e:
                     self.logger.error(f"Error while shutting down. {self._fmt_exc(e)}")
+                    self._error_logged = True
                     raise
 
     # Command handling

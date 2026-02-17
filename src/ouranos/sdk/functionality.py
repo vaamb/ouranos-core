@@ -6,7 +6,6 @@ from logging import Logger, getLogger
 import os
 import re
 from typing import ClassVar, Type
-import warnings
 
 from ouranos import db, scheduler, setup_loop
 from ouranos.core.config import ConfigDict
@@ -15,16 +14,31 @@ from ouranos.core.database.init import (
 from ouranos.sdk.runner import Runner, runner
 
 
-pattern = re.compile(r'(?<!^)(?=[A-Z])')
+_PATTERN = re.compile(r'(?<!^)(?=[A-Z])')
 
 
-class _State:
-    common_initialized: bool = False
+class _CommonResourcesState:
+    def __init__(self):
+        self.used_by: int = 0
+
+    @property
+    def initialized(self) -> bool:
+        return self.used_by > 0
+
+    def register(self) -> None:
+        self.used_by += 1
+
+    def unregister(self) -> None:
+        if self.used_by <= 0:
+            raise RuntimeError("There are no more registered resources")
+        self.used_by -= 1
 
 
 class Functionality(ABC):
-    _is_microservice: bool = True
+    _common_resources_state: ClassVar[_CommonResourcesState] = _CommonResourcesState()
     _runner: ClassVar[Runner] = runner
+
+    _is_microservice: bool = True
     workers: int = 0
 
     def __init__(
@@ -47,6 +61,7 @@ class Functionality(ABC):
         self.logger: Logger = getLogger(f"ouranos.{self.name}")
         self.config: ConfigDict = config
         self._status: bool = False
+        self._error_logged: bool = False
 
         if microservice is not None:
             self._is_microservice = microservice
@@ -82,23 +97,23 @@ class Functionality(ABC):
 
     async def _init_common(self) -> None:
         """Initialize common resources."""
-        if _State.common_initialized:
-            return
+        if not Functionality._common_resources_state.initialized:
+            await self.init_the_db()
+            await self.init_the_scheduler()
 
-        await self.init_the_db()
-        await self.init_the_scheduler()
-        _State.common_initialized = True
+        Functionality._common_resources_state.register()
 
     async def _clear_common(self) -> None:
         """Clear common resources."""
-        if not _State.common_initialized:
-            return
+        # Decref the common resources
+        Functionality._common_resources_state.unregister()
+        # If no functionality is using the common resources, clear them
+        if Functionality._common_resources_state.used_by == 0:
+            scheduler.remove_all_jobs()
+            scheduler.shutdown()
 
-        scheduler.remove_all_jobs()
-        scheduler.shutdown()
-
-        for engine in db.engines.values():
-            await engine.dispose()
+            for engine in db.engines.values():
+                await engine.dispose()
 
     async def initialize(self) -> None:
         """Hook for subclasses to initialize resources."""
@@ -107,12 +122,10 @@ class Functionality(ABC):
     @abstractmethod
     async def startup(self) -> None:
         """Start the functionality (implemented by subclasses)."""
-        raise NotImplementedError
 
     @abstractmethod
     async def shutdown(self) -> None:
         """Shutdown the functionality (implemented by subclasses)."""
-        raise NotImplementedError
 
     async def post_shutdown(self) -> None:
         """Hook for subclasses to perform post-shutdown cleanup."""
@@ -128,20 +141,20 @@ class Functionality(ABC):
 
         try:
             await self._init_common()
+            await self.initialize()
+            await self.startup()
         except Exception:
             await self._clear_common()
             raise
-        await self.initialize()
-        await self.startup()
 
-        self.logger.info(f"Ouranos' {self.__class__.__name__} started successfully [{pid}]")
         self._status = True
+        self.logger.info(f"Ouranos' {self.__class__.__name__} started successfully [{pid}]")
 
     async def complete_shutdown(self) -> None:
         """Shutdown the functionality and clean up resources."""
         if not self.started:
             raise RuntimeError(f"Ouranos' {self.__class__.__name__} is not running")
-            
+
         pid = os.getpid()
         self.logger.info(f"Stopping Ouranos' {self.__class__.__name__} [{pid}]")
 
@@ -150,34 +163,37 @@ class Functionality(ABC):
             await self.post_shutdown()
         except asyncio.CancelledError as e:
             self.logger.error(f"Error while shutting down [{pid}]. {self._fmt_exc(e)}")
-        else:
-            self._status = False
-            self.logger.info(f"Ouranos' {self.__class__.__name__} stopped [{pid}]")
+        finally:
+            await self._clear_common()
+
+        self._status = False
+        self.logger.info(f"Ouranos' {self.__class__.__name__} stopped [{pid}]")
 
     def run(self, reraise: bool = False) -> None:
         """Run the functionality until completion or interruption."""
         setup_loop()
         try:
             asyncio.run(self._run())
-        except Exception as e:
-            if not getattr(e, "logged", False):
+        except Exception:
+            if not self._error_logged:
                 # The error should not have happened and is not logged, raise it anyway
-                raise e
+                raise
             if (
                     reraise
                     or self.config["DEVELOPMENT"] or self.config["DEBUG"] or self.config["TESTING"]
             ):
-                raise e
+                raise
 
     async def _run(self) -> None:
         pid = os.getpid()
+        self._error_logged = False
         try:
             await self.complete_startup()
         except Exception as e:
-            self.logger.error(f"Error while starting [{pid}]. {self._fmt_exc(e)}")
+            self.logger.critical(f"Error while starting [{pid}]. {self._fmt_exc(e)}")
             self.logger.info(f"Will stop [{pid}]")
-            e.logged = True
-            raise e
+            self._error_logged = True
+            raise
         else:
             # `run_until_stop()` cannot raise
             await self._runner.run_until_stop()
@@ -186,9 +202,9 @@ class Functionality(ABC):
                 try:
                     await self.complete_shutdown()
                 except Exception as e:
-                    self.logger.error(f"Error while shutting down [{pid}]. {self._fmt_exc(e)}")
-                    e.logged = True
-                    raise e
+                    self.logger.critical(f"Error while shutting down [{pid}]. {self._fmt_exc(e)}")
+                    self._error_logged = True
+                    raise
 
     def stop(self) -> None:
         """Stop the functionality gracefully."""
@@ -200,24 +216,4 @@ class Functionality(ABC):
 
 def format_functionality_name(functionality: Type[Functionality]) -> str:
     """Convert CamelCase class name to snake_case functionality name."""
-    return pattern.sub('_', functionality.__name__).lower()
-
-
-def run_functionality_forever(
-        functionality_cls: Type[Functionality],
-        config_profile: str | None = None,
-        *args,
-        **kwargs
-) -> None:
-    """
-    Deprecated: Run a functionality forever.
-    Use Plugin instead.
-    """
-    warnings.warn(
-        "`run_functionality_forever` is deprecated, run the functionality "
-        "via a `Plugin` instead",
-        DeprecationWarning,
-        stacklevel=2
-    )
-    functionality = functionality_cls(config_profile, *args, **kwargs)
-    functionality.run()
+    return _PATTERN.sub('_', functionality.__name__).lower()
