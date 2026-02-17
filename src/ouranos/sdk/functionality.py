@@ -58,6 +58,7 @@ class Functionality(ABC):
         self.logger: Logger = getLogger(f"ouranos.{self.name}")
         self.config: ConfigDict = config
         self._status: bool = False
+        self._error_logged: bool = False
 
         if microservice is not None:
             self._is_microservice = microservice
@@ -171,8 +172,8 @@ class Functionality(ABC):
         setup_loop()
         try:
             asyncio.run(self._run())
-        except Exception as e:
-            if not getattr(e, "logged", False):
+        except Exception:
+            if not self._error_logged:
                 # The error should not have happened and is not logged, raise it anyway
                 raise
             if (
@@ -183,12 +184,13 @@ class Functionality(ABC):
 
     async def _run(self) -> None:
         pid = os.getpid()
+        self._error_logged = False
         try:
             await self.complete_startup()
         except Exception as e:
             self.logger.error(f"Error while starting [{pid}]. {self._fmt_exc(e)}")
             self.logger.info(f"Will stop [{pid}]")
-            e.logged = True
+            self._error_logged = True
             raise
         else:
             # `run_until_stop()` cannot raise
@@ -199,7 +201,7 @@ class Functionality(ABC):
                     await self.complete_shutdown()
                 except Exception as e:
                     self.logger.error(f"Error while shutting down [{pid}]. {self._fmt_exc(e)}")
-                    e.logged = True
+                    self._error_logged = True
                     raise
 
     def stop(self) -> None:
