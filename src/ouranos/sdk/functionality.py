@@ -191,7 +191,7 @@ class Functionality(ABC):
         try:
             await self.complete_startup()
         except Exception as e:
-            self.logger.error(f"Error while starting [{pid}]. {self._fmt_exc(e)}")
+            self.logger.critical(f"Error while starting [{pid}]. {self._fmt_exc(e)}")
             self.logger.info(f"Will stop [{pid}]")
             self._error_logged = True
             raise
@@ -203,7 +203,7 @@ class Functionality(ABC):
                 try:
                     await self.complete_shutdown()
                 except Exception as e:
-                    self.logger.error(f"Error while shutting down [{pid}]. {self._fmt_exc(e)}")
+                    self.logger.critical(f"Error while shutting down [{pid}]. {self._fmt_exc(e)}")
                     self._error_logged = True
                     raise
 
