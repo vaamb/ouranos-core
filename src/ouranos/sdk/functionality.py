@@ -139,11 +139,11 @@ class Functionality(ABC):
 
         try:
             await self._init_common()
+            await self.initialize()
+            await self.startup()
         except Exception:
             await self._clear_common()
             raise
-        await self.initialize()
-        await self.startup()
 
         self._status = True
         self.logger.info(f"Ouranos' {self.__class__.__name__} started successfully [{pid}]")
