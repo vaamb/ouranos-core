@@ -16,7 +16,7 @@ def _get_archivable(module) -> dict[str, type[ArchivableMixin]]:
         if (
                 isclass(Model)
                 and issubclass(Model, ArchivableMixin)
-                and not Model is ArchivableMixin
+                and Model is not ArchivableMixin
         )
     }
 
@@ -25,7 +25,7 @@ class Archiver:
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.logger: Logger = getLogger("ouranos.aggregator")
-        self._mapping: dict[str, dict[str, type[ArchivableMixin]]] = {}
+        self._mapping: dict[str, dict[str, type[ArchivableMixin]]] | None = None
 
     @property
     def mapping(self) -> dict[str, dict[str, type[ArchivableMixin]]]:
@@ -74,26 +74,29 @@ class Archiver:
             async with session.begin():
                 per_page = 250
                 offset = 0
-                stmt = RecentModel._generate_get_query(offset=offset, limit=per_page)
+                stmt = RecentModel._generate_get_query(
+                    offset=offset, limit=per_page, order_by="timestamp")
                 stmt = stmt.where(RecentModel.timestamp < time_limit)
+                result = await session.execute(stmt)
                 to_archive: list[dict] = [
                     row.to_dict()
-                    for row in await session.execute(stmt)
+                    for row in result.scalars()
                 ]
                 while to_archive:
                     await ArchiveModel.create_multiple(
                         session, values=to_archive, _on_conflict_do="update")
 
                     offset += per_page
-                    stmt = RecentModel._generate_get_query(offset=offset, limit=per_page)
+                    stmt = RecentModel._generate_get_query(
+                        offset=offset, limit=per_page, order_by="timestamp")
                     stmt = stmt.where(RecentModel.timestamp < time_limit)
+                    result = await session.execute(stmt)
                     to_archive: list[dict] = [
                         row.to_dict()
-                        for row in await session.execute(stmt)
+                        for row in result.scalars()
                     ]
                 stmt = delete(RecentModel).where(RecentModel.timestamp < time_limit)
                 await session.execute(stmt)
-                await session.commit()
 
     async def archive_old_data(self) -> None:
         self.logger.info("Archiving old data")
