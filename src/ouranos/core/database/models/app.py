@@ -846,7 +846,7 @@ class FlashMessage(Base):
         await session.execute(stmt)
 
     @classmethod
-    async def get_multiple(
+    async def get_lasts(
             cls,
             session: AsyncSession,
             limit: int = 10,
