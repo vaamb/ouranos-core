@@ -19,6 +19,7 @@ from gaia_validators import missing
 
 from ouranos import db
 from ouranos.core.database.models.types import UtcDateTime
+from ouranos.core.database.utils import ArchiveLink
 from ouranos.core.utils import timeWindow
 
 
@@ -437,7 +438,6 @@ class CacheMixin(CRUDMixin):
     timestamp: Mapped[datetime] = mapped_column(UtcDateTime)
 
     @classmethod
-    @abstractmethod
     def get_ttl(cls: Base) -> int:
         """Return data TTL in seconds"""
         raise NotImplementedError
@@ -473,3 +473,13 @@ class CacheMixin(CRUDMixin):
     async def clear(cls: Base, session: AsyncSession) -> None:
         stmt = delete(cls)
         await session.execute(stmt)
+
+
+class ArchivableMixin(CRUDMixin):
+    _archive_link: ArchiveLink
+
+    timestamp: Mapped[datetime] = mapped_column(UtcDateTime)
+
+    @classmethod
+    def get_archive_link(cls) -> ArchiveLink:
+        return cls._archive_link
