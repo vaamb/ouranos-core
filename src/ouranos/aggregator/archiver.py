@@ -1,95 +1,92 @@
 from datetime import datetime, timedelta, timezone
+from inspect import isclass
 from logging import getLogger, Logger
-from typing import Type
 
-from sqlalchemy import delete, insert, inspect, select
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.ext.declarative import DeclarativeMeta
+from sqlalchemy import delete
 
 from ouranos import db, scheduler
-from ouranos.core.database.utils import ArchiveLink
-from ouranos.core.database.models import gaia, archives
+from ouranos.core.database.models import app, archives, gaia
+from ouranos.core.database.models.abc import ArchivableMixin
 
 
-# For type hint; all Tables with __archive_link__ set should have this format
-class ArchivableData(DeclarativeMeta):
-    __tablename__: str
-    __bind_key__: str
-    __archive_link__: ArchiveLink
-
-    datetime: datetime
+def _get_archivable(module) -> dict[str, type[ArchivableMixin]]:
+    return {
+        Model.get_archive_link().name: Model
+        for Model in module.__dict__.values()
+        if (
+                isclass(Model)
+                and issubclass(Model, ArchivableMixin)
+                and not Model is ArchivableMixin
+        )
+    }
 
 
 class Archiver:
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.logger: Logger = getLogger("ouranos.aggregator")
-        self._mapping = {}
+        self._mapping: dict[str, dict] = {}
 
     def _map_archives(self) -> None:
-        models_: list[Type[ArchivableData]] = [
-            cls for name, cls in [
-                *archives.__dict__.items(),
-                *gaia.__dict__.items(),
-            ]
-            if isinstance(cls, type) and issubclass(cls, db.Model)
-        ]
-        for model in models_:
-            link = getattr(model, '__archive_link__', None)
-            if link:
-                try:
-                    self._mapping[link.name].update({link.status: model})
-                except KeyError:
-                    self._mapping[link.name] = {link.status: model}
+        archive_models = _get_archivable(archives)
+        recent_models = {
+            **_get_archivable(app),
+            **_get_archivable(gaia),
+        }
+        mapping = {}
+        for model_name, archive_model in archive_models.items():
+            recent_model = recent_models.get(model_name)
+            if not recent_model:
+                continue
 
-        for name, status in [*self._mapping.items()]:
-            if not all(s in status for s in ("recent", "archive")):
-                if "recent" not in status:
-                    missing = "recent"
-                    cls_name = status["archive"].__class__.__name__
-                else:
-                    missing = "archive"
-                    cls_name = status["recent"].__class__.__name__
-                self.logger.warning(
-                    f"Model {cls_name} has no '{missing}' ArchiveLink set"
-                )
-                del self._mapping[name]
+            mapping[model_name] = {
+                "archive": archive_model,
+                "recent": recent_model,
+            }
+
+        self._mapping = mapping
 
     async def _archive(
             self,
             data_name: str,
-            recent_model: ArchivableData,
-            archive_model: ArchivableData,
+            RecentModel: type[ArchivableMixin],
+            ArchiveModel: type[ArchivableMixin],
     ) -> None:
         self.logger.debug(f"Archiving {data_name} data")
         limit = (
-                archive_model.__archive_link__.limit or
-                recent_model.__archive_link__.limit
+                ArchiveModel.get_archive_link().limit or
+                RecentModel.get_archive_link().limit
         )
-        if limit is not None:
-            now_utc = datetime.now(timezone.utc)
-            time_limit = now_utc - timedelta(days=limit)
-            columns = inspect(recent_model).columns.keys()
-
-            def as_list_of_dict(list_of_models: list[ArchivableData]) -> list[dict]:
-                return [
-                    {column: getattr(model, column) for column in columns}
-                    for model in list_of_models
-                ]
-
-            async with db.scoped_session() as session:
-                session: AsyncSession
-                stmt = select(recent_model).where(recent_model.datetime < time_limit)
-                result = await session.execute(stmt)
-                old_data_obj = result.scalars().all()
-                old_data = as_list_of_dict(old_data_obj)
-                stmt = insert(archive_model).values(old_data)
-                await session.execute(stmt)
-                stmt = delete(recent_model).where(recent_model.datetime < time_limit)
-                await session.execute(stmt)
-                await session.commit()
-        else:
+        if limit is None:
             self.logger.warning(f"No limit_key set for {data_name} ArchiveLink")
+            return
+
+        now_utc = datetime.now(timezone.utc)
+        time_limit = now_utc - timedelta(days=limit)
+
+        async with db.scoped_session() as session:
+            per_page = 250
+            offset = 0
+            stmt = RecentModel._generate_get_query(offset=offset, limit=per_page)
+            stmt = stmt.where(RecentModel.timestamp < time_limit)
+            to_archive: list[dict] = [
+                row.to_dict()
+                for row in await session.execute(stmt)
+            ]
+            while to_archive:
+                await ArchiveModel.create_multiple(
+                    session, values=to_archive, _on_conflict_do="update")
+
+                offset += per_page
+                stmt = RecentModel._generate_get_query(offset=offset, limit=per_page)
+                stmt = stmt.where(RecentModel.timestamp < time_limit)
+                to_archive: list[dict] = [
+                    row.to_dict()
+                    for row in await session.execute(stmt)
+                ]
+            stmt = delete(RecentModel).where(RecentModel.timestamp < time_limit)
+            await session.execute(stmt)
+            await session.commit()
 
     async def archive_old_data(self) -> None:
         self.logger.info("Archiving old data")
