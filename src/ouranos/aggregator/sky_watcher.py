@@ -187,7 +187,7 @@ class SkyWatcher:
         if timestamp is None:
             return False
         now = datetime.now()
-        if now.timestamp() - timestamp.timestamp() > (self._update_period + 1) * 60 :
+        if now.timestamp() - timestamp.timestamp() < (self._update_period + 1) * 60 :
             self.logger.debug("Weather data already up to date")
             return True
         return False
