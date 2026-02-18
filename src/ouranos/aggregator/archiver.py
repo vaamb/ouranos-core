@@ -25,9 +25,16 @@ class Archiver:
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.logger: Logger = getLogger("ouranos.aggregator")
-        self._mapping: dict[str, dict] = {}
+        self._mapping: dict[str, dict[str, type[ArchivableMixin]]] = {}
 
-    def _map_archives(self) -> None:
+    @property
+    def mapping(self) -> dict[str, dict[str, type[ArchivableMixin]]]:
+        if self._mapping is None:
+            self._mapping = self._map_archives()
+        return self._mapping
+
+    @staticmethod
+    def _map_archives() -> dict[str, dict[str, type[ArchivableMixin]]]:
         archive_models = _get_archivable(archives)
         recent_models = {
             **_get_archivable(app),
@@ -43,8 +50,7 @@ class Archiver:
                 "archive": archive_model,
                 "recent": recent_model,
             }
-
-        self._mapping = mapping
+        return mapping
 
     async def _archive(
             self,
@@ -65,36 +71,35 @@ class Archiver:
         time_limit = now_utc - timedelta(days=limit)
 
         async with db.scoped_session() as session:
-            per_page = 250
-            offset = 0
-            stmt = RecentModel._generate_get_query(offset=offset, limit=per_page)
-            stmt = stmt.where(RecentModel.timestamp < time_limit)
-            to_archive: list[dict] = [
-                row.to_dict()
-                for row in await session.execute(stmt)
-            ]
-            while to_archive:
-                await ArchiveModel.create_multiple(
-                    session, values=to_archive, _on_conflict_do="update")
-
-                offset += per_page
+            async with session.begin():
+                per_page = 250
+                offset = 0
                 stmt = RecentModel._generate_get_query(offset=offset, limit=per_page)
                 stmt = stmt.where(RecentModel.timestamp < time_limit)
                 to_archive: list[dict] = [
                     row.to_dict()
                     for row in await session.execute(stmt)
                 ]
-            stmt = delete(RecentModel).where(RecentModel.timestamp < time_limit)
-            await session.execute(stmt)
-            await session.commit()
+                while to_archive:
+                    await ArchiveModel.create_multiple(
+                        session, values=to_archive, _on_conflict_do="update")
+
+                    offset += per_page
+                    stmt = RecentModel._generate_get_query(offset=offset, limit=per_page)
+                    stmt = stmt.where(RecentModel.timestamp < time_limit)
+                    to_archive: list[dict] = [
+                        row.to_dict()
+                        for row in await session.execute(stmt)
+                    ]
+                stmt = delete(RecentModel).where(RecentModel.timestamp < time_limit)
+                await session.execute(stmt)
+                await session.commit()
 
     async def archive_old_data(self) -> None:
         self.logger.info("Archiving old data")
-        if not self._mapping:
-            self._map_archives()
-        for data in self._mapping:
-            recent = self._mapping[data]["recent"]
-            archive = self._mapping[data]["archive"]
+        for data in self.mapping:
+            recent = self.mapping[data]["recent"]
+            archive = self.mapping[data]["archive"]
             await self._archive(data, recent, archive)
 
     async def start(self) -> None:
