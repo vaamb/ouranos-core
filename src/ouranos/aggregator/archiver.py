@@ -42,8 +42,7 @@ class Archiver:
                 except KeyError:
                     self._mapping[link.name] = {link.status: model}
 
-        items = self._mapping.items()
-        for name, status in items:
+        for name, status in [*self._mapping.items()]:
             if not all(s in status for s in ("recent", "archive")):
                 if "recent" not in status:
                     missing = "recent"
