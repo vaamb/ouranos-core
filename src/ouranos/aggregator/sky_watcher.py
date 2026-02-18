@@ -163,7 +163,6 @@ class SkyWatcher:
     def __init__(self):
         self.logger: Logger = getLogger("ouranos.aggregator")
         self.dispatcher = DispatcherFactory.get("aggregator-internal")
-        self._mutex = asyncio.Lock()
         coordinates = current_app.config.get("HOME_COORDINATES")
         if isinstance(coordinates, tuple):
             coordinates = gv.Coordinates(*coordinates)
