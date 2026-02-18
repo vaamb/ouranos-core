@@ -1179,8 +1179,14 @@ class GaiaEvents(AsyncEventHandler):
         self.logger.debug(f"Received crud result for request {data['uuid']}")
         async with db.scoped_session() as session:
             crud_request = await CrudRequest.get(session, uuid=UUID(data["uuid"]))
-            crud_request.result = data["status"]
-            crud_request.message = data["message"]
+            await CrudRequest.update(
+                session,
+                uuid=UUID(data["uuid"]),
+                values={
+                    "result": crud_request.result,
+                    "message": crud_request.message,
+                }
+            )
 
     # ---------------------------------------------------------------------------
     #   Short-lived payloads (pseudo stream)
