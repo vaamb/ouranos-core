@@ -278,7 +278,7 @@ class SkyWatcher:
         scheduler.add_job(
             self.update_sun_times_data,
             "cron", hour="0", minute="1", misfire_grace_time=15 * 60,
-            id="sky_watcher-suntimes",
+            id="sky_watcher-sun_times",
         )
         await asyncio.gather(*tasks)
         self._started = True
