@@ -21,7 +21,7 @@ import gaia_validators as gv
 from ouranos import current_app
 from ouranos.core.config.consts import ECOSYSTEM_TIMEOUT
 from ouranos.core.database.models.abc import (
-    Base, CacheMixin, CRUDMixin, on_conflict_opt, RecordMixin)
+    ArchivableMixin, Base, CacheMixin, CRUDMixin, on_conflict_opt, RecordMixin)
 from ouranos.core.database.models.caches import (
     cache_ecosystems, cache_ecosystems_has_recent_data,
     cache_ecosystems_has_active_actuator, cache_engines,
@@ -1396,9 +1396,9 @@ class BaseSensorDataRecord(BaseSensorData, RecordMixin):
     )
 
 
-class SensorDataRecord(BaseSensorDataRecord):
+class SensorDataRecord(BaseSensorDataRecord, ArchivableMixin):
     __tablename__ = "sensor_records"
-    __archive_link__ = ArchiveLink("sensor", "recent")
+    _archive_link = ArchiveLink("sensor_records", "recent")
 
     # relationships
     ecosystem: Mapped["Ecosystem"] = relationship(back_populates="sensor_records")
@@ -1604,9 +1604,9 @@ class BaseActuatorRecord(Base, RecordMixin):
         return result.all()
 
 
-class ActuatorRecord(BaseActuatorRecord):
+class ActuatorRecord(BaseActuatorRecord, ArchivableMixin):
     __tablename__ = "actuator_records"
-    __archive_link__ = ArchiveLink("actuator", "recent")
+    _archive_link = ArchiveLink("actuator_records", "recent")
 
     # relationships
     ecosystem: Mapped["Ecosystem"] = relationship(back_populates="actuator_records")
@@ -1615,9 +1615,9 @@ class ActuatorRecord(BaseActuatorRecord):
 # ---------------------------------------------------------------------------
 #   Gaia warnings
 # ---------------------------------------------------------------------------
-class GaiaWarning(Base):
+class GaiaWarning(Base, ArchivableMixin):
     __tablename__ = "warnings"
-    __archive_link__ = ArchiveLink("warnings", "recent")
+    _archive_link = ArchiveLink("warnings", "recent")
 
     id: Mapped[int] = mapped_column(primary_key=True)
     level: Mapped[gv.WarningLevel] = mapped_column(SQLIntEnum(gv.WarningLevel), default=gv.WarningLevel.low)

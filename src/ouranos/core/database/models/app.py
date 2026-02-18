@@ -24,7 +24,7 @@ from gaia_validators import missing, safe_enum_from_name
 from ouranos import current_app
 from ouranos.core.config import consts
 from ouranos.core.database.models.abc import (
-    Base, CRUDMixin, lookup_keys_type, on_conflict_opt, ToDictMixin)
+    ArchivableMixin, Base, CRUDMixin, lookup_keys_type, on_conflict_opt, ToDictMixin)
 from ouranos.core.database.models.caches import cache_users
 from ouranos.core.database.models.types import PathType, SQLIntEnum, UtcDateTime
 from ouranos.core.database.models.utils import paginate
@@ -824,26 +824,17 @@ class CommunicationChannel(Base):
 
 
 # TODO: When problems solved, after x days: goes to archive
-class FlashMessage(Base):
+class FlashMessage(Base, ArchivableMixin):
     __tablename__ = "flash_message"
     __bind_key__ = "app"
-    __archive_link__ = ArchiveLink("warnings", "recent")
+    _archive_link = ArchiveLink("warnings", "recent")
 
     id: Mapped[int] = mapped_column(primary_key=True)
     level: Mapped[gv.WarningLevel] = mapped_column(SQLIntEnum(gv.WarningLevel), default=gv.WarningLevel.low)
     title: Mapped[str] = mapped_column(sa.String(length=256))
     description: Mapped[Optional[str]] = mapped_column(sa.String(length=2048))
-    created_on: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
+    timestamp: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
     active: Mapped[bool] = mapped_column(default=True)
-
-    @classmethod
-    async def create(
-            cls,
-            session: AsyncSession,
-            values: dict,
-    ) -> None:
-        stmt = insert(cls).values(values)
-        await session.execute(stmt)
 
     @classmethod
     async def get_lasts(
@@ -854,7 +845,7 @@ class FlashMessage(Base):
         stmt = (
             select(cls)
             .where(cls.active == True)
-            .order_by(cls.created_on.desc(), cls.level)
+            .order_by(cls.timestamp.desc(), cls.level)
             .limit(limit)
         )
         result = await session.execute(stmt)
