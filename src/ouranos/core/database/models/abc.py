@@ -249,7 +249,7 @@ class CRUDMixin:
             cls: Base,
             offset: int | None = None,
             limit: int | None = None,
-            order_by: str | None = None,
+            order_by: str | UnaryExpression | None = None,
             **lookup_keys: list[lookup_keys_type] | lookup_keys_type | None,
     ) -> Select:
         stmt = select(cls)
@@ -275,7 +275,7 @@ class CRUDMixin:
             /,
             offset: int | None = None,
             limit: int | None = None,
-            order_by: UnaryExpression | None = None,
+            order_by: str | UnaryExpression | None = None,
             **lookup_keys: list[lookup_keys_type] | lookup_keys_type | None,
     ) -> Self | None:
         """
@@ -297,7 +297,7 @@ class CRUDMixin:
             /,
             offset: int | None = None,
             limit: int | None = None,
-            order_by: UnaryExpression | None = None,
+            order_by: str | UnaryExpression | None = None,
             **lookup_keys: list[lookup_keys_type] | lookup_keys_type | None,
     ) -> Sequence[Self]:
         """
@@ -418,7 +418,7 @@ class RecordMixin(CRUDMixin):
             /,
             offset: int | None = None,
             limit: int | None = None,
-            order_by: UnaryExpression | None = None,
+            order_by: str | UnaryExpression | None = None,
             time_window: timeWindow | None = None,
             **lookup_keys: list[lookup_keys_type] | lookup_keys_type | None,
     ) -> Sequence[Base]:
