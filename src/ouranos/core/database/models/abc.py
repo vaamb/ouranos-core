@@ -28,6 +28,8 @@ on_conflict_opt: TypeAlias = Literal["update", "nothing"] | None
 
 class ToDictMixin:
     def to_dict(self, exclude: list | None = None) -> dict:
+        # /!\\ does not work with lazy loaded attributes as they won't be in `vars(self)`.
+        # However, async SQLAlchemy does not use lazy loading
         exclude: list = exclude or []
         return {
             key: value for key, value in vars(self).items()
