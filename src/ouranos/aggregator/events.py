@@ -36,7 +36,7 @@ if t.TYPE_CHECKING:
 
 PT = TypeVar("PT", dict, list[dict])
 
-data_type: TypeAlias = dict | list | str | tuple | None
+data_type: TypeAlias = dict | list | str | tuple | None | gv.Empty
 
 
 class SensorDataRecordDict(TypedDict):
@@ -66,13 +66,13 @@ def registration_required(func: Callable):
     engine_uid"""
 
     @wraps(func)
-    async def wrapper(self: GaiaEvents, sid: UUID, data: data_type=None):
+    async def wrapper(self: GaiaEvents, sid: UUID, data: data_type = gv.empty):
         async with self.session(sid) as session:
             engine_uid: str | None = session.get("engine_uid")
         if engine_uid is None:
             raise NotRegisteredError(f"Engine with sid {sid} is not registered.")
         else:
-            if data:
+            if data is not gv.empty:
                 return await func(self, sid, data, engine_uid)
             return await func(self, sid, engine_uid)
     return wrapper
