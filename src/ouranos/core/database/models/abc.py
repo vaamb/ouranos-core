@@ -178,19 +178,21 @@ class CRUDMixin:
                 if t.TYPE_CHECKING:
                     from sqlalchemy.dialects.postgresql import Insert
 
+                lookup_keys = cls._get_lookup_keys()
+                columns_name = [column.name for column in inspect(cls).columns]
+
                 def impl(stmt: Insert, action: str) -> Insert:
                     if action == "nothing":
                         stmt = stmt.on_conflict_do_nothing(
-                            index_elements=cls._get_lookup_keys(),
+                            index_elements=lookup_keys,
                         )
                     elif action == "update":
-                        columns_name = inspect(cls).attrs.keys()
                         stmt = stmt.on_conflict_do_update(
-                            index_elements=cls._get_lookup_keys(),
+                            index_elements=lookup_keys,
                             set_={
                                 column: getattr(stmt.excluded, column)
                                 for column in columns_name
-                                if column not in cls._get_lookup_keys()
+                                if column not in lookup_keys
                             },
                         )
                     else:
@@ -201,19 +203,21 @@ class CRUDMixin:
                 if t.TYPE_CHECKING:
                     from sqlalchemy.dialects.sqlite import Insert
 
+                lookup_keys = cls._get_lookup_keys()
+                columns_name = [column.name for column in inspect(cls).columns]
+
                 def impl(stmt: Insert, action: str) -> Insert:
                     if action == "nothing":
                         stmt = stmt.on_conflict_do_nothing(
-                            index_elements=cls._get_lookup_keys(),
+                            index_elements=lookup_keys,
                         )
                     elif action == "update":
-                        columns_name = inspect(cls).attrs.keys()
                         stmt = stmt.on_conflict_do_update(
-                            index_elements=cls._get_lookup_keys(),
+                            index_elements=lookup_keys,
                             set_={
                                 column: getattr(stmt.excluded, column)
                                 for column in columns_name
-                                if column not in cls._get_lookup_keys()
+                                if column not in lookup_keys
                             },
                         )
                     else:
