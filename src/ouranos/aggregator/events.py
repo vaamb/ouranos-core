@@ -1166,8 +1166,9 @@ class GaiaEvents(AsyncEventHandler):
                     "payload": json.dumps(data["data"])
                 }
             )
+            engine_sid = engine.sid
         await self.emit(
-            "crud", data=data, namespace="/gaia", to=engine.sid, ttl=30)
+            "crud", data=data, namespace="/gaia", to=engine_sid, ttl=30)
 
     # Response to crud event, actual path: Gaia -> Aggregator -> Api
     async def on_crud_result(
