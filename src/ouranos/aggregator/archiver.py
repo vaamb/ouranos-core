@@ -6,19 +6,7 @@ from sqlalchemy import delete
 
 from ouranos import db, scheduler
 from ouranos.core.database.models import app, archives, gaia
-from ouranos.core.database.models.abc import ArchivableMixin
-
-
-def _get_archivable(module) -> dict[str, type[ArchivableMixin]]:
-    return {
-        Model.get_archive_link().name: Model
-        for Model in module.__dict__.values()
-        if (
-                isclass(Model)
-                and issubclass(Model, ArchivableMixin)
-                and Model is not ArchivableMixin
-        )
-    }
+from ouranos.core.database.models.abc import ArchivableMixin, Base
 
 
 class Archiver:
@@ -34,16 +22,34 @@ class Archiver:
         return self._mapping
 
     @staticmethod
-    def _map_archives() -> dict[str, dict[str, type[ArchivableMixin]]]:
-        archive_models = _get_archivable(archives)
+    def _get_archivable(module) -> dict[str, type[ArchivableMixin]]:
+        return {
+            Model.get_archive_table(): Model
+            for Model in module.__dict__.values()
+            if (
+                    isclass(Model)
+                    and issubclass(Model, ArchivableMixin)
+                    and Model is not ArchivableMixin
+            )
+        }
+
+    def _map_archives(self) -> dict[str, dict[str, type[ArchivableMixin]]]:
+        archive_models = {
+            Model.__tablename__: Model
+            for Model in archives.__dict__.values()
+            if issubclass(Model, Base)
+        }
         recent_models = {
-            **_get_archivable(app),
-            **_get_archivable(gaia),
+            **self._get_archivable(app),
+            **self._get_archivable(gaia),
         }
         mapping = {}
-        for model_name, archive_model in archive_models.items():
-            recent_model = recent_models.get(model_name)
-            if not recent_model:
+        for model_name, recent_model in recent_models.items():
+            archive_model = archive_models.get(model_name)
+            if not archive_model:
+                self.logger.warning(
+                    f"Table '{model_name}' is defined as archivable but does not "
+                    f"have a linked archive table")
                 continue
 
             mapping[model_name] = {
@@ -52,17 +58,32 @@ class Archiver:
             }
         return mapping
 
+    @staticmethod
+    async def _get_archives(
+            session,
+            Model: type[ArchivableMixin],
+            time_limit,
+            offset: int,
+            per_page: int = 250,
+    ) ->list[dict]:
+        stmt = Model._generate_get_query(
+            offset=offset, limit=per_page,
+            order_by=Model.get_archive_column().asc())
+        stmt = stmt.where(Model.get_archive_column() < time_limit)
+        result = await session.execute(stmt)
+        return [
+            row.to_dict()
+            for row in result.scalars()
+        ]
+
     async def _archive(
             self,
             data_name: str,
-            RecentModel: type[ArchivableMixin],
-            ArchiveModel: type[ArchivableMixin],
+            RecentModel: type[ArchivableMixin | Base],
+            ArchiveModel: type[Base],
     ) -> None:
         self.logger.debug(f"Archiving {data_name} data")
-        limit = (
-                ArchiveModel.get_archive_link().limit or
-                RecentModel.get_archive_link().limit
-        )
+        limit = RecentModel.get_time_limit()
         if limit is None:
             self.logger.warning(f"No limit_key set for {data_name} ArchiveLink")
             return
@@ -70,32 +91,22 @@ class Archiver:
         now_utc = datetime.now(timezone.utc)
         time_limit = now_utc - timedelta(days=limit)
 
-        async with db.scoped_session() as session:
+        async with (db.scoped_session() as session):
             async with session.begin():
                 per_page = 250
                 offset = 0
-                stmt = RecentModel._generate_get_query(
-                    offset=offset, limit=per_page, order_by=RecentModel.timestamp)
-                stmt = stmt.where(RecentModel.timestamp < time_limit)
-                result = await session.execute(stmt)
-                to_archive: list[dict] = [
-                    row.to_dict()
-                    for row in result.scalars()
-                ]
+                to_archive = await self._get_archives(
+                    session, RecentModel, time_limit, offset, per_page)
                 while to_archive:
                     await ArchiveModel.create_multiple(
                         session, values=to_archive, _on_conflict_do="update")
-
                     offset += per_page
-                    stmt = RecentModel._generate_get_query(
-                        offset=offset, limit=per_page, order_by="timestamp")
-                    stmt = stmt.where(RecentModel.timestamp < time_limit)
-                    result = await session.execute(stmt)
-                    to_archive: list[dict] = [
-                        row.to_dict()
-                        for row in result.scalars()
-                    ]
-                stmt = delete(RecentModel).where(RecentModel.timestamp < time_limit)
+                    to_archive = await self._get_archives(
+                        session, RecentModel, time_limit, offset, per_page)
+                stmt = (
+                    delete(RecentModel)
+                    .where(RecentModel.get_archive_column() < time_limit)
+                )
                 await session.execute(stmt)
 
     async def archive_old_data(self) -> None:

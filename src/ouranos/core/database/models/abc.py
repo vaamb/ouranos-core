@@ -17,7 +17,6 @@ from gaia_validators import missing
 
 from ouranos import db
 from ouranos.core.database.models.types import UtcDateTime
-from ouranos.core.database.utils import ArchiveLink
 from ouranos.core.utils import timeWindow
 
 
@@ -483,10 +482,18 @@ class CacheMixin(CRUDMixin):
 
 
 class ArchivableMixin(CRUDMixin):
-    _archive_link: ArchiveLink
-
-    timestamp: Mapped[datetime] = mapped_column(UtcDateTime)
+    _archive_column: str
+    _archive_table: str
 
     @classmethod
-    def get_archive_link(cls) -> ArchiveLink:
-        return cls._archive_link
+    def get_archive_table(cls: Base) -> str:
+        return cls._archive_table
+
+    @classmethod
+    def get_archive_column(cls: Base) -> Column:
+        return cls.__table__.c[cls._archive_column]
+
+    @classmethod
+    def get_time_limit(cls) -> int:
+        """Return data TTL before its archiving in days"""
+        raise NotImplementedError

@@ -24,11 +24,10 @@ from gaia_validators import missing, safe_enum_from_name
 from ouranos import current_app
 from ouranos.core.config import consts
 from ouranos.core.database.models.abc import (
-    ArchivableMixin, Base, CRUDMixin, lookup_keys_type, on_conflict_opt, ToDictMixin)
+    Base, CRUDMixin, lookup_keys_type, on_conflict_opt, ToDictMixin)
 from ouranos.core.database.models.caches import cache_users
 from ouranos.core.database.models.types import PathType, SQLIntEnum, UtcDateTime
 from ouranos.core.database.models.utils import paginate
-from ouranos.core.database.utils import ArchiveLink
 from ouranos.core.email import send_gaia_templated_email
 from ouranos.core.utils import check_filename, slugify, Tokenizer
 
@@ -823,17 +822,16 @@ class CommunicationChannel(Base):
         await session.commit()
 
 
-# TODO: When problems solved, after x days: goes to archive
-class FlashMessage(Base, ArchivableMixin):
+# TODO: make it an `ArchivableMixin` in a later pass
+class FlashMessage(Base):
     __tablename__ = "flash_message"
     __bind_key__ = "app"
-    _archive_link = ArchiveLink("warnings", "recent")
 
     id: Mapped[int] = mapped_column(primary_key=True)
     level: Mapped[gv.WarningLevel] = mapped_column(SQLIntEnum(gv.WarningLevel), default=gv.WarningLevel.low)
     title: Mapped[str] = mapped_column(sa.String(length=256))
     description: Mapped[Optional[str]] = mapped_column(sa.String(length=2048))
-    timestamp: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
+    created_on: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
     active: Mapped[bool] = mapped_column(default=True)
 
     @classmethod
@@ -845,7 +843,7 @@ class FlashMessage(Base, ArchivableMixin):
         stmt = (
             select(cls)
             .where(cls.active == True)
-            .order_by(cls.timestamp.desc(), cls.level)
+            .order_by(cls.created_on.desc(), cls.level)
             .limit(limit)
         )
         result = await session.execute(stmt)
