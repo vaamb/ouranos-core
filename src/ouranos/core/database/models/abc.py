@@ -76,6 +76,16 @@ class Base(db.Model, ToDictMixin):
 
 
 class CRUDMixin:
+    """
+    A Mixin that implements CRUD methods for SQLAlchemy async ORM classes.
+
+    The main aim of this class is to remove the boilerplate:
+        result = await session.execute(select(...))
+        return result.scalars().all()
+
+    It also adds two upsert methods, `get_or_create()` and `update_or_create()`,
+    which SQLAlchemy does not provide natively.
+    """
     _lookup_keys: list[str] | None = None
     _validated_lookup_keys: list[str] | None = None
 
