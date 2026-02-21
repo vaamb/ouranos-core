@@ -1623,6 +1623,7 @@ class GaiaWarning(Base, ArchivableMixin):
     level: Mapped[gv.WarningLevel] = mapped_column(SQLIntEnum(gv.WarningLevel), default=gv.WarningLevel.low)
     title: Mapped[str] = mapped_column(sa.String(length=256))
     description: Mapped[str] = mapped_column(sa.String(length=2048))
+    # Actually the same as the required `timestamp` column. Might use an alias later
     created_on: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
     created_by: Mapped[str] = mapped_column(sa.ForeignKey("ecosystems.uid"))
     seen_on: Mapped[Optional[datetime]] = mapped_column(UtcDateTime)
