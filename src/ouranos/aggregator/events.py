@@ -431,7 +431,7 @@ class GaiaEvents(AsyncEventHandler):
     async def on_nycthemeral_info(
             self,
             sid: UUID,  # noqa
-            data: list[gv.NycthemeralCycleInfoPayload],
+            data: list[gv.NycthemeralCycleInfoPayloadDict],
             engine_uid: str
     ) -> None:
         self.logger.debug(
