@@ -229,9 +229,8 @@ class CRUDMixin:
         insert = cls._get_insert()
         stmt = insert(cls).values(**lookup_keys, **values)
         if _on_conflict_do:
-            if cls._on_conflict_do is None:
-                cls._on_conflict_do = cls._get_on_conflict_do()
-            stmt = cls._on_conflict_do(stmt, _on_conflict_do)
+            on_conflict_do_method = cls._get_on_conflict_do()
+            stmt = on_conflict_do_method(stmt, _on_conflict_do)
         await session.execute(stmt)
 
     @classmethod
@@ -245,9 +244,8 @@ class CRUDMixin:
         insert = cls._get_insert()
         stmt = insert(cls).values(values)
         if _on_conflict_do:
-            if cls._on_conflict_do is None:
-                cls._on_conflict_do = cls._get_on_conflict_do()
-            stmt = cls._on_conflict_do(stmt, _on_conflict_do)
+            on_conflict_do_method = cls._get_on_conflict_do()
+            stmt = on_conflict_do_method(stmt, _on_conflict_do)
         await session.execute(stmt)
 
     @classmethod
