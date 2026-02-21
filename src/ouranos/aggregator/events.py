@@ -659,8 +659,7 @@ class GaiaEvents(AsyncEventHandler):
                 ecosystems_to_log.append(
                     await self.get_ecosystem_name(session, uid=uid))
 
-        if ecosystems_to_update:
-            async with db.scoped_session() as session:
+            if ecosystems_to_update:
                 for ecosystem_uid, update_value in ecosystems_to_update.items():
                     await Ecosystem.update(session, uid=ecosystem_uid, values=update_value)
             self.logger.debug(
