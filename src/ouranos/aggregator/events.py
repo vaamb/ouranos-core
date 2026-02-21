@@ -88,7 +88,7 @@ def validate_payload(model_cls: Type[gv.BaseModel] | Type[RootModel]):
                 validated_data = model_cls.model_validate(data).model_dump(by_alias=True)
             except ValidationError as e:
                 event: str = func.__name__[3:]
-                msg_list = [f"{error['loc'][0]}: {error['msg']}" for error in e.errors()]
+                msg_list = [f"{error['loc'][0] if error['loc'] else 'root'}: {error['msg']}" for error in e.errors()]
                 self.logger.error(
                     f"Encountered an error while validating '{event}' data. Error "
                     f"msg: {', '.join(msg_list)}"
