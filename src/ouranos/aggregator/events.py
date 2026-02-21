@@ -503,7 +503,7 @@ class GaiaEvents(AsyncEventHandler):
             engine_uid: str
     ) -> None:
         self.logger.debug(
-            f"Received 'climate' from engine: {engine_uid}")
+            f"Received 'weather' from engine: {engine_uid}")
         async with self.session(sid) as session:
             session["init_data"].discard("weather")
         ecosystems_to_log: list[str] = []
