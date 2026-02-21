@@ -30,6 +30,7 @@ class _SchedulerWrapper(AsyncIOScheduler):
     def start(self, paused=False):
         if self.state == STATE_STOPPED:
             logger.info("Starting the scheduler")
+            self._eventloop = None  # Force APScheduler to pick up the current event loop
             super().start(paused)
 
     def shutdown(self, wait=True):
