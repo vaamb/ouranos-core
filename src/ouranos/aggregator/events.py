@@ -785,7 +785,9 @@ class GaiaEvents(AsyncEventHandler):
 
         async with db.scoped_session() as session:
             # Log historic data in the DB
-            await SensorDataRecord.create_multiple(session, records_to_create)
+            await SensorDataRecord.create_multiple(session, values=records_to_create)
+            # Mark the cached data as logged
+            await SensorDataCache.update_multiple(session, values=logged_cached_data)
             # Update the last_log column for hardware
             await Hardware.update_multiple(
                 session, values=[*hardware_to_update.values()])
