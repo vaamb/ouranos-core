@@ -21,7 +21,7 @@ import gaia_validators as gv
 from ouranos import current_app
 from ouranos.core.config.consts import ECOSYSTEM_TIMEOUT
 from ouranos.core.database.models.abc import (
-    Base, CacheMixin, CRUDMixin, on_conflict_opt, RecordMixin)
+    ArchivableMixin, Base, CacheMixin, CRUDMixin, on_conflict_opt, RecordMixin)
 from ouranos.core.database.models.caches import (
     cache_ecosystems, cache_ecosystems_has_recent_data,
     cache_ecosystems_has_active_actuator, cache_engines,
@@ -33,7 +33,6 @@ from ouranos.core.database.models.caching import (
     CachedCRUDMixin, cached, create_hashable_key, sessionless_hashkey)
 from ouranos.core.database.models.types import SQLIntEnum, UtcDateTime
 from ouranos.core.database.models.utils import TIME_LIMITS
-from ouranos.core.database.utils import ArchiveLink
 from ouranos.core.utils import create_time_window, timeWindow
 
 
@@ -1396,13 +1395,18 @@ class BaseSensorDataRecord(BaseSensorData, RecordMixin):
     )
 
 
-class SensorDataRecord(BaseSensorDataRecord):
+class SensorDataRecord(BaseSensorDataRecord, ArchivableMixin):
     __tablename__ = "sensor_records"
-    __archive_link__ = ArchiveLink("sensor", "recent")
+    _archive_table = "sensor_records_archive"
+    _archive_column = "timestamp"
 
     # relationships
     ecosystem: Mapped["Ecosystem"] = relationship(back_populates="sensor_records")
     sensor: Mapped["Hardware"] = relationship(back_populates="sensor_records")
+
+    @classmethod
+    def get_time_limit(cls) -> int:
+        return current_app.config["SENSOR_ARCHIVING_PERIOD"] or 180
 
     @classmethod
     @cached(cache_sensors_value, key=sessionless_hashkey)
@@ -1604,20 +1608,25 @@ class BaseActuatorRecord(Base, RecordMixin):
         return result.all()
 
 
-class ActuatorRecord(BaseActuatorRecord):
+class ActuatorRecord(BaseActuatorRecord, ArchivableMixin):
     __tablename__ = "actuator_records"
-    __archive_link__ = ArchiveLink("actuator", "recent")
+    _archive_table = "actuator_records_archive"
+    _archive_column = "timestamp"
 
     # relationships
     ecosystem: Mapped["Ecosystem"] = relationship(back_populates="actuator_records")
+
+    @classmethod
+    def get_time_limit(cls) -> int:
+        return current_app.config["ACTUATOR_ARCHIVING_PERIOD"] or 180
 
 
 # ---------------------------------------------------------------------------
 #   Gaia warnings
 # ---------------------------------------------------------------------------
+# TODO: make it an `ArchivableMixin` in a later pass
 class GaiaWarning(Base):
     __tablename__ = "warnings"
-    __archive_link__ = ArchiveLink("warnings", "recent")
 
     id: Mapped[int] = mapped_column(primary_key=True)
     level: Mapped[gv.WarningLevel] = mapped_column(SQLIntEnum(gv.WarningLevel), default=gv.WarningLevel.low)
@@ -1631,11 +1640,11 @@ class GaiaWarning(Base):
     solved_by: Mapped[Optional[int]] = mapped_column()
 
     @property
-    def seen(self):
+    def seen(self) -> bool:
         return self.seen_on is not None
 
     @property
-    def solved(self):
+    def solved(self) -> bool:
         return self.solved_on is not None
 
     @classmethod

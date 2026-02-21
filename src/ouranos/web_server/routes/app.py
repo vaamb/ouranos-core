@@ -36,5 +36,5 @@ async def get_flash_messages(
         last: Annotated[int, Query(description="The number of messages to fetch")] = 10,
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    msgs = await FlashMessage.get_multiple(session=session, limit=last)
+    msgs = await FlashMessage.get_lasts(session=session, limit=last)
     return [msg.description for msg in msgs]

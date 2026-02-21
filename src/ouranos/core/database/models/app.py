@@ -28,7 +28,6 @@ from ouranos.core.database.models.abc import (
 from ouranos.core.database.models.caches import cache_users
 from ouranos.core.database.models.types import PathType, SQLIntEnum, UtcDateTime
 from ouranos.core.database.models.utils import paginate
-from ouranos.core.database.utils import ArchiveLink
 from ouranos.core.email import send_gaia_templated_email
 from ouranos.core.utils import check_filename, slugify, Tokenizer
 
@@ -823,11 +822,10 @@ class CommunicationChannel(Base):
         await session.commit()
 
 
-# TODO: When problems solved, after x days: goes to archive
+# TODO: make it an `ArchivableMixin` in a later pass
 class FlashMessage(Base):
     __tablename__ = "flash_message"
     __bind_key__ = "app"
-    __archive_link__ = ArchiveLink("warnings", "recent")
 
     id: Mapped[int] = mapped_column(primary_key=True)
     level: Mapped[gv.WarningLevel] = mapped_column(SQLIntEnum(gv.WarningLevel), default=gv.WarningLevel.low)
@@ -837,16 +835,7 @@ class FlashMessage(Base):
     active: Mapped[bool] = mapped_column(default=True)
 
     @classmethod
-    async def create(
-            cls,
-            session: AsyncSession,
-            values: dict,
-    ) -> None:
-        stmt = insert(cls).values(values)
-        await session.execute(stmt)
-
-    @classmethod
-    async def get_multiple(
+    async def get_lasts(
             cls,
             session: AsyncSession,
             limit: int = 10,

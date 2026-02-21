@@ -479,3 +479,21 @@ class CacheMixin(CRUDMixin):
     async def clear(cls: Base, session: AsyncSession) -> None:
         stmt = delete(cls)
         await session.execute(stmt)
+
+
+class ArchivableMixin(CRUDMixin):
+    _archive_column: str
+    _archive_table: str
+
+    @classmethod
+    def get_archive_table(cls: Base) -> str:
+        return cls._archive_table
+
+    @classmethod
+    def get_archive_column(cls: Base) -> Column:
+        return cls.__table__.c[cls._archive_column]
+
+    @classmethod
+    def get_time_limit(cls) -> int:
+        """Return data TTL before its archiving in days"""
+        raise NotImplementedError
