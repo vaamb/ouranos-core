@@ -264,7 +264,7 @@ gaia_warning = {
     "level": gv.WarningLevel.low,
     "title": "Not a problem",
     "description": "Super low level warning",
-    "timestamp": timestamp_now,
+    "created_on": timestamp_now,
 }
 
 
