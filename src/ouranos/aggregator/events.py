@@ -6,6 +6,7 @@ import logging
 import typing as t
 from typing import Callable, cast, Type, TypeAlias, TypedDict, TypeVar
 from uuid import UUID
+from warnings import deprecated
 
 from anyio import Path as ioPath
 from anyio.to_thread import run_sync
@@ -978,6 +979,7 @@ class GaiaEvents(AsyncEventHandler):
     @registration_required
     @validate_payload(RootModel[list[gv.HealthDataPayload]])
     @dispatch_to_application
+    @deprecated("'health_data' event is deprecated")
     async def on_health_data(
             self,
             sid: UUID,  # noqa
@@ -1055,6 +1057,7 @@ class GaiaEvents(AsyncEventHandler):
     @registration_required
     @validate_payload(RootModel[list[gv.LightDataPayload]])
     @dispatch_to_application
+    @deprecated("'light_data' event is deprecated")
     async def on_light_data(
             self,
             sid: UUID,  # noqa
