@@ -40,12 +40,21 @@ PT = TypeVar("PT", dict, list[dict])
 data_type: TypeAlias = dict | list | str | tuple | None | gv.Empty
 
 
+class EcosystemUpdateData(TypedDict):
+    management: int
+
+
 class SensorDataRecordDict(TypedDict):
     ecosystem_uid: str
     sensor_uid: str
     measure: str
     value: float
     timestamp: datetime
+
+
+class HardwareUpdateData(TypedDict):
+    uid: str
+    last_log: datetime
 
 
 class SensorAlarmDict(TypedDict):
@@ -55,6 +64,15 @@ class SensorAlarmDict(TypedDict):
     delta: float
     level: gv.WarningLevel
     timestamp: datetime
+
+
+class AwareActuatorStateDict(gv.ActuatorStateDict):
+    ecosystem_uid: str
+    type: gv.HardwareType
+
+
+class AwareActuatorStateRecordDict(AwareActuatorStateDict):
+    timestamp: datetime | None
 
 
 class ServiceUpdateDict(TypedDict):
@@ -635,9 +653,6 @@ class GaiaEvents(AsyncEventHandler):
         async with self.session(sid) as session:
             session["init_data"].discard("management")
 
-        class EcosystemUpdateData(TypedDict):
-            management: str
-
         ecosystems_to_update: dict[str, EcosystemUpdateData] = {}
         ecosystems_to_log: list[str] = []
 
@@ -730,10 +745,6 @@ class GaiaEvents(AsyncEventHandler):
         logging_period = current_app.config["SENSOR_LOGGING_PERIOD"]
         if logging_period is None:
             return
-
-        class HardwareUpdateData(TypedDict):
-            uid: str
-            last_log: datetime
 
         logged_cached_data: list[dict] = []
         records_to_create: list[SensorDataRecordDict] = []
@@ -884,13 +895,6 @@ class GaiaEvents(AsyncEventHandler):
         async with self.session(sid) as session:
             session["init_data"].discard("actuators_data")
 
-        class AwareActuatorStateDict(gv.ActuatorStateDict):
-            ecosystem_uid: str
-            type: gv.HardwareType
-
-        class AwareActuatorStateRecordDict(AwareActuatorStateDict):
-            timestamp: datetime | None
-
         logged: list[str] = []
         data_to_dispatch: list[AwareActuatorStateDict] = []
         records_to_log: list[AwareActuatorStateRecordDict] = []
@@ -991,10 +995,6 @@ class GaiaEvents(AsyncEventHandler):
         self.logger.debug(f"Received 'health_data' from {engine_uid}")
         async with self.session(sid) as session:
             session["init_data"].discard("health_data")
-
-        class HardwareUpdateData(TypedDict):
-            uid: str
-            last_log: datetime
 
         health_data: list[SensorDataRecordDict] = []
         hardware_to_update: dict[str, HardwareUpdateData] = {}
