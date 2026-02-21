@@ -33,11 +33,14 @@ class Archiver:
             )
         }
 
-    def _map_archives(self) -> dict[str, dict[str, type[ArchivableMixin]]]:
+    def _map_archives(self) -> dict[str, dict[str, type[ArchivableMixin | Base]]]:
         archive_models = {
             Model.__tablename__: Model
             for Model in archives.__dict__.values()
-            if issubclass(Model, Base)
+            if (
+                isclass(Model)
+                and issubclass(Model, Base)
+            )
         }
         recent_models = {
             **self._get_archivable(app),
@@ -65,7 +68,7 @@ class Archiver:
             time_limit,
             offset: int,
             per_page: int = 250,
-    ) ->list[dict]:
+    ) -> list[dict]:
         stmt = Model._generate_get_query(
             offset=offset, limit=per_page,
             order_by=Model.get_archive_column().asc())
