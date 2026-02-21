@@ -1133,8 +1133,7 @@ class GaiaEvents(AsyncEventHandler):
             sid: UUID,  # noqa
             data: gv.TurnActuatorPayloadDict,
     ) -> None:
-        if data.get("actuator"):
-            data["actuator"] = gv.HardwareType.light
+        data["actuator"] = gv.HardwareType.light
         await self._turn_actuator(sid, data)
 
     async def turn_actuator(
