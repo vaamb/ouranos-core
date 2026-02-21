@@ -75,7 +75,7 @@ class Archiver:
                 per_page = 250
                 offset = 0
                 stmt = RecentModel._generate_get_query(
-                    offset=offset, limit=per_page, order_by="timestamp")
+                    offset=offset, limit=per_page, order_by=RecentModel.timestamp)
                 stmt = stmt.where(RecentModel.timestamp < time_limit)
                 result = await session.execute(stmt)
                 to_archive: list[dict] = [
