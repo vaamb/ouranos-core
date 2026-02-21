@@ -470,7 +470,7 @@ class CacheMixin(CRUDMixin):
         return result.scalars().all()
 
     @classmethod
-    async def remove_expired(cls, session: AsyncSession) -> None:
+    async def remove_expired(cls: Base, session: AsyncSession) -> None:
         time_limit = datetime.now(timezone.utc) - timedelta(seconds=cls.get_ttl())
         stmt = delete(cls).where(cls.timestamp < time_limit)
         await session.execute(stmt)
