@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from abc import abstractmethod
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 import typing as t
@@ -11,7 +10,6 @@ from warnings import warn
 from sqlalchemy import (
     and_, Column, delete, Insert, inspect, Select, select, table, UnaryExpression,
     UniqueConstraint, update)
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -29,6 +27,8 @@ on_conflict_opt: TypeAlias = Literal["update", "nothing"] | None
 
 class ToDictMixin:
     def to_dict(self, exclude: list | None = None) -> dict:
+        # /!\\ does not work with lazy loaded attributes as they won't be in `vars(self)`.
+        # However, async SQLAlchemy does not use lazy loading
         exclude: list = exclude or []
         return {
             key: value for key, value in vars(self).items()
@@ -75,51 +75,73 @@ class Base(db.Model, ToDictMixin):
 
 
 class CRUDMixin:
+    """
+    A Mixin that implements CRUD methods for SQLAlchemy async ORM classes.
+
+    The main aim of this class is to remove the boilerplate:
+        result = await session.execute(select(...))
+        return result.scalars().all()
+
+    It also adds two upsert methods, `get_or_create()` and `update_or_create()`,
+    which SQLAlchemy does not provide natively.
+    """
     _lookup_keys: list[str] | None = None
-    __lookup_keys: list[str] | None = None
+    _validated_lookup_keys: list[str] | None = None
 
     _on_conflict_do: Callable[[Insert, str], Insert] | None = None
 
     @classmethod
-    def _get_lookup_keys(cls: Base) -> list[str]:
-        if cls.__lookup_keys is None:
-            # Get the columns with a unique constraint
-            # Try to get a unique constraint from the table args
-            unique: list[str] = []
-            if hasattr(cls, "__table_args__"):
-                for arg in cls.__table_args__:
-                    if isinstance(arg, UniqueConstraint):
-                        unique = [column.name for column in arg.columns]
-                        break
-            # Try to get a unique constraint from the columns "unique" and "primary_key" args
-            else:
-                columns: list[Column] = inspect(cls).columns
-                unique = [column.name for column in columns if column.unique]
-                if not unique:
-                    unique = [column.name for column in columns if column.primary_key]
-            if not unique:
-                raise ValueError(
-                    f"Table {cls.__tablename__} has no unique constraint"
-                )
+    def _get_unique_columns(cls) -> list[str]:
+        # Get the columns with a unique constraint
+        # Try to get a unique constraint from the table args
+        if hasattr(cls, "__table_args__"):
+            for arg in cls.__table_args__:
+                if isinstance(arg, UniqueConstraint):
+                    # There can only be one `UniqueConstraint` so we can return it
+                    return [column.name for column in arg.columns]
 
-            # If the lookup keys are not set, use the unique constraint
-            if not cls._lookup_keys:
-                cls.__lookup_keys = unique
-            # If the lookup keys are set, make sure they are valid
+        # If we did not find a unique constraint, try to get it from the columns
+        # "unique" args
+        columns: list[Column] = inspect(cls).columns
+        unique = [column.name for column in columns if column.unique]
+        if not unique:
+            unique = [column.name for column in columns if column.primary_key]
+        if unique:
+            return unique
+        raise ValueError(
+            f"Table {cls.__tablename__} has no unique constraint"
+        )
+
+    @classmethod
+    def _validate_lookup_keys(
+            cls,
+            lookup_keys: list[str],
+            unique_columns: list[str],
+    ) -> None:
+        # Make sure the lookup keys are valid columns
+        for lookup_key in lookup_keys:
+            if not hasattr(cls, lookup_key):
+                raise ValueError(
+                    f"Lookup key {lookup_key} is not a column of {cls.__tablename__}"
+                )
+        if not all(lookup_key in unique_columns for lookup_key in lookup_keys):
+            raise ValueError(
+                f"Table {cls.__tablename__} has no unique constraint on "
+                f"the lookup keys {lookup_keys}"
+            )
+
+    @classmethod
+    def _get_lookup_keys(cls: Base) -> list[str]:
+        if cls._validated_lookup_keys is None:
+            unique_columns = cls._get_unique_columns()
+            # If no lookup keys are suggested, use the unique constraint
+            if cls._lookup_keys is None:
+                cls._validated_lookup_keys = unique_columns
+            # If some lookup keys were suggested, make sure they are valid
             else:
-                # Make sure the lookup keys are valid columns
-                for lookup_key in cls._lookup_keys:
-                    if not hasattr(cls, lookup_key):
-                        raise ValueError(
-                            f"Lookup key {lookup_key} is not a column of {cls.__tablename__}"
-                        )
-                if not all(lookup_key in unique for lookup_key in cls._lookup_keys):
-                    raise ValueError(
-                        f"Table {cls.__tablename__} has no unique constraint on "
-                        f"the lookup keys {cls._lookup_keys}"
-                    )
-                cls.__lookup_keys = cls._lookup_keys
-        return cls.__lookup_keys
+                cls._validate_lookup_keys(cls._lookup_keys, unique_columns)
+                cls._validated_lookup_keys = cls._lookup_keys
+        return cls._validated_lookup_keys
 
     @classmethod
     def _check_lookup_keys(cls: Base, *lookup_keys: str) -> None:
@@ -134,63 +156,55 @@ class CRUDMixin:
         if cls._on_conflict_do is None:
             dialect = cls._get_dialect()
 
-            if dialect in ["mariadb", "mysql"]:
+            if dialect in {"mariadb", "mysql"}:
                 if t.TYPE_CHECKING:
                     from sqlalchemy.dialects.mysql import Insert
 
+                lookup_keys = cls._get_lookup_keys()
+                columns_name = [column.name for column in inspect(cls).columns]
+
                 def impl(stmt: Insert, action: str) -> Insert:
                     if action == "nothing":
                         stmt = stmt.on_duplicate_key_update(
-                            {cls._lookup_keys[0]: getattr(stmt.inserted, cls._lookup_keys[0])},
+                            {lookup_keys[0]: getattr(stmt.inserted, lookup_keys[0])},
                         )
                     elif action == "update":
                         stmt = stmt.on_duplicate_key_update(
-                            {"data": stmt.inserted.data},
+                            {
+                                column_name: getattr(stmt.inserted, column_name)
+                                for column_name in columns_name
+                                if (
+                                    column_name not in lookup_keys
+                                    and hasattr(stmt.inserted, column_name)
+                                )
+                            }
                         )
                     else:
                         raise ValueError
                     return stmt
 
-            elif dialect == "postgresql":
+            elif dialect in {"postgresql", "sqlite"}:
                 if t.TYPE_CHECKING:
-                    from sqlalchemy.dialects.postgresql import Insert
-
-                def impl(stmt: Insert, action: str) -> Insert:
-                    if action == "nothing":
-                        stmt = stmt.on_conflict_do_nothing(
-                            index_elements=cls._get_lookup_keys(),
-                        )
-                    elif action == "update":
-                        columns_name = inspect(cls).attrs.keys()
-                        stmt = stmt.on_conflict_do_update(
-                            index_elements=cls._get_lookup_keys(),
-                            set_={
-                                column: getattr(stmt.excluded, column)
-                                for column in columns_name
-                                if column not in cls._get_lookup_keys()
-                            },
-                        )
+                    if dialect == "postgresql":
+                        from sqlalchemy.dialects.postgresql import Insert
                     else:
-                        raise ValueError
-                    return stmt
+                        from sqlalchemy.dialects.sqlite import Insert
 
-            elif dialect == "sqlite":
-                if t.TYPE_CHECKING:
-                    from sqlalchemy.dialects.sqlite import Insert
+                lookup_keys = cls._get_lookup_keys()
+                columns_name = [column.name for column in inspect(cls).columns]
 
                 def impl(stmt: Insert, action: str) -> Insert:
                     if action == "nothing":
                         stmt = stmt.on_conflict_do_nothing(
-                            index_elements=cls._get_lookup_keys(),
+                            index_elements=lookup_keys,
                         )
                     elif action == "update":
-                        columns_name = inspect(cls).attrs.keys()
                         stmt = stmt.on_conflict_do_update(
-                            index_elements=cls._get_lookup_keys(),
+                            index_elements=lookup_keys,
                             set_={
                                 column: getattr(stmt.excluded, column)
                                 for column in columns_name
-                                if column not in cls._get_lookup_keys()
+                                if column not in lookup_keys
                             },
                         )
                     else:
@@ -224,9 +238,8 @@ class CRUDMixin:
         insert = cls._get_insert()
         stmt = insert(cls).values(**lookup_keys, **values)
         if _on_conflict_do:
-            if cls._on_conflict_do is None:
-                cls._on_conflict_do = cls._get_on_conflict_do()
-            stmt = cls._on_conflict_do(stmt, _on_conflict_do)
+            on_conflict_do_method = cls._get_on_conflict_do()
+            stmt = on_conflict_do_method(stmt, _on_conflict_do)
         await session.execute(stmt)
 
     @classmethod
@@ -240,9 +253,8 @@ class CRUDMixin:
         insert = cls._get_insert()
         stmt = insert(cls).values(values)
         if _on_conflict_do:
-            if cls._on_conflict_do is None:
-                cls._on_conflict_do = cls._get_on_conflict_do()
-            stmt = cls._on_conflict_do(stmt, _on_conflict_do)
+            on_conflict_do_method = cls._get_on_conflict_do()
+            stmt = on_conflict_do_method(stmt, _on_conflict_do)
         await session.execute(stmt)
 
     @classmethod
@@ -250,7 +262,7 @@ class CRUDMixin:
             cls: Base,
             offset: int | None = None,
             limit: int | None = None,
-            order_by: str | None = None,
+            order_by: str | UnaryExpression | None = None,
             **lookup_keys: list[lookup_keys_type] | lookup_keys_type | None,
     ) -> Select:
         stmt = select(cls)
@@ -276,7 +288,7 @@ class CRUDMixin:
             /,
             offset: int | None = None,
             limit: int | None = None,
-            order_by: UnaryExpression | None = None,
+            order_by: str | UnaryExpression | None = None,
             **lookup_keys: list[lookup_keys_type] | lookup_keys_type | None,
     ) -> Self | None:
         """
@@ -298,7 +310,7 @@ class CRUDMixin:
             /,
             offset: int | None = None,
             limit: int | None = None,
-            order_by: UnaryExpression | None = None,
+            order_by: str | UnaryExpression | None = None,
             **lookup_keys: list[lookup_keys_type] | lookup_keys_type | None,
     ) -> Sequence[Self]:
         """
@@ -333,6 +345,9 @@ class CRUDMixin:
             .values({
                 key: value
                 for key, value in values.items()
+                # The values received can be generated by `pydantic` and `fastapi`
+                # and sometimes, a `missing` sentinel is used rather than removing
+                # the entry all together
                 if value is not missing
             })
         )
@@ -377,16 +392,7 @@ class CRUDMixin:
             values: dict | None = None,
             **lookup_keys: lookup_keys_type,
     ) -> None:
-        obj = await cls.get(session, **lookup_keys)
-        if obj is None:
-            try:
-                await cls.create(session, values=values, **lookup_keys)
-            except IntegrityError:
-                # The object was created in the meantime, fallback to update
-                pass
-            else:
-                return
-        await cls.update(session, values=values, **lookup_keys)
+        await cls.create(session, values=values, _on_conflict_do="update", **lookup_keys)
 
     @classmethod
     async def get_or_create(
@@ -396,13 +402,7 @@ class CRUDMixin:
             values: dict | None = None,
             **lookup_keys: lookup_keys_type,
     ) -> Self:
-        obj = await cls.get(session, **lookup_keys)
-        if obj is None:
-            try:
-                await cls.create(session, values=values, **lookup_keys)
-            except IntegrityError:
-                # The object has been created in the meantime
-                pass
+        await cls.create(session, values=values, _on_conflict_do="nothing", **lookup_keys)
         return await cls.get(session, **lookup_keys)
 
 
@@ -419,7 +419,7 @@ class RecordMixin(CRUDMixin):
             /,
             offset: int | None = None,
             limit: int | None = None,
-            order_by: UnaryExpression | None = None,
+            order_by: str | UnaryExpression | None = None,
             time_window: timeWindow | None = None,
             **lookup_keys: list[lookup_keys_type] | lookup_keys_type | None,
     ) -> Sequence[Base]:
@@ -429,12 +429,16 @@ class RecordMixin(CRUDMixin):
                 (cls.timestamp > time_window.start)
                 & (cls.timestamp <= time_window.end)
             )
-        stmt = stmt.order_by(cls.timestamp.asc())
+        if not order_by:
+            stmt = stmt.order_by(cls.timestamp.asc())
         result = await session.execute(stmt)
         return result.scalars().all()
 
 
 class CacheMixin(CRUDMixin):
+    _remove_expired_threshold: int = 10
+    _remove_expired_tick: int = 0
+
     timestamp: Mapped[datetime] = mapped_column(UtcDateTime)
 
     @classmethod
@@ -448,7 +452,10 @@ class CacheMixin(CRUDMixin):
             session: AsyncSession,
             values: dict | list[dict]
     ) -> None:
-        await cls.remove_expired(session)
+        cls._remove_expired_tick += 1
+        if cls._remove_expired_tick >= cls._remove_expired_threshold:
+            await cls.remove_expired(session)
+            cls._remove_expired_tick = 0
         await cls.create_multiple(session, values=values, _on_conflict_do="update")
 
     @classmethod
@@ -464,7 +471,7 @@ class CacheMixin(CRUDMixin):
         return result.scalars().all()
 
     @classmethod
-    async def remove_expired(cls, session: AsyncSession) -> None:
+    async def remove_expired(cls: Base, session: AsyncSession) -> None:
         time_limit = datetime.now(timezone.utc) - timedelta(seconds=cls.get_ttl())
         stmt = delete(cls).where(cls.timestamp < time_limit)
         await session.execute(stmt)

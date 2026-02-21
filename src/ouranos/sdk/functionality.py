@@ -139,8 +139,9 @@ class Functionality(ABC):
         pid = os.getpid()
         self.logger.info(f"Starting Ouranos' {self.__class__.__name__} [{pid}]")
 
+        await self._init_common()
+
         try:
-            await self._init_common()
             await self.initialize()
             await self.startup()
         except Exception:
