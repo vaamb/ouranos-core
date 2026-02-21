@@ -1150,8 +1150,8 @@ class GaiaEvents(AsyncEventHandler):
     ) -> None:
         engine_uid = data["routing"]["engine_uid"]
         self.logger.debug(
-            f"""Sending crud request {data['uuid']} ({data["action"]} 
-            {data["target"]}) to engine '{engine_uid}'."""
+            f"Sending crud request {data['uuid']} ({data['action']} "
+            f"{data['target']}) to engine '{engine_uid}'."
         )
         async with db.scoped_session() as session:
             engine = await Engine.get(session, uid=engine_uid)
