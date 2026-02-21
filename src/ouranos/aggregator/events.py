@@ -185,6 +185,9 @@ class GaiaEvents(AsyncEventHandler):
     def alarms_data(self, value: list[SensorAlarmDict]) -> None:
         self._alarms_data = value
 
+    @staticmethod
+    def _format_error(e: Exception) -> str:
+        return f"ERROR msg: `{e.__class__.__name__}: {e}`"
     # ---------------------------------------------------------------------------
     #   Events Gaia <-> Aggregator
     # ---------------------------------------------------------------------------
@@ -866,8 +869,8 @@ class GaiaEvents(AsyncEventHandler):
             await self._handle_buffered_sensors_data(sid, data)
         except Exception as e:
             self.logger.error(
-                f"Encountered an error when trying to handle buffered sensors data."
-                f"Error msg: `{e.__class__.__name__}: {e}`")
+                f"Encountered an error when trying to handle buffered sensors data. "
+                f"{self._format_error(e)}")
 
     @registration_required
     @validate_payload(RootModel[list[gv.ActuatorsDataPayload]])
@@ -972,8 +975,8 @@ class GaiaEvents(AsyncEventHandler):
             )
         except Exception as e:
             self.logger.error(
-                f"Encountered an error when trying to handle buffered actuators data."
-                f"Error msg: `{e.__class__.__name__}: {e}`")
+                f"Encountered an error when trying to handle buffered actuators data. "
+                f"{self._format_error(e)}")
 
     @registration_required
     @validate_payload(RootModel[list[gv.HealthDataPayload]])
@@ -1050,8 +1053,8 @@ class GaiaEvents(AsyncEventHandler):
             await self._handle_buffered_sensors_data(sid, data)
         except Exception as e:
             self.logger.error(
-                f"Encountered an error when trying to handle buffered health data."
-                f"Error msg: `{e.__class__.__name__}: {e}`")
+                f"Encountered an error when trying to handle buffered health data. "
+                f"{self._format_error(e)}")
 
     @registration_required
     @validate_payload(RootModel[list[gv.LightDataPayload]])
