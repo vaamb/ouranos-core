@@ -147,7 +147,7 @@ class CRUDMixin:
         if cls._on_conflict_do is None:
             dialect = cls._get_dialect()
 
-            if dialect in ["mariadb", "mysql"]:
+            if dialect in {"mariadb", "mysql"}:
                 if t.TYPE_CHECKING:
                     from sqlalchemy.dialects.mysql import Insert
 
@@ -174,34 +174,12 @@ class CRUDMixin:
                         raise ValueError
                     return stmt
 
-            elif dialect == "postgresql":
+            elif dialect in {"postgresql", "sqlite"}:
                 if t.TYPE_CHECKING:
-                    from sqlalchemy.dialects.postgresql import Insert
-
-                lookup_keys = cls._get_lookup_keys()
-                columns_name = [column.name for column in inspect(cls).columns]
-
-                def impl(stmt: Insert, action: str) -> Insert:
-                    if action == "nothing":
-                        stmt = stmt.on_conflict_do_nothing(
-                            index_elements=lookup_keys,
-                        )
-                    elif action == "update":
-                        stmt = stmt.on_conflict_do_update(
-                            index_elements=lookup_keys,
-                            set_={
-                                column: getattr(stmt.excluded, column)
-                                for column in columns_name
-                                if column not in lookup_keys
-                            },
-                        )
+                    if dialect == "postgresql":
+                        from sqlalchemy.dialects.postgresql import Insert
                     else:
-                        raise ValueError
-                    return stmt
-
-            elif dialect == "sqlite":
-                if t.TYPE_CHECKING:
-                    from sqlalchemy.dialects.sqlite import Insert
+                        from sqlalchemy.dialects.sqlite import Insert
 
                 lookup_keys = cls._get_lookup_keys()
                 columns_name = [column.name for column in inspect(cls).columns]
