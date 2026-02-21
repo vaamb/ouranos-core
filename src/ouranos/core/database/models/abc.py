@@ -436,8 +436,8 @@ class RecordMixin(CRUDMixin):
 
 
 class CacheMixin(CRUDMixin):
-    _remove_expire_threshold: int = 10
-    _remove_expire_tick: int = 0
+    _remove_expired_threshold: int = 10
+    _remove_expired_tick: int = 0
 
     timestamp: Mapped[datetime] = mapped_column(UtcDateTime)
 
@@ -452,10 +452,10 @@ class CacheMixin(CRUDMixin):
             session: AsyncSession,
             values: dict | list[dict]
     ) -> None:
-        cls._remove_expire_tick += 1
-        if cls._remove_expire_tick >= cls._remove_expire_threshold:
+        cls._remove_expired_tick += 1
+        if cls._remove_expired_tick >= cls._remove_expired_threshold:
             await cls.remove_expired(session)
-            cls._remove_expire_tick = 0
+            cls._remove_expired_tick = 0
         await cls.create_multiple(session, values=values, _on_conflict_do="update")
 
     @classmethod
