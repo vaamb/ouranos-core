@@ -404,16 +404,7 @@ class CRUDMixin:
             values: dict | None = None,
             **lookup_keys: lookup_keys_type,
     ) -> None:
-        obj = await cls.get(session, **lookup_keys)
-        if obj is None:
-            try:
-                await cls.create(session, values=values, **lookup_keys)
-            except IntegrityError:
-                # The object was created in the meantime, fallback to update
-                pass
-            else:
-                return
-        await cls.update(session, values=values, **lookup_keys)
+        await cls.create(session, values=values, _on_conflict_do="update", **lookup_keys)
 
     @classmethod
     async def get_or_create(
