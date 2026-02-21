@@ -290,12 +290,10 @@ class GaiaEvents(AsyncEventHandler):
                     "status": ecosystem["status"],
                     "last_seen": now,
                 })
-            await Ecosystem.update_multiple(session, values=update_info)
-            for ecosystem in data["ecosystems"]:
                 Ecosystem.clear_cache(uid=ecosystem["uid"])
                 ecosystems_seen.append(
-                    await self.get_ecosystem_name(session, ecosystem["uid"])
-                )
+                    await self.get_ecosystem_name(session, ecosystem["uid"]))
+            await Ecosystem.update_multiple(session, values=update_info)
         self.logger.debug(
             f"Updated last seen info for ecosystem(s) "
             f"{humanize_list(ecosystems_seen)}"
