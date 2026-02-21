@@ -1122,7 +1122,7 @@ class GaiaEvents(AsyncEventHandler):
             ecosystem = await Ecosystem.get(session, uid=ecosystem_uid)
             try:
                 engine_sid = ecosystem.engine.sid
-            except (AttributeError, Exception):
+            except AttributeError:
                 engine_sid = None
         await self.emit(
             "turn_actuator", data=data, namespace="gaia", to=engine_sid,
