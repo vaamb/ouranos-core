@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import deque
-from typing import cast, TypedDict
+from typing import AsyncIterator, cast, TypedDict
 
 from dispatcher import AsyncDispatcher
 
@@ -19,6 +19,16 @@ class MockAsyncDispatcher(AsyncDispatcher):
     def __init__(self, namespace: str):
         super().__init__(namespace)
         self.emit_store: deque[EmitDict] = deque()
+
+    async def _listen(self) -> AsyncIterator[bytes]:
+        pass  # No used
+
+    async def _publish(self, namespace: str, payload: bytes, ttl: int | None = None,
+                       timeout: int | float | None = None) -> None:
+        pass  # Short-circuited
+
+    async def _broker_reachable(self) -> bool:
+        return True
 
     async def emit(
             self,
