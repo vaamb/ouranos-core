@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from abc import abstractmethod
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 import typing as t
@@ -11,7 +10,6 @@ from warnings import warn
 from sqlalchemy import (
     and_, Column, delete, Insert, inspect, Select, select, table, UnaryExpression,
     UniqueConstraint, update)
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
 
