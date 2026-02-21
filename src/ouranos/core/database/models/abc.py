@@ -151,15 +151,24 @@ class CRUDMixin:
                 if t.TYPE_CHECKING:
                     from sqlalchemy.dialects.mysql import Insert
 
+                lookup_keys = cls._get_lookup_keys()
+                columns_name = [column.name for column in inspect(cls).columns]
+
                 def impl(stmt: Insert, action: str) -> Insert:
                     if action == "nothing":
-                        lookup_keys = cls._get_lookup_keys()
                         stmt = stmt.on_duplicate_key_update(
                             {lookup_keys[0]: getattr(stmt.inserted, lookup_keys[0])},
                         )
                     elif action == "update":
                         stmt = stmt.on_duplicate_key_update(
-                            {"data": stmt.inserted.data},
+                            {
+                                column_name: getattr(stmt.inserted, column_name)
+                                for column_name in columns_name
+                                if (
+                                    column_name not in lookup_keys
+                                    and hasattr(stmt.inserted, column_name)
+                                )
+                            }
                         )
                     else:
                         raise ValueError
