@@ -13,7 +13,7 @@ from ouranos.core.database.models.abc import Base, CacheMixin, RecordMixin
 from ouranos.core.database.models.caches import (
     cache_systems, cache_systems_history)
 from ouranos.core.database.models.caching import (
-    cached, CachedCRUDMixin, sessionless_hashkey)
+    cached, CachedCRUDMixin, sessionless_hasher)
 from ouranos.core.database.models.types import UtcDateTime
 from ouranos.core.utils import timeWindow
 
@@ -96,7 +96,7 @@ class SystemDataRecord(BaseSystemData, RecordMixin):
         return result.scalars().all()
 
     @classmethod
-    @cached(cache_systems_history, key_hasher=sessionless_hashkey)
+    @cached(cache_systems_history, key_hasher=sessionless_hasher)
     async def get_timed_values(
             cls,
             session: AsyncSession,

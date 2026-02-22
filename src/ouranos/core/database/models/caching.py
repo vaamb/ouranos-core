@@ -269,7 +269,7 @@ def create_hashable_key(**kwargs: dict[str, Any]) -> tuple:
     return tuple(to_freeze)
 
 
-def sessionless_hashkey(
+def sessionless_hasher(
         cls_or_self: Type[Base] | Base,
         session: AsyncSession,
         /,
