@@ -269,23 +269,21 @@ def create_hashable_key(**kwargs: dict[str, Any]) -> tuple:
     return tuple(to_freeze)
 
 
-def sessionless_hasher(
-        cls_or_self: Type[Base] | Base,
+def hash_model_instance(
+        self: Base,
         session: AsyncSession,
         /,
         **kwargs
 ) -> tuple:
     """Build a cache key from keyword arguments, ignoring the session.
 
-    When `cls_or_self` is an instance rather than a class, its `id` or
-    `uid` attribute is included in the key to distinguish results across
-    different instances of the same class.
+    When the model has an `id` or an `uid`, its value is included in the key to
+    distinguish results across different instances of the same class.
     """
-    if isinstance(cls_or_self, Base):
-        if hasattr(cls_or_self, "id"):
-            kwargs["id"] = cls_or_self.id
-        if hasattr(cls_or_self, "uid"):
-            kwargs["uid"] = cls_or_self.uid
+    if hasattr(self, "id"):
+        kwargs["id"] = self.id
+    if hasattr(self, "uid"):
+        kwargs["uid"] = self.uid
     return create_hashable_key(**kwargs)
 
 
