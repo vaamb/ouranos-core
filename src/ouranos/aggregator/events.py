@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from functools import wraps
 import logging
+import sys
 import typing as t
 from typing import Callable, cast, Type, TypeAlias, TypedDict, TypeVar
 from uuid import UUID
@@ -29,6 +30,11 @@ from ouranos.core.database.models.gaia import (
 from ouranos.core.exceptions import NotRegisteredError
 from ouranos.core.utils import humanize_list, Tokenizer
 
+if sys.version_info < (3, 13):
+    from typing_extensions import deprecated
+else:
+    from warnings import deprecated
+
 
 if t.TYPE_CHECKING:
     from ouranos.aggregator.main import Aggregator
@@ -36,7 +42,11 @@ if t.TYPE_CHECKING:
 
 PT = TypeVar("PT", dict, list[dict])
 
-data_type: TypeAlias = dict | list | str | tuple | None
+data_type: TypeAlias = dict | list | str | tuple | None | gv.Empty
+
+
+class EcosystemUpdateData(TypedDict):
+    management: int
 
 
 class SensorDataRecordDict(TypedDict):
@@ -47,6 +57,11 @@ class SensorDataRecordDict(TypedDict):
     timestamp: datetime
 
 
+class HardwareUpdateData(TypedDict):
+    uid: str
+    last_log: datetime
+
+
 class SensorAlarmDict(TypedDict):
     sensor_uid: str
     measure: str
@@ -54,6 +69,15 @@ class SensorAlarmDict(TypedDict):
     delta: float
     level: gv.WarningLevel
     timestamp: datetime
+
+
+class AwareActuatorStateDict(gv.ActuatorStateDict):
+    ecosystem_uid: str
+    type: gv.HardwareType
+
+
+class AwareActuatorStateRecordDict(AwareActuatorStateDict):
+    timestamp: datetime | None
 
 
 class ServiceUpdateDict(TypedDict):
@@ -66,13 +90,13 @@ def registration_required(func: Callable):
     engine_uid"""
 
     @wraps(func)
-    async def wrapper(self: GaiaEvents, sid: UUID, data: data_type=None):
+    async def wrapper(self: GaiaEvents, sid: UUID, data: data_type = gv.empty):
         async with self.session(sid) as session:
             engine_uid: str | None = session.get("engine_uid")
         if engine_uid is None:
             raise NotRegisteredError(f"Engine with sid {sid} is not registered.")
         else:
-            if data:
+            if data is not gv.empty:
                 return await func(self, sid, data, engine_uid)
             return await func(self, sid, engine_uid)
     return wrapper
@@ -88,7 +112,7 @@ def validate_payload(model_cls: Type[gv.BaseModel] | Type[RootModel]):
                 validated_data = model_cls.model_validate(data).model_dump(by_alias=True)
             except ValidationError as e:
                 event: str = func.__name__[3:]
-                msg_list = [f"{error['loc'][0]}: {error['msg']}" for error in e.errors()]
+                msg_list = [f"{error['loc'][0] if error['loc'] else 'root'}: {error['msg']}" for error in e.errors()]
                 self.logger.error(
                     f"Encountered an error while validating '{event}' data. Error "
                     f"msg: {', '.join(msg_list)}"
@@ -183,6 +207,10 @@ class GaiaEvents(AsyncEventHandler):
     @alarms_data.setter
     def alarms_data(self, value: list[SensorAlarmDict]) -> None:
         self._alarms_data = value
+
+    @staticmethod
+    def _format_error(e: Exception) -> str:
+        return f"Error msg: `{e.__class__.__name__}: {e}`"
 
     # ---------------------------------------------------------------------------
     #   Events Gaia <-> Aggregator
@@ -289,12 +317,10 @@ class GaiaEvents(AsyncEventHandler):
                     "status": ecosystem["status"],
                     "last_seen": now,
                 })
-            await Ecosystem.update_multiple(session, values=update_info)
-            for ecosystem in data["ecosystems"]:
                 Ecosystem.clear_cache(uid=ecosystem["uid"])
                 ecosystems_seen.append(
-                    await self.get_ecosystem_name(session, ecosystem["uid"])
-                )
+                    await self.get_ecosystem_name(session, ecosystem["uid"]))
+            await Ecosystem.update_multiple(session, values=update_info)
         self.logger.debug(
             f"Updated last seen info for ecosystem(s) "
             f"{humanize_list(ecosystems_seen)}"
@@ -431,7 +457,7 @@ class GaiaEvents(AsyncEventHandler):
     async def on_nycthemeral_info(
             self,
             sid: UUID,  # noqa
-            data: list[gv.NycthemeralCycleInfoPayload],
+            data: list[gv.NycthemeralCycleInfoPayloadDict],
             engine_uid: str
     ) -> None:
         self.logger.debug(
@@ -467,32 +493,7 @@ class GaiaEvents(AsyncEventHandler):
             f"Received 'climate' from engine: {engine_uid}")
         async with self.session(sid) as session:
             session["init_data"].discard("climate")
-        ecosystems_to_log: list[str] = []
-        async with db.scoped_session() as session:
-            for payload in data:
-                uid: str = payload["uid"]
-                ecosystems_to_log.append(
-                    await self.get_ecosystem_name(session, uid=uid))
-                environment_parameters_in_config: list[str] = []
-                for climate_config in payload["data"]:
-                    environment_parameters_in_config.append(climate_config["parameter"])
-                    parameter = climate_config.pop("parameter")  # noqa
-                    await EnvironmentParameter.update_or_create(
-                        session, ecosystem_uid=uid, parameter=parameter,
-                        values=climate_config)
-
-                # Remove environmental parameters not used anymore
-                stmt = (
-                    delete(EnvironmentParameter)
-                    .where(EnvironmentParameter.ecosystem_uid == uid)
-                    .where(EnvironmentParameter.parameter.not_in(environment_parameters_in_config))
-                )
-                await session.execute(stmt)
-
-        self.logger.debug(
-            f"Logged climate parameters from ecosystem(s): "
-            f"{humanize_list(ecosystems_to_log)}"
-        )
+        await self._sync_environment(data, EnvironmentParameter, "climate")
 
     @registration_required
     @validate_payload(RootModel[list[gv.WeatherConfigPayload]])
@@ -503,33 +504,41 @@ class GaiaEvents(AsyncEventHandler):
             engine_uid: str
     ) -> None:
         self.logger.debug(
-            f"Received 'climate' from engine: {engine_uid}")
+            f"Received 'weather' from engine: {engine_uid}")
         async with self.session(sid) as session:
             session["init_data"].discard("weather")
+        await self._sync_environment(data, WeatherEvent, "weather")
+
+    async def _sync_environment(
+            self,
+            data: list[gv.ClimateConfigPayloadDict | gv.WeatherConfigPayloadDict],
+            db_model: type[EnvironmentParameter | WeatherEvent],
+            parameter_name: str,
+    ) -> None:
         ecosystems_to_log: list[str] = []
         async with db.scoped_session() as session:
             for payload in data:
                 uid: str = payload["uid"]
                 ecosystems_to_log.append(
                     await self.get_ecosystem_name(session, uid=uid))
-                weather_events_in_config: list[str] = []
-                for weather_config in payload["data"]:
-                    weather_events_in_config.append(weather_config["parameter"])
-                    parameter = weather_config.pop("parameter")  # noqa
-                    await WeatherEvent.update_or_create(
+                in_config: list[str] = []
+                for config in payload["data"]:
+                    in_config.append(config["parameter"])
+                    parameter = config.pop("parameter")
+                    await db_model.update_or_create(
                         session, ecosystem_uid=uid, parameter=parameter,
-                        values=weather_config)
+                        values=config)
 
-                # Remove environmental parameters not used anymore
+                # Remove stale parameters
                 stmt = (
-                    delete(WeatherEvent)
-                    .where(WeatherEvent.ecosystem_uid == uid)
-                    .where(WeatherEvent.parameter.not_in(weather_events_in_config))
+                    delete(db_model)
+                    .where(db_model.ecosystem_uid == uid)
+                    .where(db_model.parameter.not_in(in_config))
                 )
                 await session.execute(stmt)
 
         self.logger.debug(
-            f"Logged weather parameters from ecosystem(s): "
+            f"Logged {parameter_name} parameters from ecosystem(s): "
             f"{humanize_list(ecosystems_to_log)}"
         )
 
@@ -603,7 +612,7 @@ class GaiaEvents(AsyncEventHandler):
                     await Plant.update_or_create(
                         session, uid=plant_uid, values=plant)
 
-                # Remove hardware not in `ecosystems.cfg` anymore
+                # Remove plants not in `ecosystems.cfg` anymore
                 stmt = (
                     select(Plant.uid)
                     .where(Plant.ecosystem_uid == uid)
@@ -633,9 +642,6 @@ class GaiaEvents(AsyncEventHandler):
         async with self.session(sid) as session:
             session["init_data"].discard("management")
 
-        class EcosystemUpdateData(TypedDict):
-            management: str
-
         ecosystems_to_update: dict[str, EcosystemUpdateData] = {}
         ecosystems_to_log: list[str] = []
 
@@ -658,8 +664,7 @@ class GaiaEvents(AsyncEventHandler):
                 ecosystems_to_log.append(
                     await self.get_ecosystem_name(session, uid=uid))
 
-        if ecosystems_to_update:
-            async with db.scoped_session() as session:
+            if ecosystems_to_update:
                 for ecosystem_uid, update_value in ecosystems_to_update.items():
                     await Ecosystem.update(session, uid=ecosystem_uid, values=update_value)
             self.logger.debug(
@@ -730,10 +735,6 @@ class GaiaEvents(AsyncEventHandler):
         if logging_period is None:
             return
 
-        class HardwareUpdateData(TypedDict):
-            uid: str
-            last_log: datetime
-
         logged_cached_data: list[dict] = []
         records_to_create: list[SensorDataRecordDict] = []
         hardware_to_update: dict[str, HardwareUpdateData] = {}
@@ -784,7 +785,9 @@ class GaiaEvents(AsyncEventHandler):
 
         async with db.scoped_session() as session:
             # Log historic data in the DB
-            await SensorDataRecord.create_multiple(session, records_to_create)
+            await SensorDataRecord.create_multiple(session, values=records_to_create)
+            # Mark the cached data as logged
+            await SensorDataCache.update_multiple(session, values=logged_cached_data)
             # Update the last_log column for hardware
             await Hardware.update_multiple(
                 session, values=[*hardware_to_update.values()])
@@ -866,8 +869,8 @@ class GaiaEvents(AsyncEventHandler):
             await self._handle_buffered_sensors_data(sid, data)
         except Exception as e:
             self.logger.error(
-                f"Encountered an error when trying to handle buffered sensors data."
-                f"Error msg: `{e.__class__.__name__}: {e}`")
+                f"Encountered an error when trying to handle buffered sensors data. "
+                f"{self._format_error(e)}")
 
     @registration_required
     @validate_payload(RootModel[list[gv.ActuatorsDataPayload]])
@@ -880,13 +883,6 @@ class GaiaEvents(AsyncEventHandler):
         self.logger.debug(f"Received 'actuators_data' from {engine_uid}")
         async with self.session(sid) as session:
             session["init_data"].discard("actuators_data")
-
-        class AwareActuatorStateDict(gv.ActuatorStateDict):
-            ecosystem_uid: str
-            type: gv.HardwareType
-
-        class AwareActuatorStateRecordDict(AwareActuatorStateDict):
-            timestamp: datetime | None
 
         logged: list[str] = []
         data_to_dispatch: list[AwareActuatorStateDict] = []
@@ -972,12 +968,13 @@ class GaiaEvents(AsyncEventHandler):
             )
         except Exception as e:
             self.logger.error(
-                f"Encountered an error when trying to handle buffered actuators data."
-                f"Error msg: `{e.__class__.__name__}: {e}`")
+                f"Encountered an error when trying to handle buffered actuators data. "
+                f"{self._format_error(e)}")
 
     @registration_required
     @validate_payload(RootModel[list[gv.HealthDataPayload]])
     @dispatch_to_application
+    @deprecated("'health_data' event is deprecated")
     async def on_health_data(
             self,
             sid: UUID,  # noqa
@@ -987,10 +984,6 @@ class GaiaEvents(AsyncEventHandler):
         self.logger.debug(f"Received 'health_data' from {engine_uid}")
         async with self.session(sid) as session:
             session["init_data"].discard("health_data")
-
-        class HardwareUpdateData(TypedDict):
-            uid: str
-            last_log: datetime
 
         health_data: list[SensorDataRecordDict] = []
         hardware_to_update: dict[str, HardwareUpdateData] = {}
@@ -1049,12 +1042,13 @@ class GaiaEvents(AsyncEventHandler):
             await self._handle_buffered_sensors_data(sid, data)
         except Exception as e:
             self.logger.error(
-                f"Encountered an error when trying to handle buffered health data."
-                f"Error msg: `{e.__class__.__name__}: {e}`")
+                f"Encountered an error when trying to handle buffered health data. "
+                f"{self._format_error(e)}")
 
     @registration_required
     @validate_payload(RootModel[list[gv.LightDataPayload]])
     @dispatch_to_application
+    @deprecated("'light_data' event is deprecated")
     async def on_light_data(
             self,
             sid: UUID,  # noqa
@@ -1122,7 +1116,7 @@ class GaiaEvents(AsyncEventHandler):
             ecosystem = await Ecosystem.get(session, uid=ecosystem_uid)
             try:
                 engine_sid = ecosystem.engine.sid
-            except (AttributeError, Exception):
+            except AttributeError:
                 engine_sid = None
         await self.emit(
             "turn_actuator", data=data, namespace="gaia", to=engine_sid,
@@ -1133,8 +1127,7 @@ class GaiaEvents(AsyncEventHandler):
             sid: UUID,  # noqa
             data: gv.TurnActuatorPayloadDict,
     ) -> None:
-        if data.get("actuator"):
-            data["actuator"] = gv.HardwareType.light
+        data["actuator"] = gv.HardwareType.light
         await self._turn_actuator(sid, data)
 
     async def turn_actuator(
@@ -1151,8 +1144,8 @@ class GaiaEvents(AsyncEventHandler):
     ) -> None:
         engine_uid = data["routing"]["engine_uid"]
         self.logger.debug(
-            f"""Sending crud request {data['uuid']} ({data["action"]} 
-            {data["target"]}) to engine '{engine_uid}'."""
+            f"Sending crud request {data['uuid']} ({data['action']} "
+            f"{data['target']}) to engine '{engine_uid}'."
         )
         async with db.scoped_session() as session:
             engine = await Engine.get(session, uid=engine_uid)
@@ -1167,8 +1160,9 @@ class GaiaEvents(AsyncEventHandler):
                     "payload": json.dumps(data["data"])
                 }
             )
+            engine_sid = engine.sid
         await self.emit(
-            "crud", data=data, namespace="/gaia", to=engine.sid, ttl=30)
+            "crud", data=data, namespace="/gaia", to=engine_sid, ttl=30)
 
     # Response to crud event, actual path: Gaia -> Aggregator -> Api
     async def on_crud_result(
@@ -1178,9 +1172,14 @@ class GaiaEvents(AsyncEventHandler):
     ) -> None:
         self.logger.debug(f"Received crud result for request {data['uuid']}")
         async with db.scoped_session() as session:
-            crud_request = await CrudRequest.get(session, uuid=UUID(data["uuid"]))
-            crud_request.result = data["status"]
-            crud_request.message = data["message"]
+            await CrudRequest.update(
+                session,
+                uuid=UUID(data["uuid"]),
+                values={
+                    "result": data["status"],
+                    "message": data["message"],
+                }
+            )
 
     # ---------------------------------------------------------------------------
     #   Short-lived payloads (pseudo stream)

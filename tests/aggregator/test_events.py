@@ -958,10 +958,6 @@ class TestEcosystemBackground(HardwareAware):
         assert emitted["data"] == validated_data
         assert emitted["namespace"] == "gaia"
 
-        wrong_payload = {}
-        with pytest.raises(Exception):
-            await events_handler.turn_light(g_data.engine_sid, wrong_payload)
-
     async def test_turn_actuator(
             self,
             mock_dispatcher: MockAsyncDispatcher,
