@@ -330,7 +330,7 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
         self.management = 0
 
     @classmethod
-    @cached(cache_ecosystems_has_recent_data, key=sessionless_hashkey)
+    @cached(cache_ecosystems_has_recent_data, key_hasher=sessionless_hashkey)
     async def check_if_recent_sensor_data(
             cls,
             session: AsyncSession,
@@ -363,7 +363,7 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
         return result
 
     @classmethod
-    @cached(cache_ecosystems_has_active_actuator, key=sessionless_hashkey)
+    @cached(cache_ecosystems_has_active_actuator, key_hasher=sessionless_hashkey)
     async def check_if_active_actuator(
             cls,
             session: AsyncSession,
@@ -425,7 +425,7 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
             session, ecosystem_uid=self.uid, type=hardware_type,
             in_config=in_config)
 
-    @cached(cache_sensors_data_skeleton, key=sessionless_hashkey)
+    @cached(cache_sensors_data_skeleton, key_hasher=sessionless_hashkey)
     async def get_sensors_data_skeleton(
             self,
             session: AsyncSession,
@@ -1409,7 +1409,7 @@ class SensorDataRecord(BaseSensorDataRecord, ArchivableMixin):
         return current_app.config["SENSOR_ARCHIVING_PERIOD"] or 180
 
     @classmethod
-    @cached(cache_sensors_value, key=sessionless_hashkey)
+    @cached(cache_sensors_value, key_hasher=sessionless_hashkey)
     async def get_timed_values(
             cls,
             session: AsyncSession,
@@ -1660,7 +1660,7 @@ class GaiaWarning(Base):
         await session.execute(stmt)
 
     @classmethod
-    @cached(cache_warnings, key=sessionless_hashkey)
+    @cached(cache_warnings, key_hasher=sessionless_hashkey)
     async def get_multiple(
             cls,
             session: AsyncSession,

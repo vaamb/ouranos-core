@@ -38,7 +38,7 @@ class NullContext:
 
 def cached(
     cache: Optional[MutableMapping[_KT, Any]],
-    key: Callable[..., _KT] = keys.hashkey,
+    key_hasher: Callable[..., _KT] = keys.hashkey,
     lock: Optional[AbstractContextManager[Any]] = None,
 ):
     """Decorator to wrap a function with a memoizing callable that saves
@@ -50,7 +50,7 @@ def cached(
     stored and both return the same cached value.
 
     :param cache: A MutableMapping used to store results.
-    :param key: A callable that derives the cache key from the function arguments.
+    :param key_hasher: A callable that derives the cache key from the function arguments.
     :param lock: An optional context manager used to synchronize cache access.
     """
     lock = lock or NullContext()
@@ -59,7 +59,7 @@ def cached(
         if asyncio.iscoroutinefunction(func):
 
             async def wrapper(*args, **kwargs):
-                k = key(*args, **kwargs)
+                k = key_hasher(*args, **kwargs)
                 try:
                     async with lock:
                         return cache[k]
@@ -80,7 +80,7 @@ def cached(
         else:
 
             def wrapper(*args, **kwargs):
-                k = key(*args, **kwargs)
+                k = key_hasher(*args, **kwargs)
                 try:
                     with lock:
                         return cache[k]
@@ -99,7 +99,7 @@ def cached(
                     cache.clear()
 
         wrapper.cache = cache
-        wrapper.cache_key = key
+        wrapper.cache_key = key_hasher
         wrapper.cache_lock = lock
         wrapper.cache_clear = clear
 
@@ -109,7 +109,7 @@ def cached(
 
 
 def cached_method(
-    key: Callable[..., _KT] = keys.hashkey,
+    key_hasher: Callable[..., _KT] = keys.hashkey,
     lock: Optional[AbstractContextManager[Any]] = None,
 ):
     """Decorator to wrap a classmethod with a memoizing callable that stores
@@ -121,7 +121,7 @@ def cached_method(
 
     Note: only the async branch is currently used and tested.
 
-    :param key: A callable that derives the cache key from the method arguments.
+    :param key_hasher: A callable that derives the cache key from the method arguments.
     :param lock: An optional context manager used to synchronize cache access.
     """
     lock = lock or NullContext()
@@ -130,7 +130,7 @@ def cached_method(
         if asyncio.iscoroutinefunction(method):
 
             async def wrapper(cls, *args, **kwargs):
-                k = key(cls, *args, **kwargs)
+                k = key_hasher(cls, *args, **kwargs)
                 try:
                     async with lock:
                         return cls._cache[k]
@@ -147,7 +147,7 @@ def cached_method(
         else:
 
             def wrapper(cls, *args, **kwargs):
-                k = key(cls, *args, **kwargs)
+                k = key_hasher(cls, *args, **kwargs)
                 try:
                     with lock:
                         return cls._cache[k]
@@ -168,7 +168,7 @@ def cached_method(
 
 def clearing_cache(
     cache: Optional[MutableMapping[_KT, Any]],
-    key: Callable[..., _KT] = keys.hashkey,
+    key_hasher: Callable[..., _KT] = keys.hashkey,
     lock: Optional[AbstractContextManager[Any]] = None,
 ):
     """Decorator to invalidate a specific cache entry after a function runs.
@@ -178,7 +178,7 @@ def clearing_cache(
     write operations where a failed write should not invalidate the cache.
 
     :param cache: The MutableMapping to clear entries from.
-    :param key: A callable that derives the cache key from the function arguments.
+    :param key_hasher: A callable that derives the cache key from the function arguments.
     :param lock: An optional context manager used to synchronize cache access.
     """
     lock = lock or NullContext()
@@ -187,7 +187,7 @@ def clearing_cache(
         if asyncio.iscoroutinefunction(func):
 
             async def wrapper(*args, **kwargs):
-                k = key(*args, **kwargs)
+                k = key_hasher(*args, **kwargs)
                 v = await func(*args, **kwargs)
                 async with lock:
                     cache.pop(k, None)
@@ -196,14 +196,14 @@ def clearing_cache(
         else:
 
             def wrapper(*args, **kwargs):
-                k = key(*args, **kwargs)
+                k = key_hasher(*args, **kwargs)
                 v = func(*args, **kwargs)
                 with lock:
                     cache.pop(k, None)
                 return v
 
         wrapper.cache = cache
-        wrapper.cache_key = key
+        wrapper.cache_key = key_hasher
         wrapper.cache_lock = lock
 
         return functools.update_wrapper(wrapper, func)
@@ -212,7 +212,7 @@ def clearing_cache(
 
 
 def clearing_cache_method(
-    key: Callable[..., _KT] = keys.hashkey,
+    key_hasher: Callable[..., _KT] = keys.hashkey,
     lock: Optional[AbstractContextManager[Any]] = None,
 ):
     """Decorator to invalidate a specific entry in `cls._cache` after a
@@ -222,7 +222,7 @@ def clearing_cache_method(
     removes the matching entry from `cls._cache`. If the method raises, the
     cache is not cleared.
 
-    :param key: A callable that derives the cache key from the method arguments.
+    :param key_hasher: A callable that derives the cache key from the method arguments.
     :param lock: An optional context manager used to synchronize cache access.
     """
     lock = lock or NullContext()
@@ -231,7 +231,7 @@ def clearing_cache_method(
         if asyncio.iscoroutinefunction(method):
 
             async def wrapper(cls, *args, **kwargs):
-                k = key(cls, *args, **kwargs)
+                k = key_hasher(cls, *args, **kwargs)
                 v = await method(cls, *args, **kwargs)
                 async with lock:
                     cls._cache.pop(k, None)
@@ -240,7 +240,7 @@ def clearing_cache_method(
         else:
 
             def wrapper(cls, *args, **kwargs):
-                k = key(cls, *args, **kwargs)
+                k = key_hasher(cls, *args, **kwargs)
                 v = method(cls, *args, **kwargs)
                 with lock:
                     cls._cache.pop(k, None)
@@ -356,7 +356,7 @@ class CachedCRUDMixin(CRUDMixin):
         cls._cache.pop(key, None)
 
     @classmethod
-    @clearing_cache_method(key=hash_write)
+    @clearing_cache_method(key_hasher=hash_write)
     async def create(
             cls,
             session: AsyncSession,
@@ -370,7 +370,7 @@ class CachedCRUDMixin(CRUDMixin):
             session, values=values, _on_conflict_do=_on_conflict_do, **lookup_keys)
 
     @classmethod
-    @cached_method(key=hash_get)
+    @cached_method(key_hasher=hash_get)
     async def get(
             cls,
             session: AsyncSession,
@@ -381,7 +381,7 @@ class CachedCRUDMixin(CRUDMixin):
         return await super().get(session, **lookup_keys)
 
     @classmethod
-    @clearing_cache_method(key=hash_write)
+    @clearing_cache_method(key_hasher=hash_write)
     async def update(
             cls,
             session: AsyncSession,
@@ -393,7 +393,7 @@ class CachedCRUDMixin(CRUDMixin):
         return await super().update(session, values=values, **lookup_keys)
 
     @classmethod
-    @clearing_cache_method(key=hash_delete)
+    @clearing_cache_method(key_hasher=hash_delete)
     async def delete(
             cls,
             session: AsyncSession,

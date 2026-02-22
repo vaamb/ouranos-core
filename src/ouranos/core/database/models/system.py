@@ -96,7 +96,7 @@ class SystemDataRecord(BaseSystemData, RecordMixin):
         return result.scalars().all()
 
     @classmethod
-    @cached(cache_systems_history, key=sessionless_hashkey)
+    @cached(cache_systems_history, key_hasher=sessionless_hashkey)
     async def get_timed_values(
             cls,
             session: AsyncSession,
