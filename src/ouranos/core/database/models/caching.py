@@ -166,7 +166,7 @@ def cached_method(
     return decorator
 
 
-def clearer(
+def clearing_cache(
     cache: Optional[MutableMapping[_KT, Any]],
     key: Callable[..., _KT] = keys.hashkey,
     lock: Optional[AbstractContextManager[Any]] = None,
@@ -211,7 +211,7 @@ def clearer(
     return decorator
 
 
-def clearing_method(
+def clearing_cache_method(
     key: Callable[..., _KT] = keys.hashkey,
     lock: Optional[AbstractContextManager[Any]] = None,
 ):
@@ -310,7 +310,7 @@ def clearer_hash(
         _on_conflict_do: on_conflict_opt = None,
         **lookup_keys,
 ) -> tuple:
-    """Cache key function for `@clearing_method` on write operations.
+    """Cache key function for `@clearing_cache_method` on write operations.
 
     Matches the signature of `create` and `update` (which accept `values`
     and `_on_conflict_do`) while deriving the key from `lookup_keys` only.
@@ -324,7 +324,7 @@ def clearer_hash_no_values(
         /,
         **lookup_keys,
 ) -> tuple:
-    """Cache key function for `@clearing_method` on delete operations.
+    """Cache key function for `@clearing_cache_method` on delete operations.
 
     Matches the signature of `delete` (no `values` or `_on_conflict_do`)
     while deriving the key from `lookup_keys` only.
@@ -356,7 +356,7 @@ class CachedCRUDMixin(CRUDMixin):
         cls._cache.pop(key, None)
 
     @classmethod
-    @clearing_method(key=clearer_hash)
+    @clearing_cache_method(key=clearer_hash)
     async def create(
             cls,
             session: AsyncSession,
@@ -381,7 +381,7 @@ class CachedCRUDMixin(CRUDMixin):
         return await super().get(session, **lookup_keys)
 
     @classmethod
-    @clearing_method(key=clearer_hash)
+    @clearing_cache_method(key=clearer_hash)
     async def update(
             cls,
             session: AsyncSession,
@@ -393,7 +393,7 @@ class CachedCRUDMixin(CRUDMixin):
         return await super().update(session, values=values, **lookup_keys)
 
     @classmethod
-    @clearing_method(key=clearer_hash_no_values)
+    @clearing_cache_method(key=clearer_hash_no_values)
     async def delete(
             cls,
             session: AsyncSession,
