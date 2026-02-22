@@ -118,7 +118,7 @@ async def get_weather_data(coordinates: gv.Coordinates, api_key: str) -> Weather
         "lat": coordinates.latitude,
         "lon": coordinates.longitude,
         "appid": api_key,
-        "exclude": ["minutely"],
+        "exclude": "minutely",
         "units": "metric",  # ca: SI units with temperature in °C rather than °K
     }
     try:
