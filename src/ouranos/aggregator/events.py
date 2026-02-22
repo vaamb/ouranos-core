@@ -487,32 +487,7 @@ class GaiaEvents(AsyncEventHandler):
             f"Received 'climate' from engine: {engine_uid}")
         async with self.session(sid) as session:
             session["init_data"].discard("climate")
-        ecosystems_to_log: list[str] = []
-        async with db.scoped_session() as session:
-            for payload in data:
-                uid: str = payload["uid"]
-                ecosystems_to_log.append(
-                    await self.get_ecosystem_name(session, uid=uid))
-                environment_parameters_in_config: list[str] = []
-                for climate_config in payload["data"]:
-                    environment_parameters_in_config.append(climate_config["parameter"])
-                    parameter = climate_config.pop("parameter")  # noqa
-                    await EnvironmentParameter.update_or_create(
-                        session, ecosystem_uid=uid, parameter=parameter,
-                        values=climate_config)
-
-                # Remove environmental parameters not used anymore
-                stmt = (
-                    delete(EnvironmentParameter)
-                    .where(EnvironmentParameter.ecosystem_uid == uid)
-                    .where(EnvironmentParameter.parameter.not_in(environment_parameters_in_config))
-                )
-                await session.execute(stmt)
-
-        self.logger.debug(
-            f"Logged climate parameters from ecosystem(s): "
-            f"{humanize_list(ecosystems_to_log)}"
-        )
+        await self._sync_environment(data, EnvironmentParameter)
 
     @registration_required
     @validate_payload(RootModel[list[gv.WeatherConfigPayload]])
@@ -526,30 +501,38 @@ class GaiaEvents(AsyncEventHandler):
             f"Received 'weather' from engine: {engine_uid}")
         async with self.session(sid) as session:
             session["init_data"].discard("weather")
+        await self._sync_environment(data, WeatherEvent)
+
+    async def _sync_environment(
+            self,
+            data: list[gv.ClimateConfigPayloadDict | gv.WeatherConfigPayloadDict],
+            db_model: type[EnvironmentParameter | WeatherEvent],
+    ) -> None:
         ecosystems_to_log: list[str] = []
         async with db.scoped_session() as session:
             for payload in data:
                 uid: str = payload["uid"]
                 ecosystems_to_log.append(
                     await self.get_ecosystem_name(session, uid=uid))
-                weather_events_in_config: list[str] = []
-                for weather_config in payload["data"]:
-                    weather_events_in_config.append(weather_config["parameter"])
-                    parameter = weather_config.pop("parameter")  # noqa
-                    await WeatherEvent.update_or_create(
+                in_config: list[str] = []
+                for config in payload["data"]:
+                    in_config.append(config["parameter"])
+                    parameter = config.pop("parameter")  # noqa
+                    await db_model.update_or_create(
                         session, ecosystem_uid=uid, parameter=parameter,
-                        values=weather_config)
+                        values=config)
 
-                # Remove environmental parameters not used anymore
+                # Remove stale parameters
                 stmt = (
-                    delete(WeatherEvent)
-                    .where(WeatherEvent.ecosystem_uid == uid)
-                    .where(WeatherEvent.parameter.not_in(weather_events_in_config))
+                    delete(db_model)
+                    .where(db_model.ecosystem_uid == uid)
+                    .where(db_model.parameter.not_in(in_config))
                 )
                 await session.execute(stmt)
 
+        parameter_name = "climate" if db_model is EnvironmentParameter else "weather"
         self.logger.debug(
-            f"Logged weather parameters from ecosystem(s): "
+            f"Logged {parameter_name} parameters from ecosystem(s): "
             f"{humanize_list(ecosystems_to_log)}"
         )
 
