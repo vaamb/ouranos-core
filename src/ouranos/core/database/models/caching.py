@@ -289,7 +289,7 @@ def sessionless_hashkey(
     return create_hashable_key(**kwargs)
 
 
-def cached_hash(
+def hash_get(
         cls: Type[Base],
         session: AsyncSession,
         /,
@@ -302,7 +302,7 @@ def cached_hash(
     return create_hashable_key(**lookup_keys)
 
 
-def clearer_hash(
+def hash_write(
         cls: Type[Base],
         session: AsyncSession,
         /,
@@ -318,7 +318,7 @@ def clearer_hash(
     return create_hashable_key(**lookup_keys)
 
 
-def clearer_hash_no_values(
+def hash_delete(
         cls: Type[Base],
         session: AsyncSession,
         /,
@@ -356,7 +356,7 @@ class CachedCRUDMixin(CRUDMixin):
         cls._cache.pop(key, None)
 
     @classmethod
-    @clearing_cache_method(key=clearer_hash)
+    @clearing_cache_method(key=hash_write)
     async def create(
             cls,
             session: AsyncSession,
@@ -370,7 +370,7 @@ class CachedCRUDMixin(CRUDMixin):
             session, values=values, _on_conflict_do=_on_conflict_do, **lookup_keys)
 
     @classmethod
-    @cached_method(key=cached_hash)
+    @cached_method(key=hash_get)
     async def get(
             cls,
             session: AsyncSession,
@@ -381,7 +381,7 @@ class CachedCRUDMixin(CRUDMixin):
         return await super().get(session, **lookup_keys)
 
     @classmethod
-    @clearing_cache_method(key=clearer_hash)
+    @clearing_cache_method(key=hash_write)
     async def update(
             cls,
             session: AsyncSession,
@@ -393,7 +393,7 @@ class CachedCRUDMixin(CRUDMixin):
         return await super().update(session, values=values, **lookup_keys)
 
     @classmethod
-    @clearing_cache_method(key=clearer_hash_no_values)
+    @clearing_cache_method(key=hash_delete)
     async def delete(
             cls,
             session: AsyncSession,
