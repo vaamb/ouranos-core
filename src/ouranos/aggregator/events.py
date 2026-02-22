@@ -210,7 +210,8 @@ class GaiaEvents(AsyncEventHandler):
 
     @staticmethod
     def _format_error(e: Exception) -> str:
-        return f"ERROR msg: `{e.__class__.__name__}: {e}`"
+        return f"Error msg: `{e.__class__.__name__}: {e}`"
+
     # ---------------------------------------------------------------------------
     #   Events Gaia <-> Aggregator
     # ---------------------------------------------------------------------------
@@ -492,7 +493,7 @@ class GaiaEvents(AsyncEventHandler):
             f"Received 'climate' from engine: {engine_uid}")
         async with self.session(sid) as session:
             session["init_data"].discard("climate")
-        await self._sync_environment(data, EnvironmentParameter)
+        await self._sync_environment(data, EnvironmentParameter, "climate")
 
     @registration_required
     @validate_payload(RootModel[list[gv.WeatherConfigPayload]])
@@ -506,12 +507,13 @@ class GaiaEvents(AsyncEventHandler):
             f"Received 'weather' from engine: {engine_uid}")
         async with self.session(sid) as session:
             session["init_data"].discard("weather")
-        await self._sync_environment(data, WeatherEvent)
+        await self._sync_environment(data, WeatherEvent, "weather")
 
     async def _sync_environment(
             self,
             data: list[gv.ClimateConfigPayloadDict | gv.WeatherConfigPayloadDict],
             db_model: type[EnvironmentParameter | WeatherEvent],
+            parameter_name: str,
     ) -> None:
         ecosystems_to_log: list[str] = []
         async with db.scoped_session() as session:
@@ -522,7 +524,7 @@ class GaiaEvents(AsyncEventHandler):
                 in_config: list[str] = []
                 for config in payload["data"]:
                     in_config.append(config["parameter"])
-                    parameter = config.pop("parameter")  # noqa
+                    parameter = config.pop("parameter")
                     await db_model.update_or_create(
                         session, ecosystem_uid=uid, parameter=parameter,
                         values=config)
@@ -535,7 +537,6 @@ class GaiaEvents(AsyncEventHandler):
                 )
                 await session.execute(stmt)
 
-        parameter_name = "climate" if db_model is EnvironmentParameter else "weather"
         self.logger.debug(
             f"Logged {parameter_name} parameters from ecosystem(s): "
             f"{humanize_list(ecosystems_to_log)}"
@@ -611,7 +612,7 @@ class GaiaEvents(AsyncEventHandler):
                     await Plant.update_or_create(
                         session, uid=plant_uid, values=plant)
 
-                # Remove hardware not in `ecosystems.cfg` anymore
+                # Remove plants not in `ecosystems.cfg` anymore
                 stmt = (
                     select(Plant.uid)
                     .where(Plant.ecosystem_uid == uid)
