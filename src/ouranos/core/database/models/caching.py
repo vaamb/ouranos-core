@@ -214,7 +214,7 @@ def clearing_method(
     return decorator
 
 
-def create_hashable_key(**kwargs: dict[str: Any]) -> tuple:
+def create_hashable_key(**kwargs: dict[str, Any]) -> tuple:
     to_freeze = []
     for key, value in sorted(kwargs.items()):
         if isinstance(value, list):
