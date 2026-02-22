@@ -132,7 +132,7 @@ def cached_method(
                         return cls._cache[k]
                 except KeyError:
                     pass  # key not found
-                v = cls._cache(cls, *args, **kwargs)
+                v = method(cls, *args, **kwargs)
                 try:
                     with lock:
                         cls._cache.setdefault(k, v)
