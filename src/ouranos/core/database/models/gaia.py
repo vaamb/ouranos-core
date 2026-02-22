@@ -30,7 +30,7 @@ from ouranos.core.database.models.caches import (
 from ouranos.core.database.models.caches import (
     cache_ecosystems_recent, cache_engines_recent)
 from ouranos.core.database.models.caching import (
-    CachedCRUDMixin, cached, create_hashable_key, sessionless_hashkey)
+    CachedCRUDMixin, cached, create_hashable_key, hash_get, hash_model_instance)
 from ouranos.core.database.models.types import SQLIntEnum, UtcDateTime
 from ouranos.core.database.models.utils import TIME_LIMITS
 from ouranos.core.utils import create_time_window, timeWindow
@@ -330,7 +330,7 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
         self.management = 0
 
     @classmethod
-    @cached(cache_ecosystems_has_recent_data, key=sessionless_hashkey)
+    @cached(cache_ecosystems_has_recent_data, key_hasher=hash_get)
     async def check_if_recent_sensor_data(
             cls,
             session: AsyncSession,
@@ -363,7 +363,7 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
         return result
 
     @classmethod
-    @cached(cache_ecosystems_has_active_actuator, key=sessionless_hashkey)
+    @cached(cache_ecosystems_has_active_actuator, key_hasher=hash_get)
     async def check_if_active_actuator(
             cls,
             session: AsyncSession,
@@ -425,7 +425,7 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
             session, ecosystem_uid=self.uid, type=hardware_type,
             in_config=in_config)
 
-    @cached(cache_sensors_data_skeleton, key=sessionless_hashkey)
+    @cached(cache_sensors_data_skeleton, key_hasher=hash_model_instance)
     async def get_sensors_data_skeleton(
             self,
             session: AsyncSession,
@@ -1409,7 +1409,7 @@ class SensorDataRecord(BaseSensorDataRecord, ArchivableMixin):
         return current_app.config["SENSOR_ARCHIVING_PERIOD"] or 180
 
     @classmethod
-    @cached(cache_sensors_value, key=sessionless_hashkey)
+    @cached(cache_sensors_value, key_hasher=hash_get)
     async def get_timed_values(
             cls,
             session: AsyncSession,
@@ -1660,7 +1660,7 @@ class GaiaWarning(Base):
         await session.execute(stmt)
 
     @classmethod
-    @cached(cache_warnings, key=sessionless_hashkey)
+    @cached(cache_warnings, key_hasher=hash_get)
     async def get_multiple(
             cls,
             session: AsyncSession,

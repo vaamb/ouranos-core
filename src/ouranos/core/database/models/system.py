@@ -7,13 +7,12 @@ import sqlalchemy as sa
 from sqlalchemy import select, UniqueConstraint
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.sql.functions import func, max as sa_max
+from sqlalchemy.sql.functions import func
 
 from ouranos.core.database.models.abc import Base, CacheMixin, RecordMixin
 from ouranos.core.database.models.caches import (
     cache_systems, cache_systems_history)
-from ouranos.core.database.models.caching import (
-    cached, CachedCRUDMixin, sessionless_hashkey)
+from ouranos.core.database.models.caching import cached, CachedCRUDMixin, hash_get
 from ouranos.core.database.models.types import UtcDateTime
 from ouranos.core.utils import timeWindow
 
@@ -96,7 +95,7 @@ class SystemDataRecord(BaseSystemData, RecordMixin):
         return result.scalars().all()
 
     @classmethod
-    @cached(cache_systems_history, key=sessionless_hashkey)
+    @cached(cache_systems_history, key_hasher=hash_get)
     async def get_timed_values(
             cls,
             session: AsyncSession,
