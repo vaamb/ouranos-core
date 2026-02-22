@@ -3,10 +3,10 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from functools import wraps
 import logging
+import sys
 import typing as t
 from typing import Callable, cast, Type, TypeAlias, TypedDict, TypeVar
 from uuid import UUID
-from warnings import deprecated
 
 from anyio import Path as ioPath
 from anyio.to_thread import run_sync
@@ -29,6 +29,11 @@ from ouranos.core.database.models.gaia import (
     Place, Plant, SensorAlarm, SensorDataRecord, SensorDataCache, WeatherEvent)
 from ouranos.core.exceptions import NotRegisteredError
 from ouranos.core.utils import humanize_list, Tokenizer
+
+if sys.version_info < (3, 13):
+    from typing_extensions import deprecated
+else:
+    from warnings import deprecated
 
 
 if t.TYPE_CHECKING:
