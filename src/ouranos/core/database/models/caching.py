@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import functools
 from contextlib import AbstractContextManager
-from typing import Any, Callable, MutableMapping, Optional, Self, Type, TypeVar
+from typing import Any, Callable, Hashable, MutableMapping, Optional, Self, Type, TypeVar
 
 from cachetools import keys
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -251,22 +251,18 @@ def clearing_cache_method(
     return decorator
 
 
-def create_hashable_key(**kwargs: dict[str, Any]) -> tuple:
+def create_hashable_key(**kwargs: dict[str, Hashable | list[Hashable]]) -> tuple:
     """Convert keyword arguments into a sorted, hashable tuple for use as a
     cache key.
 
-    Recursively converts lists to tuples and nested dicts to nested tuples,
-    ensuring the result is always hashable. Keys are sorted to guarantee a
-    stable ordering regardless of the argument order at the call site.
+    Converts lists to tuples, ensuring the result is always hashable. Keys are
+    sorted to guarantee a stable ordering regardless of the argument order at
+    the call site.
     """
-    to_freeze = []
-    for key, value in sorted(kwargs.items()):
-        if isinstance(value, list):
-            value = tuple(value)
-        elif isinstance(value, dict):
-            value = create_hashable_key(**value)
-        to_freeze.append((key, value))
-    return tuple(to_freeze)
+    return tuple(
+        (k, tuple(v) if isinstance(v, list) else v)
+        for k, v in sorted(kwargs.items())
+    )
 
 
 def hash_model_instance(
