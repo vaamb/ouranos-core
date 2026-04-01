@@ -159,7 +159,7 @@ class BaseConfig:
     # Private parameters
     HOME_CITY = os.environ.get("HOME_CITY")
     HOME_COORDINATES = os.environ.get("HOME_COORDINATES")
-    OPEN_WEATHER_MAP_API_KEY = os.environ.get("DARKSKY_API_KEY")
+    OPEN_WEATHER_MAP_API_KEY = os.environ.get("OPEN_WEATHER_MAP_API_KEY")
     WEATHER_REFRESH_INTERVAL = 15  # in minute
 
 

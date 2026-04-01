@@ -132,9 +132,9 @@ All settings can also be provided via environment variables. Key settings:
 | `FRONTEND_URL`             | `OURANOS_FRONTEND_URL`                  | Allowed frontend origin (CORS)                            |
 | `DB_DIR`                   | `OURANOS_DB_DIR`                        | Directory for SQLite databases                            |
 | `HOME_COORDINATES`         | `HOME_COORDINATES`                      | `(lat, lon)` used for sunrise/sunset and weather          |
-| `OPEN_WEATHER_MAP_API_KEY` | `DARKSKY_API_KEY`                       | API key for weather forecasts                             |
+| `OPEN_WEATHER_MAP_API_KEY` | `OPEN_WEATHER_MAP_API_KEY`              | API key for weather forecasts                             |
 | `PLUGINS_OMITTED`          | `OURANOS_PLUGINS_OMITTED`               | Comma-separated list of plugins to skip                   |
-| `MAIL_USERNAME`            | `OURANOS_MAIL_ADDRESS`                  | SMTP username for email notifications                     |
+| `MAIL_USERNAME`            | `OURANOS_MAIL_ADDRESS`                  | SMTP address for email notifications                      |
 
 ---
 
@@ -170,7 +170,7 @@ Tech stack
 - SQLAlchemy 2.0 (async) · Alembic · aiosqlite
 - python-socketio · aio-pika · APScheduler
 - PyJWT · argon2-cffi
-- numpy · OpenCV (plant health image analysis)
+- numpy · OpenCV (camera image processing)
 - [event-dispatcher](https://github.com/vaamb/event-dispatcher) ·
   [gaia-validators](https://github.com/vaamb/gaia-validators) ·
   [sqlalchemy-wrapper](https://github.com/vaamb/sqlalchemy-wrapper)
