@@ -20,17 +20,6 @@ from ouranos.core.validate.base import BaseModel
 _RECENCY_LIMIT = 6 * 60 * 60
 
 
-async def is_connected(ip_to_connect: str = "1.1.1.1", port: int = 80) -> bool:
-    try:
-        reader, writer = await asyncio.wait_for(
-            asyncio.open_connection(ip_to_connect, port), 2)
-        writer.close()
-        return True
-    except Exception as ex:
-        stripped_warning(ex)
-    return False
-
-
 # -------------------------------------------------------------------------------
 #   Weather
 # -------------------------------------------------------------------------------
