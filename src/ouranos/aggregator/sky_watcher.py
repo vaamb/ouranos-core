@@ -31,10 +31,6 @@ async def is_connected(ip_to_connect: str = "1.1.1.1", port: int = 80) -> bool:
     return False
 
 
-class SunTimes(RootModel):
-    root: list[gv.SunTimes]
-
-
 # -------------------------------------------------------------------------------
 #   Weather
 # -------------------------------------------------------------------------------
