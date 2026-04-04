@@ -4,7 +4,7 @@ import asyncio
 from datetime import date, datetime, timedelta
 from logging import getLogger, Logger
 
-from aiohttp import ClientError, ClientSession
+from aiohttp import ClientError, ClientSession, ClientTimeout
 from pydantic import Field, field_validator, RootModel
 
 import gaia_validators as gv
@@ -123,7 +123,8 @@ async def get_weather_data(coordinates: gv.Coordinates, api_key: str) -> Weather
     }
     try:
         async with ClientSession() as session:
-            async with session.get(url, params=parameters, timeout=3.0) as resp:
+            timeout = ClientTimeout(total=3.0)
+            async with session.get(url, params=parameters, timeout=timeout) as resp:
                 raw_data = await resp.json()
                 return WeatherData.model_validate(raw_data)
     except (ClientError, asyncio.TimeoutError) as e:
