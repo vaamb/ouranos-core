@@ -243,7 +243,11 @@ class SkyWatcher:
 
     """Sun times"""
     async def update_sun_times_data(self) -> None:
-        self.logger.debug("Updating sun times")
+        self.logger.debug("Trying to update sun times")
+        if not self._coordinates:
+            self.logger.error(
+                "'HOME_COORDINATES' is needed to update sun times.")
+            return
         today = date.today()
         days = [today + timedelta(days=i) for i in range(0, 7)]
         sun_times = [
