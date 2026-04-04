@@ -4,7 +4,7 @@ import asyncio
 from datetime import date, datetime, timedelta
 from logging import getLogger, Logger
 
-from aiohttp import ClientError, ClientSession
+from aiohttp import ClientError, ClientSession, ClientTimeout
 from pydantic import Field, field_validator, RootModel
 
 import gaia_validators as gv
@@ -20,27 +20,12 @@ from ouranos.core.validate.base import BaseModel
 _RECENCY_LIMIT = 6 * 60 * 60
 
 
-async def is_connected(ip_to_connect: str = "1.1.1.1", port: int = 80) -> bool:
-    try:
-        reader, writer = await asyncio.wait_for(
-            asyncio.open_connection(ip_to_connect, port), 2)
-        writer.close()
-        return True
-    except Exception as ex:
-        stripped_warning(ex)
-    return False
-
-
-class SunTimes(RootModel):
-    root: list[gv.SunTimes]
-
-
 # -------------------------------------------------------------------------------
 #   Weather
 # -------------------------------------------------------------------------------
 class WeatherDataCurrent(BaseModel):
     timestamp: datetime = Field(validation_alias="dt")
-    temperature: float = Field(validation_alias="temp")
+    temperature: float | None = Field(validation_alias="temp")
     humidity: float
     dew_point: float
     wind_speed: float
@@ -58,7 +43,7 @@ class WeatherDataCurrent(BaseModel):
 
     @field_validator("summary", mode="before")
     def parse_summary(cls, value):
-        if not value:
+        if value is None:
             return None
         if isinstance(value, str):
             return value
@@ -66,7 +51,7 @@ class WeatherDataCurrent(BaseModel):
 
     @field_validator("icon", mode="before")
     def parse_icon(cls, value):
-        if not value:
+        if value is None:
             return None
         if isinstance(value, str):
             return value
@@ -78,12 +63,12 @@ class WeatherDataHour(WeatherDataCurrent):
 
 
 class WeatherDataDay(WeatherDataHour):
-    temperature_min: float = Field(validation_alias="temp")
-    temperature_max: float = Field(validation_alias="temp")
+    temperature_min: float | None = Field(validation_alias="temp")
+    temperature_max: float | None = Field(validation_alias="temp")
 
     @field_validator("temperature", mode="before")
     def parse_temperature(cls, value):
-        if not value:
+        if value is None:
             return None
         if isinstance(value, float):
             return value
@@ -91,7 +76,7 @@ class WeatherDataDay(WeatherDataHour):
 
     @field_validator("temperature_min", mode="before")
     def parse_temperature_min(cls, value):
-        if not value:
+        if value is None:
             return None
         if isinstance(value, float):
             return value
@@ -99,7 +84,7 @@ class WeatherDataDay(WeatherDataHour):
 
     @field_validator("temperature_max", mode="before")
     def parse_temperature_max(cls, value):
-        if not value:
+        if value is None:
             return None
         if isinstance(value, float):
             return value
@@ -118,12 +103,13 @@ async def get_weather_data(coordinates: gv.Coordinates, api_key: str) -> Weather
         "lat": coordinates.latitude,
         "lon": coordinates.longitude,
         "appid": api_key,
-        "exclude": ["minutely"],
+        "exclude": "minutely",
         "units": "metric",  # ca: SI units with temperature in °C rather than °K
     }
     try:
         async with ClientSession() as session:
-            async with session.get(url, params=parameters, timeout=3.0) as resp:
+            timeout = ClientTimeout(total=3.0)
+            async with session.get(url, params=parameters, timeout=timeout) as resp:
                 raw_data = await resp.json()
                 return WeatherData.model_validate(raw_data)
     except (ClientError, asyncio.TimeoutError) as e:
@@ -163,7 +149,6 @@ class SkyWatcher:
     def __init__(self):
         self.logger: Logger = getLogger("ouranos.aggregator")
         self.dispatcher = DispatcherFactory.get("aggregator-internal")
-        self._mutex = asyncio.Lock()
         coordinates = current_app.config.get("HOME_COORDINATES")
         if isinstance(coordinates, tuple):
             coordinates = gv.Coordinates(*coordinates)
@@ -179,15 +164,14 @@ class SkyWatcher:
 
     """Weather"""
     async def _check_weather_recency(self) -> bool:
-        """Return True is weather data is recent (less than
-        Config.WEATHER_REFRESH_INTERVAL + 1)"""
+        """Return True is weather data is recent (less than Config.WEATHER_UPDATE_PERIOD + 1)"""
 
         current = await self._aio_cache.get("weather_currently", {})
         timestamp = current.get("timestamp", None)
         if timestamp is None:
             return False
         now = datetime.now()
-        if now.timestamp() - timestamp.timestamp() > (self._update_period + 1) * 60 :
+        if now.timestamp() - timestamp.timestamp() < (self._update_period + 1) * 60 :
             self.logger.debug("Weather data already up to date")
             return True
         return False
@@ -244,7 +228,11 @@ class SkyWatcher:
 
     """Sun times"""
     async def update_sun_times_data(self) -> None:
-        self.logger.debug("Updating sun times")
+        self.logger.debug("Trying to update sun times")
+        if not self._coordinates:
+            self.logger.error(
+                "'HOME_COORDINATES' is needed to update sun times.")
+            return
         today = date.today()
         days = [today + timedelta(days=i) for i in range(0, 7)]
         sun_times = [
@@ -269,18 +257,18 @@ class SkyWatcher:
         tasks = []
         if not await self._check_weather_recency():
             tasks.append(self.update_weather_data())
+        tasks.append(self.update_sun_times_data())
+        await asyncio.gather(*tasks)
         scheduler.add_job(
             self.update_weather_data,
             "cron", minute=f"*/{self._update_period}", misfire_grace_time=5 * 60,
             id="sky_watcher-weather",
             )
-        tasks.append(self.update_sun_times_data())
         scheduler.add_job(
             self.update_sun_times_data,
             "cron", hour="0", minute="1", misfire_grace_time=15 * 60,
-            id="sky_watcher-suntimes",
+            id="sky_watcher-sun_times",
         )
-        await asyncio.gather(*tasks)
         self._started = True
 
     async def stop(self) -> None:
