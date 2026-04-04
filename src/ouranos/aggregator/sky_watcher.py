@@ -164,8 +164,7 @@ class SkyWatcher:
 
     """Weather"""
     async def _check_weather_recency(self) -> bool:
-        """Return True is weather data is recent (less than
-        Config.WEATHER_REFRESH_INTERVAL + 1)"""
+        """Return True is weather data is recent (less than Config.WEATHER_UPDATE_PERIOD + 1)"""
 
         current = await self._aio_cache.get("weather_currently", {})
         timestamp = current.get("timestamp", None)
