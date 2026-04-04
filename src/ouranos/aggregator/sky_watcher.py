@@ -40,7 +40,7 @@ class SunTimes(RootModel):
 # -------------------------------------------------------------------------------
 class WeatherDataCurrent(BaseModel):
     timestamp: datetime = Field(validation_alias="dt")
-    temperature: float = Field(validation_alias="temp")
+    temperature: float | None = Field(validation_alias="temp")
     humidity: float
     dew_point: float
     wind_speed: float
@@ -58,7 +58,7 @@ class WeatherDataCurrent(BaseModel):
 
     @field_validator("summary", mode="before")
     def parse_summary(cls, value):
-        if not value:
+        if value is None:
             return None
         if isinstance(value, str):
             return value
@@ -66,7 +66,7 @@ class WeatherDataCurrent(BaseModel):
 
     @field_validator("icon", mode="before")
     def parse_icon(cls, value):
-        if not value:
+        if value is None:
             return None
         if isinstance(value, str):
             return value
@@ -78,12 +78,12 @@ class WeatherDataHour(WeatherDataCurrent):
 
 
 class WeatherDataDay(WeatherDataHour):
-    temperature_min: float = Field(validation_alias="temp")
-    temperature_max: float = Field(validation_alias="temp")
+    temperature_min: float | None = Field(validation_alias="temp")
+    temperature_max: float | None = Field(validation_alias="temp")
 
     @field_validator("temperature", mode="before")
     def parse_temperature(cls, value):
-        if not value:
+        if value is None:
             return None
         if isinstance(value, float):
             return value
@@ -91,7 +91,7 @@ class WeatherDataDay(WeatherDataHour):
 
     @field_validator("temperature_min", mode="before")
     def parse_temperature_min(cls, value):
-        if not value:
+        if value is None:
             return None
         if isinstance(value, float):
             return value
@@ -99,7 +99,7 @@ class WeatherDataDay(WeatherDataHour):
 
     @field_validator("temperature_max", mode="before")
     def parse_temperature_max(cls, value):
-        if not value:
+        if value is None:
             return None
         if isinstance(value, float):
             return value
