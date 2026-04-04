@@ -268,18 +268,18 @@ class SkyWatcher:
         tasks = []
         if not await self._check_weather_recency():
             tasks.append(self.update_weather_data())
+        tasks.append(self.update_sun_times_data())
+        await asyncio.gather(*tasks)
         scheduler.add_job(
             self.update_weather_data,
             "cron", minute=f"*/{self._update_period}", misfire_grace_time=5 * 60,
             id="sky_watcher-weather",
             )
-        tasks.append(self.update_sun_times_data())
         scheduler.add_job(
             self.update_sun_times_data,
             "cron", hour="0", minute="1", misfire_grace_time=15 * 60,
             id="sky_watcher-sun_times",
         )
-        await asyncio.gather(*tasks)
         self._started = True
 
     async def stop(self) -> None:
