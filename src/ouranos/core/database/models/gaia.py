@@ -147,7 +147,7 @@ class Engine(Base, CachedCRUDMixin):
             result = await session.execute(stmt)
             return result.scalars().all()
         elif "connected" in engines_id:
-            time_limit = datetime.now(timezone.utc) - timedelta(hours=ECOSYSTEM_TIMEOUT)
+            time_limit = datetime.now(timezone.utc) - timedelta(seconds=ECOSYSTEM_TIMEOUT)
             stmt = (
                 select(cls)
                 .where(cls.last_seen >= time_limit)
@@ -294,7 +294,7 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
             result = await session.execute(stmt)
             return result.scalars().all()
         elif "connected" in ecosystems_id:
-            time_limit = datetime.now(timezone.utc) - timedelta(hours=ECOSYSTEM_TIMEOUT)
+            time_limit = datetime.now(timezone.utc) - timedelta(seconds=ECOSYSTEM_TIMEOUT)
             stmt = (
                 select(cls).join(Engine.ecosystems)
                 .where(cls.last_seen >= time_limit)
