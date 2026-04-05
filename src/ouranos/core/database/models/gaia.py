@@ -123,7 +123,7 @@ class Engine(Base, CachedCRUDMixin):
             /,
             engines_id: list[RecentOrConnected | str | UUID] | None = None,
     ) -> Sequence[Self]:
-        if engines_id is None:
+        if not engines_id:
             engines_id = ["all"]
         if "recent" in engines_id:
             try:
