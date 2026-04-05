@@ -578,7 +578,7 @@ class Place(Base, CRUDMixin):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)  # Use this as PK as it eases linking with Lighting
-    engine_uid: Mapped[UUID] = mapped_column(sa.ForeignKey("engines.uid"))
+    engine_uid: Mapped[str] = mapped_column(sa.ForeignKey("engines.uid"))
     name: Mapped[str] = mapped_column(sa.String(length=32))
     longitude: Mapped[float] = mapped_column()
     latitude: Mapped[float] = mapped_column()
