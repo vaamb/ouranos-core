@@ -612,8 +612,8 @@ class NycthemeralCycle(Base, CRUDMixin):
 
     def __repr__(self) -> str:
         return (
-            f"<Lighting({self.ecosystem_uid}, status={self.status}, "
-            f"mode={self.mode})>"
+            f"<NycthemeralCycle({self.ecosystem_uid}, span={self.span}, "
+            f"lighting={self.lighting})>"
         )
 
 
