@@ -272,11 +272,12 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
                 time_limit = datetime.now(timezone.utc) - timedelta(hours=TIME_LIMITS.RECENT)
                 stmt = (
                     select(cls)
-                    .where(cls.last_seen >= time_limit)
+                    .where(
+                        (cls.last_seen >= time_limit)
+                        & (cls.in_config == True)
+                    )
                     .order_by(cls.status.desc(), cls.name.asc())
                 )
-                if in_config is not None:
-                    stmt = stmt.where(cls.in_config == in_config)
                 result = await session.execute(stmt)
                 ecosystems = result.scalars().all()
                 cache_ecosystems_recent["recent"] = ecosystems
