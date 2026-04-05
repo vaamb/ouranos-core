@@ -878,7 +878,6 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
                 .where(AssociationHardwareMeasure.c.measure_id.in_(measures_already_attached))
             )
             await session.execute(stmt)
-            await session.commit()
 
     @classmethod
     async def attach_groups(
@@ -923,7 +922,6 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
                 .where(AssociationHardwareGroup.c.group_id.in_(groups_already_attached))
             )
             await session.execute(stmt)
-            await session.commit()
 
     @classmethod
     async def create(
@@ -1239,7 +1237,6 @@ class Plant(Base, CachedCRUDMixin, InConfigMixin):
                 .where(AssociationHardwarePlant.c.hardware_uid.in_(hardware_already_attached))
             )
             await session.execute(stmt)
-            await session.commit()
 
     @classmethod
     async def create(
