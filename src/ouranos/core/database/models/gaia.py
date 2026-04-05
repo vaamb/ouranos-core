@@ -943,7 +943,7 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
             await cls.attach_measures(session, lookup_keys["uid"], measures)
         if groups:
             await cls.attach_groups(session, lookup_keys["uid"], groups)
-        if any((*groups, *measures)):
+        if measures or groups:
             # Clear cache as measures and/or plants have been added
             hash_key = create_hashable_key(**lookup_keys)
             cls._cache.pop(hash_key, None)
@@ -969,7 +969,7 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
             await cls.attach_measures(session, uid, measures)
         if groups:
             await cls.attach_groups(session, uid, groups)
-        if any((*groups, *measures)):
+        if measures or groups:
             # Clear cache as measures and/or plants have been added
             hash_key = create_hashable_key(**lookup_keys)
             cls._cache.pop(hash_key, None)
