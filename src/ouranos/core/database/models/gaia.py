@@ -159,7 +159,7 @@ class Engine(Base, CachedCRUDMixin):
         #  to issues on some backend
         engines_id = [try_uuid(engine_id) for engine_id in engines_id]
         lst_type = type(engines_id[0])
-        if len(engines_id) > 0:
+        if len(engines_id) > 1:
             if not all(isinstance(id_, lst_type) for id_ in engines_id[1:]):
                 raise ValueError(
                     "All the elements should either be engines 'uid' or 'sid'")
