@@ -1209,7 +1209,7 @@ class Plant(Base, CachedCRUDMixin, InConfigMixin):
             .where(AssociationHardwarePlant.c.plant_uid == plant_uid)
         )
         result = await session.execute(stmt)
-        hardware_already_attached: set[int] = {row[0] for row in result.all()}
+        hardware_already_attached: set[str] = {row[0] for row in result.all()}
         # Accumulator for hardware to add
         hardware_to_add: list[dict[str, str | int]] = []
         for hardware_uid in hardware_uids:
