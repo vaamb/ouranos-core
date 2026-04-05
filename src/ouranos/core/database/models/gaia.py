@@ -1190,7 +1190,7 @@ class Plant(Base, CachedCRUDMixin, InConfigMixin):
     sowing_date: Mapped[Optional[datetime]] = mapped_column(UtcDateTime)
 
     # relationships
-    ecosystem: Mapped[list[Ecosystem]] = relationship(
+    ecosystem: Mapped[Ecosystem] = relationship(
         "Ecosystem", back_populates="plants", lazy="selectin")
     hardware: Mapped[list[Hardware]] = relationship(
         "Hardware", back_populates="plants", secondary=AssociationHardwarePlant,
