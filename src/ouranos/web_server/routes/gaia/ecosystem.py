@@ -195,7 +195,7 @@ async def delete_ecosystem(
     try:
         await emit_crud_event(
             ecosystem, gv.CrudAction.delete, "ecosystem",
-            kwargs={"ecosystem_id": ecosystem.uid})
+            {"ecosystem_id": ecosystem.uid})
         return (
             f"Request to delete the ecosystem '{ecosystem.name}' "
             f"successfully sent to engine '{ecosystem.engine_uid}'"
