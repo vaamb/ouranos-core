@@ -167,7 +167,7 @@ Tech stack
 ----------
 
 - Python 3.11+ · FastAPI · Uvicorn · asyncio
-- SQLAlchemy 2.0 (async) · Alembic · aiosqlite
+- SQLAlchemy 2.0 (async) · Alembic · aiomysql (MariaDB/MySQL in production) · aiosqlite (tests)
 - python-socketio · aio-pika · APScheduler
 - PyJWT · argon2-cffi
 - numpy · OpenCV (camera image processing)
