@@ -40,7 +40,7 @@ dependencies = [
     "uvicorn[standard]~=0.34",
 
     # From git
-    "event-dispatcher @ git+https://github.com/vaamb/event-dispatcher.git@0.7.0",
+    "event-dispatcher @ git+https://github.com/vaamb/event-dispatcher.git@0.8.0",
     "gaia-validators @ git+https://github.com/vaamb/gaia-validators.git@0.10.0",
     "sqlalchemy-wrapper @ git+https://github.com/vaamb/sqlalchemy-wrapper.git@0.4.0",
 ]
