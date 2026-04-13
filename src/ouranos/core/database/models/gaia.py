@@ -123,7 +123,7 @@ class Engine(Base, CachedCRUDMixin):
             /,
             engines_id: list[RecentOrConnected | str | UUID] | None = None,
     ) -> Sequence[Self]:
-        if engines_id is None:
+        if not engines_id:
             engines_id = ["all"]
         if "recent" in engines_id:
             try:
@@ -147,9 +147,10 @@ class Engine(Base, CachedCRUDMixin):
             result = await session.execute(stmt)
             return result.scalars().all()
         elif "connected" in engines_id:
+            time_limit = datetime.now(timezone.utc) - timedelta(seconds=ECOSYSTEM_TIMEOUT)
             stmt = (
                 select(cls)
-                .where(cls.connected == True)  # noqa
+                .where(cls.last_seen >= time_limit)
                 .order_by(cls.uid.asc())
             )
             result = await session.execute(stmt)
@@ -158,7 +159,7 @@ class Engine(Base, CachedCRUDMixin):
         #  to issues on some backend
         engines_id = [try_uuid(engine_id) for engine_id in engines_id]
         lst_type = type(engines_id[0])
-        if len(engines_id) > 0:
+        if len(engines_id) > 1:
             if not all(isinstance(id_, lst_type) for id_ in engines_id[1:]):
                 raise ValueError(
                     "All the elements should either be engines 'uid' or 'sid'")
@@ -271,11 +272,12 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
                 time_limit = datetime.now(timezone.utc) - timedelta(hours=TIME_LIMITS.RECENT)
                 stmt = (
                     select(cls)
-                    .where(cls.last_seen >= time_limit)
+                    .where(
+                        (cls.last_seen >= time_limit)
+                        & (cls.in_config == True)
+                    )
                     .order_by(cls.status.desc(), cls.name.asc())
                 )
-                if in_config is not None:
-                    stmt = stmt.where(cls.in_config == in_config)
                 result = await session.execute(stmt)
                 ecosystems = result.scalars().all()
                 cache_ecosystems_recent["recent"] = ecosystems
@@ -293,9 +295,10 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
             result = await session.execute(stmt)
             return result.scalars().all()
         elif "connected" in ecosystems_id:
+            time_limit = datetime.now(timezone.utc) - timedelta(seconds=ECOSYSTEM_TIMEOUT)
             stmt = (
                 select(cls).join(Engine.ecosystems)
-                .where(Engine.connected == True)  # noqa
+                .where(cls.last_seen >= time_limit)
                 .order_by(cls.name.asc())
             )
             if in_config is not None:
@@ -575,7 +578,7 @@ class Place(Base, CRUDMixin):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)  # Use this as PK as it eases linking with Lighting
-    engine_uid: Mapped[UUID] = mapped_column(sa.ForeignKey("engines.uid"))
+    engine_uid: Mapped[str] = mapped_column(sa.ForeignKey("engines.uid"))
     name: Mapped[str] = mapped_column(sa.String(length=32))
     longitude: Mapped[float] = mapped_column()
     latitude: Mapped[float] = mapped_column()
@@ -610,8 +613,8 @@ class NycthemeralCycle(Base, CRUDMixin):
 
     def __repr__(self) -> str:
         return (
-            f"<Lighting({self.ecosystem_uid}, status={self.status}, "
-            f"mode={self.mode})>"
+            f"<NycthemeralCycle({self.ecosystem_uid}, span={self.span}, "
+            f"lighting={self.lighting})>"
         )
 
 
@@ -752,7 +755,7 @@ class WeatherEvent(Base, CRUDMixin):
     ecosystem_uid: Mapped[str] = mapped_column(
         sa.String(length=8), sa.ForeignKey("ecosystems.uid"), primary_key=True)
     parameter: Mapped[str] = mapped_column(sa.String(length=24), primary_key=True)
-    pattern: Mapped[str] = mapped_column(sa.String(length=24), primary_key=True)
+    pattern: Mapped[str] = mapped_column(sa.String(length=24))
     duration: Mapped[float] = mapped_column(sa.Float(precision=2))
     level: Mapped[float] = mapped_column(sa.Float(precision=2))
     linked_actuator: Mapped[Optional[str]] = mapped_column(sa.String(length=16))
@@ -875,7 +878,6 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
                 .where(AssociationHardwareMeasure.c.measure_id.in_(measures_already_attached))
             )
             await session.execute(stmt)
-            await session.commit()
 
     @classmethod
     async def attach_groups(
@@ -920,7 +922,6 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
                 .where(AssociationHardwareGroup.c.group_id.in_(groups_already_attached))
             )
             await session.execute(stmt)
-            await session.commit()
 
     @classmethod
     async def create(
@@ -940,7 +941,7 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
             await cls.attach_measures(session, lookup_keys["uid"], measures)
         if groups:
             await cls.attach_groups(session, lookup_keys["uid"], groups)
-        if any((*groups, *measures)):
+        if measures or groups:
             # Clear cache as measures and/or plants have been added
             hash_key = create_hashable_key(**lookup_keys)
             cls._cache.pop(hash_key, None)
@@ -966,7 +967,7 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
             await cls.attach_measures(session, uid, measures)
         if groups:
             await cls.attach_groups(session, uid, groups)
-        if any((*groups, *measures)):
+        if measures or groups:
             # Clear cache as measures and/or plants have been added
             hash_key = create_hashable_key(**lookup_keys)
             cls._cache.pop(hash_key, None)
@@ -1187,7 +1188,7 @@ class Plant(Base, CachedCRUDMixin, InConfigMixin):
     sowing_date: Mapped[Optional[datetime]] = mapped_column(UtcDateTime)
 
     # relationships
-    ecosystem: Mapped[list[Ecosystem]] = relationship(
+    ecosystem: Mapped[Ecosystem] = relationship(
         "Ecosystem", back_populates="plants", lazy="selectin")
     hardware: Mapped[list[Hardware]] = relationship(
         "Hardware", back_populates="plants", secondary=AssociationHardwarePlant,
@@ -1206,7 +1207,7 @@ class Plant(Base, CachedCRUDMixin, InConfigMixin):
             .where(AssociationHardwarePlant.c.plant_uid == plant_uid)
         )
         result = await session.execute(stmt)
-        hardware_already_attached: set[int] = {row[0] for row in result.all()}
+        hardware_already_attached: set[str] = {row[0] for row in result.all()}
         # Accumulator for hardware to add
         hardware_to_add: list[dict[str, str | int]] = []
         for hardware_uid in hardware_uids:
@@ -1236,7 +1237,6 @@ class Plant(Base, CachedCRUDMixin, InConfigMixin):
                 .where(AssociationHardwarePlant.c.hardware_uid.in_(hardware_already_attached))
             )
             await session.execute(stmt)
-            await session.commit()
 
     @classmethod
     async def create(
