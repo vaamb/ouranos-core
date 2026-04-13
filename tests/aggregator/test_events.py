@@ -131,12 +131,12 @@ class TestEngineRegistration:
         emitted = mock_dispatcher.emit_store.popleft()
         assert emitted["event"] == "registration_ack"
         assert emitted["namespace"] == "gaia"
-        assert emitted["room"] == g_data.engine_sid
+        assert emitted["room"] == g_data.engine_sid.hex
 
         emitted = mock_dispatcher.emit_store.popleft()
         assert emitted["event"] == "camera_token"
         assert emitted["namespace"] == "gaia"
-        assert emitted["room"] == g_data.engine_sid
+        assert emitted["room"] == g_data.engine_sid.hex
 
         # Verify that the data has been logged
         async with db.scoped_session() as session:
@@ -1114,7 +1114,7 @@ class TestBufferedDataExchange(HardwareAware):
 
         emitted = mock_dispatcher.emit_store[0]
         assert emitted["namespace"] == "gaia"
-        assert emitted["room"] == g_data.engine_sid
+        assert emitted["room"] == g_data.engine_sid.hex
         assert emitted["event"] == "buffered_data_ack"
         result: gv.RequestResultDict = emitted["data"]
         assert result["uuid"] == g_data.request_uuid
@@ -1144,7 +1144,7 @@ class TestBufferedDataExchange(HardwareAware):
 
         emitted = mock_dispatcher.emit_store[0]
         assert emitted["namespace"] == "gaia"
-        assert emitted["room"] == g_data.engine_sid
+        assert emitted["room"] == g_data.engine_sid.hex
         assert emitted["event"] == "buffered_data_ack"
         result: gv.RequestResultDict = emitted["data"]
         assert result["uuid"] == g_data.request_uuid
@@ -1205,7 +1205,7 @@ class TestBufferedDataExchange(HardwareAware):
         # Verify the re emitted event
         emitted = mock_dispatcher.emit_store[0]
         assert emitted["namespace"] == "gaia"
-        assert emitted["room"] == g_data.engine_sid
+        assert emitted["room"] == g_data.engine_sid.hex
         assert emitted["event"] == "buffered_data_ack"
         result: gv.RequestResultDict = emitted["data"]
         assert result["uuid"] == g_data.request_uuid
