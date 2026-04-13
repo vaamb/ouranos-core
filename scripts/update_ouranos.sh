@@ -3,10 +3,18 @@
 # Exit on error, unset variable, and pipefail
 set -euo pipefail
 
+# Check if OURANOS_DIR is set and the directory exists
+if [[ ! -d "${OURANOS_DIR}" ]]; then
+    echo "OURANOS_DIR environment variable is not set or the directory does not exist. Please source your profile or run the installation script first."
+    exit 1
+fi
+
+cd "${OURANOS_DIR}" || die "Failed to change to Ouranos directory: ${OURANOS_DIR}"
+
 # Load logging functions
 readonly DATETIME=$(date +%Y%m%d_%H%M%S)
 readonly LOG_FILE="/tmp/ouranos_update_${DATETIME}.log"
-. "${OURANOS_DIR}/scripts/utils/logging.sh"
+. "scripts/utils/logging.sh"
 
 readonly BACKUP_DIR="/tmp/ouranos_backup_${DATETIME}"
 
@@ -62,18 +70,16 @@ check_requirements() {
         die "uv is not installed. Please install it first."
     fi
 
-    # Check if OURANOS_DIR is set and the directory exists
-    if [[ ! -d "${OURANOS_DIR}" ]]; then
-        die "OURANOS_DIR environment variable is not set or the directory does not exist. Please source your profile or run the installation script first."
+    # Check if virtual environment exists
+    if [[ ! -d ".venv" && "${DRY_RUN}" == false ]]; then
+        log INFO "uv virtual environment not found. Creating it..."
+        uv venv
     fi
-
-    cd "$OURANOS_DIR" ||
-        die "Failed to change to Ouranos directory: $OURANOS_DIR"
 }
 
 create_backup() {
-    # Create backup directory
-    cp -r "$OURANOS_DIR" "$BACKUP_DIR" ||
+    # Create backup directory, excluding .venv (workspace-level venv; large and not relocatable)
+    rsync -a --exclude='.venv' "${OURANOS_DIR}/" "${BACKUP_DIR}/"
         die "Failed to create backup directory: $BACKUP_DIR"
 }
 
@@ -151,9 +157,12 @@ update_git_repo() {
                 log WARN "Your changes are still in the stash. Use 'git stash list' and 'git stash pop' to recover them manually."
             fi
         fi
+    else
+        log WARN "Was on detached HEAD before update. Remaining on ${latest_tag}."
     fi
 
-    log INFO "$repo_name updated to $latest_tag"
+    log SUCCESS "$repo_name updated to $latest_tag"
+    return 0
 }
 
 # Function to update a package other than ouranos-core
@@ -188,21 +197,6 @@ update_package() {
 }
 
 update_packages() {
-    # Check if virtual environment exists
-    if [[ ! -d "${OURANOS_DIR}/.venv" && "$DRY_RUN" == false ]]; then
-        log INFO "uv virtual environment not found. Creating it..."
-        uv venv
-    fi
-
-    # In dry-run, don't activate venv or install; just show intended repo changes
-    if [[ "$DRY_RUN" == false ]]; then
-        # Activate virtual environment
-        # shellcheck source=/dev/null
-        if ! source ".venv/bin/activate"; then
-            die "Failed to activate Python virtual environment"
-        fi
-    fi
-
     if [[ "${UPDATE_ALL}" == true ]]; then
         # First update ouranos-core
         update_package "${OURANOS_DIR}/lib/ouranos-core"
@@ -220,26 +214,22 @@ update_packages() {
         update_package "${OURANOS_DIR}/lib/ouranos-core"
     fi
 
-    # Update pyproject.toml
-    if [[ "${DRY_RUN}" == false ]]; then
-        "${OURANOS_DIR}/lib/ouranos-core/scripts/utils/gen_pyproject.sh" "${OURANOS_DIR}" ||
-            die "Failed to update pyproject.toml"
+    # Dry runs don't go further
+    if [[ "${DRY_RUN}" == true ]]; then
+        return 0
     fi
+
+    # Update pyproject.toml
+    "${OURANOS_DIR}/lib/ouranos-core/scripts/utils/gen_pyproject.sh" "${OURANOS_DIR}" ||
+        die "Failed to update pyproject.toml"
 
     # Update uv lock and packages
-    if [[ "${DRY_RUN}" == false ]]; then
-        cd "$OURANOS_DIR"
-        uv lock --upgrade ||
-            die "Failed to update uv lock"
-        # use --inexact to keep packages not defined in pyproject.toml such as the DB drivers
-        uv sync --all-packages --inexact ||
-            die "Failed to update Python virtual environment"
-    fi
-
-    if [[ "${DRY_RUN}" == false ]]; then
-        # Deactivate virtual environment
-        deactivate 2>/dev/null || true
-    fi
+    cd "$OURANOS_DIR"
+    uv lock --upgrade ||
+        die "Failed to update uv lock"
+    # use --inexact to keep packages not defined in pyproject.toml such as the DB drivers
+    uv sync --all-packages --inexact ||
+        die "Failed to update Python virtual environment"
 }
 
 #>>>Copy>>>
