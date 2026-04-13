@@ -60,7 +60,7 @@ class TestHardware(HardwareAware, UsersAware):
         assert dispatched["data"]["routing"]["ecosystem_uid"] == g_data.ecosystem_uid
         assert dispatched["data"]["action"] == gv.CrudAction.create
         assert dispatched["data"]["target"] == "hardware"
-        assert dispatched["data"]["data"]["name"] == payload["name"]
+        assert dispatched["data"]["kwargs"]["name"] == payload["name"]
 
     def test_hardware_unique(self, client: TestClient):
         response = client.get(
@@ -121,9 +121,9 @@ class TestHardware(HardwareAware, UsersAware):
         assert dispatched["data"]["routing"]["ecosystem_uid"] == g_data.ecosystem_uid
         assert dispatched["data"]["action"] == gv.CrudAction.update
         assert dispatched["data"]["target"] == "hardware"
-        assert dispatched["data"]["data"]["name"] == payload["name"]
+        assert dispatched["data"]["kwargs"]["name"] == payload["name"]
         with pytest.raises(KeyError):
-            dispatched["data"]["data"]["level"]  # Not in the payload, should be missing
+            dispatched["data"]["kwargs"]["level"]  # Not in the payload, should be missing
 
     def test_hardware_delete_request_failure_user(self, client_user: TestClient):
         response = client_user.delete(
@@ -145,4 +145,4 @@ class TestHardware(HardwareAware, UsersAware):
         assert dispatched["data"]["routing"]["ecosystem_uid"] == g_data.ecosystem_uid
         assert dispatched["data"]["action"] == gv.CrudAction.delete
         assert dispatched["data"]["target"] == "hardware"
-        assert dispatched["data"]["data"] == g_data.hardware_uid
+        assert dispatched["data"]["kwargs"]["uid"] == g_data.hardware_uid
