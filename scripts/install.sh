@@ -232,7 +232,9 @@ main() {
     log INFO "Starting Ouranos installation (v${OURANOS_VERSION})"
 
     # Check if already installed
-    check_no_installation
+    if [[ -d "${OURANOS_DIR}" ]]; then
+        die "Ouranos appears to be already installed at ${OURANOS_DIR}"
+    fi
 
     # Check requirements and permissions
     log INFO "Checking system requirements..."
