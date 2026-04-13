@@ -194,15 +194,6 @@ update_packages() {
         uv venv
     fi
 
-    # In dry-run, don't activate venv or install; just show intended repo changes
-    if [[ "$DRY_RUN" == false ]]; then
-        # Activate virtual environment
-        # shellcheck source=/dev/null
-        if ! source ".venv/bin/activate"; then
-            die "Failed to activate Python virtual environment"
-        fi
-    fi
-
     if [[ "${UPDATE_ALL}" == true ]]; then
         # First update ouranos-core
         update_package "${OURANOS_DIR}/lib/ouranos-core"
@@ -220,26 +211,22 @@ update_packages() {
         update_package "${OURANOS_DIR}/lib/ouranos-core"
     fi
 
-    # Update pyproject.toml
-    if [[ "${DRY_RUN}" == false ]]; then
-        "${OURANOS_DIR}/lib/ouranos-core/scripts/utils/gen_pyproject.sh" "${OURANOS_DIR}" ||
-            die "Failed to update pyproject.toml"
+    # Dry runs don't go further
+    if [[ "${DRY_RUN}" == true ]]; then
+        return 0
     fi
+
+    # Update pyproject.toml
+    "${OURANOS_DIR}/lib/ouranos-core/scripts/utils/gen_pyproject.sh" "${OURANOS_DIR}" ||
+        die "Failed to update pyproject.toml"
 
     # Update uv lock and packages
-    if [[ "${DRY_RUN}" == false ]]; then
-        cd "$OURANOS_DIR"
-        uv lock --upgrade ||
-            die "Failed to update uv lock"
-        # use --inexact to keep packages not defined in pyproject.toml such as the DB drivers
-        uv sync --all-packages --inexact ||
-            die "Failed to update Python virtual environment"
-    fi
-
-    if [[ "${DRY_RUN}" == false ]]; then
-        # Deactivate virtual environment
-        deactivate 2>/dev/null || true
-    fi
+    cd "$OURANOS_DIR"
+    uv lock --upgrade ||
+        die "Failed to update uv lock"
+    # use --inexact to keep packages not defined in pyproject.toml such as the DB drivers
+    uv sync --all-packages --inexact ||
+        die "Failed to update Python virtual environment"
 }
 
 #>>>Copy>>>
