@@ -9,7 +9,6 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import sqlite
 
 
 # revision identifiers, used by Alembic.
@@ -28,7 +27,8 @@ def downgrade(engine_name: str) -> None:
 
 def upgrade_ecosystems() -> None:
     with op.batch_alter_table("hardware") as batch_op:
-        batch_op.add_column(sa.Column("active", sa.Boolean(), nullable=False, default=True))
+        batch_op.add_column(
+            sa.Column("active", sa.Boolean(), nullable=False, server_default=sa.sql.false()))
 
 def downgrade_ecosystems() -> None:
     with op.batch_alter_table("hardware") as batch_op:
