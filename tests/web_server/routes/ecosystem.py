@@ -71,7 +71,7 @@ class TestEcosystemCore(EcosystemAware, UsersAware):
         assert dispatched["data"]["routing"]["ecosystem_uid"] is None
         assert dispatched["data"]["action"] == gv.CrudAction.create
         assert dispatched["data"]["target"] == "ecosystem"
-        assert dispatched["data"]["data"]["name"] == payload["name"]
+        assert dispatched["data"]["kwargs"]["name"] == payload["name"]
 
     def test_get_ecosystem(self, client: TestClient):
         response = client.get(f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}")
@@ -117,7 +117,7 @@ class TestEcosystemCore(EcosystemAware, UsersAware):
         assert dispatched["data"]["routing"]["ecosystem_uid"] == g_data.ecosystem_uid
         assert dispatched["data"]["action"] == gv.CrudAction.update
         assert dispatched["data"]["target"] == "ecosystem"
-        assert dispatched["data"]["data"]["name"] == payload["name"]
+        assert dispatched["data"]["kwargs"]["name"] == payload["name"]
 
     def test_delete_ecosystem_failure_user(self, client: TestClient):
         response = client.delete(f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}")
@@ -137,7 +137,7 @@ class TestEcosystemCore(EcosystemAware, UsersAware):
         assert dispatched["data"]["routing"]["ecosystem_uid"] == g_data.ecosystem_uid
         assert dispatched["data"]["action"] == gv.CrudAction.delete
         assert dispatched["data"]["target"] == "ecosystem"
-        assert dispatched["data"]["data"] == g_data.ecosystem_uid
+        assert dispatched["data"]["kwargs"]["ecosystem_id"] == g_data.ecosystem_uid
 
 
 # ------------------------------------------------------------------------------
@@ -206,7 +206,7 @@ class TestEcosystemManagement(EcosystemAware, UsersAware):
         assert dispatched["data"]["routing"]["ecosystem_uid"] == g_data.ecosystem_uid
         assert dispatched["data"]["action"] == gv.CrudAction.update
         assert dispatched["data"]["target"] == "management"
-        assert dispatched["data"]["data"]["pictures"] == payload["pictures"]
+        assert dispatched["data"]["kwargs"]["pictures"] == payload["pictures"]
 
 
 # ------------------------------------------------------------------------------
@@ -271,7 +271,7 @@ class TestEcosystemLight(ClimateAware, UsersAware):
         assert dispatched["data"]["routing"]["ecosystem_uid"] == g_data.ecosystem_uid
         assert dispatched["data"]["action"] == gv.CrudAction.update
         assert dispatched["data"]["target"] == "nycthemeral_config"
-        assert dispatched["data"]["data"]["lighting"] == gv.LightingMethod[payload["lighting"]]
+        assert dispatched["data"]["kwargs"]["lighting"] == gv.LightingMethod[payload["lighting"]]
 
 
 # ------------------------------------------------------------------------------
@@ -338,8 +338,8 @@ class TestEcosystemEnvironmentParameters(ClimateAware, UsersAware):
         assert dispatched["data"]["routing"]["ecosystem_uid"] == g_data.ecosystem_uid
         assert dispatched["data"]["action"] == gv.CrudAction.create
         assert dispatched["data"]["target"] == "environment_parameter"
-        assert dispatched["data"]["data"]["parameter"] == gv.ClimateParameter[payload["parameter"]]
-        assert dispatched["data"]["data"]["day"] == payload["day"]
+        assert dispatched["data"]["kwargs"]["parameter"] == gv.ClimateParameter[payload["parameter"]]
+        assert dispatched["data"]["kwargs"]["day"] == payload["day"]
 
     def test_get_ecosystem_environment_parameter(self, client: TestClient):
         parameter = g_data.climate["parameter"]
@@ -388,8 +388,8 @@ class TestEcosystemEnvironmentParameters(ClimateAware, UsersAware):
         assert dispatched["data"]["routing"]["ecosystem_uid"] == g_data.ecosystem_uid
         assert dispatched["data"]["action"] == gv.CrudAction.update
         assert dispatched["data"]["target"] == "environment_parameter"
-        assert dispatched["data"]["data"]["parameter"] == gv.ClimateParameter[parameter]
-        assert dispatched["data"]["data"]["day"] == payload["day"]
+        assert dispatched["data"]["kwargs"]["parameter"] == gv.ClimateParameter[parameter]
+        assert dispatched["data"]["kwargs"]["day"] == payload["day"]
 
     def test_delete_ecosystem_environment_parameter_failure_user(self, client: TestClient):
         response = client.delete(
@@ -412,7 +412,7 @@ class TestEcosystemEnvironmentParameters(ClimateAware, UsersAware):
         assert dispatched["data"]["routing"]["ecosystem_uid"] == g_data.ecosystem_uid
         assert dispatched["data"]["action"] == gv.CrudAction.delete
         assert dispatched["data"]["target"] == "environment_parameter"
-        assert dispatched["data"]["data"] == parameter
+        assert dispatched["data"]["kwargs"]["parameter"] == parameter
 
 
 # ------------------------------------------------------------------------------
@@ -476,11 +476,11 @@ class TestEcosystemWeatherEvents(ClimateAware, UsersAware):
         assert dispatched["data"]["routing"]["ecosystem_uid"] == g_data.ecosystem_uid
         assert dispatched["data"]["action"] == gv.CrudAction.create
         assert dispatched["data"]["target"] == "weather_event"
-        assert dispatched["data"]["data"]["parameter"] == payload["parameter"]
-        assert dispatched["data"]["data"]["pattern"] == payload["pattern"]
-        assert dispatched["data"]["data"]["duration"] == payload["duration"]
-        assert dispatched["data"]["data"]["level"] == payload["level"]
-        assert dispatched["data"]["data"]["linked_actuator"] == payload["linked_actuator"]
+        assert dispatched["data"]["kwargs"]["parameter"] == payload["parameter"]
+        assert dispatched["data"]["kwargs"]["pattern"] == payload["pattern"]
+        assert dispatched["data"]["kwargs"]["duration"] == payload["duration"]
+        assert dispatched["data"]["kwargs"]["level"] == payload["level"]
+        assert dispatched["data"]["kwargs"]["linked_actuator"] == payload["linked_actuator"]
 
     def test_get_ecosystem_weather_event(self, client: TestClient):
         parameter = g_data.weather["parameter"]
@@ -528,11 +528,11 @@ class TestEcosystemWeatherEvents(ClimateAware, UsersAware):
         assert dispatched["data"]["routing"]["ecosystem_uid"] == g_data.ecosystem_uid
         assert dispatched["data"]["action"] == gv.CrudAction.update
         assert dispatched["data"]["target"] == "weather_event"
-        assert dispatched["data"]["data"]["parameter"] == parameter
-        assert dispatched["data"]["data"]["pattern"] == payload["pattern"]
-        assert dispatched["data"]["data"]["duration"] == payload["duration"]
-        assert dispatched["data"]["data"]["level"] == payload["level"]
-        assert dispatched["data"]["data"]["linked_actuator"] == payload["linked_actuator"]
+        assert dispatched["data"]["kwargs"]["parameter"] == parameter
+        assert dispatched["data"]["kwargs"]["pattern"] == payload["pattern"]
+        assert dispatched["data"]["kwargs"]["duration"] == payload["duration"]
+        assert dispatched["data"]["kwargs"]["level"] == payload["level"]
+        assert dispatched["data"]["kwargs"]["linked_actuator"] == payload["linked_actuator"]
 
     def test_delete_ecosystem_weather_event_failure_user(self, client: TestClient):
         response = client.delete(
@@ -555,7 +555,7 @@ class TestEcosystemWeatherEvents(ClimateAware, UsersAware):
         assert dispatched["data"]["routing"]["ecosystem_uid"] == g_data.ecosystem_uid
         assert dispatched["data"]["action"] == gv.CrudAction.delete
         assert dispatched["data"]["target"] == "weather_event"
-        assert dispatched["data"]["data"] == parameter
+        assert dispatched["data"]["kwargs"]["parameter"] == parameter
 
 
 # ------------------------------------------------------------------------------
