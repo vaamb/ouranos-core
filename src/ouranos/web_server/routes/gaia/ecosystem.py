@@ -117,7 +117,7 @@ async def create_ecosystem(
                 ),
                 action=gv.CrudAction.create,
                 target="ecosystem",
-                data=ecosystem_dict,
+                kwargs=ecosystem_dict,
             ).model_dump(),
             namespace="aggregator-internal",
         )
@@ -194,7 +194,8 @@ async def delete_ecosystem(
     ecosystem = await ecosystem_or_abort(session, ecosystem_uid)
     try:
         await emit_crud_event(
-            ecosystem, gv.CrudAction.delete, "ecosystem", ecosystem.uid)
+            ecosystem, gv.CrudAction.delete, "ecosystem",
+            kwargs={"ecosystem_id": ecosystem.uid})
         return (
             f"Request to delete the ecosystem '{ecosystem.name}' "
             f"successfully sent to engine '{ecosystem.engine_uid}'"
@@ -512,7 +513,7 @@ async def delete_ecosystem_environment_parameter(
     try:
         await emit_crud_event(
             ecosystem, gv.CrudAction.delete, "environment_parameter",
-            parameter)
+            {"parameter": parameter})
         return (
             f"Request to delete the environment parameter '{parameter}' "
             f"successfully sent to engine '{ecosystem.engine_uid}'"
@@ -680,7 +681,7 @@ async def delete_ecosystem_weather_event(
     try:
         await emit_crud_event(
             ecosystem, gv.CrudAction.delete, "weather_event",
-            parameter)
+            {"parameter": parameter})
         return (
             f"Request to delete the weather parameter '{parameter}' "
             f"successfully sent to engine '{ecosystem.engine_uid}'"

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated
 
 from fastapi import (
     APIRouter, Body, Depends, HTTPException, Path, Query, status)
@@ -195,7 +195,7 @@ async def delete_hardware(
     hardware = await hardware_or_abort(session, hardware_uid)
     try:
         await emit_crud_event(
-            ecosystem, gv.CrudAction.delete, "hardware", hardware_uid)
+            ecosystem, gv.CrudAction.delete, "hardware", {"uid": hardware_uid})
         return (
             f"Request to delete the hardware '{hardware.name}' "
                 f"successfully sent to engine '{ecosystem.engine_uid}'"

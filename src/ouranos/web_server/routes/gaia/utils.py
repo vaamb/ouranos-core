@@ -50,7 +50,7 @@ async def emit_crud_event(
             ),
             action=action,
             target=target,
-            data=data,
+            kwargs=data,
         ).model_dump(),
         namespace="aggregator-internal",
     )
