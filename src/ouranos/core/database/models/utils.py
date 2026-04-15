@@ -89,12 +89,6 @@ class TimeWindow(StmtModifier):
     start: dt.datetime | None
     end: dt.datetime | None
 
-    def __repr__(self) -> str:
-        return (
-            f"<timeWindow(start={self.start.isoformat(timespec='minutes')}, "
-            f"end={self.end.isoformat(timespec='minutes')})>"
-        )
-
     def modify_stmt(self, stmt: Select, column) -> Select:
         if self.start is not None:
             stmt = stmt.where(column > self.start)

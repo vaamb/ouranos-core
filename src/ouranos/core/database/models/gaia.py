@@ -1084,7 +1084,8 @@ class Actuator(Hardware):
 
     @staticmethod
     def _add_time_window_to_stmt(stmt, time_window: TimeWindow):
-        stmt = stmt.join(ActuatorRecord.sensor)
+        # TODO: fix as ActuatorRecord doesn't have any actuator
+        stmt = stmt.join(ActuatorRecord.actuator)
         stmt = time_window.modify_stmt(stmt, ActuatorRecord.timestamp)
         stmt = stmt.distinct()
         return stmt
