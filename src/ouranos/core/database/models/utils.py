@@ -75,7 +75,8 @@ class Within(StmtModifier):
                 object.__setattr__(self, "choices", [self.choices, ])
             elif isinstance(self.choices, (list, set, tuple)):
                 object.__setattr__(self, "choices", [*self.choices])
-            raise ValueError
+            else:
+                raise ValueError
 
     def modify_stmt(self, stmt: Select, column) -> Select:
         if self.choices is not None:
