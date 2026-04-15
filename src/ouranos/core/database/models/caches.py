@@ -23,7 +23,7 @@ cache_ecosystems_has_active_actuator = TTLCache(maxsize=_ecosystem_caches_size, 
 cache_hardware = LRUCache(maxsize=_hardware_caches_size)
 cache_hardware_groups = LRUCache(maxsize=_hardware_caches_size)
 # Sensor caches
-cache_sensors_data_skeleton = TTLCache(maxsize=_ecosystem_caches_size, ttl=900)
+cache_sensors_data_skeleton = TTLCache(maxsize=_ecosystem_caches_size * 3, ttl=900)
 cache_sensors_value = TTLCache(maxsize=_ecosystem_caches_size * 32, ttl=600)
 # Measure caches
 cache_measures = LRUCache(maxsize=16)
