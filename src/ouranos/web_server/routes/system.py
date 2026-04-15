@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos.core.database.models.system import System
-from ouranos.core.utils import timeWindow
+from ouranos.core.database.models.utils import TimeWindow
 from ouranos.web_server.auth import is_admin
 from ouranos.web_server.dependencies import get_session, get_time_window
 from ouranos.web_server.validate.system import (
@@ -72,7 +72,7 @@ async def get_current_system_data(
 async def get_historic_system_data(
         system_uid: Annotated[str, Path(description="A server uid")],
         time_window: Annotated[
-            timeWindow,
+            TimeWindow,
             Depends(get_time_window(rounding=10, grace_time=60)),
         ],
         session: Annotated[AsyncSession, Depends(get_session)],

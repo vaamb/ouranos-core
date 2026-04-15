@@ -5,7 +5,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos import db
 
-from ouranos.core.utils import create_time_window, timeWindow
+from ouranos.core.database.models.utils import TimeWindow
+from ouranos.core.utils import create_time_window
 
 
 async def get_session() -> AsyncSession:
@@ -44,7 +45,7 @@ class get_time_window:  # noqa: N801
             start_time: Optional[str] = start_time_query,
             end_time: Optional[str] = end_time_query,
             window_length: Optional[int] | None = window_length_query,
-    ) -> timeWindow:
+    ) -> TimeWindow:
         try:
             return create_time_window(
                 start_time, end_time, rounding_base=self.rounding,

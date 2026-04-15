@@ -17,8 +17,7 @@ from gaia_validators import missing
 
 from ouranos import db
 from ouranos.core.database.models.types import UtcDateTime
-from ouranos.core.database.models.utils import StmtModifier
-from ouranos.core.utils import timeWindow
+from ouranos.core.database.models.utils import StmtModifier, TimeWindow
 
 
 lookup_keys_type: TypeAlias = str | Enum | UUID | bool
@@ -423,7 +422,7 @@ class RecordMixin(CRUDMixin):
             offset: int | None = None,
             limit: int | None = None,
             order_by: str | UnaryExpression | None = None,
-            time_window: timeWindow | None = None,
+            time_window: TimeWindow | None = None,
             **lookup_keys: list[lookup_keys_type] | lookup_keys_type | None,
     ) -> Sequence[Base]:
         stmt = cls._generate_get_query(offset, limit, order_by, **lookup_keys)

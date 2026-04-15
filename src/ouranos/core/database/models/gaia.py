@@ -32,8 +32,8 @@ from ouranos.core.database.models.caches import (
 from ouranos.core.database.models.caching import (
     CachedCRUDMixin, cached, create_hashable_key, hash_get, hash_model_instance)
 from ouranos.core.database.models.types import SQLIntEnum, UtcDateTime
-from ouranos.core.database.models.utils import TIME_LIMITS
-from ouranos.core.utils import create_time_window, timeWindow
+from ouranos.core.database.models.utils import TIME_LIMITS, TimeWindow
+from ouranos.core.utils import create_time_window
 
 
 RecentOrConnected = Literal["recent", "connected", "all"]
@@ -430,7 +430,7 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
             self,
             session: AsyncSession,
             *,
-            time_window: timeWindow,
+            time_window: TimeWindow,
             level: gv.HardwareLevel | list[gv.HardwareLevel] | None = None,
     ) -> dict:
         level = level or [i for i in gv.HardwareLevel]
@@ -508,7 +508,7 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
             self,
             session: AsyncSession,
             actuator_type: gv.HardwareType,
-            time_window: timeWindow,
+            time_window: TimeWindow,
     ) -> list[tuple[datetime, bool, gv.ActuatorMode, bool, float | None]]:
         return await ActuatorRecord.get_timed_values(
             session, ecosystem_uid=self.uid, actuator_type=actuator_type,
@@ -987,7 +987,7 @@ class Sensor(Hardware):
     """
 
     @staticmethod
-    def _add_time_window_to_stmt(stmt, time_window: timeWindow):
+    def _add_time_window_to_stmt(stmt, time_window: TimeWindow):
         return (
             stmt.join(SensorDataRecord.sensor)
             .where(
@@ -1002,7 +1002,7 @@ class Sensor(Hardware):
             cls,
             session: AsyncSession,
             /,
-            time_window: timeWindow | None = None,
+            time_window: TimeWindow | None = None,
             **lookup_keys: str | Enum | list[str] | list[Enum],
     ) -> Self | None:
         lookup_keys["type"] = [gv.HardwareType.sensor, gv.HardwareType.camera]
@@ -1017,7 +1017,7 @@ class Sensor(Hardware):
             cls,
             session: AsyncSession,
             /,
-            time_window: timeWindow | None = None,
+            time_window: TimeWindow | None = None,
             **lookup_keys: str | Enum | list[str] | list[Enum],
     ) -> Sequence[Self]:
         lookup_keys["type"] = [gv.HardwareType.sensor, gv.HardwareType.camera]
@@ -1051,7 +1051,7 @@ class Sensor(Hardware):
             self,
             session: AsyncSession,
             measure: str,
-            time_window: timeWindow | None = None,
+            time_window: TimeWindow | None = None,
     ) -> dict | None:
         measure_str = measure
         measure_obj: Measure | None = None
@@ -1087,7 +1087,7 @@ class Actuator(Hardware):
     """
 
     @staticmethod
-    def _add_time_window_to_stmt(stmt, time_window: timeWindow):
+    def _add_time_window_to_stmt(stmt, time_window: TimeWindow):
         return (
             stmt.join(ActuatorRecord.actuator)
             .where(
@@ -1102,7 +1102,7 @@ class Actuator(Hardware):
             cls,
             session: AsyncSession,
             /,
-            time_window: timeWindow | None = None,
+            time_window: TimeWindow | None = None,
             **lookup_keys,
     ) -> Self | None:
         type_: Enum | None = lookup_keys.get("type", None)
@@ -1119,7 +1119,7 @@ class Actuator(Hardware):
             cls,
             session: AsyncSession,
             /,
-            time_window: timeWindow | None = None,
+            time_window: TimeWindow | None = None,
             **lookup_keys,
     ) -> Sequence[Self]:
         type_: Enum | list[Enum] | None = lookup_keys.get("type", None)
@@ -1416,7 +1416,7 @@ class SensorDataRecord(BaseSensorDataRecord, ArchivableMixin):
             *,
             sensor_uid: str,
             measure_name: str,
-            time_window: timeWindow
+            time_window: TimeWindow
     ) -> list[tuple[datetime, float]]:
         stmt = (
             select(cls.timestamp, cls.value)
@@ -1592,7 +1592,7 @@ class BaseActuatorRecord(Base, RecordMixin):
             session: AsyncSession,
             ecosystem_uid: str,
             actuator_type: gv.HardwareType,
-            time_window: timeWindow,
+            time_window: TimeWindow,
     ) -> list[tuple[datetime, bool, gv.ActuatorMode, bool, float | None]]:
         stmt = (
             select(cls.timestamp, cls.active, cls.mode, cls.status, cls.level)

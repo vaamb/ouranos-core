@@ -14,7 +14,7 @@ from ouranos.core.database.models.caches import (
     cache_systems, cache_systems_history)
 from ouranos.core.database.models.caching import cached, CachedCRUDMixin, hash_get
 from ouranos.core.database.models.types import UtcDateTime
-from ouranos.core.utils import timeWindow
+from ouranos.core.database.models.utils import TimeWindow
 
 
 timed_value = list[
@@ -46,7 +46,7 @@ class System(Base, CachedCRUDMixin):
     async def get_timed_values(
             self,
             session: AsyncSession,
-            time_window: timeWindow,
+            time_window: TimeWindow,
     ) -> list[timed_value]:
         return await SystemDataRecord.get_timed_values(
             session, time_window=time_window, system_uid=self.uid)
@@ -76,7 +76,7 @@ class SystemDataRecord(BaseSystemData, RecordMixin):
     async def get_records(
             cls,
             session: AsyncSession,
-            time_window: timeWindow,
+            time_window: TimeWindow,
             system_uid: str | list | None = None,
     ) -> Sequence[Self]:
         stmt = (
@@ -100,7 +100,7 @@ class SystemDataRecord(BaseSystemData, RecordMixin):
             cls,
             session: AsyncSession,
             *,
-            time_window: timeWindow,
+            time_window: TimeWindow,
             system_uid: str | list | None = None,
     ) -> list[timed_value]:
         stmt = (

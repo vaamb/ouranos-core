@@ -15,6 +15,7 @@ from slugify import slugify as _slugify
 
 from ouranos.core.exceptions import (
     ExpiredTokenError, InvalidTokenError, TokenError)
+from ouranos.core.database.models.utils import TimeWindow
 
 
 def _serializer(self, o: Any) -> dict | str:
@@ -44,18 +45,6 @@ def setup_loop():
         pass
 
 
-@dataclass(frozen=True)
-class timeWindow:
-    start: datetime
-    end: datetime
-
-    def __repr__(self) -> str:
-        return (
-            f"<timeWindow(start={self.start.isoformat(timespec='minutes')}, "
-            f"end={self.end.isoformat(timespec='minutes')})>"
-        )
-
-
 def create_time_window(
         start_time: str | datetime | None = None,
         end_time: str | datetime | None = None,
@@ -63,7 +52,7 @@ def create_time_window(
         rounding_base: int = 10,
         grace_time: int = 60,
         max_window_length: int | None = 7,
-) -> timeWindow:
+) -> TimeWindow:
     def extract_dt(dt: str | datetime, limit_name: str) -> datetime:
         if isinstance(dt, str):
             return datetime.fromisoformat(dt)
@@ -88,7 +77,7 @@ def create_time_window(
         start = end - timedelta(days=window_length)
     if start > end:
         start, end = end, start
-    return timeWindow(
+    return TimeWindow(
         start=round_datetime(start, rounding_base, 0),
         end=round_datetime(end, rounding_base, grace_time),
     )

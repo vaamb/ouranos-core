@@ -15,8 +15,8 @@ from gaia_validators import safe_enum_from_name
 
 from ouranos.core.database.models.gaia import (
     Ecosystem, EnvironmentParameter, NycthemeralCycle, WeatherEvent)
+from ouranos.core.database.models.utils import TimeWindow
 from ouranos.core.dispatchers import DispatcherFactory
-from ouranos.core.utils import timeWindow
 from ouranos.web_server.auth import is_operator
 from ouranos.web_server.dependencies import get_session, get_time_window
 from ouranos.web_server.routes.gaia.utils import (
@@ -742,7 +742,7 @@ async def get_ecosystem_actuator_records(
             Path(description="The actuator type to search for"),
         ],
         time_window: Annotated[
-            timeWindow,
+            TimeWindow,
             Depends(get_time_window(rounding=10, grace_time=60)),
         ],
         session: Annotated[AsyncSession, Depends(get_session)],
