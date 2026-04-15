@@ -17,10 +17,11 @@ from gaia_validators import missing
 
 from ouranos import db
 from ouranos.core.database.models.types import UtcDateTime
-from ouranos.core.utils import timeWindow
+from ouranos.core.database.models.utils import StmtModifier, TimeWindow
 
 
 lookup_keys_type: TypeAlias = str | Enum | UUID | bool
+query_keys_type: TypeAlias = lookup_keys_type | StmtModifier | None
 on_conflict_opt: TypeAlias = Literal["update", "nothing"] | None
 
 
@@ -262,13 +263,15 @@ class CRUDMixin:
             offset: int | None = None,
             limit: int | None = None,
             order_by: str | UnaryExpression | None = None,
-            **lookup_keys: list[lookup_keys_type] | lookup_keys_type | None,
+            **lookup_keys: list[query_keys_type] | query_keys_type | None,
     ) -> Select:
         stmt = select(cls)
         for key, value in lookup_keys.items():
             if value is None:
                 continue
-            if isinstance(value, list):
+            elif isinstance(value, StmtModifier):
+                stmt = value.modify_stmt(stmt, getattr(cls, key))
+            elif isinstance(value, list):
                 stmt = stmt.where(cls.__table__.c[key].in_(value))
             else:
                 stmt = stmt.where(cls.__table__.c[key] == value)
@@ -288,7 +291,7 @@ class CRUDMixin:
             offset: int | None = None,
             limit: int | None = None,
             order_by: str | UnaryExpression | None = None,
-            **lookup_keys: list[lookup_keys_type] | lookup_keys_type | None,
+            **lookup_keys: list[query_keys_type] | query_keys_type | None,
     ) -> Self | None:
         """
         :param offset: the offset from which to start looking
@@ -310,7 +313,7 @@ class CRUDMixin:
             offset: int | None = None,
             limit: int | None = None,
             order_by: str | UnaryExpression | None = None,
-            **lookup_keys: list[lookup_keys_type] | lookup_keys_type | None,
+            **lookup_keys: list[query_keys_type] | query_keys_type | None,
     ) -> Sequence[Self]:
         """
         :param session: an AsyncSession instance
@@ -403,35 +406,6 @@ class CRUDMixin:
     ) -> Self:
         await cls.create(session, values=values, _on_conflict_do="nothing", **lookup_keys)
         return await cls.get(session, **lookup_keys)
-
-
-class RecordMixin(CRUDMixin):
-    """Records are Models with at least one `timestamp` column that can be
-    queried with a `timeWindow`"""
-
-    timestamp: Mapped[datetime] = mapped_column(UtcDateTime)
-
-    @classmethod
-    async def get_records(
-            cls: Base,
-            session: AsyncSession,
-            /,
-            offset: int | None = None,
-            limit: int | None = None,
-            order_by: str | UnaryExpression | None = None,
-            time_window: timeWindow | None = None,
-            **lookup_keys: list[lookup_keys_type] | lookup_keys_type | None,
-    ) -> Sequence[Base]:
-        stmt = cls._generate_get_query(offset, limit, order_by, **lookup_keys)
-        if time_window:
-            stmt = stmt.where(
-                (cls.timestamp > time_window.start)
-                & (cls.timestamp <= time_window.end)
-            )
-        if not order_by:
-            stmt = stmt.order_by(cls.timestamp.asc())
-        result = await session.execute(stmt)
-        return result.scalars().all()
 
 
 class CacheMixin(CRUDMixin):

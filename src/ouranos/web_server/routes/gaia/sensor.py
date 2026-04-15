@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import gaia_validators as gv
 
 from ouranos.core.database.models.gaia import Ecosystem, Measure, Sensor
-from ouranos.core.utils import timeWindow
+from ouranos.core.database.models.utils import TimeWindow
 from ouranos.web_server.dependencies import get_session, get_time_window
 from ouranos.web_server.routes.gaia.utils import (
     ecosystem_or_abort, eids_desc, euid_desc, h_level_desc, in_config_desc)
@@ -56,7 +56,7 @@ async def get_ecosystems_sensors_skeleton(
         ] = None,
         in_config: Annotated[bool | None, Query(description=in_config_desc)] = None,
         time_window: Annotated[
-            timeWindow,
+            TimeWindow,
             Depends(get_time_window(rounding=10, grace_time=60)),
         ],
         session: Annotated[AsyncSession, Depends(get_session)],
@@ -81,7 +81,7 @@ async def get_ecosystem_sensors_skeleton(
             Query(description=h_level_desc),
         ] = None,
         time_window: Annotated[
-            timeWindow,
+            TimeWindow,
             Depends(get_time_window(rounding=10, grace_time=60)),
         ],
         session: Annotated[AsyncSession, Depends(get_session)],
@@ -167,7 +167,7 @@ async def get_sensor_historic_data(
             Path(description="The measure for which to fetch historic data"),
         ],
         time_window: Annotated[
-            timeWindow,
+            TimeWindow,
             Depends(get_time_window(rounding=10, grace_time=60, max_window_length=31)),
         ],
         session: Annotated[AsyncSession, Depends(get_session)],

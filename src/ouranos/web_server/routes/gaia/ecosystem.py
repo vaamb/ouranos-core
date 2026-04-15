@@ -15,8 +15,8 @@ from gaia_validators import safe_enum_from_name
 
 from ouranos.core.database.models.gaia import (
     Ecosystem, EnvironmentParameter, NycthemeralCycle, WeatherEvent)
+from ouranos.core.database.models.utils import TimeWindow
 from ouranos.core.dispatchers import DispatcherFactory
-from ouranos.core.utils import timeWindow
 from ouranos.web_server.auth import is_operator
 from ouranos.web_server.dependencies import get_session, get_time_window
 from ouranos.web_server.routes.gaia.utils import (
@@ -382,7 +382,7 @@ async def get_ecosystems_environment_parameters(
             "uid": ecosystem.uid,
             "name": ecosystem.name,
             "environment_parameters": await EnvironmentParameter.get_multiple(
-            session, ecosystem_uid=[ecosystem.uid, ], parameter=parameters)
+            session, ecosystem_uid=ecosystem.uid, parameter=parameters)
         } for ecosystem in ecosystems
     ]
     return response
@@ -404,7 +404,7 @@ async def get_ecosystem_environment_parameters(
         "uid": ecosystem.uid,
         "name": ecosystem.name,
         "environment_parameters": await EnvironmentParameter.get_multiple(
-            session, ecosystem_uid=[ecosystem.uid, ], parameter=parameters)
+            session, ecosystem_uid=ecosystem.uid, parameter=parameters)
     }
     return response
 
@@ -550,7 +550,7 @@ async def get_ecosystems_weather_events(
             "uid": ecosystem.uid,
             "name": ecosystem.name,
             "weather_events": await WeatherEvent.get_multiple(
-            session, ecosystem_uid=[ecosystem.uid, ], parameter=parameters)
+            session, ecosystem_uid=ecosystem.uid, parameter=parameters)
         } for ecosystem in ecosystems
     ]
     return response
@@ -572,7 +572,7 @@ async def get_ecosystem_weather_events(
         "uid": ecosystem.uid,
         "name": ecosystem.name,
         "weather_events": await WeatherEvent.get_multiple(
-            session, ecosystem_uid=[ecosystem.uid, ], parameter=parameters)
+            session, ecosystem_uid=ecosystem.uid, parameter=parameters)
     }
     return response
 
@@ -742,7 +742,7 @@ async def get_ecosystem_actuator_records(
             Path(description="The actuator type to search for"),
         ],
         time_window: Annotated[
-            timeWindow,
+            TimeWindow,
             Depends(get_time_window(rounding=10, grace_time=60)),
         ],
         session: Annotated[AsyncSession, Depends(get_session)],

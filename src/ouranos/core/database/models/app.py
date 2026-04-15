@@ -1263,19 +1263,6 @@ class WikiTopic(Base, WikiTagged, CRUDMixin, WikiObject):
                 AssociationWikiTagTopic.c.topic_id, tags_name)
 
     @classmethod
-    async def get_multiple(
-            cls,
-            session: AsyncSession,
-            /,
-            offset: int | None = None,
-            limit: int | None = None,
-            order_by: str | None = None,
-            **lookup_keys: list[lookup_keys_type] | lookup_keys_type | None,
-    ) -> Sequence[Self]:
-        return await super().get_multiple(
-            session, offset=offset, limit=limit, order_by=order_by, **lookup_keys)
-
-    @classmethod
     async def update(
             cls,
             session: AsyncSession,
