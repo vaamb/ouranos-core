@@ -25,7 +25,7 @@ from ouranos import current_app
 from ouranos.core.config import consts
 from ouranos.core.database.models.abc import (
     Base, CRUDMixin, lookup_keys_type, on_conflict_opt, ToDictMixin)
-from ouranos.core.database.models.caches import cache_users
+from ouranos.core.database.models import caches
 from ouranos.core.database.models.types import PathType, SQLIntEnum, UtcDateTime
 from ouranos.core.database.models.utils import paginate
 from ouranos.core.email import send_gaia_templated_email
@@ -568,7 +568,7 @@ class User(Base, UserMixin):
             user_id: int,
     ) -> Self | None:
         try:
-            return cache_users[user_id]
+            return caches.cache_users[user_id]
         except KeyError:
             stmt = (
                 select(cls)
@@ -578,7 +578,7 @@ class User(Base, UserMixin):
             user = result.scalar_one_or_none()
             if user is None:
                 return None
-            cache_users[user_id] = user
+            caches.cache_users[user_id] = user
             session.expunge(user)
             session.expunge(user.role)
             return user
@@ -656,7 +656,7 @@ class User(Base, UserMixin):
         # Update the payload values for the password and role_id
         values = await cls._update_values_payload(session, values=values)
         # Remove user from the cache
-        cache_users.pop(user_id, None)
+        caches.cache_users.pop(user_id, None)
         # Update the user
         stmt = (
             update(cls)
@@ -664,7 +664,7 @@ class User(Base, UserMixin):
             .values(**values)
         )
         await session.execute(stmt)
-        cache_users.pop(user_id, None)
+        caches.cache_users.pop(user_id, None)
 
     @classmethod
     async def delete(
@@ -674,7 +674,7 @@ class User(Base, UserMixin):
             user_id: int,
     ) -> None:
         # Remove user from the cache
-        cache_users.pop(user_id, None)
+        caches.cache_users.pop(user_id, None)
         # Delete the user
         stmt = (
             update(cls)
