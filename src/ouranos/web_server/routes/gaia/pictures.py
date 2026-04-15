@@ -6,7 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos.core.database.models.gaia import CameraPicture
-from ouranos.web_server.dependencies import get_session
+from ouranos.core.utils import TimeWindow
+from ouranos.web_server.dependencies import get_session, get_time_window
 from ouranos.web_server.routes.gaia.utils import (
     ecosystem_or_abort, eids_desc, euid_desc)
 from ouranos.web_server.validate.gaia.pictures import CameraPictureInfo
@@ -27,10 +28,15 @@ async def get_multiple_camera_picture_info(
         list[str] | None,
         Query(description="A list of camera uids"),
     ] = None,
+    time_window: Annotated[
+        TimeWindow,
+        Depends(get_time_window(rounding=10, grace_time=60, default_window_length=1)),
+    ],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     pictures_info = await CameraPicture.get_multiple(
-        session, ecosystem_uid=ecosystems_uid, camera_uid=cameras_uid)
+        session, ecosystem_uid=ecosystems_uid, camera_uid=cameras_uid,
+        timestamp=time_window)
     return pictures_info
 
 
@@ -43,11 +49,16 @@ async def get_camera_picture_info_for_ecosystem(
             list[str] | None,
             Query(description="A list of camera uids"),
         ] = None,
+        time_window: Annotated[
+            TimeWindow,
+            Depends(get_time_window(rounding=10, grace_time=60, default_window_length=1)),
+        ],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     ecosystem = await ecosystem_or_abort(session, ecosystem_uid)
     pictures_info = await CameraPicture.get_multiple(
-        session, ecosystem_uid=ecosystem.uid, camera_uid=cameras_uid)
+        session, ecosystem_uid=ecosystem.uid, camera_uid=cameras_uid,
+        timestamp=time_window)
     return pictures_info
 
 
