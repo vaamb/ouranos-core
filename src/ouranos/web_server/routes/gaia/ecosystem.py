@@ -382,7 +382,7 @@ async def get_ecosystems_environment_parameters(
             "uid": ecosystem.uid,
             "name": ecosystem.name,
             "environment_parameters": await EnvironmentParameter.get_multiple(
-            session, ecosystem_uid=[ecosystem.uid, ], parameter=parameters)
+            session, ecosystem_uid=ecosystem.uid, parameter=parameters)
         } for ecosystem in ecosystems
     ]
     return response
@@ -404,7 +404,7 @@ async def get_ecosystem_environment_parameters(
         "uid": ecosystem.uid,
         "name": ecosystem.name,
         "environment_parameters": await EnvironmentParameter.get_multiple(
-            session, ecosystem_uid=[ecosystem.uid, ], parameter=parameters)
+            session, ecosystem_uid=ecosystem.uid, parameter=parameters)
     }
     return response
 
@@ -550,7 +550,7 @@ async def get_ecosystems_weather_events(
             "uid": ecosystem.uid,
             "name": ecosystem.name,
             "weather_events": await WeatherEvent.get_multiple(
-            session, ecosystem_uid=[ecosystem.uid, ], parameter=parameters)
+            session, ecosystem_uid=ecosystem.uid, parameter=parameters)
         } for ecosystem in ecosystems
     ]
     return response
@@ -572,7 +572,7 @@ async def get_ecosystem_weather_events(
         "uid": ecosystem.uid,
         "name": ecosystem.name,
         "weather_events": await WeatherEvent.get_multiple(
-            session, ecosystem_uid=[ecosystem.uid, ], parameter=parameters)
+            session, ecosystem_uid=ecosystem.uid, parameter=parameters)
     }
     return response
 

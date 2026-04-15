@@ -25,8 +25,9 @@ from ouranos.core.database.models.abc import CRUDMixin
 from ouranos.core.database.models.app import ServiceName
 from ouranos.core.database.models.gaia import (
     ActuatorRecord, ActuatorState, CameraPicture, Chaos, CrudRequest, Ecosystem,
-    Engine, EnvironmentParameter, Hardware, HardwareGroup, Measure, NycthemeralCycle,
+    Engine, EnvironmentParameter, Hardware, NycthemeralCycle,
     Place, Plant, SensorAlarm, SensorDataRecord, SensorDataCache, WeatherEvent)
+from ouranos.core.database.models.utils import Within
 from ouranos.core.exceptions import NotRegisteredError
 from ouranos.core.utils import humanize_list, Tokenizer
 
@@ -383,7 +384,7 @@ class GaiaEvents(AsyncEventHandler):
                 # Add the possible actuator types if missing
                 actuator_types = {i for i in gv.HardwareType.actuator}
                 actuator_states = await ActuatorState.get_multiple(
-                    session, ecosystem_uid=ecosystem_uid, type=[*actuator_types])
+                    session, ecosystem_uid=ecosystem_uid, type=Within(*actuator_types))
                 actuator_types_present = {actuator_state.type for actuator_state in actuator_states}
                 actuator_types_missing = actuator_types - actuator_types_present
                 if actuator_types_missing:
