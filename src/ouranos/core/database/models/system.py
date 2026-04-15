@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql.functions import func
 
-from ouranos.core.database.models.abc import Base, CacheMixin, RecordMixin
+from ouranos.core.database.models.abc import Base, CacheMixin, CRUDMixin
 from ouranos.core.database.models.caches import (
     cache_systems, cache_systems_history)
 from ouranos.core.database.models.caching import cached, CachedCRUDMixin, hash_get
@@ -68,31 +68,9 @@ class BaseSystemData(Base):
     DISK_used: Mapped[float] = mapped_column(sa.Float(precision=2))
 
 
-class SystemDataRecord(BaseSystemData, RecordMixin):
+class SystemDataRecord(BaseSystemData, CRUDMixin):
     __tablename__ = "system_records"
     __bind_key__ = "system"
-
-    @classmethod
-    async def get_records(
-            cls,
-            session: AsyncSession,
-            time_window: TimeWindow,
-            system_uid: str | list | None = None,
-    ) -> Sequence[Self]:
-        stmt = (
-            select(cls)
-            .where(
-                (cls.timestamp > time_window.start) &
-                (cls.timestamp <= time_window.end)
-            )
-            .order_by(cls.timestamp.asc())
-        )
-        if system_uid:
-            if isinstance(system_uid, str):
-                system_uid = [system_uid, ]
-            stmt = stmt.where(cls.system_uid.in_(system_uid))
-        result = await session.execute(stmt)
-        return result.scalars().all()
 
     @classmethod
     @cached(cache_systems_history, key_hasher=hash_get)

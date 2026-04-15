@@ -21,7 +21,7 @@ import gaia_validators as gv
 from ouranos import current_app
 from ouranos.core.config.consts import ECOSYSTEM_TIMEOUT
 from ouranos.core.database.models.abc import (
-    ArchivableMixin, Base, CacheMixin, CRUDMixin, on_conflict_opt, RecordMixin)
+    ArchivableMixin, Base, CacheMixin, CRUDMixin, on_conflict_opt)
 from ouranos.core.database.models.caches import (
     cache_ecosystems, cache_ecosystems_has_recent_data,
     cache_ecosystems_has_active_actuator, cache_engines,
@@ -1384,7 +1384,7 @@ class SensorDataCache(BaseSensorData, CacheMixin):
         return result.all()
 
 
-class BaseSensorDataRecord(BaseSensorData, RecordMixin):
+class BaseSensorDataRecord(BaseSensorData, CRUDMixin):
     __abstract__ = True
     _lookup_keys = ["timestamp", "ecosystem_uid", "sensor_uid", "measure"]
     __table_args__ = (
@@ -1569,7 +1569,7 @@ class SensorAlarm(Base):
 # ---------------------------------------------------------------------------
 #   Actuators data
 # ---------------------------------------------------------------------------
-class BaseActuatorRecord(Base, RecordMixin):
+class BaseActuatorRecord(Base, CRUDMixin):
     __abstract__ = True
 
     id: Mapped[int] = mapped_column(primary_key=True)

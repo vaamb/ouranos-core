@@ -847,11 +847,11 @@ class TestEcosystemBackground(HardwareAware):
         async with db.scoped_session() as session:
             input_data = g_data.sensor_record
             sensor_data = (
-                await SensorDataRecord.get_records(
+                await SensorDataRecord.get_multiple(
                     session,
                     sensor_uid=g_data.hardware_uid,
                     measure=g_data.measure_name,
-                    time_window=create_time_window(
+                    timestamp=create_time_window(
                         start_time=datetime.now(timezone.utc) - timedelta(hours=1),
                         end_time=datetime.now(timezone.utc) + timedelta(hours=1),
                     ),
@@ -1122,12 +1122,11 @@ class TestBufferedDataExchange(HardwareAware):
 
         async with db.scoped_session() as session:
             input_data = g_data.buffered_data_temperature
-            temperature_data = await SensorDataRecord.get_records(
+            temperature_data = await SensorDataRecord.get_multiple(
                 session,
                 sensor_uid=g_data.hardware_uid,
                 measure="temperature",
-                time_window=create_time_window(
-                    end_time=datetime.now(timezone.utc) + timedelta(days=1))
+                timestamp=create_time_window(end_time=datetime.now(timezone.utc) + timedelta(days=1)),
             )
             assert len(temperature_data) == 1
             temperature_data = temperature_data[0]
@@ -1151,12 +1150,11 @@ class TestBufferedDataExchange(HardwareAware):
         assert result["status"] == gv.Result.success
 
         async with db.scoped_session() as session:
-            temperature_data = await SensorDataRecord.get_records(
+            temperature_data = await SensorDataRecord.get_multiple(
                 session,
                 sensor_uid=g_data.hardware_uid,
                 measure="temperature",
-                time_window=create_time_window(
-                    end_time=datetime.now(timezone.utc) + timedelta(days=1))
+                timestamp=create_time_window(end_time=datetime.now(timezone.utc) + timedelta(days=1)),
             )
             # Make sure we only have one record for temperature
             assert len(temperature_data) == 1

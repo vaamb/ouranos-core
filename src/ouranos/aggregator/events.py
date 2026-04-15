@@ -21,7 +21,7 @@ from gaia_validators.image import SerializableImage, SerializableImagePayload
 
 from ouranos import current_app, db, json
 from ouranos.core.config.consts import TOKEN_SUBS
-from ouranos.core.database.models.abc import RecordMixin
+from ouranos.core.database.models.abc import CRUDMixin
 from ouranos.core.database.models.app import ServiceName
 from ouranos.core.database.models.gaia import (
     ActuatorRecord, ActuatorState, CameraPicture, Chaos, CrudRequest, Ecosystem,
@@ -800,7 +800,7 @@ class GaiaEvents(AsyncEventHandler):
 
     async def _handle_buffered_records(
             self,
-            record_model: Type[RecordMixin],
+            record_model: Type[CRUDMixin],
             records: list[dict],
             exchange_uuid: UUID,
             sender_sid: UUID,

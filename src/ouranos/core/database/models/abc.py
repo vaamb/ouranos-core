@@ -408,35 +408,6 @@ class CRUDMixin:
         return await cls.get(session, **lookup_keys)
 
 
-class RecordMixin(CRUDMixin):
-    """Records are Models with at least one `timestamp` column that can be
-    queried with a `timeWindow`"""
-
-    timestamp: Mapped[datetime] = mapped_column(UtcDateTime)
-
-    @classmethod
-    async def get_records(
-            cls: Base,
-            session: AsyncSession,
-            /,
-            offset: int | None = None,
-            limit: int | None = None,
-            order_by: str | UnaryExpression | None = None,
-            time_window: TimeWindow | None = None,
-            **lookup_keys: list[lookup_keys_type] | lookup_keys_type | None,
-    ) -> Sequence[Base]:
-        stmt = cls._generate_get_query(offset, limit, order_by, **lookup_keys)
-        if time_window:
-            stmt = stmt.where(
-                (cls.timestamp > time_window.start)
-                & (cls.timestamp <= time_window.end)
-            )
-        if not order_by:
-            stmt = stmt.order_by(cls.timestamp.asc())
-        result = await session.execute(stmt)
-        return result.scalars().all()
-
-
 class CacheMixin(CRUDMixin):
     _remove_expired_threshold: int = 10
     _remove_expired_tick: int = 0
