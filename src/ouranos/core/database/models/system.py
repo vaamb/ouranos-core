@@ -10,8 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql.functions import func
 
 from ouranos.core.database.models.abc import Base, CacheMixin, CRUDMixin
-from ouranos.core.database.models.caches import (
-    cache_systems, cache_systems_history)
+from ouranos.core.database.models import caches
 from ouranos.core.database.models.caching import cached, CachedCRUDMixin, hash_get
 from ouranos.core.database.models.types import UtcDateTime
 from ouranos.core.database.models.utils import TimeWindow
@@ -28,7 +27,7 @@ timed_value = list[
 class System(Base, CachedCRUDMixin):
     __tablename__ = "systems"
     __bind_key__ = "system"
-    _cache = cache_systems
+    _cache = caches.cache_systems
 
     uid: Mapped[str] = mapped_column(sa.String(32), primary_key=True)
     hostname: Mapped[str] = mapped_column(sa.String(32), default="_default")
@@ -73,7 +72,7 @@ class SystemDataRecord(BaseSystemData, CRUDMixin):
     __bind_key__ = "system"
 
     @classmethod
-    @cached(cache_systems_history, key_hasher=hash_get)
+    @cached(caches.cache_systems_history, key_hasher=hash_get)
     async def get_timed_values(
             cls,
             session: AsyncSession,

@@ -162,6 +162,7 @@ class TestEcosystemManagement(EcosystemAware, UsersAware):
         assert not data["ecosystem_data"]
         assert not data["environment_data"]
         assert not data["plants_data"]
+        assert not data["recent_picture"]
 
     def test_get_management(self,client: TestClient):
         response = client.get(f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/management")
@@ -174,6 +175,7 @@ class TestEcosystemManagement(EcosystemAware, UsersAware):
         assert not data["ecosystem_data"]
         assert not data["environment_data"]
         assert not data["plants_data"]
+        assert not data["recent_picture"]
 
     def test_update_management_failure_user(self,client_user: TestClient):
         response = client_user.put(f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/management")

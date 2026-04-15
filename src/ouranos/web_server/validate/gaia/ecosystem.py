@@ -91,6 +91,7 @@ class _EcosystemManagementInfo(BaseModel):
     ecosystem_data: bool = False
     environment_data: bool = False
     plants_data: bool = False
+    recent_picture: bool = False
 
 
 class EcosystemManagementInfo(gv.ManagementConfig, _EcosystemManagementInfo):

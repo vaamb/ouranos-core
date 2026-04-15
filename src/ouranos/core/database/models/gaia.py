@@ -22,13 +22,7 @@ from ouranos import current_app
 from ouranos.core.config.consts import ECOSYSTEM_TIMEOUT
 from ouranos.core.database.models.abc import (
     ArchivableMixin, Base, CacheMixin, CRUDMixin, on_conflict_opt)
-from ouranos.core.database.models.caches import (
-    cache_ecosystems, cache_ecosystems_has_recent_data,
-    cache_ecosystems_has_active_actuator, cache_engines,
-    cache_hardware, cache_hardware_groups, cache_measures, cache_plants,
-    cache_sensors_data_skeleton, cache_sensors_value, cache_warnings)
-from ouranos.core.database.models.caches import (
-    cache_ecosystems_recent, cache_engines_recent)
+from ouranos.core.database.models import caches
 from ouranos.core.database.models.caching import (
     CachedCRUDMixin, cached, create_hashable_key, hash_get, hash_model_instance)
 from ouranos.core.database.models.types import SQLIntEnum, UtcDateTime
@@ -78,7 +72,7 @@ class _Return:
 # ---------------------------------------------------------------------------
 class Engine(Base, CachedCRUDMixin):
     __tablename__ = "engines"
-    _cache = cache_engines
+    _cache = caches.cache_engines
 
     uid: Mapped[str] = mapped_column(sa.String(length=32), primary_key=True)
     sid: Mapped[UUID] = mapped_column()
@@ -127,7 +121,7 @@ class Engine(Base, CachedCRUDMixin):
             engines_id = ["all"]
         if "recent" in engines_id:
             try:
-                return cache_engines_recent["recent"]
+                return caches.cache_engines_recent["recent"]
             except KeyError:
                 time_limit = datetime.now(timezone.utc) - timedelta(hours=TIME_LIMITS.RECENT)
                 stmt = (
@@ -137,7 +131,7 @@ class Engine(Base, CachedCRUDMixin):
                 )
                 result = await session.execute(stmt)
                 engines = result.scalars().all()
-                cache_engines_recent["recent"] = engines
+                caches.cache_engines_recent["recent"] = engines
                 return engines
         elif "all" in engines_id:
             stmt = (
@@ -179,7 +173,7 @@ class Engine(Base, CachedCRUDMixin):
 
 class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
     __tablename__ = "ecosystems"
-    _cache = cache_ecosystems
+    _cache = caches.cache_ecosystems
 
     uid: Mapped[str] = mapped_column(sa.String(length=8), primary_key=True)
     engine_uid: Mapped[str] = mapped_column(sa.String(length=32), sa.ForeignKey("engines.uid"))
@@ -266,7 +260,7 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
             ecosystems_id = ["all"]
         if "recent" in ecosystems_id:
             try:
-                return cache_ecosystems_recent["recent"]
+                return caches.cache_ecosystems_recent["recent"]
             except KeyError:
                 time_limit = datetime.now(timezone.utc) - timedelta(hours=TIME_LIMITS.RECENT)
                 stmt = (
@@ -278,7 +272,7 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
                     stmt = stmt.where(cls.in_config == in_config)
                 result = await session.execute(stmt)
                 ecosystems = result.scalars().all()
-                cache_ecosystems_recent["recent"] = ecosystems
+                caches.cache_ecosystems_recent["recent"] = ecosystems
                 return ecosystems
         elif "all" in ecosystems_id:
             stmt = (
@@ -330,7 +324,7 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
         self.management = 0
 
     @classmethod
-    @cached(cache_ecosystems_has_recent_data, key_hasher=hash_get)
+    @cached(caches.cache_ecosystems_has_recent_data, key_hasher=hash_get)
     async def check_if_recent_sensor_data(
             cls,
             session: AsyncSession,
@@ -363,7 +357,7 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
         return result
 
     @classmethod
-    @cached(cache_ecosystems_has_active_actuator, key_hasher=hash_get)
+    @cached(caches.cache_ecosystems_has_active_actuator, key_hasher=hash_get)
     async def check_if_active_actuator(
             cls,
             session: AsyncSession,
@@ -400,6 +394,33 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
             session, uid=self.uid, actuator_type=actuator_type)
         return result
 
+    @classmethod
+    @cached(caches.cache_ecosystems_has_recent_picture, key_hasher=hash_get)
+    async def check_if_recent_picture(
+            cls,
+            session: AsyncSession,
+            /,
+            uid: str,
+    ) -> bool:
+        time_limit=datetime.now(timezone.utc) - timedelta(hours=TIME_LIMITS.SENSORS)
+        stmt = (
+            select(CameraPicture)
+            .where(
+                CameraPicture.ecosystem_uid == uid,
+                CameraPicture.timestamp >= time_limit,
+            )
+            .limit(1)
+        )
+        result = await session.execute(stmt)
+        return bool(result.one_or_none())
+
+    async def has_recent_picture(
+            self,
+            session: AsyncSession,
+    ) -> bool:
+        result = await Ecosystem.check_if_recent_picture(session, uid=self.uid)
+        return result
+
     async def get_functionalities(self, session: AsyncSession) -> dict:
         return {
             "uid": self.uid,
@@ -412,6 +433,7 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
                 session, level=gv.HardwareLevel.environment),
             "plants_data": await self.has_recent_sensor_data(
                 session, level=gv.HardwareLevel.plants),
+            "recent_picture": await self.has_recent_picture(session),
         }
 
     async def get_hardware(
@@ -425,7 +447,7 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
             session, ecosystem_uid=self.uid, type=hardware_type,
             in_config=in_config)
 
-    @cached(cache_sensors_data_skeleton, key_hasher=hash_model_instance)
+    @cached(caches.cache_sensors_data_skeleton, key_hasher=hash_model_instance)
     async def get_sensors_data_skeleton(
             self,
             session: AsyncSession,
@@ -796,7 +818,7 @@ AssociationHardwarePlant = Table(
 
 class Hardware(Base, CachedCRUDMixin, InConfigMixin):
     __tablename__ = "hardware"
-    _cache = cache_hardware
+    _cache = caches.cache_hardware
 
     uid: Mapped[str] = mapped_column(sa.String(length=16), primary_key=True)
     ecosystem_uid: Mapped[str] = mapped_column(
@@ -1131,7 +1153,7 @@ class Actuator(Hardware):
 class HardwareGroup(Base, CachedCRUDMixin):
     __tablename__ = "hardware_groups"
     _lookup_keys = ["name"]
-    _cache = cache_hardware_groups
+    _cache = caches.cache_hardware_groups
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(sa.String(length=32), unique=True)
@@ -1153,7 +1175,7 @@ class HardwareGroup(Base, CachedCRUDMixin):
 class Measure(Base, CachedCRUDMixin):
     __tablename__ = "measures"
     _lookup_keys = ["name"]
-    _cache = cache_measures
+    _cache = caches.cache_measures
 
     id: Mapped[int] = mapped_column(primary_key=True)  # Use this as PK as the name might be changed
     name: Mapped[str] = mapped_column(sa.String(length=32), unique=True)
@@ -1171,7 +1193,7 @@ class Measure(Base, CachedCRUDMixin):
 
 class Plant(Base, CachedCRUDMixin, InConfigMixin):
     __tablename__ = "plants"
-    _cache = cache_plants
+    _cache = caches.cache_plants
 
     uid: Mapped[str] = mapped_column(sa.String(length=16), primary_key=True)
     ecosystem_uid: Mapped[str] = mapped_column(sa.ForeignKey("ecosystems.uid"))
@@ -1402,7 +1424,7 @@ class SensorDataRecord(BaseSensorDataRecord, ArchivableMixin):
         return current_app.config["SENSOR_ARCHIVING_PERIOD"] or 180
 
     @classmethod
-    @cached(cache_sensors_value, key_hasher=hash_get)
+    @cached(caches.cache_sensors_value, key_hasher=hash_get)
     async def get_timed_values(
             cls,
             session: AsyncSession,
@@ -1653,7 +1675,7 @@ class GaiaWarning(Base):
         await session.execute(stmt)
 
     @classmethod
-    @cached(cache_warnings, key_hasher=hash_get)
+    @cached(caches.cache_warnings, key_hasher=hash_get)
     async def get_multiple(
             cls,
             session: AsyncSession,
@@ -1696,7 +1718,7 @@ class GaiaWarning(Base):
             .values(**values)
         )
         await session.execute(stmt)
-        cache_warnings.clear()
+        caches.cache_warnings.clear()
 
     @classmethod
     async def mark_as_seen(
@@ -1718,7 +1740,7 @@ class GaiaWarning(Base):
             })
         )
         await session.execute(stmt)
-        cache_warnings.clear()
+        caches.cache_warnings.clear()
 
     @classmethod
     async def mark_as_solved(
@@ -1741,7 +1763,7 @@ class GaiaWarning(Base):
         )
         await session.execute(stmt)
         await cls.mark_as_seen(session, warning_id=warning_id, user_id=user_id)
-        cache_warnings.clear()
+        caches.cache_warnings.clear()
 
 
 # ---------------------------------------------------------------------------
