@@ -384,7 +384,7 @@ class GaiaEvents(AsyncEventHandler):
                 # Add the possible actuator types if missing
                 actuator_types = {i for i in gv.HardwareType.actuator}
                 actuator_states = await ActuatorState.get_multiple(
-                    session, ecosystem_uid=ecosystem_uid, type=Within(*actuator_types))
+                    session, ecosystem_uid=ecosystem_uid, type=Within(actuator_types))
                 actuator_types_present = {actuator_state.type for actuator_state in actuator_states}
                 actuator_types_missing = actuator_types - actuator_types_present
                 if actuator_types_missing:
