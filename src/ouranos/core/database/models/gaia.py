@@ -988,14 +988,10 @@ class Sensor(Hardware):
 
     @staticmethod
     def _add_time_window_to_stmt(stmt, time_window: TimeWindow):
-        return (
-            stmt.join(SensorDataRecord.sensor)
-            .where(
-                (SensorDataRecord.timestamp > time_window.start) &
-                (SensorDataRecord.timestamp <= time_window.end)
-            )
-            .distinct()
-        )
+        stmt = stmt.join(SensorDataRecord.sensor)
+        stmt = time_window.modify_stmt(stmt, SensorDataRecord.timestamp)
+        stmt = stmt.distinct()
+        return stmt
 
     @classmethod
     async def get(
@@ -1088,14 +1084,10 @@ class Actuator(Hardware):
 
     @staticmethod
     def _add_time_window_to_stmt(stmt, time_window: TimeWindow):
-        return (
-            stmt.join(ActuatorRecord.actuator)
-            .where(
-                (ActuatorRecord.timestamp > time_window.start)
-                & (ActuatorRecord.timestamp <= time_window.end)
-            )
-            .distinct()
-        )
+        stmt = stmt.join(ActuatorRecord.sensor)
+        stmt = time_window.modify_stmt(stmt, ActuatorRecord.timestamp)
+        stmt = stmt.distinct()
+        return stmt
 
     @classmethod
     async def get(
