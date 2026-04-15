@@ -433,6 +433,7 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
                 session, level=gv.HardwareLevel.environment),
             "plants_data": await self.has_recent_sensor_data(
                 session, level=gv.HardwareLevel.plants),
+            "recent_picture": await self.has_recent_picture(session),
         }
 
     async def get_hardware(
