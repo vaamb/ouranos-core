@@ -394,6 +394,33 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
             session, uid=self.uid, actuator_type=actuator_type)
         return result
 
+    @classmethod
+    @cached(caches.cache_ecosystems_has_recent_picture, key_hasher=hash_get)
+    async def check_if_recent_picture(
+            cls,
+            session: AsyncSession,
+            /,
+            uid: str,
+    ) -> bool:
+        time_limit=datetime.now(timezone.utc) - timedelta(hours=TIME_LIMITS.SENSORS)
+        stmt = (
+            select(CameraPicture)
+            .where(
+                CameraPicture.ecosystem_uid == uid,
+                CameraPicture.timestamp >= time_limit,
+            )
+            .limit(1)
+        )
+        result = await session.execute(stmt)
+        return bool(result.one_or_none())
+
+    async def has_recent_picture(
+            self,
+            session: AsyncSession,
+    ) -> bool:
+        result = await Ecosystem.check_if_recent_picture(session, uid=self.uid)
+        return result
+
     async def get_functionalities(self, session: AsyncSession) -> dict:
         return {
             "uid": self.uid,
