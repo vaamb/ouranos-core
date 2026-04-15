@@ -35,7 +35,7 @@ class StmtModifier(ABC):
     def modify_stmt(self, stmt: Select, column) -> Select: ...
 
 
-@dataclass
+@dataclass(frozen=True)
 class HigherThan(StmtModifier):
     low_limit: int | float | dt.datetime | None
 
@@ -45,7 +45,7 @@ class HigherThan(StmtModifier):
         return stmt
 
 
-@dataclass
+@dataclass(frozen=True)
 class LowerThan(StmtModifier):
     high_limit: int | float | dt.datetime | None
 
@@ -55,7 +55,7 @@ class LowerThan(StmtModifier):
         return stmt
 
 
-@dataclass
+@dataclass(frozen=True)
 class Between(LowerThan, HigherThan):
     def modify_stmt(self, stmt: Select, column) -> Select:
         if self.low_limit is not None:
@@ -65,16 +65,17 @@ class Between(LowerThan, HigherThan):
         return stmt
 
 
-@dataclass
+@dataclass(frozen=True)
 class Within(StmtModifier):
     choices: list[Any] | None
 
     def __post_init__(self):
         if self.choices is not None:
             if isinstance(self.choices, str):
-                self.choices = [self.choices, ]
+                object.__setattr__(self, "choices", [self.choices, ])
             elif isinstance(self.choices, (list, set, tuple)):
-                self.choices = [*self.choices]
+                object.__setattr__(self, "choices", [*self.choices])
+            raise ValueError
 
     def modify_stmt(self, stmt: Select, column) -> Select:
         if self.choices is not None:
@@ -82,7 +83,7 @@ class Within(StmtModifier):
         return stmt
 
 
-@dataclass
+@dataclass(frozen=True)
 class TimeWindow(StmtModifier):
     start: dt.datetime | None
     end: dt.datetime | None
