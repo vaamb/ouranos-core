@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import asyncio
 import functools
 from contextlib import AbstractContextManager
+import inspect
 from typing import Any, Callable, Hashable, MutableMapping, Optional, Self, Type, TypeVar
 
 from cachetools import keys
@@ -56,7 +56,7 @@ def cached(
     lock = lock or NullContext()
 
     def decorator(func):
-        if asyncio.iscoroutinefunction(func):
+        if inspect.iscoroutinefunction(func):
 
             async def wrapper(*args, **kwargs):
                 k = key_hasher(*args, **kwargs)
@@ -127,7 +127,7 @@ def cached_method(
     lock = lock or NullContext()
 
     def decorator(method):
-        if asyncio.iscoroutinefunction(method):
+        if inspect.iscoroutinefunction(method):
 
             async def wrapper(cls, *args, **kwargs):
                 k = key_hasher(cls, *args, **kwargs)
@@ -184,7 +184,7 @@ def clearing_cache(
     lock = lock or NullContext()
 
     def decorator(func):
-        if asyncio.iscoroutinefunction(func):
+        if inspect.iscoroutinefunction(func):
 
             async def wrapper(*args, **kwargs):
                 k = key_hasher(*args, **kwargs)
@@ -228,7 +228,7 @@ def clearing_cache_method(
     lock = lock or NullContext()
 
     def decorator(method):
-        if asyncio.iscoroutinefunction(method):
+        if inspect.iscoroutinefunction(method):
 
             async def wrapper(cls, *args, **kwargs):
                 k = key_hasher(cls, *args, **kwargs)
