@@ -3,12 +3,12 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 import typing as t
-from typing import Any, Callable, Literal, NamedTuple, Self, Sequence, Type, TypeAlias
+from typing import Any, Callable, Literal, NamedTuple, Self, Sequence, TypeAlias
 from uuid import UUID
 from warnings import warn
 
 from sqlalchemy import (
-    and_, Column, delete, Insert, inspect, Select, select, UnaryExpression,
+    and_, Column, delete, Insert, inspect, Select, select, Table, UnaryExpression,
     UniqueConstraint, update)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
@@ -39,7 +39,7 @@ class ToDictMixin:
         }
 
 
-class Base(db.Model, ToDictMixin):
+class Base(db.Model, ToDictMixin):  # ty: ignore[invalid-base]
     __abstract__ = True
 
     _dialect: str | None = None
@@ -91,6 +91,14 @@ class CRUDMixin:
 
     _on_conflict_do: Callable[[Insert, str], Insert] | None = None
 
+    if t.TYPE_CHECKING:
+        __tablename__: str
+        __table__: Table
+        __table_args__: tuple | dict
+
+        _get_dialect: Callable[[], str]
+        _get_insert: Callable[[], Callable[[Any], Insert]]
+
     @classmethod
     def _get_unique_columns(cls) -> list[str]:
         # Get the columns with a unique constraint
@@ -135,7 +143,7 @@ class CRUDMixin:
             )
 
     @classmethod
-    def _get_lookup_keys(cls: Base) -> list[str]:
+    def _get_lookup_keys(cls) -> list[str]:
         if cls._validated_lookup_keys is None:
             unique_columns = cls._get_unique_columns()
             # If no lookup keys are suggested, use the unique constraint
@@ -149,15 +157,13 @@ class CRUDMixin:
         return cls._validated_lookup_keys
 
     @classmethod
-    def _check_lookup_keys(cls: Base, *lookup_keys: str) -> None:
+    def _check_lookup_keys(cls, *lookup_keys: str) -> None:
         valid_lookup_keys = cls._get_lookup_keys()
         if not all(lookup_key in lookup_keys for lookup_key in valid_lookup_keys):
             raise ValueError("You should provide all the lookup keys")
 
     @classmethod
-    def _get_on_conflict_do(
-            cls: Type[Base] | Type[CRUDMixin],
-    ) -> Callable[[Insert, str], Insert]:
+    def _get_on_conflict_do(cls) -> Callable[[Insert, str], Insert]:
         if cls._on_conflict_do is None:
             dialect = cls._get_dialect()
 
@@ -231,7 +237,7 @@ class CRUDMixin:
 
     @classmethod
     async def create(
-            cls: Base,
+            cls,
             session: AsyncSession,
             /,
             values: dict | None = None,
@@ -249,7 +255,7 @@ class CRUDMixin:
 
     @classmethod
     async def create_multiple(
-            cls: Base,
+            cls,
             session: AsyncSession,
             /,
             values: list[dict] | list[NamedTuple],
@@ -264,7 +270,7 @@ class CRUDMixin:
 
     @classmethod
     def _generate_get_query(
-            cls: Base,
+            cls,
             offset: int | None = None,
             limit: int | None = None,
             order_by: str | UnaryExpression | None = None,
@@ -290,7 +296,7 @@ class CRUDMixin:
 
     @classmethod
     async def get(
-            cls: Base,
+            cls,
             session: AsyncSession,
             /,
             offset: int | None = None,
@@ -312,7 +318,7 @@ class CRUDMixin:
 
     @classmethod
     async def get_multiple(
-            cls: Base,
+            cls,
             session: AsyncSession,
             /,
             offset: int | None = None,
@@ -334,7 +340,7 @@ class CRUDMixin:
 
     @classmethod
     async def update(
-            cls: Base,
+            cls,
             session: AsyncSession,
             /,
             values: dict,
@@ -362,7 +368,7 @@ class CRUDMixin:
 
     @classmethod
     async def update_multiple(
-            cls: Base,
+            cls,
             session: AsyncSession,
             /,
             values: list[dict],
@@ -374,7 +380,7 @@ class CRUDMixin:
 
     @classmethod
     async def delete(
-            cls: Base,
+            cls,
             session: AsyncSession,
             /,
             **lookup_keys: lookup_keys_type,
@@ -393,7 +399,7 @@ class CRUDMixin:
 
     @classmethod
     async def update_or_create(
-            cls: Self,
+            cls,
             session: AsyncSession,
             /,
             values: dict | None = None,
@@ -403,7 +409,7 @@ class CRUDMixin:
 
     @classmethod
     async def get_or_create(
-            cls: Self,
+            cls,
             session: AsyncSession,
             /,
             values: dict | None = None,
@@ -420,13 +426,13 @@ class CacheMixin(CRUDMixin):
     timestamp: Mapped[datetime] = mapped_column(UtcDateTime)
 
     @classmethod
-    def get_ttl(cls: Base) -> int:
+    def get_ttl(cls) -> int:
         """Return data TTL in seconds"""
         raise NotImplementedError
 
     @classmethod
     async def insert_data(
-            cls: Base,
+            cls,
             session: AsyncSession,
             values: dict | list[dict]
     ) -> None:
@@ -438,10 +444,10 @@ class CacheMixin(CRUDMixin):
 
     @classmethod
     async def get_recent(
-            cls: Base,
+            cls,
             session: AsyncSession,
             **lookup_keys: list[lookup_keys_type] | lookup_keys_type | None,
-    ) -> Sequence[Base]:
+    ) -> Sequence[Self]:
         stmt = cls._generate_get_query(**lookup_keys)
         time_limit = datetime.now(timezone.utc) - timedelta(seconds=cls.get_ttl())
         stmt = stmt.where(cls.timestamp > time_limit)
@@ -449,13 +455,13 @@ class CacheMixin(CRUDMixin):
         return result.scalars().all()
 
     @classmethod
-    async def remove_expired(cls: Base, session: AsyncSession) -> None:
+    async def remove_expired(cls, session: AsyncSession) -> None:
         time_limit = datetime.now(timezone.utc) - timedelta(seconds=cls.get_ttl())
         stmt = delete(cls).where(cls.timestamp < time_limit)
         await session.execute(stmt)
 
     @classmethod
-    async def clear(cls: Base, session: AsyncSession) -> None:
+    async def clear(cls, session: AsyncSession) -> None:
         stmt = delete(cls)
         await session.execute(stmt)
 
@@ -465,11 +471,11 @@ class ArchivableMixin(CRUDMixin):
     _archive_table: str
 
     @classmethod
-    def get_archive_table(cls: Base) -> str:
+    def get_archive_table(cls) -> str:
         return cls._archive_table
 
     @classmethod
-    def get_archive_column(cls: Base) -> Column:
+    def get_archive_column(cls) -> Column:
         return cls.__table__.c[cls._archive_column]
 
     @classmethod
