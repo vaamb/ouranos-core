@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import functools
-from contextlib import AbstractContextManager
 import inspect
-from typing import Any, Callable, Hashable, MutableMapping, Self, Type, TypeVar
+from typing import Any, Callable, Hashable, MutableMapping, Protocol, Self, Type, TypeVar
 
 from cachetools import keys
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +14,14 @@ from ouranos.core.database.models.abc import (
 _KT = TypeVar("_KT")
 
 
+class _Lock(Protocol):
+    """Supports both sync and async context manager usage."""
+    def __enter__(self) -> Any: ...
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> Any: ...
+    async def __aenter__(self) -> Any: ...
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> Any: ...
+
+
 class NullContext:
     """A no-op context manager compatible with both sync and async usage.
 
@@ -23,23 +30,23 @@ class NullContext:
     branching.
     """
 
-    def __enter__(self):
+    def __enter__(self) -> NullContext:
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         return None
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> NullContext:
         return self
 
-    async def __aexit__(self, exc_type, exc_value, traceback):
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         return None
 
 
 def cached(
     cache: MutableMapping[_KT, Any],
     key_hasher: Callable[..., _KT] = keys.hashkey,
-    lock: AbstractContextManager[Any] | None = None,
+    lock: _Lock | None = None,
 ):
     """Decorator to wrap a function with a memoizing callable that saves
     results in a cache.
@@ -53,7 +60,7 @@ def cached(
     :param key_hasher: A callable that derives the cache key from the function arguments.
     :param lock: An optional context manager used to synchronize cache access.
     """
-    lock = lock or NullContext()
+    _lock: _Lock = lock or NullContext()
 
     def decorator(func):
         if inspect.iscoroutinefunction(func):
@@ -61,20 +68,20 @@ def cached(
             async def wrapper(*args, **kwargs):
                 k = key_hasher(*args, **kwargs)
                 try:
-                    async with lock:
+                    async with _lock:
                         return cache[k]
                 except KeyError:
                     pass  # key not found
                 v = await func(*args, **kwargs)
                 try:
-                    async with lock:
+                    async with _lock:
                         cache.setdefault(k, v)
                 except ValueError:
                     pass  # value too large
                 return v
 
             async def clear():
-                async with lock:
+                async with _lock:
                     cache.clear()
 
         else:
@@ -82,20 +89,20 @@ def cached(
             def wrapper(*args, **kwargs):
                 k = key_hasher(*args, **kwargs)
                 try:
-                    with lock:
+                    with _lock:
                         return cache[k]
                 except KeyError:
                     pass  # key not found
                 v = func(*args, **kwargs)
                 try:
-                    with lock:
+                    with _lock:
                         cache.setdefault(k, v)
                 except ValueError:
                     pass  # value too large
                 return v
 
             def clear():
-                with lock:
+                with _lock:
                     cache.clear()
 
         wrapper.cache = cache
@@ -110,7 +117,7 @@ def cached(
 
 def cached_method(
     key_hasher: Callable[..., _KT] = keys.hashkey,
-    lock: AbstractContextManager[Any] | None = None,
+    lock: _Lock | None = None,
 ):
     """Decorator to wrap a classmethod with a memoizing callable that stores
     results in `cls._cache`.
@@ -124,7 +131,7 @@ def cached_method(
     :param key_hasher: A callable that derives the cache key from the method arguments.
     :param lock: An optional context manager used to synchronize cache access.
     """
-    lock = lock or NullContext()
+    _lock: _Lock = lock or NullContext()
 
     def decorator(method):
         if inspect.iscoroutinefunction(method):
@@ -132,13 +139,13 @@ def cached_method(
             async def wrapper(cls, *args, **kwargs):
                 k = key_hasher(cls, *args, **kwargs)
                 try:
-                    async with lock:
+                    async with _lock:
                         return cls._cache[k]
                 except KeyError:
                     pass  # key not found
                 v = await method(cls, *args, **kwargs)
                 try:
-                    async with lock:
+                    async with _lock:
                         cls._cache.setdefault(k, v)
                 except ValueError:
                     pass  # value too large
@@ -149,13 +156,13 @@ def cached_method(
             def wrapper(cls, *args, **kwargs):
                 k = key_hasher(cls, *args, **kwargs)
                 try:
-                    with lock:
+                    with _lock:
                         return cls._cache[k]
                 except KeyError:
                     pass  # key not found
                 v = method(cls, *args, **kwargs)
                 try:
-                    with lock:
+                    with _lock:
                         cls._cache.setdefault(k, v)
                 except ValueError:
                     pass  # value too large
@@ -169,7 +176,7 @@ def cached_method(
 def clearing_cache(
     cache: MutableMapping[_KT, Any],
     key_hasher: Callable[..., _KT] = keys.hashkey,
-    lock: AbstractContextManager[Any] | None = None,
+    lock: _Lock | None = None,
 ):
     """Decorator to invalidate a specific cache entry after a function runs.
 
@@ -181,7 +188,7 @@ def clearing_cache(
     :param key_hasher: A callable that derives the cache key from the function arguments.
     :param lock: An optional context manager used to synchronize cache access.
     """
-    lock = lock or NullContext()
+    _lock: _Lock = lock or NullContext()
 
     def decorator(func):
         if inspect.iscoroutinefunction(func):
@@ -189,7 +196,7 @@ def clearing_cache(
             async def wrapper(*args, **kwargs):
                 k = key_hasher(*args, **kwargs)
                 v = await func(*args, **kwargs)
-                async with lock:
+                async with _lock:
                     cache.pop(k, None)
                 return v
 
@@ -198,7 +205,7 @@ def clearing_cache(
             def wrapper(*args, **kwargs):
                 k = key_hasher(*args, **kwargs)
                 v = func(*args, **kwargs)
-                with lock:
+                with _lock:
                     cache.pop(k, None)
                 return v
 
@@ -213,7 +220,7 @@ def clearing_cache(
 
 def clearing_cache_method(
     key_hasher: Callable[..., _KT] = keys.hashkey,
-    lock: AbstractContextManager[Any] | None = None,
+    lock: _Lock | None = None,
 ):
     """Decorator to invalidate a specific entry in `cls._cache` after a
     method runs.
@@ -225,7 +232,7 @@ def clearing_cache_method(
     :param key_hasher: A callable that derives the cache key from the method arguments.
     :param lock: An optional context manager used to synchronize cache access.
     """
-    lock = lock or NullContext()
+    _lock: _Lock = lock or NullContext()
 
     def decorator(method):
         if inspect.iscoroutinefunction(method):
@@ -233,7 +240,7 @@ def clearing_cache_method(
             async def wrapper(cls, *args, **kwargs):
                 k = key_hasher(cls, *args, **kwargs)
                 v = await method(cls, *args, **kwargs)
-                async with lock:
+                async with _lock:
                     cls._cache.pop(k, None)
                 return v
 
@@ -242,7 +249,7 @@ def clearing_cache_method(
             def wrapper(cls, *args, **kwargs):
                 k = key_hasher(cls, *args, **kwargs)
                 v = method(cls, *args, **kwargs)
-                with lock:
+                with _lock:
                     cls._cache.pop(k, None)
                 return v
 
