@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 import pickle
-from typing import Any, Iterable
+from typing import Any, AsyncIterable
 
 import aiosqlite
 
 from ouranos import current_app
+
 
 _create_query = """
   CREATE TABLE IF NOT EXISTS %(table_name)s (
@@ -82,7 +83,7 @@ class aioCache:
             await db.execute(_clear_query % {"table_name": self._table})
             await db.commit()
 
-    async def keys(self) -> Iterable[str]:
+    async def keys(self) -> AsyncIterable[str]:
         self._check_init()
         async with aiosqlite.connect(self._path) as db:
             cursor = await db.execute(_iter_query % {"table_name": self._table})
