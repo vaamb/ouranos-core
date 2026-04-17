@@ -3,7 +3,7 @@ from __future__ import annotations
 import functools
 from contextlib import AbstractContextManager
 import inspect
-from typing import Any, Callable, Hashable, MutableMapping, Optional, Self, Type, TypeVar
+from typing import Any, Callable, Hashable, MutableMapping, Self, Type, TypeVar
 
 from cachetools import keys
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -37,9 +37,9 @@ class NullContext:
 
 
 def cached(
-    cache: Optional[MutableMapping[_KT, Any]],
+    cache: MutableMapping[_KT, Any],
     key_hasher: Callable[..., _KT] = keys.hashkey,
-    lock: Optional[AbstractContextManager[Any]] = None,
+    lock: AbstractContextManager[Any] | None = None,
 ):
     """Decorator to wrap a function with a memoizing callable that saves
     results in a cache.
@@ -110,7 +110,7 @@ def cached(
 
 def cached_method(
     key_hasher: Callable[..., _KT] = keys.hashkey,
-    lock: Optional[AbstractContextManager[Any]] = None,
+    lock: AbstractContextManager[Any] | None = None,
 ):
     """Decorator to wrap a classmethod with a memoizing callable that stores
     results in `cls._cache`.
@@ -167,9 +167,9 @@ def cached_method(
 
 
 def clearing_cache(
-    cache: Optional[MutableMapping[_KT, Any]],
+    cache: MutableMapping[_KT, Any],
     key_hasher: Callable[..., _KT] = keys.hashkey,
-    lock: Optional[AbstractContextManager[Any]] = None,
+    lock: AbstractContextManager[Any] | None = None,
 ):
     """Decorator to invalidate a specific cache entry after a function runs.
 
@@ -213,7 +213,7 @@ def clearing_cache(
 
 def clearing_cache_method(
     key_hasher: Callable[..., _KT] = keys.hashkey,
-    lock: Optional[AbstractContextManager[Any]] = None,
+    lock: AbstractContextManager[Any] | None = None,
 ):
     """Decorator to invalidate a specific entry in `cls._cache` after a
     method runs.
