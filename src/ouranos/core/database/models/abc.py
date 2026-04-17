@@ -20,7 +20,7 @@ from ouranos.core.database.models.types import UtcDateTime
 from ouranos.core.database.models.utils import StmtModifier, TimeWindow
 
 
-lookup_keys_type: TypeAlias = str | Enum | UUID | bool
+lookup_keys_type: TypeAlias = str | int | Enum | UUID | bool
 query_keys_type: TypeAlias = lookup_keys_type | StmtModifier | None
 on_conflict_opt: TypeAlias = Literal["update", "nothing"] | None
 
