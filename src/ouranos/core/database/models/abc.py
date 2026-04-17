@@ -52,6 +52,7 @@ class Base(db.Model, ToDictMixin):  # ty: ignore[invalid-base]
             bind_key = table.info.get("bind_key", None)
             engine = db.get_engine_for_bind(bind_key)
             cls._dialect = engine.dialect.name
+        assert cls._dialect is not None
         return cls._dialect
 
     @classmethod
@@ -352,7 +353,7 @@ class CRUDMixin:
             update(cls)
             .where(
                 and_(
-                    cls.__table__.c[key] == value
+                    cls.__table__.c[key] == value  # ty: ignore[invalid-argument-type]
                     for key, value in lookup_keys.items()
                 )
             )
@@ -391,7 +392,7 @@ class CRUDMixin:
             delete(cls)
             .where(
                 and_(
-                    cls.__table__.c[key] == value
+                    cls.__table__.c[key] == value  # ty: ignore[invalid-argument-type]
                     for key, value in lookup_keys.items()
                 )
             )
@@ -417,7 +418,10 @@ class CRUDMixin:
             **lookup_keys: lookup_keys_type,
     ) -> Self:
         await cls.create(session, values=values, _on_conflict_do="nothing", **lookup_keys)
-        return await cls.get(session, **lookup_keys)
+        result = await cls.get(session, **lookup_keys)  # ty: ignore[invalid-argument-type]
+        # `result` should not be `None` as it was created just before
+        assert result is not None
+        return result
 
 
 class CacheMixin(CRUDMixin):
@@ -441,7 +445,7 @@ class CacheMixin(CRUDMixin):
         if cls._remove_expired_tick >= cls._remove_expired_threshold:
             await cls.remove_expired(session)
             cls._remove_expired_tick = 0
-        await cls.create_multiple(session, values=values, _on_conflict_do="update")
+        await cls.create_multiple(session, values=values, _on_conflict_do="update")  # ty: ignore[invalid-argument-type]
 
     @classmethod
     async def get_recent(
@@ -449,7 +453,7 @@ class CacheMixin(CRUDMixin):
             session: AsyncSession,
             **lookup_keys: list[lookup_keys_type] | lookup_keys_type | None,
     ) -> Sequence[Self]:
-        stmt = cls._generate_get_query(**lookup_keys)
+        stmt = cls._generate_get_query(**lookup_keys)  # ty: ignore[invalid-argument-type]
         time_limit = datetime.now(timezone.utc) - timedelta(seconds=cls.get_ttl())
         stmt = stmt.where(cls.timestamp > time_limit)
         result = await session.execute(stmt)
