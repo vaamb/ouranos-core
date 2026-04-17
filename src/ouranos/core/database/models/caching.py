@@ -105,10 +105,10 @@ def cached(
                 with _lock:
                     cache.clear()
 
-        wrapper.cache = cache
-        wrapper.cache_key = key_hasher
-        wrapper.cache_lock = lock
-        wrapper.cache_clear = clear
+        wrapper.cache = cache  # ty: ignore[invalid-assignment]
+        wrapper.cache_key = key_hasher  # ty: ignore[invalid-assignment]
+        wrapper.cache_lock = _lock  # ty: ignore[invalid-assignment]
+        wrapper.cache_clear = clear  # ty: ignore[invalid-assignment]
 
         return functools.update_wrapper(wrapper, func)
 
@@ -209,9 +209,9 @@ def clearing_cache(
                     cache.pop(k, None)
                 return v
 
-        wrapper.cache = cache
-        wrapper.cache_key = key_hasher
-        wrapper.cache_lock = lock
+        wrapper.cache = cache  # ty: ignore[invalid-assignment]
+        wrapper.cache_key = key_hasher  # ty: ignore[invalid-assignment]
+        wrapper.cache_lock = _lock  # ty: ignore[invalid-assignment]
 
         return functools.update_wrapper(wrapper, func)
 
@@ -258,7 +258,7 @@ def clearing_cache_method(
     return decorator
 
 
-def create_hashable_key(**kwargs: dict[str, Hashable | list[Hashable]]) -> tuple:
+def create_hashable_key(**kwargs: Hashable | list[Hashable]) -> tuple:
     """Convert keyword arguments into a sorted, hashable tuple for use as a
     cache key.
 
