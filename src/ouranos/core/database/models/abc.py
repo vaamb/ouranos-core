@@ -176,17 +176,17 @@ class CRUDMixin:
 
                 def impl(stmt: Insert, action: str) -> Insert:
                     if action == "nothing":
-                        stmt = stmt.on_duplicate_key_update(
-                            {lookup_keys[0]: getattr(stmt.inserted, lookup_keys[0])},
+                        stmt = stmt.on_duplicate_key_update(  # ty: ignore[unresolved-attribute]
+                            {lookup_keys[0]: getattr(stmt.inserted, lookup_keys[0])},  # ty: ignore[unresolved-attribute]
                         )
                     elif action == "update":
-                        stmt = stmt.on_duplicate_key_update(
+                        stmt = stmt.on_duplicate_key_update(  # ty: ignore[unresolved-attribute]
                             {
-                                column_name: getattr(stmt.inserted, column_name)
+                                column_name: getattr(stmt.inserted, column_name)  # ty: ignore[unresolved-attribute]
                                 for column_name in columns_name
                                 if (
                                     column_name not in lookup_keys
-                                    and hasattr(stmt.inserted, column_name)
+                                    and hasattr(stmt.inserted, column_name)  # ty: ignore[unresolved-attribute]
                                 )
                             }
                         )
@@ -206,14 +206,14 @@ class CRUDMixin:
 
                 def impl(stmt: Insert, action: str) -> Insert:
                     if action == "nothing":
-                        stmt = stmt.on_conflict_do_nothing(
+                        stmt = stmt.on_conflict_do_nothing(  # ty: ignore[unresolved-attribute]
                             index_elements=lookup_keys,
                         )
                     elif action == "update":
-                        stmt = stmt.on_conflict_do_update(
+                        stmt = stmt.on_conflict_do_update(  # ty: ignore[unresolved-attribute]
                             index_elements=lookup_keys,
                             set_={
-                                column: getattr(stmt.excluded, column)
+                                column: getattr(stmt.excluded, column)  # ty: ignore[unresolved-attribute]
                                 for column in columns_name
                                 if column not in lookup_keys
                             },
@@ -232,7 +232,8 @@ class CRUDMixin:
                         raise ValueError
                     return stmt
 
-            cls._on_conflict_do = impl
+            cls._on_conflict_do = impl  # ty: ignore[invalid-assignment]
+        assert cls._on_conflict_do is not None
         return cls._on_conflict_do
 
     @classmethod
