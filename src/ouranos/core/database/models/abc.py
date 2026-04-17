@@ -3,12 +3,12 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 import typing as t
-from typing import Callable, Literal, NamedTuple, Self, Sequence, Type, TypeAlias
+from typing import Any, Callable, Literal, NamedTuple, Self, Sequence, Type, TypeAlias
 from uuid import UUID
 from warnings import warn
 
 from sqlalchemy import (
-    and_, Column, delete, Insert, inspect, Select, select, table, UnaryExpression,
+    and_, Column, delete, Insert, inspect, Select, select, UnaryExpression,
     UniqueConstraint, update)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
@@ -43,7 +43,7 @@ class Base(db.Model, ToDictMixin):
     __abstract__ = True
 
     _dialect: str | None = None
-    _insert: Callable[[table], Insert] | None = None
+    _insert: Callable[[Any], Insert] | None = None
 
     @classmethod
     def _get_dialect(cls) -> str:
@@ -55,7 +55,7 @@ class Base(db.Model, ToDictMixin):
         return cls._dialect
 
     @classmethod
-    def _get_insert(cls) -> Callable[[table], Insert]:
+    def _get_insert(cls) -> Callable[[Any], Insert]:
         """Get a dialect-specific `insert`"""
         if cls._insert is None:
             dialect = cls._get_dialect()
@@ -71,6 +71,7 @@ class Base(db.Model, ToDictMixin):
             else:
                 from sqlalchemy import insert
                 cls._insert = insert
+        assert cls._insert is not None
         return cls._insert
 
 
@@ -141,6 +142,7 @@ class CRUDMixin:
             else:
                 cls._validate_lookup_keys(cls._lookup_keys, unique_columns)
                 cls._validated_lookup_keys = cls._lookup_keys
+        assert cls._validated_lookup_keys is not None
         return cls._validated_lookup_keys
 
     @classmethod
