@@ -9,7 +9,7 @@ from ouranos.core.database.models.app import User
 from ouranos.core.utils import humanize_list
 
 
-async def create_db_tables():
+async def create_db_tables() -> None:
     create_db_dir = False
     if "sqlite" in current_app.config["SQLALCHEMY_DATABASE_URI"]:
         create_db_dir = True
@@ -29,7 +29,7 @@ async def create_db_tables():
     await db.create_all()
 
 
-async def insert_default_data():
+async def insert_default_data() -> None:
     from ouranos.core.database.models import app
 
     async with db.scoped_session() as session:
@@ -67,7 +67,7 @@ async def check_db_revision() -> None:
         )
 
 
-async def print_registration_token():
+async def print_registration_token() -> None:
     async with db.scoped_session() as session:
         token = await User.create_invitation_token(session)
         print(f"registration token: {token}")
