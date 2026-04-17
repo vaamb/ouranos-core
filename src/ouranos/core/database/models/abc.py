@@ -95,11 +95,13 @@ class CRUDMixin:
     def _get_unique_columns(cls) -> list[str]:
         # Get the columns with a unique constraint
         # Try to get a unique constraint from the table args
-        if hasattr(cls, "__table_args__"):
-            for arg in cls.__table_args__:
-                if isinstance(arg, UniqueConstraint):
-                    # There can only be one `UniqueConstraint` so we can return it
-                    return [column.name for column in arg.columns]
+        table_args = getattr(cls, "__table_args__", None)
+        if table_args is not None:
+            if isinstance(table_args, tuple):
+                for arg in table_args:
+                    if isinstance(arg, UniqueConstraint):
+                        # There can only be one `UniqueConstraint` so we can return it
+                        return [column.name for column in arg.columns]
 
         # If we did not find a unique constraint, try to get it from the columns
         # "unique" args
@@ -110,7 +112,7 @@ class CRUDMixin:
         if unique:
             return unique
         raise ValueError(
-            f"Table {cls.__tablename__} has no unique constraint"
+            f"Table {getattr(cls, '__tablename__', repr(cls))} has no unique constraint"
         )
 
     @classmethod
@@ -120,14 +122,15 @@ class CRUDMixin:
             unique_columns: list[str],
     ) -> None:
         # Make sure the lookup keys are valid columns
+        tablename = getattr(cls, "__tablename__", repr(cls))
         for lookup_key in lookup_keys:
             if not hasattr(cls, lookup_key):
                 raise ValueError(
-                    f"Lookup key {lookup_key} is not a column of {cls.__tablename__}"
+                    f"Lookup key {lookup_key} is not a column of {tablename}"
                 )
         if not all(lookup_key in unique_columns for lookup_key in lookup_keys):
             raise ValueError(
-                f"Table {cls.__tablename__} has no unique constraint on "
+                f"Table {tablename} has no unique constraint on "
                 f"the lookup keys {lookup_keys}"
             )
 
