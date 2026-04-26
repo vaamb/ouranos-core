@@ -5,7 +5,8 @@ import difflib
 import enum
 from enum import IntEnum, IntFlag, StrEnum
 import re
-from typing import Optional, Self, Sequence, TypedDict
+import typing as t
+from typing import NamedTuple, Optional, Self, Sequence, TypedDict
 
 from anyio import Path as ioPath
 from argon2 import PasswordHasher
@@ -13,7 +14,8 @@ from argon2.exceptions import VerificationError
 import humanize
 import sqlalchemy as sa
 from sqlalchemy import (
-    and_, delete, insert, or_, Select, select, Table, UniqueConstraint, update)
+    and_, delete, insert, or_, Select, select, Table, UnaryExpression,
+    UniqueConstraint, update)
 from sqlalchemy.ext.asyncio import AsyncAttrs, AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -24,7 +26,7 @@ from gaia_validators import missing, safe_enum_from_name
 from ouranos import current_app
 from ouranos.core.config import consts
 from ouranos.core.database.models.abc import (
-    Base, CRUDMixin, lookup_keys_type, on_conflict_opt, ToDictMixin)
+    Base, CRUDMixin, lookup_keys_type, on_conflict_opt, query_keys_type, ToDictMixin)
 from ouranos.core.database.models import caches
 from ouranos.core.database.models.types import PathType, SQLIntEnum, UtcDateTime
 from ouranos.core.database.models.utils import paginate
@@ -104,7 +106,7 @@ class Role(Base):
     async def insert_roles(cls, session: AsyncSession) -> None:
         stmt = select(cls)
         result = await session.execute(stmt)
-        roles_in_db: list[Self] = result.scalars().all()
+        roles_in_db: Sequence[Self] = result.scalars().all()
         roles = {role.name: role for role in roles_in_db}
         for name, permission in roles_definition.items():
             role = roles.get(name)
@@ -208,7 +210,7 @@ class UserTokenInfoDict(TypedDict):
     username: str | None
     firstname: str | None
     lastname: str | None
-    role: RoleName | None
+    role: str | RoleName | None
     email: str | None
 
 
@@ -248,7 +250,7 @@ class User(Base, UserMixin):
     #   Methods to override the Mixin default
     # ---------------------------------------------------------------------------
     def __repr__(self):
-        return f"<User({self.username}, role={self.role.name.name})>"
+        return f"<User({self.username}, role={self.role.name})>"
 
     @property
     def is_confirmed(self) -> bool:
@@ -271,6 +273,8 @@ class User(Base, UserMixin):
         return self.role.name
 
     def check_password(self, password: str) -> bool:
+        if self.password_hash is None:
+            return False
         try:
             return argon2_hasher.verify(self.password_hash, password)
         except VerificationError:
@@ -283,22 +287,31 @@ class User(Base, UserMixin):
     async def create_invitation_token(
             cls,
             session: AsyncSession,
-            user_info: UserTokenInfoDict | None = None,
+            user_info: dict | None = None,
             expiration_delay: int = consts.REGISTRATION_TOKEN_VALIDITY,
     ) -> str:
         user_info = user_info or {}
-        expiration_delay = expiration_delay or consts.REGISTRATION_TOKEN_VALIDITY
-        # Get the required role name
-        role_name = user_info.pop("role", None)
-        role = await cls._compute_default_role(session, role_name=role_name)
+        role_name: str | RoleName | None = user_info.get("role")
+        # Compute the expected role
+        role = await cls._compute_expected_role(
+            session, role_name=role_name, email=user_info.get("email"))
+        # Get the default role
         default_role = await Role.get_default(session)
-        if role.name != default_role.name:
-            user_info["role"] = role.name.name
+        # Create the validated dict, specify the role only if it is not the
+        #  default one
+        validated_user_info: UserTokenInfoDict = {
+            "username": user_info.get("username"),
+            "firstname": user_info.get("firstname"),
+            "lastname": user_info.get("lastname"),
+            "email": user_info.get("email"),
+            "role": role.name.name if role.name != default_role.name else None,
+        }
         # Create the token
+        expiration_delay = expiration_delay or consts.REGISTRATION_TOKEN_VALIDITY
         token = Tokenizer.create_token(
             subject=consts.TOKEN_SUBS.REGISTRATION.value,
             expiration_delay=expiration_delay,
-            other_claims=user_info,
+            other_claims=validated_user_info,  #ty: ignore[invalid-argument-type]
         )
         return token
 
@@ -333,7 +346,7 @@ class User(Base, UserMixin):
     async def send_invitation_email(
             cls,
             session: AsyncSession,
-            user_info: UserTokenInfoDict | None = None,
+            user_info: dict | None = None,  # UserTokenInfoDict
             email: str | None = None,
             token: str | None = None,
             expiration_delay: int = consts.REGISTRATION_TOKEN_VALIDITY,
@@ -466,7 +479,7 @@ class User(Base, UserMixin):
             except ValueError as e:
                 errors.extend(e.args)
         # Check if some of the info provided are already used
-        previous_user: User = await cls.get_by(
+        previous_user: User | None = await cls.get_by(
             session,
             and_or="or",
             username=values.get("username", None),
@@ -490,7 +503,7 @@ class User(Base, UserMixin):
         return argon2_hasher.hash(password)
 
     @classmethod
-    async def _compute_default_role(
+    async def _compute_expected_role(
             cls,
             session: AsyncSession,
             role_name: RoleName | str | None = None,
@@ -501,7 +514,9 @@ class User(Base, UserMixin):
         if isinstance(admins, str):
             admins = admins.split(",")
         if email is not None and email in admins:
-            return await Role.get(session, role_name=RoleName.Administrator)
+            role = await Role.get(session, role_name=RoleName.Administrator)
+            assert role is not None
+            return role
         # Try to get the role name
         try:
             role_name = safe_enum_from_name(RoleName, role_name)
@@ -510,7 +525,7 @@ class User(Base, UserMixin):
         # Get required role
         if role_name is not None:
             role = await Role.get(session, role_name)
-            if role:
+            if role is not None:
                 return role
         return await Role.get_default(session)
 
@@ -527,7 +542,7 @@ class User(Base, UserMixin):
         role_name = values.pop("role", _Unfilled)
         if role_name is not _Unfilled:
             email = values.get("email", None)
-            role = await cls._compute_default_role(session, role_name, email)
+            role = await cls._compute_expected_role(session, role_name, email)
             values["role_id"] = role.id
         return values
 
@@ -608,7 +623,7 @@ class User(Base, UserMixin):
             select(cls)
             .where(
                 link(
-                    cls.__table__.c[key] == value
+                    cls.__table__.c[key] == value  # ty: ignore[invalid-argument-type]
                     for key, value in non_null_lookup_keys.items()
                 )
             )
@@ -635,7 +650,7 @@ class User(Base, UserMixin):
         if registration_start_time is not None:
             stmt = stmt.where(cls.registration_datetime >= registration_start_time)
         if registration_end_time is not None:
-            stmt = stmt.where(registration_end_time >= cls.registration_datetime)
+            stmt = stmt.where(cls.registration_datetime <= registration_end_time)
         if confirmed:
             stmt = stmt.where(cls.confirmed_at != None)
         if active:
@@ -688,6 +703,7 @@ class User(Base, UserMixin):
         gaia = await cls.get_by(session, username="Ouranos")
         if gaia is None:
             admin = await Role.get(session, role_name=RoleName.Administrator)
+            assert admin is not None
             stmt = (
                 insert(cls)
                 .values({
@@ -914,8 +930,8 @@ class CalendarEvent(Base):
     def _filter_by_datetime(
             cls,
             stmt: Select,
-            start_time: datetime,
-            end_time: datetime,
+            start_time: datetime | None,
+            end_time: datetime | None,
     ) -> Select:
         if start_time is not None:
             stmt = stmt.where(
@@ -1134,7 +1150,7 @@ class WikiTag(Base, CRUDMixin, AsyncAttrs):
             session, values=values, _on_conflict_do=_on_conflict_do,**lookup_keys)
 
     @classmethod
-    async def create_multiple(
+    async def create_multiple(  # ty: ignore[invalid-method-override]
             cls,
             session: AsyncSession,
             /,
@@ -1148,17 +1164,20 @@ class WikiTag(Base, CRUDMixin, AsyncAttrs):
 
 
 class WikiTagged:
+    if t.TYPE_CHECKING:
+        id: int
+
     @classmethod
     def _generate_get_query(
             cls,
             offset: int | None = None,
             limit: int | None = None,
-            order_by: str | None = None,
-            **lookup_keys: list[lookup_keys_type] | lookup_keys_type | None,
+            order_by: str | UnaryExpression | None = None,
+            **lookup_keys: list[query_keys_type] | query_keys_type | None,
     ) -> Select:
         lookup_keys["status"] = True
-        tags_name: list[str] | None = lookup_keys.pop("tags_name", None)
-        stmt = super()._generate_get_query(offset, limit, order_by, **lookup_keys)
+        tags_name: list[str] | None = lookup_keys.pop("tags_name", None)  #ty: ignore[invalid-assignment]
+        stmt = super()._generate_get_query(offset, limit, order_by, **lookup_keys)  # ty: ignore[unresolved-attribute]
         if tags_name:
             stmt = stmt.join(WikiTag.articles)
             if isinstance(tags_name, list):
@@ -1181,6 +1200,8 @@ class WikiTagged:
         )
         await session.execute(stmt)
         # Attach the tags
+        if isinstance(tags_name, str):
+            tags_name = [tags_name]
         for tag_name in tags_name:
             tag = await WikiTag.get(session, name=tag_name)
             if tag is None:
@@ -1288,9 +1309,9 @@ class WikiTopic(Base, WikiTagged, CRUDMixin, WikiObject):
     ) -> None:
         return await super().update(session, values={"status": False}, **lookup_keys)
 
-    async def create_template(self, content: str, mode: str = "w") -> None:
+    async def create_template(self, content: str) -> None:
         path = self.absolute_path / "template.md"
-        async with await path.open(mode) as f:
+        async with await path.open("w") as f:
             await f.write(content)
 
     async def get_template(self) -> str:
@@ -1380,22 +1401,22 @@ class WikiArticle(Base, WikiTagged, CRUDMixin, WikiObject):
         else:
             raise ValueError
         current_content: str = await self.get_content() or ""
-        current_content: list[str] = current_content.splitlines(True)
+        current_content: list[str] = current_content.splitlines(True)  # ty: ignore[invalid-assignment]
         next_content: list[str] = next_content.splitlines(True)
         diff = difflib.unified_diff(
             current_content, next_content, current_name, next_name, n=0)
         return next_name, list(diff)
 
     @classmethod
-    async def create(
+    async def create(  # ty: ignore[invalid-method-override]
             cls,
             session: AsyncSession,
             /,
-            values: dict | None = None,  # Must contain "content": str and "author_id": int
+            values: dict,  # Must contain "content": str
+            author_id: int,
             _on_conflict_do: on_conflict_opt = None,
             **lookup_keys: lookup_keys_type,  # Must contain "topic_name": str and "name": str
     ) -> None:
-        values = values or {}
         topic_name = lookup_keys["topic_name"]
         name = lookup_keys["name"]
         # Create the article dir
@@ -1410,11 +1431,12 @@ class WikiArticle(Base, WikiTagged, CRUDMixin, WikiObject):
         values["path"] = str(rel_path)
         # Create the article info
         content = values.pop("content")
-        author_id = values.pop("author_id")
         tags_name: list[str] = values.pop("tags_name", [])
         await super().create(
             session, values=values, _on_conflict_do=_on_conflict_do, **lookup_keys)
         article = await cls.get(session, topic_name=topic_name, name=name)
+        # Article shouldn't be None as it was created just before
+        assert article is not None
         if tags_name:
             await article.attach_tags(
                 session, AssociationWikiTagArticle,
@@ -1441,7 +1463,10 @@ class WikiArticle(Base, WikiTagged, CRUDMixin, WikiObject):
             cls,
             session: AsyncSession,
             /,
-            **lookup_keys: lookup_keys_type,  # Must contain "topic_name", "name"
+            offset: int | None = None,
+            limit: int | None = None,
+            order_by: str | UnaryExpression | None = None,
+            **lookup_keys: list[query_keys_type] | query_keys_type | None,  # Must contain "topic_name", "name"
     ) -> Self | None:
         stmt = cls._generate_get_query(**lookup_keys)
         result = await session.execute(stmt)
@@ -1454,8 +1479,8 @@ class WikiArticle(Base, WikiTagged, CRUDMixin, WikiObject):
             /,
             offset: int | None = None,
             limit: int | None = None,
-            order_by: str | None = None,
-            **lookup_keys: lookup_keys_type,
+            order_by: str | UnaryExpression | None = None,
+            **lookup_keys: list[query_keys_type] | query_keys_type | None,
     ) -> Sequence[Self]:
         stmt = cls._generate_get_query(offset, limit, order_by, **lookup_keys)
         result = await session.execute(stmt)
@@ -1468,11 +1493,12 @@ class WikiArticle(Base, WikiTagged, CRUDMixin, WikiObject):
         return result.scalar_one_or_none()
 
     @classmethod
-    async def update(
+    async def update(  # ty: ignore[invalid-method-override]
             cls,
             session: AsyncSession,
             /,
-            values: dict,  # Must contain "author_id": int
+            values: dict,
+            author_id: int,
             **lookup_keys: lookup_keys_type,  # Must contain "topic_name": str and "name": str
     ) -> None:
         topic_name = lookup_keys["topic_name"]
@@ -1484,11 +1510,12 @@ class WikiArticle(Base, WikiTagged, CRUDMixin, WikiObject):
         lookup_keys["slug"] = slugify(name)
         # Update the article info
         content = values.pop("content")
-        author_id = values.pop("author_id")
         tags_name: list[str] = values.pop("tags_name", [])
         if values:  # Might only be a content update
             await super().update(session, values=values, **lookup_keys)
         article = await cls.get(session, topic_name=topic_name, name=name)
+        # Article shouldn't be None as it was updated just before
+        assert article is not None
         if tags_name:
             await article.attach_tags(
                 session, AssociationWikiTagArticle,
@@ -1511,7 +1538,7 @@ class WikiArticle(Base, WikiTagged, CRUDMixin, WikiObject):
         await article.set_content(content)
 
     @classmethod
-    async def delete(
+    async def delete(  # ty: ignore[invalid-method-override]
             cls,
             session: AsyncSession,
             /,
@@ -1583,13 +1610,17 @@ class WikiArticleModification(Base, CRUDMixin):
             _on_conflict_do: on_conflict_opt = None,
             **lookup_keys: lookup_keys_type,  # article_id
     ) -> None:
+        values = values or {}
+        article_id: int = lookup_keys["article_id"]  # ty: ignore[invalid-assignment]
         # Get version number
         history = await cls.get_latest_version(
-            session, article_id=lookup_keys["article_id"])
+            session, article_id=article_id)
         version = history.version + 1 if history is not None else 1
         lookup_keys["version"] = version
         # Get path info
-        article = await WikiArticle.get_by_id(session, lookup_keys["article_id"])
+        article = await WikiArticle.get_by_id(session, article_id)
+        if article is None:
+            raise WikiArticleNotFound
         rel_path = article.path / f"diff_{version:03}.md"
         values["path"] = str(rel_path)
         # Create the entry
@@ -1677,8 +1708,8 @@ class WikiPicture(Base, WikiTagged, CRUDMixin, WikiObject):
             cls,
             offset: int | None = None,
             limit: int | None = None,
-            order_by: str | None = None,
-            **lookup_keys: list[lookup_keys_type] | lookup_keys_type | None,
+            order_by: str | UnaryExpression | None = None,
+            **lookup_keys: list[query_keys_type] | query_keys_type | None,
     ) -> Select:
         lookup_keys["status"] = True
         topic_name = lookup_keys.pop("topic_name", None)
@@ -1710,15 +1741,16 @@ class WikiPicture(Base, WikiTagged, CRUDMixin, WikiObject):
             _on_conflict_do: on_conflict_opt = None,
             **lookup_keys: lookup_keys_type,  # article_id, name
     ) -> None:
-        topic_name = lookup_keys.pop("topic_name")
-        article_name = lookup_keys.pop("article_name")
+        values = values or {}
+        topic_name: str = lookup_keys.pop("topic_name")  #ty: ignore[invalid-assignment]
+        article_name: str = lookup_keys.pop("article_name")  #ty: ignore[invalid-assignment]
         article = await WikiArticle.get(
             session, topic_name=topic_name, name=article_name)
         if article is None:
             raise WikiArticleNotFound
         lookup_keys["article_id"] = article.id
         # Get extension info
-        name: str = lookup_keys["name"]
+        name: str = lookup_keys["name"]  # ty: ignore[invalid-assignment]
         extension: str = values.pop("extension")
         if not extension.startswith("."):
             extension = f".{extension}"
@@ -1739,6 +1771,8 @@ class WikiPicture(Base, WikiTagged, CRUDMixin, WikiObject):
         # Save the picture content
         picture = await cls.get(
             session, topic_name=topic_name, article_name=article_name, name=name)
+        # Picture shouldn't be None as it was created just before
+        assert picture is not None
         await picture.set_image(content)
 
     @classmethod
@@ -1749,8 +1783,8 @@ class WikiPicture(Base, WikiTagged, CRUDMixin, WikiObject):
             values: dict | None = None,  # author_id, content, extension
             **lookup_keys: lookup_keys_type,  # article_id, name
     ) -> None:
-        topic_name = lookup_keys.pop("topic_name")
-        article_name = lookup_keys.pop("article_name")
+        topic_name: str = lookup_keys.pop("topic_name")  #ty: ignore[invalid-assignment]
+        article_name: str = lookup_keys.pop("article_name")  #ty: ignore[invalid-assignment]
         article = await WikiArticle.get(
             session, topic_name=topic_name, name=article_name)
         if article is None:
@@ -1764,16 +1798,16 @@ class WikiPicture(Base, WikiTagged, CRUDMixin, WikiObject):
             cls,
             session: AsyncSession,
             /,
-            values: dict | None = None,  # author_id, content
+            values: dict | UnaryExpression | None = None,  # author_id, content
             **lookup_keys: lookup_keys_type,  # article_id, name
     ) -> None:
-        topic_name = lookup_keys.pop("topic_name")
-        article_name = lookup_keys.pop("article_name")
+        topic_name: str = lookup_keys.pop("topic_name")  #ty: ignore[invalid-assignment]
+        article_name: str = lookup_keys.pop("article_name")  #ty: ignore[invalid-assignment]
         article = await WikiArticle.get(
             session, topic_name=topic_name, name=article_name)
         if article is None:
             raise WikiArticleNotFound
-        name: str = lookup_keys["name"]
+        name: str = lookup_keys["name"]  # ty: ignore[invalid-assignment]
         picture = await cls.get(session, article_id=article.id, name=name)
         if picture is None:
             raise WikiArticleNotFound

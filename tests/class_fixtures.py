@@ -204,9 +204,9 @@ class WikiAware:
                 session,
                 topic_name=a_data.wiki_topic_name,
                 name=a_data.wiki_article_name,
+                author_id= operator.id,
                 values={
                     "content": a_data.wiki_article_content,
-                    "author_id": operator.id,
                 },
             )
 

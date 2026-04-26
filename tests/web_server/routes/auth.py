@@ -286,4 +286,5 @@ class TestRegistrationToken(UsersAware):
 
         data = json.loads(response.text)
         payload = Tokenizer.loads(data)
+        x = 1
         assert payload["role"] == role

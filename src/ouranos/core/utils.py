@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 import json as _json
 import typing as t
-from typing import Any
+from typing import Any, Protocol
 import warnings
 
 import jwt
@@ -16,6 +15,10 @@ from slugify import slugify as _slugify
 from ouranos.core.exceptions import (
     ExpiredTokenError, InvalidTokenError, TokenError)
 from ouranos.core.database.models.utils import TimeWindow
+
+
+class Stringable(Protocol):
+    def __str__(self) -> str: ...
 
 
 def _serializer(self, o: Any) -> dict | str:
@@ -196,7 +199,7 @@ def check_secret_key(config: dict) -> str | None:
                 )
 
 
-def slugify(s: str) -> str:
+def slugify(s: Stringable) -> str:
     return _slugify(s, separator="_", lowercase=True)
 
 

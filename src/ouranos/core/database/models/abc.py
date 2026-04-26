@@ -17,7 +17,7 @@ from gaia_validators import missing
 
 from ouranos import db
 from ouranos.core.database.models.types import UtcDateTime
-from ouranos.core.database.models.utils import StmtModifier, TimeWindow
+from ouranos.core.database.models.utils import StmtModifier
 
 
 lookup_keys_type: TypeAlias = str | int | Enum | UUID | bool
@@ -244,7 +244,7 @@ class CRUDMixin:
             /,
             values: dict | None = None,
             _on_conflict_do: on_conflict_opt = None,
-            **lookup_keys: lookup_keys_type,
+            **lookup_keys,
     ) -> None:
         cls._check_lookup_keys(*lookup_keys.keys())
         values = values or {}
