@@ -54,6 +54,7 @@ db: AsyncSQLAlchemyWrapper = AsyncSQLAlchemyWrapper(
     model=CustomMeta,
     metadata=custom_metadata,
     engine_options={
+        "pool_recycle": 3600,
         "json_serializer": json.dumps,
         "json_deserializer": json.loads,
     },
