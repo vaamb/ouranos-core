@@ -40,6 +40,8 @@ measure_order = (
 
 
 def try_uuid(potential_uuid: Any) -> Any:
+    if isinstance(potential_uuid, UUID):
+        return potential_uuid
     try:
         return UUID(potential_uuid)
     except ValueError:
