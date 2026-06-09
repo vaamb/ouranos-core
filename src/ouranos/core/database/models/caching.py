@@ -373,17 +373,14 @@ class CachedCRUDMixin(CRUDMixin):
 
     @classmethod
     @cached_method(key_hasher=hash_get)
-    async def get(
+    async def get(  # ty: ignore[invalid-method-override]
             cls,
             session: AsyncSession,
             /,
-            offset: int | None = None,
-            limit: int | None = None,
-            order_by: str | UnaryExpression | None = None,
-            **lookup_keys: list[query_keys_type] | query_keys_type | None,
+            **lookup_keys_and_limits: list[query_keys_type] | query_keys_type | None,
     ) -> Self | None:
         """Fetch a record by its lookup keys, using the cache when available."""
-        return await super().get(session, offset, limit, order_by, **lookup_keys)
+        return await super().get(session, **lookup_keys_and_limits)
 
     @classmethod
     @clearing_cache_method(key_hasher=hash_write)

@@ -1798,7 +1798,7 @@ class WikiPicture(Base, WikiTagged, CRUDMixin, WikiObject):
             cls,
             session: AsyncSession,
             /,
-            values: dict | UnaryExpression | None = None,  # author_id, content
+            values: dict | None = None,  # author_id, content
             **lookup_keys: lookup_keys_type,  # article_id, name
     ) -> None:
         topic_name: str = lookup_keys.pop("topic_name")  #ty: ignore[invalid-assignment]

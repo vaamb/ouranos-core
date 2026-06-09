@@ -1142,8 +1142,9 @@ class Actuator(Hardware):
             order_by: str | UnaryExpression | None = None,
             **lookup_keys: list[query_keys_type] | query_keys_type | None,
     ) -> Select:
-        hardware_type: gv.HardwareType = lookup_keys["type"]  # ty: ignore[invalid-assignment]
-        assert not hardware_type & gv.HardwareType.sensor
+        hardware_type: gv.HardwareType | None = lookup_keys.get("type", None)  # ty: ignore[invalid-assignment]
+        if hardware_type:
+            assert not hardware_type & gv.HardwareType.sensor
         time_window: TimeWindow = lookup_keys.pop("time_window", None)  # ty: ignore[invalid-assignment]
         stmt = super()._generate_get_query(offset, limit, order_by, **lookup_keys)
         if time_window:
