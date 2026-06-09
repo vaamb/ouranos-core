@@ -938,14 +938,14 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
                     "hardware_uid": hardware_uid,
                     "group_id": group.id,
                 })
-        # Link the new measures
+        # Link the new groups
         if groups_to_add:
             stmt = (
                 insert(AssociationHardwareGroup)
                 .values(groups_to_add)
             )
             await session.execute(stmt)
-        # Unlink the measures not linked anymore
+        # Unlink the groups not linked anymore
         if groups_already_attached:
             stmt = (
                 delete(AssociationHardwareGroup)
