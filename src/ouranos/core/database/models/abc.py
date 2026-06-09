@@ -244,7 +244,7 @@ class CRUDMixin:
             /,
             values: dict | None = None,
             _on_conflict_do: on_conflict_opt = None,
-            **lookup_keys,
+            **lookup_keys: lookup_keys_type,
     ) -> None:
         cls._check_lookup_keys(*lookup_keys.keys())
         values = values or {}
