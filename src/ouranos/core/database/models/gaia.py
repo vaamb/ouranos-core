@@ -1543,15 +1543,15 @@ class SensorAlarm(Base):
         if ecosystem_uid is not None:
             if isinstance(ecosystem_uid, str):
                 ecosystem_uid = [ecosystem_uid, ]
-                stmt = stmt.where(cls.ecosystem_uid.in_(ecosystem_uid))
+            stmt = stmt.where(cls.ecosystem_uid.in_(ecosystem_uid))
         if sensor_uid is not None:
             if isinstance(sensor_uid, str):
                 sensor_uid = [sensor_uid, ]
-                stmt = stmt.where(cls.sensor_uid.in_(sensor_uid))
+            stmt = stmt.where(cls.sensor_uid.in_(sensor_uid))
         if measure is not None:
             if isinstance(measure, str):
                 measure = [measure, ]
-                stmt = stmt.where(cls.measure.in_(measure))
+            stmt = stmt.where(cls.measure.in_(measure))
         result = await session.execute(stmt)
         return result.scalars().all()
 
