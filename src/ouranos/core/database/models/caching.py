@@ -5,10 +5,11 @@ import inspect
 from typing import Any, Callable, Hashable, MutableMapping, Protocol, Self, Type, TypeVar
 
 from cachetools import keys
+from sqlalchemy import UnaryExpression
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos.core.database.models.abc import (
-    Base, CRUDMixin, lookup_keys_type, on_conflict_opt)
+    Base, CRUDMixin, lookup_keys_type, on_conflict_opt, query_keys_type)
 
 
 _KT = TypeVar("_KT")
@@ -376,10 +377,13 @@ class CachedCRUDMixin(CRUDMixin):
             cls,
             session: AsyncSession,
             /,
-            **lookup_keys: lookup_keys_type,
+            offset: int | None = None,
+            limit: int | None = None,
+            order_by: str | UnaryExpression | None = None,
+            **lookup_keys: list[query_keys_type] | query_keys_type | None,
     ) -> Self | None:
         """Fetch a record by its lookup keys, using the cache when available."""
-        return await super().get(session, **lookup_keys)
+        return await super().get(session, offset, limit, order_by, **lookup_keys)
 
     @classmethod
     @clearing_cache_method(key_hasher=hash_write)
