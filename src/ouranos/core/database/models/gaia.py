@@ -51,16 +51,6 @@ def try_uuid(potential_uuid: Any) -> Any:
 class InConfigMixin:
     in_config: Mapped[bool] = mapped_column(default=True)
 
-    @classmethod
-    @abstractmethod
-    async def get_multiple(
-            cls,
-            session: AsyncSession,
-            uid: str | list | None = None,
-            in_config: bool | None = None
-    ) -> Sequence[Self]:
-        raise NotImplementedError
-
 
 class _Return:
     def __init__(self, return_value):
