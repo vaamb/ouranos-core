@@ -254,7 +254,7 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
             ecosystems_id: list[RecentOrConnected | str] | None = None,
             in_config: bool | None = None,
     ) -> Sequence[Self]:
-        if ecosystems_id is None:
+        if not ecosystems_id:
             ecosystems_id = ["all"]
         if "recent" in ecosystems_id:
             try:
