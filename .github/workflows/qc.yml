@@ -24,3 +24,20 @@ jobs:
 
     - name: Lint with ruff
       run: uvx ruff check .
+
+  ty:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        enable-cache: true
+
+    - name: Install dependencies
+      run: uv sync --all-extras
+
+    - name: Type check with ty
+      run: uv run ty check src/ouranos/core/database
