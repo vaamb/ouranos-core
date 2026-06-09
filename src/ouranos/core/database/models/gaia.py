@@ -1071,11 +1071,10 @@ class Sensor(Hardware):
             session: AsyncSession,
             measure: str,
     ) -> dict | None:
-        measure_str = measure
         measure_obj: Measure | None = None
-        for measure in self.measures:
-            if measure.name == measure_str:
-                measure_obj = measure
+        for m in self.measures:
+            if m.name == measure:
+                measure_obj = m
                 break
         if measure_obj is None:
             return None
@@ -1092,11 +1091,10 @@ class Sensor(Hardware):
             measure: str,
             time_window: TimeWindow | None = None,
     ) -> dict | None:
-        measure_str = measure
         measure_obj: Measure | None = None
-        for measure in self.measures:
-            if measure.name == measure_str:
-                measure_obj = measure
+        for m in self.measures:
+            if m.name == measure:
+                measure_obj = m
                 break
         if measure_obj is None:
             return None
