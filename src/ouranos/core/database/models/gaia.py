@@ -1244,7 +1244,7 @@ class Plant(Base, CachedCRUDMixin, InConfigMixin):
         result = await session.execute(stmt)
         hardware_already_attached: set[str] = {row[0] for row in result.all()}
         # Accumulator for hardware to add
-        hardware_to_add: list[dict[str, str | int]] = []
+        hardware_to_add: list[dict[str, str]] = []
         for hardware_uid in hardware_uids:
             hardware: Hardware | None = await Hardware.get(session, uid=hardware_uid)
             if hardware is None:
@@ -1327,7 +1327,7 @@ class Plant(Base, CachedCRUDMixin, InConfigMixin):
             )
         )
         result = await session.execute(stmt)
-        return result.scalars().one_or_none()
+        return result.scalar_one_or_none()
 
     @classmethod
     async def get_multiple_by_id(
