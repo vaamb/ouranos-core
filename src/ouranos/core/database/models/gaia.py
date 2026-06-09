@@ -1231,6 +1231,12 @@ class Plant(Base, CachedCRUDMixin, InConfigMixin):
         "Hardware", back_populates="plants", secondary=AssociationHardwarePlant,
         lazy="selectin")
 
+    def __repr__(self) -> str:
+        return (
+            f"<Plant({self.uid}, name={self.name}, species={self.species}, "
+            f"ecosystem_uid={self.ecosystem_uid})>"
+        )
+
     @classmethod
     async def attach_hardware(
             cls,
