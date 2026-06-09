@@ -11,10 +11,13 @@ from ouranos.core.utils import humanize_list
 
 async def create_db_tables() -> None:
     create_db_dir = False
-    if "sqlite" in current_app.config["SQLALCHEMY_DATABASE_URI"]:
+    uri = current_app.config["SQLALCHEMY_DATABASE_URI"]
+    uri_str = uri if not isinstance(uri, Path) else uri.name
+    if "sqlite" in uri_str:
         create_db_dir = True
     for uri in current_app.config["SQLALCHEMY_BINDS"].values():
-        if "sqlite" in uri:
+        uri_str = uri if not isinstance(uri, Path) else uri.name
+        if "sqlite" in uri_str:
             create_db_dir = True
             break
     if create_db_dir:
