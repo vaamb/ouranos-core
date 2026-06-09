@@ -351,10 +351,8 @@ async def create_article(
             session,
             topic_name=topic.name,
             name=name,
-            values={
-                **wiki_article_dict,
-                "author_id": current_user.id,
-            },
+            author_id= current_user.id,
+            values=wiki_article_dict,
         )
         return "A new wiki article was successfully created."
     except Exception as e:
@@ -398,11 +396,11 @@ async def upload_article(
             session,
             topic_slug=topic.slug,
             name=name or file.filename.split(".")[0],
+            author_id=current_user.id,
             values={
                 "description": description,
                 "tags_name": tags,
                 "content": content.decode("utf-8"),
-                "author_id": current_user.id,
             },
         )
         return "A new wiki article was successfully uploaded."
@@ -446,10 +444,8 @@ async def update_article(
             session,
             topic_name=article.topic_name,
             name=article.name,
-            values={
-                **wiki_article_dict,
-                "author_id": current_user.id,
-            },
+            author_id=current_user.id,
+            values=wiki_article_dict,
         )
         return f"Wiki article '{article_slug}' was successfully updated."
     except Exception as e:
@@ -517,11 +513,11 @@ async def update_article_upload(
             session,
             topic_name=article.topic_name,
             name=article.name,
+            author_id=current_user.id,
             values={
                 "description": description,
                 "tags_name": tags,
                 "content": content.decode("utf-8"),
-                "author_id": current_user.id,
             },
         )
         return "A new wiki article was successfully uploaded."

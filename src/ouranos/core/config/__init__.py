@@ -5,7 +5,7 @@ import logging
 import os
 from pathlib import Path
 import sys
-from typing import Type, TypeAlias, TypeVar
+from typing import Any, Type, TypeAlias
 
 from ouranos import __version__ as version
 from ouranos.core.config import consts
@@ -14,15 +14,17 @@ from ouranos.core.logging import configure_logging
 from ouranos.core.utils import stripped_warning
 
 
-class ImmutableDict(dict):
-    def __setitem__(self, key, value):
+class ImmutableDict(dict[str, Any]):
+    def __setitem__(self, key: str, value: Any) -> None:
         raise AttributeError
 
     def __reduce__(self):
         return ImmutableDict, (dict(self),)
 
 
-ConfigDict = TypeVar("ConfigDict", bound=(BaseConfigDict | ImmutableDict))
+# Used to be `TypeVar("ConfigDict", BaseConfigDict, ImmutableDict)` but it doesn't work.
+# The info from `BaseConfigDict` is more important than the restrictions coming from `ImmutableDict`
+ConfigDict = BaseConfigDict
 profile_type: TypeAlias = ConfigDict | Type[BaseConfig] | str | None
 
 
@@ -47,7 +49,7 @@ class ConfigHelper:
         sys.path.insert(0, str(lookup_dir))
 
         try:
-            import config
+            import config  # ty: ignore[unresolved-import]
         except ImportError as e:
             stripped_warning(
                 f"Could not load config module. Error msg: `{e.__class__.__name__}: {e}`")
@@ -72,16 +74,15 @@ class ConfigHelper:
                         cfgs[name] = obj
             if profile is not None:
                 profile = profile.lower().replace("config", "").strip("_")
-            cfg: Type[BaseConfig] = cfgs.get(profile)
-            if cfg:
-                return cfg
-            else:
+            cfg: Type[BaseConfig] | None = cfgs.get(profile, None)
+            if cfg is None:
                 raise ValueError(
                     f"Could not find config profile {profile} in `config.py`"
                 )
+            return cfg
 
     @classmethod
-    def _config_dict_from_class(cls, config_cls: Type[BaseConfig]) -> dict:
+    def _config_dict_from_class(cls, config_cls: Type[BaseConfig]) -> dict[str, Any]:
         if not issubclass(config_cls, BaseConfig):
             raise ValueError("'obj' needs to be a subclass of `BaseConfig`")
         config_inst = config_cls()
@@ -97,7 +98,7 @@ class ConfigHelper:
         return config_dict
 
     @classmethod
-    def config_is_set(cls) -> None:
+    def config_is_set(cls) -> bool:
         return cls._config is not None
 
     @classmethod
@@ -130,13 +131,15 @@ class ConfigHelper:
             config_cls = cls._get_config_class(profile)
             config_dict = cls._config_dict_from_class(config_cls)
         elif isinstance(profile, ImmutableDict):
-            config_dict = {**profile}
+            config_dict: dict[str, Any] = {**profile}
         else:
             raise ValueError("Invalid config profile")
         config_override = config_override or {}
+        assert config_override is not None
         config_dict.update(config_override)
         config_dict.update(app_info)
-        cls._config = ImmutableDict(config_dict)
+        cls._config = ImmutableDict(config_dict)  #ty: ignore[invalid-assignment]
+        assert cls._config is not None
         return cls._config
 
     @classmethod
@@ -153,6 +156,7 @@ class ConfigHelper:
     def reset_config(cls) -> None:
         if not cls.config_is_set():
             raise ValueError("Cannot reset a non-set config.")
+        assert cls._config is not None
         if not cls._config.get("TESTING"):
             raise ValueError("Only testing config can be reset.")
         cls._config = None
@@ -172,7 +176,7 @@ class PathsHelper:
         except KeyError:
             try:
                 config = ConfigHelper.get_config()
-                path = Path(config[dir_name])
+                path = Path(config[dir_name])  # ty: ignore[invalid-key]
             except ValueError:
                 raise ValueError(f"Config.{dir_name} is not a valid directory.")
             else:

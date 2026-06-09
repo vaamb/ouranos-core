@@ -230,9 +230,9 @@ class TestWikiArticles(ServicesEnabled, UsersAware, WikiAware):
                 session,
                 topic_name=wiki_topic_name,
                 name=article_name,
+                author_id=operator.id,
                 values={
                     "content": "",
-                    "author_id": operator.id,
                 },
             )
 

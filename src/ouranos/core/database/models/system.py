@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Self, Sequence
+from typing import Optional, Sequence
 
 import sqlalchemy as sa
-from sqlalchemy import select, UniqueConstraint
+from sqlalchemy import select, Row, UniqueConstraint
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql.functions import func
@@ -16,9 +16,7 @@ from ouranos.core.database.models.types import UtcDateTime
 from ouranos.core.database.models.utils import TimeWindow
 
 
-timed_value = list[
-    tuple[datetime, float, Optional[float], float, float, float]
-]
+timed_value = Row[tuple[datetime, float, Optional[float], float, float, float]]
 
 
 # ---------------------------------------------------------------------------
@@ -38,7 +36,7 @@ class System(Base, CachedCRUDMixin):
     async def get_recent_timed_values(
             self,
             session: AsyncSession,
-    ) -> list[timed_value]:
+    ) -> Sequence[timed_value]:
         return await SystemDataCache.get_recent_timed_values(
             session, system_uid=self.uid)
 
@@ -46,7 +44,7 @@ class System(Base, CachedCRUDMixin):
             self,
             session: AsyncSession,
             time_window: TimeWindow,
-    ) -> list[timed_value]:
+    ) -> Sequence[timed_value]:
         return await SystemDataRecord.get_timed_values(
             session, time_window=time_window, system_uid=self.uid)
 
@@ -79,7 +77,7 @@ class SystemDataRecord(BaseSystemData, CRUDMixin):
             *,
             time_window: TimeWindow,
             system_uid: str | list | None = None,
-    ) -> list[timed_value]:
+    ) -> Sequence[timed_value]:
         stmt = (
             select(
                 cls.timestamp, cls.CPU_used, cls.CPU_temp, cls.RAM_process,
@@ -119,7 +117,7 @@ class SystemDataCache(BaseSystemData, CacheMixin):
             session: AsyncSession,
             /,
             system_uid: str | list | None = None
-    ) -> list[timed_value]:
+    ) -> Sequence[timed_value]:
         time_limit = datetime.now(timezone.utc) - timedelta(seconds=cls.get_ttl())
         stmt = (
             select(
