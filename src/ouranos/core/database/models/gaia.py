@@ -1309,7 +1309,7 @@ class Plant(Base, CachedCRUDMixin, InConfigMixin):
         hardware = values.pop("hardware", [])
         await super().update(session, uid=uid, values=values)
         if hardware:
-            await cls.attach_hardware(session, lookup_keys["uid"], hardware)  # ty: ignore[invalid-argument-type]
+            await cls.attach_hardware(session, uid, hardware)  # ty: ignore[invalid-argument-type]
             # Clear cache as hardware have been added
             hash_key = create_hashable_key(**lookup_keys)
             cls._cache.pop(hash_key, None)
