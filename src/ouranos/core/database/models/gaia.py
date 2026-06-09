@@ -145,8 +145,8 @@ class Engine(Base, CachedCRUDMixin):
             stmt = (
                 select(cls)
                 .where(
-                    datetime.now(timezone.utc) - cls.last_seen
-                    <= timedelta(seconds=ECOSYSTEM_TIMEOUT)
+                    cls.last_seen >=
+                    datetime.now(timezone.utc) - timedelta(seconds=ECOSYSTEM_TIMEOUT)
                 )
                 .order_by(cls.uid.asc())
             )
@@ -210,8 +210,8 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
     @property
     def connected(self) -> bool:
         return (
-            datetime.now(timezone.utc) - self.last_seen <=
-                timedelta(seconds=ECOSYSTEM_TIMEOUT)
+            self.last_seen >=
+            datetime.now(timezone.utc) - timedelta(seconds=ECOSYSTEM_TIMEOUT)
         )
 
     @property
@@ -292,10 +292,10 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
             return result.scalars().all()
         elif "connected" in ecosystems_id:
             stmt = (
-                select(cls).join(Engine.ecosystems)
+                select(cls)
                 .where(
-                    datetime.now(timezone.utc) - Engine.last_seen
-                    <= timedelta(seconds=ECOSYSTEM_TIMEOUT)
+                    cls.last_seen >=
+                    datetime.now(timezone.utc) - timedelta(seconds=ECOSYSTEM_TIMEOUT)
                 )
                 .order_by(cls.name.asc())
             )
