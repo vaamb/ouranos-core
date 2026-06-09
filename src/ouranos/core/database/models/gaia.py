@@ -82,7 +82,7 @@ class Engine(Base, CachedCRUDMixin):
     last_seen: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())  # , onupdate=func.current_timestamp())
 
     # relationships
-    ecosystems: Mapped[list["Ecosystem"]] = relationship(back_populates="engine", lazy="selectin")
+    ecosystems: Mapped[list[Ecosystem]] = relationship(back_populates="engine", lazy="selectin")
     places: Mapped[list[Place]] = relationship(back_populates="engine")
 
     def __repr__(self):
@@ -184,15 +184,15 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
     management: Mapped[int] = mapped_column(default=0)
 
     # relationships
-    engine: Mapped["Engine"] = relationship(back_populates="ecosystems", lazy="selectin")
-    lighting: Mapped["NycthemeralCycle"] = relationship(back_populates="ecosystem", uselist=False, lazy="selectin")
-    chaos: Mapped["Chaos"] = relationship(back_populates="ecosystem", uselist=False, lazy="selectin")
-    environment_parameters: Mapped[list["EnvironmentParameter"]] = relationship(back_populates="ecosystem")
+    engine: Mapped[Engine] = relationship(back_populates="ecosystems", lazy="selectin")
+    lighting: Mapped[NycthemeralCycle] = relationship(back_populates="ecosystem", uselist=False, lazy="selectin")
+    chaos: Mapped[Chaos] = relationship(back_populates="ecosystem", uselist=False, lazy="selectin")
+    environment_parameters: Mapped[list[EnvironmentParameter]] = relationship(back_populates="ecosystem")
     weathers: Mapped[list[WeatherEvent]] = relationship(back_populates="ecosystem")
     hardware: Mapped[list[Hardware]] = relationship(back_populates="ecosystem")
-    plants: Mapped[list["Plant"]] = relationship(back_populates="ecosystem")
-    sensor_records: Mapped[list["SensorDataRecord"]] = relationship(back_populates="ecosystem")
-    actuator_records: Mapped[list["ActuatorRecord"]] = relationship(back_populates="ecosystem")
+    plants: Mapped[list[Plant]] = relationship(back_populates="ecosystem")
+    sensor_records: Mapped[list[SensorDataRecord]] = relationship(back_populates="ecosystem")
+    actuator_records: Mapped[list[ActuatorRecord]] = relationship(back_populates="ecosystem")
 
     def __repr__(self):
         return (
@@ -605,7 +605,7 @@ class Place(Base, CRUDMixin):
 
     # relationships
     lightings: Mapped[list[NycthemeralCycle]] = relationship(back_populates="target")
-    engine: Mapped["Engine"] = relationship(back_populates="places")
+    engine: Mapped[Engine] = relationship(back_populates="places")
 
     def __repr__(self) -> str:
         return (
@@ -628,8 +628,8 @@ class NycthemeralCycle(Base, CRUDMixin):
     evening_end: Mapped[Optional[time]] = mapped_column()
 
     # relationships
-    ecosystem: Mapped["Ecosystem"] = relationship(back_populates="lighting")
-    target: Mapped[Optional["Place"]] = relationship(back_populates="lightings", uselist=False, lazy="selectin")
+    ecosystem: Mapped[Ecosystem] = relationship(back_populates="lighting")
+    target: Mapped[Optional[Place]] = relationship(back_populates="lightings", uselist=False, lazy="selectin")
 
     def __repr__(self) -> str:
         return (
@@ -649,7 +649,7 @@ class Chaos(Base, CRUDMixin):
     end: Mapped[Optional[datetime]] = mapped_column(UtcDateTime)
 
     # relationships
-    ecosystem: Mapped["Ecosystem"] = relationship(back_populates="chaos")
+    ecosystem: Mapped[Ecosystem] = relationship(back_populates="chaos")
 
     def __repr__(self) -> str:
         return (
@@ -1441,8 +1441,8 @@ class SensorDataRecord(BaseSensorDataRecord, ArchivableMixin):
     _archive_column = "timestamp"
 
     # relationships
-    ecosystem: Mapped["Ecosystem"] = relationship(back_populates="sensor_records")
-    sensor: Mapped["Hardware"] = relationship(back_populates="sensor_records")
+    ecosystem: Mapped[Ecosystem] = relationship(back_populates="sensor_records")
+    sensor: Mapped[Hardware] = relationship(back_populates="sensor_records")
 
     @classmethod
     def get_time_limit(cls) -> int:
@@ -1654,7 +1654,7 @@ class ActuatorRecord(BaseActuatorRecord, ArchivableMixin):
     _archive_column = "timestamp"
 
     # relationships
-    ecosystem: Mapped["Ecosystem"] = relationship(back_populates="actuator_records")
+    ecosystem: Mapped[Ecosystem] = relationship(back_populates="actuator_records")
 
     @classmethod
     def get_time_limit(cls) -> int:
@@ -1851,7 +1851,7 @@ class CameraPicture(Base, CRUDMixin):
     other_metadata: Mapped[Optional[dict]] = mapped_column(sa.JSON)
 
     # relationships
-    camera: Mapped["Hardware"] = relationship(lazy="selectin")
+    camera: Mapped[Hardware] = relationship(lazy="selectin")
 
     def __repr__(self) -> str:
         return (
