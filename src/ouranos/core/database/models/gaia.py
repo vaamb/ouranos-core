@@ -1729,6 +1729,7 @@ class GaiaWarning(Base):
             ecosystem_uid: str,
             values: dict,
     ) -> None:
+        values = {**values}  # Don't mutate original values
         values.pop("seen_on", None)
         values.pop("solved_on", None)
         stmt = (
