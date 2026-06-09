@@ -90,10 +90,8 @@ class Engine(Base, CachedCRUDMixin):
 
     @property
     def connected(self) -> bool:
-        return (
-            datetime.now(timezone.utc) - self.last_seen <=
-                timedelta(seconds=ECOSYSTEM_TIMEOUT)
-        )
+        time_limit = datetime.now(timezone.utc) - timedelta(seconds=ECOSYSTEM_TIMEOUT)
+        return self.last_seen >= time_limit
 
     @classmethod
     async def get_by_id(
@@ -207,10 +205,8 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
 
     @property
     def connected(self) -> bool:
-        return (
-            self.last_seen >=
-            datetime.now(timezone.utc) - timedelta(seconds=ECOSYSTEM_TIMEOUT)
-        )
+        time_limit = datetime.now(timezone.utc) - timedelta(seconds=ECOSYSTEM_TIMEOUT)
+        return self.last_seen >= time_limit
 
     @property
     def management_dict(self):
