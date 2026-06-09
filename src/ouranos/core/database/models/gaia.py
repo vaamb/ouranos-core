@@ -799,7 +799,7 @@ class WeatherEvent(Base, CRUDMixin):
 
     def __repr__(self) -> str:
         return (
-            f"<Weather({self.ecosystem_uid}, parameter={self.parameter}, "
+            f"<WeatherEvent({self.ecosystem_uid}, parameter={self.parameter}, "
             f"pattern={self.pattern}, linked_actuator={self.linked_actuator})>"
         )
 
