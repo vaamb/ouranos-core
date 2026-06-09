@@ -2,13 +2,12 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from datetime import datetime, time, timedelta, timezone
-from enum import Enum
-from typing import Literal, Optional, Sequence, Self
+from typing import Any, Literal, Optional, Sequence, Self
 from uuid import UUID
 
-from dispatcher import AsyncDispatcher
 import sqlalchemy as sa
-from sqlalchemy import delete, insert, select, UniqueConstraint, update
+from sqlalchemy import (
+    delete, insert, Select, select, Row, UniqueConstraint, update, UnaryExpression)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -16,12 +15,14 @@ from sqlalchemy.schema import Table
 from sqlalchemy.sql import func
 from sqlalchemy.sql.functions import max as sa_max
 
+from dispatcher import AsyncDispatcher
 import gaia_validators as gv
 
 from ouranos import current_app
 from ouranos.core.config.consts import ECOSYSTEM_TIMEOUT
 from ouranos.core.database.models.abc import (
-    ArchivableMixin, Base, CacheMixin, CRUDMixin, on_conflict_opt)
+    ArchivableMixin, Base, CacheMixin, CRUDMixin, on_conflict_opt, lookup_keys_type,
+    query_keys_type)
 from ouranos.core.database.models import caches
 from ouranos.core.database.models.caching import (
     CachedCRUDMixin, cached, create_hashable_key, hash_get, hash_model_instance)
@@ -38,7 +39,7 @@ measure_order = (
 )
 
 
-def try_uuid(potential_uuid: str) -> str | UUID:
+def try_uuid(potential_uuid: Any) -> Any:
     try:
         return UUID(potential_uuid)
     except ValueError:
@@ -143,7 +144,10 @@ class Engine(Base, CachedCRUDMixin):
         elif "connected" in engines_id:
             stmt = (
                 select(cls)
-                .where(cls.connected == True)  # noqa
+                .where(
+                    datetime.now(timezone.utc) - cls.last_seen
+                    <= timedelta(seconds=ECOSYSTEM_TIMEOUT)
+                )
                 .order_by(cls.uid.asc())
             )
             result = await session.execute(stmt)
@@ -289,7 +293,10 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
         elif "connected" in ecosystems_id:
             stmt = (
                 select(cls).join(Engine.ecosystems)
-                .where(Engine.connected == True)  # noqa
+                .where(
+                    datetime.now(timezone.utc) - Engine.last_seen
+                    <= timedelta(seconds=ECOSYSTEM_TIMEOUT)
+                )
                 .order_by(cls.name.asc())
             )
             if in_config is not None:
@@ -402,7 +409,7 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
             /,
             uid: str,
     ) -> bool:
-        time_limit=datetime.now(timezone.utc) - timedelta(hours=TIME_LIMITS.SENSORS)
+        time_limit = datetime.now(timezone.utc) - timedelta(hours=TIME_LIMITS.SENSORS)
         stmt = (
             select(CameraPicture)
             .where(
@@ -456,12 +463,13 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
             level: gv.HardwareLevel | list[gv.HardwareLevel] | None = None,
     ) -> dict:
         level = level or [i for i in gv.HardwareLevel]
+        # TODO: use StmtModifier
         sensors = await Sensor.get_multiple(
-            session, time_window=time_window, ecosystem_uid=self.uid, level=level)
-        sensors_by_measure: dict[str, list[dict[str, str]]] = {}
+            session, time_window=time_window, ecosystem_uid=self.uid, level=level)  # ty: ignore[invalid-argument-type]
+        sensors_by_measure: dict[str, list[dict[str, str | None]]] = {}
         for sensor in sensors:
             for measure in sensor.measures:
-                sensor_summary: dict[str, str] = {
+                sensor_summary: dict[str, str | None] = {
                     "uid": sensor.uid,
                     "name": sensor.name,
                     "unit": measure.unit,
@@ -531,7 +539,7 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
             session: AsyncSession,
             actuator_type: gv.HardwareType,
             time_window: TimeWindow,
-    ) -> list[tuple[datetime, bool, gv.ActuatorMode, bool, float | None]]:
+    ) -> Sequence[Row[tuple[datetime, bool, gv.ActuatorMode, bool, float | None]]]:
         return await ActuatorRecord.get_timed_values(
             session, ecosystem_uid=self.uid, actuator_type=actuator_type,
             time_window=time_window)
@@ -705,7 +713,7 @@ class EnvironmentParameter(Base, CRUDMixin):
             values: gv.ClimateConfigDict,
     ) -> gv.ClimateConfigDict:
         measure = await Measure.get_or_create(session, name=linked_measure)
-        values["linked_measure_id"] = measure.id
+        values["linked_measure_id"] = measure.id  # ty: ignore[invalid-key]
         return values
 
     @classmethod
@@ -713,40 +721,52 @@ class EnvironmentParameter(Base, CRUDMixin):
             cls,
             session: AsyncSession,
             /,
-            linked_actuators: dict[Literal["increase", "decrease"], str],
+            linked_actuators: gv.ActuatorCoupleDict,
             values: gv.ClimateConfigDict,
     ) -> gv.ClimateConfigDict:
-        actuator_increase = await HardwareGroup.get_or_create(session, name=linked_actuators["increase"])
-        actuator_decrease = await HardwareGroup.get_or_create(session, name=linked_actuators["decrease"])
-        values["linked_actuator_group_increase_id"] = actuator_increase.id
-        values["linked_actuator_group_decrease_id"] = actuator_decrease.id
+        # Search id for actuator increasing
+        increase_name: str | None = linked_actuators["increase"]
+        if increase_name is not None:
+            actuator_increase = await HardwareGroup.get_or_create(session, name=increase_name)
+            values["linked_actuator_group_increase_id"] = actuator_increase.id  # ty: ignore[invalid-key]
+        else:
+            values["linked_actuator_group_increase_id"] = None  # ty: ignore[invalid-key]
+        # Search id for actuator decreasing
+        decrease_name: str | None = linked_actuators["decrease"]
+        if decrease_name is not None:
+            actuator_decrease = await HardwareGroup.get_or_create(session, name=decrease_name)
+            values["linked_actuator_group_decrease_id"] = actuator_decrease.id  # ty: ignore[invalid-key]
+        else:
+            values["linked_actuator_group_decrease_id"] = None  # ty: ignore[invalid-key]
         return values
 
     @classmethod
-    async def create(
+    async def create(  # ty: ignore[invalid-method-override]
             cls,
             session: AsyncSession,
             /,
             values: gv.ClimateConfigDict | None = None,
             _on_conflict_do: on_conflict_opt = None,
-            **lookup_keys: str | Enum | UUID,
+            **lookup_keys: lookup_keys_type,
     ) -> None:
+        if values is None:
+            raise ValueError("values cannot be None")
         linked_measure: str | None = values.pop("linked_measure", None)
         if linked_measure is not None:
             values = await cls._link_measure(session, linked_measure, values)
-        linked_actuators: dict | None = values.pop("linked_actuators", None)
+        linked_actuators: gv.ActuatorCoupleDict | None = values.pop("linked_actuators", None)
         if linked_actuators is not None:
             values = await cls._link_actuator_group(session, linked_actuators, values)
         await super().create(
             session, values=values, _on_conflict_do=_on_conflict_do, **lookup_keys)
 
     @classmethod
-    async def update(
+    async def update(  # ty: ignore[invalid-method-override]
             cls,
             session: AsyncSession,
             /,
             values: gv.ClimateConfigDict,
-            **lookup_keys: str | Enum,
+            **lookup_keys: lookup_keys_type,
     ) -> None:
         # Extract ecosystem_uid and parameter
         ecosystem_uid = lookup_keys.pop("ecosystem_uid")
@@ -755,7 +775,7 @@ class EnvironmentParameter(Base, CRUDMixin):
         linked_measure: str | None = values.pop("linked_measure", None)
         if linked_measure is not None:
             values = await cls._link_measure(session, linked_measure, values)
-        linked_actuators: gv.ActuatorCouple | None = values.pop("linked_actuators", None)
+        linked_actuators: gv.ActuatorCoupleDict | None = values.pop("linked_actuators", None)
         if linked_actuators is not None:
             values = await cls._link_actuator_group(session, linked_actuators, values)
         await super().update(
@@ -853,7 +873,7 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
             cls,
             session: AsyncSession,
             hardware_uid: str,
-            measures: list[gv.Measure | gv.MeasureDict],
+            measures: list[gv.Measure] | list[gv.MeasureDict],
     ) -> None:
         # Get measures already attached to the hardware
         stmt = (
@@ -866,7 +886,7 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
         measures_to_add: list[dict[str, str | int]] = []
         for m in measures:
             if hasattr(m, "model_dump"):
-                m = m.model_dump()
+                m = m.model_dump()  # ty: ignore[call-non-callable]
             m: gv.MeasureDict
             measure = await Measure.get_or_create(
                 session, name=m["name"], values={"unit": m["unit"]})
@@ -945,24 +965,26 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
             await session.commit()
 
     @classmethod
-    async def create(
+    async def create(  # ty: ignore[invalid-method-override]
             cls,
             session: AsyncSession,
             /,
             values: gv.HardwareConfigDict | None = None,
             _on_conflict_do: on_conflict_opt = None,
-            **lookup_keys: str | Enum | UUID,
+            **lookup_keys: lookup_keys_type,
     ) -> None:
-        measures: list[gv.Measure | gv.MeasureDict] = values.pop("measures", [])
-        groups: set[str] = values.pop("groups", set())
+        if values is None:
+            raise ValueError("values cannot be None")
+        measures: list[gv.Measure] | list[gv.MeasureDict] | None = values.pop("measures", None)
+        groups: list[str] | None = values.pop("groups", None)
         values.pop("plants", [])
         await super().create(
             session, values=values, _on_conflict_do=_on_conflict_do, **lookup_keys)
         if measures:
-            await cls.attach_measures(session, lookup_keys["uid"], measures)
+            await cls.attach_measures(session, lookup_keys["uid"], measures)  # ty: ignore[invalid-argument-type]
         if groups:
-            await cls.attach_groups(session, lookup_keys["uid"], groups)
-        if any((*groups, *measures)):
+            await cls.attach_groups(session, lookup_keys["uid"], set(groups))  # ty: ignore[invalid-argument-type]
+        if measures or groups:
             # Clear cache as measures and/or plants have been added
             hash_key = create_hashable_key(**lookup_keys)
             cls._cache.pop(hash_key, None)
@@ -973,22 +995,22 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
             session: AsyncSession,
             /,
             values: dict,
-            **lookup_keys: str | Enum,
+            **lookup_keys: lookup_keys_type,
     ) -> None:
-        uid = lookup_keys.get("uid") or values.get("uid", None)
+        uid: str | None = lookup_keys.get("uid") or values.get("uid", None)  # ty: ignore[invalid-assignment]
         if uid is None:
             raise ValueError(
                 "Provide 'uid' either as a parameter or as a key in the "
                 "updated info")
-        measures = values.pop("measures", [])
-        groups: set[str] = values.pop("groups", set())
+        measures: list[gv.Measure | gv.MeasureDict] | None = values.pop("measures", None)
+        groups: list[str] | None = values.pop("groups", None)
         values.pop("plants", [])
         await super().update(session, uid=uid, values=values)
         if measures:
             await cls.attach_measures(session, uid, measures)
         if groups:
-            await cls.attach_groups(session, uid, groups)
-        if any((*groups, *measures)):
+            await cls.attach_groups(session, uid, set(groups))
+        if measures or groups:
             # Clear cache as measures and/or plants have been added
             hash_key = create_hashable_key(**lookup_keys)
             cls._cache.pop(hash_key, None)
@@ -1008,11 +1030,21 @@ class Sensor(Hardware):
     Sensors creation, update and deletion are handled by the class `Hardware`
     """
 
-    @staticmethod
-    def _add_time_window_to_stmt(stmt, time_window: TimeWindow):
-        stmt = stmt.join(SensorDataRecord.sensor)
-        stmt = time_window.modify_stmt(stmt, SensorDataRecord.timestamp)
-        stmt = stmt.distinct()
+    @classmethod
+    def _generate_get_query(
+            cls,
+            offset: int | None = None,
+            limit: int | None = None,
+            order_by: str | UnaryExpression | None = None,
+            **lookup_keys: list[query_keys_type] | query_keys_type | None,
+    ) -> Select:
+        lookup_keys["type"] = [gv.HardwareType.sensor, gv.HardwareType.camera]
+        time_window: TimeWindow = lookup_keys.pop("time_window", None)  # ty: ignore[invalid-assignment]
+        stmt = super()._generate_get_query(offset, limit, order_by, **lookup_keys)
+        if time_window:
+            stmt = stmt.join(SensorDataRecord.sensor)
+            stmt = time_window.modify_stmt(stmt, SensorDataRecord.timestamp)
+            stmt = stmt.distinct()
         return stmt
 
     @classmethod
@@ -1020,13 +1052,12 @@ class Sensor(Hardware):
             cls,
             session: AsyncSession,
             /,
-            time_window: TimeWindow | None = None,
-            **lookup_keys: str | Enum | list[str] | list[Enum],
+            offset: int | None = None,
+            limit: int | None = None,
+            order_by: str | UnaryExpression | None = None,
+            **lookup_keys: list[query_keys_type] | query_keys_type | None,
     ) -> Self | None:
-        lookup_keys["type"] = [gv.HardwareType.sensor, gv.HardwareType.camera]
-        stmt = cls._generate_get_query(**lookup_keys)
-        if time_window:
-            stmt = cls._add_time_window_to_stmt(stmt, time_window)
+        stmt = cls._generate_get_query(offset, limit, order_by, **lookup_keys)
         result = await session.execute(stmt)
         return result.unique().scalar_one_or_none()
 
@@ -1035,13 +1066,12 @@ class Sensor(Hardware):
             cls,
             session: AsyncSession,
             /,
-            time_window: TimeWindow | None = None,
-            **lookup_keys: str | Enum | list[str] | list[Enum],
+            offset: int | None = None,
+            limit: int | None = None,
+            order_by: str | UnaryExpression | None = None,
+            **lookup_keys: list[query_keys_type] | query_keys_type | None,
     ) -> Sequence[Self]:
-        lookup_keys["type"] = [gv.HardwareType.sensor, gv.HardwareType.camera]
-        stmt = cls._generate_get_query(**lookup_keys)
-        if time_window:
-            stmt = cls._add_time_window_to_stmt(stmt, time_window)
+        stmt = cls._generate_get_query(offset, limit, order_by, **lookup_keys)
         result = await session.execute(stmt)
         return result.unique().scalars().all()
 
@@ -1104,12 +1134,23 @@ class Actuator(Hardware):
     Actuators creation, update and deletion are handled by the class `Hardware`
     """
 
-    @staticmethod
-    def _add_time_window_to_stmt(stmt, time_window: TimeWindow):
-        # TODO: fix as ActuatorRecord doesn't have any actuator
-        stmt = stmt.join(ActuatorRecord.actuator)
-        stmt = time_window.modify_stmt(stmt, ActuatorRecord.timestamp)
-        stmt = stmt.distinct()
+    @classmethod
+    def _generate_get_query(
+            cls,
+            offset: int | None = None,
+            limit: int | None = None,
+            order_by: str | UnaryExpression | None = None,
+            **lookup_keys: list[query_keys_type] | query_keys_type | None,
+    ) -> Select:
+        hardware_type: gv.HardwareType = lookup_keys["type"]  # ty: ignore[invalid-assignment]
+        assert not hardware_type & gv.HardwareType.sensor
+        time_window: TimeWindow = lookup_keys.pop("time_window", None)  # ty: ignore[invalid-assignment]
+        stmt = super()._generate_get_query(offset, limit, order_by, **lookup_keys)
+        if time_window:
+            # TODO: fix as ActuatorRecord doesn't have any actuator
+            stmt = stmt.join(ActuatorRecord.actuator)
+            stmt = time_window.modify_stmt(stmt, ActuatorRecord.timestamp)
+            stmt = stmt.distinct()
         return stmt
 
     @classmethod
@@ -1117,15 +1158,12 @@ class Actuator(Hardware):
             cls,
             session: AsyncSession,
             /,
-            time_window: TimeWindow | None = None,
-            **lookup_keys,
+            offset: int | None = None,
+            limit: int | None = None,
+            order_by: str | UnaryExpression | None = None,
+            **lookup_keys: list[query_keys_type] | query_keys_type | None,
     ) -> Self | None:
-        type_: Enum | None = lookup_keys.get("type", None)
-        if type_ is not None:
-            assert not type_ & gv.HardwareType.sensor
-        stmt = cls._generate_get_query(**lookup_keys)
-        if time_window:
-            stmt = cls._add_time_window_to_stmt(stmt, time_window)
+        stmt = cls._generate_get_query(offset, limit, order_by, **lookup_keys)
         result = await session.execute(stmt)
         return result.unique().scalar_one_or_none()
 
@@ -1134,18 +1172,12 @@ class Actuator(Hardware):
             cls,
             session: AsyncSession,
             /,
-            time_window: TimeWindow | None = None,
-            **lookup_keys,
+            offset: int | None = None,
+            limit: int | None = None,
+            order_by: str | UnaryExpression | None = None,
+            **lookup_keys: list[query_keys_type] | query_keys_type | None,
     ) -> Sequence[Self]:
-        type_: Enum | list[Enum] | None = lookup_keys.get("type", None)
-        if type_ is not None:
-            if not isinstance(type_, list):
-                type_ = [type_]
-            for t in type_:
-                assert t & gv.HardwareType.actuator
-        stmt = cls._generate_get_query(**lookup_keys)
-        if time_window:
-            stmt = cls._add_time_window_to_stmt(stmt, time_window)
+        stmt = cls._generate_get_query(offset, limit, order_by, **lookup_keys)
         result = await session.execute(stmt)
         return result.unique().scalars().all()
 
@@ -1258,13 +1290,15 @@ class Plant(Base, CachedCRUDMixin, InConfigMixin):
             cls,
             session: AsyncSession,
             /,
-            values: gv.PlantConfigDict | None = None,
-            **lookup_keys: str | Enum | UUID,
+            values: dict | None = None,
+            _on_conflict_do: on_conflict_opt = None,
+            **lookup_keys: lookup_keys_type,
     ) -> None:
+        values = values or {}
         hardware = values.pop("hardware", [])
-        await super().create(session, values=values, **lookup_keys)
+        await super().create(session, values=values, _on_conflict_do=_on_conflict_do, **lookup_keys)
         if hardware:
-            await cls.attach_hardware(session, lookup_keys["uid"], hardware)
+            await cls.attach_hardware(session, lookup_keys["uid"], hardware)  # ty: ignore[invalid-argument-type]
             # Clear cache as hardware have been added
             hash_key = create_hashable_key(**lookup_keys)
             cls._cache.pop(hash_key, None)
@@ -1275,7 +1309,7 @@ class Plant(Base, CachedCRUDMixin, InConfigMixin):
             session: AsyncSession,
             /,
             values: dict,
-            **lookup_keys: str | Enum,
+            **lookup_keys: lookup_keys_type,
     ) -> None:
         uid = lookup_keys.get("uid") or values.get("uid", None)
         if uid is None:
@@ -1285,7 +1319,7 @@ class Plant(Base, CachedCRUDMixin, InConfigMixin):
         hardware = values.pop("hardware", [])
         await super().update(session, uid=uid, values=values)
         if hardware:
-            await cls.attach_hardware(session, lookup_keys["uid"], hardware)
+            await cls.attach_hardware(session, lookup_keys["uid"], hardware)  # ty: ignore[invalid-argument-type]
             # Clear cache as hardware have been added
             hash_key = create_hashable_key(**lookup_keys)
             cls._cache.pop(hash_key, None)
@@ -1381,7 +1415,7 @@ class SensorDataCache(BaseSensorData, CacheMixin):
             session: AsyncSession,
             sensor_uid: str,
             measure: str,
-    ) -> list[tuple[datetime, float]]:
+    ) -> Sequence[Row[tuple[datetime, float]]]:
         await cls.remove_expired(session)
         sub_stmt = (
             select(cls.id, sa_max(cls.timestamp))
@@ -1432,7 +1466,7 @@ class SensorDataRecord(BaseSensorDataRecord, ArchivableMixin):
             sensor_uid: str,
             measure_name: str,
             time_window: TimeWindow
-    ) -> list[tuple[datetime, float]]:
+    ) -> Sequence[Row[tuple[datetime, float]]]:
         stmt = (
             select(cls.timestamp, cls.value)
             .where(cls.measure == measure_name)
@@ -1488,13 +1522,13 @@ class SensorAlarm(Base):
             measure: str,
             time_limit: timedelta,
     ) -> Self | None:
-        time_limit = datetime.now(timezone.utc) - time_limit
+        datetime_limit = datetime.now(timezone.utc) - time_limit
         stmt = (
             select(cls)
             .where(
                 (cls.sensor_uid == sensor_uid)
                 & (cls.measure == measure)
-                & (cls.timestamp_to > time_limit)
+                & (cls.timestamp_to > datetime_limit)
             )
             .order_by(cls.timestamp_to.desc())
         )
@@ -1510,10 +1544,10 @@ class SensorAlarm(Base):
             measure: str | list[str] | None = None,
             time_limit: timedelta = timedelta(days=7),
     ) -> Sequence[Self]:
-        time_limit = datetime.now(timezone.utc) - time_limit
+        datetime_limit = datetime.now(timezone.utc) - time_limit
         stmt = (
             select(cls)
-            .where(cls.timestamp_to > time_limit)
+            .where(cls.timestamp_to > datetime_limit)
             .order_by(cls.timestamp_to.asc())
         )
         if ecosystem_uid is not None:
@@ -1608,7 +1642,7 @@ class BaseActuatorRecord(Base, CRUDMixin):
             ecosystem_uid: str,
             actuator_type: gv.HardwareType,
             time_window: TimeWindow,
-    ) -> list[tuple[datetime, bool, gv.ActuatorMode, bool, float | None]]:
+    ) -> Sequence[Row[tuple[datetime, bool, gv.ActuatorMode, bool, float | None]]]:
         stmt = (
             select(cls.timestamp, cls.active, cls.mode, cls.status, cls.level)
             .where(cls.ecosystem_uid == ecosystem_uid)
