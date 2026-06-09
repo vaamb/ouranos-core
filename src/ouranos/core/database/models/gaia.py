@@ -116,7 +116,7 @@ class Engine(Base, CachedCRUDMixin):
             cls,
             session: AsyncSession,
             /,
-            engines_id: list[RecentOrConnected | str | UUID] | None = None,
+            engines_id: RecentOrConnected | list[str | UUID] | None = None,
     ) -> Sequence[Self]:
         if not engines_id:
             engines_id = ["all"]
@@ -253,7 +253,7 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
             cls,
             session: AsyncSession,
             /,
-            ecosystems_id: list[RecentOrConnected | str] | None = None,
+            ecosystems_id: RecentOrConnected | list[str] | None = None,
             in_config: bool | None = None,
     ) -> Sequence[Self]:
         if not ecosystems_id:
