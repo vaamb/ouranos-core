@@ -1137,10 +1137,11 @@ class Actuator(Hardware):
         time_window: TimeWindow = lookup_keys.pop("time_window", None)  # ty: ignore[invalid-assignment]
         stmt = super()._generate_get_query(offset, limit, order_by, **lookup_keys)
         if time_window:
+            pass
             # TODO: fix as ActuatorRecord doesn't have any actuator
-            stmt = stmt.join(ActuatorRecord.actuator)
-            stmt = time_window.modify_stmt(stmt, ActuatorRecord.timestamp)
-            stmt = stmt.distinct()
+            #stmt = stmt.join(ActuatorRecord.actuator)
+            #stmt = time_window.modify_stmt(stmt, ActuatorRecord.timestamp)
+            #stmt = stmt.distinct()
         return stmt
 
     @classmethod
