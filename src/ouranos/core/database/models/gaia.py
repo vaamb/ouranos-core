@@ -990,7 +990,7 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
             values: dict,
             **lookup_keys: lookup_keys_type,
     ) -> None:
-        uid: str | None = lookup_keys.get("uid") or values.get("uid", None)  # ty: ignore[invalid-assignment]
+        uid: str | None = lookup_keys.pop("uid", None) or values.pop("uid", None)  # ty: ignore[invalid-assignment]
         if uid is None:
             raise ValueError(
                 "Provide 'uid' either as a parameter or as a key in the "
@@ -1005,7 +1005,7 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
             await cls.attach_groups(session, uid, set(groups))
         if measures or groups:
             # Clear cache as measures and/or plants have been added
-            hash_key = create_hashable_key(**lookup_keys)
+            hash_key = create_hashable_key(uid=uid, **lookup_keys)
             cls._cache.pop(hash_key, None)
 
     @staticmethod
@@ -1309,7 +1309,7 @@ class Plant(Base, CachedCRUDMixin, InConfigMixin):
             values: dict,
             **lookup_keys: lookup_keys_type,
     ) -> None:
-        uid = lookup_keys.get("uid") or values.get("uid", None)
+        uid: str | None = lookup_keys.pop("uid", None) or values.pop("uid", None)  # ty: ignore[invalid-assignment]
         if uid is None:
             raise ValueError(
                 "Provide 'uid' either as a parameter or as a key in the "
@@ -1319,7 +1319,7 @@ class Plant(Base, CachedCRUDMixin, InConfigMixin):
         if hardware:
             await cls.attach_hardware(session, uid, hardware)  # ty: ignore[invalid-argument-type]
             # Clear cache as hardware have been added
-            hash_key = create_hashable_key(**lookup_keys)
+            hash_key = create_hashable_key(uid=uid, **lookup_keys)
             cls._cache.pop(hash_key, None)
 
     @classmethod
