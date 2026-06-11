@@ -166,8 +166,8 @@ class Functionality(ABC):
             self.logger.error(f"Error while shutting down [{pid}]. {self._fmt_exc(e)}")
         finally:
             await self._clear_common()
+            self._status = False
 
-        self._status = False
         self.logger.info(f"Ouranos' {self.__class__.__name__} stopped [{pid}]")
 
     def run(self, reraise: bool = False) -> None:
