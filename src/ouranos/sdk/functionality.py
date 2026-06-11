@@ -184,6 +184,7 @@ class Functionality(ABC):
                     or self.config["DEVELOPMENT"] or self.config["DEBUG"] or self.config["TESTING"]
             ):
                 raise
+            raise SystemExit(1)
 
     async def _run(self) -> None:
         pid = os.getpid()
