@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import functools
 import inspect
-from typing import Any, Callable, Hashable, MutableMapping, Protocol, Self, Type, TypeVar
+from typing import (
+    Any, Callable, Hashable, MutableMapping, NamedTuple, Protocol, Self, Type,
+    TypeVar)
 
 from cachetools import keys
 from sqlalchemy import UnaryExpression
@@ -366,13 +368,39 @@ class CachedCRUDMixin(CRUDMixin):
             values: dict | None = None,
             _on_conflict_do: on_conflict_opt = None,
             **lookup_keys: lookup_keys_type,
-    ) -> Self | None:
+    ) -> None:
         """Create a new record and invalidate the corresponding cache entry."""
         return await super().create(
             session, values=values, _on_conflict_do=_on_conflict_do, **lookup_keys)
 
     @classmethod
+    async def create_multiple(
+            cls,
+            session: AsyncSession,
+            /,
+            values: list[dict] | list[NamedTuple],
+            _on_conflict_do: on_conflict_opt = None,
+    ) -> None:
+        rv = await super().create_multiple(
+            session, values=values, _on_conflict_do=_on_conflict_do)
+        lookup_keys = cls._get_lookup_keys()
+        for value in values:
+            if not isinstance(value, dict):
+                value = value._asdict()
+            cls.clear_cache(**{key: value[key] for key in lookup_keys})
+        return rv
+
+    @classmethod
     @cached_method(key_hasher=hash_get)
+    async def _cached_get(
+            cls,
+            session: AsyncSession,
+            /,
+            **lookup_keys: list[query_keys_type] | query_keys_type | None,
+    ) -> Self | None:
+        return await super().get(session, **lookup_keys)  # ty: ignore[invalid-argument-type]
+
+    @classmethod
     async def get(
             cls,
             session: AsyncSession,
@@ -382,8 +410,13 @@ class CachedCRUDMixin(CRUDMixin):
             order_by: str | UnaryExpression | None = None,
             **lookup_keys: list[query_keys_type] | query_keys_type | None,
     ) -> Self | None:
-        """Fetch a record by its lookup keys, using the cache when available."""
-        return await super().get(session, offset, limit, order_by, **lookup_keys)
+        """Fetch a record by its lookup keys, using the cache when available.
+
+        Calls with `offset`, `limit` or `order_by` bypass the cache: their
+        results cannot be invalidated by lookup-keys-based write operations."""
+        if offset or limit or order_by:
+            return await super().get(session, offset, limit, order_by, **lookup_keys)  # ty: ignore[invalid-argument-type]
+        return await cls._cached_get(session, **lookup_keys)
 
     @classmethod
     @clearing_cache_method(key_hasher=hash_write)
@@ -396,6 +429,19 @@ class CachedCRUDMixin(CRUDMixin):
     ) -> None:
         """Update a record and invalidate the corresponding cache entry."""
         return await super().update(session, values=values, **lookup_keys)
+
+    @classmethod
+    async def update_multiple(
+            cls,
+            session: AsyncSession,
+            /,
+            values: list[dict],
+    ) -> None:
+        rv = await super().update_multiple(session, values=values)
+        lookup_keys = cls._get_lookup_keys()
+        for value in values:
+            cls.clear_cache(**{key: value[key] for key in lookup_keys})
+        return rv
 
     @classmethod
     @clearing_cache_method(key_hasher=hash_delete)
