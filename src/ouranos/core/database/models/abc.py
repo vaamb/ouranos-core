@@ -106,11 +106,19 @@ class CRUDMixin:
         # Try to get a unique constraint from the table args
         table_args = getattr(cls, "__table_args__", None)
         if table_args is not None:
+            rv: list[str] | None = None
             if isinstance(table_args, tuple):
                 for arg in table_args:
                     if isinstance(arg, UniqueConstraint):
-                        # There can only be one `UniqueConstraint` so we can return it
-                        return [column.name for column in arg.columns]
+                        if rv is not None:
+                            # There should only be one `UniqueConstraint`
+                            raise ValueError(
+                                "`_get_unique_columns()` currently only works with "
+                                "a single `UniqueConstraint`"
+                            )
+                        rv = [column.name for column in arg.columns]
+            if rv is not None:
+                return rv
 
         # If we did not find a unique constraint, try to get it from the columns
         # "unique" args
