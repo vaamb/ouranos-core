@@ -398,7 +398,7 @@ class CachedCRUDMixin(CRUDMixin):
             /,
             **lookup_keys: list[query_keys_type] | query_keys_type | None,
     ) -> Self | None:
-        return await super().get(session, **lookup_keys)
+        return await super().get(session, **lookup_keys)  # ty: ignore[invalid-argument-type]
 
     @classmethod
     async def get(
@@ -415,7 +415,7 @@ class CachedCRUDMixin(CRUDMixin):
         Calls with `offset`, `limit` or `order_by` bypass the cache: their
         results cannot be invalidated by lookup-keys-based write operations."""
         if offset or limit or order_by:
-            return await super().get(session, offset, limit, order_by, **lookup_keys)
+            return await super().get(session, offset, limit, order_by, **lookup_keys)  # ty: ignore[invalid-argument-type]
         return await cls._cached_get(session, **lookup_keys)
 
     @classmethod
