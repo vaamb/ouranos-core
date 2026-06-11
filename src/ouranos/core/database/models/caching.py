@@ -368,7 +368,7 @@ class CachedCRUDMixin(CRUDMixin):
             values: dict | None = None,
             _on_conflict_do: on_conflict_opt = None,
             **lookup_keys: lookup_keys_type,
-    ) -> Self | None:
+    ) -> None:
         """Create a new record and invalidate the corresponding cache entry."""
         return await super().create(
             session, values=values, _on_conflict_do=_on_conflict_do, **lookup_keys)
