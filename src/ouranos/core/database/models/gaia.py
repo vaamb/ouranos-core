@@ -40,6 +40,8 @@ measure_order = (
 
 
 def try_uuid(potential_uuid: Any) -> Any:
+    if isinstance(potential_uuid, UUID):
+        return potential_uuid
     try:
         return UUID(potential_uuid)
     except ValueError:
@@ -48,16 +50,6 @@ def try_uuid(potential_uuid: Any) -> Any:
 
 class InConfigMixin:
     in_config: Mapped[bool] = mapped_column(default=True)
-
-    @classmethod
-    @abstractmethod
-    async def get_multiple(
-            cls,
-            session: AsyncSession,
-            uid: str | list | None = None,
-            in_config: bool | None = None
-    ) -> Sequence[Self]:
-        raise NotImplementedError
 
 
 class _Return:
@@ -82,7 +74,7 @@ class Engine(Base, CachedCRUDMixin):
     last_seen: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())  # , onupdate=func.current_timestamp())
 
     # relationships
-    ecosystems: Mapped[list["Ecosystem"]] = relationship(back_populates="engine", lazy="selectin")
+    ecosystems: Mapped[list[Ecosystem]] = relationship(back_populates="engine", lazy="selectin")
     places: Mapped[list[Place]] = relationship(back_populates="engine")
 
     def __repr__(self):
@@ -90,10 +82,8 @@ class Engine(Base, CachedCRUDMixin):
 
     @property
     def connected(self) -> bool:
-        return (
-            datetime.now(timezone.utc) - self.last_seen <=
-                timedelta(seconds=ECOSYSTEM_TIMEOUT)
-        )
+        time_limit = datetime.now(timezone.utc) - timedelta(seconds=ECOSYSTEM_TIMEOUT)
+        return self.last_seen >= time_limit
 
     @classmethod
     async def get_by_id(
@@ -116,9 +106,9 @@ class Engine(Base, CachedCRUDMixin):
             cls,
             session: AsyncSession,
             /,
-            engines_id: list[RecentOrConnected | str | UUID] | None = None,
+            engines_id: RecentOrConnected | list[str | UUID] | None = None,
     ) -> Sequence[Self]:
-        if engines_id is None:
+        if not engines_id:
             engines_id = ["all"]
         if "recent" in engines_id:
             try:
@@ -142,12 +132,10 @@ class Engine(Base, CachedCRUDMixin):
             result = await session.execute(stmt)
             return result.scalars().all()
         elif "connected" in engines_id:
+            time_limit = datetime.now(timezone.utc) - timedelta(seconds=ECOSYSTEM_TIMEOUT)
             stmt = (
                 select(cls)
-                .where(
-                    cls.last_seen >=
-                    datetime.now(timezone.utc) - timedelta(seconds=ECOSYSTEM_TIMEOUT)
-                )
+                .where(cls.last_seen >= time_limit)
                 .order_by(cls.uid.asc())
             )
             result = await session.execute(stmt)
@@ -156,7 +144,7 @@ class Engine(Base, CachedCRUDMixin):
         #  to issues on some backend
         engines_id = [try_uuid(engine_id) for engine_id in engines_id]
         lst_type = type(engines_id[0])
-        if len(engines_id) > 0:
+        if len(engines_id) > 1:
             if not all(isinstance(id_, lst_type) for id_ in engines_id[1:]):
                 raise ValueError(
                     "All the elements should either be engines 'uid' or 'sid'")
@@ -188,15 +176,15 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
     management: Mapped[int] = mapped_column(default=0)
 
     # relationships
-    engine: Mapped["Engine"] = relationship(back_populates="ecosystems", lazy="selectin")
-    lighting: Mapped["NycthemeralCycle"] = relationship(back_populates="ecosystem", uselist=False, lazy="selectin")
-    chaos: Mapped["Chaos"] = relationship(back_populates="ecosystem", uselist=False, lazy="selectin")
-    environment_parameters: Mapped[list["EnvironmentParameter"]] = relationship(back_populates="ecosystem")
+    engine: Mapped[Engine] = relationship(back_populates="ecosystems", lazy="selectin")
+    lighting: Mapped[NycthemeralCycle] = relationship(back_populates="ecosystem", uselist=False, lazy="selectin")
+    chaos: Mapped[Chaos] = relationship(back_populates="ecosystem", uselist=False, lazy="selectin")
+    environment_parameters: Mapped[list[EnvironmentParameter]] = relationship(back_populates="ecosystem")
     weathers: Mapped[list[WeatherEvent]] = relationship(back_populates="ecosystem")
     hardware: Mapped[list[Hardware]] = relationship(back_populates="ecosystem")
-    plants: Mapped[list["Plant"]] = relationship(back_populates="ecosystem")
-    sensor_records: Mapped[list["SensorDataRecord"]] = relationship(back_populates="ecosystem")
-    actuator_records: Mapped[list["ActuatorRecord"]] = relationship(back_populates="ecosystem")
+    plants: Mapped[list[Plant]] = relationship(back_populates="ecosystem")
+    sensor_records: Mapped[list[SensorDataRecord]] = relationship(back_populates="ecosystem")
+    actuator_records: Mapped[list[ActuatorRecord]] = relationship(back_populates="ecosystem")
 
     def __repr__(self):
         return (
@@ -209,10 +197,8 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
 
     @property
     def connected(self) -> bool:
-        return (
-            self.last_seen >=
-            datetime.now(timezone.utc) - timedelta(seconds=ECOSYSTEM_TIMEOUT)
-        )
+        time_limit = datetime.now(timezone.utc) - timedelta(seconds=ECOSYSTEM_TIMEOUT)
+        return self.last_seen >= time_limit
 
     @property
     def management_dict(self):
@@ -257,10 +243,10 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
             cls,
             session: AsyncSession,
             /,
-            ecosystems_id: list[RecentOrConnected | str] | None = None,
+            ecosystems_id: RecentOrConnected | list[str] | None = None,
             in_config: bool | None = None,
     ) -> Sequence[Self]:
-        if ecosystems_id is None:
+        if not ecosystems_id:
             ecosystems_id = ["all"]
         if "recent" in ecosystems_id:
             try:
@@ -269,11 +255,12 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
                 time_limit = datetime.now(timezone.utc) - timedelta(hours=TIME_LIMITS.RECENT)
                 stmt = (
                     select(cls)
-                    .where(cls.last_seen >= time_limit)
+                    .where(
+                        (cls.last_seen >= time_limit)
+                        & (cls.in_config == True)
+                    )
                     .order_by(cls.status.desc(), cls.name.asc())
                 )
-                if in_config is not None:
-                    stmt = stmt.where(cls.in_config == in_config)
                 result = await session.execute(stmt)
                 ecosystems = result.scalars().all()
                 caches.cache_ecosystems_recent["recent"] = ecosystems
@@ -291,12 +278,10 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
             result = await session.execute(stmt)
             return result.scalars().all()
         elif "connected" in ecosystems_id:
+            time_limit = datetime.now(timezone.utc) - timedelta(seconds=ECOSYSTEM_TIMEOUT)
             stmt = (
                 select(cls)
-                .where(
-                    cls.last_seen >=
-                    datetime.now(timezone.utc) - timedelta(seconds=ECOSYSTEM_TIMEOUT)
-                )
+                .where(cls.last_seen >= time_limit)
                 .order_by(cls.name.asc())
             )
             if in_config is not None:
@@ -605,14 +590,14 @@ class Place(Base, CRUDMixin):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)  # Use this as PK as it eases linking with Lighting
-    engine_uid: Mapped[UUID] = mapped_column(sa.ForeignKey("engines.uid"))
+    engine_uid: Mapped[str] = mapped_column(sa.ForeignKey("engines.uid"))
     name: Mapped[str] = mapped_column(sa.String(length=32))
     longitude: Mapped[float] = mapped_column()
     latitude: Mapped[float] = mapped_column()
 
     # relationships
     lightings: Mapped[list[NycthemeralCycle]] = relationship(back_populates="target")
-    engine: Mapped["Engine"] = relationship(back_populates="places")
+    engine: Mapped[Engine] = relationship(back_populates="places")
 
     def __repr__(self) -> str:
         return (
@@ -635,13 +620,13 @@ class NycthemeralCycle(Base, CRUDMixin):
     evening_end: Mapped[Optional[time]] = mapped_column()
 
     # relationships
-    ecosystem: Mapped["Ecosystem"] = relationship(back_populates="lighting")
-    target: Mapped[Optional["Place"]] = relationship(back_populates="lightings", uselist=False, lazy="selectin")
+    ecosystem: Mapped[Ecosystem] = relationship(back_populates="lighting")
+    target: Mapped[Optional[Place]] = relationship(back_populates="lightings", uselist=False, lazy="selectin")
 
     def __repr__(self) -> str:
         return (
-            f"<Lighting({self.ecosystem_uid}, status={self.status}, "
-            f"mode={self.mode})>"
+            f"<NycthemeralCycle({self.ecosystem_uid}, span={self.span}, "
+            f"lighting={self.lighting})>"
         )
 
 
@@ -656,7 +641,7 @@ class Chaos(Base, CRUDMixin):
     end: Mapped[Optional[datetime]] = mapped_column(UtcDateTime)
 
     # relationships
-    ecosystem: Mapped["Ecosystem"] = relationship(back_populates="chaos")
+    ecosystem: Mapped[Ecosystem] = relationship(back_populates="chaos")
 
     def __repr__(self) -> str:
         return (
@@ -794,7 +779,7 @@ class WeatherEvent(Base, CRUDMixin):
     ecosystem_uid: Mapped[str] = mapped_column(
         sa.String(length=8), sa.ForeignKey("ecosystems.uid"), primary_key=True)
     parameter: Mapped[str] = mapped_column(sa.String(length=24), primary_key=True)
-    pattern: Mapped[str] = mapped_column(sa.String(length=24), primary_key=True)
+    pattern: Mapped[str] = mapped_column(sa.String(length=24))
     duration: Mapped[float] = mapped_column(sa.Float(precision=2))
     level: Mapped[float] = mapped_column(sa.Float(precision=2))
     linked_actuator: Mapped[Optional[str]] = mapped_column(sa.String(length=16))
@@ -804,7 +789,7 @@ class WeatherEvent(Base, CRUDMixin):
 
     def __repr__(self) -> str:
         return (
-            f"<Weather({self.ecosystem_uid}, parameter={self.parameter}, "
+            f"<WeatherEvent({self.ecosystem_uid}, parameter={self.parameter}, "
             f"pattern={self.pattern}, linked_actuator={self.linked_actuator})>"
         )
 
@@ -917,7 +902,6 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
                 .where(AssociationHardwareMeasure.c.measure_id.in_(measures_already_attached))
             )
             await session.execute(stmt)
-            await session.commit()
 
     @classmethod
     async def attach_groups(
@@ -946,14 +930,14 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
                     "hardware_uid": hardware_uid,
                     "group_id": group.id,
                 })
-        # Link the new measures
+        # Link the new groups
         if groups_to_add:
             stmt = (
                 insert(AssociationHardwareGroup)
                 .values(groups_to_add)
             )
             await session.execute(stmt)
-        # Unlink the measures not linked anymore
+        # Unlink the groups not linked anymore
         if groups_already_attached:
             stmt = (
                 delete(AssociationHardwareGroup)
@@ -962,7 +946,6 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
                 .where(AssociationHardwareGroup.c.group_id.in_(groups_already_attached))
             )
             await session.execute(stmt)
-            await session.commit()
 
     @classmethod
     async def create(  # ty: ignore[invalid-method-override]
@@ -997,7 +980,7 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
             values: dict,
             **lookup_keys: lookup_keys_type,
     ) -> None:
-        uid: str | None = lookup_keys.get("uid") or values.get("uid", None)  # ty: ignore[invalid-assignment]
+        uid: str | None = lookup_keys.pop("uid", None) or values.pop("uid", None)  # ty: ignore[invalid-assignment]
         if uid is None:
             raise ValueError(
                 "Provide 'uid' either as a parameter or as a key in the "
@@ -1012,7 +995,7 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
             await cls.attach_groups(session, uid, set(groups))
         if measures or groups:
             # Clear cache as measures and/or plants have been added
-            hash_key = create_hashable_key(**lookup_keys)
+            hash_key = create_hashable_key(uid=uid, **lookup_keys)
             cls._cache.pop(hash_key, None)
 
     @staticmethod
@@ -1080,11 +1063,10 @@ class Sensor(Hardware):
             session: AsyncSession,
             measure: str,
     ) -> dict | None:
-        measure_str = measure
         measure_obj: Measure | None = None
-        for measure in self.measures:
-            if measure.name == measure_str:
-                measure_obj = measure
+        for m in self.measures:
+            if m.name == measure:
+                measure_obj = m
                 break
         if measure_obj is None:
             return None
@@ -1101,11 +1083,10 @@ class Sensor(Hardware):
             measure: str,
             time_window: TimeWindow | None = None,
     ) -> dict | None:
-        measure_str = measure
         measure_obj: Measure | None = None
-        for measure in self.measures:
-            if measure.name == measure_str:
-                measure_obj = measure
+        for m in self.measures:
+            if m.name == measure:
+                measure_obj = m
                 break
         if measure_obj is None:
             return None
@@ -1148,10 +1129,11 @@ class Actuator(Hardware):
         time_window: TimeWindow = lookup_keys.pop("time_window", None)  # ty: ignore[invalid-assignment]
         stmt = super()._generate_get_query(offset, limit, order_by, **lookup_keys)
         if time_window:
+            pass
             # TODO: fix as ActuatorRecord doesn't have any actuator
-            stmt = stmt.join(ActuatorRecord.actuator)
-            stmt = time_window.modify_stmt(stmt, ActuatorRecord.timestamp)
-            stmt = stmt.distinct()
+            #stmt = stmt.join(ActuatorRecord.actuator)
+            #stmt = time_window.modify_stmt(stmt, ActuatorRecord.timestamp)
+            #stmt = stmt.distinct()
         return stmt
 
     @classmethod
@@ -1235,11 +1217,17 @@ class Plant(Base, CachedCRUDMixin, InConfigMixin):
     sowing_date: Mapped[Optional[datetime]] = mapped_column(UtcDateTime)
 
     # relationships
-    ecosystem: Mapped[list[Ecosystem]] = relationship(
+    ecosystem: Mapped[Ecosystem] = relationship(
         "Ecosystem", back_populates="plants", lazy="selectin")
     hardware: Mapped[list[Hardware]] = relationship(
         "Hardware", back_populates="plants", secondary=AssociationHardwarePlant,
         lazy="selectin")
+
+    def __repr__(self) -> str:
+        return (
+            f"<Plant({self.uid}, name={self.name}, species={self.species}, "
+            f"ecosystem_uid={self.ecosystem_uid})>"
+        )
 
     @classmethod
     async def attach_hardware(
@@ -1254,9 +1242,9 @@ class Plant(Base, CachedCRUDMixin, InConfigMixin):
             .where(AssociationHardwarePlant.c.plant_uid == plant_uid)
         )
         result = await session.execute(stmt)
-        hardware_already_attached: set[int] = {row[0] for row in result.all()}
+        hardware_already_attached: set[str] = {row[0] for row in result.all()}
         # Accumulator for hardware to add
-        hardware_to_add: list[dict[str, str | int]] = []
+        hardware_to_add: list[dict[str, str]] = []
         for hardware_uid in hardware_uids:
             hardware: Hardware | None = await Hardware.get(session, uid=hardware_uid)
             if hardware is None:
@@ -1284,7 +1272,6 @@ class Plant(Base, CachedCRUDMixin, InConfigMixin):
                 .where(AssociationHardwarePlant.c.hardware_uid.in_(hardware_already_attached))
             )
             await session.execute(stmt)
-            await session.commit()
 
     @classmethod
     async def create(
@@ -1312,7 +1299,7 @@ class Plant(Base, CachedCRUDMixin, InConfigMixin):
             values: dict,
             **lookup_keys: lookup_keys_type,
     ) -> None:
-        uid = lookup_keys.get("uid") or values.get("uid", None)
+        uid: str | None = lookup_keys.pop("uid", None) or values.pop("uid", None)  # ty: ignore[invalid-assignment]
         if uid is None:
             raise ValueError(
                 "Provide 'uid' either as a parameter or as a key in the "
@@ -1320,9 +1307,9 @@ class Plant(Base, CachedCRUDMixin, InConfigMixin):
         hardware = values.pop("hardware", [])
         await super().update(session, uid=uid, values=values)
         if hardware:
-            await cls.attach_hardware(session, lookup_keys["uid"], hardware)  # ty: ignore[invalid-argument-type]
+            await cls.attach_hardware(session, uid, hardware)  # ty: ignore[invalid-argument-type]
             # Clear cache as hardware have been added
-            hash_key = create_hashable_key(**lookup_keys)
+            hash_key = create_hashable_key(uid=uid, **lookup_keys)
             cls._cache.pop(hash_key, None)
 
     @classmethod
@@ -1340,7 +1327,7 @@ class Plant(Base, CachedCRUDMixin, InConfigMixin):
             )
         )
         result = await session.execute(stmt)
-        return result.scalars().one_or_none()
+        return result.scalar_one_or_none()
 
     @classmethod
     async def get_multiple_by_id(
@@ -1451,8 +1438,8 @@ class SensorDataRecord(BaseSensorDataRecord, ArchivableMixin):
     _archive_column = "timestamp"
 
     # relationships
-    ecosystem: Mapped["Ecosystem"] = relationship(back_populates="sensor_records")
-    sensor: Mapped["Hardware"] = relationship(back_populates="sensor_records")
+    ecosystem: Mapped[Ecosystem] = relationship(back_populates="sensor_records")
+    sensor: Mapped[Hardware] = relationship(back_populates="sensor_records")
 
     @classmethod
     def get_time_limit(cls) -> int:
@@ -1554,15 +1541,15 @@ class SensorAlarm(Base):
         if ecosystem_uid is not None:
             if isinstance(ecosystem_uid, str):
                 ecosystem_uid = [ecosystem_uid, ]
-                stmt = stmt.where(cls.ecosystem_uid.in_(ecosystem_uid))
+            stmt = stmt.where(cls.ecosystem_uid.in_(ecosystem_uid))
         if sensor_uid is not None:
             if isinstance(sensor_uid, str):
                 sensor_uid = [sensor_uid, ]
-                stmt = stmt.where(cls.sensor_uid.in_(sensor_uid))
+            stmt = stmt.where(cls.sensor_uid.in_(sensor_uid))
         if measure is not None:
             if isinstance(measure, str):
                 measure = [measure, ]
-                stmt = stmt.where(cls.measure.in_(measure))
+            stmt = stmt.where(cls.measure.in_(measure))
         result = await session.execute(stmt)
         return result.scalars().all()
 
@@ -1664,7 +1651,7 @@ class ActuatorRecord(BaseActuatorRecord, ArchivableMixin):
     _archive_column = "timestamp"
 
     # relationships
-    ecosystem: Mapped["Ecosystem"] = relationship(back_populates="actuator_records")
+    ecosystem: Mapped[Ecosystem] = relationship(back_populates="actuator_records")
 
     @classmethod
     def get_time_limit(cls) -> int:
@@ -1742,6 +1729,7 @@ class GaiaWarning(Base):
             ecosystem_uid: str,
             values: dict,
     ) -> None:
+        values = {**values}  # Don't mutate original values
         values.pop("seen_on", None)
         values.pop("solved_on", None)
         stmt = (
@@ -1861,7 +1849,7 @@ class CameraPicture(Base, CRUDMixin):
     other_metadata: Mapped[Optional[dict]] = mapped_column(sa.JSON)
 
     # relationships
-    camera: Mapped["Hardware"] = relationship(lazy="selectin")
+    camera: Mapped[Hardware] = relationship(lazy="selectin")
 
     def __repr__(self) -> str:
         return (
