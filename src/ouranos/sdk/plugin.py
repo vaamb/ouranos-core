@@ -207,10 +207,10 @@ class Plugin:
                 for process in self._subprocesses:
                     if process.is_alive():
                         process.terminate()
-                        process.join(timeout=1.0)
+                        await asyncio.to_thread(process.join, 1.0)
                         if process.is_alive():
                             process.kill()
-                            process.join()
+                            await asyncio.to_thread(process.join)
                 self._subprocesses.clear()
                 raise
         else:
@@ -230,22 +230,25 @@ class Plugin:
 
         self.logger.info(f"Stopping {self.name}")
 
-        if self.has_subprocesses():
-            # Cleanup subprocesses
-            for process in self._subprocesses:
-                if process.is_alive():
-                    process.terminate()
-                    process.join(timeout=5.0)
+        try:
+            if self.has_subprocesses():
+                # Cleanup subprocesses
+                for process in self._subprocesses:
                     if process.is_alive():
-                        self.logger.warning(
-                            f"Process {process.name} did not terminate cleanly")
-                        process.kill()
-                        process.join()
-            self._subprocesses.clear()
-        else:
-            await self._instance.complete_shutdown()
+                        process.terminate()
+                        await asyncio.to_thread(process.join, 5.0)
+                        if process.is_alive():
+                            self.logger.warning(
+                                f"Process {process.name} did not terminate cleanly")
+                            process.kill()
+                            await asyncio.to_thread(process.join)
+                self._subprocesses.clear()
+            else:
+                await self._instance.complete_shutdown()
+        finally:
+            # Mark as stopped even on failure: the resources have been cleared
+            self._status = False
 
-        self._status = False
         self.logger.info(f"Stopped {self.name}")
 
     def run_as_standalone(self) -> None:
