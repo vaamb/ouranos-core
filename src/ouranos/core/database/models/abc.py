@@ -240,7 +240,7 @@ class CRUDMixin:
             else:
                 warn(
                     f"Dialect '{dialect}' is not yet supported. Feel free to "
-                    f"add it.")
+                    f"add it.", stacklevel=2)
 
                 def impl(stmt: Insert, action: str) -> Insert:
                     if action not in ["nothing", "update"]:
