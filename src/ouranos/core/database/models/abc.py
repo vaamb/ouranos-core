@@ -48,8 +48,7 @@ class Base(db.Model, ToDictMixin):  # ty: ignore[invalid-base]
     @classmethod
     def _get_dialect(cls) -> str:
         if cls._dialect is None:
-            table = db.Model.metadata.tables[cls.__tablename__]
-            bind_key = table.info.get("bind_key", None)
+            bind_key = cls.__table__.info.get("bind_key", None)
             engine = db.get_engine_for_bind(bind_key)
             cls._dialect = engine.dialect.name
         assert cls._dialect is not None
