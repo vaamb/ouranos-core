@@ -185,8 +185,14 @@ class CRUDMixin:
 
                 def impl(stmt: Insert, action: str) -> Insert:
                     if action == "nothing":
+                        # Assign the lookup column to itself rather than to the
+                        # value from `stmt.inserted`: `ON DUPLICATE KEY UPDATE`
+                        # fires on a conflict with *any* unique index, and if
+                        # the conflicting index is not the lookup key,
+                        # `stmt.inserted` would overwrite the existing row's
+                        # lookup key with the new value
                         stmt = stmt.on_duplicate_key_update(  # ty: ignore[unresolved-attribute]
-                            {lookup_keys[0]: getattr(stmt.inserted, lookup_keys[0])},  # ty: ignore[unresolved-attribute]
+                            {lookup_keys[0]: stmt.table.c[lookup_keys[0]]},
                         )
                     elif action == "update":
                         stmt = stmt.on_duplicate_key_update(  # ty: ignore[unresolved-attribute]
