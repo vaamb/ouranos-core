@@ -1,6 +1,6 @@
 from multiprocessing import Manager
 from pathlib import Path
-from time import sleep
+from time import monotonic, sleep
 import click
 from click.testing import CliRunner
 import pytest
@@ -93,6 +93,15 @@ class TestFunctionality:
 
 @pytest.mark.asyncio
 class TestPlugin:
+    @staticmethod
+    def _poll_value(manager_dict, expected, timeout: float = 10.0):
+        end: float = monotonic() + timeout
+
+        while manager_dict["value"] != expected:
+            if monotonic() > end:
+                raise TimeoutError
+            sleep(0.1)
+
     async def test_plugin_no_worker(self, config: ConfigDict, dummy_plugin: Plugin):
         """Test plugin operation without worker processes.
 
@@ -146,8 +155,7 @@ class TestPlugin:
             assert dummy_plugin.has_subprocesses()
             assert len(dummy_plugin._subprocesses) == 1
 
-            sleep(2)  # Allow the subprocess to start
-            assert manager_dict["value"] == 42
+            self._poll_value(manager_dict, 42, timeout=10.0)
 
             # Test double startup
             with pytest.raises(RuntimeError):
@@ -155,8 +163,7 @@ class TestPlugin:
 
             await dummy_plugin.shutdown()
 
-            sleep(2)  # Allow the subprocess to shut down
-            assert manager_dict["value"] is None
+            self._poll_value(manager_dict, None, timeout=10.0)
 
             # Test double shutdown
             with pytest.raises(RuntimeError):
