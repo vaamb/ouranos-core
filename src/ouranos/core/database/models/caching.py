@@ -398,6 +398,19 @@ class CachedCRUDMixin(CRUDMixin):
         return await super().update(session, values=values, **lookup_keys)
 
     @classmethod
+    async def update_multiple(
+            cls,
+            session: AsyncSession,
+            /,
+            values: list[dict],
+    ) -> None:
+        rv = await super().update_multiple(session, values=values)
+        lookup_keys = cls._get_lookup_keys()
+        for value in values:
+            cls.clear_cache(**{key: value[key] for key in lookup_keys})
+        return rv
+
+    @classmethod
     @clearing_cache_method(key_hasher=hash_delete)
     async def delete(
             cls,
