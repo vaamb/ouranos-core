@@ -256,6 +256,7 @@ class Plugin:
 
     async def _run_as_standalone(self) -> None:
         """Internal async method for standalone execution."""
+        self._runner.add_signal_handler()
         # Don't show the traceback on error if not in debugging mode
         if not self.config["DEBUG"]:
             import sys

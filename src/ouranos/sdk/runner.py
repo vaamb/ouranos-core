@@ -14,15 +14,19 @@ SIGNALS = (
 
 
 class Runner:
-    __slots__ = ("_should_exit", )
+    __slots__ = ("_handling_signal", "_should_exit", )
 
     def __init__(self) -> None:
         self._should_exit = Event()
+        self._handling_signal: bool = False
 
     def _handle_stop_signal(self, sig: int, frame: FrameType | None) -> None:  # noqa
         self._should_exit.set()
 
     def add_signal_handler(self) -> None:
+        if self._handling_signal:
+            return
+
         if threading.current_thread() is not threading.main_thread():
             return
 
@@ -35,9 +39,12 @@ class Runner:
             for sig in SIGNALS:
                 signal.signal(sig, self._handle_stop_signal)
 
+        self._handling_signal = True
+
     async def run_until_stop(self) -> None:
         await asyncio.sleep(0.1)
-        self.add_signal_handler()
+        if not self._handling_signal:
+            self.add_signal_handler()
         await self._should_exit.wait()
         await self.shutdown()
 

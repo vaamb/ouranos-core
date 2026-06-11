@@ -187,6 +187,7 @@ class Functionality(ABC):
             raise SystemExit(1)
 
     async def _run(self) -> None:
+        self._runner.add_signal_handler()
         pid = os.getpid()
         self._error_logged = False
         try:
