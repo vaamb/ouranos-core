@@ -156,7 +156,7 @@ class Plugin:
             raise RuntimeError("Config not set. Call setup_config() first")
 
         workers = self._functionality.workers
-        func_workers = self.config.get(f"{self.name.upper()}_WORKERS")
+        func_workers = self.config.get(f"{self.name.upper().replace('-', '_')}_WORKERS")
         if func_workers is not None:
             workers = parse_str_value(func_workers)
 
