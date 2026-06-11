@@ -31,6 +31,22 @@ spawn: SpawnContext = multiprocessing.get_context("spawn")
 Route = namedtuple("Route", ("path", "endpoint"))
 
 
+def _run_in_subprocess(
+        functionality_cls: Type[Functionality],
+        config: ConfigDict,
+        kwargs: dict,
+) -> None:
+    """Run a functionality in a subprocess.
+
+    Module-level so that spawned processes only pickle the functionality
+    class and its kwargs, not the whole `Plugin` (which holds unpicklable
+    attributes such as the closure-based click command).
+    """
+    if not ConfigHelper.config_is_set():
+        ConfigHelper.set_config_and_configure_logging(config)
+    functionality_cls(**kwargs).run(reraise=True)
+
+
 class Plugin:
     _runner: ClassVar[Runner] = runner
 
@@ -150,12 +166,6 @@ class Plugin:
 
         return max(0, workers)
 
-    def _run_in_subprocess(self) -> None:
-        """Run functionality in a subprocess."""
-        if not ConfigHelper.config_is_set():
-            ConfigHelper.set_config_and_configure_logging(self.config)
-        self._instance.run(reraise=True)
-
     def has_subprocesses(self) -> bool:
         """Check if any subprocesses are running."""
         return bool(self._subprocesses)
@@ -185,7 +195,8 @@ class Plugin:
                 for worker in range(workers):
                     process_name = f"{self.functionality.__name__}-{worker}"
                     process = spawn.Process(
-                        target=self._run_in_subprocess,
+                        target=_run_in_subprocess,
+                        args=(self._functionality, self.config, self._kwargs),
                         daemon=True,
                         name=process_name,
                     )
