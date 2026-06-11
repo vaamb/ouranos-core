@@ -41,7 +41,7 @@ class Runner:
         await self._should_exit.wait()
         await self.shutdown()
 
-    async def stop(self) -> None:
+    def stop(self) -> None:
         self._should_exit.set()
 
     async def shutdown(self):
