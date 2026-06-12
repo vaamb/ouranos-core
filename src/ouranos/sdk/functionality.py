@@ -163,6 +163,9 @@ class Functionality(ABC):
             await self.shutdown()
             await self.post_shutdown()
         except asyncio.CancelledError as e:
+            # Deliberately swallowed: shutdown is signal-driven, so a
+            # cancellation here only means the loop is closing. Swallowing it
+            # lets the cleanup in the `finally` block run to completion.
             self.logger.error(f"Error while shutting down [{pid}]. {self._fmt_exc(e)}")
         finally:
             await self._clear_common()
