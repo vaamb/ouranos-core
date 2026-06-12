@@ -163,11 +163,14 @@ class Functionality(ABC):
             await self.shutdown()
             await self.post_shutdown()
         except asyncio.CancelledError as e:
+            # Deliberately swallowed: shutdown is signal-driven, so a
+            # cancellation here only means the loop is closing. Swallowing it
+            # lets the cleanup in the `finally` block run to completion.
             self.logger.error(f"Error while shutting down [{pid}]. {self._fmt_exc(e)}")
         finally:
             await self._clear_common()
+            self._status = False
 
-        self._status = False
         self.logger.info(f"Ouranos' {self.__class__.__name__} stopped [{pid}]")
 
     def run(self, reraise: bool = False) -> None:
@@ -184,8 +187,10 @@ class Functionality(ABC):
                     or self.config["DEVELOPMENT"] or self.config["DEBUG"] or self.config["TESTING"]
             ):
                 raise
+            raise SystemExit(1)
 
     async def _run(self) -> None:
+        self._runner.add_signal_handler()
         pid = os.getpid()
         self._error_logged = False
         try:

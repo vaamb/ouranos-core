@@ -31,6 +31,22 @@ spawn: SpawnContext = multiprocessing.get_context("spawn")
 Route = namedtuple("Route", ("path", "endpoint"))
 
 
+def _run_in_subprocess(
+        functionality_cls: Type[Functionality],
+        config: ConfigDict,
+        kwargs: dict,
+) -> None:
+    """Run a functionality in a subprocess.
+
+    Module-level so that spawned processes only pickle the functionality
+    class and its kwargs, not the whole `Plugin` (which holds unpicklable
+    attributes such as the closure-based click command).
+    """
+    if not ConfigHelper.config_is_set():
+        ConfigHelper.set_config_and_configure_logging(config)
+    functionality_cls(**kwargs).run(reraise=True)
+
+
 class Plugin:
     _runner: ClassVar[Runner] = runner
 
@@ -140,7 +156,7 @@ class Plugin:
             raise RuntimeError("Config not set. Call setup_config() first")
 
         workers = self._functionality.workers
-        func_workers = self.config.get(f"{self.name.upper()}_WORKERS")
+        func_workers = self.config.get(f"{self.name.upper().replace('-', '_')}_WORKERS")
         if func_workers is not None:
             workers = parse_str_value(func_workers)
 
@@ -149,12 +165,6 @@ class Plugin:
             workers = min(workers, parse_str_value(global_limit))
 
         return max(0, workers)
-
-    def _run_in_subprocess(self) -> None:
-        """Run functionality in a subprocess."""
-        if not ConfigHelper.config_is_set():
-            ConfigHelper.set_config_and_configure_logging(self.config)
-        self._instance.run(reraise=True)
 
     def has_subprocesses(self) -> bool:
         """Check if any subprocesses are running."""
@@ -185,7 +195,8 @@ class Plugin:
                 for worker in range(workers):
                     process_name = f"{self.functionality.__name__}-{worker}"
                     process = spawn.Process(
-                        target=self._run_in_subprocess,
+                        target=_run_in_subprocess,
+                        args=(self._functionality, self.config, self._kwargs),
                         daemon=True,
                         name=process_name,
                     )
@@ -196,10 +207,10 @@ class Plugin:
                 for process in self._subprocesses:
                     if process.is_alive():
                         process.terminate()
-                        process.join(timeout=1.0)
+                        await asyncio.to_thread(process.join, 1.0)
                         if process.is_alive():
                             process.kill()
-                            process.join()
+                            await asyncio.to_thread(process.join)
                 self._subprocesses.clear()
                 raise
         else:
@@ -219,22 +230,25 @@ class Plugin:
 
         self.logger.info(f"Stopping {self.name}")
 
-        if self.has_subprocesses():
-            # Cleanup subprocesses
-            for process in self._subprocesses:
-                if process.is_alive():
-                    process.terminate()
-                    process.join(timeout=5.0)
+        try:
+            if self.has_subprocesses():
+                # Cleanup subprocesses
+                for process in self._subprocesses:
                     if process.is_alive():
-                        self.logger.warning(
-                            f"Process {process.name} did not terminate cleanly")
-                        process.kill()
-                        process.join()
-            self._subprocesses.clear()
-        else:
-            await self._instance.complete_shutdown()
+                        process.terminate()
+                        await asyncio.to_thread(process.join, 5.0)
+                        if process.is_alive():
+                            self.logger.warning(
+                                f"Process {process.name} did not terminate cleanly")
+                            process.kill()
+                            await asyncio.to_thread(process.join)
+                self._subprocesses.clear()
+            else:
+                await self._instance.complete_shutdown()
+        finally:
+            # Mark as stopped even on failure: the resources have been cleared
+            self._status = False
 
-        self._status = False
         self.logger.info(f"Stopped {self.name}")
 
     def run_as_standalone(self) -> None:
@@ -253,9 +267,11 @@ class Plugin:
                 raise
             if self.config["DEVELOPMENT"] or self.config["DEBUG"] or self.config["TESTING"]:
                 raise
+            raise SystemExit(1)
 
     async def _run_as_standalone(self) -> None:
         """Internal async method for standalone execution."""
+        self._runner.add_signal_handler()
         # Don't show the traceback on error if not in debugging mode
         if not self.config["DEBUG"]:
             import sys
