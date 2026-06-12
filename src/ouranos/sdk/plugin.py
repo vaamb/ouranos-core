@@ -267,6 +267,7 @@ class Plugin:
                 raise
             if self.config["DEVELOPMENT"] or self.config["DEBUG"] or self.config["TESTING"]:
                 raise
+            raise SystemExit(1)
 
     async def _run_as_standalone(self) -> None:
         """Internal async method for standalone execution."""
