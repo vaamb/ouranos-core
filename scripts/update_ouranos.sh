@@ -254,14 +254,14 @@ copy_scripts() {
 #<<<Copy<<<
 
 update_profile() {
-    "${OURANOS_DIR}/scripts/gen_profile.sh" "${OURANOS_DIR}" ||
+    "${OURANOS_DIR}/scripts/utils/gen_profile.sh" "${OURANOS_DIR}" ||
         log WARN "Failed to update shell profile"
 }
 
 update_service() {
     local service_file="${OURANOS_DIR}/scripts/ouranos.service"
 
-    "${OURANOS_DIR}/scripts/gen_service.sh" "${OURANOS_DIR}" "${service_file}" ||
+    "${OURANOS_DIR}/scripts/utils/gen_service.sh" "${OURANOS_DIR}" "${service_file}" ||
         log WARN "Failed to generate systemd service"
 
     # Update service
