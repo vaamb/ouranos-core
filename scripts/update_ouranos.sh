@@ -3,6 +3,14 @@
 # Exit on error, unset variable, and pipefail
 set -euo pipefail
 
+# `copy_scripts()` overwrites this script while it is running, which is unsafe
+#  as bash reads scripts incrementally: run from a temporary copy instead
+if [[ "${BASH_SOURCE[0]}" -ef "$0" && -z "${OURANOS_UPDATE_SCRIPT_COPY:-}" ]]; then
+    TMP_SCRIPT=$(mktemp "/tmp/ouranos_update_script_XXXXXX")
+    cp "${BASH_SOURCE[0]}" "${TMP_SCRIPT}"
+    OURANOS_UPDATE_SCRIPT_COPY="${TMP_SCRIPT}" exec bash "${TMP_SCRIPT}" "$@"
+fi
+
 # Check if OURANOS_DIR is set and the directory exists
 if [[ ! -d "${OURANOS_DIR}" ]]; then
     echo "OURANOS_DIR environment variable is not set or the directory does not exist. Please source your profile or run the installation script first."
@@ -298,6 +306,11 @@ cleanup() {
 
     # Reset terminal colors
     echo -e "${NC}"
+
+    # Remove the temporary copy of this script, if any
+    if [[ -n "${OURANOS_UPDATE_SCRIPT_COPY:-}" ]]; then
+        rm -f "${OURANOS_UPDATE_SCRIPT_COPY}"
+    fi
 }
 
 main () {
