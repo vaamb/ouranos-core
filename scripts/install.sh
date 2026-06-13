@@ -105,6 +105,7 @@ check_requirements() {
 
     # Map of command -> package name
     declare -A cmd_to_pkg=(
+        [dos2unix]=dos2unix
         [git]=git
         [python3]=python3
         [systemctl]=systemd
