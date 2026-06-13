@@ -113,7 +113,6 @@ update_repo() {
     cd "$repo_dir" || return 1
 
     # Fetch all updates first so the tag comparison sees new remote releases
-    #  (deviates from gaia, which checks versions against stale local tags)
     log INFO "Fetching updates for $repo_name..."
     git fetch --all --tags --prune
 
@@ -181,14 +180,26 @@ update_repo() {
         fi
     fi
 
-    # If the package has an update script, run it
+    log SUCCESS "${repo_name} updated successfully"
+    return 0
+}
+
+# Function to run update scripts
+run_update_script() {
+    local repo_dir="$1"
+    local repo_name
+    repo_name=$(basename "$repo_dir")
+
+    log INFO "Looking for an update script in ${repo_name}..."
+
+    cd "$repo_dir" || return 1
     if [[ -f "${repo_dir}/scripts/update.sh" ]]; then
         log INFO "${repo_name} has an update script. Running it..."
         source "${repo_dir}/scripts/update.sh"
+    else
+        log INFO "No update script found for ${repo_name}"
     fi
 
-    log SUCCESS "${repo_name} updated successfully"
-    return 0
 }
 
 update_packages() {
@@ -223,6 +234,21 @@ update_packages() {
     # use --inexact to keep packages not defined in pyproject.toml such as the DB drivers
     uv sync --all-packages --inexact ||
         die "Failed to update Python virtual environment"
+
+    # Run update scripts for the packages having one
+    run_update_script "${OURANOS_DIR}/lib/ouranos-core"
+
+    # Run remaining ouranos-* update scripts
+    if [[ "${UPDATE_ALL}" == true ]]; then
+        for pkg_path in "${OURANOS_DIR}/lib"/ouranos-*; do
+            package_name=$(basename "${pkg_path}")
+            if [[ "${package_name}" != "ouranos-core" ]]; then
+                if ! run_update_script "$pkg_path"; then
+                    log WARN "Failed to run the update script for ${package_name}, continuing with other packages..."
+                fi
+            fi
+        done
+    fi
 }
 
 #>>>Copy>>>
