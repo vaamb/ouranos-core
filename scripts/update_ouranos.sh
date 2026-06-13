@@ -51,7 +51,6 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         -d|--dry-run)
             DRY_RUN=true
-            export DRY_RUN
             shift
             ;;
         -f|--force)
