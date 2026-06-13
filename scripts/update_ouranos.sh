@@ -132,9 +132,7 @@ update_git_repo() {
 
     # Fetch all updates
     log INFO "Fetching updates for $repo_name..."
-    if [[ "$DRY_RUN" == false ]]; then
-        git fetch --all --tags --prune
-    fi
+    git fetch --all --tags --prune
 
     # Get current and latest tags
     local current_tag
