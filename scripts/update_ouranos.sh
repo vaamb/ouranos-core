@@ -97,39 +97,23 @@ create_backup() {
         die "Failed to create backup directory: $BACKUP_DIR"
 }
 
-update_git_repo() {
+# Function to update a single package repository
+update_repo() {
     local repo_dir="$1"
     local repo_name
     repo_name=$(basename "$repo_dir")
 
-    cd "$repo_dir" || return 1
+    log INFO "Checking ${repo_name}..."
 
-    # Get current branch and status
-    local current_branch
-    current_branch=$(git rev-parse --abbrev-ref HEAD)
-    local has_changes
-    has_changes=$(git status --porcelain)
-
-    local stash_created=false
-
-    if [[ -n "$has_changes" ]]; then
-        log WARN "$repo_name has uncommitted changes. Stashing them..."
-        if [[ "$DRY_RUN" == false ]]; then
-            local stash_count_before
-            stash_count_before=$(git stash list | wc -l)
-            git stash push -m "Stashed by Ouranos update script"
-            local stash_count_after
-            stash_count_after=$(git stash list | wc -l)
-            if [[ "$stash_count_after" -gt "$stash_count_before" ]]; then
-                stash_created=true
-                log INFO "Changes stashed successfully."
-            else
-                log WARN "Stash command ran but no stash was created."
-            fi
-        fi
+    if [[ ! -d "${repo_dir}/.git" ]]; then
+        log WARN "${repo_name} is not a git repository. Skipping."
+        return 1
     fi
 
-    # Fetch all updates
+    cd "$repo_dir" || return 1
+
+    # Fetch all updates first so the tag comparison sees new remote releases
+    #  (deviates from gaia, which checks versions against stale local tags)
     log INFO "Fetching updates for $repo_name..."
     git fetch --all --tags --prune
 
@@ -152,78 +136,75 @@ update_git_repo() {
         return 0
     fi
 
-    # Checkout the latest tag
-    log INFO "Updating $repo_name to $latest_tag..."
-    git checkout ${SAFE:+"${latest_tag}"}
+    # Get current status
+    local has_changes
+    has_changes=$(git status --porcelain)
 
-    # Return to the original branch if not on a detached HEAD
-    if [[ "$current_branch" != "HEAD" ]]; then
-        log INFO "Returning to branch $current_branch..."
-        git checkout "$current_branch"
+    local stash_created=false
 
-        # Apply stashed changes if we actually stashed
-        if [[ "$stash_created" == true ]]; then
-            log INFO "Restoring stashed changes..."
-            if ! git stash pop; then
-                log WARN "Failed to restore stashed changes (possible merge conflict)."
-                log WARN "Your changes are still in the stash. Use 'git stash list' and 'git stash pop' to recover them manually."
-            fi
+    if [[ -n "$has_changes" ]]; then
+        log WARN "$repo_name has uncommitted changes. Stashing them..."
+        local stash_count_before
+        stash_count_before=$(git stash list | wc -l)
+        git stash push -m "Stashed by Ouranos update script"
+        local stash_count_after
+        stash_count_after=$(git stash list | wc -l)
+        if [[ "$stash_count_after" -gt "$stash_count_before" ]]; then
+            stash_created=true
+            log INFO "Changes stashed successfully."
+        else
+            log WARN "Stash command ran but no stash was created."
         fi
-    else
-        log WARN "Was on detached HEAD before update. Remaining on ${latest_tag}."
     fi
 
-    log SUCCESS "$repo_name updated to $latest_tag"
-    return 0
-}
-
-# Function to update a package other than ouranos-core
-update_package() {
-    local package_dir="$1"
-    local package_name
-    package_name=$(basename "${package_dir}")
-
-    log INFO "Checking ${package_name}..."
-
-    # Update the git directory
-    if [[ -d "${package_dir}/.git" ]]; then
-        update_git_repo "$package_dir"
+    if [[ -n "${SAFE:-}" ]]; then
+        # Safe mode: pin to the latest release tag and stay on it
+        log INFO "Updating $repo_name to $latest_tag..."
+        git checkout "$latest_tag" || return 1
+        log SUCCESS "$repo_name updated to $latest_tag"
     else
-        log WARN "${package_name} is not a git repository. Skipping."
-        return 1
+        # Unsafe mode: pull the latest from the remote default branch
+        local target_branch
+        target_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||' || echo "master")
+        log INFO "Updating $repo_name to the latest development version (${target_branch})..."
+        git checkout "${target_branch}" || return 1
+        git merge --ff-only "origin/$target_branch" || return 1
+        log SUCCESS "$repo_name updated to the latest $target_branch"
+    fi
+
+    # Apply stashed changes (runs for both safe and unsafe paths)
+    if [[ "$stash_created" == true ]]; then
+        log INFO "Restoring stashed changes..."
+        if ! git stash pop; then
+            log WARN "Failed to restore stashed changes (possible merge conflict)."
+            log WARN "Your changes are still in the stash. Use 'git stash list' and 'git stash pop' to recover them manually."
+        fi
     fi
 
     # If the package has an update script, run it
-    if [[ -f "${package_dir}/scripts/update.sh" ]]; then
-        if [[ "$DRY_RUN" == false ]]; then
-            log INFO "${package_name} has an update script. Running it..."
-            source "${package_dir}/scripts/update.sh"
-        else
-            log INFO "[DRY RUN] Would run update script for ${package_name}"
-        fi
+    if [[ -f "${repo_dir}/scripts/update.sh" ]]; then
+        log INFO "${repo_name} has an update script. Running it..."
+        source "${repo_dir}/scripts/update.sh"
     fi
 
-    log SUCCESS "${package_name} updated successfully"
-
+    log SUCCESS "${repo_name} updated successfully"
     return 0
 }
 
 update_packages() {
-    if [[ "${UPDATE_ALL}" == true ]]; then
-        # First update ouranos-core
-        update_package "${OURANOS_DIR}/lib/ouranos-core"
+    # First update ouranos-core (critical: a failure aborts and rolls back)
+    update_repo "${OURANOS_DIR}/lib/ouranos-core"
 
-        # Update remaining ouranos-* packages
+    # Update remaining ouranos-* packages
+    if [[ "${UPDATE_ALL}" == true ]]; then
         for pkg_path in "${OURANOS_DIR}/lib"/ouranos-*; do
             package_name=$(basename "${pkg_path}")
             if [[ "${package_name}" != "ouranos-core" ]]; then
-                if ! update_package "$pkg_path"; then
+                if ! update_repo "$pkg_path"; then
                     log WARN "Failed to update ${package_name}, continuing with other packages..."
                 fi
             fi
         done
-    else
-        update_package "${OURANOS_DIR}/lib/ouranos-core"
     fi
 
     # Dry runs don't go further
