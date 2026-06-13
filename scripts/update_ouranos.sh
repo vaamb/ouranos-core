@@ -79,7 +79,7 @@ check_requirements() {
 
 create_backup() {
     # Create backup directory, excluding .venv (workspace-level venv; large and not relocatable)
-    rsync -a --exclude='.venv' "${OURANOS_DIR}/" "${BACKUP_DIR}/"
+    rsync -a --exclude='.venv' "${OURANOS_DIR}/" "${BACKUP_DIR}/" ||
         die "Failed to create backup directory: $BACKUP_DIR"
 }
 
