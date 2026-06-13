@@ -73,10 +73,13 @@ while [[ $# -gt 0 ]]; do
 done
 
 check_requirements() {
-    # Check if uv is installed
-    if ! command -v uv &> /dev/null; then
-        die "uv is not installed. Please install it first."
-    fi
+    # Check that the required commands are available
+    local cmd
+    for cmd in dos2unix git rsync uv; do
+        if ! command -v "${cmd}" &> /dev/null; then
+            die "${cmd} is not installed. Please install it first."
+        fi
+    done
 
     # Check if virtual environment exists
     if [[ ! -d ".venv" && "${DRY_RUN}" == false ]]; then
