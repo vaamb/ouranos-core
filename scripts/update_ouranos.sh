@@ -281,8 +281,13 @@ cleanup() {
         log WARN "Update failed. Check the log file for details: ${LOG_FILE}"
         if [[ -d "${BACKUP_DIR}" && "${DRY_RUN}" == false ]]; then
             log WARN "Attempting rollback from backup..."
-            rm -rf "${OURANOS_DIR}"
-            cp -r "${BACKUP_DIR}" "${OURANOS_DIR}"
+            # Restore in place: the backup does not contain .venv, so the
+            #  installation directory cannot simply be deleted and replaced
+            if rsync -a --delete --exclude='.venv' "${BACKUP_DIR}/" "${OURANOS_DIR}/"; then
+                log WARN "Rollback succeeded. Backup kept at ${BACKUP_DIR}."
+            else
+                log WARN "Rollback failed. Backup kept at ${BACKUP_DIR}."
+            fi
         fi
     else
         if [[ -d "${BACKUP_DIR}" ]]; then
