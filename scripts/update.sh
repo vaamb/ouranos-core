@@ -24,13 +24,14 @@ update_ouranos_core_lib() {
             die "Failed to activate Python virtual environment"
         fi
 
+        # Upgrade the database first: `fill-db` checks that the database
+        #  revision matches the migrations head, so it must run after
+        alembic upgrade head ||
+            die "Failed to upgrade the database"
+
         # Fill the database with the new tables
         python -m ouranos fill-db ||
             die "Failed to fill the database"
-
-        # Upgrade the database
-        alembic upgrade head ||
-            die "Failed to upgrade the database"
         deactivate
     fi
 }

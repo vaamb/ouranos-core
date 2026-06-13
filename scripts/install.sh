@@ -105,6 +105,7 @@ check_requirements() {
 
     # Map of command -> package name
     declare -A cmd_to_pkg=(
+        [dos2unix]=dos2unix
         [git]=git
         [python3]=python3
         [systemctl]=systemd
@@ -163,7 +164,7 @@ copy_scripts() {
     dos2unix "${OURANOS_DIR}/scripts/"*.sh
     dos2unix "${OURANOS_DIR}/scripts/utils/"*.sh
     # Remove ouranos-core update.sh
-    rm "${OURANOS_DIR}/scripts/update.sh"
+    rm -f "${OURANOS_DIR}/scripts/update.sh"
     # Copy migrations and alembic.ini
     cp -r "${OURANOS_DIR}/lib/ouranos-core/migrations/"* "${OURANOS_DIR}/migrations/" ||
         die "Failed to copy migration scripts"

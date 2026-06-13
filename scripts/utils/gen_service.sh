@@ -27,8 +27,8 @@ Restart=always
 RestartSec=10
 ExecStart=${INSTALL_DIR}/scripts/start.sh -f
 ExecStop=${INSTALL_DIR}/scripts/stop.sh
-StandardOutput=syslog
-StandardError=syslog
+StandardOutput=journal
+StandardError=journal
 SyslogIdentifier=ouranos
 
 [Install]

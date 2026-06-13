@@ -37,6 +37,3 @@ ouranos() {
 complete -W "start stop restart status logs stdout update" ouranos
 #<<<Ouranos variables<<<
 EOF
-
-# shellcheck source=/dev/null
-source "${HOME}/.profile"

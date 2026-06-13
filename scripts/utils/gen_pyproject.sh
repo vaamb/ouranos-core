@@ -11,7 +11,7 @@ if [[ -z "${INSTALL_DIR}" ]]; then
   exit 1
 fi
 
-cat >> "${PWD}/pyproject.toml" << EOF
+cat > "${INSTALL_DIR}/pyproject.toml" << EOF
 [project]
 name = "ouranos"
 version = "0.10.0"

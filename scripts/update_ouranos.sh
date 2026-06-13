@@ -3,13 +3,25 @@
 # Exit on error, unset variable, and pipefail
 set -euo pipefail
 
+# `copy_scripts()` overwrites this script while it is running, which is unsafe
+#  as bash reads scripts incrementally: run from a temporary copy instead
+if [[ "${BASH_SOURCE[0]}" -ef "$0" && -z "${OURANOS_UPDATE_SCRIPT_COPY:-}" ]]; then
+    TMP_SCRIPT=$(mktemp "/tmp/ouranos_update_script_XXXXXX")
+    cp "${BASH_SOURCE[0]}" "${TMP_SCRIPT}"
+    OURANOS_UPDATE_SCRIPT_COPY="${TMP_SCRIPT}" exec bash "${TMP_SCRIPT}" "$@"
+fi
+
 # Check if OURANOS_DIR is set and the directory exists
-if [[ ! -d "${OURANOS_DIR}" ]]; then
+if [[ ! -d "${OURANOS_DIR:-}" ]]; then
     echo "OURANOS_DIR environment variable is not set or the directory does not exist. Please source your profile or run the installation script first."
     exit 1
 fi
 
-cd "${OURANOS_DIR}" || die "Failed to change to Ouranos directory: ${OURANOS_DIR}"
+# Note: `die` is not available yet, logging.sh is only sourced below
+cd "${OURANOS_DIR}" || {
+    echo "Failed to change to Ouranos directory: ${OURANOS_DIR}" >&2
+    exit 1
+}
 
 # Load logging functions
 readonly DATETIME=$(date +%Y%m%d_%H%M%S)
@@ -39,7 +51,6 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         -d|--dry-run)
             DRY_RUN=true
-            export DRY_RUN
             shift
             ;;
         -f|--force)
@@ -65,10 +76,13 @@ while [[ $# -gt 0 ]]; do
 done
 
 check_requirements() {
-    # Check if uv is installed
-    if ! command -v uv &> /dev/null; then
-        die "uv is not installed. Please install it first."
-    fi
+    # Check that the required commands are available
+    local cmd
+    for cmd in dos2unix git rsync uv; do
+        if ! command -v "${cmd}" &> /dev/null; then
+            die "${cmd} is not installed. Please install it first."
+        fi
+    done
 
     # Check if virtual environment exists
     if [[ ! -d ".venv" && "${DRY_RUN}" == false ]]; then
@@ -79,53 +93,35 @@ check_requirements() {
 
 create_backup() {
     # Create backup directory, excluding .venv (workspace-level venv; large and not relocatable)
-    rsync -a --exclude='.venv' "${OURANOS_DIR}/" "${BACKUP_DIR}/"
+    rsync -a --exclude='.venv' "${OURANOS_DIR}/" "${BACKUP_DIR}/" ||
         die "Failed to create backup directory: $BACKUP_DIR"
 }
 
-update_git_repo() {
+# Function to update a single package repository
+update_repo() {
     local repo_dir="$1"
     local repo_name
     repo_name=$(basename "$repo_dir")
 
+    log INFO "Checking ${repo_name}..."
+
+    if [[ ! -d "${repo_dir}/.git" ]]; then
+        log WARN "${repo_name} is not a git repository. Skipping."
+        return 1
+    fi
+
     cd "$repo_dir" || return 1
 
-    # Get current branch and status
-    local current_branch
-    current_branch=$(git rev-parse --abbrev-ref HEAD)
-    local has_changes
-    has_changes=$(git status --porcelain)
-
-    local stash_created=false
-
-    if [[ -n "$has_changes" ]]; then
-        log WARN "$repo_name has uncommitted changes. Stashing them..."
-        if [[ "$DRY_RUN" == false ]]; then
-            local stash_count_before
-            stash_count_before=$(git stash list | wc -l)
-            git stash push -m "Stashed by Ouranos update script"
-            local stash_count_after
-            stash_count_after=$(git stash list | wc -l)
-            if [[ "$stash_count_after" -gt "$stash_count_before" ]]; then
-                stash_created=true
-                log INFO "Changes stashed successfully."
-            else
-                log WARN "Stash command ran but no stash was created."
-            fi
-        fi
-    fi
-
-    # Fetch all updates
+    # Fetch all updates first so the tag comparison sees new remote releases
     log INFO "Fetching updates for $repo_name..."
-    if [[ "$DRY_RUN" == false ]]; then
-        git fetch --all --tags --prune
-    fi
+    git fetch --all --tags --prune
 
     # Get current and latest tags
     local current_tag
     current_tag=$(git describe --tags 2>/dev/null || echo "No tags found")
     local latest_tag
-    latest_tag=$(git describe --tags "$(git rev-list --tags --max-count=1 2>/dev/null)" 2>/dev/null || echo "No tags found")
+    latest_tag=$(git for-each-ref --sort=-version:refname --count=1 --format='%(refname:short)' refs/tags)
+    latest_tag=${latest_tag:-"No tags found"}
 
     log INFO "Current version: $current_tag"
     log INFO "Latest version:  $latest_tag"
@@ -140,78 +136,87 @@ update_git_repo() {
         return 0
     fi
 
-    # Checkout the latest tag
-    log INFO "Updating $repo_name to $latest_tag..."
-    git checkout ${SAFE:+"${latest_tag}"}
+    # Get current status
+    local has_changes
+    has_changes=$(git status --porcelain)
 
-    # Return to the original branch if not on a detached HEAD
-    if [[ "$current_branch" != "HEAD" ]]; then
-        log INFO "Returning to branch $current_branch..."
-        git checkout "$current_branch"
+    local stash_created=false
 
-        # Apply stashed changes if we actually stashed
-        if [[ "$stash_created" == true ]]; then
-            log INFO "Restoring stashed changes..."
-            if ! git stash pop; then
-                log WARN "Failed to restore stashed changes (possible merge conflict)."
-                log WARN "Your changes are still in the stash. Use 'git stash list' and 'git stash pop' to recover them manually."
-            fi
+    if [[ -n "$has_changes" ]]; then
+        log WARN "$repo_name has uncommitted changes. Stashing them..."
+        local stash_count_before
+        stash_count_before=$(git stash list | wc -l)
+        git stash push -m "Stashed by Ouranos update script"
+        local stash_count_after
+        stash_count_after=$(git stash list | wc -l)
+        if [[ "$stash_count_after" -gt "$stash_count_before" ]]; then
+            stash_created=true
+            log INFO "Changes stashed successfully."
+        else
+            log WARN "Stash command ran but no stash was created."
         fi
-    else
-        log WARN "Was on detached HEAD before update. Remaining on ${latest_tag}."
     fi
 
-    log SUCCESS "$repo_name updated to $latest_tag"
+    if [[ -n "${SAFE:-}" ]]; then
+        # Safe mode: pin to the latest release tag and stay on it
+        log INFO "Updating $repo_name to $latest_tag..."
+        git checkout "$latest_tag" || return 1
+        log SUCCESS "$repo_name updated to $latest_tag"
+    else
+        # Unsafe mode: pull the latest from the remote default branch
+        local target_branch
+        target_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||' || echo "master")
+        log INFO "Updating $repo_name to the latest development version (${target_branch})..."
+        git checkout "${target_branch}" || return 1
+        git merge --ff-only "origin/$target_branch" || return 1
+        log SUCCESS "$repo_name updated to the latest $target_branch"
+    fi
+
+    # Apply stashed changes (runs for both safe and unsafe paths)
+    if [[ "$stash_created" == true ]]; then
+        log INFO "Restoring stashed changes..."
+        if ! git stash pop; then
+            log WARN "Failed to restore stashed changes (possible merge conflict)."
+            log WARN "Your changes are still in the stash. Use 'git stash list' and 'git stash pop' to recover them manually."
+        fi
+    fi
+
+    log SUCCESS "${repo_name} updated successfully"
     return 0
 }
 
-# Function to update a package other than ouranos-core
-update_package() {
-    local package_dir="$1"
-    local package_name
-    package_name=$(basename "${package_dir}")
+# Function to run update scripts
+run_update_script() {
+    local repo_dir="$1"
+    local repo_name
+    repo_name=$(basename "$repo_dir")
 
-    log INFO "Checking ${package_name}..."
+    log INFO "Looking for an update script in ${repo_name}..."
 
-    # Update the git directory
-    if [[ -d "${package_dir}/.git" ]]; then
-        update_git_repo "$package_dir"
+    cd "$repo_dir" || return 1
+    if [[ -f "${repo_dir}/scripts/update.sh" ]]; then
+        log INFO "${repo_name} has an update script. Running it..."
+        source "${repo_dir}/scripts/update.sh"
     else
-        log WARN "${package_name} is not a git repository. Skipping."
-        return 1
+        log INFO "No update script found for ${repo_name}"
     fi
 
-    # If the package has an update script, run it
-    if [[ -f "${package_dir}/scripts/update.sh" ]]; then
-        if [[ "$DRY_RUN" == false ]]; then
-            log INFO "${package_name} has an update script. Running it..."
-            source "${package_dir}/scripts/update.sh"
-        else
-            log INFO "[DRY RUN] Would run update script for ${package_name}"
-        fi
-    fi
-
-    log SUCCESS "${package_name} updated successfully"
-
-    return 0
 }
 
 update_packages() {
-    if [[ "${UPDATE_ALL}" == true ]]; then
-        # First update ouranos-core
-        update_package "${OURANOS_DIR}/lib/ouranos-core"
+    # First update ouranos-core (critical: a failure aborts and rolls back)
+    update_repo "${OURANOS_DIR}/lib/ouranos-core"
 
-        # Update remaining ouranos-* packages
+    # Update remaining ouranos-* packages
+    if [[ "${UPDATE_ALL}" == true ]]; then
         for pkg_path in "${OURANOS_DIR}/lib"/ouranos-*; do
             package_name=$(basename "${pkg_path}")
             if [[ "${package_name}" != "ouranos-core" ]]; then
-                if ! update_package "$pkg_path"; then
+                if ! update_repo "$pkg_path"; then
                     log WARN "Failed to update ${package_name}, continuing with other packages..."
                 fi
             fi
         done
-    else
-        update_package "${OURANOS_DIR}/lib/ouranos-core"
     fi
 
     # Dry runs don't go further
@@ -230,6 +235,21 @@ update_packages() {
     # use --inexact to keep packages not defined in pyproject.toml such as the DB drivers
     uv sync --all-packages --inexact ||
         die "Failed to update Python virtual environment"
+
+    # Run update scripts for the packages having one
+    run_update_script "${OURANOS_DIR}/lib/ouranos-core"
+
+    # Run remaining ouranos-* update scripts
+    if [[ "${UPDATE_ALL}" == true ]]; then
+        for pkg_path in "${OURANOS_DIR}/lib"/ouranos-*; do
+            package_name=$(basename "${pkg_path}")
+            if [[ "${package_name}" != "ouranos-core" ]]; then
+                if ! run_update_script "$pkg_path"; then
+                    log WARN "Failed to run the update script for ${package_name}, continuing with other packages..."
+                fi
+            fi
+        done
+    fi
 }
 
 #>>>Copy>>>
@@ -244,7 +264,7 @@ copy_scripts() {
     dos2unix "${OURANOS_DIR}/scripts/"*.sh
     dos2unix "${OURANOS_DIR}/scripts/utils/"*.sh
     # Remove ouranos-core update.sh
-    rm "${OURANOS_DIR}/scripts/update.sh"
+    rm -f "${OURANOS_DIR}/scripts/update.sh"
     # Copy migrations and alembic.ini
     cp -r "${OURANOS_DIR}/lib/ouranos-core/migrations/"* "${OURANOS_DIR}/migrations/" ||
         die "Failed to copy migration scripts"
@@ -254,14 +274,14 @@ copy_scripts() {
 #<<<Copy<<<
 
 update_profile() {
-    "${OURANOS_DIR}/scripts/gen_profile.sh" "${OURANOS_DIR}" ||
+    "${OURANOS_DIR}/scripts/utils/gen_profile.sh" "${OURANOS_DIR}" ||
         log WARN "Failed to update shell profile"
 }
 
 update_service() {
     local service_file="${OURANOS_DIR}/scripts/ouranos.service"
 
-    "${OURANOS_DIR}/scripts/gen_service.sh" "${OURANOS_DIR}" "${service_file}" ||
+    "${OURANOS_DIR}/scripts/utils/gen_service.sh" "${OURANOS_DIR}" "${service_file}" ||
         log WARN "Failed to generate systemd service"
 
     # Update service
@@ -281,8 +301,13 @@ cleanup() {
         log WARN "Update failed. Check the log file for details: ${LOG_FILE}"
         if [[ -d "${BACKUP_DIR}" && "${DRY_RUN}" == false ]]; then
             log WARN "Attempting rollback from backup..."
-            rm -rf "${OURANOS_DIR}"
-            cp -r "${BACKUP_DIR}" "${OURANOS_DIR}"
+            # Restore in place: the backup does not contain .venv, so the
+            #  installation directory cannot simply be deleted and replaced
+            if rsync -a --delete --exclude='.venv' "${BACKUP_DIR}/" "${OURANOS_DIR}/"; then
+                log WARN "Rollback succeeded. Backup kept at ${BACKUP_DIR}."
+            else
+                log WARN "Rollback failed. Backup kept at ${BACKUP_DIR}."
+            fi
         fi
     else
         if [[ -d "${BACKUP_DIR}" ]]; then
@@ -293,6 +318,11 @@ cleanup() {
 
     # Reset terminal colors
     echo -e "${NC}"
+
+    # Remove the temporary copy of this script, if any
+    if [[ -n "${OURANOS_UPDATE_SCRIPT_COPY:-}" ]]; then
+        rm -f "${OURANOS_UPDATE_SCRIPT_COPY}"
+    fi
 }
 
 main () {
