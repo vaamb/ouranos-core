@@ -17,7 +17,11 @@ if [[ ! -d "${OURANOS_DIR}" ]]; then
     exit 1
 fi
 
-cd "${OURANOS_DIR}" || die "Failed to change to Ouranos directory: ${OURANOS_DIR}"
+# Note: `die` is not available yet, logging.sh is only sourced below
+cd "${OURANOS_DIR}" || {
+    echo "Failed to change to Ouranos directory: ${OURANOS_DIR}" >&2
+    exit 1
+}
 
 # Load logging functions
 readonly DATETIME=$(date +%Y%m%d_%H%M%S)
