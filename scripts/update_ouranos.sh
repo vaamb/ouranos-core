@@ -120,7 +120,8 @@ update_repo() {
     local current_tag
     current_tag=$(git describe --tags 2>/dev/null || echo "No tags found")
     local latest_tag
-    latest_tag=$(git describe --tags "$(git rev-list --tags --max-count=1 2>/dev/null)" 2>/dev/null || echo "No tags found")
+    latest_tag=$(git for-each-ref --sort=-version:refname --count=1 --format='%(refname:short)' refs/tags)
+    latest_tag=${latest_tag:-"No tags found"}
 
     log INFO "Current version: $current_tag"
     log INFO "Latest version:  $latest_tag"
