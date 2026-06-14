@@ -40,7 +40,6 @@ class Aggregator(Functionality):
         self._internal_dispatcher = None
         self._stream_dispatcher = None
         self._event_handler = None
-        self._init_gaia_events_handling()
         self.archiver = Archiver()
         self.sky_watcher = SkyWatcher()
         self.file_server = FileServer()
@@ -108,6 +107,9 @@ class Aggregator(Functionality):
             return True
         return False
 
+    async def initialize(self) -> None:
+        self._init_gaia_events_handling()
+
     def _init_gaia_events_handling(self) -> None:
         # Get the dispatcher and the event handler
         self.gaia_dispatcher = DispatcherFactory.get("aggregator")
@@ -151,6 +153,12 @@ class Aggregator(Functionality):
             pass  # Handled by uvicorn or by Api
         except RuntimeError:
             pass  # Aggregator was not started
+
+    async def post_shutdown(self) -> None:
+        self._gaia_dispatcher = None
+        self._internal_dispatcher = None
+        self._stream_dispatcher = None
+        self._event_handler = None
 
 
 aggregator_plugin = Plugin(
