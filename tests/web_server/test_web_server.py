@@ -28,7 +28,7 @@ class TestWebServer:
         assert web_server.started
         assert web_server.common_resources_state.used_by == 1
         assert isinstance(web_server.server, Server)
-        assert web_server.server.started is True
+        assert web_server.app.started is True
 
         # Test double startup
         with pytest.raises(RuntimeError):
@@ -38,7 +38,7 @@ class TestWebServer:
         await web_server.complete_shutdown()
         assert not web_server.started
         assert web_server.common_resources_state.used_by == 0
-        assert web_server.server.started is False
+        assert web_server.app.started is False
 
         # Test double shutdown
         with pytest.raises(RuntimeError):
