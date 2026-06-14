@@ -76,6 +76,10 @@ class Functionality(ABC):
         """Return whether the functionality has started."""
         return self._status
 
+    @property
+    def common_resources_state(self) -> _CommonResourcesState:
+        return Functionality._common_resources_state
+
     def _fmt_exc(self, e: BaseException) -> str:
         """Format exception for logging."""
         return f"Error msg: `{e.__class__.__name__}: {e}`"
