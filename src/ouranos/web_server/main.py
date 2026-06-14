@@ -15,8 +15,17 @@ from ouranos.web_server.system_monitor import SystemMonitor
 
 class _AppWrapper:
     def __init__(self, start: Callable[[], Awaitable[None]], stop: Callable[[], Awaitable[None]]):
-        self.start = start
-        self.stop = stop
+        self._start_fct = start
+        self._stop_fct = stop
+        self.started: bool = False
+
+    async def start(self) -> None:
+        await self._start_fct()
+        self.started = True
+
+    async def stop(self) -> None:
+        await self._stop_fct()
+        self.started = False
 
 
 class ServerWithOuranosConfig(Server):
@@ -115,6 +124,7 @@ class WebServer(Functionality):
 
             async def stop():
                 self.server.should_exit = True
+                await self.server._wait_tasks_to_complete()
 
             self.app = _AppWrapper(start, stop)
 
