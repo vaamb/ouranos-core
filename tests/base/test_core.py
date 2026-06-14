@@ -74,7 +74,7 @@ class TestFunctionality:
         await func.complete_startup()
         assert func.initialized
         assert func.started
-        assert func._status
+        assert func.common_resources_state.used_by == 1
 
         # Test double startup
         with pytest.raises(RuntimeError):
@@ -85,6 +85,7 @@ class TestFunctionality:
         assert func.cleaned_up
         assert func.post_shutdown_called
         assert not func._status
+        assert func.common_resources_state.used_by == 0
 
         # Test double shutdown
         with pytest.raises(RuntimeError):
