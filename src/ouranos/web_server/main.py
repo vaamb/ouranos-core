@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import socket
-from typing import Callable
+from typing import Awaitable, Callable
 
 from uvicorn import Config, Server
 
@@ -14,9 +14,18 @@ from ouranos.web_server.system_monitor import SystemMonitor
 
 
 class _AppWrapper:
-    def __init__(self, start: Callable[[], None], stop: Callable[[], None]):
-        self.start = start
-        self.stop = stop
+    def __init__(self, start: Callable[[], Awaitable[None]], stop: Callable[[], Awaitable[None]]):
+        self._start_fct = start
+        self._stop_fct = stop
+        self.started: bool = False
+
+    async def start(self) -> None:
+        await self._start_fct()
+        self.started = True
+
+    async def stop(self) -> None:
+        await self._stop_fct()
+        self.started = False
 
 
 class ServerWithOuranosConfig(Server):
@@ -81,7 +90,13 @@ class WebServer(Functionality):
             reload = ChangeReload(
                 self.server.config, target=self.server.run, sockets=[sock])
 
-            self.app = _AppWrapper(reload.run, reload.should_exit.set)
+            async def start() -> None:
+                reload.run()
+
+            async def stop() -> None:
+                reload.should_exit.set()
+
+            self.app = _AppWrapper(start, stop)
 
         # Multiprocess server
         elif workers > 0:
@@ -92,15 +107,24 @@ class WebServer(Functionality):
             multi = Multiprocess(
                 self.server.config, target=self.server.run, sockets=[sock])
 
-            self.app = _AppWrapper(multi.run, multi.should_exit.set)
+            async def start() -> None:
+                multi.run()
+
+            async def stop() -> None:
+                multi.should_exit.set()
+
+            self.app = _AppWrapper(start, stop)
 
         # Single process server
         else:
-            def start():
+            async def start():
                 asyncio.ensure_future(self.server.serve())
+                while not self.server.started:
+                    await asyncio.sleep(0.1)
 
-            def stop():
+            async def stop():
                 self.server.should_exit = True
+                await self.server._wait_tasks_to_complete()
 
             self.app = _AppWrapper(start, stop)
 
@@ -108,12 +132,12 @@ class WebServer(Functionality):
         await print_registration_token()
 
     async def startup(self):
-        self.app.start()
+        await self.app.start()
         await self.system_monitor.start()
 
     async def shutdown(self):
         await self.system_monitor.stop()
-        self.app.stop()
+        await self.app.stop()
         await asyncio.sleep(1)  # Allow ChangeReload and Multiprocess to exit
 
 
