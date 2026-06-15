@@ -1,13 +1,17 @@
+from uuid import uuid4
+
 from fastapi.testclient import TestClient
 import pytest
 
 from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
+import gaia_validators as gv
+
 from ouranos import json
-from ouranos.core.database.models.gaia import Engine
+from ouranos.core.database.models.gaia import CrudRequest, Engine
 
 import tests.data.gaia as g_data
-from tests.class_fixtures import EngineAware, UsersAware
+from tests.class_fixtures import EcosystemAware, EngineAware, UsersAware
 
 
 @pytest.mark.asyncio
@@ -80,4 +84,46 @@ class TestEngineUnique(EngineAware, UsersAware):
 
         # The engine is now gone
         response = client_operator.get(f"/api/gaia/engine/u/{g_data.engine_uid}")
+        assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+class TestEngineCrudRequests(EcosystemAware):
+    async def _add_crud_request(self, db: AsyncSQLAlchemyWrapper) -> None:
+        async with db.scoped_session() as session:
+            await CrudRequest.create(
+                session,
+                uuid=uuid4(),
+                values={
+                    "engine_uid": g_data.engine_uid,
+                    "ecosystem_uid": g_data.ecosystem_uid,
+                    "action": gv.CrudAction.create,
+                    "target": "hardware",
+                },
+            )
+
+    async def test_get_empty(self, client: TestClient):
+        response = client.get(
+            f"/api/gaia/engine/u/{g_data.engine_uid}/crud_requests")
+        assert response.status_code == 200
+        assert json.loads(response.text) == []
+
+    async def test_get(self, client: TestClient, db: AsyncSQLAlchemyWrapper):
+        await self._add_crud_request(db)
+
+        response = client.get(
+            f"/api/gaia/engine/u/{g_data.engine_uid}/crud_requests")
+        assert response.status_code == 200
+
+        data = json.loads(response.text)
+        assert len(data) == 1
+        request = data[0]
+        assert request["engine_uid"] == g_data.engine_uid
+        assert request["ecosystem_uid"] == g_data.ecosystem_uid
+        assert request["action"] == gv.CrudAction.create.name
+        assert request["target"] == "hardware"
+        assert request["completed"] is False
+
+    def test_get_failure_wrong_engine(self, client: TestClient):
+        response = client.get("/api/gaia/engine/u/wrong_id/crud_requests")
         assert response.status_code == 404
