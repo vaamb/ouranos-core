@@ -30,6 +30,19 @@ class TestEngines(EngineAware):
         assert engine["address"] == engines[0].address
         assert len(engine["ecosystems"]) == 0
 
+    def test_get_filter_by_uid(self, client: TestClient):
+        response = client.get(f"/api/gaia/engine?engines_id={g_data.engine_uid}")
+        assert response.status_code == 200
+
+        data = json.loads(response.text)
+        assert len(data) == 1
+        assert data[0]["uid"] == g_data.engine_uid
+
+    def test_get_filter_by_unknown_uid(self, client: TestClient):
+        response = client.get("/api/gaia/engine?engines_id=wrong_id")
+        assert response.status_code == 200
+        assert json.loads(response.text) == []
+
 
 @pytest.mark.asyncio
 class TestEngineUnique(EngineAware, UsersAware):
