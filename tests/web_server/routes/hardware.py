@@ -15,19 +15,25 @@ class TestHardware(HardwareAware, UsersAware):
         response = client.get("/api/gaia/ecosystem/hardware")
         assert response.status_code == 200
 
-        data = json.loads(response.text)[0]
-        assert data["uid"] == g_data.hardware_data["uid"]
-        assert data["name"] == g_data.hardware_data["name"]
-        assert data["address"] == g_data.hardware_data["address"]
-        assert data["type"] == g_data.hardware_data["type"]
-        assert data["level"] == g_data.hardware_data["level"]
-        assert data["model"] == g_data.hardware_data["model"]
-        assert data["measures"][0] == {
+        data = json.loads(response.text)
+        # The fixture registers two pieces of hardware: a sensor and a camera
+        assert len(data) == 2
+        by_uid = {h["uid"]: h for h in data}
+        assert set(by_uid) == {g_data.hardware_data["uid"], g_data.camera_config["uid"]}
+
+        hardware = by_uid[g_data.hardware_data["uid"]]
+        assert hardware["ecosystem_uid"] == g_data.ecosystem_uid
+        assert hardware["name"] == g_data.hardware_data["name"]
+        assert hardware["address"] == g_data.hardware_data["address"]
+        assert hardware["type"] == g_data.hardware_data["type"]
+        assert hardware["level"] == g_data.hardware_data["level"]
+        assert hardware["model"] == g_data.hardware_data["model"]
+        assert hardware["measures"][0] == {
             "name": "temperature",
             "unit": "°C"
         }
         # TODO: re enable by linking Hardware to Plant
-        #assert data["plants"] == g_data.hardware_data["plants"]
+        #assert hardware["plants"] == g_data.hardware_data["plants"]
 
     def test_hardware_models(self, client: TestClient):
         response = client.get("/api/gaia/ecosystem/hardware/models_available")
