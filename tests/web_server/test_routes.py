@@ -11,7 +11,9 @@ from .routes.hardware import (
     TestHardwareEcosystem, TestHardwareGlobal, TestHardwareUnique)
 from .routes.protected import (
     TestAdminProtection, TestAuthenticatedProtection, TestOperatorProtection)
-from .routes.sensor import TestMeasuresAvailable, TestSensorsData, TestSensorsSkeleton
+from .routes.sensor import (
+    TestMeasuresAvailable, TestSensorData, TestSensorsCurrentData,
+    TestSensorsSkeleton)
 from .routes.services import TestServicesRouteProtection
 from .routes.system import TestSystem
 from .routes.user import TestUser

@@ -13,15 +13,19 @@ import tests.data.gaia as g_data
 from tests.class_fixtures import HardwareAware, SensorsAware
 
 
-class TestMeasuresAvailable:
-    def test_measures_available(self, client: TestClient):
+class TestMeasuresAvailable(HardwareAware):
+    def test_get(self, client: TestClient):
         response = client.get("/api/gaia/ecosystem/sensor/measures_available")
         assert response.status_code == 200
+
+        # Measures are derived from the registered hardware
+        data = json.loads(response.text)
+        assert {"name": "temperature", "unit": "°C"} in data
 
 
 @pytest.mark.asyncio
 class TestSensorsSkeleton(HardwareAware):
-    async def test_ecosystems_sensors_skeleton(
+    async def test_get(
             self,
             client: TestClient,
             db: AsyncSQLAlchemyWrapper,
@@ -41,7 +45,7 @@ class TestSensorsSkeleton(HardwareAware):
         assert datetime.fromisoformat(data["span"][0]) == skeleton["span"][0]
         assert datetime.fromisoformat(data["span"][1]) == skeleton["span"][1]
 
-    async def test_ecosystem_sensors_skeleton_unique(
+    async def test_get_unique(
             self,
             client: TestClient,
             db: AsyncSQLAlchemyWrapper,
@@ -61,9 +65,13 @@ class TestSensorsSkeleton(HardwareAware):
         assert datetime.fromisoformat(data["span"][0]) == skeleton["span"][0]
         assert datetime.fromisoformat(data["span"][1]) == skeleton["span"][1]
 
+    async def test_get_unique_wrong_ecosystem(self, client: TestClient):
+        response = client.get("/api/gaia/ecosystem/u/wrong_uid/sensor/skeleton")
+        assert response.status_code == 404
 
-class TestSensorsData(SensorsAware):
-    def test_current_data(self, client: TestClient):
+
+class TestSensorsCurrentData(SensorsAware):
+    def test_get(self, client: TestClient):
         response = client.get("/api/gaia/ecosystem/sensor/data/current")
         assert response.status_code == 200
 
@@ -75,7 +83,7 @@ class TestSensorsData(SensorsAware):
         assert inner_data["measure"] == g_data.sensor_record.measure
         assert inner_data["value"] == g_data.sensor_record.value
 
-    def test_current_data_unique(self, client: TestClient):
+    def test_get_unique(self, client: TestClient):
         response = client.get(
             f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/sensor/data/current")
         assert response.status_code == 200
@@ -88,10 +96,18 @@ class TestSensorsData(SensorsAware):
         assert inner_data["measure"] == g_data.sensor_record.measure
         assert inner_data["value"] == g_data.sensor_record.value
 
-    def test_hardware_unique_current(self, client: TestClient):
+    def test_get_unique_failure_wrong_ecosystem(self, client: TestClient):
+        response = client.get("/api/gaia/ecosystem/u/wrong_uid/sensor/data/current")
+        assert response.status_code == 404
+
+
+class TestSensorData(SensorsAware):
+    # The only sensor added by the fixture is a thermometer (measure: temperature)
+    def test_get_current(self, client: TestClient):
         response = client.get(
-            f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/sensor/u/{g_data.hardware_uid}"  # The only hardware added is a sensor
-            f"/data/{g_data.sensor_record.measure}/current")
+            f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}"
+            f"/sensor/u/{g_data.hardware_uid}/data/{g_data.sensor_record.measure}"
+            f"/current")
         assert response.status_code == 200
 
         current_data = json.loads(response.text)
@@ -101,16 +117,55 @@ class TestSensorsData(SensorsAware):
         assert datetime.fromisoformat(current_value[0]) == g_data.sensors_data["timestamp"]
         assert current_value[1] == g_data.sensor_record.value
 
-    def test_hardware_unique_historic(self, client: TestClient):
+    def test_get_current_failure_wrong_ecosystem(self, client: TestClient):
         response = client.get(
-            f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/sensor/u/{g_data.hardware_uid}"  # The only hardware added is a sensor
-            f"/data/{g_data.sensor_record.measure}/historic")
+            f"/api/gaia/ecosystem/u/wrong_uid/sensor/u/{g_data.hardware_uid}"
+            f"/data/{g_data.sensor_record.measure}/current")
+        assert response.status_code == 404
+
+    def test_get_current_failure_wrong_sensor(self, client: TestClient):
+        response = client.get(
+            f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/sensor/u/wrong_uid"
+            f"/data/{g_data.sensor_record.measure}/current")
+        assert response.status_code == 404
+
+    def test_get_current_camera_unsupported(self, client: TestClient):
+        # Cameras are sensors but expose no current measure
+        response = client.get(
+            f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}"
+            f"/sensor/u/{g_data.camera_config['uid']}"
+            f"/data/{g_data.sensor_record.measure}/current")
+        assert response.status_code == 404
+
+    def test_get_current_failure_unavailable_measure(self, client: TestClient):
+        response = client.get(
+            f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}"
+            f"/sensor/u/{g_data.hardware_uid}/data/humidity/current")
+        assert response.status_code == 400
+
+    def test_get_historic(self, client: TestClient):
+        response = client.get(
+            f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}"
+            f"/sensor/u/{g_data.hardware_uid}/data/{g_data.sensor_record.measure}"
+            f"/historic")
         assert response.status_code == 200
 
         historic_data = json.loads(response.text)
         # Most data is the same as the one given by hardware, focus on the difference
         assert historic_data["measure"] == g_data.sensor_record.measure
-        current_value = historic_data["values"][0]
-        assert datetime.fromisoformat(current_value[0]) == \
+        historic_value = historic_data["values"][0]
+        assert datetime.fromisoformat(historic_value[0]) == \
                (g_data.sensors_data["timestamp"] - timedelta(hours=1))
-        assert current_value[1] == g_data.sensor_record.value
+        assert historic_value[1] == g_data.sensor_record.value
+
+    def test_get_historic_failure_wrong_sensor(self, client: TestClient):
+        response = client.get(
+            f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/sensor/u/wrong_uid"
+            f"/data/{g_data.sensor_record.measure}/historic")
+        assert response.status_code == 404
+
+    def test_get_historic_failure_unavailable_measure(self, client: TestClient):
+        response = client.get(
+            f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}"
+            f"/sensor/u/{g_data.hardware_uid}/data/humidity/historic")
+        assert response.status_code == 400
