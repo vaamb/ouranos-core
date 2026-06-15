@@ -57,9 +57,10 @@ class TestEngineUnique(EngineAware, UsersAware):
 
         async with db.scoped_session() as session:
             engine = await Engine.get(session, uid=g_data.engine_uid)
-            assert data["uid"] == engine.uid
-            assert data["address"] == engine.address
-            assert len(data["ecosystems"]) == 0
+
+        assert data["uid"] == engine.uid
+        assert data["address"] == engine.address
+        assert len(data["ecosystems"]) == 0
 
     def test_get_failure_wrong_id(self, client: TestClient):
         response = client.get("/api/gaia/engine/u/wrong_id")
