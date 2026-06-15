@@ -24,7 +24,7 @@ async def engine_or_abort(session: AsyncSession, engine_id: str) -> Engine:
         return engine
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
-        detail="No ecosystem(s) found"
+        detail="No engine(s) found"
     )
 
 
