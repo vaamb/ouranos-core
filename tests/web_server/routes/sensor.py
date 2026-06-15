@@ -13,10 +13,14 @@ import tests.data.gaia as g_data
 from tests.class_fixtures import HardwareAware, SensorsAware
 
 
-class TestMeasuresAvailable:
-    def test_measures_available(self, client: TestClient):
+class TestMeasuresAvailable(HardwareAware):
+    def test_get(self, client: TestClient):
         response = client.get("/api/gaia/ecosystem/sensor/measures_available")
         assert response.status_code == 200
+
+        # Measures are derived from the registered hardware
+        data = json.loads(response.text)
+        assert {"name": "temperature", "unit": "°C"} in data
 
 
 @pytest.mark.asyncio
