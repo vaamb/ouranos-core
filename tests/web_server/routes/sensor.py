@@ -70,8 +70,8 @@ class TestSensorsSkeleton(HardwareAware):
         assert response.status_code == 404
 
 
-class TestSensorsData(SensorsAware):
-    def test_current_data(self, client: TestClient):
+class TestSensorsCurrentData(SensorsAware):
+    def test_get(self, client: TestClient):
         response = client.get("/api/gaia/ecosystem/sensor/data/current")
         assert response.status_code == 200
 
@@ -83,7 +83,7 @@ class TestSensorsData(SensorsAware):
         assert inner_data["measure"] == g_data.sensor_record.measure
         assert inner_data["value"] == g_data.sensor_record.value
 
-    def test_current_data_unique(self, client: TestClient):
+    def test_get_unique(self, client: TestClient):
         response = client.get(
             f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/sensor/data/current")
         assert response.status_code == 200
@@ -100,6 +100,11 @@ class TestSensorsData(SensorsAware):
         response = client.get(
             f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/sensor/u/{g_data.hardware_uid}"  # The only hardware added is a sensor
             f"/data/{g_data.sensor_record.measure}/current")
+    def test_get_unique_failure_wrong_ecosystem(self, client: TestClient):
+        response = client.get("/api/gaia/ecosystem/u/wrong_uid/sensor/data/current")
+        assert response.status_code == 404
+
+
         assert response.status_code == 200
 
         current_data = json.loads(response.text)
