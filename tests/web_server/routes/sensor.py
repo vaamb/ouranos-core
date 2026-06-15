@@ -25,7 +25,7 @@ class TestMeasuresAvailable(HardwareAware):
 
 @pytest.mark.asyncio
 class TestSensorsSkeleton(HardwareAware):
-    async def test_ecosystems_sensors_skeleton(
+    async def test_get(
             self,
             client: TestClient,
             db: AsyncSQLAlchemyWrapper,
@@ -45,7 +45,7 @@ class TestSensorsSkeleton(HardwareAware):
         assert datetime.fromisoformat(data["span"][0]) == skeleton["span"][0]
         assert datetime.fromisoformat(data["span"][1]) == skeleton["span"][1]
 
-    async def test_ecosystem_sensors_skeleton_unique(
+    async def test_get_unique(
             self,
             client: TestClient,
             db: AsyncSQLAlchemyWrapper,
@@ -64,6 +64,10 @@ class TestSensorsSkeleton(HardwareAware):
         assert data["sensors_skeleton"] == skeleton["sensors_skeleton"]
         assert datetime.fromisoformat(data["span"][0]) == skeleton["span"][0]
         assert datetime.fromisoformat(data["span"][1]) == skeleton["span"][1]
+
+    async def test_get_unique_wrong_ecosystem(self, client: TestClient):
+        response = client.get("/api/gaia/ecosystem/u/wrong_uid/sensor/skeleton")
+        assert response.status_code == 404
 
 
 class TestSensorsData(SensorsAware):
