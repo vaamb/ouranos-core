@@ -189,6 +189,11 @@ class TestHardware(HardwareAware, UsersAware):
         # TODO: re enable by linking Hardware to Plant
         #assert data["plants"] == g_data.hardware_data["plants"]
 
+    def test_hardware_unique_wrong_ecosystem(self, client: TestClient):
+        response = client.get(
+            f"/api/gaia/ecosystem/u/wrong_uid/hardware/u/{g_data.hardware_uid}")
+        assert response.status_code == 404
+
     def test_hardware_unique_wrong_uid(self, client: TestClient):
         response = client.get(
             f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/hardware/u/wrong_id")
@@ -203,6 +208,13 @@ class TestHardware(HardwareAware, UsersAware):
         response = client_operator.put(
             f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/hardware/u/{g_data.hardware_uid}")
         assert response.status_code == 422
+
+    def test_hardware_update_request_wrong_uid(self, client_operator: TestClient):
+        response = client_operator.put(
+            f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/hardware/u/wrong_id",
+            json={"name": "TestLedLight"},
+        )
+        assert response.status_code == 404
 
     def test_hardware_update_request_success(
             self,
@@ -226,6 +238,7 @@ class TestHardware(HardwareAware, UsersAware):
         assert dispatched["data"]["action"] == gv.CrudAction.update
         assert dispatched["data"]["target"] == "hardware"
         assert dispatched["data"]["kwargs"]["name"] == payload["name"]
+        assert dispatched["data"]["kwargs"]["uid"] == g_data.hardware_uid
         with pytest.raises(KeyError):
             dispatched["data"]["kwargs"]["level"]  # Not in the payload, should be missing
 
@@ -233,6 +246,11 @@ class TestHardware(HardwareAware, UsersAware):
         response = client_user.delete(
             f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/hardware/u/{g_data.hardware_uid}")
         assert response.status_code == 403
+
+    def test_hardware_delete_request_wrong_uid(self, client_operator: TestClient):
+        response = client_operator.delete(
+            f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/hardware/u/wrong_id")
+        assert response.status_code == 404
 
     def test_hardware_delete_request_success(
             self,
