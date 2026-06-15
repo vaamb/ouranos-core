@@ -35,6 +35,58 @@ class TestHardware(HardwareAware, UsersAware):
         # TODO: re enable by linking Hardware to Plant
         #assert hardware["plants"] == g_data.hardware_data["plants"]
 
+    def test_hardware_filter_by_uid(self, client: TestClient):
+        response = client.get(
+            f"/api/gaia/ecosystem/hardware?hardware_uid={g_data.hardware_uid}")
+        assert response.status_code == 200
+
+        data = json.loads(response.text)
+        assert len(data) == 1
+        assert data[0]["uid"] == g_data.hardware_uid
+
+    def test_hardware_filter_by_type(self, client: TestClient):
+        response = client.get(
+            f"/api/gaia/ecosystem/hardware?hardware_type={gv.HardwareType.sensor.value}")
+        assert response.status_code == 200
+
+        data = json.loads(response.text)
+        assert len(data) == 1
+        assert data[0]["uid"] == g_data.hardware_uid
+        assert data[0]["type"] == gv.HardwareType.sensor.name
+
+    def test_hardware_filter_by_level(self, client: TestClient):
+        response = client.get(
+            f"/api/gaia/ecosystem/hardware"
+            f"?hardware_level={gv.HardwareLevel.ecosystem.value}")
+        assert response.status_code == 200
+
+        data = json.loads(response.text)
+        assert len(data) == 1
+        assert data[0]["uid"] == g_data.camera_config["uid"]
+
+    def test_hardware_filter_by_model(self, client: TestClient):
+        response = client.get(
+            f"/api/gaia/ecosystem/hardware"
+            f"?hardware_model={g_data.hardware_data['model']}")
+        assert response.status_code == 200
+
+        data = json.loads(response.text)
+        # Both fixtures share the same model
+        assert len(data) == 2
+
+        response = client.get(
+            "/api/gaia/ecosystem/hardware?hardware_model=does_not_exist")
+        assert response.status_code == 200
+        assert json.loads(response.text) == []
+
+    def test_hardware_types_available(self, client: TestClient):
+        response = client.get("/api/gaia/ecosystem/hardware/types_available")
+        assert response.status_code == 200
+
+        data = json.loads(response.text)
+        assert len(data) == len(gv.HardwareType.__members__)
+        assert {"name": "sensor", "value": gv.HardwareType.sensor.value} in data
+
     def test_hardware_models(self, client: TestClient):
         response = client.get("/api/gaia/ecosystem/hardware/models_available")
         assert response.status_code == 200
