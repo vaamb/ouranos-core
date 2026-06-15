@@ -87,7 +87,7 @@ class TestHardware(HardwareAware, UsersAware):
 
     def test_hardware_unique_wrong_uid(self, client: TestClient):
         response = client.get(
-            "/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/hardware/u/wrong_id")
+            f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/hardware/u/wrong_id")
         assert response.status_code == 404
 
     def test_hardware_update_request_failure_user(self, client_user: TestClient):
