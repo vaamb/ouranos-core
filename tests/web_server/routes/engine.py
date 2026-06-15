@@ -77,3 +77,7 @@ class TestEngineUnique(EngineAware, UsersAware):
     def test_delete_success(self, client_operator: TestClient):
         response = client_operator.delete(f"/api/gaia/engine/u/{g_data.engine_uid}")
         assert response.status_code == 202
+
+        # The engine is now gone
+        response = client_operator.get(f"/api/gaia/engine/u/{g_data.engine_uid}")
+        assert response.status_code == 404
