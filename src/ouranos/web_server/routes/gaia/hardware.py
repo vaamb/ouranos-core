@@ -65,9 +65,8 @@ async def get_multiple_hardware(
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     hardware = await Hardware.get_multiple(
-        session, hardware_uids=hardware_uid,
-        ecosystem_uids=ecosystems_uid, levels=hardware_level,
-        types=hardware_type, models=hardware_model, in_config=in_config)
+        session, uid=hardware_uid, ecosystem_uid=ecosystems_uid, level=hardware_level,
+        type=hardware_type, model=hardware_model, in_config=in_config)
     return hardware
 
 
