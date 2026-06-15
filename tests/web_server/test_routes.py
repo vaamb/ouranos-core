@@ -5,7 +5,7 @@ from .routes.auth import (
 from .routes.calendar import TestCalendar, TestEvent
 from .routes.ecosystem import (
     TestEcosystemActuators, TestEcosystemCore, TestEcosystemEnvironmentParameters,
-    TestEcosystemLight, TestEcosystemManagement)
+    TestEcosystemLight, TestEcosystemManagement, TestEcosystemWeatherEvents)
 from .routes.engine import (
     TestEngineCrudRequests, TestEngines, TestEngineUnique)
 from .routes.hardware import (
