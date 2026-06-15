@@ -564,7 +564,39 @@ class TestEcosystemWeatherEvents(ClimateAware, UsersAware):
 #   Ecosystem actuators state
 # ------------------------------------------------------------------------------
 class TestEcosystemActuators(ActuatorsAware, UsersAware):
-    def test_get_ecosystem_actuator_records(self, client: TestClient):
+    def _assert_actuator_state(self, actuators_state: list[dict]):
+        assert len(actuators_state) == 1
+        state = actuators_state[0]
+        assert state["type"] == g_data.actuator_record.type.name
+        assert state["active"] == g_data.actuator_record.active
+        assert state["mode"] == g_data.actuator_record.mode.name
+        assert state["status"] == g_data.actuator_record.status
+        assert state["level"] == g_data.actuator_record.level
+
+    def test_get_multiple_state(self, client: TestClient):
+        response = client.get("/api/gaia/ecosystem/actuators_state")
+        assert response.status_code == 200
+
+        data = json.loads(response.text)[0]
+        assert data["uid"] == g_data.ecosystem_uid
+        assert data["name"] == g_data.ecosystem_name
+        self._assert_actuator_state(data["actuators_state"])
+
+    def test_get_unique_state(self, client: TestClient):
+        response = client.get(
+            f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/actuators_state")
+        assert response.status_code == 200
+
+        data = json.loads(response.text)
+        assert data["uid"] == g_data.ecosystem_uid
+        assert data["name"] == g_data.ecosystem_name
+        self._assert_actuator_state(data["actuators_state"])
+
+    def test_get_unique_state_failure_wrong_ecosystem(self, client: TestClient):
+        response = client.get("/api/gaia/ecosystem/u/wrong_uid/actuators_state")
+        assert response.status_code == 404
+
+    def test_get_records(self, client: TestClient):
         actuator = g_data.actuator_record.type.name
         response = client.get(
             f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/actuator_records/u/{actuator}")
