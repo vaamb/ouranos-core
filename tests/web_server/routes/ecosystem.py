@@ -333,6 +333,15 @@ class TestEnvironmentParameterEcosystem(ClimateAware, UsersAware):
             f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameter/u")
         assert response.status_code == 422
 
+    def test_create_failure_wrong_ecosystem(self, client_operator: TestClient):
+        payload = g_data.climate.copy()
+        payload["parameter"] = "humidity"
+        response = client_operator.post(
+            "/api/gaia/ecosystem/u/wrong_uid/environment_parameter/u",
+            json=payload,
+        )
+        assert response.status_code == 404
+
     def test_create_success(
             self,
             client_operator: TestClient,
@@ -393,6 +402,17 @@ class TestEnvironmentParameterUnique(ClimateAware, UsersAware):
             f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameter/u/temperature")
         assert response.status_code == 422
 
+    def test_update_failure_not_found(self, client_operator: TestClient):
+        # 'humidity' is a valid climate parameter but is not seeded
+        payload = g_data.climate.copy()
+        del payload["parameter"]
+        payload["day"] = 37.0
+        response = client_operator.put(
+            f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameter/u/humidity",
+            json=payload,
+        )
+        assert response.status_code == 404
+
     def test_update_success(
             self,
             client_operator: TestClient,
@@ -423,6 +443,12 @@ class TestEnvironmentParameterUnique(ClimateAware, UsersAware):
         response = client.delete(
             f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameter/u/temperature")
         assert response.status_code == 403
+
+    def test_delete_failure_not_found(self, client_operator: TestClient):
+        # 'humidity' is a valid climate parameter but is not seeded
+        response = client_operator.delete(
+            f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameter/u/humidity")
+        assert response.status_code == 404
 
     def test_delete_success(
             self,
@@ -489,6 +515,15 @@ class TestWeatherEventEcosystem(ClimateAware, UsersAware):
             f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/weather_event/u")
         assert response.status_code == 422
 
+    def test_create_failure_wrong_ecosystem(self, client_operator: TestClient):
+        payload = g_data.weather.copy()
+        payload["parameter"] = gv.WeatherParameter.rain
+        response = client_operator.post(
+            "/api/gaia/ecosystem/u/wrong_uid/weather_event/u",
+            json=payload,
+        )
+        assert response.status_code == 404
+
     def test_create_success(
             self,
             client_operator: TestClient,
@@ -552,6 +587,17 @@ class TestWeatherEventUnique(ClimateAware, UsersAware):
             f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/weather_event/u/rain")
         assert response.status_code == 422
 
+    def test_update_failure_not_found(self, client_operator: TestClient):
+        # 'fog' is a valid weather parameter but is not seeded
+        payload = g_data.weather.copy()
+        del payload["parameter"]
+        payload["duration"] = 42.0
+        response = client_operator.put(
+            f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/weather_event/u/fog",
+            json=payload,
+        )
+        assert response.status_code == 404
+
     def test_update_success(
             self,
             client_operator: TestClient,
@@ -584,6 +630,12 @@ class TestWeatherEventUnique(ClimateAware, UsersAware):
         response = client.delete(
             f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/weather_event/u/temperature")
         assert response.status_code == 403
+
+    def test_delete_failure_not_found(self, client_operator: TestClient):
+        # 'fog' is a valid weather parameter but is not seeded
+        response = client_operator.delete(
+            f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/weather_event/u/fog")
+        assert response.status_code == 404
 
     def test_delete_success(
             self,
