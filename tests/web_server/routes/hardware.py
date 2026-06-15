@@ -94,6 +94,28 @@ class TestHardware(HardwareAware, UsersAware):
         data = json.loads(response.text)
         assert len(data) == 0
 
+    def test_hardware_creation_request_failure_user(self, client_user: TestClient):
+        response = client_user.post(
+            f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/hardware/u")
+        assert response.status_code == 403
+
+    def test_hardware_creation_request_wrong_ecosystem(
+            self,
+            client_operator: TestClient,
+    ):
+        payload = {
+            "name": "TestLight",
+            "address": "GPIO_17",
+            "level": gv.HardwareLevel.environment.name,
+            "type": gv.HardwareType.light.name,
+            "model": "LedPanel",
+        }
+        response = client_operator.post(
+            "/api/gaia/ecosystem/u/wrong_uid/hardware/u",
+            json=payload,
+        )
+        assert response.status_code == 404
+
     def test_hardware_creation_request_success(
             self,
             client_operator: TestClient,
