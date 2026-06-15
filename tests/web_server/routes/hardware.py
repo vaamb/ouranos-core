@@ -142,6 +142,30 @@ class TestHardware(HardwareAware, UsersAware):
         assert dispatched["data"]["target"] == "hardware"
         assert dispatched["data"]["kwargs"]["name"] == payload["name"]
 
+    def test_ecosystem_hardware(self, client: TestClient):
+        response = client.get(
+            f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/hardware")
+        assert response.status_code == 200
+
+        data = json.loads(response.text)
+        assert len(data) == 2
+        assert {h["uid"] for h in data} == \
+               {g_data.hardware_data["uid"], g_data.camera_config["uid"]}
+
+    def test_ecosystem_hardware_filter_by_type(self, client: TestClient):
+        response = client.get(
+            f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/hardware"
+            f"?hardware_type={gv.HardwareType.camera.value}")
+        assert response.status_code == 200
+
+        data = json.loads(response.text)
+        assert len(data) == 1
+        assert data[0]["uid"] == g_data.camera_config["uid"]
+
+    def test_ecosystem_hardware_wrong_ecosystem(self, client: TestClient):
+        response = client.get("/api/gaia/ecosystem/u/wrong_uid/hardware")
+        assert response.status_code == 404
+
     def test_hardware_unique(self, client: TestClient):
         response = client.get(
             f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/hardware/u/{g_data.hardware_uid}")
