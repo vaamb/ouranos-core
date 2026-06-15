@@ -7,7 +7,8 @@ from .routes.ecosystem import (
     TestEcosystemActuators, TestEcosystemCore, TestEcosystemEnvironmentParameters,
     TestEcosystemLight, TestEcosystemManagement)
 from .routes.engine import TestEngineCore
-from .routes.hardware import TestHardware
+from .routes.hardware import (
+    TestHardwareEcosystem, TestHardwareGlobal, TestHardwareUnique)
 from .routes.protected import (
     TestAdminProtection, TestAuthenticatedProtection, TestOperatorProtection)
 from .routes.sensor import TestMeasuresAvailable, TestSensorsData, TestSensorsSkeleton
