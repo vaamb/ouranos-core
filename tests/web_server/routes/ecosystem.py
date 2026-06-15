@@ -177,6 +177,10 @@ class TestEcosystemManagement(EcosystemAware, UsersAware):
         assert not data["plants_data"]
         assert not data["recent_picture"]
 
+    def test_get_failure_wrong_ecosystem(self, client: TestClient):
+        response = client.get("/api/gaia/ecosystem/u/wrong_uid/management")
+        assert response.status_code == 404
+
     def test_update_failure_user(self,client_user: TestClient):
         response = client_user.put(f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/management")
         assert response.status_code == 403
@@ -246,6 +250,10 @@ class TestEcosystemLight(ClimateAware, UsersAware):
         assert time.fromisoformat(data["evening_start"]) == g_data.light_data["evening_start"]
         assert time.fromisoformat(data["evening_end"]) == g_data.light_data["evening_end"]
 
+    def test_get_failure_wrong_ecosystem(self, client: TestClient):
+        response = client.get("/api/gaia/ecosystem/u/wrong_uid/light")
+        assert response.status_code == 404
+
     def test_update_failure_user(self, client_user: TestClient):
         response = client_user.put(f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/light")
         assert response.status_code == 403
@@ -310,6 +318,11 @@ class TestEnvironmentParameterEcosystem(ClimateAware, UsersAware):
                g_data.climate["linked_actuators"]["decrease"]
         assert parameter_1["linked_measure"] == g_data.climate["linked_measure"]
 
+    def test_get_failure_wrong_ecosystem(self, client: TestClient):
+        response = client.get(
+            "/api/gaia/ecosystem/u/wrong_uid/environment_parameter")
+        assert response.status_code == 404
+
     def test_create_failure_user(self, client_user: TestClient):
         response = client_user.post(
             f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameter/u")
@@ -358,6 +371,17 @@ class TestEnvironmentParameterUnique(ClimateAware, UsersAware):
         assert data["day"] == g_data.climate["day"]
         assert data["night"] == g_data.climate["night"]
         assert data["hysteresis"] == g_data.climate["hysteresis"]
+
+    def test_get_failure_wrong_ecosystem(self, client: TestClient):
+        response = client.get(
+            "/api/gaia/ecosystem/u/wrong_uid/environment_parameter/u/temperature")
+        assert response.status_code == 404
+
+    def test_get_failure_not_found(self, client: TestClient):
+        # 'humidity' is a valid climate parameter but is not seeded
+        response = client.get(
+            f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameter/u/humidity")
+        assert response.status_code == 404
 
     def test_update_failure_user(self, client_user: TestClient):
         response = client_user.put(
@@ -450,6 +474,11 @@ class TestWeatherEventEcosystem(ClimateAware, UsersAware):
         assert event_1["level"] == g_data.weather["level"]
         assert event_1["linked_actuator"] == g_data.weather["linked_actuator"]
 
+    def test_get_failure_wrong_ecosystem(self, client: TestClient):
+        response = client.get(
+            "/api/gaia/ecosystem/u/wrong_uid/weather_event")
+        assert response.status_code == 404
+
     def test_create_failure_user(self, client_user: TestClient):
         response = client_user.post(
             f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/weather_event/u")
@@ -501,6 +530,17 @@ class TestWeatherEventUnique(ClimateAware, UsersAware):
         assert data["duration"] == g_data.weather["duration"]
         assert data["level"] == g_data.weather["level"]
         assert data["linked_actuator"] == g_data.weather["linked_actuator"]
+
+    def test_get_failure_wrong_ecosystem(self, client: TestClient):
+        response = client.get(
+            "/api/gaia/ecosystem/u/wrong_uid/weather_event/u/rain")
+        assert response.status_code == 404
+
+    def test_get_failure_not_found(self, client: TestClient):
+        # 'fog' is a valid weather parameter but is not seeded
+        response = client.get(
+            f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/weather_event/u/fog")
+        assert response.status_code == 404
 
     def test_update_failure_user(self, client_user: TestClient):
         response = client_user.put(
