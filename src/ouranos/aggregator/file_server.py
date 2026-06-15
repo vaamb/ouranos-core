@@ -83,6 +83,9 @@ class FileServer:
             return
         self.logger.info("Starting the file server")
         self._future = asyncio.ensure_future(self.server.serve())
+        # Wait for uvicorn to finish booting
+        while not self.server.started:
+            await asyncio.sleep(0.1)
         host = self.server.config.host
         port = self.server.config.port
         self.logger.info(f"File server running on http://{host}:{port}.")
@@ -92,7 +95,10 @@ class FileServer:
             raise Exception("Server not started")
         self.logger.info("Stopping the file server")
         self.server.should_exit = True
+        await self.server._wait_tasks_to_complete()
+        assert self._future is not None
         await self._future
+        self._future = None
 
     """Starlette app logic"""
     @property
