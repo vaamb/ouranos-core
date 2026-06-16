@@ -76,9 +76,9 @@ class TestCurrentUser(UsersAware):
         assert data["permissions"] == 15
 
     def test_update_current_user_anonymous(self, client: TestClient):
-        # Anonymous users are a no-op, but the request must still succeed
+        # Anonymous users are a no-op, signalled by a 204 (no content)
         response = client.put("/api/auth/current_user")
-        assert response.status_code == 200
+        assert response.status_code == 204
 
     async def test_update_current_user_admin(
             self,
@@ -100,9 +100,9 @@ class TestCurrentUser(UsersAware):
 
 class TestRefreshSession(UsersAware):
     def test_refresh_session_anonymous(self, client: TestClient):
-        # Anonymous users have no session to refresh, but it must not error
+        # Anonymous users have no session to refresh, signalled by a 204
         response = client.get("/api/auth/refresh_session")
-        assert response.status_code == 200
+        assert response.status_code == 204
 
     def test_refresh_session_authenticated(self, client_admin: TestClient):
         response = client_admin.get("/api/auth/refresh_session")
