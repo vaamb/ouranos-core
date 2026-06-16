@@ -70,11 +70,14 @@ class TestHandler:
         """Test the on_connect event handler.
 
         Verifies that:
-        - A register event is emitted with the correct parameters
+        - A single "register" event is emitted to request connected engines to
+          register themselves
         """
         await events_handler.on_connect("sid", {})
+        assert len(mock_dispatcher.emit_store) == 1
         emitted = mock_dispatcher.emit_store[0]
         assert emitted["event"] == "register"
+        assert emitted["namespace"] == "gaia"
 
     async def test_on_disconnect(
             self,
@@ -84,11 +87,11 @@ class TestHandler:
         """Test the on_disconnect event handler.
 
         Verifies that:
-        - The session is properly cleaned up
-        - Ecosystem status is updated to disconnected
-        - Correct event is emitted with the updated status
+        - The handler completes without error
+        - No event is emitted (the handler only logs the disconnection)
         """
         await events_handler.on_disconnect("sid")
+        assert len(mock_dispatcher.emit_store) == 0
 
 
 @pytest.mark.asyncio
@@ -472,6 +475,7 @@ class TestInitializationDataExchange(EcosystemAware):
             g_data.engine_sid, [g_data.climate_payload])
 
         # There is no re emitted event
+        assert len(mock_dispatcher.emit_store) == 0
 
         # Verify the session
         async with events_handler.session(g_data.engine_sid) as session:
@@ -523,6 +527,7 @@ class TestInitializationDataExchange(EcosystemAware):
         await events_handler.on_weather(g_data.engine_sid, [g_data.weather_payload])
 
         # There is no re emitted event
+        assert len(mock_dispatcher.emit_store) == 0
 
         # Verify the session
         async with events_handler.session(g_data.engine_sid) as session:
@@ -568,6 +573,7 @@ class TestInitializationDataExchange(EcosystemAware):
         await events_handler.on_hardware(g_data.engine_sid, [g_data.hardware_payload])
 
         # There is no re emitted event
+        assert len(mock_dispatcher.emit_store) == 0
 
         # Verify the session
         async with events_handler.session(g_data.engine_sid) as session:
@@ -644,6 +650,7 @@ class TestInitializationDataExchange(EcosystemAware):
         await events_handler.on_plants(g_data.engine_sid, [g_data.plants_payload])
 
         # There is no re emitted event
+        assert len(mock_dispatcher.emit_store) == 0
 
         # Verify the session
         async with events_handler.session(g_data.engine_sid) as session:
