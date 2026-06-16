@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi.testclient import TestClient
 from httpx import BasicAuth
@@ -59,6 +59,7 @@ class TestLogin(UsersAware):
         assert "Logged out" in response.text
 
 
+@pytest.mark.asyncio
 class TestCurrentUser(UsersAware):
     def test_current_user_anonymous(self, client: TestClient):
         response = client.get("/api/auth/current_user")
@@ -73,6 +74,30 @@ class TestCurrentUser(UsersAware):
         data = json.loads(response.text)
         assert data["username"] == admin.username
         assert data["permissions"] == 15
+
+    def test_update_current_user_anonymous(self, client: TestClient):
+        # Anonymous users are a no-op, but the request must still succeed
+        response = client.put("/api/auth/current_user")
+        assert response.status_code == 200
+
+    async def test_update_current_user_admin(
+            self,
+            db: AsyncSQLAlchemyWrapper,
+            client_admin: TestClient,
+    ):
+        old_last_seen = datetime(2000, 1, 1, tzinfo=timezone.utc)
+        async with db.scoped_session() as session:
+            await User.update(
+                session, user_id=admin.id, values={"last_seen": old_last_seen})
+
+        response = client_admin.put("/api/auth/current_user")
+        assert response.status_code == 200
+
+        async with db.scoped_session() as session:
+            user = await User.get_by(session, username=admin.username)
+        assert user.last_seen > old_last_seen
+
+
 
 
 @pytest.mark.asyncio
