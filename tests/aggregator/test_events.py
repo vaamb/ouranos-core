@@ -35,7 +35,7 @@ from tests.utils import MockAsyncDispatcher
 
 @pytest.mark.asyncio
 class TestHandler:
-    def test_init(
+    async def test_init(
             self,
             mock_dispatcher: MockAsyncDispatcher,
             events_handler: GaiaEvents
