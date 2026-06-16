@@ -1279,6 +1279,67 @@ class TestBufferedDataExchange(HardwareAware):
         with pytest.raises(ValidationError):
             await events_handler.on_buffered_actuators_data(g_data.engine_sid, [{}])
 
+    async def test_on_buffered_health_data(
+            self,
+            mock_dispatcher: MockAsyncDispatcher,
+            events_handler: GaiaEvents,
+            db: AsyncSQLAlchemyWrapper,
+    ):
+        """Test handling of buffered health data batches.
+
+        Verifies that:
+        - Buffered health data is stored as sensor data records
+        - Acknowledgment is sent back to the sender
+        - Invalid payloads raise appropriate exceptions
+        """
+        # Use a distinct measure/timestamp to avoid clashing with other records
+        timestamp = datetime.now(timezone.utc) - timedelta(days=2)
+        request_uuid = UUID("87654321-4321-8765-4321-876543218765")
+        payload = gv.BufferedSensorsDataPayloadDict(
+            uuid=request_uuid,
+            data=[
+                gv.BufferedSensorRecord(
+                    ecosystem_uid=g_data.ecosystem_uid,
+                    sensor_uid=g_data.hardware_uid,
+                    measure="MPRI",
+                    value=0.5,
+                    timestamp=timestamp,
+                ),
+            ],
+        )
+
+        await events_handler.on_buffered_health_data(g_data.engine_sid, payload)
+
+        # Verify the acknowledgment
+        emitted = mock_dispatcher.emit_store[0]
+        assert emitted["namespace"] == "gaia"
+        assert emitted["room"] == g_data.engine_sid.hex
+        assert emitted["event"] == "buffered_data_ack"
+        result: gv.RequestResultDict = emitted["data"]
+        assert result["uuid"] == request_uuid
+        assert result["status"] == gv.Result.success
+
+        # Verify that the data has been logged
+        async with db.scoped_session() as session:
+            records = await SensorDataRecord.get_multiple(
+                session,
+                sensor_uid=g_data.hardware_uid,
+                measure="MPRI",
+                timestamp=create_time_window(
+                    start_time=timestamp - timedelta(hours=1),
+                    end_time=timestamp + timedelta(hours=1),
+                ),
+            )
+            assert len(records) == 1
+            assert records[0].value == 0.5
+            assert records[0].timestamp == timestamp
+
+            await session.execute(delete(SensorDataRecord))
+
+        # Verify that the wrong payload raises an exception
+        with pytest.raises(ValidationError):
+            await events_handler.on_buffered_health_data(g_data.engine_sid, {})
+
 @pytest.mark.asyncio
 class TestPicture:
     async def test_picture_arrays(
