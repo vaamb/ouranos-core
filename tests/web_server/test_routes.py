@@ -13,7 +13,8 @@ from .routes.engine import (
 from .routes.hardware import (
     TestHardwareEcosystem, TestHardwareGlobal, TestHardwareUnique)
 from .routes.protected import (
-    TestAdminProtection, TestAuthenticatedProtection, TestOperatorProtection)
+    TestAdminProtection, TestAuthenticatedProtection, TestBearerTokenProtection,
+    TestInactiveUserProtection, TestOperatorProtection)
 from .routes.sensor import (
     TestMeasuresAvailable, TestSensorData, TestSensorsCurrentData,
     TestSensorsSkeleton)
