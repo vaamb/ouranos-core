@@ -67,15 +67,15 @@ class TestCalendar(EventsAware, ServicesEnabled, UsersAware):
 
 
 @pytest.mark.asyncio
-class TestEvent(EventsAware, ServicesEnabled, UsersAware):
-    def test_event_creation_failure_unauthorized(self, client: TestClient):
+class TestEventCreation(EventsAware, ServicesEnabled, UsersAware):
+    def test_failure_unauthorized(self, client: TestClient):
         response = client.post(
             "/api/app/services/calendar/u",
             json=creation_payload,
         )
         assert response.status_code == 403
 
-    async def test_event_creation_success(
+    async def test_success(
             self,
             client_operator: TestClient,
             db: AsyncSQLAlchemyWrapper,
@@ -88,48 +88,69 @@ class TestEvent(EventsAware, ServicesEnabled, UsersAware):
 
         async with db.scoped_session() as session:
             events = await CalendarEvent.get_multiple_with_visibility(session)
-            failed = True
-            for event in events:
-                if event.title == title:
-                    failed = False
-                    break
-            assert not failed
+        assert any(event.title == title for event in events)
 
-    def test_event_update_failure_unauthorized(self, client: TestClient):
+
+@pytest.mark.asyncio
+class TestEventUpdate(EventsAware, ServicesEnabled, UsersAware):
+    def test_failure_unauthorized(self, client: TestClient):
         response = client.put("/api/app/services/calendar/u/1")
         assert response.status_code == 403
 
-    def test_event_update_failure_wrong_user(self, client_operator: TestClient):
-        description = "Change the description"
-        payload = {
-            "description": description,
-        }
+    def test_failure_wrong_user(self, client_operator: TestClient):
         response = client_operator.put(
             "/api/app/services/calendar/u/1",
-            json=payload,
+            json={"description": "Change the description"},
         )
         assert response.status_code == 403
 
-    async def test_event_update_success(
+    def test_failure_not_found(self, client_user: TestClient):
+        response = client_user.put(
+            "/api/app/services/calendar/u/404",
+            json={"description": "Change the description"},
+        )
+        assert response.status_code == 404
+
+    async def test_success(
             self,
             client_user: TestClient,
             db: AsyncSQLAlchemyWrapper,
     ):
         description = "Change the description"
-        payload = {
-            "description": description,
-        }
         response = client_user.put(
             "/api/app/services/calendar/u/1",
-            json=payload,
+            json={"description": description},
         )
         assert response.status_code == 202
 
         async with db.scoped_session() as session:
-            events = await CalendarEvent.get_multiple_with_visibility(session)
-            failed = True
-            for event in events:
-                if event.description == description:
-                    failed = False
-                    break
-            assert not failed
+            event = await CalendarEvent.get(session, event_id=1)
+        assert event.description == description
+
+
+@pytest.mark.asyncio
+class TestEventDeletion(EventsAware, ServicesEnabled, UsersAware):
+    def test_failure_unauthorized(self, client: TestClient):
+        response = client.delete("/api/app/services/calendar/u/1")
+        assert response.status_code == 403
+
+    def test_failure_wrong_user(self, client_operator: TestClient):
+        response = client_operator.delete("/api/app/services/calendar/u/1")
+        assert response.status_code == 403
+
+    def test_failure_not_found(self, client_user: TestClient):
+        response = client_user.delete("/api/app/services/calendar/u/404")
+        assert response.status_code == 404
+
+    async def test_success(
+            self,
+            client_user: TestClient,
+            db: AsyncSQLAlchemyWrapper,
+    ):
+        response = client_user.delete("/api/app/services/calendar/u/1")
+        assert response.status_code == 202
+
+        # The event is inactivated rather than removed
+        async with db.scoped_session() as session:
+            event = await CalendarEvent.get(session, event_id=1)
+        assert event.active is False

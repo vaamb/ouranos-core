@@ -2,7 +2,8 @@ from .routes.app import TestApp
 from .routes.auth import (
     TestCurrentUser, TestLogin, TestRegister, TestRegistrationToken,
     TestUserConfirmation, TestUserResetPassword)
-from .routes.calendar import TestCalendar, TestEvent
+from .routes.calendar import (
+    TestCalendar, TestEventCreation, TestEventDeletion, TestEventUpdate)
 from .routes.ecosystem import (
     TestEcosystemActuator, TestEcosystem, TestEnvironmentParameterEcosystem,
     TestEnvironmentParameterUnique, TestEcosystemLight, TestEcosystemManagement,
