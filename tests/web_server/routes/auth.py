@@ -321,3 +321,22 @@ class TestRegistrationToken(UsersAware):
         data = json.loads(response.text)
         payload = Tokenizer.loads(data)
         assert payload["role"] == role
+
+    def test_registration_token_failure_invalid_role(self, client_admin: TestClient):
+        response = client_admin.post(
+            "/api/auth/registration_token",
+            json={
+                "role": "NotARealRole",
+            }
+        )
+        assert response.status_code == 422
+        assert "Invalid role" in response.text
+
+    def test_registration_token_failure_email_required(self, client_admin: TestClient):
+        # Asking to send the invitation email without providing an address fails
+        response = client_admin.post(
+            "/api/auth/registration_token",
+            params={"send_email": True},
+        )
+        assert response.status_code == 422
+        assert "Email address is required" in response.text
