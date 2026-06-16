@@ -79,10 +79,9 @@ class TestBearerTokenProtection(UsersAware):
         # Mints the same session token as the login cookie, but carried in the
         # `Authorization: Bearer ...` header instead (the non-browser auth path)
         token = SessionInfo(id="session_id", user_id=operator.id, remember=True).to_token()
-        return {LOGIN_NAME.HEADER.value: f"Bearer {token}"}
+        headers = {LOGIN_NAME.HEADER.value: f"Bearer {token}"}
 
-        response = client.get(
-            "/api/tests/is_operator", headers=bearer_header(operator.id))
+        response = client.get("/api/tests/is_operator", headers=headers)
         assert response.status_code == 200
         assert response.text == '"Success"'
 
