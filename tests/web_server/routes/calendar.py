@@ -51,6 +51,20 @@ class TestCalendar(EventsAware, ServicesEnabled, UsersAware):
         assert data[1]["title"] == calendar_event_users["title"]
         assert data[1]["description"] == calendar_event_users["description"]
 
+    def test_calendar_admin(self, client_admin: TestClient):
+        # Admins go through the unrestricted `get_multiple` branch and can see
+        # every event regardless of visibility
+        response = client_admin.get(
+            "/api/app/services/calendar",
+            params={"visibility": "private"},
+        )
+        assert response.status_code == 200
+
+        data = json.loads(response.text)
+        titles = {event["title"] for event in data}
+        assert calendar_event_public["title"] in titles
+        assert calendar_event_users["title"] in titles
+
 
 @pytest.mark.asyncio
 class TestEvent(EventsAware, ServicesEnabled, UsersAware):
