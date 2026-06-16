@@ -75,7 +75,7 @@ async def get_current_user_info(
     return current_user
 
 
-@router.put("/current_user", response_model=UserInfo)
+@router.put("/current_user")
 async def update_current_user_last_seen(
         *,
         current_user: UserMixin = Depends(get_current_user),  # Cannot use Annotated here
