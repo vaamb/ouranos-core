@@ -75,18 +75,22 @@ async def get_current_user_info(
     return current_user
 
 
-@router.put("/current_user", response_model=UserInfo)
+@router.put("/current_user")
 async def update_current_user_last_seen(
         *,
+        response: Response,
         current_user: UserMixin = Depends(get_current_user),  # Cannot use Annotated here
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    if current_user.is_authenticated:
-        await User.update(
-            session,
-            user_id=current_user.id,
-            values={"last_seen": datetime.now(timezone.utc)}
-        )
+    if current_user.is_anonymous:
+        # Nothing to update for an anonymous user
+        response.status_code = status.HTTP_204_NO_CONTENT
+        return
+    await User.update(
+        session,
+        user_id=current_user.id,
+        values={"last_seen": datetime.now(timezone.utc)}
+    )
 
 
 @router.get("/refresh_session")
@@ -96,8 +100,11 @@ async def refresh_session_cookie(
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     current_user = await get_current_user(session_info, session)
-    if current_user.is_authenticated:
-        refresh_session_cookie_expiration(session_info, response)
+    if current_user.is_anonymous:
+        # No session to refresh for an anonymous user
+        response.status_code = status.HTTP_204_NO_CONTENT
+        return
+    refresh_session_cookie_expiration(session_info, response)
 
 
 @router.post("/register",

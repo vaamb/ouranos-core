@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi.testclient import TestClient
 from httpx import BasicAuth
@@ -59,6 +59,7 @@ class TestLogin(UsersAware):
         assert "Logged out" in response.text
 
 
+@pytest.mark.asyncio
 class TestCurrentUser(UsersAware):
     def test_current_user_anonymous(self, client: TestClient):
         response = client.get("/api/auth/current_user")
@@ -73,6 +74,39 @@ class TestCurrentUser(UsersAware):
         data = json.loads(response.text)
         assert data["username"] == admin.username
         assert data["permissions"] == 15
+
+    def test_update_current_user_anonymous(self, client: TestClient):
+        # Anonymous users are a no-op, signalled by a 204 (no content)
+        response = client.put("/api/auth/current_user")
+        assert response.status_code == 204
+
+    async def test_update_current_user_admin(
+            self,
+            db: AsyncSQLAlchemyWrapper,
+            client_admin: TestClient,
+    ):
+        old_last_seen = datetime(2000, 1, 1, tzinfo=timezone.utc)
+        async with db.scoped_session() as session:
+            await User.update(
+                session, user_id=admin.id, values={"last_seen": old_last_seen})
+
+        response = client_admin.put("/api/auth/current_user")
+        assert response.status_code == 200
+
+        async with db.scoped_session() as session:
+            user = await User.get_by(session, username=admin.username)
+        assert user.last_seen > old_last_seen
+
+
+class TestRefreshSession(UsersAware):
+    def test_refresh_session_anonymous(self, client: TestClient):
+        # Anonymous users have no session to refresh, signalled by a 204
+        response = client.get("/api/auth/refresh_session")
+        assert response.status_code == 204
+
+    def test_refresh_session_authenticated(self, client_admin: TestClient):
+        response = client_admin.get("/api/auth/refresh_session")
+        assert response.status_code == 200
 
 
 @pytest.mark.asyncio
@@ -287,3 +321,22 @@ class TestRegistrationToken(UsersAware):
         data = json.loads(response.text)
         payload = Tokenizer.loads(data)
         assert payload["role"] == role
+
+    def test_registration_token_failure_invalid_role(self, client_admin: TestClient):
+        response = client_admin.post(
+            "/api/auth/registration_token",
+            json={
+                "role": "NotARealRole",
+            }
+        )
+        assert response.status_code == 422
+        assert "Invalid role" in response.text
+
+    def test_registration_token_failure_email_required(self, client_admin: TestClient):
+        # Asking to send the invitation email without providing an address fails
+        response = client_admin.post(
+            "/api/auth/registration_token",
+            params={"send_email": True},
+        )
+        assert response.status_code == 422
+        assert "Email address is required" in response.text
