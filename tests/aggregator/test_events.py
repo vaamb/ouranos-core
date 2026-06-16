@@ -209,6 +209,43 @@ class TestEngineBackground(EngineAware):
 
 @pytest.mark.asyncio
 class TestStartInitializationDataExchange(EngineAware):
+    async def test_on_initialization_data_sent(
+            self,
+            mock_dispatcher: MockAsyncDispatcher,
+            events_handler: GaiaEvents,
+    ):
+        """Test the acknowledgement sent once initialization data is received.
+
+        Verifies that:
+        - When some initialization data is still missing, the engine is asked
+          to resend the missing pieces
+        - When no initialization data is missing, a plain acknowledgement is sent
+        """
+        # Some initialization data is still missing
+        async with events_handler.session(g_data.engine_sid) as session:
+            session["init_data"] = {"hardware", "plants"}
+        await events_handler.on_initialization_data_sent(g_data.engine_sid)
+
+        assert len(mock_dispatcher.emit_store) == 1
+        emitted = mock_dispatcher.emit_store.popleft()
+        assert emitted["event"] == "initialization_ack"
+        assert sorted(emitted["data"]) == ["hardware", "plants"]
+
+        # All the initialization data has been received
+        async with events_handler.session(g_data.engine_sid) as session:
+            session["init_data"] = set()
+        await events_handler.on_initialization_data_sent(g_data.engine_sid)
+
+        assert len(mock_dispatcher.emit_store) == 1
+        emitted = mock_dispatcher.emit_store.popleft()
+        assert emitted["event"] == "initialization_ack"
+        assert emitted["data"] is None
+
+        # Verify that an unregistered engine raises the appropriate exception
+        mock_dispatcher._sessions[g_data.engine_sid] = {}
+        with pytest.raises(NotRegisteredError):
+            await events_handler.on_initialization_data_sent(g_data.engine_sid)
+
     async def test_on_places_list(
             self,
             mock_dispatcher: MockAsyncDispatcher,
