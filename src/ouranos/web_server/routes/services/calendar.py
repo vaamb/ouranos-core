@@ -111,6 +111,8 @@ async def update_event(
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     event = await CalendarEvent.get_with_visibility(session, event_id=event_id)
+    if event is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     if event.created_by != current_user.id and not current_user.can(Permission.ADMIN):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
     values = payload.model_dump(exclude_defaults=True)
@@ -136,6 +138,8 @@ async def delete_event(
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     event = await CalendarEvent.get_with_visibility(session, event_id=event_id)
+    if event is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     if event.created_by != current_user.id and not current_user.can(Permission.ADMIN):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
     try:
