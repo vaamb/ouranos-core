@@ -10,6 +10,7 @@ from uuid import UUID
 
 import numpy as np
 import pytest
+from pydantic import ValidationError
 from sqlalchemy import delete
 
 from dispatcher import AsyncDispatcher
@@ -145,7 +146,7 @@ class TestEngineRegistration:
             assert engine.address == g_data.ip_address
 
         wrong_payload = {}
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             await events_handler.on_register_engine(g_data.engine_sid, wrong_payload)
 
 
@@ -281,7 +282,7 @@ class TestStartInitializationDataExchange(EngineAware):
             g_data.engine_sid, [g_data.base_info_payload])
 
         # Verify that the wrong payload raises an exception
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             await events_handler.on_base_info(g_data.engine_sid, {})
 
 
@@ -338,7 +339,7 @@ class TestInitializationDataExchange(EcosystemAware):
             g_data.engine_sid, [g_data.management_payload])
 
         # Verify that the wrong payload raises an exception
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             await events_handler.on_management(g_data.engine_sid, [{}])
 
     async def test_on_chaos_parameters(
@@ -390,8 +391,8 @@ class TestInitializationDataExchange(EcosystemAware):
             g_data.engine_sid, [g_data.chaos_payload])
 
         # Verify that the wrong payload raises an exception
-        with pytest.raises(Exception):
-            await events_handler.on_management(g_data.engine_sid, [{}])
+        with pytest.raises(ValidationError):
+            await events_handler.on_chaos_parameters(g_data.engine_sid, [{}])
 
     async def test_on_nycthemeral_info(
             self,
@@ -445,7 +446,7 @@ class TestInitializationDataExchange(EcosystemAware):
             g_data.engine_sid, [g_data.nycthemeral_info_payload])
 
         # Verify that the wrong payload raises an exception
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             await events_handler.on_nycthemeral_info(g_data.engine_sid, [{}])
 
     async def test_on_climate(
@@ -496,7 +497,7 @@ class TestInitializationDataExchange(EcosystemAware):
             g_data.engine_sid, [g_data.climate_payload])
 
         # Verify that the wrong payload raises an exception
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             await events_handler.on_climate(g_data.engine_sid, [{}])
 
     async def test_on_weather(
@@ -541,7 +542,7 @@ class TestInitializationDataExchange(EcosystemAware):
         await events_handler.on_weather(g_data.engine_sid, [g_data.weather_payload])
 
         # Verify that the wrong payload raises an exception
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             await events_handler.on_weather(g_data.engine_sid, [{}])
 
     async def test_on_hardware(
@@ -598,7 +599,7 @@ class TestInitializationDataExchange(EcosystemAware):
         await events_handler.on_hardware(g_data.engine_sid, [g_data.hardware_payload])
 
         # Verify that the wrong payload raises an exception
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             await events_handler.on_hardware(g_data.engine_sid, [{}])
 
     async def test_on_plants(
@@ -661,7 +662,7 @@ class TestInitializationDataExchange(EcosystemAware):
         await events_handler.on_plants(g_data.engine_sid, [g_data.plants_payload])
 
         # Verify that the wrong payload raises an exception
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             await events_handler.on_plants(g_data.engine_sid, [{}])
 
     async def test_on_actuators_data(
@@ -713,7 +714,7 @@ class TestInitializationDataExchange(EcosystemAware):
         await events_handler.on_actuators_data(g_data.engine_sid, [g_data.actuator_state_payload])
 
         # Verify that the wrong payload raises an exception
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             await events_handler.on_actuators_data(g_data.engine_sid, [{}])
 
 
@@ -818,7 +819,7 @@ class TestEcosystemBackground(HardwareAware):
 
         # Test wrong payload
         wrong_payload = {}
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             await events_handler.on_sensors_data(g_data.engine_sid, [wrong_payload])
 
         # Clear the cache
@@ -908,7 +909,7 @@ class TestEcosystemBackground(HardwareAware):
             assert health_record.value == input_data.value
 
         wrong_payload = {}
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             await events_handler.on_health_data(g_data.engine_sid, [wrong_payload])
 
     async def test_on_light_data(
@@ -936,7 +937,7 @@ class TestEcosystemBackground(HardwareAware):
             assert light.evening_end == input_data.evening_end
 
         wrong_payload = {}
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             await events_handler.on_light_data(g_data.engine_sid, [wrong_payload])
 
     async def test_turn_light(
@@ -978,8 +979,11 @@ class TestEcosystemBackground(HardwareAware):
         assert emitted["data"] == validated_data
         assert emitted["namespace"] == "gaia"
 
+        # An empty payload raises a KeyError (rather than a ValidationError)
+        # because the validator's `group` default_factory dereferences the
+        # missing "actuator" key while building the model.
         wrong_payload = {}
-        with pytest.raises(Exception):
+        with pytest.raises(KeyError):
             await events_handler.turn_actuator(g_data.engine_sid, wrong_payload)
 
     async def test_crud(
@@ -1160,8 +1164,8 @@ class TestBufferedDataExchange(HardwareAware):
             assert len(temperature_data) == 1
 
         wrong_payload = {}
-        with pytest.raises(Exception):
-            await events_handler.on_sensors_data(g_data.engine_sid, [wrong_payload])
+        with pytest.raises(ValidationError):
+            await events_handler.on_buffered_sensors_data(g_data.engine_sid, wrong_payload)
 
     async def test_on_buffered_actuators_data(
             self,
@@ -1228,7 +1232,7 @@ class TestBufferedDataExchange(HardwareAware):
             assert actuator_record.level == 75.5
 
         # Verify that the wrong payload raises an exception
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             await events_handler.on_buffered_actuators_data(g_data.engine_sid, [{}])
 
 @pytest.mark.asyncio
