@@ -19,7 +19,7 @@ from .routes.sensor import (
     TestMeasuresAvailable, TestSensorData, TestSensorsCurrentData,
     TestSensorsSkeleton)
 from .routes.services import TestServices, TestServiceUpdate
-from .routes.system import TestSystem
+from .routes.system import TestSystems, TestSystemUnique
 from .routes.user import TestUser
 from .routes.warning import TestWarning
 from .routes.weather import TestWeather
