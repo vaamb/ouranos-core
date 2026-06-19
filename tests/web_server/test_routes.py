@@ -16,7 +16,7 @@ from .routes.protected import (
 from .routes.sensor import (
     TestMeasuresAvailable, TestSensorData, TestSensorsCurrentData,
     TestSensorsSkeleton)
-from .routes.services import TestServicesRouteProtection
+from .routes.services import TestServices, TestServiceUpdate
 from .routes.system import TestSystem
 from .routes.user import TestUser
 from .routes.warning import TestWarning
