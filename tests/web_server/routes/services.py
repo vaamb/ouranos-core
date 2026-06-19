@@ -83,7 +83,7 @@ class TestServiceUpdate:
             db: AsyncSQLAlchemyWrapper,
     ):
         async with db.scoped_session() as session:
-            await Service.update(session, name=ServiceName.wiki, status=False)
+            await Service.update(session, name=ServiceName.wiki, values={"status": False})
 
         response = client.put("/api/app/services/u/wiki", json={"status": True})
         assert response.status_code == 202
