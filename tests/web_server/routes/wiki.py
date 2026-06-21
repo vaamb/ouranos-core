@@ -5,7 +5,7 @@ from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
 from ouranos import json
 from ouranos.core.database.models.app import (
-    WikiArticle, WikiArticleModification, WikiPicture, WikiTopic)
+    WikiArticle, WikiArticleModification, WikiPicture, WikiTag, WikiTopic)
 from ouranos.core.utils import slugify
 
 from tests.data.app import (
@@ -144,6 +144,83 @@ class TestWikiTopics(ServicesEnabled, UsersAware, WikiAware):
         async with db.scoped_session() as session:
             topic = await WikiTopic.get(session, name=wiki_topic_name)
             assert topic.description == description
+
+
+@pytest.mark.asyncio
+class TestWikiTags(ServicesEnabled, UsersAware, WikiAware):
+    async def test_get_tags_empty(self, client: TestClient):
+        response = client.get("/api/app/services/wiki/tags")
+        assert response.status_code == 200
+        assert json.loads(response.text) == []
+
+    async def test_create_tag_failure_unauthorized(self, client: TestClient):
+        response = client.post("/api/app/services/wiki/tags/u")
+        assert response.status_code == 403
+
+    async def test_create_tag(
+            self,
+            client_operator: TestClient,
+            db: AsyncSQLAlchemyWrapper,
+    ):
+        name = "plants"
+        description = "Everything about plants"
+        payload = {
+            "name": name,
+            "description": description,
+        }
+        response = client_operator.post(
+            "/api/app/services/wiki/tags/u",
+            json=payload,
+        )
+        assert response.status_code == 200
+
+        async with db.scoped_session() as session:
+            tag = await WikiTag.get(session, name=name)
+            assert tag is not None
+            assert tag.slug == slugify(name)
+            assert tag.description == description
+
+        # The new tag is now listed
+        response = client_operator.get("/api/app/services/wiki/tags")
+        assert name in [tag["name"] for tag in json.loads(response.text)]
+
+        # Clean up test
+        async with db.scoped_session() as session:
+            await WikiTag.delete(session, name=name)
+
+    async def test_update_tag_failure_unauthorized(self, client: TestClient):
+        response = client.put("/api/app/services/wiki/tags/u/plants")
+        assert response.status_code == 403
+
+    async def test_update_tag(
+            self,
+            client_operator: TestClient,
+            db: AsyncSQLAlchemyWrapper,
+    ):
+        name = "watering"
+        # Setup test
+        async with db.scoped_session() as session:
+            await WikiTag.create(
+                session, name=name, values={"description": "Old description"})
+
+        description = "How to water plants"
+        payload = {
+            "description": description,
+        }
+        # The path uses the tag name (matched against `name`, not the slug)
+        response = client_operator.put(
+            f"/api/app/services/wiki/tags/u/{name}",
+            json=payload,
+        )
+        assert response.status_code == 200
+
+        async with db.scoped_session() as session:
+            tag = await WikiTag.get(session, name=name)
+            assert tag.description == description
+
+        # Clean up test
+        async with db.scoped_session() as session:
+            await WikiTag.delete(session, name=name)
 
 
 @pytest.mark.asyncio
