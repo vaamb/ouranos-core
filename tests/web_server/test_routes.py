@@ -22,6 +22,6 @@ from .routes.services import TestServices, TestServiceUpdate
 from .routes.system import TestSystems, TestSystemUnique
 from .routes.user import TestUser
 from .routes.warning import TestWarning
-from .routes.weather import TestWeatherEmpty
+from .routes.weather import TestWeatherEmpty, TestWeatherFilled
 from .routes.wiki import (
     TestWikiArticles, TestWikiNotFound, TestWikiPictures, TestWikiTopics)
