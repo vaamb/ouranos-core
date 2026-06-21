@@ -121,6 +121,30 @@ class TestWikiTopics(ServicesEnabled, UsersAware, WikiAware):
             topic_template = await topic.get_template()
             assert topic_template == template
 
+    async def test_update_topic_failure_unauthorized(self, client: TestClient):
+        response = client.put(
+            f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}")
+        assert response.status_code == 403
+
+    async def test_update_topic(
+            self,
+            client_operator: TestClient,
+            db: AsyncSQLAlchemyWrapper,
+    ):
+        description = "Updated topic description"
+        payload = {
+            "description": description,
+        }
+        response = client_operator.put(
+            f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}",
+            json=payload,
+        )
+        assert response.status_code == 200
+
+        async with db.scoped_session() as session:
+            topic = await WikiTopic.get(session, name=wiki_topic_name)
+            assert topic.description == description
+
 
 @pytest.mark.asyncio
 class TestWikiArticles(ServicesEnabled, UsersAware, WikiAware):
@@ -320,6 +344,17 @@ class TestWikiPictures(ServicesEnabled, UsersAware, WikiAware):
             await WikiPicture.delete(
                 session, topic_name=wiki_topic_name, article_name=wiki_article_name,
                 name=name)
+
+    async def test_get_article_pictures(self, client: TestClient):
+        response = client.get(
+            f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}/"
+            f"u/{slugify(wiki_article_name)}/pictures")
+        assert response.status_code == 200
+
+        data = json.loads(response.text)
+        assert len(data) == 1
+        assert data[0]["name"] == wiki_picture_name
+        assert data[0]["article"] == wiki_article_name
 
     async def test_get_picture(self, client: TestClient):
         response = client.get(
