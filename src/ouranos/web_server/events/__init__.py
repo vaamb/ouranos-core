@@ -135,6 +135,7 @@ class ClientEvents(AsyncNamespace):
                 namespace="/",
                 room=sid
             )
+            return
         await self.server.leave_room(sid, room_name)
         await self.emit(
             "leave_room_ack",
