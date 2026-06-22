@@ -24,4 +24,5 @@ from .routes.user import TestUser
 from .routes.warning import TestWarning
 from .routes.weather import TestWeatherEmpty, TestWeatherFilled
 from .routes.wiki import (
-    TestWikiArticles, TestWikiNotFound, TestWikiPictures, TestWikiTopics)
+    TestWikiArticles, TestWikiNotFound, TestWikiPictures, TestWikiTags,
+    TestWikiTopics)
