@@ -105,6 +105,7 @@ class ClientEvents(AsyncNamespace):
                 namespace="/",
                 room=sid
             )
+            return
         await self.server.enter_room(sid, room_name)
         await self.emit(
             "join_room_ack",
