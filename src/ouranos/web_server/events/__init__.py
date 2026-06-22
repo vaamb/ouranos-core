@@ -24,8 +24,18 @@ logger: Logger = getLogger("aggregator.socketio")
 class ClientEvents(AsyncNamespace):
     def __init__(self, namespace=None):
         super().__init__(namespace=namespace)
-        self.server: AsyncServer | None = None
+        self._server: AsyncServer | None = None
         self._ouranos_dispatcher: AsyncDispatcher | None = None
+
+    @property
+    def server(self) -> AsyncServer:
+        if not self._server:
+            raise RuntimeError("You need to set the Ouranos event dispatcher")
+        return self._server
+
+    @server.setter
+    def server(self, server: AsyncServer):
+        self._server = server
 
     @property
     def ouranos_dispatcher(self) -> AsyncDispatcher:
