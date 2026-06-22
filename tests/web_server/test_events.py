@@ -302,12 +302,6 @@ class TestClientRoomEvents:
         assert emitted["event"] == "leave_room_ack"
         assert emitted["data"]["result"] == gv.Result.success
 
-    @pytest.mark.xfail(
-        reason="BUG: on_leave_room is missing a `return` after the admin-room "
-               "guard, so the client is still removed from the admin room and "
-               "also receives a success acknowledgment.",
-        strict=False,
-    )
     async def test_on_leave_admin_room_is_rejected(
             self,
             client_events: ClientEvents,
