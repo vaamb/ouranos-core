@@ -139,7 +139,7 @@ class ClientEvents(AsyncNamespace):
     # @permission_required(Permission.OPERATE)
     async def on_turn_light(self, sid, data):
         ecosystem_uid = data["ecosystem"]
-        with db.scoped_session() as session:
+        async with db.scoped_session() as session:
             ecosystem = await Ecosystem.get(session, uid=ecosystem_uid)
         if not ecosystem:
             return
@@ -159,7 +159,7 @@ class ClientEvents(AsyncNamespace):
     # @permission_required(Permission.OPERATE)
     async def on_manage_ecosystem(self, sid, data):
         ecosystem_uid = data["ecosystem"]
-        with db.scoped_session() as session:
+        async with db.scoped_session() as session:
             ecosystem = await Ecosystem.get(session, uid=ecosystem_uid)
         if not ecosystem:
             return

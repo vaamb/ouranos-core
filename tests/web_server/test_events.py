@@ -332,11 +332,6 @@ class TestClientRoomEvents:
 
 @pytest.mark.asyncio
 class TestClientEcosystemCommands(EcosystemAware):
-    @pytest.mark.xfail(
-        reason="BUG: on_turn_light uses a sync `with db.scoped_session()` on an "
-               "async context manager; it should be `async with`.",
-        strict=False,
-    )
     async def test_on_turn_light(
             self,
             client_events: ClientEvents,
@@ -366,11 +361,6 @@ class TestClientEcosystemCommands(EcosystemAware):
         assert emitted["namespace"] == "aggregator-internal"
         assert emitted["room"] == g_data.engine_sid
 
-    @pytest.mark.xfail(
-        reason="BUG: on_manage_ecosystem uses a sync `with db.scoped_session()` "
-               "on an async context manager; it should be `async with`.",
-        strict=False,
-    )
     async def test_on_manage_ecosystem(
             self,
             client_events: ClientEvents,
