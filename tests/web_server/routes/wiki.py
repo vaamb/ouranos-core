@@ -16,7 +16,7 @@ from tests.class_fixtures import ServicesEnabled, UsersAware, WikiAware
 
 @pytest.mark.asyncio
 class TestWikiTopics(ServicesEnabled, UsersAware, WikiAware):
-    async def test_get_topics(self, client: TestClient, db: AsyncSQLAlchemyWrapper):
+    async def test_get_multiple(self, client: TestClient, db: AsyncSQLAlchemyWrapper):
         response = client.get("/api/app/services/wiki/topics")
         assert response.status_code == 200
 
@@ -27,11 +27,11 @@ class TestWikiTopics(ServicesEnabled, UsersAware, WikiAware):
             assert topic["name"] == topics[0].name
             assert topic["path"] == str(topics[0].path)
 
-    async def test_create_topic_unauthorized(self, client: TestClient):
+    async def test_create_failure_anon(self, client: TestClient):
         response = client.post("/api/app/services/wiki/topics/u")
         assert response.status_code == 403
 
-    async def test_create_topic(
+    async def test_create_success(
             self,
             client_operator: TestClient,
             db: AsyncSQLAlchemyWrapper
@@ -55,7 +55,7 @@ class TestWikiTopics(ServicesEnabled, UsersAware, WikiAware):
         async with db.scoped_session() as session:
             await WikiTopic.delete(session, name=name)
 
-    async def test_get_topic_articles(self, client: TestClient):
+    async def test_get_articles_for_topic(self, client: TestClient):
         response = client.get(
             f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}/articles")
         assert response.status_code == 200
@@ -64,12 +64,12 @@ class TestWikiTopics(ServicesEnabled, UsersAware, WikiAware):
         assert len(data) == 1
         assert wiki_article_name in [article["name"] for article in data]
 
-    async def test_delete_topic_unauthorized(self, client: TestClient):
+    async def test_delete_failure_anon(self, client: TestClient):
         response = client.delete(
             f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}")
         assert response.status_code == 403
 
-    async def test_delete_topic(
+    async def test_delete_success(
             self,
             client_operator: TestClient,
             db: AsyncSQLAlchemyWrapper,
@@ -88,7 +88,7 @@ class TestWikiTopics(ServicesEnabled, UsersAware, WikiAware):
             topics = await WikiTopic.get_multiple(session)
             assert len(topics) == 1
 
-    async def test_get_topic_template(self, client: TestClient):
+    async def test_get_template(self, client: TestClient):
         response = client.get(
             f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}/template")
         assert response.status_code == 200
@@ -96,12 +96,12 @@ class TestWikiTopics(ServicesEnabled, UsersAware, WikiAware):
         data = json.loads(response.text)
         assert data == wiki_article_content
 
-    async def test_set_topic_template_unauthorized(self, client: TestClient):
+    async def test_set_template_failure_anon(self, client: TestClient):
         response = client.post(
             f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}/template")
         assert response.status_code == 403
 
-    async def test_set_topic_template(
+    async def test_set_template_success(
             self,
             client_operator: TestClient,
             db: AsyncSQLAlchemyWrapper,
@@ -121,12 +121,12 @@ class TestWikiTopics(ServicesEnabled, UsersAware, WikiAware):
             topic_template = await topic.get_template()
             assert topic_template == template
 
-    async def test_update_topic_failure_unauthorized(self, client: TestClient):
+    async def test_update_failure_anon(self, client: TestClient):
         response = client.put(
             f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}")
         assert response.status_code == 403
 
-    async def test_update_topic(
+    async def test_update_success(
             self,
             client_operator: TestClient,
             db: AsyncSQLAlchemyWrapper,
@@ -148,16 +148,16 @@ class TestWikiTopics(ServicesEnabled, UsersAware, WikiAware):
 
 @pytest.mark.asyncio
 class TestWikiTags(ServicesEnabled, UsersAware, WikiAware):
-    async def test_get_tags_empty(self, client: TestClient):
+    async def test_get_multiple_empty(self, client: TestClient):
         response = client.get("/api/app/services/wiki/tags")
         assert response.status_code == 200
         assert json.loads(response.text) == []
 
-    async def test_create_tag_failure_unauthorized(self, client: TestClient):
+    async def test_create_failure_anon(self, client: TestClient):
         response = client.post("/api/app/services/wiki/tags/u")
         assert response.status_code == 403
 
-    async def test_create_tag(
+    async def test_create_success(
             self,
             client_operator: TestClient,
             db: AsyncSQLAlchemyWrapper,
@@ -188,11 +188,11 @@ class TestWikiTags(ServicesEnabled, UsersAware, WikiAware):
         async with db.scoped_session() as session:
             await WikiTag.delete(session, name=name)
 
-    async def test_update_tag_failure_unauthorized(self, client: TestClient):
+    async def test_update_failure_anon(self, client: TestClient):
         response = client.put("/api/app/services/wiki/tags/u/plants")
         assert response.status_code == 403
 
-    async def test_update_tag(
+    async def test_update_success(
             self,
             client_operator: TestClient,
             db: AsyncSQLAlchemyWrapper,
@@ -225,7 +225,7 @@ class TestWikiTags(ServicesEnabled, UsersAware, WikiAware):
 
 @pytest.mark.asyncio
 class TestWikiArticles(ServicesEnabled, UsersAware, WikiAware):
-    async def test_get_articles(self, client: TestClient):
+    async def test_get_multiple(self, client: TestClient):
         response = client.get("/api/app/services/wiki/articles")
         assert response.status_code == 200
 
@@ -233,12 +233,12 @@ class TestWikiArticles(ServicesEnabled, UsersAware, WikiAware):
         assert len(data) == 1
         assert wiki_article_name in [article["name"] for article in data]
 
-    async def test_create_article_unauthorized(self, client: TestClient):
+    async def test_create_failure_anon(self, client: TestClient):
         response = client.post(
             f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}/u")
         assert response.status_code == 403
 
-    async def test_create_article(
+    async def test_create_success(
             self,
             client_operator: TestClient,
             db: AsyncSQLAlchemyWrapper
@@ -267,7 +267,7 @@ class TestWikiArticles(ServicesEnabled, UsersAware, WikiAware):
             await WikiArticle.delete(
                 session, topic_name=wiki_topic_name, name=name, author_id=operator.id)
 
-    async def test_get_article(self, client: TestClient):
+    async def test_get(self, client: TestClient):
         response = client.get(
             f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}/"
             f"u/{slugify(wiki_article_name)}")
@@ -277,13 +277,13 @@ class TestWikiArticles(ServicesEnabled, UsersAware, WikiAware):
         assert data["topic"] == wiki_topic_name
         assert data["name"] == wiki_article_name
 
-    async def test_update_article_unauthorized(self, client: TestClient):
+    async def test_update_failure_anon(self, client: TestClient):
         response = client.put(
             f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}/"
             f"u/{slugify(wiki_article_name)}")
         assert response.status_code == 403
 
-    async def test_update_article(
+    async def test_update_success(
             self,
             client_operator: TestClient,
             db: AsyncSQLAlchemyWrapper
@@ -314,12 +314,12 @@ class TestWikiArticles(ServicesEnabled, UsersAware, WikiAware):
                 await WikiArticleModification.delete(
                     session, article_id=article.id, version=latest.version)
 
-    async def test_delete_article_unauthorized(self, client: TestClient):
+    async def test_delete_failure_anon(self, client: TestClient):
         response = client.delete(
             f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}")
         assert response.status_code == 403
 
-    async def test_delete_article(
+    async def test_delete_success(
             self,
             client_operator: TestClient,
             db: AsyncSQLAlchemyWrapper,
@@ -348,7 +348,7 @@ class TestWikiArticles(ServicesEnabled, UsersAware, WikiAware):
                 session, topic_name=wiki_topic_name, name=article_name)
             assert article is None
 
-    async def test_get_article_history(self, client: TestClient):
+    async def test_get_history(self, client: TestClient):
         response = client.get(
             f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}/"
             f"u/{slugify(wiki_article_name)}/history")
@@ -364,13 +364,13 @@ class TestWikiArticles(ServicesEnabled, UsersAware, WikiAware):
 
 @pytest.mark.asyncio
 class TestWikiPictures(ServicesEnabled, UsersAware, WikiAware):
-    async def test_create_picture_unauthorized(self, client: TestClient):
+    async def test_create_failure_anon(self, client: TestClient):
         response = client.post(
             f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}/"
             f"u/{slugify(wiki_article_name)}/u")
         assert response.status_code == 403
 
-    async def test_create_picture_invalid_name(
+    async def test_create_failure_invalid_name(
             self,
             client_operator: TestClient,
             db: AsyncSQLAlchemyWrapper,
@@ -390,7 +390,7 @@ class TestWikiPictures(ServicesEnabled, UsersAware, WikiAware):
         )
         assert response.status_code == 404
 
-    async def test_create_picture(
+    async def test_create_success(
             self,
             client_operator: TestClient,
             db: AsyncSQLAlchemyWrapper,
@@ -422,7 +422,7 @@ class TestWikiPictures(ServicesEnabled, UsersAware, WikiAware):
                 session, topic_name=wiki_topic_name, article_name=wiki_article_name,
                 name=name)
 
-    async def test_get_article_pictures(self, client: TestClient):
+    async def test_get_multiple(self, client: TestClient):
         response = client.get(
             f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}/"
             f"u/{slugify(wiki_article_name)}/pictures")
@@ -433,7 +433,7 @@ class TestWikiPictures(ServicesEnabled, UsersAware, WikiAware):
         assert data[0]["name"] == wiki_picture_name
         assert data[0]["article"] == wiki_article_name
 
-    async def test_get_picture(self, client: TestClient):
+    async def test_get(self, client: TestClient):
         response = client.get(
             f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}/"
             f"u/{slugify(wiki_article_name)}/u/{slugify(wiki_picture_name)}")
@@ -444,13 +444,13 @@ class TestWikiPictures(ServicesEnabled, UsersAware, WikiAware):
         assert data["article"] == wiki_article_name
         assert data["name"] == wiki_picture_name
 
-    async def test_delete_picture_unauthorized(self, client: TestClient):
+    async def test_delete_failure_anon(self, client: TestClient):
         response = client.delete(
             f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}/"
             f"u/{slugify(wiki_article_name)}/u/{slugify(wiki_picture_name)}")
         assert response.status_code == 403
 
-    async def test_delete_picture(
+    async def test_delete_success(
             self,
             client_operator: TestClient,
             db: AsyncSQLAlchemyWrapper,
@@ -483,7 +483,7 @@ class TestWikiPictures(ServicesEnabled, UsersAware, WikiAware):
 
 @pytest.mark.asyncio
 class TestWikiNotFound(ServicesEnabled, UsersAware, WikiAware):
-    async def test_error_404(self, client: TestClient):
+    async def test_get_failure_not_found(self, client: TestClient):
         wrong = "so wrong it doesn't match"
 
         response = client.get(

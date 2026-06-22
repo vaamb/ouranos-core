@@ -95,7 +95,7 @@ class TestHardwareGlobal(HardwareAware, UsersAware):
 
 
 class TestHardwareEcosystem(HardwareAware, UsersAware):
-    def test_create_failure_user(self, client_user: TestClient):
+    def test_create_failure_not_operator(self, client_user: TestClient):
         response = client_user.post(
             f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/hardware/u")
         assert response.status_code == 403
@@ -202,7 +202,7 @@ class TestHardwareUnique(HardwareAware, UsersAware):
             f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/hardware/u/wrong_id")
         assert response.status_code == 404
 
-    def test_update_failure_user(self, client_user: TestClient):
+    def test_update_failure_not_operator(self, client_user: TestClient):
         response = client_user.put(
             f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/hardware/u/{g_data.hardware_uid}")
         assert response.status_code == 403
@@ -243,7 +243,7 @@ class TestHardwareUnique(HardwareAware, UsersAware):
         assert dispatched["data"]["kwargs"]["name"] == payload["name"]
         assert dispatched["data"]["kwargs"]["uid"] == g_data.hardware_uid
 
-    def test_delete_failure_user(self, client_user: TestClient):
+    def test_delete_failure_not_operator(self, client_user: TestClient):
         response = client_user.delete(
             f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/hardware/u/{g_data.hardware_uid}")
         assert response.status_code == 403

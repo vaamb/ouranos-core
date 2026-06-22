@@ -42,7 +42,7 @@ class TestEcosystem(EcosystemAware, UsersAware):
         assert datetime.fromisoformat(data["registration_date"]) == \
                g_data.ecosystem_dict["registration_date"]
 
-    def test_create_failure_user(self, client_user: TestClient):
+    def test_create_failure_not_operator(self, client_user: TestClient):
         response = client_user.post("/api/gaia/ecosystem/u")
         assert response.status_code == 403
 
@@ -89,7 +89,7 @@ class TestEcosystem(EcosystemAware, UsersAware):
         response = client.get("/api/gaia/ecosystem/u/wrong_id")
         assert response.status_code == 404
 
-    def test_update_failure_user(self, client_user: TestClient):
+    def test_update_failure_not_operator(self, client_user: TestClient):
         response = client_user.put(f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}")
         assert response.status_code == 403
 
@@ -119,7 +119,7 @@ class TestEcosystem(EcosystemAware, UsersAware):
         assert dispatched["data"]["target"] == "ecosystem"
         assert dispatched["data"]["kwargs"]["name"] == payload["name"]
 
-    def test_delete_failure_user(self, client: TestClient):
+    def test_delete_failure_anon(self, client: TestClient):
         response = client.delete(f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}")
         assert response.status_code == 403
 
@@ -181,7 +181,7 @@ class TestEcosystemManagement(EcosystemAware, UsersAware):
         response = client.get("/api/gaia/ecosystem/u/wrong_uid/management")
         assert response.status_code == 404
 
-    def test_update_failure_user(self,client_user: TestClient):
+    def test_update_failure_not_operator(self,client_user: TestClient):
         response = client_user.put(f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/management")
         assert response.status_code == 403
 
@@ -254,7 +254,7 @@ class TestEcosystemLight(ClimateAware, UsersAware):
         response = client.get("/api/gaia/ecosystem/u/wrong_uid/light")
         assert response.status_code == 404
 
-    def test_update_failure_user(self, client_user: TestClient):
+    def test_update_failure_not_operator(self, client_user: TestClient):
         response = client_user.put(f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/light")
         assert response.status_code == 403
 
@@ -323,7 +323,7 @@ class TestEnvironmentParameterEcosystem(ClimateAware, UsersAware):
             "/api/gaia/ecosystem/u/wrong_uid/environment_parameter")
         assert response.status_code == 404
 
-    def test_create_failure_user(self, client_user: TestClient):
+    def test_create_failure_not_operator(self, client_user: TestClient):
         response = client_user.post(
             f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameter/u")
         assert response.status_code == 403
@@ -392,7 +392,7 @@ class TestEnvironmentParameterUnique(ClimateAware, UsersAware):
             f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameter/u/humidity")
         assert response.status_code == 404
 
-    def test_update_failure_user(self, client_user: TestClient):
+    def test_update_failure_not_operator(self, client_user: TestClient):
         response = client_user.put(
             f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameter/u/temperature")
         assert response.status_code == 403
@@ -439,7 +439,7 @@ class TestEnvironmentParameterUnique(ClimateAware, UsersAware):
         assert dispatched["data"]["kwargs"]["parameter"] == gv.ClimateParameter[parameter]
         assert dispatched["data"]["kwargs"]["day"] == payload["day"]
 
-    def test_delete_failure_user(self, client: TestClient):
+    def test_delete_failure_anon(self, client: TestClient):
         response = client.delete(
             f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/environment_parameter/u/temperature")
         assert response.status_code == 403
@@ -505,7 +505,7 @@ class TestWeatherEventEcosystem(ClimateAware, UsersAware):
             "/api/gaia/ecosystem/u/wrong_uid/weather_event")
         assert response.status_code == 404
 
-    def test_create_failure_user(self, client_user: TestClient):
+    def test_create_failure_not_operator(self, client_user: TestClient):
         response = client_user.post(
             f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/weather_event/u")
         assert response.status_code == 403
@@ -577,7 +577,7 @@ class TestWeatherEventUnique(ClimateAware, UsersAware):
             f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/weather_event/u/fog")
         assert response.status_code == 404
 
-    def test_update_failure_user(self, client_user: TestClient):
+    def test_update_failure_not_operator(self, client_user: TestClient):
         response = client_user.put(
             f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/weather_event/u/rain")
         assert response.status_code == 403
@@ -626,7 +626,7 @@ class TestWeatherEventUnique(ClimateAware, UsersAware):
         assert dispatched["data"]["kwargs"]["level"] == payload["level"]
         assert dispatched["data"]["kwargs"]["linked_actuator"] == payload["linked_actuator"]
 
-    def test_delete_failure_user(self, client: TestClient):
+    def test_delete_failure_anon(self, client: TestClient):
         response = client.delete(
             f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/weather_event/u/temperature")
         assert response.status_code == 403
@@ -708,7 +708,7 @@ class TestEcosystemActuator(ActuatorsAware, UsersAware):
         assert inner_data[3] == g_data.actuator_record.status
         assert inner_data[4] == g_data.actuator_record.level
 
-    def test_turn_actuator_failure_user(self, client_user: TestClient):
+    def test_turn_actuator_failure_not_operator(self, client_user: TestClient):
         response = client_user.put(
             f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/turn_actuator/u/heater"
         )

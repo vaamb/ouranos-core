@@ -18,23 +18,23 @@ coordinates = gv.Coordinates(latitude=42, longitude=0)
 
 class TestWeatherEmpty(ServicesEnabled):
     """The `sky_watcher` cache is empty, so every route returns a 204."""
-    def test_sun_times(self, client: TestClient):
+    def test_get_sun_times(self, client: TestClient):
         response = client.get("/api/app/services/weather/sun_times")
         assert response.status_code == 204
 
-    def test_forecast(self, client: TestClient):
+    def test_get_forecast(self, client: TestClient):
         response = client.get("/api/app/services/weather/forecast")
         assert response.status_code == 204
 
-    def test_forecast_currently(self, client: TestClient):
+    def test_get_forecast_currently(self, client: TestClient):
         response = client.get("/api/app/services/weather/forecast/currently")
         assert response.status_code == 204
 
-    def test_forecast_hourly(self, client: TestClient):
+    def test_get_forecast_hourly(self, client: TestClient):
         response = client.get("/api/app/services/weather/forecast/hourly")
         assert response.status_code == 204
 
-    def test_forecast_daily(self, client: TestClient):
+    def test_get_forecast_daily(self, client: TestClient):
         response = client.get("/api/app/services/weather/forecast/daily")
         assert response.status_code == 204
 
@@ -61,7 +61,7 @@ class TestWeatherFilled(ServicesEnabled):
         # Leave the cache empty so `TestWeather` keeps seeing 204s
         await cache.clear()
 
-    def test_sun_times(self, client: TestClient):
+    def test_get_sun_times(self, client: TestClient):
         response = client.get("/api/app/services/weather/sun_times")
         assert response.status_code == 200
 
@@ -69,7 +69,7 @@ class TestWeatherFilled(ServicesEnabled):
         assert len(data) == 7
         assert data[0]["datestamp"] == date.today().isoformat()
 
-    def test_forecast(self, client: TestClient):
+    def test_get_forecast(self, client: TestClient):
         response = client.get("/api/app/services/weather/forecast")
         assert response.status_code == 200
 
@@ -79,7 +79,7 @@ class TestWeatherFilled(ServicesEnabled):
         assert data["hourly"][0]["precipitation_probability"] == 20.0
         assert data["daily"][0]["temperature_max"] == 42.0
 
-    def test_forecast_exclude_currently(self, client: TestClient):
+    def test_get_forecast_exclude_currently(self, client: TestClient):
         response = client.get(
             "/api/app/services/weather/forecast",
             params={"exclude": "currently"},
@@ -91,14 +91,14 @@ class TestWeatherFilled(ServicesEnabled):
         assert data["hourly"][0]["precipitation_probability"] == 20.0
         assert data["daily"][0]["temperature_max"] == 42.0
 
-    def test_forecast_exclude_all(self, client: TestClient):
+    def test_get_forecast_exclude_all(self, client: TestClient):
         response = client.get(
             "/api/app/services/weather/forecast",
             params={"exclude": ["currently", "hourly", "daily"]},
         )
         assert response.status_code == 204
 
-    def test_forecast_currently(self, client: TestClient):
+    def test_get_forecast_currently(self, client: TestClient):
         response = client.get("/api/app/services/weather/forecast/currently")
         assert response.status_code == 200
 
@@ -106,7 +106,7 @@ class TestWeatherFilled(ServicesEnabled):
         assert data["temperature"] == 25.0
         assert data["summary"] == "Cloudy"
 
-    def test_forecast_hourly(self, client: TestClient):
+    def test_get_forecast_hourly(self, client: TestClient):
         response = client.get("/api/app/services/weather/forecast/hourly")
         assert response.status_code == 200
 
@@ -114,7 +114,7 @@ class TestWeatherFilled(ServicesEnabled):
         assert len(data) == 1
         assert data[0]["precipitation_probability"] == 20.0
 
-    def test_forecast_daily(self, client: TestClient):
+    def test_get_forecast_daily(self, client: TestClient):
         response = client.get("/api/app/services/weather/forecast/daily")
         assert response.status_code == 200
 

@@ -14,11 +14,11 @@ from tests.class_fixtures import UsersAware
 
 @pytest.mark.asyncio
 class TestUser(UsersAware):
-    def test_get_users_fail_anonymous(self, client: TestClient):
+    def test_get_users_failure_anon(self, client: TestClient):
         response = client.get("/api/user")
         assert response.status_code == 403
 
-    def test_get_users_fail_not_admin(self, client_operator: TestClient):
+    def test_get_users_failure_not_admin(self, client_operator: TestClient):
         response = client_operator.get("/api/user")
         assert response.status_code == 403
 
@@ -124,7 +124,7 @@ class TestUser(UsersAware):
         )
         assert response.status_code == 403
 
-    def test_confirmation_token_failure_anonymous(self, client: TestClient):
+    def test_confirmation_token_failure_anon(self, client: TestClient):
         response = client.get("/api/user/u/Her/confirmation_token")
         assert response.status_code == 403
 
@@ -159,7 +159,7 @@ class TestUser(UsersAware):
         response = client_operator.get("/api/user/u/Her/confirmation_token")
         assert response.status_code == 409
 
-    def test_password_reset_token_failure_anonymous(self, client: TestClient):
+    def test_password_reset_token_failure_anon(self, client: TestClient):
         response = client.get("/api/user/u/Her/password_reset_token")
         assert response.status_code == 403
 

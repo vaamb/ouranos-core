@@ -25,7 +25,7 @@ creation_payload = {
 
 
 class TestCalendar(EventsAware, ServicesEnabled, UsersAware):
-    def test_calendar_public(self, client: TestClient):
+    def test_get_public(self, client: TestClient):
         response = client.get("/api/app/services/calendar")
         assert response.status_code == 200
 
@@ -34,7 +34,7 @@ class TestCalendar(EventsAware, ServicesEnabled, UsersAware):
         assert data[0]["level"] == calendar_event_public["level"].value
         assert data[0]["title"] == calendar_event_public["title"]
 
-    def test_calendar_users(self, client_user: TestClient):
+    def test_get_filter_visibility_user(self, client_user: TestClient):
         response = client_user.get(
             "/api/app/services/calendar",
             params={"visibility": "users"},
@@ -51,7 +51,7 @@ class TestCalendar(EventsAware, ServicesEnabled, UsersAware):
         assert data[1]["title"] == calendar_event_users["title"]
         assert data[1]["description"] == calendar_event_users["description"]
 
-    def test_calendar_admin(self, client_admin: TestClient):
+    def test_get_filter_visibility_admin(self, client_admin: TestClient):
         # Admins go through the unrestricted `get_multiple` branch and can see
         # every event regardless of visibility
         response = client_admin.get(
@@ -68,14 +68,14 @@ class TestCalendar(EventsAware, ServicesEnabled, UsersAware):
 
 @pytest.mark.asyncio
 class TestEventCreation(EventsAware, ServicesEnabled, UsersAware):
-    def test_failure_unauthorized(self, client: TestClient):
+    def test_create_failure_anon(self, client: TestClient):
         response = client.post(
             "/api/app/services/calendar/u",
             json=creation_payload,
         )
         assert response.status_code == 403
 
-    async def test_success(
+    async def test_create_success(
             self,
             client_operator: TestClient,
             db: AsyncSQLAlchemyWrapper,
@@ -93,25 +93,25 @@ class TestEventCreation(EventsAware, ServicesEnabled, UsersAware):
 
 @pytest.mark.asyncio
 class TestEventUpdate(EventsAware, ServicesEnabled, UsersAware):
-    def test_failure_unauthorized(self, client: TestClient):
+    def test_update_failure_anon(self, client: TestClient):
         response = client.put("/api/app/services/calendar/u/1")
         assert response.status_code == 403
 
-    def test_failure_wrong_user(self, client_operator: TestClient):
+    def test_update_failure_different_user(self, client_operator: TestClient):
         response = client_operator.put(
             "/api/app/services/calendar/u/1",
             json={"description": "Change the description"},
         )
         assert response.status_code == 403
 
-    def test_failure_not_found(self, client_user: TestClient):
+    def test_update_failure_not_found(self, client_user: TestClient):
         response = client_user.put(
             "/api/app/services/calendar/u/404",
             json={"description": "Change the description"},
         )
         assert response.status_code == 404
 
-    async def test_success(
+    async def test_update_success(
             self,
             client_user: TestClient,
             db: AsyncSQLAlchemyWrapper,
@@ -130,19 +130,19 @@ class TestEventUpdate(EventsAware, ServicesEnabled, UsersAware):
 
 @pytest.mark.asyncio
 class TestEventDeletion(EventsAware, ServicesEnabled, UsersAware):
-    def test_failure_unauthorized(self, client: TestClient):
+    def test_delete_failure_anon(self, client: TestClient):
         response = client.delete("/api/app/services/calendar/u/1")
         assert response.status_code == 403
 
-    def test_failure_wrong_user(self, client_operator: TestClient):
+    def test_delete_failure_different_user(self, client_operator: TestClient):
         response = client_operator.delete("/api/app/services/calendar/u/1")
         assert response.status_code == 403
 
-    def test_failure_not_found(self, client_user: TestClient):
+    def test_delete_failure_not_found(self, client_user: TestClient):
         response = client_user.delete("/api/app/services/calendar/u/404")
         assert response.status_code == 404
 
-    async def test_success(
+    async def test_delete_success(
             self,
             client_user: TestClient,
             db: AsyncSQLAlchemyWrapper,

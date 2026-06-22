@@ -65,7 +65,7 @@ class TestSensorsSkeleton(HardwareAware):
         assert datetime.fromisoformat(data["span"][0]) == skeleton["span"][0]
         assert datetime.fromisoformat(data["span"][1]) == skeleton["span"][1]
 
-    async def test_get_unique_wrong_ecosystem(self, client: TestClient):
+    async def test_get_unique_failure_wrong_ecosystem(self, client: TestClient):
         response = client.get("/api/gaia/ecosystem/u/wrong_uid/sensor/skeleton")
         assert response.status_code == 404
 
@@ -129,7 +129,7 @@ class TestSensorData(SensorsAware):
             f"/data/{g_data.sensor_record.measure}/current")
         assert response.status_code == 404
 
-    def test_get_current_camera_unsupported(self, client: TestClient):
+    def test_get_current_failure_camera_unsupported(self, client: TestClient):
         # Cameras are sensors but expose no current measure
         response = client.get(
             f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}"

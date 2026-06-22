@@ -51,7 +51,7 @@ class TestWarning(GaiaWarningsAware, UsersAware):
         assert response.status_code == 200
         assert json.loads(response.text) == []
 
-    def test_mark_as_seen_failure_unauthorized(self, client: TestClient):
+    def test_mark_as_seen_failure_anon(self, client: TestClient):
         response = client.post("/api/gaia/warning/u/1/mark_as_seen")
         assert response.status_code == 403
 
@@ -69,7 +69,7 @@ class TestWarning(GaiaWarningsAware, UsersAware):
             assert warning.seen
             assert not warning.solved
 
-    def test_mark_as_solved_failure_unauthorized(self, client: TestClient):
+    def test_mark_as_solved_failure_anon(self, client: TestClient):
         response = client.post("/api/gaia/warning/u/1/mark_as_solved")
         assert response.status_code == 403
 
