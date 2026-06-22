@@ -263,12 +263,6 @@ class TestClientRoomEvents:
         assert emitted["event"] == "join_room_ack"
         assert emitted["data"]["result"] == gv.Result.success
 
-    @pytest.mark.xfail(
-        reason="BUG: on_join_room is missing a `return` after the admin-room "
-               "guard, so the client is still added to the admin room and also "
-               "receives a success acknowledgment.",
-        strict=False,
-    )
     async def test_on_join_admin_room_is_rejected(
             self,
             client_events: ClientEvents,
