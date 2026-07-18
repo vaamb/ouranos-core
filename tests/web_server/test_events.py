@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict, deque
 from datetime import datetime, timezone
+from typing import Any
 
 import pytest
 
@@ -9,13 +10,14 @@ from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
 import gaia_validators as gv
 
-from ouranos.core.database.models.app import User
+from ouranos.core.database.models.app import User, anonymous_user
+from ouranos.core.exceptions import NotAuthorized
 from ouranos.web_server.auth import SessionInfo
 from ouranos.web_server.events import ADMIN_ROOM, ClientEvents
 
 from tests.class_fixtures import EcosystemAware, UsersAware
-from tests.data.auth import admin, user
-import tests.data.gaia as g_data
+from tests.data.auth import admin, operator, user
+from tests.data import gaia as g_data
 from tests.utils import MockAsyncDispatcher
 
 
@@ -31,10 +33,10 @@ class MockSioServer:
     `self.server.enter_room`, ...) and through the inherited
     `AsyncNamespace.emit`, which also delegates to `self.server.emit`.
     """
-
     def __init__(self):
         self.emit_store: deque[dict] = deque()
         self.rooms: dict[str, set[str]] = defaultdict(set)
+        self._sessions: dict[str, Any] = {}
 
     async def emit(self, event, data=None, to=None, room=None, skip_sid=None,
                    namespace=None, callback=None, ignore_queue=False):
@@ -51,6 +53,12 @@ class MockSioServer:
 
     async def leave_room(self, sid, room, namespace=None):
         self.rooms[sid].discard(room)
+
+    async def get_session(self, sid, namespace=None):
+        return self._sessions.get(sid, {})
+
+    async def save_session(self, sid, session, namespace=None):
+        self._sessions[sid] = session
 
 
 def make_token(user_id: int) -> str:
@@ -325,7 +333,7 @@ class TestClientRoomEvents:
 
 
 @pytest.mark.asyncio
-class TestClientEcosystemCommands(EcosystemAware):
+class TestClientEcosystemCommands(EcosystemAware, UsersAware):
     async def test_on_turn_light(
             self,
             client_events: ClientEvents,
@@ -344,6 +352,21 @@ class TestClientEcosystemCommands(EcosystemAware):
             "mode": "automatic",
             "countdown": 0,
         }
+
+        # Anonymous users aren't allowed to turn actuators
+        await client_events.server.save_session(SID, {"user_id": anonymous_user.id})
+        with pytest.raises(NotAuthorized):
+           await client_events.on_turn_light(SID, data)
+        assert len(ouranos_dispatcher.emit_store) == 0
+
+        # Regular users aren't allowed to turn actuators
+        await client_events.server.save_session(SID, {"user_id": user.id})
+        with pytest.raises(NotAuthorized):
+            await client_events.on_turn_light(SID, data)
+        assert len(ouranos_dispatcher.emit_store) == 0
+
+        # Operator can turn actuators
+        await client_events.server.save_session(SID, {"user_id": operator.id})
         await client_events.on_turn_light(SID, data)
 
         assert len(ouranos_dispatcher.emit_store) == 1
@@ -373,6 +396,21 @@ class TestClientEcosystemCommands(EcosystemAware):
             "management": "light",
             "status": True,
         }
+
+        # Anonymous users aren't allowed to manage ecosystems
+        await client_events.server.save_session(SID, {"user_id": anonymous_user.id})
+        with pytest.raises(NotAuthorized):
+           await client_events.on_manage_ecosystem(SID, data)
+        assert len(ouranos_dispatcher.emit_store) == 0
+
+        # Regular users aren't allowed to manage ecosystems
+        await client_events.server.save_session(SID, {"user_id": user.id})
+        with pytest.raises(NotAuthorized):
+            await client_events.on_manage_ecosystem(SID, data)
+        assert len(ouranos_dispatcher.emit_store) == 0
+
+        # Operator can turn actuators
+        await client_events.server.save_session(SID, {"user_id": operator.id})
         await client_events.on_manage_ecosystem(SID, data)
 
         assert len(ouranos_dispatcher.emit_store) == 1
