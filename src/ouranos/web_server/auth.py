@@ -21,7 +21,7 @@ from ouranos.core.utils import Tokenizer
 from ouranos.web_server.dependencies import get_session
 
 
-def _create_session_id(user_agent: str) -> str:
+def create_session_id(user_agent: str) -> str:
     h = sha512()
     h.update(user_agent.encode("utf8"))
     return h.hexdigest()
@@ -148,7 +148,7 @@ class Authenticator:
 
     def login(self, user: User, remember: bool) -> str:
         user_agent = self.request.headers.get("user-agent")
-        session_id = _create_session_id(user_agent)
+        session_id = create_session_id(user_agent)
         session_info = SessionInfo(
             id=session_id, user_id=user.id, remember=remember)
         if session_info.remember:
@@ -221,7 +221,7 @@ def get_session_info(
         token = auth.credentials
         session_info = SessionInfo.from_token(token)
         user_agent = request.headers.get("user-agent")
-        session_id = _create_session_id(user_agent)
+        session_id = create_session_id(user_agent)
         if session_id != session_info.id and not current_app.config["TESTING"]:
             raise TokenError
     except (TokenError, ValidationError):

@@ -1,13 +1,21 @@
 import functools
 
+from ouranos import db
+from ouranos.core.database.models.app import Permission
+from ouranos.core.exceptions import NotAuthorized
+from ouranos.web_server.auth import login_manager
 
-def permission_required(permission: int):
-    def decorator(self, func):
+
+def permission_required(permission: Permission):
+    def decorator(func):
         @functools.wraps(func)
-        def wrapped(sid, data):
-            if not 0:
-                pass
-            else:
-                return func(sid, data)
+        async def wrapped(self, sid, data):
+            session = await self.get_session(sid)
+            user_id = session.get('user_id', None)
+            async with db.scoped_session() as db_session:
+                user = await login_manager.get_user(db_session, user_id)
+            if user.can(permission):
+                return await func(self, sid, data)
+            raise NotAuthorized()
         return wrapped
     return decorator

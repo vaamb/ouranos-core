@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict, deque
 from datetime import datetime, timezone
+from typing import Any
 
 import pytest
 
@@ -9,13 +10,14 @@ from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
 import gaia_validators as gv
 
-from ouranos.core.database.models.app import User
+from ouranos.core.database.models.app import User, anonymous_user
+from ouranos.core.exceptions import NotAuthorized
 from ouranos.web_server.auth import SessionInfo
 from ouranos.web_server.events import ADMIN_ROOM, ClientEvents
 
 from tests.class_fixtures import EcosystemAware, UsersAware
-from tests.data.auth import admin, user
-import tests.data.gaia as g_data
+from tests.data.auth import admin, operator, user
+from tests.data import gaia as g_data
 from tests.utils import MockAsyncDispatcher
 
 
@@ -31,10 +33,10 @@ class MockSioServer:
     `self.server.enter_room`, ...) and through the inherited
     `AsyncNamespace.emit`, which also delegates to `self.server.emit`.
     """
-
     def __init__(self):
         self.emit_store: deque[dict] = deque()
         self.rooms: dict[str, set[str]] = defaultdict(set)
+        self._sessions: dict[str, Any] = {}
 
     async def emit(self, event, data=None, to=None, room=None, skip_sid=None,
                    namespace=None, callback=None, ignore_queue=False):
@@ -51,6 +53,12 @@ class MockSioServer:
 
     async def leave_room(self, sid, room, namespace=None):
         self.rooms[sid].discard(room)
+
+    async def get_session(self, sid, namespace=None):
+        return self._sessions.get(sid, {})
+
+    async def save_session(self, sid, session, namespace=None):
+        self._sessions[sid] = session
 
 
 def make_token(user_id: int) -> str:
@@ -96,6 +104,97 @@ class TestClientEventsDispatcher:
 
 
 @pytest.mark.asyncio
+class TestClientConnect(UsersAware):
+    @staticmethod
+    def _make_environ(token: str | None = None) -> dict[str, str]:
+        """Build a minimal WSGI/ASGI-style environ for `on_connect`.
+
+        When a token is given it is placed in the session cookie exactly as a
+        browser would send it; otherwise the environ carries no cookie header.
+        """
+        if token is None:
+            return {}
+        return {"HTTP_COOKIE": f"session={token}"}
+
+    async def test_on_connect_no_cookie(
+            self,
+            client_events: ClientEvents,
+            mock_server: MockSioServer,
+    ):
+        """Test the connect handler when the client sends no session cookie.
+
+        Verifies that:
+        - The connection is accepted (anonymous users may connect)
+        - The session is marked as the anonymous user
+        - The client is NOT added to the administrator room
+        """
+        result = await client_events.on_connect(SID, self._make_environ())
+
+        assert result is True
+        session = await mock_server.get_session(SID)
+        assert session["user_id"] == anonymous_user.id
+        assert ADMIN_ROOM not in mock_server.rooms[SID]
+
+    async def test_on_connect_invalid_token(
+            self,
+            client_events: ClientEvents,
+            mock_server: MockSioServer,
+    ):
+        """Test the connect handler with an undecodable session cookie.
+
+        Verifies that:
+        - The connection is rejected
+        - No session is stored for the sid
+        - The client is NOT added to the administrator room
+        """
+        result = await client_events.on_connect(SID, self._make_environ("not-a-valid-token"))
+
+        assert result is False
+        assert await mock_server.get_session(SID) == {}
+        assert ADMIN_ROOM not in mock_server.rooms[SID]
+
+    async def test_on_connect_admin(
+            self,
+            client_events: ClientEvents,
+            mock_server: MockSioServer,
+            db: AsyncSQLAlchemyWrapper,
+    ):
+        """Test the connect handler for an administrator's session cookie.
+
+        Verifies that:
+        - The connection is accepted
+        - The admin's user id is stored in the session
+        - The client is added to the administrator room
+        """
+        result = await client_events.on_connect(SID, self._make_environ(make_token(admin.id)))
+
+        assert result is True
+        session = await mock_server.get_session(SID)
+        assert session["user_id"] == admin.id
+        assert ADMIN_ROOM in mock_server.rooms[SID]
+
+    async def test_on_connect_non_admin(
+            self,
+            client_events: ClientEvents,
+            mock_server: MockSioServer,
+            db: AsyncSQLAlchemyWrapper,
+    ):
+        """Test the connect handler for a regular user's session cookie.
+
+        Verifies that:
+        - The connection is accepted
+        - The user's id is stored in the session
+        - The client is NOT added to the administrator room
+        """
+        result = await client_events.on_connect(SID, self._make_environ(make_token(user.id)))
+
+        assert result is True
+        session = await mock_server.get_session(SID)
+        assert session["user_id"] == user.id
+        assert ADMIN_ROOM not in mock_server.rooms[SID]
+
+
+@pytest.mark.asyncio
 class TestClientEventsBasics:
     async def test_on_ping(
             self,
@@ -118,95 +217,13 @@ class TestClientEventsBasics:
 
 @pytest.mark.asyncio
 class TestClientAuthEvents(UsersAware):
-    async def test_on_login_admin(
-            self,
-            client_events: ClientEvents,
-            mock_server: MockSioServer,
-            db: AsyncSQLAlchemyWrapper,
-    ):
-        """Test the login handler for an administrator.
-
-        Verifies that:
-        - A valid token grants the admin the administrator room
-        - A successful login acknowledgment is emitted
-        """
-        await client_events.on_login(SID, make_token(admin.id))
-
-        assert ADMIN_ROOM in mock_server.rooms[SID]
-        emitted = mock_server.emit_store[-1]
-        assert emitted["event"] == "login_ack"
-        assert emitted["data"]["result"] == gv.Result.success
-        assert emitted["room"] == SID
-        assert emitted["namespace"] == "/"
-
-    async def test_on_login_non_admin(
-            self,
-            client_events: ClientEvents,
-            mock_server: MockSioServer,
-            db: AsyncSQLAlchemyWrapper,
-    ):
-        """Test the login handler for a regular user.
-
-        Verifies that:
-        - A valid token logs the user in successfully
-        - A non-admin user is NOT added to the administrator room
-        """
-        await client_events.on_login(SID, make_token(user.id))
-
-        assert ADMIN_ROOM not in mock_server.rooms[SID]
-        emitted = mock_server.emit_store[-1]
-        assert emitted["event"] == "login_ack"
-        assert emitted["data"]["result"] == gv.Result.success
-
-    async def test_on_login_invalid_token(
-            self,
-            client_events: ClientEvents,
-            mock_server: MockSioServer,
-            db: AsyncSQLAlchemyWrapper,
-    ):
-        """Test the login handler with an invalid session token.
-
-        Verifies that:
-        - The user is not added to the administrator room
-        - A failure acknowledgment with the proper reason is emitted
-        """
-        await client_events.on_login(SID, "not-a-valid-token")
-
-        assert ADMIN_ROOM not in mock_server.rooms[SID]
-        emitted = mock_server.emit_store[-1]
-        assert emitted["event"] == "login_ack"
-        assert emitted["data"]["result"] == gv.Result.failure
-        assert emitted["data"]["reason"] == "Invalid session token"
-
-    async def test_on_logout(
-            self,
-            client_events: ClientEvents,
-            mock_server: MockSioServer,
-            db: AsyncSQLAlchemyWrapper,
-    ):
-        """Test the logout handler.
-
-        Verifies that:
-        - The client is removed from the administrator room
-        - A successful logout acknowledgment is emitted
-        """
-        # Pretend the client is currently in the admin room
-        mock_server.rooms[SID].add(ADMIN_ROOM)
-
-        await client_events.on_logout(SID, make_token(admin.id))
-
-        assert ADMIN_ROOM not in mock_server.rooms[SID]
-        emitted = mock_server.emit_store[-1]
-        assert emitted["event"] == "logout_ack"
-        assert emitted["data"]["result"] == gv.Result.success
-
     async def test_on_user_heartbeat(
             self,
             client_events: ClientEvents,
             mock_server: MockSioServer,
             db: AsyncSQLAlchemyWrapper,
     ):
-        """Test the user heartbeat handler with a valid token.
+        """Test the user heartbeat handler with a valid user.
 
         Verifies that:
         - The user's last_seen timestamp is refreshed
@@ -216,7 +233,29 @@ class TestClientAuthEvents(UsersAware):
         async with db.scoped_session() as session:
             await User.update(session, user_id=user.id, values={"last_seen": old})
 
-        await client_events.on_user_heartbeat(SID, make_token(user.id))
+        # Anonymous users don't update user last_seen field
+        await client_events.server.save_session(SID, {"user_id": anonymous_user.id})
+        await client_events.on_user_heartbeat(SID)
+        assert len(mock_server.emit_store) == 0
+        async with db.scoped_session() as session:
+            db_user = await User.get(session, user_id=user.id)
+        assert db_user is not None
+        assert db_user.last_seen == old
+
+        # Users should only update their own last_seen field
+        await client_events.server.save_session(SID, {"user_id": operator.id})
+        await client_events.on_user_heartbeat(SID)
+        # A 'user_heartbeat_ack' event should be sent ...
+        assert len(mock_server.emit_store) == 1
+        # ... But the user's last_seen field shouldn't be updated
+        async with db.scoped_session() as session:
+            db_user = await User.get(session, user_id=user.id)
+        assert db_user is not None
+        assert db_user.last_seen == old
+
+        # User should update their last_seen field
+        await client_events.server.save_session(SID, {"user_id": user.id})
+        await client_events.on_user_heartbeat(SID)
 
         emitted = mock_server.emit_store[-1]
         assert emitted["event"] == "user_heartbeat_ack"
@@ -325,7 +364,7 @@ class TestClientRoomEvents:
 
 
 @pytest.mark.asyncio
-class TestClientEcosystemCommands(EcosystemAware):
+class TestClientEcosystemCommands(EcosystemAware, UsersAware):
     async def test_on_turn_light(
             self,
             client_events: ClientEvents,
@@ -344,6 +383,21 @@ class TestClientEcosystemCommands(EcosystemAware):
             "mode": "automatic",
             "countdown": 0,
         }
+
+        # Anonymous users aren't allowed to turn actuators
+        await client_events.server.save_session(SID, {"user_id": anonymous_user.id})
+        with pytest.raises(NotAuthorized):
+           await client_events.on_turn_light(SID, data)
+        assert len(ouranos_dispatcher.emit_store) == 0
+
+        # Regular users aren't allowed to turn actuators
+        await client_events.server.save_session(SID, {"user_id": user.id})
+        with pytest.raises(NotAuthorized):
+            await client_events.on_turn_light(SID, data)
+        assert len(ouranos_dispatcher.emit_store) == 0
+
+        # Operator can turn actuators
+        await client_events.server.save_session(SID, {"user_id": operator.id})
         await client_events.on_turn_light(SID, data)
 
         assert len(ouranos_dispatcher.emit_store) == 1
@@ -373,6 +427,21 @@ class TestClientEcosystemCommands(EcosystemAware):
             "management": "light",
             "status": True,
         }
+
+        # Anonymous users aren't allowed to manage ecosystems
+        await client_events.server.save_session(SID, {"user_id": anonymous_user.id})
+        with pytest.raises(NotAuthorized):
+           await client_events.on_manage_ecosystem(SID, data)
+        assert len(ouranos_dispatcher.emit_store) == 0
+
+        # Regular users aren't allowed to manage ecosystems
+        await client_events.server.save_session(SID, {"user_id": user.id})
+        with pytest.raises(NotAuthorized):
+            await client_events.on_manage_ecosystem(SID, data)
+        assert len(ouranos_dispatcher.emit_store) == 0
+
+        # Operator can turn actuators
+        await client_events.server.save_session(SID, {"user_id": operator.id})
         await client_events.on_manage_ecosystem(SID, data)
 
         assert len(ouranos_dispatcher.emit_store) == 1

@@ -1,17 +1,19 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from http.cookies import SimpleCookie
 from logging import getLogger, Logger
 
 from dispatcher import AsyncDispatcher, AsyncEventHandler
 import gaia_validators as gv
 from socketio import AsyncNamespace, AsyncManager, AsyncServer
 
-from ouranos import db
-from ouranos.core.database.models.app import Permission, User
+from ouranos import current_app, db
+from ouranos.core.database.models.app import anonymous_user, Permission, User
 from ouranos.core.database.models.gaia import Ecosystem
 from ouranos.core.exceptions import TokenError
-from ouranos.web_server.auth import login_manager, SessionInfo
+from ouranos.web_server.auth import (
+    create_session_id, login_manager, LOGIN_NAME, SessionInfo)
 from ouranos.web_server.events.decorators import permission_required
 
 
@@ -47,62 +49,57 @@ class ClientEvents(AsyncNamespace):
     def ouranos_dispatcher(self, dispatcher: AsyncDispatcher):
         self._ouranos_dispatcher = dispatcher
 
+    async def on_connect(self, sid, environ):
+        cookie = SimpleCookie(environ.get("HTTP_COOKIE", ""))
+        session_cookie = cookie.get(LOGIN_NAME.COOKIE.value)
+        if session_cookie is None:
+            await self.save_session(sid, {"user_id": anonymous_user.id})
+            return True  # anonymous users are allowed to connect
+
+        try:
+            session_info = SessionInfo.from_token(session_cookie.value)
+        except TokenError:
+            return False  # Invalid token, reject the connection
+
+        user_agent = environ.get("HTTP_USER_AGENT", "")
+        session_id = create_session_id(user_agent)
+        if session_id != session_info.id and not current_app.config["TESTING"]:
+            return False  # The token is not attached to this browser, reject the connection
+
+        # Get the user and save its ID to the session
+        async with db.scoped_session() as session:
+            user = await login_manager.get_user(session, session_info.user_id)
+        await self.save_session(sid, {"user_id": user.id})
+        if user.can(Permission.ADMIN):
+            await self.enter_room(sid, ADMIN_ROOM)
+        return True
+
     async def on_ping(self, sid):
         await self.emit("pong", namespace="/", room=sid)
 
     async def on_login(self, sid, token: str):
-        try:
-            session_info = SessionInfo.from_token(token)
-        except TokenError:
-            logger.warning(f"Received invalid session token from sid '{sid}'")
-            await self.emit(
-                "login_ack",
-                data={
-                    "result": gv.Result.failure,
-                    "reason": "Invalid session token"
-                },
-                namespace="/",
-                room=sid
-            )
-        else:
-            async with db.scoped_session() as session:
-                user = await login_manager.get_user(session, session_info.user_id)
-            if user.can(Permission.ADMIN):
-                await self.server.enter_room(sid, ADMIN_ROOM)
-            await self.emit(
-                "login_ack",
-                data={"result": gv.Result.success},
-                namespace="/",
-                room=sid
-            )
+        logger.debug(f"Received deprecated 'on_login' event from sid '{sid}'")
 
     async def on_logout(self, sid, token: str):
         await self.server.leave_room(sid, ADMIN_ROOM)
-        await self.emit(
-            "logout_ack",
-            data={"result": gv.Result.success},
-            namespace="/",
-            room=sid
-        )
+        logger.debug(f"Received deprecated 'on_logout' event from sid '{sid}'")
 
-    async def on_user_heartbeat(self, sid, token: str):
-        try:
-            session_info = SessionInfo.from_token(token)
-        except TokenError:
-            logger.warning(f"Received invalid session token from sid '{sid}'")
-        else:
-            if session_info.user_id > 0:
-                async with db.scoped_session() as session:
-                    await User.update(
-                        session,
-                        user_id=session_info.user_id,
-                        values={"last_seen": datetime.now(timezone.utc)}
-                    )
-                await self.emit(
-                    "user_heartbeat_ack",
-                    to=sid,
-                    namespace="/",
-                )
+    async def on_user_heartbeat(self, sid, token: str | None = None):
+        sio_session = await self.get_session(sid)
+        user_id = sio_session.get('user_id', None)
+        if user_id is None:
+            return
+        async with db.scoped_session() as session:
+            await User.update(
+                session,
+                user_id=user_id,
+                values={"last_seen": datetime.now(timezone.utc)}
+            )
+        await self.emit(
+            "user_heartbeat_ack",
+            to=sid,
+            namespace="/",
+        )
 
     async def on_join_room(self, sid, room_name: str) -> None:
         if room_name == ADMIN_ROOM:
@@ -110,7 +107,7 @@ class ClientEvents(AsyncNamespace):
                 "join_room_ack",
                 data={
                     "result": gv.Result.failure,
-                    "reason": "Admin room can only be entered via `login` event."
+                    "reason": "Admin room can only be entered while connecting."
                 },
                 namespace="/",
                 room=sid
@@ -130,7 +127,7 @@ class ClientEvents(AsyncNamespace):
                 "leave_room_ack",
                 data={
                     "result": gv.Result.failure,
-                    "reason": "Admin room can only be left via `login` event."
+                    "reason": "Admin room is only left after disconnection."
                 },
                 namespace="/",
                 room=sid
@@ -147,7 +144,7 @@ class ClientEvents(AsyncNamespace):
     # ---------------------------------------------------------------------------
     #   Events Web clients ->  Web server -> Aggregator
     # ---------------------------------------------------------------------------
-    # @permission_required(Permission.OPERATE)
+    @permission_required(Permission.OPERATE)
     async def on_turn_light(self, sid, data):
         ecosystem_uid = data["ecosystem"]
         async with db.scoped_session() as session:
@@ -167,7 +164,7 @@ class ClientEvents(AsyncNamespace):
             namespace="aggregator-internal",
         )
 
-    # @permission_required(Permission.OPERATE)
+    @permission_required(Permission.OPERATE)
     async def on_manage_ecosystem(self, sid, data):
         ecosystem_uid = data["ecosystem"]
         async with db.scoped_session() as session:
