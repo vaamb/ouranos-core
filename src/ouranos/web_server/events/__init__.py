@@ -85,8 +85,8 @@ class ClientEvents(AsyncNamespace):
         logger.debug(f"Received deprecated 'on_logout' event from sid '{sid}'")
 
     async def on_user_heartbeat(self, sid, token: str | None = None):
-        session = await self.get_session(sid)
-        user_id = session.get('user_id', None)
+        sio_session = await self.get_session(sid)
+        user_id = sio_session.get('user_id', None)
         if user_id is None:
             return
         async with db.scoped_session() as session:

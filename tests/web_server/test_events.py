@@ -245,7 +245,7 @@ class TestClientAuthEvents(UsersAware):
         # Users should only update their own last_seen field
         await client_events.server.save_session(SID, {"user_id": operator.id})
         await client_events.on_user_heartbeat(SID)
-        # A 'user_heartbeat_ack' event should be sen't ...
+        # A 'user_heartbeat_ack' event should be sent ...
         assert len(mock_server.emit_store) == 1
         # ... But the user's last_seen field shouldn't be updated
         async with db.scoped_session() as session:
