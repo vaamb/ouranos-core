@@ -1,17 +1,19 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from http.cookies import SimpleCookie
 from logging import getLogger, Logger
 
 from dispatcher import AsyncDispatcher, AsyncEventHandler
 import gaia_validators as gv
 from socketio import AsyncNamespace, AsyncManager, AsyncServer
 
-from ouranos import db
-from ouranos.core.database.models.app import Permission, User
+from ouranos import current_app, db
+from ouranos.core.database.models.app import anonymous_user, Permission, User
 from ouranos.core.database.models.gaia import Ecosystem
 from ouranos.core.exceptions import TokenError
-from ouranos.web_server.auth import login_manager, SessionInfo
+from ouranos.web_server.auth import (
+    _create_session_id, login_manager, LOGIN_NAME, SessionInfo)
 from ouranos.web_server.events.decorators import permission_required
 
 
@@ -46,6 +48,31 @@ class ClientEvents(AsyncNamespace):
     @ouranos_dispatcher.setter
     def ouranos_dispatcher(self, dispatcher: AsyncDispatcher):
         self._ouranos_dispatcher = dispatcher
+
+    async def on_connect(self, sid, environ):
+        cookie = SimpleCookie(environ.get("HTTP_COOKIE", ""))
+        session_cookie = cookie.get(LOGIN_NAME.COOKIE.value)
+        if session_cookie is None:
+            await self.save_session(sid, {"user_id": anonymous_user.id})
+            return True  # anonymous users are allowed to connect
+
+        try:
+            session_info = SessionInfo.from_token(session_cookie.value)
+        except TokenError:
+            return False  # Invalid token, reject the connection
+
+        user_agent = environ.get("HTTP_USER_AGENT", "")
+        session_id = _create_session_id(user_agent)
+        if session_id != session_info.id and not current_app.config["TESTING"]:
+            return False  # The token is not attached to this browser, reject the connection
+
+        # Get the user and save its ID to the session
+        async with db.scoped_session() as session:
+            user = await login_manager.get_user(session, session_info.user_id)
+        await self.save_session(sid, {"user_id": user.id})
+        if user.can(Permission.ADMIN):
+            await self.enter_room(sid, ADMIN_ROOM)
+        return True
 
     async def on_ping(self, sid):
         await self.emit("pong", namespace="/", room=sid)
