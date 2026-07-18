@@ -78,39 +78,10 @@ class ClientEvents(AsyncNamespace):
         await self.emit("pong", namespace="/", room=sid)
 
     async def on_login(self, sid, token: str):
-        try:
-            session_info = SessionInfo.from_token(token)
-        except TokenError:
-            logger.warning(f"Received invalid session token from sid '{sid}'")
-            await self.emit(
-                "login_ack",
-                data={
-                    "result": gv.Result.failure,
-                    "reason": "Invalid session token"
-                },
-                namespace="/",
-                room=sid
-            )
-        else:
-            async with db.scoped_session() as session:
-                user = await login_manager.get_user(session, session_info.user_id)
-            if user.can(Permission.ADMIN):
-                await self.server.enter_room(sid, ADMIN_ROOM)
-            await self.emit(
-                "login_ack",
-                data={"result": gv.Result.success},
-                namespace="/",
-                room=sid
-            )
+        logger.debug(f"Received deprecated 'on_login' event from sid '{sid}'")
 
     async def on_logout(self, sid, token: str):
-        await self.server.leave_room(sid, ADMIN_ROOM)
-        await self.emit(
-            "logout_ack",
-            data={"result": gv.Result.success},
-            namespace="/",
-            room=sid
-        )
+        logger.debug(f"Received deprecated 'on_logout' event from sid '{sid}'")
 
     async def on_user_heartbeat(self, sid, token: str):
         try:
@@ -137,7 +108,7 @@ class ClientEvents(AsyncNamespace):
                 "join_room_ack",
                 data={
                     "result": gv.Result.failure,
-                    "reason": "Admin room can only be entered via `login` event."
+                    "reason": "Admin room can only be entered while connecting."
                 },
                 namespace="/",
                 room=sid
@@ -157,7 +128,7 @@ class ClientEvents(AsyncNamespace):
                 "leave_room_ack",
                 data={
                     "result": gv.Result.failure,
-                    "reason": "Admin room can only be left via `login` event."
+                    "reason": "Admin room is only left after disconnection."
                 },
                 namespace="/",
                 room=sid
