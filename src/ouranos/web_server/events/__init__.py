@@ -174,7 +174,7 @@ class ClientEvents(AsyncNamespace):
     # ---------------------------------------------------------------------------
     #   Events Web clients ->  Web server -> Aggregator
     # ---------------------------------------------------------------------------
-    # @permission_required(Permission.OPERATE)
+    @permission_required(Permission.OPERATE)
     async def on_turn_light(self, sid, data):
         ecosystem_uid = data["ecosystem"]
         async with db.scoped_session() as session:
@@ -194,7 +194,7 @@ class ClientEvents(AsyncNamespace):
             namespace="aggregator-internal",
         )
 
-    # @permission_required(Permission.OPERATE)
+    @permission_required(Permission.OPERATE)
     async def on_manage_ecosystem(self, sid, data):
         ecosystem_uid = data["ecosystem"]
         async with db.scoped_session() as session:
