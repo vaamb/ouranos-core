@@ -81,6 +81,7 @@ class ClientEvents(AsyncNamespace):
         logger.debug(f"Received deprecated 'on_login' event from sid '{sid}'")
 
     async def on_logout(self, sid, token: str):
+        await self.server.leave_room(sid, ADMIN_ROOM)
         logger.debug(f"Received deprecated 'on_logout' event from sid '{sid}'")
 
     async def on_user_heartbeat(self, sid, token: str | None = None):
