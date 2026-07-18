@@ -83,24 +83,22 @@ class ClientEvents(AsyncNamespace):
     async def on_logout(self, sid, token: str):
         logger.debug(f"Received deprecated 'on_logout' event from sid '{sid}'")
 
-    async def on_user_heartbeat(self, sid, token: str):
-        try:
-            session_info = SessionInfo.from_token(token)
-        except TokenError:
-            logger.warning(f"Received invalid session token from sid '{sid}'")
-        else:
-            if session_info.user_id > 0:
-                async with db.scoped_session() as session:
-                    await User.update(
-                        session,
-                        user_id=session_info.user_id,
-                        values={"last_seen": datetime.now(timezone.utc)}
-                    )
-                await self.emit(
-                    "user_heartbeat_ack",
-                    to=sid,
-                    namespace="/",
-                )
+    async def on_user_heartbeat(self, sid, token: str | None = None):
+        session = await self.get_session(sid)
+        user_id = session.get('user_id', None)
+        if user_id is None:
+            return
+        async with db.scoped_session() as session:
+            await User.update(
+                session,
+                user_id=user_id,
+                values={"last_seen": datetime.now(timezone.utc)}
+            )
+        await self.emit(
+            "user_heartbeat_ack",
+            to=sid,
+            namespace="/",
+        )
 
     async def on_join_room(self, sid, room_name: str) -> None:
         if room_name == ADMIN_ROOM:

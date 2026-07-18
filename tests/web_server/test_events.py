@@ -223,7 +223,7 @@ class TestClientAuthEvents(UsersAware):
             mock_server: MockSioServer,
             db: AsyncSQLAlchemyWrapper,
     ):
-        """Test the user heartbeat handler with a valid token.
+        """Test the user heartbeat handler with a valid user.
 
         Verifies that:
         - The user's last_seen timestamp is refreshed
@@ -233,7 +233,29 @@ class TestClientAuthEvents(UsersAware):
         async with db.scoped_session() as session:
             await User.update(session, user_id=user.id, values={"last_seen": old})
 
-        await client_events.on_user_heartbeat(SID, make_token(user.id))
+        # Anonymous users don't update user last_seen field
+        await client_events.server.save_session(SID, {"user_id": anonymous_user.id})
+        await client_events.on_user_heartbeat(SID)
+        assert len(mock_server.emit_store) == 0
+        async with db.scoped_session() as session:
+            db_user = await User.get(session, user_id=user.id)
+        assert db_user is not None
+        assert db_user.last_seen == old
+
+        # Users should only update their own last_seen field
+        await client_events.server.save_session(SID, {"user_id": operator.id})
+        await client_events.on_user_heartbeat(SID)
+        # A 'user_heartbeat_ack' event should be sen't ...
+        assert len(mock_server.emit_store) == 1
+        # ... But the user's last_seen field shouldn't be updated
+        async with db.scoped_session() as session:
+            db_user = await User.get(session, user_id=user.id)
+        assert db_user is not None
+        assert db_user.last_seen == old
+
+        # User should update their last_seen field
+        await client_events.server.save_session(SID, {"user_id": user.id})
+        await client_events.on_user_heartbeat(SID)
 
         emitted = mock_server.emit_store[-1]
         assert emitted["event"] == "user_heartbeat_ack"
