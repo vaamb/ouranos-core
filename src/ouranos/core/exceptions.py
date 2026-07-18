@@ -32,3 +32,7 @@ class ExpiredTokenError(TokenError):
 
 class InvalidTokenError(TokenError):
     pass
+
+
+class NotAuthorized(Exception):
+    pass

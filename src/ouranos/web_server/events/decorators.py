@@ -2,6 +2,7 @@ import functools
 
 from ouranos import db
 from ouranos.core.database.models.app import Permission
+from ouranos.core.exceptions import NotAuthorized
 from ouranos.web_server.auth import login_manager
 
 
@@ -15,6 +16,6 @@ def permission_required(permission: Permission):
                 user = await login_manager.get_user(db_session, user_id)
             if user.can(permission):
                 return await func(self, sid, data)
-            return
+            raise NotAuthorized()
         return wrapped
     return decorator
