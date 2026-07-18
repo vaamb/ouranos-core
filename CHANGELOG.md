@@ -8,25 +8,53 @@
 - `HardwareGroup` model introduced; measures and actuator groups linked to `Hardware`
   and `EnvironmentParameter`, reflecting Gaia's group-based actuator control
 - "active" field added to the `Hardware` table
-- "weather" event added
+- "weather" aggregator event added
 - `CRUDMixin.get_or_create()`
+- `StmtModifier` to easily modify `CRUDMixin._get{_multiple}()` requests
+- "measure" and "groups" info exposed on the environment-parameters and hardware routes
+- "recent_picture" field on `Ecosystem.get_functionalities()` and the routes using it
 - `Plugin.check_requirements()` override hook for startup validation
 - `Plugin.create_run_command()` for defining custom CLI commands and groups
+- CLI command to fill the database with the default tables
+- "unsafe" option on the installation / update scripts to use the latest development version
 
 ### Changed
-- `Plugin` setup and startup improved; `Functionality` runtime improved
+- `Plugin` setup and startup improved; `Functionality` and `Plugin` runtime made more robust
 - `Archiver` reworked and coupled more tightly with DB models to prevent drift
+- `Aggregator`, `WebServer`, and `FileServer` lifecycles improved
+- `GaiaEvents` and `CRUDMixin` cleaned up and improved; gaia-related models cleaned up
+- Caching and cache invalidation improved in `CachedCrudMixin`; caching utilities documented
 - DB revision checked at startup; `check_db_revision()` is launch-directory-agnostic
 - DB migration handling eased; table creation managed through SQLAlchemy during updates
-- `GaiaEvents` and `CRUDMixin` cleaned up and improved
+- DB connections recycled after 1 hour
+- Non-specific "image_info" routes support time-window narrowing
 - Unique constraints added to all `Association{...}` tables
+- Exception handling improved, logging clutter reduced, and shutdown made cleaner
+- Full error traceback no longer printed when running a `Plugin` in production
+- Dummy plugins no longer exposed outside development and testing builds
+- Installation and update scripts simplified, hardened, and made more resilient
 
 ### Fixed
 - Race conditions in `update_or_create()` handled more robustly
+- Edge cases in `CRUDMixin`
+- Various bugs in `SkyWatcher`
+- `Optional` types better handled by `sqlalchemy_to_pydantic`
+- `HTTPException` properly raised after failed CRUD requests in the hardware routes
+- "turn_light" and "manage_ecosystem" client events
+- Several bugs in the update script
+
+### Security
+- Socket.IO authentication moved to connect time; actuation handlers secured
+- Regular users can no longer join or leave the "admin" room through the room events
 
 ### Development
-- `event-dispatcher` bumped to 0.6.x
+- `event-dispatcher` (0.8.0), `gaia-validators` (0.10.0), `sqlalchemy-wrapper` (0.5.0),
+  and `pytest-asyncio` (1.4) bumped
 - `uv` adopted for virtual environment and package management; GitHub workflows updated
+- `ty` type checking added for the `core/database` modules
+- Extensive test coverage added across routes (auth, users, hardware, sensors, engines,
+  ecosystems, calendar, weather, wiki, warnings, system, services), events, and
+  functionalities; `TestAggregator` and `TestWebServer` harnesses introduced
 
 ---
 
