@@ -104,6 +104,97 @@ class TestClientEventsDispatcher:
 
 
 @pytest.mark.asyncio
+class TestClientConnect(UsersAware):
+    @staticmethod
+    def _make_environ(token: str | None = None) -> dict[str, str]:
+        """Build a minimal WSGI/ASGI-style environ for `on_connect`.
+
+        When a token is given it is placed in the session cookie exactly as a
+        browser would send it; otherwise the environ carries no cookie header.
+        """
+        if token is None:
+            return {}
+        return {"HTTP_COOKIE": f"session={token}"}
+
+    async def test_on_connect_no_cookie(
+            self,
+            client_events: ClientEvents,
+            mock_server: MockSioServer,
+    ):
+        """Test the connect handler when the client sends no session cookie.
+
+        Verifies that:
+        - The connection is accepted (anonymous users may connect)
+        - The session is marked as the anonymous user
+        - The client is NOT added to the administrator room
+        """
+        result = await client_events.on_connect(SID, self._make_environ())
+
+        assert result is True
+        session = await mock_server.get_session(SID)
+        assert session["user_id"] == anonymous_user.id
+        assert ADMIN_ROOM not in mock_server.rooms[SID]
+
+    async def test_on_connect_invalid_token(
+            self,
+            client_events: ClientEvents,
+            mock_server: MockSioServer,
+    ):
+        """Test the connect handler with an undecodable session cookie.
+
+        Verifies that:
+        - The connection is rejected
+        - No session is stored for the sid
+        - The client is NOT added to the administrator room
+        """
+        result = await client_events.on_connect(SID, self._make_environ("not-a-valid-token"))
+
+        assert result is False
+        assert await mock_server.get_session(SID) == {}
+        assert ADMIN_ROOM not in mock_server.rooms[SID]
+
+    async def test_on_connect_admin(
+            self,
+            client_events: ClientEvents,
+            mock_server: MockSioServer,
+            db: AsyncSQLAlchemyWrapper,
+    ):
+        """Test the connect handler for an administrator's session cookie.
+
+        Verifies that:
+        - The connection is accepted
+        - The admin's user id is stored in the session
+        - The client is added to the administrator room
+        """
+        result = await client_events.on_connect(SID, self._make_environ(make_token(admin.id)))
+
+        assert result is True
+        session = await mock_server.get_session(SID)
+        assert session["user_id"] == admin.id
+        assert ADMIN_ROOM in mock_server.rooms[SID]
+
+    async def test_on_connect_non_admin(
+            self,
+            client_events: ClientEvents,
+            mock_server: MockSioServer,
+            db: AsyncSQLAlchemyWrapper,
+    ):
+        """Test the connect handler for a regular user's session cookie.
+
+        Verifies that:
+        - The connection is accepted
+        - The user's id is stored in the session
+        - The client is NOT added to the administrator room
+        """
+        result = await client_events.on_connect(SID, self._make_environ(make_token(user.id)))
+
+        assert result is True
+        session = await mock_server.get_session(SID)
+        assert session["user_id"] == user.id
+        assert ADMIN_ROOM not in mock_server.rooms[SID]
+
+
+@pytest.mark.asyncio
 class TestClientEventsBasics:
     async def test_on_ping(
             self,
