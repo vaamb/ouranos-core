@@ -1472,7 +1472,7 @@ class SensorDataRecord(BaseSensorDataRecord, ArchivableMixin):
         return result.all()
 
 
-sa.Index("idx_sensor_records_uid_ts", SensorDataRecord.sensor_uid, SensorDataRecord.timestamp)
+sa.Index("idx_sensor_records_sensor_uid_timestamp", SensorDataRecord.sensor_uid, SensorDataRecord.timestamp)
 
 
 # ---------------------------------------------------------------------------
