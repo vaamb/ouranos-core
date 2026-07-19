@@ -115,7 +115,7 @@ class TestEngineRegistration:
         # Call the method
         await events_handler.on_register_engine(g_data.engine_sid, payload)
 
-        # Verify the re response event
+        # Verify the response event
         assert len(mock_dispatcher.emit_store) == 1
         emitted = mock_dispatcher.emit_store.popleft()
 

@@ -243,9 +243,9 @@ class GaiaEvents(AsyncEventHandler):
         self.logger.info(
             f"Received registration request from engine {engine_uid} with sid {sid}")
         # Compare if the contract versions are compatible ...
-        gaia_version = data["contract_version"]
-        own_version = current_app.config["GAIA_CONTRACT"]
-        success = gaia_version == own_version
+        gaia_contract = data["contract_version"]
+        own_contract = current_app.config["GAIA_CONTRACT"]
+        success = gaia_contract == own_contract
         # ... if they are, continue to registration ...
         if success:
             async with self.session(sid) as session:
@@ -269,12 +269,12 @@ class GaiaEvents(AsyncEventHandler):
         # ... otherwise, log that the engine's version is not compatible
         else:
             self.logger.warning(
-                f"Engine {engine_uid} has contract version {gaia_version},"
-                f"expected version {own_version}. Cannot proceed with registration.")
+                f"Engine {engine_uid} has contract version {gaia_contract}, "
+                f"expected version {own_contract}. Cannot proceed with registration.")
 
         ack = gv.EngineRegistrationAck(
             host_uid=sid,
-            contract_version=own_version,
+            contract_version=own_contract,
             status=gv.Result.success if success else gv.Result.failure,
         ).model_dump()
         await self.emit("registration_ack", data=ack, ttl=15, to=sid)
