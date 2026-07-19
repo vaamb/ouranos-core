@@ -6,54 +6,54 @@
 
 ### Added
 - `HardwareGroup` model introduced; measures and actuator groups linked to `Hardware`
-  and `EnvironmentParameter`, reflecting Gaia's group-based actuator control
-- "active" field added to the `Hardware` table
-- "weather" aggregator event added
-- `CRUDMixin.get_or_create()`
-- `StmtModifier` to easily modify `CRUDMixin._get{_multiple}()` requests
-- "measure" and "groups" info exposed on the environment-parameters and hardware routes
-- "recent_picture" field on `Ecosystem.get_functionalities()` and the routes using it
-- `Plugin.check_requirements()` override hook for startup validation
-- `Plugin.create_run_command()` for defining custom CLI commands and groups
-- CLI command to fill the database with the default tables
-- "unsafe" option on the installation / update scripts to use the latest development version
+  and `EnvironmentParameter`, reflecting Gaia's group-based actuator control (#304, #305, #307)
+- "active" field added to the `Hardware` table (#326)
+- "weather" aggregator event added (#300)
+- `CRUDMixin.get_or_create()` (#301)
+- `StmtModifier` to easily modify `CRUDMixin._get{_multiple}()` requests (#361)
+- "measure" and "groups" info exposed on the environment-parameters and hardware routes (#306)
+- "recent_picture" field on `Ecosystem.get_functionalities()` and the routes using it (#362)
+- `Plugin.check_requirements()` override hook for startup validation (#313)
+- `Plugin.create_run_command()` for defining custom CLI commands and groups (#310)
+- CLI command to fill the database with the default tables (#332)
+- "unsafe" option on the installation / update scripts to use the latest development version (#335)
 - Gaia–Ouranos contract version negotiated at engine registration (`GAIA_CONTRACT`);
-  engines whose contract does not match are refused through the `registration_ack` status
+  engines whose contract does not match are refused through the `registration_ack` status (#399)
 
 ### Changed
-- `Plugin` setup and startup improved; `Functionality` and `Plugin` runtime made more robust
-- `Archiver` reworked and coupled more tightly with DB models to prevent drift
-- `Aggregator`, `WebServer`, and `FileServer` lifecycles improved
-- `GaiaEvents` and `CRUDMixin` cleaned up and improved; gaia-related models cleaned up
-- Caching and cache invalidation improved in `CachedCrudMixin`; caching utilities documented
-- DB revision checked at startup; `check_db_revision()` is launch-directory-agnostic
-- DB migration handling eased; table creation managed through SQLAlchemy during updates
-- DB connections recycled after 1 hour
-- Non-specific "image_info" routes support time-window narrowing
-- Unique constraints added to all `Association{...}` tables
-- Exception handling improved, logging clutter reduced, and shutdown made cleaner
-- Full error traceback no longer printed when running a `Plugin` in production
-- Dummy plugins no longer exposed outside development and testing builds
-- Installation and update scripts simplified, hardened, and made more resilient
+- `Plugin` setup and startup improved; `Functionality` and `Plugin` runtime made more robust (#342, #345, #369)
+- `Archiver` reworked and coupled more tightly with DB models to prevent drift (#346)
+- `Aggregator`, `WebServer`, and `FileServer` lifecycles improved (#371, #372, #376)
+- `GaiaEvents` and `CRUDMixin` cleaned up and improved; gaia-related models cleaned up (#348, #349, #354)
+- Caching and cache invalidation improved in `CachedCrudMixin`; caching utilities documented (#350, #368)
+- DB revision checked at startup; `check_db_revision()` is launch-directory-agnostic (#318, #324)
+- DB migration handling eased; table creation managed through SQLAlchemy during updates (#317, #338)
+- DB connections recycled after 1 hour (#364)
+- Non-specific "image_info" routes support time-window narrowing (#363)
+- Unique constraints added to all `Association{...}` tables (#298)
+- Exception handling improved, logging clutter reduced, and shutdown made cleaner (#323)
+- Full error traceback no longer printed when running a `Plugin` in production (#314)
+- Dummy plugins no longer exposed outside development and testing builds (#311)
+- Installation and update scripts simplified, hardened, and made more resilient (#344, #360)
 
 ### Fixed
-- Race conditions in `update_or_create()` handled more robustly
-- Edge cases in `CRUDMixin`
-- Various bugs in `SkyWatcher`
-- `Optional` types better handled by `sqlalchemy_to_pydantic`
-- `HTTPException` properly raised after failed CRUD requests in the hardware routes
-- "turn_light" and "manage_ecosystem" client events
-- Several bugs in the update script
+- Race conditions in `update_or_create()` handled more robustly (#303)
+- Edge cases in `CRUDMixin` (#367)
+- Various bugs in `SkyWatcher` (#353)
+- `Optional` types better handled by `sqlalchemy_to_pydantic` (#312)
+- `HTTPException` properly raised after failed CRUD requests in the hardware routes (#392)
+- "turn_light" and "manage_ecosystem" client events (#395)
+- Several bugs in the update script (#370)
 
 ### Security
-- Socket.IO authentication moved to connect time; actuation handlers secured
-- Regular users can no longer join or leave the "admin" room through the room events
+- Socket.IO authentication moved to connect time; actuation handlers secured (#396)
+- Regular users can no longer join or leave the "admin" room through the room events (#393, #394)
 
 ### Development
 - `event-dispatcher` (0.8.0), `gaia-validators` (0.11.0), `sqlalchemy-wrapper` (0.5.0),
   and `pytest-asyncio` (1.4) bumped
-- `uv` adopted for virtual environment and package management; GitHub workflows updated
-- `ty` type checking added for the `core/database` modules
+- `uv` adopted for virtual environment and package management; GitHub workflows updated (#331, #343)
+- `ty` type checking added for the `core/database` modules (#366)
 - Extensive test coverage added across routes (auth, users, hardware, sensors, engines,
   ecosystems, calendar, weather, wiki, warnings, system, services), events, and
   functionalities; `TestAggregator` and `TestWebServer` harnesses introduced
