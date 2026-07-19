@@ -31,6 +31,7 @@ profile_type: TypeAlias = ConfigDict | Type[BaseConfig] | str | None
 app_info = {
     "APP_NAME": "Ouranos",
     "VERSION": version,
+    "GAIA_CONTRACT": consts.GAIA_CONTRACT,
 }
 
 

@@ -17,6 +17,8 @@
 - `Plugin.create_run_command()` for defining custom CLI commands and groups
 - CLI command to fill the database with the default tables
 - "unsafe" option on the installation / update scripts to use the latest development version
+- Gaia–Ouranos contract version negotiated at engine registration (`GAIA_CONTRACT`);
+  engines whose contract does not match are refused through the `registration_ack` status
 
 ### Changed
 - `Plugin` setup and startup improved; `Functionality` and `Plugin` runtime made more robust
@@ -48,7 +50,7 @@
 - Regular users can no longer join or leave the "admin" room through the room events
 
 ### Development
-- `event-dispatcher` (0.8.0), `gaia-validators` (0.10.0), `sqlalchemy-wrapper` (0.5.0),
+- `event-dispatcher` (0.8.0), `gaia-validators` (0.11.0), `sqlalchemy-wrapper` (0.5.0),
   and `pytest-asyncio` (1.4) bumped
 - `uv` adopted for virtual environment and package management; GitHub workflows updated
 - `ty` type checking added for the `core/database` modules

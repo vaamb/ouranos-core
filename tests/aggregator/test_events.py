@@ -96,6 +96,35 @@ class TestHandler:
 
 @pytest.mark.asyncio
 class TestEngineRegistration:
+    async def test_on_register_engine_failure_version(
+            self,
+            mock_dispatcher: MockAsyncDispatcher,
+            events_handler: GaiaEvents,
+            db: AsyncSQLAlchemyWrapper,
+    ):
+        """Test the engine registration process.
+
+        Verifies that:
+        - Incompatible contract versions lead to registration failure
+        """
+        payload = gv.EnginePayload(
+            engine_uid=g_data.engine_uid,
+            address=g_data.ip_address,
+            contract_version=0
+        ).model_dump()
+        # Call the method
+        await events_handler.on_register_engine(g_data.engine_sid, payload)
+
+        # Verify the response event
+        assert len(mock_dispatcher.emit_store) == 1
+        emitted = mock_dispatcher.emit_store.popleft()
+
+        assert emitted["event"] == "registration_ack"
+        assert emitted["namespace"] == "gaia"
+        assert emitted["room"] == g_data.engine_sid.hex
+        assert emitted["data"]["status"] == gv.Result.failure
+        assert emitted["data"]["contract_version"] == current_app.config["GAIA_CONTRACT"]
+
     async def test_on_register_engine(
             self,
             mock_dispatcher: MockAsyncDispatcher,
@@ -114,7 +143,8 @@ class TestEngineRegistration:
         """
         payload = gv.EnginePayload(
             engine_uid=g_data.engine_uid,
-            address=g_data.ip_address
+            address=g_data.ip_address,
+            contract_version=current_app.config["GAIA_CONTRACT"]
         ).model_dump()
 
         # Call the method
@@ -136,6 +166,8 @@ class TestEngineRegistration:
         assert emitted["event"] == "registration_ack"
         assert emitted["namespace"] == "gaia"
         assert emitted["room"] == g_data.engine_sid.hex
+        assert emitted["data"]["status"] == gv.Result.success
+        assert emitted["data"]["contract_version"] == current_app.config["GAIA_CONTRACT"]
 
         emitted = mock_dispatcher.emit_store.popleft()
         assert emitted["event"] == "camera_token"
