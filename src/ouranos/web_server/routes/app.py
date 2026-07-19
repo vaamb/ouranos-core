@@ -6,7 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ouranos import current_app
 from ouranos.core.database.models.app import FlashMessage
 from ouranos.web_server.dependencies import get_session
-from ouranos.web_server.validate.app import FlashMessageInfo, LoggingPeriodInfo
+from ouranos.web_server.validate.app import (
+    Contracts, FlashMessageInfo, LoggingPeriodInfo)
 
 
 router = APIRouter(
@@ -19,6 +20,14 @@ router = APIRouter(
 @router.get("/version", response_model=str)
 async def get_version():
     return current_app.config["VERSION"]
+
+
+@router.get("/contracts", response_model=Contracts)
+async def get_version():
+    return {
+        "rest": current_app.config["REST_CONTRACT"],
+        "socketio": current_app.config["SOCKETIO_CONTRACT"],
+    }
 
 
 @router.get("/logging_period", response_model=LoggingPeriodInfo)

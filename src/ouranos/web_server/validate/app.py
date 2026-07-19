@@ -3,6 +3,11 @@ from ouranos.core.validate.base import BaseModel
 from ouranos.core.validate.utils import sqlalchemy_to_pydantic
 
 
+class Contracts(BaseModel):
+    rest: int
+    socketio: int
+
+
 class LoggingPeriodInfo(BaseModel):
     weather: int
     system: int
