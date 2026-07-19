@@ -1,20 +1,18 @@
-"""Remove unused "pk_pattern" constraint in "weather_events"
+"""Add a composite index on `SensorDataRecord`' "sensor_uid" and "timestamp" columns
 
-Revision ID: a5c9f317bcea
-Revises: 226f20fc21cd
-Create Date: 2026-04-05 10:11:32.753177
+Revision ID: c03c5e3628e9
+Revises: a5c9f317bcea
+Create Date: 2026-07-19 14:30:26.841596
 
 """
 from typing import Sequence, Union
 
 from alembic import op
-import sqlalchemy as sa
-from sqlalchemy.dialects import sqlite
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'a5c9f317bcea'
-down_revision: Union[str, None] = '226f20fc21cd'
+revision: str = 'c03c5e3628e9'
+down_revision: Union[str, None] = 'a5c9f317bcea'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -27,12 +25,13 @@ def downgrade(engine_name: str) -> None:
 
 
 def upgrade_ecosystems() -> None:
-    with op.batch_alter_table("weather_events") as batch_op:
-        batch_op.drop_constraint("pk_pattern", type_="primary")
+    with op.batch_alter_table("sensor_records") as batch_op:
+        batch_op.create_index(
+            "idx_sensor_records_sensor_uid_timestamp", ["sensor_uid", "timestamp"], unique=False)
 
 def downgrade_ecosystems() -> None:
-    with op.batch_alter_table("weather_events") as batch_op:
-        batch_op.create_primary_key("pk_pattern", ["pattern"])
+    with op.batch_alter_table("sensor_records") as batch_op:
+        batch_op.drop_index("idx_sensor_records_sensor_uid_timestamp")
 
 
 def upgrade_app() -> None:
