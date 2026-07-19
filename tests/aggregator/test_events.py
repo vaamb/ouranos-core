@@ -114,7 +114,8 @@ class TestEngineRegistration:
         """
         payload = gv.EnginePayload(
             engine_uid=g_data.engine_uid,
-            address=g_data.ip_address
+            address=g_data.ip_address,
+            contract_version=current_app.config["GAIA_CONTRACT"]
         ).model_dump()
 
         # Call the method
@@ -136,6 +137,8 @@ class TestEngineRegistration:
         assert emitted["event"] == "registration_ack"
         assert emitted["namespace"] == "gaia"
         assert emitted["room"] == g_data.engine_sid.hex
+        assert emitted["data"]["status"] == gv.Result.success
+        assert emitted["data"]["contract_version"] == current_app.config["GAIA_CONTRACT"]
 
         emitted = mock_dispatcher.emit_store.popleft()
         assert emitted["event"] == "camera_token"
