@@ -1,4 +1,4 @@
-"""empty message
+"""Remove unused "pk_pattern" constraint in "weather_events"
 
 Revision ID: a5c9f317bcea
 Revises: 226f20fc21cd
