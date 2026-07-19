@@ -242,28 +242,46 @@ class GaiaEvents(AsyncEventHandler):
         remote_addr: str = data["address"]
         self.logger.info(
             f"Received registration request from engine {engine_uid} with sid {sid}")
-        async with self.session(sid) as session:
-            session["engine_uid"] = engine_uid
-            session["init_data"] = {
-                "base_info", "chaos_parameters", "nycthemeral_info",
-                "climate", "weather", "hardware", "plants", "management",
-                "actuators_data",
+        # Compare if the contract versions are compatible ...
+        gaia_version = data["contract_version"]
+        own_version = current_app.config["GAIA_CONTRACT"]
+        success = gaia_version == own_version
+        # ... if they are, continue to registration ...
+        if success:
+            async with self.session(sid) as session:
+                session["engine_uid"] = engine_uid
+                session["init_data"] = {
+                    "base_info", "chaos_parameters", "nycthemeral_info",
+                    "climate", "weather", "hardware", "plants", "management",
+                    "actuators_data",
+                }
+            now = datetime.now(timezone.utc)
+            engine_info = {
+                "sid": sid,
+                "last_seen": now,
+                "address": f"{remote_addr}",
             }
-        now = datetime.now(timezone.utc)
-        engine_info = {
-            "sid": sid,
-            "last_seen": now,
-            "address": f"{remote_addr}",
-        }
-        async with db.scoped_session() as session:
-            await Engine.update_or_create(session, uid=engine_uid, values=engine_info)
-        self.enter_room(room="engines")
+            async with db.scoped_session() as session:
+                await Engine.update_or_create(session, uid=engine_uid, values=engine_info)
+            self.enter_room(room="engines")
 
-        self.logger.info(f"Successful registration of engine {engine_uid} with sid {sid}")
-        await self.emit("registration_ack", data=sid, ttl=15, to=sid)
+            self.logger.info(f"Successful registration of engine {engine_uid} with sid {sid}")
+        # ... otherwise, log that the engine's version is not compatible
+        else:
+            self.logger.warning(
+                f"Engine {engine_uid} has contract version {gaia_version},"
+                f"expected version {own_version}. Cannot proceed with registration.")
 
-        camera_token = Tokenizer.dumps({"sub": TOKEN_SUBS.CAMERA_UPLOAD.value})
-        await self.emit("camera_token", data=camera_token, to=sid)
+        ack = gv.EngineRegistrationAck(
+            host_uid=sid,
+            contract_version=own_version,
+            status=gv.Result.success if success else gv.Result.failure,
+        ).model_dump()
+        await self.emit("registration_ack", data=ack, ttl=15, to=sid)
+
+        if success:
+            camera_token = Tokenizer.dumps({"sub": TOKEN_SUBS.CAMERA_UPLOAD.value})
+            await self.emit("camera_token", data=camera_token, to=sid)
 
     @registration_required
     async def on_initialization_data_sent(
