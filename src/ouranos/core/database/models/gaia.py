@@ -1025,9 +1025,12 @@ class Sensor(Hardware):
         time_window: TimeWindow = lookup_keys.pop("time_window", None)  # ty: ignore[invalid-assignment]
         stmt = super()._generate_get_query(offset, limit, order_by, **lookup_keys)
         if time_window:
-            stmt = stmt.join(SensorDataRecord.sensor)
-            stmt = time_window.modify_stmt(stmt, SensorDataRecord.timestamp)
-            stmt = stmt.distinct()
+            exists_stmt = (
+                select(1)
+                .where(SensorDataRecord.sensor_uid == Hardware.uid)
+            )
+            exists_stmt = time_window.modify_stmt(exists_stmt, SensorDataRecord.timestamp)
+            stmt = stmt.where(exists_stmt.exists())
         return stmt
 
     @classmethod
