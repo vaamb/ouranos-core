@@ -4,6 +4,12 @@ from enum import StrEnum
 
 START_TIME = datetime.now(timezone.utc).replace(microsecond=0)
 
+
+# Contracts
+GAIA_CONTRACT = 1
+
+
+# Timeout
 ECOSYSTEM_TIMEOUT = 60
 
 
