@@ -23,7 +23,7 @@ async def get_version():
 
 
 @router.get("/contracts", response_model=Contracts)
-async def get_version():
+async def get_contracts():
     return {
         "gaia": current_app.config["GAIA_CONTRACT"],
         "rest": current_app.config["REST_CONTRACT"],
