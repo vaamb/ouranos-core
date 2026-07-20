@@ -4,6 +4,7 @@ from ouranos.core.validate.utils import sqlalchemy_to_pydantic
 
 
 class Contracts(BaseModel):
+    gaia: int
     rest: int
     socketio: int
 

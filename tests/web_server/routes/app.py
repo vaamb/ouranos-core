@@ -16,8 +16,9 @@ class TestApp:
         assert response.status_code == 200
         data = json.loads(response.text)
 
-        assert data["contracts"]["rest"] == current_app.config["REST_CONTRACT"]
-        assert data["contracts"]["socketio"] == current_app.config["SOCKETIO_CONTRACT"]
+        assert data["gaia"] == current_app.config["GAIA_CONTRACT"]
+        assert data["rest"] == current_app.config["REST_CONTRACT"]
+        assert data["socketio"] == current_app.config["SOCKETIO_CONTRACT"]
 
     def test_logging_config(self, client: TestClient):
         response = client.get("/api/app/logging_period")
