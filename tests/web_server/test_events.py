@@ -9,7 +9,9 @@ import pytest
 from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
 import gaia_validators as gv
+from socketio.exceptions import ConnectionRefusedError
 
+from ouranos import current_app
 from ouranos.core.database.models.app import User, anonymous_user
 from ouranos.core.exceptions import NotAuthorized
 from ouranos.web_server.auth import SessionInfo
@@ -192,6 +194,58 @@ class TestClientConnect(UsersAware):
         session = await mock_server.get_session(SID)
         assert session["user_id"] == user.id
         assert ADMIN_ROOM not in mock_server.rooms[SID]
+
+    async def test_on_connect_matching_contract(
+            self,
+            client_events: ClientEvents,
+            mock_server: MockSioServer,
+    ):
+        """A client advertising the server's SocketIO contract may connect.
+
+        Passing the actual config value (not a literal) keeps the test green
+        across future bumps of the contract number.
+        """
+        own_contract = current_app.config["SOCKETIO_CONTRACT"]
+        result = await client_events.on_connect(
+            SID, self._make_environ(), auth={"socketio_contract": own_contract})
+
+        assert result is True
+        session = await mock_server.get_session(SID)
+        assert session["user_id"] == anonymous_user.id
+
+    async def test_on_connect_missing_contract_allowed(
+            self,
+            client_events: ClientEvents,
+            mock_server: MockSioServer,
+    ):
+        """A client that advertises no contract is let through (legacy client)."""
+        result = await client_events.on_connect(
+            SID, self._make_environ(), auth={})
+
+        assert result is True
+
+    async def test_on_connect_incompatible_contract(
+            self,
+            client_events: ClientEvents,
+            mock_server: MockSioServer,
+    ):
+        """A client advertising an incompatible contract is refused.
+
+        The refusal carries structured ``data`` so the client can distinguish a
+        contract mismatch from any other connection failure, and no session is
+        stored for the sid.
+        """
+        own_contract = current_app.config["SOCKETIO_CONTRACT"]
+        with pytest.raises(ConnectionRefusedError) as exc_info:
+            await client_events.on_connect(
+                SID,
+                self._make_environ(),
+                auth={"socketio_contract": own_contract + 1},
+            )
+
+        assert exc_info.value.error_args["data"]["reason"] == \
+            "incompatible_socketio_contract"
+        assert await mock_server.get_session(SID) == {}
 
 
 @pytest.mark.asyncio
