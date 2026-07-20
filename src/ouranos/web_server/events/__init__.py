@@ -7,6 +7,7 @@ from logging import getLogger, Logger
 from dispatcher import AsyncDispatcher, AsyncEventHandler
 import gaia_validators as gv
 from socketio import AsyncNamespace, AsyncManager, AsyncServer
+from socketio.exceptions import ConnectionRefusedError
 
 from ouranos import current_app, db
 from ouranos.core.database.models.app import anonymous_user, Permission, User
@@ -49,7 +50,30 @@ class ClientEvents(AsyncNamespace):
     def ouranos_dispatcher(self, dispatcher: AsyncDispatcher):
         self._ouranos_dispatcher = dispatcher
 
-    async def on_connect(self, sid, environ):
+    def _check_client_contract(self, auth: dict | None = None) -> None:
+        """Reject the connection if the client's SocketIO contract is incompatible."""
+        auth = auth or {}
+        client_contract: int | None = auth.get("socketio_contract")
+        if client_contract is None:
+            return  # Unversioned client, nothing to enforce ... yet
+        own_contract = current_app.config["SOCKETIO_CONTRACT"]
+        try:
+            compatible = int(client_contract) == own_contract
+        except (TypeError, ValueError):
+            compatible = False
+        if not compatible:
+            raise ConnectionRefusedError(
+                f"Incompatible SocketIO contract: client v.{client_contract}, "
+                f"server v.{own_contract}.",
+                {
+                    "reason": "incompatible_socketio_contract",
+                    "server_contract": own_contract,
+                    "client_contract": client_contract,
+                },
+            )
+
+    async def on_connect(self, sid, environ, auth: dict | None = None):
+        self._check_client_contract(auth)
         cookie = SimpleCookie(environ.get("HTTP_COOKIE", ""))
         session_cookie = cookie.get(LOGIN_NAME.COOKIE.value)
         if session_cookie is None:
