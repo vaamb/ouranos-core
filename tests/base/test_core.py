@@ -7,7 +7,8 @@ import pytest
 from fastapi import APIRouter
 
 from ouranos import current_app
-from ouranos.core.config import ConfigDict, ConfigHelper
+from ouranos.core.config import consts, ConfigDict, ConfigHelper
+from ouranos.core.exceptions import ContractVersionError
 from ouranos.core.plugins_manager import PluginManager
 from ouranos.sdk.plugin import Functionality, Plugin
 from ouranos.sdk.tests.plugin import DummyFunctionality
@@ -289,7 +290,11 @@ class TestPlugin:
         config = ConfigHelper.get_config()
         ConfigHelper._config = None
 
-        plugin = Plugin(functionality=DummyFunctionality, name="config-plugin")
+        plugin = Plugin(
+            functionality=DummyFunctionality,
+            name="config-plugin",
+            contract_versions={},
+        )
 
         # Test with config override
         config_override = {"CUSTOM_CONFIG": "test_value"}
@@ -333,3 +338,42 @@ class TestPlugin:
         assert plugin_manager.get_plugin("non-existent") is None
 
         await plugin_manager.stop_plugins()
+
+    async def test_contract_versions_failure_incompatible(self):
+        """Creating a plugin with an unmet contract raises ContractVersionError.
+
+        Two ways to be incompatible: a version Ouranos-core does not provide,
+        and a contract name it does not know about.
+        """
+        # Requires a newer REST contract than Ouranos-core provides
+        with pytest.raises(ContractVersionError):
+            Plugin(
+                functionality=DummyFunctionality,
+                name="contract-mismatch-plugin",
+                contract_versions={"rest": consts.REST_CONTRACT + 1},
+            )
+
+        # Requires a contract Ouranos-core does not expose
+        with pytest.raises(ContractVersionError):
+            Plugin(
+                functionality=DummyFunctionality,
+                name="contract-unknown-plugin",
+                contract_versions={"unknown": 1},
+            )
+
+    async def test_contract_versions(self):
+        """A plugin whose required contract versions match Ouranos-core's is created.
+
+        Passing the actual `consts` values (rather than literals) keeps the test
+        green across future bumps of the contract numbers.
+        """
+        plugin = Plugin(
+            functionality=DummyFunctionality,
+            name="contract-ok-plugin",
+            contract_versions={
+                "rest": consts.REST_CONTRACT,
+                "socketio": consts.SOCKETIO_CONTRACT,
+            },
+        )
+
+        assert plugin.name == "contract-ok-plugin"
