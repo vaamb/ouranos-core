@@ -12,7 +12,8 @@ import click
 from click import Command, Group
 
 from ouranos import current_app, setup_loop
-from ouranos.core.config import ConfigDict, ConfigHelper
+from ouranos.core.config import ConfigDict, ConfigHelper, consts
+from ouranos.core.exceptions import ContractVersionError
 from ouranos.core.utils import parse_str_value
 from ouranos.sdk import Functionality
 from ouranos.sdk.functionality import format_functionality_name
@@ -54,6 +55,8 @@ class Plugin:
             self,
             functionality: Type[F] | None = None,
             name: str | None = None,
+            *,
+            contract_versions: dict[str, int],
             command: Command | None = None,
             routes: list[Route] | None = None,
             description: str | None = None,
@@ -65,6 +68,7 @@ class Plugin:
 
         :param functionality: The functionality class to manage.
         :param name: Plugin name (defaults to functionality name).
+        :param contract_versions: A dict with the contracts version needed
         :param command: Click command for CLI interface.
         :param routes: FastAPI routes to register.
         :param description: Plugin description for CLI help.
@@ -73,6 +77,8 @@ class Plugin:
             raise ValueError("Either 'functionality' or 'name' must be provided")
         self.name: str = name or format_functionality_name(functionality).replace("_", "-")
         self.logger: Logger = getLogger(f"ouranos.{self.name}-plugin")
+        # Check contract versions
+        self._check_contract_versions(contract_versions)
         self._functionality: Type[F] = functionality
         self._instance: F | None = None
         self._subprocesses: list[SpawnProcess] = []
@@ -130,6 +136,34 @@ class Plugin:
     def update_kwargs(self, value: dict) -> None:
         """Merge additional kwargs into the existing initialization kwargs."""
         self._kwargs.update(value)
+
+    def _check_contract_versions(self, contracts: dict[str, int]) -> None:
+        """Check that the contract versions required by the plugin are compatible
+        with Ouranos-core"""
+        error_msgs: list[str] = []
+        ouranos_contracts = {
+            "gaia": consts.GAIA_CONTRACT,
+            "rest": consts.REST_CONTRACT,
+            "socketio": consts.SOCKETIO_CONTRACT,
+        }
+        for contract_name, value in contracts.items():
+            ouranos_version = ouranos_contracts.get(contract_name.lower(), None)
+            if ouranos_version is None:
+                error_msgs.append(f"Contract '{contract_name}' not defined in Ouranos.")
+            else:
+                assert isinstance(ouranos_version, int)
+                if ouranos_version > value:
+                    error_msgs.append(
+                        f"Plugin requires contract v.{value}, Ouranos provides "
+                        f"v.{ouranos_version}. You might need to update the plugin."
+                    )
+                elif ouranos_version < value:
+                    error_msgs.append(
+                        f"Plugin requires contract v.{value}, Ouranos provides "
+                        f"v.{ouranos_version}. You might need to update Ouranos-core."
+                    )
+        if error_msgs:
+            raise ContractVersionError(" ".join(error_msgs))
 
     def setup_config(
             self,

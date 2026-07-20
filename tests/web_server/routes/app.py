@@ -11,6 +11,15 @@ class TestApp:
         data = json.loads(response.text)
         assert data == current_app.config["VERSION"]
 
+    def test_contracts(self, client: TestClient):
+        response = client.get("/api/app/contracts")
+        assert response.status_code == 200
+        data = json.loads(response.text)
+
+        assert data["gaia"] == current_app.config["GAIA_CONTRACT"]
+        assert data["rest"] == current_app.config["REST_CONTRACT"]
+        assert data["socketio"] == current_app.config["SOCKETIO_CONTRACT"]
+
     def test_logging_config(self, client: TestClient):
         response = client.get("/api/app/logging_period")
         assert response.status_code == 200

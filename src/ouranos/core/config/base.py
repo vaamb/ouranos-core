@@ -167,6 +167,9 @@ class BaseConfigDict(TypedDict):
     # Reserved parameters
     APP_NAME: str
     VERSION: str
+    GAIA_CONTRACT: int
+    REST_CONTRACT: int
+    SOCKETIO_CONTRACT: int
 
     DEBUG: bool
     DEVELOPMENT: bool

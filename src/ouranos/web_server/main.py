@@ -142,7 +142,8 @@ class WebServer(Functionality):
 
 
 web_server_plugin = Plugin(
-    functionality=WebServer,
+    WebServer,
+    contract_versions={},  # Provides rest and socketio contracts
     description="""Launch Ouranos' Web server
 
     The Web server is the main communication point between Ouranos and the user.

@@ -8,6 +8,7 @@ from fastapi import APIRouter, FastAPI
 from fastapi.responses import JSONResponse
 
 from ouranos import current_app
+from ouranos.core.exceptions import ContractVersionError
 from ouranos.sdk import Plugin
 
 
@@ -39,9 +40,14 @@ class PluginManager:
 
     def iter_entry_points(self) -> Iterator[Plugin]:
         for entry_point in entry_points(group=self.entry_point):
-            pkg = entry_point.load()
-            if isinstance(pkg, Plugin):
-                yield pkg
+            try:
+                pkg = entry_point.load()
+            except ContractVersionError as e:
+                self.logger.error(
+                    f"Failed to load entry point '{entry_point.name}': {e}")
+            else:
+                if isinstance(pkg, Plugin):
+                    yield pkg
 
     def iter_plugins(self, omit_excluded: bool = True) -> Iterator[Plugin]:
         from ouranos.aggregator.main import aggregator_plugin

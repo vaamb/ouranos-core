@@ -32,6 +32,8 @@ app_info = {
     "APP_NAME": "Ouranos",
     "VERSION": version,
     "GAIA_CONTRACT": consts.GAIA_CONTRACT,
+    "REST_CONTRACT": consts.REST_CONTRACT,
+    "SOCKETIO_CONTRACT": consts.SOCKETIO_CONTRACT,
 }
 
 
