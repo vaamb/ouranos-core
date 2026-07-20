@@ -131,6 +131,34 @@ class Plugin:
         """Merge additional kwargs into the existing initialization kwargs."""
         self._kwargs.update(value)
 
+    def _check_contract_versions(self, contracts: dict[str, int]) -> None:
+        """Check that the contract versions required by the plugin are compatible
+        with Ouranos-core"""
+        error_msgs: list[str] = []
+        ouranos_contracts = {
+            "gaia": consts.GAIA_CONTRACT,
+            "rest": consts.REST_CONTRACT,
+            "socketio": consts.SOCKETIO_CONTRACT,
+        }
+        for contract_name, value in contracts.items():
+            ouranos_version = ouranos_contracts.get(contract_name.lower(), None)
+            if ouranos_version is None:
+                error_msgs.append(f"Contract '{contract_name}' not defined in Ouranos.")
+            else:
+                assert isinstance(ouranos_version, int)
+                if ouranos_version > value:
+                    error_msgs.append(
+                        f"Plugin requires contract v.{value}, Ouranos provides "
+                        f"v.{ouranos_version}. You might need to update the plugin."
+                    )
+                elif ouranos_version < value:
+                    error_msgs.append(
+                        f"Plugin requires contract v.{value}, Ouranos provides "
+                        f"v.{ouranos_version}. You might need to update Ouranos-core."
+                    )
+        if error_msgs:
+            raise ContractVersionError(" ".join(error_msgs))
+
     def setup_config(
             self,
             config_profile: profile_type,

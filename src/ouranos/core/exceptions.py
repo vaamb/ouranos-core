@@ -36,3 +36,7 @@ class InvalidTokenError(TokenError):
 
 class NotAuthorized(Exception):
     pass
+
+
+class ContractVersionError(ValueError):
+    pass
