@@ -12,7 +12,8 @@ import click
 from click import Command, Group
 
 from ouranos import current_app, setup_loop
-from ouranos.core.config import ConfigDict, ConfigHelper
+from ouranos.core.config import ConfigDict, ConfigHelper, consts
+from ouranos.core.exceptions import ContractVersionError
 from ouranos.core.utils import parse_str_value
 from ouranos.sdk import Functionality
 from ouranos.sdk.functionality import format_functionality_name
@@ -54,6 +55,8 @@ class Plugin:
             self,
             functionality: Type[F] | None = None,
             name: str | None = None,
+            *,
+            contract_versions: dict[str, int],
             command: Command | None = None,
             routes: list[Route] | None = None,
             description: str | None = None,
@@ -65,6 +68,7 @@ class Plugin:
 
         :param functionality: The functionality class to manage.
         :param name: Plugin name (defaults to functionality name).
+        :param contract_versions: A dict with the contracts version needed
         :param command: Click command for CLI interface.
         :param routes: FastAPI routes to register.
         :param description: Plugin description for CLI help.
@@ -73,6 +77,8 @@ class Plugin:
             raise ValueError("Either 'functionality' or 'name' must be provided")
         self.name: str = name or format_functionality_name(functionality).replace("_", "-")
         self.logger: Logger = getLogger(f"ouranos.{self.name}-plugin")
+        # Check contract versions
+        self._check_contract_versions(contract_versions)
         self._functionality: Type[F] = functionality
         self._instance: F | None = None
         self._subprocesses: list[SpawnProcess] = []

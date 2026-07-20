@@ -228,6 +228,7 @@ class TestPlugin:
         plugin = Plugin(
             functionality=DummyFunctionality,
             name="test-plugin",
+            contract_versions={},
             routes=[("/api", router)],
         )
 
@@ -264,6 +265,7 @@ class TestPlugin:
         plugin = Plugin(
             functionality=DummyFunctionality,
             name="test-cli-plugin",
+            contract_versions={},
             command=test_command,
             description="Test plugin with CLI command",
         )

@@ -6,7 +6,7 @@ from ouranos.aggregator.archiver import Archiver
 from ouranos.aggregator.events import GaiaEvents
 from ouranos.aggregator.file_server import FileServer
 from ouranos.aggregator.sky_watcher import SkyWatcher
-from ouranos.core.config import ConfigDict
+from ouranos.core.config import ConfigDict, consts
 from ouranos.core.dispatchers import DispatcherFactory
 from ouranos.core.globals import scheduler
 from ouranos.sdk import Functionality, Plugin
@@ -163,6 +163,7 @@ class Aggregator(Functionality):
 
 aggregator_plugin = Plugin(
     Aggregator,
+    contract_versions={},  # Provides gaia contract. Validation is done during engine registration
     description="""Launch Ouranos' Aggregator
 
     The Aggregator is the main data entry point from Gaia's instances. It
