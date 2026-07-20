@@ -19,6 +19,11 @@
 - "unsafe" option on the installation / update scripts to use the latest development version (#335)
 - Gaia–Ouranos contract version negotiated at engine registration (`GAIA_CONTRACT`);
   engines whose contract does not match are refused through the `registration_ack` status (#399)
+- Client-facing contract versions (`REST_CONTRACT`, `SOCKETIO_CONTRACT`) exposed on the
+  `/app/contracts` route and checked against plugins at registration; incompatible plugins
+  are skipped with a `ContractVersionError` (#401)
+- SocketIO contract checked at connection: a client advertising an incompatible
+  `socketio_contract` is refused with a structured reason (#402)
 
 ### Changed
 - `Plugin` setup and startup improved; `Functionality` and `Plugin` runtime made more robust (#342, #345, #369)
