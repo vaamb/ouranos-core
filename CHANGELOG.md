@@ -2,7 +2,7 @@
 
 ---
 
-## Unreleased
+## 0.11.0 — 2026-07-21
 
 ### Added
 - `HardwareGroup` model introduced; measures and actuator groups linked to `Hardware`
@@ -34,12 +34,17 @@
 - DB revision checked at startup; `check_db_revision()` is launch-directory-agnostic (#318, #324)
 - DB migration handling eased; table creation managed through SQLAlchemy during updates (#317, #338)
 - DB connections recycled after 1 hour (#364)
+- Sensor data queries optimised when a `TimeWindow` is provided; composite index added
+  on `sensor_records` ("sensor_uid", "timestamp") (#398)
 - Non-specific "image_info" routes support time-window narrowing (#363)
+- Non-specific environment-parameters routes take a list of `gv.ClimateParameter`
+  rather than a single string (#309)
 - Unique constraints added to all `Association{...}` tables (#298)
 - Exception handling improved, logging clutter reduced, and shutdown made cleaner (#323)
 - Full error traceback no longer printed when running a `Plugin` in production (#314)
 - Dummy plugins no longer exposed outside development and testing builds (#311)
 - Installation and update scripts simplified, hardened, and made more resilient (#344, #360)
+- `update.sh` also upgrades the database (#322)
 
 ### Fixed
 - Race conditions in `update_or_create()` handled more robustly (#303)

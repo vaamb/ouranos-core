@@ -14,7 +14,7 @@ fi
 cat > "${INSTALL_DIR}/pyproject.toml" << EOF
 [project]
 name = "ouranos"
-version = "0.10.0"
+version = "0.11.0"
 description = "An app to manage Gaia instances"
 requires-python = ">=3.11"
 dependencies = ["ouranos-core"]
