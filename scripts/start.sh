@@ -35,10 +35,27 @@ done
 mkdir -p "${OURANOS_DIR}/logs" ||
     die "Failed to create logs directory"
 
+# Check that a PID is really an Ouranos process, and not a recycled PID.
+# Ouranos renames itself to "ouranos" (setproctitle), but only once its imports
+# are done: until then it is still "<python> -m ouranos". Matching the command
+# line covers both, so an instance still starting up is not mistaken for a dead
+# one.
+is_ouranos_proc() {
+    local pid=$1
+    local cmdline
+    # tr flattens the NUL-separated argv. 2>/dev/null before the redirect silences
+    # a dead PID's who fails to open. A missing /proc entry returns 1.
+    cmdline=$(tr '\0' ' ' 2>/dev/null < "/proc/${pid}/cmdline") || return 1
+    # read strips the trailing NUL-padding setproctitle leaves behind.
+    read -r cmdline <<< "$cmdline"
+    # Use "-m ouranos" so it matches both "uv run ..." and "python ..."
+    [[ "$cmdline" == "ouranos" || "$cmdline" == *"-m ouranos" ]]
+}
+
 # Check if already running — prefer PID file
 if [[ -f "${OURANOS_DIR}/ouranos.pid" ]]; then
     PID=$(cat "${OURANOS_DIR}/ouranos.pid")
-    if kill -0 "$PID" 2>/dev/null && pgrep -x "ouranos" | grep -qw "$PID"; then
+    if kill -0 "$PID" 2>/dev/null && is_ouranos_proc "$PID"; then
         log WARN "Ouranos is already running with PID $PID"
         log INFO "If you want to restart, please run: ouranos restart"
         exit 0
@@ -46,9 +63,11 @@ if [[ -f "${OURANOS_DIR}/ouranos.pid" ]]; then
     # Stale PID file — process is gone, clean up and continue
     rm -f "${OURANOS_DIR}/ouranos.pid"
 fi
-# Fallback to pgrep if no PID file
-if pgrep -x "ouranos" > /dev/null; then
-    PID=$(pgrep -x "ouranos" | head -n 1)
+# Fallback to pgrep if no PID file — match both the renamed process and one
+# still starting up ("<python> -m ouranos"); -f on the latter is safe as it
+# cannot match this script's own command line.
+PID=$({ pgrep -x "ouranos"; pgrep -f -- "-m ouranos"; } 2>/dev/null | head -n1 || true)
+if [[ -n "$PID" ]]; then
     log WARN "Ouranos is already running with PID $PID"
     log INFO "If you want to restart, please run: ouranos restart"
     exit 0
