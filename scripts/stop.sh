@@ -78,6 +78,7 @@ if kill -15 "$OURANOS_PID" 2>/dev/null; then
         echo -n "."
         sleep 1
     done
+    echo ""
 
     # Check if process is still running
     if kill -0 "$OURANOS_PID" 2>/dev/null; then
