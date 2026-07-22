@@ -29,19 +29,19 @@ log() {
 
     case "$1" in
         INFO)
-            echo -e "${LIGHT_YELLOW}[${timestamp}]${NC}$2"
+            echo -e "${LIGHT_YELLOW}[${timestamp}] ${NC}$2"
             echo -e "[${full_timestamp}] [INFO] $2" >> "${LOG_FILE}"
             ;;
         WARN)
-            echo -e "${YELLOW}[${timestamp}]${NC}$2" >&2
+            echo -e "${YELLOW}[${timestamp}] ${NC}$2" >&2
             echo -e "[${full_timestamp}] [WARNING] $2" >> "${LOG_FILE}"
             ;;
         ERROR)
-            echo -e "${RED}[${timestamp}]${NC}$2" >&2
+            echo -e "${RED}[${timestamp}] ${NC}$2" >&2
             echo -e "[${full_timestamp}] [ERROR] [${BASH_SOURCE[1]}:${BASH_LINENO[0]}] $2" >> "${LOG_FILE}"
             ;;
         SUCCESS)
-            echo -e "${GREEN}[${timestamp}]${NC}$2"
+            echo -e "${GREEN}[${timestamp}] ${NC}$2"
             echo -e "[${full_timestamp}] [SUCCESS] $2" >> "${LOG_FILE}"
             ;;
     esac

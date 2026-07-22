@@ -18,19 +18,38 @@ readonly LOG_FILE="/tmp/ouranos_stop_${DATETIME}.log"
 # Log stop attempt
 log INFO "Attempting to stop Ouranos..."
 
+# Check that a PID is really an Ouranos process, and not a recycled PID.
+# Ouranos renames itself to "ouranos" (setproctitle), but only once its imports
+# are done: until then it is still "<python> -m ouranos". Matching the command
+# line covers both, so an instance can be stopped while it is still starting up.
+is_ouranos_proc() {
+    local pid=$1
+    local cmdline
+    # tr flattens the NUL-separated argv. 2>/dev/null before the redirect silences
+    # a dead PID's who fails to open. A missing /proc entry returns 1.
+    cmdline=$(tr '\0' ' ' 2>/dev/null < "/proc/${pid}/cmdline") || return 1
+    # read strips the trailing NUL-padding setproctitle leaves behind.
+    read -r cmdline <<< "$cmdline"
+    # Use "-m ouranos" so it matches both "uv run ..." and "python ..."
+    [[ "$cmdline" == "ouranos" || "$cmdline" == *"-m ouranos" ]]
+}
+
 # Function to get Ouranos PID
 get_ouranos_pid() {
     # Prefer PID file when available
     if [[ -f "${OURANOS_DIR}/ouranos.pid" ]]; then
         local pid
         pid=$(cat "${OURANOS_DIR}/ouranos.pid")
-        if kill -0 "$pid" 2>/dev/null && pgrep -x "ouranos" | grep -qw "$pid"; then
+        if kill -0 "$pid" 2>/dev/null && is_ouranos_proc "$pid"; then
             echo "$pid"
+            return 0
         fi
-    # Fallback to strict process match
-    else
-        pgrep -x "ouranos" | head -n1
     fi
+    # Fallback: the PID file may be missing or stale while an instance started
+    # by other means is still running. Match both the renamed process and one
+    # still starting up ("<python> -m ouranos"); -f on the latter is safe as it
+    # cannot match this script's own command line.
+    { pgrep -x "ouranos"; pgrep -f -- "-m ouranos"; } 2>/dev/null | head -n1 || true
 }
 
 # Check if Ouranos is running
@@ -59,6 +78,7 @@ if kill -15 "$OURANOS_PID" 2>/dev/null; then
         echo -n "."
         sleep 1
     done
+    echo ""
 
     # Check if process is still running
     if kill -0 "$OURANOS_PID" 2>/dev/null; then
