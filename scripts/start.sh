@@ -59,23 +59,28 @@ cd "$OURANOS_DIR" ||
     die "Failed to change to Ouranos directory: $OURANOS_DIR"
 
 # Check if virtual environment exists
-if [[ ! -d ".venv" ]]; then
+readonly PYTHON="${OURANOS_DIR}/.venv/bin/python"
+if [[ ! -x "${PYTHON}" ]]; then
     die "Python virtual environment not found. Please run the installation script first."
 fi
+
+# Run the venv's interpreter directly rather than through `uv run`: the venv is
+# already synced by install.sh / update_ouranos.sh, and `uv run` would fork a
+# child, leaving $! pointing at the wrapper instead of at Ouranos itself.
 
 # Start Ouranos
 log INFO "Starting Ouranos..."
 
 if [[ "$FOREGROUND" = true ]]; then
     log INFO "Running in foreground mode (logs will be shown in terminal)"
-    uv run python -m ouranos
+    "${PYTHON}" -m ouranos
     EXIT_CODE=$?
 
     log INFO "Ouranos process exited with code $EXIT_CODE"
     exit "$EXIT_CODE"
 else
-    # Run Ouranos in the background and capture PID immediately
-    nohup uv run python -m ouranos > "${OURANOS_DIR}/logs/stdout" 2>&1 &
+    # Run Ouranos in the background and capture its PID immediately
+    nohup "${PYTHON}" -m ouranos > "${OURANOS_DIR}/logs/stdout" 2>&1 &
     OURANOS_PID=$!
     echo "$OURANOS_PID" > "${OURANOS_DIR}/ouranos.pid"
     log INFO "Ouranos started in background mode"
@@ -88,7 +93,7 @@ else
     if ! kill -0 "$OURANOS_PID" 2>/dev/null; then
         # Process died, check error log
         # Clean up PID file
-        [[ -f "${OURANOS_DIR}/ouranos.pid" ]] && rm -f "${OURANOS_DIR}/ouranos.pid"
+        rm -f "${OURANOS_DIR}/ouranos.pid"
         die "Failed to start Ouranos. Check the logs at ${LOG_FILE}."
     fi
 
