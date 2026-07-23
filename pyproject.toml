@@ -54,6 +54,7 @@ test = [
     "httpx~=0.24",
     "pytest~=8.1",
     "pytest-asyncio~=1.4",
+    "ruff~=0.15.0",
     "ty==0.0.30",
 ]
 
@@ -87,4 +88,5 @@ ignore = [
     "E711",  # comparison to None should be 'if cond is None:'  # Interferes with SQLAlchemy
     "E712",  # comparison to True should be 'if cond is True:'  # Interferes with SQLAlchemy
     "F401",  # unused import
+    "I001",  # import sorting
 ]
