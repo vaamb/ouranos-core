@@ -121,7 +121,9 @@ build_mirror() {
     # mirror: the `git fetch --tags` update_ouranos.sh runs exits non-zero on a
     # tag that moved, which would abort the update and roll it back.
     if [[ "${created}" == true ]]; then
-        version=$(sed -n 's/^readonly OURANOS_VERSION="\(.*\)"$/\1/p' "${MIRROR}/scripts/install.sh")
+        # Stop at the closing quote rather than anchoring on it, so a CRLF
+        # install.sh (trailing \r before the line end) still matches
+        version=$(sed -n 's/^readonly OURANOS_VERSION="\([^"]*\)".*/\1/p' "${MIRROR}/scripts/install.sh")
         if [[ -n "${version}" ]]; then
             git -C "${MIRROR}" tag --force "${version}" > /dev/null
         fi
