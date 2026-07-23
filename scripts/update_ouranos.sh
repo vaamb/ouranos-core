@@ -112,9 +112,11 @@ update_repo() {
 
     cd "$repo_dir" || return 1
 
-    # Fetch all updates first so the tag comparison sees new remote releases
+    # Fetch all updates first so the tag comparison sees new remote releases.
+    # `--force` as a tag that moved on the remote is otherwise rejected, and the
+    # non-zero exit status would abort the whole update under `set -e`.
     log INFO "Fetching updates for $repo_name..."
-    git fetch --all --tags --prune
+    git fetch --all --tags --force --prune
 
     # Get current and latest tags
     local current_tag
