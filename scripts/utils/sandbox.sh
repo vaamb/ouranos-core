@@ -44,6 +44,12 @@ if [[ "${CMD[0]}" != /* && -f "${PWD}/${CMD[0]}" ]]; then
 fi
 [[ -f "${CMD[0]}" ]] || { echo "Script not found: ${CMD[0]}" >&2; exit 1; }
 
+# Repository the sandboxed install.sh clones from. Only the entry script below
+# runs from the working tree: everything else (utils/, update.sh, start.sh...)
+# is deployed from that clone, so it has to be the local repository for local
+# changes to be tested at all.
+REPO="$(git -C "$(dirname "${CMD[0]}")" rev-parse --show-toplevel 2>/dev/null || true)"
+
 # Fresh sandbox unless one was provided (reuse across install + update).
 SANDBOX="${OURANOS_SANDBOX:-$(mktemp -d /tmp/ouranos_sandbox_XXXX)}"
 echo "Sandbox: ${SANDBOX}   (remove with: rm -rf \"${SANDBOX}\")"
@@ -76,6 +82,13 @@ SANDBOX_ENV=(
     UV_CACHE_DIR="${UV_CACHE_DIR:-${XDG_CACHE_HOME:-${HOME}/.cache}/uv}"
     PATH="${SANDBOX}/bin:${HOME}/.local/bin:/usr/local/bin:/usr/bin:/bin"
 )
+
+# Clone the local repository rather than GitHub, so the sandboxed installation
+# runs the scripts being worked on. Fall back to GitHub when the script does not
+# live in a repository (e.g. run from a deployed installation).
+if [[ -n "${REPO}" ]]; then
+    SANDBOX_ENV+=(OURANOS_REPO="${REPO}")
+fi
 
 # install.sh deliberately leaves the database alone: it must be configured before
 # being created. update_ouranos.sh however runs `alembic upgrade head`, which
