@@ -2,6 +2,15 @@
 
 ---
 
+## Unreleased
+
+### Development
+- Sandbox script (`scripts/utils/sandbox.sh`) to run the install and update
+  scripts in an isolated throwaway environment, leaving the real install,
+  `~/.profile` and systemd untouched (#XXX)
+
+---
+
 ## 0.11.0 — 2026-07-21
 
 ### Added
