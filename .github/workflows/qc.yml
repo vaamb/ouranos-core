@@ -22,8 +22,11 @@ jobs:
       with:
         enable-cache: true
 
+    - name: Install dependencies
+      run: uv sync --all-extras
+
     - name: Lint with ruff
-      run: uvx ruff check .
+      run: uv run ruff check .
 
   ty:
     runs-on: ubuntu-latest
