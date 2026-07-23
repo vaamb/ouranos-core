@@ -23,7 +23,7 @@ jobs:
         enable-cache: true
 
     - name: Lint with ruff
-      run: uvx ruff check .
+      run: uv run ruff check .
 
   ty:
     runs-on: ubuntu-latest

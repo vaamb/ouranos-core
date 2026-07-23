@@ -54,6 +54,7 @@ test = [
     "httpx~=0.24",
     "pytest~=8.1",
     "pytest-asyncio~=1.4",
+    "ruff~=0.15",
     "ty==0.0.30",
 ]
 
