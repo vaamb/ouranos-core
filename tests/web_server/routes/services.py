@@ -6,6 +6,7 @@ from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 from ouranos import json
 from ouranos.core.database.models.app import Service, ServiceLevel, ServiceName
 
+from tests.class_fixtures import UsersAware
 from tests.utils import MockAsyncDispatcher
 
 
@@ -67,25 +68,30 @@ class TestServices:
 
 
 @pytest.mark.asyncio
-class TestServiceUpdate:
-    def test_update_failure_wrong_name(self, client: TestClient):
-        response = client.put(
+class TestServiceUpdate(UsersAware):
+    def test_update_failure_not_admin(self, client_operator: TestClient):
+        response = client_operator.put(
+            "/api/app/services/u/wiki", json={"status": True})
+        assert response.status_code == 403
+
+    def test_update_failure_wrong_name(self, client_admin: TestClient):
+        response = client_admin.put(
             "/api/app/services/u/wrong_name", json={"status": True})
         assert response.status_code == 422
 
-    def test_update_failure_payload(self, client: TestClient):
-        response = client.put("/api/app/services/u/wiki", json={})
+    def test_update_failure_payload(self, client_admin: TestClient):
+        response = client_admin.put("/api/app/services/u/wiki", json={})
         assert response.status_code == 422
 
     async def test_update_success(
             self,
-            client: TestClient,
+            client_admin: TestClient,
             db: AsyncSQLAlchemyWrapper,
     ):
         async with db.scoped_session() as session:
             await Service.update(session, name=ServiceName.wiki, values={"status": False})
 
-        response = client.put("/api/app/services/u/wiki", json={"status": True})
+        response = client_admin.put("/api/app/services/u/wiki", json={"status": True})
         assert response.status_code == 202
 
         async with db.scoped_session() as session:
@@ -94,10 +100,10 @@ class TestServiceUpdate:
 
     def test_update_weather_is_dispatched(
             self,
-            client: TestClient,
+            client_admin: TestClient,
             mock_dispatcher: MockAsyncDispatcher,
     ):
-        response = client.put(
+        response = client_admin.put(
             "/api/app/services/u/weather", json={"status": True})
         assert response.status_code == 202
 
@@ -109,9 +115,9 @@ class TestServiceUpdate:
 
     def test_update_non_weather_is_not_dispatched(
             self,
-            client: TestClient,
+            client_admin: TestClient,
             mock_dispatcher: MockAsyncDispatcher,
     ):
-        response = client.put("/api/app/services/u/wiki", json={"status": True})
+        response = client_admin.put("/api/app/services/u/wiki", json={"status": True})
         assert response.status_code == 202
         assert len(mock_dispatcher.emit_store) == 0
