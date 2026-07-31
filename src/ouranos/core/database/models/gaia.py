@@ -34,8 +34,8 @@ from ouranos.core.utils import create_time_window
 RecentOrConnected = Literal["recent", "connected", "all"]
 
 measure_order = (
-    "temperature", "humidity", "lux", "dew_point", "absolute_moisture",
-    "moisture"
+    "temperature", "humidity", "light", "TVOC",
+    "dew_point", "absolute_moisture", "moisture"
 )
 
 
