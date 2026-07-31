@@ -7,6 +7,7 @@ from dispatcher import AsyncDispatcher
 
 from ouranos.core.database.models.app import Service, ServiceLevel, ServiceName
 from ouranos.core.dispatchers import DispatcherFactory
+from ouranos.web_server.auth import is_admin
 from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.validate.app import ServiceInfo, ServiceUpdatePayload
 
@@ -34,7 +35,8 @@ async def get_services(
 
 @router.put("/u/{service_name}",
             status_code=status.HTTP_202_ACCEPTED,
-            tags=["app/services"])
+            tags=["app/services"],
+            dependencies=[Depends(is_admin)])
 async def update_service(
         *,
         service_name: Annotated[
