@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from copy import copy
 import logging
 from logging import Formatter, Handler, LogRecord
@@ -41,14 +41,14 @@ class SQLiteHandler(Handler):
         message
    )
    VALUES (
-        '%(timestamp)s',
-        %(levelno)d,
-        '%(levelname)s',
-        '%(name)s',
-        '%(filename)s',
-        %(lineno)d,
-        '%(funcName)s',
-        '%(msg)s'
+        :timestamp,
+        :level_name,
+        :level_no,
+        :name,
+        :filename,
+        :line_no,
+        :func_name,
+        :message
    );
     """
 
@@ -61,32 +61,46 @@ class SQLiteHandler(Handler):
         self.table_name = table_name
         self._table_created: bool = False
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='db_logging')
+        # Don't check thread ID as the connection is opened in the main thread
+        #  but ever only used in the 'db_logging' thread
+        self._db_connection = sqlite3.connect(self.db_path, check_same_thread=False)
 
-    def _execute_query(self, query: str) -> None:
-        db = sqlite3.connect(self.db_path)
-        db.execute(query)
-        db.commit()
+    def _execute_query(self, query: str, params: dict) -> None:
+        self._db_connection.execute(query, params)
+        self._db_connection.commit()
 
-    def execute_query(self, query: str) -> None:
-        self._executor.submit(self._execute_query, query)
+    def execute_query(self, query: str, params: dict | None = None) -> None:
+        params = params or {}
+        future: Future = self._executor.submit(self._execute_query, query, params)
+        future.add_done_callback(self._log_query_error)
+
+    def _log_query_error(self, future: Future) -> None:
+        exception = future.exception()
+        if exception is not None:
+            print(f"Failed to log record to the db: {exception}", file=sys.stderr)
 
     def create_table(self) -> None:
         query = self._create_query % {"table_name": self.table_name}
         self.execute_query(query)
 
     def log_record(self, record: LogRecord) -> None:
-        query = self._log_query % {"table_name": self.table_name, **record.__dict__}
-        self.execute_query(query)
-
-    def format_time(self, record: LogRecord) -> None:
-        record.timestamp = time.strftime(
-            "%Y-%m-%dT%H:%M:%SZ", time.gmtime(record.created))
+        params = {
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(record.created)),
+            "level_name": record.levelname,
+            "level_no": record.levelno,
+            "name": record.name,
+            "filename": record.filename,
+            "line_no": record.lineno,
+            "func_name": record.funcName,
+            "message": record.getMessage(),
+        }
+        query = self._log_query % {"table_name": self.table_name}
+        self.execute_query(query, params)
 
     def emit(self, record: LogRecord) -> None:
         if not self._table_created:
             self.create_table()
             self._table_created = True
-        self.format_time(record)
         self.log_record(record)
 
 
