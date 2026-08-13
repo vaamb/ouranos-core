@@ -145,10 +145,27 @@ def configure_logging(config: BaseConfigDict, log_dir: Path) -> None:
                 "formatter": "base_format",
                 "class": "logging.StreamHandler",
             },
+            "ouranos_file_handler": {
+                "level": "INFO",
+                "formatter": "base_format",
+                "class": "logging.handlers.TimedRotatingFileHandler",
+                "filename": str(log_dir / "ouranos.log"),
+                "when": "W0",
+                "backupCount": 4,
+            },
+            "uvicorn_file_handler": {
+                "level": "INFO",
+                "formatter": "base_format",
+                "class": "logging.handlers.RotatingFileHandler",
+                "filename": str(log_dir / "uvicorn.log"),
+                "mode": "a",
+                "maxBytes": 512 * 1024,
+                "backupCount": 4,
+            },
             "db_handler": {
                 "level": "INFO",
                 "class": "ouranos.core.logging.SQLiteHandler",
-                "db_path": "log.sqlite",
+                "db_path": str(log_dir / "log.sqlite"),
                 "table_name": "logs",
             },
         },
@@ -167,31 +184,6 @@ def configure_logging(config: BaseConfigDict, log_dir: Path) -> None:
             },
         },
     }
-
-    def make_file_handler(filename: str, size: int = 4 * 1024 * 1024, count: int = 5) -> dict:
-        return {
-            "level": "INFO",
-            "formatter": "base_format",
-            "class": "logging.handlers.RotatingFileHandler",
-            "filename": filename,
-            "mode": "a",
-            "maxBytes": size,
-            "backupCount": count,
-        }
-
-    # Add file handlers
-    logging_config["handlers"]["ouranos_file_handler"] = make_file_handler("ouranos.log", count=2)
-    logging_config["handlers"]["uvicorn_file_handler"] = make_file_handler("uvicorn.log", count=5)
-
-    # Prepend log_dir path to the file handler file name
-    for handler in logging_config["handlers"].values():
-        if handler["class"] == "logging.handlers.RotatingFileHandler":
-            handler["filename"] = str(log_dir / handler["filename"])
-
-    # Prepend log_dir path to the file handler file name
-    for handler in logging_config["handlers"].values():
-        if handler["class"] == "logging.handlers.SQLiteHandler":
-            handler["db_path"] = str(log_dir / handler["db_path"])
 
     # Patch formatters, handlers and loggers if debugging
     if config["DEBUG"]:
