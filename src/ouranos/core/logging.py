@@ -61,11 +61,13 @@ class SQLiteHandler(Handler):
         self.table_name = table_name
         self._table_created: bool = False
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='db_logging')
+        # Don't check thread ID as the connection is opened in the main thread
+        #  but ever only used in the 'db_logging' thread
+        self._db_connection = sqlite3.connect(self.db_path, check_same_thread=False)
 
     def _execute_query(self, query: str) -> None:
-        db = sqlite3.connect(self.db_path)
-        db.execute(query)
-        db.commit()
+        self._db_connection.execute(query)
+        self._db_connection.commit()
 
     def execute_query(self, query: str) -> None:
         self._executor.submit(self._execute_query, query)
