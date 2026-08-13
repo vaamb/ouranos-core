@@ -42,8 +42,8 @@ class SQLiteHandler(Handler):
    )
    VALUES (
         '%(timestamp)s',
-        %(levelno)d,
         '%(levelname)s',
+        %(levelno)d,
         '%(name)s',
         '%(filename)s',
         %(lineno)d,
