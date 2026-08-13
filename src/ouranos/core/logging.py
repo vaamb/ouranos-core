@@ -41,14 +41,14 @@ class SQLiteHandler(Handler):
         message
    )
    VALUES (
-        '%(timestamp)s',
-        '%(levelname)s',
-        %(levelno)d,
-        '%(name)s',
-        '%(filename)s',
-        %(lineno)d,
-        '%(funcName)s',
-        '%(msg)s'
+        :timestamp,
+        :level_name,
+        :level_no,
+        :name,
+        :filename,
+        :line_no,
+        :func_name,
+        :message
    );
     """
 
@@ -65,30 +65,36 @@ class SQLiteHandler(Handler):
         #  but ever only used in the 'db_logging' thread
         self._db_connection = sqlite3.connect(self.db_path, check_same_thread=False)
 
-    def _execute_query(self, query: str) -> None:
-        self._db_connection.execute(query)
+    def _execute_query(self, query: str, params: dict) -> None:
+        self._db_connection.execute(query, params)
         self._db_connection.commit()
 
-    def execute_query(self, query: str) -> None:
-        self._executor.submit(self._execute_query, query)
+    def execute_query(self, query: str, params: dict | None = None) -> None:
+        params = params or {}
+        self._executor.submit(self._execute_query, query, params)
 
     def create_table(self) -> None:
         query = self._create_query % {"table_name": self.table_name}
         self.execute_query(query)
 
     def log_record(self, record: LogRecord) -> None:
-        query = self._log_query % {"table_name": self.table_name, **record.__dict__}
-        self.execute_query(query)
-
-    def format_time(self, record: LogRecord) -> None:
-        record.timestamp = time.strftime(
-            "%Y-%m-%dT%H:%M:%SZ", time.gmtime(record.created))
+        params = {
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(record.created)),
+            "level_name": record.levelname,
+            "level_no": record.levelno,
+            "name": record.name,
+            "filename": record.filename,
+            "line_no": record.lineno,
+            "func_name": record.funcName,
+            "message": record.getMessage(),
+        }
+        query = self._log_query % {"table_name": self.table_name}
+        self.execute_query(query, params)
 
     def emit(self, record: LogRecord) -> None:
         if not self._table_created:
             self.create_table()
             self._table_created = True
-        self.format_time(record)
         self.log_record(record)
 
 
