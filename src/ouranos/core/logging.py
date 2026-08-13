@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from copy import copy
 import logging
 from logging import Formatter, Handler, LogRecord
@@ -71,7 +71,13 @@ class SQLiteHandler(Handler):
 
     def execute_query(self, query: str, params: dict | None = None) -> None:
         params = params or {}
-        self._executor.submit(self._execute_query, query, params)
+        future: Future = self._executor.submit(self._execute_query, query, params)
+        future.add_done_callback(self._log_query_error)
+
+    def _log_query_error(self, future: Future) -> None:
+        exception = future.exception()
+        if exception is not None:
+            print(f"Failed to log record to the db: {exception}", file=sys.stderr)
 
     def create_table(self) -> None:
         query = self._create_query % {"table_name": self.table_name}
