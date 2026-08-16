@@ -158,7 +158,7 @@ class Authenticator:
             LOGIN_NAME.COOKIE.value,
             session_cookie,
             expires=expires,
-            secure=current_app.config["API_SECURE_COOKIES"] or False,
+            secure=current_app.config["API_SECURE_COOKIES"],
             httponly=True,
         )
         return session_cookie
@@ -166,7 +166,7 @@ class Authenticator:
     def logout(self) -> None:
         self.response.delete_cookie(
             LOGIN_NAME.COOKIE.value,
-            secure=current_app.config["API_SECURE_COOKIES"] or False,
+            secure=current_app.config["API_SECURE_COOKIES"],
             httponly=True,
         )
 
@@ -235,7 +235,7 @@ def get_session_info(
     except TokenError:
         response.delete_cookie(
             LOGIN_NAME.COOKIE.value,
-            secure=current_app.config["API_SECURE_COOKIES"] or False,
+            secure=current_app.config["API_SECURE_COOKIES"],
             httponly=True,
         )
         return None
@@ -259,7 +259,7 @@ def refresh_session_cookie_expiration(
         LOGIN_NAME.COOKIE.value,
         renewed_cookie,
         expires=expires,
-        secure=current_app.config["API_SECURE_COOKIES"] or False,
+        secure=current_app.config["API_SECURE_COOKIES"],
         httponly=True,
     )
 
