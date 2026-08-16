@@ -224,16 +224,12 @@ def load_session_info(token: str) -> SessionInfo:
 
 
 def get_session_info(
-        request: Request,
         response: Response,
         auth: HTTPCredentials = Depends(cookie_bearer_auth),
 ) -> Optional[SessionInfo]:
-    if auth.credentials is None:
-        return None
-    user_agent = request.headers.get("user-agent")
-    if user_agent is None:
-        return None
     token = auth.credentials
+    if token is None:
+        return None
     try:
         session_info = load_session_info(token)
     except TokenError:
