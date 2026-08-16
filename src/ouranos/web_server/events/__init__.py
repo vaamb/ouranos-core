@@ -79,12 +79,8 @@ class ClientEvents(AsyncNamespace):
             await self.save_session(sid, {"user_id": anonymous_user.id})
             return True  # anonymous users are allowed to connect
 
-        user_agent = environ.get("HTTP_USER_AGENT")
-        if user_agent is None:
-            return False  # we should have received a user agent header
-
         try:
-            session_info = load_session_info(session_cookie.value, user_agent)
+            session_info = load_session_info(session_cookie.value)
         except TokenError:
             return False  # Invalid token, reject the connection
 

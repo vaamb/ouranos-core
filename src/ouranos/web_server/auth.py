@@ -1,7 +1,7 @@
 # Strange bug: cannot use future annotations, somehow it enters in conflict with
 #  FastAPI (via pydantic ?)
 from datetime import datetime, timedelta, timezone
-from hashlib import sha512
+from secrets import token_urlsafe
 from typing import Awaitable, Callable, cast, Optional, Self, Union
 
 from fastapi import Depends, HTTPException, Request, Response, status
@@ -21,10 +21,8 @@ from ouranos.core.utils import Tokenizer
 from ouranos.web_server.dependencies import get_session
 
 
-def create_session_id(user_agent: str) -> str:
-    h = sha512()
-    h.update(user_agent.encode("utf8"))
-    return h.hexdigest()
+def create_session_id() -> str:
+    return token_urlsafe(32)
 
 
 def check_token(invitation_token: str, token_sub: str) -> dict:
@@ -147,10 +145,8 @@ class Authenticator:
         return user
 
     def login(self, user: User, remember: bool) -> str:
-        user_agent = self.request.headers.get("user-agent")
-        session_id = create_session_id(user_agent)
-        session_info = SessionInfo(
-            id=session_id, user_id=user.id, remember=remember)
+        session_id = create_session_id()
+        session_info = SessionInfo(id=session_id, user_id=user.id, remember=remember)
         if session_info.remember:
             # Set a cookie expiration date
             expires = session_info.exp
@@ -210,16 +206,10 @@ async def load_user(
     return user
 
 
-def load_session_info(
-        token: str,
-        user_agent: str,
-) -> SessionInfo:
+def load_session_info(token: str) -> SessionInfo:
     try:
         session_info = SessionInfo.from_token(token)
     except ValidationError:
-        raise TokenError
-    session_id = create_session_id(user_agent)
-    if session_id != session_info.id and not current_app.config["TESTING"]:
         raise TokenError
     return session_info
 
@@ -236,7 +226,7 @@ def get_session_info(
         return None
     token = auth.credentials
     try:
-        session_info = load_session_info(token, user_agent)
+        session_info = load_session_info(token)
     except TokenError:
         response.delete_cookie(LOGIN_NAME.COOKIE.value, httponly=True)
         return None
