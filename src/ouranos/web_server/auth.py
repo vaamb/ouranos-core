@@ -87,7 +87,7 @@ class SessionInfo(BaseModel):
             datetime.now(timezone.utc).replace(microsecond=0)
             - timedelta(seconds=SESSION_FRESHNESS)
         )
-        return self.iat < time_limit
+        return self.iat > time_limit
 
     def refresh_iat(self) -> None:
         self.iat = _now()
