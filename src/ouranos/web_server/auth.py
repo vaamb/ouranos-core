@@ -155,11 +155,20 @@ class Authenticator:
             expires = None
         session_cookie = session_info.to_token()
         self.response.set_cookie(
-            LOGIN_NAME.COOKIE.value, session_cookie, expires=expires, httponly=True)
+            LOGIN_NAME.COOKIE.value,
+            session_cookie,
+            expires=expires,
+            secure=current_app.config["API_SECURE_COOKIES"] or False,
+            httponly=True,
+        )
         return session_cookie
 
     def logout(self) -> None:
-        self.response.delete_cookie(LOGIN_NAME.COOKIE.value, httponly=True)
+        self.response.delete_cookie(
+            LOGIN_NAME.COOKIE.value,
+            secure=current_app.config["API_SECURE_COOKIES"] or False,
+            httponly=True,
+        )
 
 
 class LoginManager:
@@ -228,7 +237,11 @@ def get_session_info(
     try:
         session_info = load_session_info(token)
     except TokenError:
-        response.delete_cookie(LOGIN_NAME.COOKIE.value, httponly=True)
+        response.delete_cookie(
+            LOGIN_NAME.COOKIE.value,
+            secure=current_app.config["API_SECURE_COOKIES"] or False,
+            httponly=True,
+        )
         return None
     else:
         return session_info
@@ -247,7 +260,12 @@ def refresh_session_cookie_expiration(
         expires = None
     renewed_cookie = session_info.to_token()
     response.set_cookie(
-        LOGIN_NAME.COOKIE.value, renewed_cookie, expires=expires, httponly=True)
+        LOGIN_NAME.COOKIE.value,
+        renewed_cookie,
+        expires=expires,
+        secure=current_app.config["API_SECURE_COOKIES"] or False,
+        httponly=True,
+    )
 
 
 async def get_current_user(
