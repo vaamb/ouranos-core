@@ -116,7 +116,10 @@ class TestClientConnect(UsersAware):
         """
         if token is None:
             return {}
-        return {"HTTP_COOKIE": f"session={token}"}
+        return {
+            "HTTP_COOKIE": f"session={token}",
+            "HTTP_USER_AGENT": f"A-real-agent",
+        }
 
     async def test_on_connect_no_cookie(
             self,
