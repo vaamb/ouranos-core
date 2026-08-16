@@ -53,7 +53,7 @@ class BaseConfig:
     # API config
     API_HOST = os.environ.get("OURANOS_API_HOST", "127.0.0.1")
     API_PORT = os.environ.get("OURANOS_API_PORT", 5000)
-    API_USE_SSL = os.environ.get("OURANOS_API_USE_SSL", False)
+    API_USE_SSL: bool = os.environ.get("OURANOS_API_USE_SSL", "").lower() == "true"
     API_UID = os.environ.get("OURANOS_UID") or "base_server"
     WEB_SERVER_WORKERS = (
         os.environ.get("OURANOS_WEB_SERVER_WORKERS", 0)
@@ -61,6 +61,7 @@ class BaseConfig:
     )
     API_WORKERS = os.environ.get("OURANOS_API_WORKERS", 0)
     WEB_SERVER_RELOAD = False
+    API_SECURE_COOKIES: bool = os.environ.get("OURANOS_API_SECURE_COOKIES", "").lower() == "true"
 
     # Aggregator server config (for pictures upload)
     AGGREGATOR_HOST = os.environ.get("OURANOS_AGGREGATOR_HOST", API_HOST)
@@ -205,6 +206,7 @@ class BaseConfigDict(TypedDict):
     WEB_SERVER_WORKERS: int
     API_WORKERS: int
     WEB_SERVER_RELOAD: bool
+    API_SECURE_COOKIES: bool
 
     # Aggregator server config (for pictures upload)
     AGGREGATOR_HOST: str

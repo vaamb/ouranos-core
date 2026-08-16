@@ -67,11 +67,8 @@ async def logout(
 
 @router.get("/current_user", response_model=UserInfo)
 async def get_current_user_info(
-        response: Response,
-        session_info: Annotated[SessionInfo, Depends(get_session_info)],
-        session: Annotated[AsyncSession, Depends(get_session)],
+        current_user: Annotated[UserMixin, Depends(get_current_user)],
 ):
-    current_user = await get_current_user(session_info, session)
     return current_user
 
 

@@ -1,7 +1,7 @@
 # Strange bug: cannot use future annotations, somehow it enters in conflict with
 #  FastAPI (via pydantic ?)
 from datetime import datetime, timedelta, timezone
-from hashlib import sha512
+from secrets import token_urlsafe
 from typing import Awaitable, Callable, cast, Optional, Self, Union
 
 from fastapi import Depends, HTTPException, Request, Response, status
@@ -21,10 +21,8 @@ from ouranos.core.utils import Tokenizer
 from ouranos.web_server.dependencies import get_session
 
 
-def create_session_id(user_agent: str) -> str:
-    h = sha512()
-    h.update(user_agent.encode("utf8"))
-    return h.hexdigest()
+def create_session_id() -> str:
+    return token_urlsafe(32)
 
 
 def check_token(invitation_token: str, token_sub: str) -> dict:
@@ -89,7 +87,7 @@ class SessionInfo(BaseModel):
             datetime.now(timezone.utc).replace(microsecond=0)
             - timedelta(seconds=SESSION_FRESHNESS)
         )
-        return self.iat < time_limit
+        return self.iat > time_limit
 
     def refresh_iat(self) -> None:
         self.iat = _now()
@@ -147,10 +145,8 @@ class Authenticator:
         return user
 
     def login(self, user: User, remember: bool) -> str:
-        user_agent = self.request.headers.get("user-agent")
-        session_id = create_session_id(user_agent)
-        session_info = SessionInfo(
-            id=session_id, user_id=user.id, remember=remember)
+        session_id = create_session_id()
+        session_info = SessionInfo(id=session_id, user_id=user.id, remember=remember)
         if session_info.remember:
             # Set a cookie expiration date
             expires = session_info.exp
@@ -159,11 +155,20 @@ class Authenticator:
             expires = None
         session_cookie = session_info.to_token()
         self.response.set_cookie(
-            LOGIN_NAME.COOKIE.value, session_cookie, expires=expires, httponly=True)
+            LOGIN_NAME.COOKIE.value,
+            session_cookie,
+            expires=expires,
+            secure=current_app.config["API_SECURE_COOKIES"],
+            httponly=True,
+        )
         return session_cookie
 
     def logout(self) -> None:
-        self.response.delete_cookie(LOGIN_NAME.COOKIE.value, httponly=True)
+        self.response.delete_cookie(
+            LOGIN_NAME.COOKIE.value,
+            secure=current_app.config["API_SECURE_COOKIES"],
+            httponly=True,
+        )
 
 
 class LoginManager:
@@ -210,29 +215,36 @@ async def load_user(
     return user
 
 
+def load_session_info(token: str) -> SessionInfo:
+    try:
+        session_info = SessionInfo.from_token(token)
+    except ValidationError:
+        raise TokenError
+    return session_info
+
+
 def get_session_info(
-        request: Request,
         response: Response,
         auth: HTTPCredentials = Depends(cookie_bearer_auth),
 ) -> Optional[SessionInfo]:
-    if auth.credentials is None:
+    token = auth.credentials
+    if token is None:
         return None
     try:
-        token = auth.credentials
-        session_info = SessionInfo.from_token(token)
-        user_agent = request.headers.get("user-agent")
-        session_id = create_session_id(user_agent)
-        if session_id != session_info.id and not current_app.config["TESTING"]:
-            raise TokenError
-    except (TokenError, ValidationError):
-        response.delete_cookie(LOGIN_NAME.COOKIE.value, httponly=True)
+        session_info = load_session_info(token)
+    except TokenError:
+        response.delete_cookie(
+            LOGIN_NAME.COOKIE.value,
+            secure=current_app.config["API_SECURE_COOKIES"],
+            httponly=True,
+        )
         return None
     else:
         return session_info
 
 
 def refresh_session_cookie_expiration(
-        session_info: Optional[SessionInfo],
+        session_info: SessionInfo,
         response: Response,
 ) -> None:
     session_info.refresh_exp()
@@ -244,7 +256,12 @@ def refresh_session_cookie_expiration(
         expires = None
     renewed_cookie = session_info.to_token()
     response.set_cookie(
-        LOGIN_NAME.COOKIE.value, renewed_cookie, expires=expires, httponly=True)
+        LOGIN_NAME.COOKIE.value,
+        renewed_cookie,
+        expires=expires,
+        secure=current_app.config["API_SECURE_COOKIES"],
+        httponly=True,
+    )
 
 
 async def get_current_user(

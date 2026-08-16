@@ -13,8 +13,7 @@ from ouranos import current_app, db
 from ouranos.core.database.models.app import anonymous_user, Permission, User
 from ouranos.core.database.models.gaia import Ecosystem
 from ouranos.core.exceptions import TokenError
-from ouranos.web_server.auth import (
-    create_session_id, login_manager, LOGIN_NAME, SessionInfo)
+from ouranos.web_server.auth import load_session_info, login_manager, LOGIN_NAME
 from ouranos.web_server.events.decorators import permission_required
 
 
@@ -81,14 +80,9 @@ class ClientEvents(AsyncNamespace):
             return True  # anonymous users are allowed to connect
 
         try:
-            session_info = SessionInfo.from_token(session_cookie.value)
+            session_info = load_session_info(session_cookie.value)
         except TokenError:
             return False  # Invalid token, reject the connection
-
-        user_agent = environ.get("HTTP_USER_AGENT", "")
-        session_id = create_session_id(user_agent)
-        if session_id != session_info.id and not current_app.config["TESTING"]:
-            return False  # The token is not attached to this browser, reject the connection
 
         # Get the user and save its ID to the session
         async with db.scoped_session() as session:
