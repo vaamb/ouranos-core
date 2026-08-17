@@ -67,3 +67,16 @@ class SessionInfo(BaseModel):
             return cls(**Tokenizer.loads(token))
         except ValidationError:
             raise TokenError
+
+
+async def get_user(
+        db_session: AsyncSession,
+        user_id: int | str,
+) -> UserMixin:
+    if isinstance(user_id, int):
+        user = await User.get(db_session, user_id)
+    else:
+        user = await User.get_by(db_session, username=user_id)
+    if user is None or not user.active:
+        return anonymous_user
+    return user

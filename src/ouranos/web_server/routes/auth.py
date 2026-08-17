@@ -16,9 +16,10 @@ from ouranos.core.database.models.app import (
 from ouranos.core.exceptions import ExpiredTokenError, InvalidTokenError
 from ouranos.core.utils import Tokenizer
 from ouranos.web_server.auth import (
-    Authenticator, basic_auth, get_current_user, get_session_info,
-    is_admin, login_manager, refresh_session_cookie_expiration, SessionInfo)
+    Authenticator, basic_auth, get_authenticator, get_current_user,
+    get_session_info, is_admin, refresh_session_cookie_expiration)
 from ouranos.web_server.dependencies import get_session
+from ouranos.web_server.user_session import SessionInfo
 from ouranos.web_server.validate.auth import (
     LoginInfo, UserCreationPayload, UserInvitationPayload,
     UserPasswordUpdatePayload, UserInfo)
@@ -59,10 +60,7 @@ async def login(
             bool | None,
             Query(description="Remember the session"),
         ] = False,
-        authenticator: Annotated[
-            Authenticator,
-            Depends(login_manager.get_authenticator),
-        ],
+        authenticator: Annotated[Authenticator, Depends(get_authenticator)],
         credentials: Annotated[HTTPBasicCredentials, Depends(basic_auth)],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
@@ -79,7 +77,7 @@ async def login(
 
 @router.get("/logout")
 async def logout(
-        authenticator: Annotated[Authenticator, Depends(login_manager.get_authenticator)],
+        authenticator: Annotated[Authenticator, Depends(get_authenticator)],
         current_user: Annotated[UserMixin, Depends(get_current_user)],
 ):
     if current_user.is_anonymous:
@@ -147,7 +145,7 @@ async def register_new_user(
                             "Default to False."
             ),
         ] = False,
-        authenticator: Annotated[Authenticator, Depends(login_manager.get_authenticator)],
+        authenticator: Annotated[Authenticator, Depends(get_authenticator)],
         current_user: Annotated[UserMixin, Depends(get_current_user)],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):

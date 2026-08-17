@@ -1,6 +1,6 @@
 # Strange bug: cannot use future annotations, somehow it enters in conflict with
 #  FastAPI (via pydantic ?)
-from typing import Awaitable, Callable, cast, Optional, Union
+from typing import cast, Optional
 
 from fastapi import Depends, HTTPException, Request, Response, status
 from fastapi.security.http import HTTPBasic, HTTPBearer
@@ -14,7 +14,7 @@ from ouranos.core.config.consts import LOGIN_NAME
 from ouranos.core.database.models.app import Permission, User, UserMixin
 from ouranos.core.exceptions import TokenError
 from ouranos.web_server.dependencies import get_session
-from ouranos.web_server.user_session import SessionInfo
+from ouranos.web_server.user_session import get_user, SessionInfo
 
 
 class HTTPCredentials(BaseModel):
@@ -38,16 +38,12 @@ cookie_bearer_auth = HTTPCookieBearer()
 
 
 class Authenticator:
-    __slots__ = "login_manager", "request", "response"
+    __slots__ = ("response", )
 
     def __init__(
             self,
-            login_manager: "LoginManager",
-            request: Request,
             response: Response
     ):
-        self.login_manager = login_manager
-        self.request: Request = request
         self.response: Response = response
 
     async def authenticate(
@@ -56,7 +52,7 @@ class Authenticator:
             username: str,
             password: str,
     ) -> User:
-        user = await self.login_manager.get_user(session, user_id=username)
+        user = await get_user(session, username)
         if not user.check_password(password):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -92,48 +88,8 @@ class Authenticator:
         )
 
 
-class LoginManager:
-    def __init__(self):
-        self._user_callback = None
-
-    def get_authenticator(
-            self,
-            request: Request,
-            response: Response,
-    ) -> Authenticator:
-        return Authenticator(self, request, response)
-
-    def user_loader(
-            self,
-            callback: Callable[[AsyncSession, Union[int, str]], Awaitable[UserMixin]]
-    ) -> None:
-        self._user_callback = callback
-
-    def get_user(self, session: AsyncSession, user_id: Union[int, str]) -> Awaitable[UserMixin]:
-        if self._user_callback:
-            return self._user_callback(session, user_id)
-        raise NotImplementedError(
-            "Set your user_loader call back using `@login_manager.user_loader`"
-        )
-
-
-login_manager = LoginManager()
-
-
-@login_manager.user_loader
-async def load_user(
-        session: AsyncSession,
-        user_id: Optional[Union[int]]
-) -> UserMixin:
-    if user_id is None:
-        return anonymous_user
-    if isinstance(user_id, int):
-        user = await User.get(session, user_id)
-    else:
-        user = await User.get_by(session, username=user_id)
-    if user is None or not user.active:
-        return anonymous_user
-    return user
+def get_authenticator(response: Response) -> Authenticator:
+    return Authenticator(response)
 
 
 def get_session_info(
@@ -184,7 +140,7 @@ async def get_current_user(
     if session_info is None:
         return anonymous_user
     user_id = session_info.user_id
-    user = await login_manager.get_user(session, user_id)
+    user = await get_user(session, user_id)
     return user
 
 

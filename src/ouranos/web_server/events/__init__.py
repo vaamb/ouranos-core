@@ -14,9 +14,8 @@ from ouranos.core.config.consts import LOGIN_NAME
 from ouranos.core.database.models.app import anonymous_user, Permission, User
 from ouranos.core.database.models.gaia import Ecosystem
 from ouranos.core.exceptions import TokenError
-from ouranos.web_server.auth import login_manager
 from ouranos.web_server.events.decorators import permission_required
-from ouranos.web_server.user_session import SessionInfo
+from ouranos.web_server.user_session import get_user, SessionInfo
 
 
 ADMIN_ROOM = "administrator"
@@ -88,7 +87,7 @@ class ClientEvents(AsyncNamespace):
 
         # Get the user and save its ID to the session
         async with db.scoped_session() as session:
-            user = await login_manager.get_user(session, session_info.user_id)
+            user = await get_user(session, session_info.user_id)
         await self.save_session(sid, {"user_id": user.id})
         if user.can(Permission.ADMIN):
             await self.enter_room(sid, ADMIN_ROOM)
