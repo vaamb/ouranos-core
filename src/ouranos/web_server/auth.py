@@ -168,5 +168,9 @@ async def is_admin(current_user: UserMixin = Depends(get_current_user)) -> bool:
     return await user_can(current_user, Permission.ADMIN)
 
 
-async def is_fresh(session_info: SessionInfo = Depends(get_session_info)) -> bool:
-    return session_info.is_fresh
+async def is_fresh(session_info: Optional[SessionInfo] = Depends(get_session_info)) -> bool:
+    if session_info is None or not session_info.is_fresh:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="This requires a fresh session.",
+        )
