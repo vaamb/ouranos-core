@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict, deque
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import pytest
@@ -193,6 +193,29 @@ class TestClientConnect(UsersAware):
         assert result is True
         session = await mock_server.get_session(SID)
         assert session["session_info"].user_id == user.id
+        assert ADMIN_ROOM not in mock_server.rooms[SID]
+
+    async def test_on_connect_revoked_session(
+            self,
+            client_events: ClientEvents,
+            mock_server: MockSioServer,
+            db: AsyncSQLAlchemyWrapper,
+    ):
+        """Test that a session issued before the user's cutoff doesn't connect.
+        """
+        token = make_token(operator.id)
+        async with db.scoped_session() as session:
+            await User.update(
+                session,
+                user_id=operator.id,
+                values={
+                    "sessions_valid_from": datetime.now(timezone.utc) + timedelta(hours=1),
+                },
+            )
+
+        result = await client_events.on_connect(SID, self._make_environ(token))
+
+        assert result is False
         assert ADMIN_ROOM not in mock_server.rooms[SID]
 
     async def test_on_connect_matching_contract(
@@ -512,3 +535,37 @@ class TestClientEcosystemCommands(EcosystemAware, UsersAware):
         assert emitted["data"]["status"] is True
         assert emitted["namespace"] == "aggregator-internal"
         assert emitted["room"] == g_data.engine_sid
+
+    async def test_command_after_session_revocation(
+            self,
+            client_events: ClientEvents,
+            ouranos_dispatcher: MockAsyncDispatcher,
+            db: AsyncSQLAlchemyWrapper,
+    ):
+        """Test that revoking a session strips an already-connected client of
+        its rights.
+        """
+        data = {
+            "ecosystem": g_data.ecosystem_uid,
+            "mode": "automatic",
+            "countdown": 0,
+        }
+        session_info = SessionInfo(user_id=admin.id)
+        await client_events.server.save_session(SID, {"session_info": session_info})
+
+        # The admin may turn actuators ...
+        await client_events.on_turn_light(SID, data)
+        assert len(ouranos_dispatcher.emit_store) == 1
+
+        # ... until its session is invalidated, without the stored session ever
+        #  being touched
+        async with db.scoped_session() as session:
+            await User.update(
+                session,
+                user_id=admin.id,
+                values={"sessions_valid_from": session_info.iat + timedelta(seconds=1)},
+            )
+
+        with pytest.raises(NotAuthorized):
+            await client_events.on_turn_light(SID, data)
+        assert len(ouranos_dispatcher.emit_store) == 1

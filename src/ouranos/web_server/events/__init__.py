@@ -83,12 +83,13 @@ class ClientEvents(AsyncNamespace):
         try:
             session_info = SessionInfo.from_token(session_cookie.value)
         except TokenError:
-            return False  # Invalid token, reject the connection
+            return False  # invalid token, reject the connection
 
         # Get the user and save its ID to the session
         async with db.scoped_session() as session:
             user = await get_user_from_session_info(session, session_info)
-        session_info = session_info if user.is_authenticated else None
+        if not user.is_authenticated:
+            return False  # revoked token, reject the connection
         await self.save_session(sid, {"session_info": session_info})
         if user.can(Permission.ADMIN):
             await self.enter_room(sid, ADMIN_ROOM)
