@@ -1,27 +1,20 @@
 # Strange bug: cannot use future annotations, somehow it enters in conflict with
 #  FastAPI (via pydantic ?)
-from datetime import datetime, timedelta, timezone
-from secrets import token_urlsafe
-from typing import Awaitable, Callable, cast, Optional, Self, Union
+from typing import Awaitable, Callable, cast, Optional, Union
 
 from fastapi import Depends, HTTPException, Request, Response, status
 from fastapi.security.http import HTTPBasic, HTTPBearer
 from fastapi.security.utils import get_authorization_scheme_param
-from pydantic import BaseModel, ValidationError, Field
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos import current_app
-from ouranos.core.config.consts import (
-    LOGIN_NAME, SESSION_FRESHNESS, SESSION_TOKEN_VALIDITY)
-from ouranos.core.database.models.app import (
-    anonymous_user, Permission, User, UserMixin)
+from ouranos.core.database.models.app import anonymous_user
+from ouranos.core.config.consts import LOGIN_NAME
+from ouranos.core.database.models.app import Permission, User, UserMixin
 from ouranos.core.exceptions import TokenError
-from ouranos.core.utils import Tokenizer
 from ouranos.web_server.dependencies import get_session
-
-
-def create_session_id() -> str:
-    return token_urlsafe(32)
+from ouranos.web_server.user_session import SessionInfo
 
 
 class HTTPCredentials(BaseModel):
@@ -42,55 +35,6 @@ class HTTPCookieBearer(HTTPBearer):
 
 basic_auth = HTTPBasic()
 cookie_bearer_auth = HTTPCookieBearer()
-
-
-def _now() -> datetime:
-    return datetime.now(timezone.utc).replace(microsecond=0)
-
-
-def _get_exp_dt() -> datetime:
-    return _now() + timedelta(seconds=SESSION_TOKEN_VALIDITY)
-
-
-class SessionInfo(BaseModel):
-    id: str
-    user_id: int
-    iat: datetime = Field(default_factory=_now)
-    exp: datetime = Field(default_factory=_get_exp_dt)
-    remember: bool = False
-
-    @property
-    def is_fresh(self) -> bool:
-        time_limit = (
-            datetime.now(timezone.utc).replace(microsecond=0)
-            - timedelta(seconds=SESSION_FRESHNESS)
-        )
-        return self.iat > time_limit
-
-    def refresh_iat(self) -> None:
-        self.iat = _now()
-
-    def refresh_exp(self) -> None:
-        self.exp = _get_exp_dt()
-
-    def to_dict(self) -> dict:
-        return {
-            "id": self.id,
-            "user_id": self.user_id,
-            "iat": self.iat,
-            "exp": self.exp,
-            "remember": self.remember is True,
-        }
-
-    def to_token(self) -> str:
-        return Tokenizer.dumps(self.to_dict())
-
-    @classmethod
-    def from_token(
-            cls,
-            token: str,
-    ) -> Self:
-        return cls(**Tokenizer.loads(token))
 
 
 class Authenticator:
@@ -123,8 +67,7 @@ class Authenticator:
         return user
 
     def login(self, user: User, remember: bool) -> str:
-        session_id = create_session_id()
-        session_info = SessionInfo(id=session_id, user_id=user.id, remember=remember)
+        session_info = SessionInfo(user_id=user.id, remember=remember)
         if session_info.remember:
             # Set a cookie expiration date
             expires = session_info.exp
@@ -193,14 +136,6 @@ async def load_user(
     return user
 
 
-def load_session_info(token: str) -> SessionInfo:
-    try:
-        session_info = SessionInfo.from_token(token)
-    except ValidationError:
-        raise TokenError
-    return session_info
-
-
 def get_session_info(
         response: Response,
         auth: HTTPCredentials = Depends(cookie_bearer_auth),
@@ -209,7 +144,7 @@ def get_session_info(
     if token is None:
         return None
     try:
-        session_info = load_session_info(token)
+        session_info = SessionInfo.from_token(token)
     except TokenError:
         response.delete_cookie(
             LOGIN_NAME.COOKIE.value,

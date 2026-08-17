@@ -64,7 +64,7 @@ class MockSioServer:
 
 
 def make_token(user_id: int) -> str:
-    return SessionInfo(id="session_id", user_id=user_id, remember=True).to_token()
+    return SessionInfo(user_id=user_id, remember=True).to_token()
 
 
 @pytest.fixture(scope="function")

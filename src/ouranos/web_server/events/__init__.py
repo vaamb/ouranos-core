@@ -10,11 +10,13 @@ from socketio import AsyncNamespace, AsyncManager, AsyncServer
 from socketio.exceptions import ConnectionRefusedError
 
 from ouranos import current_app, db
+from ouranos.core.config.consts import LOGIN_NAME
 from ouranos.core.database.models.app import anonymous_user, Permission, User
 from ouranos.core.database.models.gaia import Ecosystem
 from ouranos.core.exceptions import TokenError
-from ouranos.web_server.auth import load_session_info, login_manager, LOGIN_NAME
+from ouranos.web_server.auth import login_manager
 from ouranos.web_server.events.decorators import permission_required
+from ouranos.web_server.user_session import SessionInfo
 
 
 ADMIN_ROOM = "administrator"
@@ -80,7 +82,7 @@ class ClientEvents(AsyncNamespace):
             return True  # anonymous users are allowed to connect
 
         try:
-            session_info = load_session_info(session_cookie.value)
+            session_info = SessionInfo.from_token(session_cookie.value)
         except TokenError:
             return False  # Invalid token, reject the connection
 
