@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
 from httpx import BasicAuth
@@ -7,9 +7,10 @@ import pytest
 from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
 from ouranos import json
-from ouranos.core.config.consts import TOKEN_SUBS
+from ouranos.core.config.consts import LOGIN_NAME, SESSION_FRESHNESS, TOKEN_SUBS
 from ouranos.core.database.models.app import anonymous_user, User
 from ouranos.core.utils import Tokenizer
+from ouranos.web_server.user_session import SessionInfo
 
 from tests.data.auth import admin, operator
 from tests.class_fixtures import UsersAware
@@ -20,6 +21,14 @@ registration_payload = {
     "password": "Password1!",
     "email": "new_user@fakemail.com",
 }
+
+
+def utc_now_second() -> datetime:
+    return datetime.now(timezone.utc).replace(microsecond=0)
+
+
+def session_cookie(session_info: SessionInfo) -> dict[str, str]:
+    return {LOGIN_NAME.COOKIE.value: session_info.to_token()}
 
 
 class TestLogin(UsersAware):
@@ -107,6 +116,96 @@ class TestRefreshSession(UsersAware):
     def test_refresh_session_authenticated(self, client_admin: TestClient):
         response = client_admin.get("/api/auth/refresh_session")
         assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+class TestRevokeSessions(UsersAware):
+    """`/auth/revoke_sessions` invalidates every session the user holds.
+
+    It is the "log out everywhere" counterpart to `/auth/logout`
+    """
+
+    def test_revoke_sessions_anonymous(self, client: TestClient):
+        # An anonymous caller has no fresh cookie and is told to login first
+        response = client.post("/api/auth/revoke_sessions")
+        assert response.status_code == 401
+
+    async def test_revoke_sessions_stale_session(
+            self,
+            db: AsyncSQLAlchemyWrapper,
+            client: TestClient,
+    ):
+        """Revoking every session requires a fresh session cookie.
+        """
+        stale_iat = utc_now_second() - timedelta(seconds=SESSION_FRESHNESS + 60)
+        async with db.scoped_session() as session:
+            await User.update(
+                session,
+                user_id=admin.id,
+                values={"sessions_valid_from": stale_iat - timedelta(hours=1)},
+            )
+        stale = SessionInfo(user_id=admin.id, iat=stale_iat, remember=True)
+        assert not stale.is_fresh
+
+        client.cookies = session_cookie(stale)
+        response = client.post("/api/auth/revoke_sessions")
+
+        assert response.status_code == 401
+
+    async def test_revoke_sessions_after_validity(
+            self,
+            db: AsyncSQLAlchemyWrapper,
+            client_admin: TestClient,
+    ):
+        previous_cutoff = utc_now_second() - timedelta(days=1)
+        async with db.scoped_session() as session:
+            await User.update(
+                session,
+                user_id=admin.id,
+                values={"sessions_valid_from": previous_cutoff},
+            )
+
+        response = client_admin.post("/api/auth/revoke_sessions")
+
+        assert response.status_code == 200
+        async with db.scoped_session() as session:
+            user = await User.get(session, admin.id)
+
+        assert user is not None
+
+        assert user.sessions_valid_from > previous_cutoff
+
+        # Verify the cookie was removed
+        set_cookie_header = response.headers["set-cookie"]
+        assert LOGIN_NAME.COOKIE.value in set_cookie_header
+        assert "Max-Age=0" in set_cookie_header
+
+    async def test_revoked_token_no_longer_authenticates(
+            self,
+            db: AsyncSQLAlchemyWrapper,
+            client: TestClient,
+    ):
+        # Verify that fresh but invalidated token returns an anonymous user
+        async with db.scoped_session() as session:
+            await User.update(
+                session,
+                user_id=admin.id,
+                values={"sessions_valid_from": utc_now_second() - timedelta(days=1)},
+            )
+
+        session_info = SessionInfo(
+            user_id=admin.id,
+            iat=utc_now_second() - timedelta(seconds=60),
+            remember=True,
+        )
+        client.cookies = session_cookie(session_info)
+        assert client.post("/api/auth/revoke_sessions").status_code == 200
+
+        client.cookies = session_cookie(session_info)
+        response = client.get("/api/auth/current_user")
+
+        assert response.status_code == 200
+        assert json.loads(response.text)["id"] == anonymous_user.id
 
 
 @pytest.mark.asyncio
