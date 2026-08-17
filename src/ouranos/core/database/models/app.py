@@ -442,6 +442,15 @@ class User(Base, UserMixin):
             username=self.username,
         )
 
+    async def revoke_session_token(self, session: AsyncSession) -> None:
+        await self.update(
+            session,
+            user_id=self.id,
+            values={
+                "sessions_valid_from": datetime.now(tz=timezone.utc),
+            },
+        )
+
     # ---------------------------------------------------------------------------
     #   Methods involved in the data processing of user creation and update
     # ---------------------------------------------------------------------------
