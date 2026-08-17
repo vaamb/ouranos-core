@@ -112,12 +112,11 @@ class ClientEvents(AsyncNamespace):
             user = await get_user_from_session_info(db_session, session_info)
             if user.is_anonymous:
                 return
-            async with db.scoped_session() as session:
-                await User.update(
-                    session,
-                    user_id=user.id,
-                    values={"last_seen": datetime.now(timezone.utc)}
-                )
+            await User.update(
+                db_session,
+                user_id=user.id,
+                values={"last_seen": datetime.now(timezone.utc)}
+            )
         await self.emit(
             "user_heartbeat_ack",
             to=sid,
