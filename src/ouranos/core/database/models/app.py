@@ -744,6 +744,8 @@ class User(Base, UserMixin):
             raise ValueError("Invalid token user id")
         if user.confirmed_at is not None:
             raise RuntimeError("User is already confirmed")
+        if not user.active:
+            raise RuntimeError("User is not active")
         await cls.update(
             session,
             user_id=payload["user_id"],
