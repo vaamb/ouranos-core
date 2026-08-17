@@ -6,7 +6,7 @@ import enum
 from enum import IntEnum, IntFlag, StrEnum
 import re
 import typing as t
-from typing import NamedTuple, Optional, Self, Sequence, TypedDict
+from typing import Optional, Self, Sequence, TypedDict
 
 from anyio import Path as ioPath
 from argon2 import PasswordHasher
@@ -42,6 +42,10 @@ class _UnfilledCls:
 
 
 _Unfilled = _UnfilledCls()
+
+
+def utc_now_second() -> datetime:
+    return datetime.now(tz=timezone.utc).replace(microsecond=0)
 
 
 # ---------------------------------------------------------------------------
@@ -229,8 +233,9 @@ class User(Base, UserMixin):
     created_at: Mapped[datetime] = mapped_column(
         UtcDateTime, default=func.current_timestamp(), server_default=func.current_timestamp())
     confirmed_at: Mapped[Optional[datetime]] = mapped_column(UtcDateTime)
+    # sessions token are truncated to the second
     sessions_valid_from: Mapped[datetime] = mapped_column(
-        UtcDateTime, default=func.current_timestamp(), server_default=func.current_timestamp())
+        UtcDateTime, default=utc_now_second, server_default=func.current_timestamp())
 
     # User information fields
     firstname: Mapped[Optional[str]] = mapped_column(sa.String(64))
@@ -447,9 +452,8 @@ class User(Base, UserMixin):
         await self.update(
             session,
             user_id=self.id,
-            values={
-                "sessions_valid_from": datetime.now(tz=timezone.utc),
-            },
+            # sessions token are truncated to the second
+            values={"sessions_valid_from": utc_now_second()},
         )
 
     # ---------------------------------------------------------------------------
@@ -766,7 +770,8 @@ class User(Base, UserMixin):
             user_id=payload["user_id"],
             values={
                 "password": new_password,
-                "sessions_valid_from": datetime.now(tz=timezone.utc),
+                # sessions token are truncated to the second
+                "sessions_valid_from": utc_now_second(),
             },
         )
 
