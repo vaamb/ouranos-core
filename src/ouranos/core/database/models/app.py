@@ -762,7 +762,14 @@ class User(Base, UserMixin):
         user = await cls.get(session, payload["user_id"])
         if user is None:
             raise ValueError("Invalid token user id")
-        await cls.update(session, payload["user_id"], {"password": new_password})
+        await cls.update(
+            session,
+            user_id=payload["user_id"],
+            values={
+                "password": new_password,
+                "sessions_valid_from": datetime.now(tz=timezone.utc),
+            },
+        )
 
 
 class ServiceLevel(StrEnum):
