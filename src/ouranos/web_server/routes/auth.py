@@ -17,7 +17,7 @@ from ouranos.core.exceptions import ExpiredTokenError, InvalidTokenError
 from ouranos.core.utils import Tokenizer
 from ouranos.web_server.auth import (
     Authenticator, basic_auth, get_authenticator, get_current_user,
-    get_session_info, is_admin, refresh_session_cookie_expiration)
+    get_session_info, is_admin, is_fresh, refresh_session_cookie_expiration)
 from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.user_session import SessionInfo
 from ouranos.web_server.validate.auth import (
@@ -112,7 +112,7 @@ async def update_current_user_last_seen(
 
 
 @router.get("/refresh_session")
-async def refresh_session_cookie(
+async def get_fresh_session_cookie(
         response: Response,
         session_info: Annotated[SessionInfo, Depends(get_session_info)],
         session: Annotated[AsyncSession, Depends(get_session)],
@@ -123,6 +123,21 @@ async def refresh_session_cookie(
         response.status_code = status.HTTP_204_NO_CONTENT
         return
     refresh_session_cookie_expiration(session_info, response)
+
+
+@router.post("/revoke_sessions", dependencies=[Depends(is_fresh)])
+async def revoke_session_token(
+        response: Response,
+        current_user: Annotated[UserMixin, Depends(get_current_user)],
+        session: Annotated[AsyncSession, Depends(get_session)],
+):
+    if current_user.is_anonymous:
+        # No session to revoke for an anonymous user
+        response.status_code = status.HTTP_401_UNAUTHORIZED
+        return
+    assert isinstance(current_user, User)
+    await current_user.revoke_session_token(session)
+    set_cookie(response, "", max_age=0, expires=0)
 
 
 @router.post("/register",
