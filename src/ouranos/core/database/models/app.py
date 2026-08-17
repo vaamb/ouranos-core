@@ -229,6 +229,8 @@ class User(Base, UserMixin):
     created_at: Mapped[datetime] = mapped_column(
         UtcDateTime, default=func.current_timestamp())
     confirmed_at: Mapped[Optional[datetime]] = mapped_column(UtcDateTime)
+    sessions_valid_from: Mapped[datetime] = mapped_column(
+        UtcDateTime, default=func.current_timestamp())
 
     # User information fields
     firstname: Mapped[Optional[str]] = mapped_column(sa.String(64))
