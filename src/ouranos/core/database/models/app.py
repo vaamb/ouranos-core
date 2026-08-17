@@ -739,15 +739,13 @@ class User(Base, UserMixin):
             raise ValueError("Invalid token user id")
         if user.confirmed_at is not None:
             raise RuntimeError("User is already confirmed")
-        stmt = (
-            update(cls)
-            .where(
-                (cls.id == payload["user_id"])
-                & (cls.active == True)
-            )
-            .values(confirmed_at=func.current_timestamp())
+        await cls.update(
+            session,
+            user_id=payload["user_id"],
+            values={
+                "confirmed_at": datetime.now(tz=timezone.utc),
+            }
         )
-        await session.execute(stmt)
 
     @classmethod
     async def reset_password(
