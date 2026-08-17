@@ -38,7 +38,7 @@ basic_auth = HTTPBasic()
 cookie_bearer_auth = HTTPCookieBearer()
 
 
-def set_cookie(
+def set_session_cookie(
         response: Response,
         value: str,
         max_age: int | None = None,
@@ -52,6 +52,10 @@ def set_cookie(
         secure=current_app.config["API_SECURE_COOKIES"],
         httponly=True,
     )
+
+
+def delete_session_cookie(response: Response) -> None:
+    set_session_cookie(response, "", max_age=0, expires=0)
 
 
 class Authenticator:
@@ -88,11 +92,11 @@ class Authenticator:
             # Use a session cookie
             expires = None
         session_cookie = session_info.to_token()
-        set_cookie(self.response, session_cookie, expires=expires)
+        set_session_cookie(self.response, session_cookie, expires=expires)
         return session_cookie
 
     def logout(self) -> None:
-        set_cookie(self.response, "", max_age=0, expires=0)
+        delete_session_cookie(self.response)
 
 
 def get_authenticator(response: Response) -> Authenticator:
@@ -109,7 +113,7 @@ def get_session_info(
     try:
         session_info = SessionInfo.from_token(token)
     except TokenError:
-        set_cookie(response, "", max_age=0, expires=0)
+        delete_session_cookie(response)
         return None
     else:
         return session_info
@@ -127,7 +131,7 @@ def refresh_session_cookie_expiration(
         # Keep a session cookie
         expires = None
     renewed_cookie = session_info.to_token()
-    set_cookie(response, renewed_cookie, expires=expires)
+    set_session_cookie(response, renewed_cookie, expires=expires)
 
 
 async def get_current_user(

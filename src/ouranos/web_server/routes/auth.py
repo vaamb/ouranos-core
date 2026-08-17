@@ -16,7 +16,7 @@ from ouranos.core.database.models.app import (
 from ouranos.core.exceptions import ExpiredTokenError, InvalidTokenError
 from ouranos.core.utils import Tokenizer
 from ouranos.web_server.auth import (
-    Authenticator, basic_auth, get_authenticator, get_current_user,
+    Authenticator, basic_auth, delete_session_cookie, get_authenticator, get_current_user,
     get_session_info, is_admin, is_fresh, refresh_session_cookie_expiration)
 from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.user_session import SessionInfo
@@ -137,7 +137,7 @@ async def revoke_session_token(
         return
     assert isinstance(current_user, User)
     await current_user.revoke_session_token(session)
-    set_cookie(response, "", max_age=0, expires=0)
+    delete_session_cookie(response)
 
 
 @router.post("/register",
