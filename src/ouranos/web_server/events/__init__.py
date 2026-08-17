@@ -11,11 +11,11 @@ from socketio.exceptions import ConnectionRefusedError
 
 from ouranos import current_app, db
 from ouranos.core.config.consts import LOGIN_NAME
-from ouranos.core.database.models.app import anonymous_user, Permission, User
+from ouranos.core.database.models.app import Permission, User
 from ouranos.core.database.models.gaia import Ecosystem
 from ouranos.core.exceptions import TokenError
 from ouranos.web_server.events.decorators import permission_required
-from ouranos.web_server.user_session import get_user, SessionInfo
+from ouranos.web_server.user_session import get_user_from_session_info, SessionInfo
 
 
 ADMIN_ROOM = "administrator"
@@ -77,7 +77,7 @@ class ClientEvents(AsyncNamespace):
         cookie = SimpleCookie(environ.get("HTTP_COOKIE", ""))
         session_cookie = cookie.get(LOGIN_NAME.COOKIE.value)
         if session_cookie is None:
-            await self.save_session(sid, {"user_id": anonymous_user.id})
+            await self.save_session(sid, {"session_info": None})
             return True  # anonymous users are allowed to connect
 
         try:
@@ -87,8 +87,9 @@ class ClientEvents(AsyncNamespace):
 
         # Get the user and save its ID to the session
         async with db.scoped_session() as session:
-            user = await get_user(session, session_info.user_id)
-        await self.save_session(sid, {"user_id": user.id})
+            user = await get_user_from_session_info(session, session_info)
+        session_info = session_info if user.is_authenticated else None
+        await self.save_session(sid, {"session_info": session_info})
         if user.can(Permission.ADMIN):
             await self.enter_room(sid, ADMIN_ROOM)
         return True
@@ -105,15 +106,17 @@ class ClientEvents(AsyncNamespace):
 
     async def on_user_heartbeat(self, sid, token: str | None = None):
         sio_session = await self.get_session(sid)
-        user_id = sio_session.get('user_id', None)
-        if user_id is None:
-            return
-        async with db.scoped_session() as session:
-            await User.update(
-                session,
-                user_id=user_id,
-                values={"last_seen": datetime.now(timezone.utc)}
-            )
+        session_info = sio_session.get("session_info", None)
+        async with db.scoped_session() as db_session:
+            user = await get_user_from_session_info(db_session, session_info)
+            if user.is_anonymous:
+                return
+            async with db.scoped_session() as session:
+                await User.update(
+                    session,
+                    user_id=user.id,
+                    values={"last_seen": datetime.now(timezone.utc)}
+                )
         await self.emit(
             "user_heartbeat_ack",
             to=sid,

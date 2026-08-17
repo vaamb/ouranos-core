@@ -80,3 +80,19 @@ async def get_user(
     if user is None or not user.active:
         return anonymous_user
     return user
+
+
+async def get_user_from_session_info(
+        db_session: AsyncSession,
+        session_info: SessionInfo | None,
+) -> UserMixin:
+    if session_info is None:
+        return anonymous_user
+    user = await get_user(db_session, session_info.user_id)
+    if user.is_anonymous:
+        return user
+    assert isinstance(user, User)
+    # Check that the token was emitted after the validation cutoff
+    if session_info.iat < user.sessions_valid_from:
+        return anonymous_user
+    return user

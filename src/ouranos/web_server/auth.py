@@ -9,12 +9,12 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos import current_app
-from ouranos.core.database.models.app import anonymous_user
 from ouranos.core.config.consts import LOGIN_NAME
 from ouranos.core.database.models.app import Permission, User, UserMixin
 from ouranos.core.exceptions import TokenError
 from ouranos.web_server.dependencies import get_session
-from ouranos.web_server.user_session import get_user, SessionInfo
+from ouranos.web_server.user_session import (
+    get_user, get_user_from_session_info, SessionInfo)
 
 
 class HTTPCredentials(BaseModel):
@@ -137,10 +137,7 @@ async def get_current_user(
         session_info: Optional[SessionInfo] = Depends(get_session_info),
         session: AsyncSession = Depends(get_session),
 ) -> UserMixin:
-    if session_info is None:
-        return anonymous_user
-    user_id = session_info.user_id
-    user = await get_user(session, user_id)
+    user = await get_user_from_session_info(session, session_info)
     return user
 
 
