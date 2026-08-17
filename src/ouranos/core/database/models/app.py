@@ -227,16 +227,17 @@ class User(Base, UserMixin):
     # User account info fields
     active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(
-        UtcDateTime, default=func.current_timestamp())
+        UtcDateTime, default=func.current_timestamp(), server_default=func.current_timestamp())
     confirmed_at: Mapped[Optional[datetime]] = mapped_column(UtcDateTime)
     sessions_valid_from: Mapped[datetime] = mapped_column(
-        UtcDateTime, default=func.current_timestamp())
+        UtcDateTime, default=func.current_timestamp(), server_default=func.current_timestamp())
 
     # User information fields
     firstname: Mapped[Optional[str]] = mapped_column(sa.String(64))
     lastname: Mapped[Optional[str]] = mapped_column(sa.String(64))
     last_seen: Mapped[datetime] = mapped_column(
-        UtcDateTime, default=func.current_timestamp(), onupdate=func.current_timestamp())
+        UtcDateTime, default=func.current_timestamp(), server_default=func.current_timestamp(),
+        onupdate=func.current_timestamp())
 
     # User notifications / services fields
     daily_recap: Mapped[bool] = mapped_column(default=False)
