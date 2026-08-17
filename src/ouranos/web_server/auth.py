@@ -15,35 +15,13 @@ from ouranos.core.config.consts import (
     LOGIN_NAME, SESSION_FRESHNESS, SESSION_TOKEN_VALIDITY)
 from ouranos.core.database.models.app import (
     anonymous_user, Permission, User, UserMixin)
-from ouranos.core.exceptions import (
-    ExpiredTokenError, InvalidTokenError, TokenError)
+from ouranos.core.exceptions import TokenError
 from ouranos.core.utils import Tokenizer
 from ouranos.web_server.dependencies import get_session
 
 
 def create_session_id() -> str:
     return token_urlsafe(32)
-
-
-def check_token(invitation_token: str, token_sub: str) -> dict:
-    try:
-        payload = Tokenizer.loads(invitation_token)
-        if (
-                payload.get("sub") != token_sub
-                or not payload.get("exp")
-        ):
-            raise InvalidTokenError
-        return payload
-    except ExpiredTokenError:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Expired token"
-        )
-    except InvalidTokenError:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Invalid token"
-        )
 
 
 class HTTPCredentials(BaseModel):

@@ -13,8 +13,10 @@ from gaia_validators import safe_enum_from_name
 from ouranos.core.config.consts import REGISTRATION_TOKEN_VALIDITY, TOKEN_SUBS
 from ouranos.core.database.models.app import (
     RoleName, User, UserMixin, UserTokenInfoDict)
+from ouranos.core.exceptions import ExpiredTokenError, InvalidTokenError
+from ouranos.core.utils import Tokenizer
 from ouranos.web_server.auth import (
-    Authenticator, basic_auth, check_token, get_current_user, get_session_info,
+    Authenticator, basic_auth, get_current_user, get_session_info,
     is_admin, login_manager, refresh_session_cookie_expiration, SessionInfo)
 from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.validate.auth import (
@@ -27,6 +29,27 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
     tags=["auth"],
 )
+
+
+def check_token(invitation_token: str, token_sub: str) -> dict:
+    try:
+        payload = Tokenizer.loads(invitation_token)
+        if (
+                payload.get("sub") != token_sub
+                or not payload.get("exp")
+        ):
+            raise InvalidTokenError
+        return payload
+    except ExpiredTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Expired token"
+        )
+    except InvalidTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Invalid token"
+        )
 
 
 @router.get("/login", response_model=LoginInfo)
