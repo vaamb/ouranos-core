@@ -119,19 +119,34 @@ def get_session_info(
         return session_info
 
 
-def refresh_session_cookie_expiration(
+def _reissue_session_cookie(
         session_info: SessionInfo,
         response: Response,
 ) -> None:
-    session_info.refresh_exp()
+    # Get the expiration date so the refreshed token has the correct expiration date
     if session_info.remember:
-        # Refresh the cookie expiration date
         expires = session_info.exp
     else:
         # Keep a session cookie
         expires = None
-    renewed_cookie = session_info.to_token()
-    set_session_cookie(response, renewed_cookie, expires=expires)
+    extended_cookie = session_info.to_token()
+    set_session_cookie(response, extended_cookie, expires=expires)
+
+
+def extend_session_cookie(
+        session_info: SessionInfo,
+        response: Response,
+) -> None:
+    session_info.refresh_exp()
+    _reissue_session_cookie(session_info, response)
+
+
+def refresh_session_cookie(
+        session_info: SessionInfo,
+        response: Response,
+) -> None:
+    session_info.refresh_iat()
+    _reissue_session_cookie(session_info, response)
 
 
 async def get_current_user(
@@ -168,7 +183,7 @@ async def is_admin(current_user: UserMixin = Depends(get_current_user)) -> bool:
     return await user_can(current_user, Permission.ADMIN)
 
 
-async def is_fresh(session_info: Optional[SessionInfo] = Depends(get_session_info)) -> bool:
+async def is_fresh(session_info: Optional[SessionInfo] = Depends(get_session_info)) -> None:
     if session_info is None or not session_info.is_fresh:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

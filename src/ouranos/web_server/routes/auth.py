@@ -17,7 +17,8 @@ from ouranos.core.exceptions import ExpiredTokenError, InvalidTokenError
 from ouranos.core.utils import Tokenizer
 from ouranos.web_server.auth import (
     Authenticator, basic_auth, delete_session_cookie, extend_session_cookie,
-    get_authenticator, get_current_user, get_session_info, is_admin, is_fresh)
+    get_authenticator, get_current_user, get_session_info, is_admin, is_fresh,
+    refresh_session_cookie)
 from ouranos.web_server.dependencies import get_session
 from ouranos.web_server.user_session import get_user_from_session_info, SessionInfo
 from ouranos.web_server.validate.auth import (
@@ -67,12 +68,43 @@ async def login(
     username = credentials.username
     password = credentials.password
     user = await authenticator.authenticate(session, username, password)
-    token = authenticator.login(user, remember)
+    token = authenticator.login(user, remember or False)
     return {
         "msg": "You are logged in",
         "user": user,
         "session_token": token,
     }
+
+
+@router.get("/refresh_session")
+async def refresh_session(
+        *,
+        response: Response,
+        session_info: Annotated[SessionInfo | None, Depends(get_session_info)],
+        authenticator: Annotated[Authenticator, Depends(get_authenticator)],
+        credentials: Annotated[HTTPBasicCredentials, Depends(basic_auth)],
+        session: Annotated[AsyncSession, Depends(get_session)],
+):
+    current_user = await get_user_from_session_info(session, session_info)
+
+    if current_user.is_anonymous:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="You must be logged in to reauthenticate.",
+        )
+
+    username = credentials.username
+    password = credentials.password
+    user = await authenticator.authenticate(session, username, password)
+
+    if current_user.id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="The credentials provided don't belong to the current user",
+        )
+
+    assert session_info is not None
+    refresh_session_cookie(session_info, response)
 
 
 @router.get("/logout")
