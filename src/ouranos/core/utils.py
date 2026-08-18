@@ -231,3 +231,7 @@ def parse_str_value(value: str) -> int | float | bool | str:
     if value.lower() == "false":
         return False
     return value
+
+
+def utc_now_second() -> datetime:
+    return datetime.now(tz=timezone.utc).replace(microsecond=0)

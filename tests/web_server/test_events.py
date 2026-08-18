@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict, deque
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import pytest
@@ -64,7 +64,7 @@ class MockSioServer:
 
 
 def make_token(user_id: int) -> str:
-    return SessionInfo(id="session_id", user_id=user_id, remember=True).to_token()
+    return SessionInfo(user_id=user_id, remember=True).to_token()
 
 
 @pytest.fixture(scope="function")
@@ -134,7 +134,7 @@ class TestClientConnect(UsersAware):
 
         assert result is True
         session = await mock_server.get_session(SID)
-        assert session["user_id"] == anonymous_user.id
+        assert session["session_info"] is None
         assert ADMIN_ROOM not in mock_server.rooms[SID]
 
     async def test_on_connect_invalid_token(
@@ -172,7 +172,7 @@ class TestClientConnect(UsersAware):
 
         assert result is True
         session = await mock_server.get_session(SID)
-        assert session["user_id"] == admin.id
+        assert session["session_info"].user_id == admin.id
         assert ADMIN_ROOM in mock_server.rooms[SID]
 
     async def test_on_connect_non_admin(
@@ -192,7 +192,30 @@ class TestClientConnect(UsersAware):
 
         assert result is True
         session = await mock_server.get_session(SID)
-        assert session["user_id"] == user.id
+        assert session["session_info"].user_id == user.id
+        assert ADMIN_ROOM not in mock_server.rooms[SID]
+
+    async def test_on_connect_revoked_session(
+            self,
+            client_events: ClientEvents,
+            mock_server: MockSioServer,
+            db: AsyncSQLAlchemyWrapper,
+    ):
+        """Test that a session issued before the user's cutoff doesn't connect.
+        """
+        token = make_token(operator.id)
+        async with db.scoped_session() as session:
+            await User.update(
+                session,
+                user_id=operator.id,
+                values={
+                    "sessions_valid_from": datetime.now(timezone.utc) + timedelta(hours=1),
+                },
+            )
+
+        result = await client_events.on_connect(SID, self._make_environ(token))
+
+        assert result is False
         assert ADMIN_ROOM not in mock_server.rooms[SID]
 
     async def test_on_connect_matching_contract(
@@ -211,7 +234,7 @@ class TestClientConnect(UsersAware):
 
         assert result is True
         session = await mock_server.get_session(SID)
-        assert session["user_id"] == anonymous_user.id
+        assert session["session_info"] is None
 
     async def test_on_connect_missing_contract_allowed(
             self,
@@ -288,7 +311,7 @@ class TestClientAuthEvents(UsersAware):
             await User.update(session, user_id=user.id, values={"last_seen": old})
 
         # Anonymous users don't update user last_seen field
-        await client_events.server.save_session(SID, {"user_id": anonymous_user.id})
+        await client_events.server.save_session(SID, {"session_info": None})
         await client_events.on_user_heartbeat(SID)
         assert len(mock_server.emit_store) == 0
         async with db.scoped_session() as session:
@@ -297,7 +320,8 @@ class TestClientAuthEvents(UsersAware):
         assert db_user.last_seen == old
 
         # Users should only update their own last_seen field
-        await client_events.server.save_session(SID, {"user_id": operator.id})
+        await client_events.server.save_session(
+            SID, {"session_info": SessionInfo(user_id=operator.id)})
         await client_events.on_user_heartbeat(SID)
         # A 'user_heartbeat_ack' event should be sent ...
         assert len(mock_server.emit_store) == 1
@@ -308,7 +332,8 @@ class TestClientAuthEvents(UsersAware):
         assert db_user.last_seen == old
 
         # User should update their last_seen field
-        await client_events.server.save_session(SID, {"user_id": user.id})
+        await client_events.server.save_session(
+            SID, {"session_info": SessionInfo(user_id=user.id)})
         await client_events.on_user_heartbeat(SID)
 
         emitted = mock_server.emit_store[-1]
@@ -439,19 +464,21 @@ class TestClientEcosystemCommands(EcosystemAware, UsersAware):
         }
 
         # Anonymous users aren't allowed to turn actuators
-        await client_events.server.save_session(SID, {"user_id": anonymous_user.id})
+        await client_events.server.save_session(SID, {"session_info": None})
         with pytest.raises(NotAuthorized):
            await client_events.on_turn_light(SID, data)
         assert len(ouranos_dispatcher.emit_store) == 0
 
         # Regular users aren't allowed to turn actuators
-        await client_events.server.save_session(SID, {"user_id": user.id})
+        await client_events.server.save_session(
+            SID, {"session_info": SessionInfo(user_id=user.id)})
         with pytest.raises(NotAuthorized):
             await client_events.on_turn_light(SID, data)
         assert len(ouranos_dispatcher.emit_store) == 0
 
         # Operator can turn actuators
-        await client_events.server.save_session(SID, {"user_id": operator.id})
+        await client_events.server.save_session(
+            SID, {"session_info": SessionInfo(user_id=operator.id)})
         await client_events.on_turn_light(SID, data)
 
         assert len(ouranos_dispatcher.emit_store) == 1
@@ -483,19 +510,21 @@ class TestClientEcosystemCommands(EcosystemAware, UsersAware):
         }
 
         # Anonymous users aren't allowed to manage ecosystems
-        await client_events.server.save_session(SID, {"user_id": anonymous_user.id})
+        await client_events.server.save_session(SID, {"session_info": None})
         with pytest.raises(NotAuthorized):
            await client_events.on_manage_ecosystem(SID, data)
         assert len(ouranos_dispatcher.emit_store) == 0
 
         # Regular users aren't allowed to manage ecosystems
-        await client_events.server.save_session(SID, {"user_id": user.id})
+        await client_events.server.save_session(
+            SID, {"session_info": SessionInfo(user_id=user.id)})
         with pytest.raises(NotAuthorized):
             await client_events.on_manage_ecosystem(SID, data)
         assert len(ouranos_dispatcher.emit_store) == 0
 
         # Operator can turn actuators
-        await client_events.server.save_session(SID, {"user_id": operator.id})
+        await client_events.server.save_session(
+            SID, {"session_info": SessionInfo(user_id=operator.id)})
         await client_events.on_manage_ecosystem(SID, data)
 
         assert len(ouranos_dispatcher.emit_store) == 1
@@ -506,3 +535,37 @@ class TestClientEcosystemCommands(EcosystemAware, UsersAware):
         assert emitted["data"]["status"] is True
         assert emitted["namespace"] == "aggregator-internal"
         assert emitted["room"] == g_data.engine_sid
+
+    async def test_command_after_session_revocation(
+            self,
+            client_events: ClientEvents,
+            ouranos_dispatcher: MockAsyncDispatcher,
+            db: AsyncSQLAlchemyWrapper,
+    ):
+        """Test that revoking a session strips an already-connected client of
+        its rights.
+        """
+        data = {
+            "ecosystem": g_data.ecosystem_uid,
+            "mode": "automatic",
+            "countdown": 0,
+        }
+        session_info = SessionInfo(user_id=admin.id)
+        await client_events.server.save_session(SID, {"session_info": session_info})
+
+        # The admin may turn actuators ...
+        await client_events.on_turn_light(SID, data)
+        assert len(ouranos_dispatcher.emit_store) == 1
+
+        # ... until its session is invalidated, without the stored session ever
+        #  being touched
+        async with db.scoped_session() as session:
+            await User.update(
+                session,
+                user_id=admin.id,
+                values={"sessions_valid_from": session_info.iat + timedelta(seconds=1)},
+            )
+
+        with pytest.raises(NotAuthorized):
+            await client_events.on_turn_light(SID, data)
+        assert len(ouranos_dispatcher.emit_store) == 1

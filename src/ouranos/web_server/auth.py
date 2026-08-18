@@ -1,49 +1,21 @@
 # Strange bug: cannot use future annotations, somehow it enters in conflict with
 #  FastAPI (via pydantic ?)
-from datetime import datetime, timedelta, timezone
-from secrets import token_urlsafe
-from typing import Awaitable, Callable, cast, Optional, Self, Union
+from datetime import datetime
+from typing import cast, Optional
 
 from fastapi import Depends, HTTPException, Request, Response, status
 from fastapi.security.http import HTTPBasic, HTTPBearer
 from fastapi.security.utils import get_authorization_scheme_param
-from pydantic import BaseModel, ValidationError, Field
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos import current_app
-from ouranos.core.config.consts import (
-    LOGIN_NAME, SESSION_FRESHNESS, SESSION_TOKEN_VALIDITY)
-from ouranos.core.database.models.app import (
-    anonymous_user, Permission, User, UserMixin)
-from ouranos.core.exceptions import (
-    ExpiredTokenError, InvalidTokenError, TokenError)
-from ouranos.core.utils import Tokenizer
+from ouranos.core.config.consts import LOGIN_NAME
+from ouranos.core.database.models.app import Permission, User, UserMixin
+from ouranos.core.exceptions import TokenError
 from ouranos.web_server.dependencies import get_session
-
-
-def create_session_id() -> str:
-    return token_urlsafe(32)
-
-
-def check_token(invitation_token: str, token_sub: str) -> dict:
-    try:
-        payload = Tokenizer.loads(invitation_token)
-        if (
-                payload.get("sub") != token_sub
-                or not payload.get("exp")
-        ):
-            raise InvalidTokenError
-        return payload
-    except ExpiredTokenError:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Expired token"
-        )
-    except InvalidTokenError:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Invalid token"
-        )
+from ouranos.web_server.user_session import (
+    get_user, get_user_from_session_info, SessionInfo)
 
 
 class HTTPCredentials(BaseModel):
@@ -66,66 +38,33 @@ basic_auth = HTTPBasic()
 cookie_bearer_auth = HTTPCookieBearer()
 
 
-def _now() -> datetime:
-    return datetime.now(timezone.utc).replace(microsecond=0)
+def set_session_cookie(
+        response: Response,
+        value: str,
+        max_age: int | None = None,
+        expires: datetime | str | int | None = None,
+) -> None:
+    response.set_cookie(
+        LOGIN_NAME.COOKIE.value,
+        value,
+        max_age=max_age,
+        expires=expires,
+        secure=current_app.config["API_SECURE_COOKIES"],
+        httponly=True,
+    )
 
 
-def _get_exp_dt() -> datetime:
-    return _now() + timedelta(seconds=SESSION_TOKEN_VALIDITY)
-
-
-class SessionInfo(BaseModel):
-    id: str
-    user_id: int
-    iat: datetime = Field(default_factory=_now)
-    exp: datetime = Field(default_factory=_get_exp_dt)
-    remember: bool = False
-
-    @property
-    def is_fresh(self) -> bool:
-        time_limit = (
-            datetime.now(timezone.utc).replace(microsecond=0)
-            - timedelta(seconds=SESSION_FRESHNESS)
-        )
-        return self.iat > time_limit
-
-    def refresh_iat(self) -> None:
-        self.iat = _now()
-
-    def refresh_exp(self) -> None:
-        self.exp = _get_exp_dt()
-
-    def to_dict(self) -> dict:
-        return {
-            "id": self.id,
-            "user_id": self.user_id,
-            "iat": self.iat,
-            "exp": self.exp,
-            "remember": self.remember is True,
-        }
-
-    def to_token(self) -> str:
-        return Tokenizer.dumps(self.to_dict())
-
-    @classmethod
-    def from_token(
-            cls,
-            token: str,
-    ) -> Self:
-        return cls(**Tokenizer.loads(token))
+def delete_session_cookie(response: Response) -> None:
+    set_session_cookie(response, "", max_age=0, expires=0)
 
 
 class Authenticator:
-    __slots__ = "login_manager", "request", "response"
+    __slots__ = ("response", )
 
     def __init__(
             self,
-            login_manager: "LoginManager",
-            request: Request,
             response: Response
     ):
-        self.login_manager = login_manager
-        self.request: Request = request
         self.response: Response = response
 
     async def authenticate(
@@ -134,7 +73,7 @@ class Authenticator:
             username: str,
             password: str,
     ) -> User:
-        user = await self.login_manager.get_user(session, user_id=username)
+        user = await get_user(session, username)
         if not user.check_password(password):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -145,8 +84,7 @@ class Authenticator:
         return user
 
     def login(self, user: User, remember: bool) -> str:
-        session_id = create_session_id()
-        session_info = SessionInfo(id=session_id, user_id=user.id, remember=remember)
+        session_info = SessionInfo(user_id=user.id, remember=remember)
         if session_info.remember:
             # Set a cookie expiration date
             expires = session_info.exp
@@ -154,73 +92,15 @@ class Authenticator:
             # Use a session cookie
             expires = None
         session_cookie = session_info.to_token()
-        self.response.set_cookie(
-            LOGIN_NAME.COOKIE.value,
-            session_cookie,
-            expires=expires,
-            secure=current_app.config["API_SECURE_COOKIES"],
-            httponly=True,
-        )
+        set_session_cookie(self.response, session_cookie, expires=expires)
         return session_cookie
 
     def logout(self) -> None:
-        self.response.delete_cookie(
-            LOGIN_NAME.COOKIE.value,
-            secure=current_app.config["API_SECURE_COOKIES"],
-            httponly=True,
-        )
+        delete_session_cookie(self.response)
 
 
-class LoginManager:
-    def __init__(self):
-        self._user_callback = None
-
-    def get_authenticator(
-            self,
-            request: Request,
-            response: Response,
-    ) -> Authenticator:
-        return Authenticator(self, request, response)
-
-    def user_loader(
-            self,
-            callback: Callable[[AsyncSession, Union[int, str]], Awaitable[UserMixin]]
-    ) -> None:
-        self._user_callback = callback
-
-    def get_user(self, session: AsyncSession, user_id: Union[int, str]) -> Awaitable[UserMixin]:
-        if self._user_callback:
-            return self._user_callback(session, user_id)
-        raise NotImplementedError(
-            "Set your user_loader call back using `@login_manager.user_loader`"
-        )
-
-
-login_manager = LoginManager()
-
-
-@login_manager.user_loader
-async def load_user(
-        session: AsyncSession,
-        user_id: Optional[Union[int]]
-) -> UserMixin:
-    if user_id is None:
-        return anonymous_user
-    if isinstance(user_id, int):
-        user = await User.get(session, user_id)
-    else:
-        user = await User.get_by(session, username=user_id)
-    if user is None or not user.active:
-        return anonymous_user
-    return user
-
-
-def load_session_info(token: str) -> SessionInfo:
-    try:
-        session_info = SessionInfo.from_token(token)
-    except ValidationError:
-        raise TokenError
-    return session_info
+def get_authenticator(response: Response) -> Authenticator:
+    return Authenticator(response)
 
 
 def get_session_info(
@@ -231,47 +111,49 @@ def get_session_info(
     if token is None:
         return None
     try:
-        session_info = load_session_info(token)
+        session_info = SessionInfo.from_token(token)
     except TokenError:
-        response.delete_cookie(
-            LOGIN_NAME.COOKIE.value,
-            secure=current_app.config["API_SECURE_COOKIES"],
-            httponly=True,
-        )
+        delete_session_cookie(response)
         return None
     else:
         return session_info
 
 
-def refresh_session_cookie_expiration(
+def _reissue_session_cookie(
         session_info: SessionInfo,
         response: Response,
 ) -> None:
-    session_info.refresh_exp()
+    # Get the expiration date so the refreshed token has the correct expiration date
     if session_info.remember:
-        # Refresh the cookie expiration date
         expires = session_info.exp
     else:
         # Keep a session cookie
         expires = None
-    renewed_cookie = session_info.to_token()
-    response.set_cookie(
-        LOGIN_NAME.COOKIE.value,
-        renewed_cookie,
-        expires=expires,
-        secure=current_app.config["API_SECURE_COOKIES"],
-        httponly=True,
-    )
+    extended_cookie = session_info.to_token()
+    set_session_cookie(response, extended_cookie, expires=expires)
+
+
+def extend_session_cookie(
+        session_info: SessionInfo,
+        response: Response,
+) -> None:
+    session_info.refresh_exp()
+    _reissue_session_cookie(session_info, response)
+
+
+def refresh_session_cookie(
+        session_info: SessionInfo,
+        response: Response,
+) -> None:
+    session_info.refresh_iat()
+    _reissue_session_cookie(session_info, response)
 
 
 async def get_current_user(
         session_info: Optional[SessionInfo] = Depends(get_session_info),
         session: AsyncSession = Depends(get_session),
 ) -> UserMixin:
-    if session_info is None:
-        return anonymous_user
-    user_id = session_info.user_id
-    user = await login_manager.get_user(session, user_id)
+    user = await get_user_from_session_info(session, session_info)
     return user
 
 
@@ -301,5 +183,9 @@ async def is_admin(current_user: UserMixin = Depends(get_current_user)) -> bool:
     return await user_can(current_user, Permission.ADMIN)
 
 
-async def is_fresh(session_info: SessionInfo = Depends(get_session_info)) -> bool:
-    return session_info.is_fresh
+async def is_fresh(session_info: Optional[SessionInfo] = Depends(get_session_info)) -> None:
+    if session_info is None or not session_info.is_fresh:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="This requires a fresh session.",
+        )

@@ -13,10 +13,14 @@ from gaia_validators import safe_enum_from_name
 from ouranos.core.config.consts import REGISTRATION_TOKEN_VALIDITY, TOKEN_SUBS
 from ouranos.core.database.models.app import (
     RoleName, User, UserMixin, UserTokenInfoDict)
+from ouranos.core.exceptions import ExpiredTokenError, InvalidTokenError
+from ouranos.core.utils import Tokenizer
 from ouranos.web_server.auth import (
-    Authenticator, basic_auth, check_token, get_current_user, get_session_info,
-    is_admin, login_manager, refresh_session_cookie_expiration, SessionInfo)
+    Authenticator, basic_auth, delete_session_cookie, extend_session_cookie,
+    get_authenticator, get_current_user, get_session_info, is_admin, is_fresh,
+    refresh_session_cookie)
 from ouranos.web_server.dependencies import get_session
+from ouranos.web_server.user_session import get_user_from_session_info, SessionInfo
 from ouranos.web_server.validate.auth import (
     LoginInfo, UserCreationPayload, UserInvitationPayload,
     UserPasswordUpdatePayload, UserInfo)
@@ -29,6 +33,27 @@ router = APIRouter(
 )
 
 
+def check_token(invitation_token: str, token_sub: str) -> dict:
+    try:
+        payload = Tokenizer.loads(invitation_token)
+        if (
+                payload.get("sub") != token_sub
+                or not payload.get("exp")
+        ):
+            raise InvalidTokenError
+        return payload
+    except ExpiredTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Expired token"
+        )
+    except InvalidTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Invalid token"
+        )
+
+
 @router.get("/login", response_model=LoginInfo)
 async def login(
         *,
@@ -36,17 +61,14 @@ async def login(
             bool | None,
             Query(description="Remember the session"),
         ] = False,
-        authenticator: Annotated[
-            Authenticator,
-            Depends(login_manager.get_authenticator),
-        ],
+        authenticator: Annotated[Authenticator, Depends(get_authenticator)],
         credentials: Annotated[HTTPBasicCredentials, Depends(basic_auth)],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     username = credentials.username
     password = credentials.password
     user = await authenticator.authenticate(session, username, password)
-    token = authenticator.login(user, remember)
+    token = authenticator.login(user, remember or False)
     return {
         "msg": "You are logged in",
         "user": user,
@@ -54,9 +76,40 @@ async def login(
     }
 
 
+@router.get("/refresh_session")
+async def refresh_session(
+        *,
+        response: Response,
+        session_info: Annotated[SessionInfo | None, Depends(get_session_info)],
+        authenticator: Annotated[Authenticator, Depends(get_authenticator)],
+        credentials: Annotated[HTTPBasicCredentials, Depends(basic_auth)],
+        session: Annotated[AsyncSession, Depends(get_session)],
+):
+    current_user = await get_user_from_session_info(session, session_info)
+
+    if current_user.is_anonymous:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="You must be logged in to reauthenticate.",
+        )
+
+    username = credentials.username
+    password = credentials.password
+    user = await authenticator.authenticate(session, username, password)
+
+    if current_user.id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="The credentials provided don't belong to the current user",
+        )
+
+    assert session_info is not None
+    refresh_session_cookie(session_info, response)
+
+
 @router.get("/logout")
 async def logout(
-        authenticator: Annotated[Authenticator, Depends(login_manager.get_authenticator)],
+        authenticator: Annotated[Authenticator, Depends(get_authenticator)],
         current_user: Annotated[UserMixin, Depends(get_current_user)],
 ):
     if current_user.is_anonymous:
@@ -90,18 +143,35 @@ async def update_current_user_last_seen(
     )
 
 
-@router.get("/refresh_session")
-async def refresh_session_cookie(
+@router.get("/extend_session")
+async def extend_session(
         response: Response,
-        session_info: Annotated[SessionInfo, Depends(get_session_info)],
+        session_info: Annotated[SessionInfo | None, Depends(get_session_info)],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    current_user = await get_current_user(session_info, session)
+    current_user = await get_user_from_session_info(session, session_info)
     if current_user.is_anonymous:
         # No session to refresh for an anonymous user
         response.status_code = status.HTTP_204_NO_CONTENT
         return
-    refresh_session_cookie_expiration(session_info, response)
+
+    assert session_info is not None
+    extend_session_cookie(session_info, response)
+
+
+@router.post("/revoke_sessions", dependencies=[Depends(is_fresh)])
+async def revoke_session_token(
+        response: Response,
+        current_user: Annotated[UserMixin, Depends(get_current_user)],
+        session: Annotated[AsyncSession, Depends(get_session)],
+):
+    if current_user.is_anonymous:
+        # No session to revoke for an anonymous user
+        response.status_code = status.HTTP_401_UNAUTHORIZED
+        return
+    assert isinstance(current_user, User)
+    await current_user.revoke_session_token(session)
+    delete_session_cookie(response)
 
 
 @router.post("/register",
@@ -124,7 +194,7 @@ async def register_new_user(
                             "Default to False."
             ),
         ] = False,
-        authenticator: Annotated[Authenticator, Depends(login_manager.get_authenticator)],
+        authenticator: Annotated[Authenticator, Depends(get_authenticator)],
         current_user: Annotated[UserMixin, Depends(get_current_user)],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
@@ -179,7 +249,7 @@ async def confirm_account(
     check_token(token, TOKEN_SUBS.CONFIRMATION.value)
     try:
         await User.confirm(session, token)
-    except ValueError as e:
+    except (ValueError, RuntimeError) as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)

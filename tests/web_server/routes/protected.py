@@ -100,7 +100,7 @@ class TestInactiveUserProtection(UsersAware):
             db: AsyncSQLAlchemyWrapper,
             client_operator: TestClient,
     ):
-        # A deactivated account is demoted to anonymous by `load_user`, so a
+        # A deactivated account is demoted to anonymous by `get_user`, so a
         # valid session no longer grants access to a protected resource
         async with db.scoped_session() as session:
             await User.update(

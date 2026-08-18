@@ -6,7 +6,7 @@ import enum
 from enum import IntEnum, IntFlag, StrEnum
 import re
 import typing as t
-from typing import NamedTuple, Optional, Self, Sequence, TypedDict
+from typing import Optional, Self, Sequence, TypedDict
 
 from anyio import Path as ioPath
 from argon2 import PasswordHasher
@@ -31,7 +31,7 @@ from ouranos.core.database.models import caches
 from ouranos.core.database.models.types import PathType, SQLIntEnum, UtcDateTime
 from ouranos.core.database.models.utils import paginate
 from ouranos.core.email import send_gaia_templated_email
-from ouranos.core.utils import check_filename, slugify, Tokenizer
+from ouranos.core.utils import check_filename, slugify, Tokenizer, utc_now_second
 
 
 argon2_hasher = PasswordHasher()
@@ -227,14 +227,18 @@ class User(Base, UserMixin):
     # User account info fields
     active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(
-        UtcDateTime, default=func.current_timestamp())
+        UtcDateTime, default=func.current_timestamp(), server_default=func.current_timestamp())
     confirmed_at: Mapped[Optional[datetime]] = mapped_column(UtcDateTime)
+    # sessions token are truncated to the second
+    sessions_valid_from: Mapped[datetime] = mapped_column(
+        UtcDateTime, default=utc_now_second, server_default=func.current_timestamp())
 
     # User information fields
     firstname: Mapped[Optional[str]] = mapped_column(sa.String(64))
     lastname: Mapped[Optional[str]] = mapped_column(sa.String(64))
     last_seen: Mapped[datetime] = mapped_column(
-        UtcDateTime, default=func.current_timestamp(), onupdate=func.current_timestamp())
+        UtcDateTime, default=func.current_timestamp(), server_default=func.current_timestamp(),
+        onupdate=func.current_timestamp())
 
     # User notifications / services fields
     daily_recap: Mapped[bool] = mapped_column(default=False)
@@ -438,6 +442,14 @@ class User(Base, UserMixin):
                 timedelta(seconds=expiration_delay), minimum_unit="hours",
                 format="%0.0f"),
             username=self.username,
+        )
+
+    async def revoke_session_token(self, session: AsyncSession) -> None:
+        await self.update(
+            session,
+            user_id=self.id,
+            # session tokens are truncated to the second
+            values={"sessions_valid_from": utc_now_second()},
         )
 
     # ---------------------------------------------------------------------------
@@ -694,7 +706,11 @@ class User(Base, UserMixin):
         stmt = (
             update(cls)
             .where(cls.id == user_id)
-            .values({"active": False})
+            .values({
+                "active": False,
+                # session tokens are truncated to the second
+                "sessions_valid_from": utc_now_second(),
+            })
         )
         await session.execute(stmt)
 
@@ -728,15 +744,15 @@ class User(Base, UserMixin):
             raise ValueError("Invalid token user id")
         if user.confirmed_at is not None:
             raise RuntimeError("User is already confirmed")
-        stmt = (
-            update(cls)
-            .where(
-                (cls.id == payload["user_id"])
-                & (cls.active == True)
-            )
-            .values(confirmed_at=func.current_timestamp())
+        if not user.active:
+            raise RuntimeError("User is not active")
+        await cls.update(
+            session,
+            user_id=payload["user_id"],
+            values={
+                "confirmed_at": datetime.now(tz=timezone.utc),
+            }
         )
-        await session.execute(stmt)
 
     @classmethod
     async def reset_password(
@@ -751,7 +767,15 @@ class User(Base, UserMixin):
         user = await cls.get(session, payload["user_id"])
         if user is None:
             raise ValueError("Invalid token user id")
-        await cls.update(session, payload["user_id"], {"password": new_password})
+        await cls.update(
+            session,
+            user_id=payload["user_id"],
+            values={
+                "password": new_password,
+                # session tokens are truncated to the second
+                "sessions_valid_from": utc_now_second(),
+            },
+        )
 
 
 class ServiceLevel(StrEnum):
