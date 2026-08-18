@@ -452,7 +452,7 @@ class User(Base, UserMixin):
         await self.update(
             session,
             user_id=self.id,
-            # sessions token are truncated to the second
+            # session tokens are truncated to the second
             values={"sessions_valid_from": utc_now_second()},
         )
 
@@ -710,7 +710,11 @@ class User(Base, UserMixin):
         stmt = (
             update(cls)
             .where(cls.id == user_id)
-            .values({"active": False})
+            .values({
+                "active": False,
+                # session tokens are truncated to the second
+                "sessions_valid_from": utc_now_second(),
+            })
         )
         await session.execute(stmt)
 
@@ -772,7 +776,7 @@ class User(Base, UserMixin):
             user_id=payload["user_id"],
             values={
                 "password": new_password,
-                # sessions token are truncated to the second
+                # session tokens are truncated to the second
                 "sessions_valid_from": utc_now_second(),
             },
         )
