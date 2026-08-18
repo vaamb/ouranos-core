@@ -215,7 +215,7 @@ async def confirm_account(
     check_token(token, TOKEN_SUBS.CONFIRMATION.value)
     try:
         await User.confirm(session, token)
-    except ValueError as e:
+    except (ValueError, RuntimeError) as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
