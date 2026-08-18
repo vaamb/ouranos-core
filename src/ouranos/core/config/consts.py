@@ -7,7 +7,7 @@ START_TIME = datetime.now(timezone.utc).replace(microsecond=0)
 
 # Contracts
 GAIA_CONTRACT = 1
-REST_CONTRACT = 1
+REST_CONTRACT = 2
 SOCKETIO_CONTRACT = 1
 
 # Timeout
