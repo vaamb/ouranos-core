@@ -1,8 +1,8 @@
 from .routes.app import TestApp
 from .routes.auth import (
-    TestCurrentUser, TestExtendSession, TestLogin, TestRegister,
-    TestRegistrationToken, TestRevokeSessions, TestUserConfirmation,
-    TestUserResetPassword)
+    TestCurrentUser, TestExtendSession, TestLogin, TestRefreshSession,
+    TestRegister, TestRegistrationToken, TestRevokeSessions,
+    TestUserConfirmation, TestUserResetPassword)
 from .routes.calendar import (
     TestCalendar, TestEventCreation, TestEventDeletion, TestEventUpdate)
 from .routes.ecosystem import (

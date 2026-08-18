@@ -119,6 +119,81 @@ class TestExtendSession(UsersAware):
 
 
 @pytest.mark.asyncio
+class TestRefreshSession(UsersAware):
+    """`/auth/refresh_session` re-issues the cookie with a new "iat"."""
+
+    @staticmethod
+    async def stale_cookie(
+            db: AsyncSQLAlchemyWrapper,
+            client: TestClient,
+    ) -> SessionInfo:
+        stale_iat = utc_now_second() - timedelta(seconds=SESSION_FRESHNESS + 60)
+        async with db.scoped_session() as session:
+            await User.update(
+                session,
+                user_id=admin.id,
+                values={"sessions_valid_from": stale_iat - timedelta(hours=1)},
+            )
+        stale = SessionInfo(user_id=admin.id, iat=stale_iat, remember=True)
+        assert not stale.is_fresh
+
+        client.cookies = session_cookie(stale)
+        return stale
+
+    def test_refresh_session_failure_anonymous(self, client: TestClient):
+        # There is no session to refresh, and no cookie to prove who the caller is
+        response = client.get(
+            "/api/auth/refresh_session",
+            auth=BasicAuth(admin.username, admin.password),
+        )
+        assert response.status_code == 401
+        assert LOGIN_NAME.COOKIE.value not in response.cookies
+
+    async def test_refresh_session_failure_other_user_credentials(
+            self,
+            db: AsyncSQLAlchemyWrapper,
+            client: TestClient,
+    ):
+        # Valid credentials only refresh the session they belong to
+        stale = await self.stale_cookie(db, client)
+
+        response = client.get(
+            "/api/auth/refresh_session",
+            auth=BasicAuth(operator.username, operator.password),
+        )
+
+        assert response.status_code == 401
+        # No new cookie was issued: the admin session is still the stale one
+        assert LOGIN_NAME.COOKIE.value not in response.cookies
+        assert client.cookies[LOGIN_NAME.COOKIE.value] == stale.to_token()
+
+    async def test_refresh_session_success(
+            self,
+            db: AsyncSQLAlchemyWrapper,
+            client: TestClient,
+    ):
+        stale = await self.stale_cookie(db, client)
+        # The stale cookie authenticates, but is refused by the freshness guard
+        assert client.post("/api/auth/revoke_sessions").status_code == 401
+
+        response = client.get(
+            "/api/auth/refresh_session",
+            auth=BasicAuth(admin.username, admin.password),
+        )
+        assert response.status_code == 200
+
+        refreshed = SessionInfo.from_token(response.cookies[LOGIN_NAME.COOKIE.value])
+        assert refreshed.iat > stale.iat
+        assert refreshed.is_fresh
+        # Only "iat" moved: refreshing is not a way to extend the session's life
+        assert refreshed.exp == stale.exp
+
+        # The freshness guard now lets the same caller through
+        client.cookies = session_cookie(refreshed)
+        assert client.post("/api/auth/revoke_sessions").status_code == 200
+
+
+@pytest.mark.asyncio
 class TestRevokeSessions(UsersAware):
     """`/auth/revoke_sessions` invalidates every session the user holds.
 
@@ -135,8 +210,6 @@ class TestRevokeSessions(UsersAware):
             db: AsyncSQLAlchemyWrapper,
             client: TestClient,
     ):
-        """Revoking every session requires a fresh session cookie.
-        """
         stale_iat = utc_now_second() - timedelta(seconds=SESSION_FRESHNESS + 60)
         async with db.scoped_session() as session:
             await User.update(
