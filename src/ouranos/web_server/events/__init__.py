@@ -108,6 +108,8 @@ class ClientEvents(AsyncNamespace):
     async def on_user_heartbeat(self, sid, token: str | None = None):
         sio_session = await self.get_session(sid)
         session_info = sio_session.get("session_info", None)
+        if session_info is None:
+            return
         async with db.scoped_session() as db_session:
             user = await get_user_from_session_info(db_session, session_info)
             if user.is_anonymous:
