@@ -31,7 +31,7 @@ from ouranos.core.database.models import caches
 from ouranos.core.database.models.types import PathType, SQLIntEnum, UtcDateTime
 from ouranos.core.database.models.utils import paginate
 from ouranos.core.email import send_gaia_templated_email
-from ouranos.core.utils import check_filename, slugify, Tokenizer
+from ouranos.core.utils import check_filename, slugify, Tokenizer, utc_now_second
 
 
 argon2_hasher = PasswordHasher()
@@ -42,10 +42,6 @@ class _UnfilledCls:
 
 
 _Unfilled = _UnfilledCls()
-
-
-def utc_now_second() -> datetime:
-    return datetime.now(tz=timezone.utc).replace(microsecond=0)
 
 
 # ---------------------------------------------------------------------------

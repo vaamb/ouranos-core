@@ -10,25 +10,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ouranos.core.config.consts import SESSION_FRESHNESS, SESSION_TOKEN_VALIDITY
 from ouranos.core.database.models.app import anonymous_user, User, UserMixin
 from ouranos.core.exceptions import TokenError
-from ouranos.core.utils import Tokenizer
+from ouranos.core.utils import Tokenizer, utc_now_second
 
 
 def _create_session_id() -> str:
     return token_urlsafe(32)
 
 
-def _now() -> datetime:
-    return datetime.now(timezone.utc).replace(microsecond=0)
-
-
 def _get_exp_dt() -> datetime:
-    return _now() + timedelta(seconds=SESSION_TOKEN_VALIDITY)
+    return utc_now_second() + timedelta(seconds=SESSION_TOKEN_VALIDITY)
 
 
 class SessionInfo(BaseModel):
     id: str = Field(default_factory=_create_session_id)
     user_id: int
-    iat: datetime = Field(default_factory=_now)
+    iat: datetime = Field(default_factory=utc_now_second)
     exp: datetime = Field(default_factory=_get_exp_dt)
     remember: bool = False
 
@@ -41,7 +37,7 @@ class SessionInfo(BaseModel):
         return self.iat > time_limit
 
     def refresh_iat(self) -> None:
-        self.iat = _now()
+        self.iat = utc_now_second()
 
     def refresh_exp(self) -> None:
         self.exp = _get_exp_dt()
