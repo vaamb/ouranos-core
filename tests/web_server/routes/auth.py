@@ -107,14 +107,14 @@ class TestCurrentUser(UsersAware):
         assert user.last_seen > old_last_seen
 
 
-class TestRefreshSession(UsersAware):
-    def test_refresh_session_anonymous(self, client: TestClient):
+class TestExtendSession(UsersAware):
+    def test_extend_session_anonymous(self, client: TestClient):
         # Anonymous users have no session to refresh, signalled by a 204
-        response = client.get("/api/auth/refresh_session")
+        response = client.get("/api/auth/extend_session")
         assert response.status_code == 204
 
-    def test_refresh_session_authenticated(self, client_admin: TestClient):
-        response = client_admin.get("/api/auth/refresh_session")
+    def test_extend_session_authenticated(self, client_admin: TestClient):
+        response = client_admin.get("/api/auth/extend_session")
         assert response.status_code == 200
 
 

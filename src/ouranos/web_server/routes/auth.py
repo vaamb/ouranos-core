@@ -16,10 +16,10 @@ from ouranos.core.database.models.app import (
 from ouranos.core.exceptions import ExpiredTokenError, InvalidTokenError
 from ouranos.core.utils import Tokenizer
 from ouranos.web_server.auth import (
-    Authenticator, basic_auth, delete_session_cookie, get_authenticator, get_current_user,
-    get_session_info, is_admin, is_fresh, refresh_session_cookie_expiration)
+    Authenticator, basic_auth, delete_session_cookie, extend_session_cookie,
+    get_authenticator, get_current_user, get_session_info, is_admin, is_fresh)
 from ouranos.web_server.dependencies import get_session
-from ouranos.web_server.user_session import SessionInfo
+from ouranos.web_server.user_session import get_user_from_session_info, SessionInfo
 from ouranos.web_server.validate.auth import (
     LoginInfo, UserCreationPayload, UserInvitationPayload,
     UserPasswordUpdatePayload, UserInfo)
@@ -111,18 +111,20 @@ async def update_current_user_last_seen(
     )
 
 
-@router.get("/refresh_session")
-async def get_fresh_session_cookie(
+@router.get("/extend_session")
+async def extend_session(
         response: Response,
-        session_info: Annotated[SessionInfo, Depends(get_session_info)],
+        session_info: Annotated[SessionInfo | None, Depends(get_session_info)],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    current_user = await get_current_user(session_info, session)
+    current_user = await get_user_from_session_info(session, session_info)
     if current_user.is_anonymous:
         # No session to refresh for an anonymous user
         response.status_code = status.HTTP_204_NO_CONTENT
         return
-    refresh_session_cookie_expiration(session_info, response)
+
+    assert session_info is not None
+    extend_session_cookie(session_info, response)
 
 
 @router.post("/revoke_sessions", dependencies=[Depends(is_fresh)])
