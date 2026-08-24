@@ -198,8 +198,8 @@ class GaiaEvents(AsyncEventHandler):
             dispatcher: AsyncDispatcher
     ) -> None:
         self._stream_dispatcher = dispatcher
-        self._stream_dispatcher.on("ping", self.on_ping)
-        self._stream_dispatcher.on("picture_arrays", self.picture_arrays)
+        self.stream_dispatcher.on("ping", self.on_ping)
+        self.stream_dispatcher.on("picture_arrays", self.picture_arrays)
 
     @property
     def alarms_data(self) -> list[SensorAlarmDict]:
