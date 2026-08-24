@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime, timedelta, timezone
 import json as _json
+import re
 import typing as t
 from typing import Any, Protocol
 import warnings
@@ -235,3 +236,9 @@ def parse_str_value(value: str) -> int | float | bool | str:
 
 def utc_now_second() -> datetime:
     return datetime.now(tz=timezone.utc).replace(microsecond=0)
+
+
+def validate_uid(uid: str, length: int = 16) -> None:
+    regex = r"^[a-zA-Z][0-9a-zA-Z]{" + str(length-1) + "}$"
+    if re.match(regex, uid) is None:
+        raise ValueError("Wrong uid format.")

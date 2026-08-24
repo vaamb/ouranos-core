@@ -29,7 +29,7 @@ from ouranos.core.database.models.gaia import (
     Place, Plant, SensorAlarm, SensorDataRecord, SensorDataCache, WeatherEvent)
 from ouranos.core.database.models.utils import Within
 from ouranos.core.exceptions import NotRegisteredError
-from ouranos.core.utils import humanize_list, Tokenizer
+from ouranos.core.utils import humanize_list, Tokenizer, validate_uid
 
 if sys.version_info < (3, 13):
     from typing_extensions import deprecated
@@ -1212,6 +1212,9 @@ class GaiaEvents(AsyncEventHandler):
         self.logger.debug(f"Received picture arrays from '{engine_uid}'")
         images = SerializableImagePayload.deserialize(data)
         ecosystem_uid = images.uid
+        # Validate the uids format so an attacker cannot write jpeg files in
+        # arbitrary places
+        validate_uid(ecosystem_uid)
         data_to_dispatch = {
             "ecosystem_uid": ecosystem_uid,
             "updated_pictures": [],
@@ -1224,6 +1227,7 @@ class GaiaEvents(AsyncEventHandler):
                 image: SerializableImage
                 # Get information
                 camera_uid = image.metadata.pop("camera_uid")
+                validate_uid(camera_uid)
                 timestamp = datetime.fromisoformat(image.metadata.pop("timestamp"))
                 abs_path = dir_path / f"{camera_uid}.jpeg"
                 rel_path = abs_path.relative_to(current_app.static_dir)
