@@ -5,6 +5,7 @@ import difflib
 import enum
 from enum import IntEnum, IntFlag, StrEnum
 import re
+import secrets
 import typing as t
 from typing import Optional, Self, Sequence, TypedDict
 
@@ -35,6 +36,9 @@ from ouranos.core.utils import check_filename, slugify, Tokenizer, utc_now_secon
 
 
 argon2_hasher = PasswordHasher()
+
+# A dummy hash to validate for anonymous users to protect against timing enumeration
+_DUMMY_HASH = argon2_hasher.hash(secrets.token_hex(32))
 
 
 class _UnfilledCls:
@@ -189,6 +193,10 @@ class AnonymousUser(UserMixin):
         return True
 
     def check_password(self, password: str) -> bool:
+        try:
+            argon2_hasher.verify(_DUMMY_HASH, password)
+        except VerificationError:
+            pass
         return False
 
 
@@ -278,6 +286,10 @@ class User(Base, UserMixin):
 
     def check_password(self, password: str) -> bool:
         if self.password_hash is None:
+            try:
+                argon2_hasher.verify(_DUMMY_HASH, password)
+            except VerificationError:
+                pass
             return False
         try:
             return argon2_hasher.verify(self.password_hash, password)
