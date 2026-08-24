@@ -1214,7 +1214,7 @@ class GaiaEvents(AsyncEventHandler):
         ecosystem_uid = images.uid
         # Validate the uids format so an attacker cannot write jpeg files in
         # arbitrary places
-        validate_uid(ecosystem_uid)
+        validate_uid(ecosystem_uid, length=8)
         data_to_dispatch = {
             "ecosystem_uid": ecosystem_uid,
             "updated_pictures": [],

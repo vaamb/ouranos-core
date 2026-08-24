@@ -141,8 +141,9 @@ hardware_data: gv.HardwareConfigDict = {
 }
 
 
+camera_uid: str = "cameraUid0123456"  # The uid format if verified during events and file server tests
 camera_config: gv.HardwareConfigDict = {
-    "uid": "camera_uid",
+    "uid": camera_uid,
     "name": "TestCamera",
     "address": "PICAMERA",
     "type": gv.HardwareType.camera.name,
@@ -220,7 +221,7 @@ sensors_data_payload: gv.SensorsDataPayloadDict = \
 
 
 health_record: gv.HealthRecord = gv.HealthRecord(
-    sensor_uid="camera_uid",
+    sensor_uid=camera_uid,
     measure="MPRI",
     value=0.789,
     timestamp=timestamp_now,
