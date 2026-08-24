@@ -1132,10 +1132,11 @@ class GaiaEvents(AsyncEventHandler):
         async with db.scoped_session() as session:
             ecosystem_uid = data["ecosystem_uid"]
             ecosystem = await Ecosystem.get(session, uid=ecosystem_uid)
-            try:
-                engine_sid = ecosystem.engine.sid
-            except AttributeError:
-                engine_sid = None
+            if ecosystem is None:
+                self.logger.error(
+                    f"No ecosystem with uid '{ecosystem_uid}' found.")
+                return
+            engine_sid = ecosystem.engine.sid
         await self.emit(
             "turn_actuator", data=data, namespace="gaia", to=engine_sid,
             ttl=30)
