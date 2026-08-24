@@ -1372,6 +1372,7 @@ class TestBufferedDataExchange(HardwareAware):
         with pytest.raises(ValidationError):
             await events_handler.on_buffered_health_data(g_data.engine_sid, {})
 
+
 @pytest.mark.asyncio
 class TestPicture:
     async def test_picture_arrays(
@@ -1389,7 +1390,7 @@ class TestPicture:
         4. Emits the correct event with the updated picture information
         """
         # Setup test data
-        camera_uid = "test_camera_1"
+        camera_uid = g_data.camera_uid
         timestamp = datetime.now(timezone.utc)
 
         # Create a test image (2x2 RGB image)

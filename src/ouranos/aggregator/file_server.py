@@ -19,6 +19,7 @@ from gaia_validators.image import SerializableImage, SerializableImagePayload
 
 from ouranos import current_app, db
 from ouranos.core.config.consts import TOKEN_SUBS
+from ouranos.core.utils import validate_uid
 from ouranos.core.database.models.gaia import CameraPicture
 from ouranos.core.dispatchers import DispatcherFactory
 from ouranos.core.exceptions import TokenError
@@ -124,7 +125,11 @@ class FileServer:
     async def _process_image(self, image: SerializableImage) -> UpdatedPictureInfo:
         # Get information
         ecosystem_uid = image.metadata.pop("ecosystem_uid")
+        # Validate the uids format so an attacker cannot write jpeg files in
+        # arbitrary places
+        validate_uid(ecosystem_uid, length=8)
         camera_uid = image.metadata.pop("camera_uid")
+        validate_uid(camera_uid, length=16)
         timestamp = datetime.fromisoformat(image.metadata.pop("timestamp"))
         dir_path = self.camera_dir / f"{ecosystem_uid}"
         abs_path = dir_path / f"{camera_uid}.jpeg"
