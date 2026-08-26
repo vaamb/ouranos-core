@@ -66,23 +66,17 @@ class PluginManager:
         return omitted
 
     def _load_plugin_from_entry_point(self, entry_point: EntryPoint) -> Plugin:
-        try:
-            pkg = entry_point.load()
-        except Exception as e:
-            self.logger.error(
-                f"Failed to load entry point '{entry_point.name}': {e}")
-            raise e
-        else:
-            if isinstance(pkg, Plugin):
-                if entry_point.name != pkg.name:
-                    raise ValueError(
-                        f"Entry point and plugin names dont match for plugin "
-                        f"`{pkg.__class__.__name__}`"
-                    )
-                return pkg
-            raise ValueError(
-                f"EntryPoint '{entry_point.name}' does not contain a plugin."
-            )
+        pkg = entry_point.load()
+        if isinstance(pkg, Plugin):
+            if entry_point.name != pkg.name:
+                raise ValueError(
+                    f"Entry point and plugin names dont match for plugin "
+                    f"`{pkg.__class__.__name__}`"
+                )
+            return pkg
+        raise ValueError(
+            f"EntryPoint '{entry_point.name}' does not contain a plugin."
+        )
 
     def load_plugin(self, plugin_name: str) -> Plugin:
         # Try to get the plugin from the shipped ones
@@ -123,8 +117,14 @@ class PluginManager:
                 plugins[plugin_name] = plugin
 
         for plugin_name, entry_point in self.entry_points.items():
-            if self._is_plugin_needed(plugin_name, omit_excluded):
+            if not self._is_plugin_needed(plugin_name, omit_excluded):
+                continue
+
+            try:
                 plugins[plugin_name] = self._load_plugin_from_entry_point(entry_point)
+            except Exception as e:
+                self.logger.error(
+                    f"Failed to register plugin '{plugin_name}': {e}")
 
         self._plugins = plugins
 
