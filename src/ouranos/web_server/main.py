@@ -70,6 +70,16 @@ class WebServer(Functionality):
         global_workers_limit: int | None = self.config["GLOBAL_WORKERS_LIMIT"]
         if global_workers_limit is not None:
             workers = min(workers, global_workers_limit)
+        if workers > 1:
+            # TODO: back cache invalidation with Redis (or similar) so session
+            #  revocation is propagated across workers instead of being limited
+            #  to the worker process that performed the write.
+            self.logger.warning(
+                f"Running with {workers} workers: session revocation (e.g. "
+                f"password reset, session revoke) is only applied in the "
+                f"worker that handled the request and won't be reflected in "
+                f"other workers' user cache."
+            )
 
         # Configure uvicorn server
         server_cfg = Config(
