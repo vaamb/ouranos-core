@@ -1,21 +1,19 @@
 from __future__ import annotations
 
-from importlib.metadata import entry_points
+from importlib.metadata import entry_points, EntryPoint
 from logging import getLogger, Logger
-from typing import Iterator
 
 from fastapi import APIRouter, FastAPI
 from fastapi.responses import JSONResponse
 
 from ouranos import current_app
-from ouranos.core.exceptions import ContractVersionError
 from ouranos.sdk import Plugin
 
 
 class PluginManager:
     __instance = None
     entry_point = "ouranos.plugins"
-    test_plugin_name = "dummy-plugin"
+    test_plugin_name = "dummy"
 
     def __new__(cls):
         if cls.__instance is None:
@@ -26,61 +24,96 @@ class PluginManager:
     def __init__(self):
         self.logger: Logger = getLogger("ouranos.plugin_manager")
         self.omitted: set = self._get_omitted()
-        self.plugins: dict[str, Plugin] = {}
+        self._entry_points: dict[str, EntryPoint] | None = None
+        self._plugins: dict[str, Plugin] | None = None
+
+    @property
+    def entry_points(self) -> dict[str, EntryPoint]:
+        if self._entry_points is None:
+            entry_points_dct: dict[str, EntryPoint] = {}
+            entry_point_lst = [_ for _ in entry_points(group=self.entry_point)]
+            entry_point_lst.sort()
+            for entry_point in entry_point_lst:
+                entry_points_dct[entry_point.name] = entry_point
+            self._entry_points = entry_points_dct
+        assert self._entry_points is not None
+        return self._entry_points
+
+    @property
+    def plugins(self) -> dict[str, Plugin]:
+        if self._plugins is None:
+            raise ValueError("Plugins should be registered first.")
+        assert self._plugins is not None
+        return self._plugins
+
+    @property
+    def _core_plugins(self) -> dict[str, Plugin]:
+        from ouranos.aggregator.main import aggregator_plugin
+        from ouranos.web_server.main import web_server_plugin
+
+        return {
+            aggregator_plugin.name: aggregator_plugin,
+            web_server_plugin.name: web_server_plugin,
+        }
 
     def _get_omitted(self) -> set:
-        omitted_str = current_app.config["PLUGINS_OMITTED"]
-        if omitted_str is not None:
-            omitted = set(omitted_str.split(","))
-        else:
-            omitted = set()
+        omitted_str = current_app.config["PLUGINS_OMITTED"] or ""
+
+        omitted = {plugin.replace("-", "_") for plugin in omitted_str.split(",")}
+
         if not current_app.config["TESTING"]:
             omitted.add(self.test_plugin_name)
         return omitted
 
-    def iter_entry_points(self) -> Iterator[Plugin]:
-        for entry_point in entry_points(group=self.entry_point):
-            try:
-                pkg = entry_point.load()
-            except ContractVersionError as e:
-                self.logger.error(
-                    f"Failed to load entry point '{entry_point.name}': {e}")
-            else:
-                if isinstance(pkg, Plugin):
-                    yield pkg
+    def _load_plugin_from_entry_point(self, entry_point: EntryPoint) -> Plugin:
+        try:
+            pkg = entry_point.load()
+        except Exception as e:
+            self.logger.error(
+                f"Failed to load entry point '{entry_point.name}': {e}")
+            raise e
+        else:
+            if isinstance(pkg, Plugin):
+                if entry_point.name != pkg.name:
+                    raise ValueError(
+                        f"Entry point and plugin names dont match for plugin "
+                        f"`{pkg.__class__.__name__}`"
+                    )
+                return pkg
+            raise ValueError(
+                f"EntryPoint '{entry_point.name}' does not contain a plugin."
+            )
 
-    def iter_plugins(self, omit_excluded: bool = True) -> Iterator[Plugin]:
-        from ouranos.aggregator.main import aggregator_plugin
-        from ouranos.web_server.main import web_server_plugin
+    def _is_plugin_needed(self, plugin_name: str, omit_excluded: bool = True) -> bool:
+        plugin_name_formatted = plugin_name.replace("-", "_")
+        if current_app.config["TESTING"]:
+            return plugin_name_formatted == self.test_plugin_name
 
-        entry_plugins = [plugin for plugin in self.iter_entry_points()]
-        entry_plugins.sort()
+        # In production, we don't want to yield the test plugin
+        if not current_app.config["DEVELOPMENT"]:
+            if plugin_name_formatted == self.test_plugin_name:
+                return False
 
-        plugins = [aggregator_plugin, web_server_plugin, *entry_plugins]
+        if not omit_excluded:
+            return True
 
-        for plugin in plugins:
-            # During testing, we only want to yield the test plugin
-            if current_app.config["TESTING"]:
-                if plugin.name == self.test_plugin_name:
-                    yield plugin
-                else:
-                    continue
-
-            # In production, we don't want to yield the test plugin
-            if not current_app.config["DEVELOPMENT"]:
-                if plugin.name == self.test_plugin_name:
-                    continue
-
-            if not omit_excluded:
-                yield plugin
-
-            if plugin.name not in self.omitted:
-                yield plugin
+        return plugin_name_formatted not in self.omitted
 
     def register_plugins(self, omit_excluded: bool = True) -> None:
-        if not self.plugins:
-            for plugin in self.iter_plugins(omit_excluded):
-                self.plugins[plugin.name] = plugin
+        if self._plugins is not None:
+            raise RuntimeError("Plugins have already been registered.")
+
+        plugins: dict[str, Plugin] = {}
+
+        for plugin_name, plugin in self._core_plugins.items():
+            if self._is_plugin_needed(plugin_name, omit_excluded):
+                plugins[plugin_name] = plugin
+
+        for plugin_name, entry_point in self.entry_points.items():
+            if self._is_plugin_needed(plugin_name, omit_excluded):
+                plugins[plugin_name] = self._load_plugin_from_entry_point(entry_point)
+
+        self._plugins = plugins
 
     def get_plugin(self, plugin_name: str) -> Plugin | None:
         return self.plugins.get(plugin_name)
@@ -111,7 +144,7 @@ class PluginManager:
             router: APIRouter | FastAPI,
             json_response: JSONResponse = JSONResponse,
     ) -> None:
-        if not self.plugins:
+        if not self._plugins:
             raise RuntimeError("Plugins should be registered first.")
         for pkg in self.plugins.values():
             if pkg.has_route():
