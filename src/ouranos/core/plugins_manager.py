@@ -70,8 +70,8 @@ class PluginManager:
         if isinstance(pkg, Plugin):
             if entry_point.name != pkg.name:
                 raise ValueError(
-                    f"Entry point and plugin names dont match for plugin "
-                    f"`{pkg.__class__.__name__}`"
+                    f"Entry point and plugin names don't match for plugin "
+                    f"`{pkg.name}`."
                 )
             return pkg
         raise ValueError(
