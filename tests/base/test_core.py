@@ -323,16 +323,16 @@ class TestPlugin:
         plugin_manager = PluginManager()
         plugin_manager.register_plugins()
 
-        assert plugin_manager.plugins["dummy-plugin"].name == dummy_plugin.name
+        assert plugin_manager.plugins["dummy"].name == dummy_plugin.name
 
         await plugin_manager.start_plugins()
         with pytest.raises(RuntimeError):
             await plugin_manager.start_plugins()
 
         # Test getting a plugin
-        plugin = plugin_manager.get_plugin("dummy-plugin")
+        plugin = plugin_manager.get_plugin("dummy")
         assert plugin is not None
-        assert plugin.name == "dummy-plugin"
+        assert plugin.name == "dummy"
 
         # Test getting non-existent plugin
         assert plugin_manager.get_plugin("non-existent") is None
