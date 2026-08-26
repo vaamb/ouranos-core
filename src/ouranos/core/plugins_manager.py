@@ -84,6 +84,19 @@ class PluginManager:
                 f"EntryPoint '{entry_point.name}' does not contain a plugin."
             )
 
+    def load_plugin(self, plugin_name: str) -> Plugin:
+        # Try to get the plugin from the shipped ones
+        plugin = self._core_plugins.get(plugin_name)
+        if plugin is not None:
+            return plugin
+
+        # Try to get the plugin from the entry points. This assumes entry points
+        # and the plugin they contain share the same name
+        entry_point = self.entry_points.get(plugin_name)
+        if entry_point is None:
+            raise ValueError(f"Plugin '{plugin_name}' not found")
+        return self._load_plugin_from_entry_point(entry_point)
+
     def _is_plugin_needed(self, plugin_name: str, omit_excluded: bool = True) -> bool:
         plugin_name_formatted = plugin_name.replace("-", "_")
         if current_app.config["TESTING"]:
