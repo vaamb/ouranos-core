@@ -8,6 +8,6 @@ from ouranos.sdk.tests.plugin import DummyFunctionality
 def dummy_plugin():
     return Plugin(
         DummyFunctionality,
-        name="dummy-plugin",
+        name="dummy",
         contract_versions={},
     )

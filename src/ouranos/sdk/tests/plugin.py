@@ -16,7 +16,7 @@ class DummyFunctionality(Functionality):
 
 dummy_plugin = Plugin(
     DummyFunctionality,
-    name="dummy-plugin",
+    name="dummy",
     contract_versions={},
-    description="Launch Ouranos' dummy-plugin for testing purposes"
+    description="Launch Ouranos' dummy for testing purposes"
 )

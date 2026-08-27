@@ -1,6 +1,8 @@
+import logging
 from multiprocessing import Manager
 from pathlib import Path
 from time import monotonic, sleep
+from types import SimpleNamespace
 import click
 from click.testing import CliRunner
 import pytest
@@ -323,21 +325,89 @@ class TestPlugin:
         plugin_manager = PluginManager()
         plugin_manager.register_plugins()
 
-        assert plugin_manager.plugins["dummy-plugin"].name == dummy_plugin.name
+        assert plugin_manager.plugins["dummy"].name == dummy_plugin.name
 
         await plugin_manager.start_plugins()
         with pytest.raises(RuntimeError):
             await plugin_manager.start_plugins()
 
         # Test getting a plugin
-        plugin = plugin_manager.get_plugin("dummy-plugin")
+        plugin = plugin_manager.get_plugin("dummy")
         assert plugin is not None
-        assert plugin.name == "dummy-plugin"
+        assert plugin.name == "dummy"
 
         # Test getting non-existent plugin
         assert plugin_manager.get_plugin("non-existent") is None
 
         await plugin_manager.stop_plugins()
+
+    async def test_register_plugins_skip_failing_entry_point(
+            self,
+            dummy_plugin: Plugin,
+            caplog: pytest.LogCaptureFixture,
+    ):
+        """A plugin that fails to load is logged and skipped, not raised.
+
+        `register_plugins` loads every needed entry point in one pass, so a
+        single broken plugin (bad contract, import error, ...) must not
+        prevent the others from being registered.
+        """
+        def _raise():
+            raise RuntimeError("boom")
+
+        plugin_manager = PluginManager()
+        plugin_manager._entry_points = {
+            "dummy": SimpleNamespace(name="dummy", load=_raise),
+        }
+
+        with caplog.at_level(logging.ERROR, logger="ouranos.plugin_manager"):
+            plugin_manager.register_plugins()
+
+        assert "dummy" not in plugin_manager.plugins
+        assert "Failed to register plugin 'dummy'" in caplog.text
+
+    async def test_load_plugin_failure_name_mismatch(self, dummy_plugin: Plugin):
+        """`load_plugin` raises if the entry point and plugin names differ.
+
+        Entry points are keyed by the name declared in `pyproject.toml`, but
+        the loaded `Plugin` carries its own `name`. The two must match, or
+        the plugin would be registered under one name and behave (routes,
+        logs, `plugin.name` lookups) under another.
+        """
+        plugin_manager = PluginManager()
+        plugin_manager._entry_points = {
+            "not-dummy": SimpleNamespace(name="not-dummy", load=lambda: dummy_plugin),
+        }
+
+        with pytest.raises(ValueError, match="don't match"):
+            plugin_manager.load_plugin("not-dummy")
+
+    async def test_load_plugin_failure_point_wrong_type(self):
+        """`load_plugin` raises if the entry point doesn't resolve to a `Plugin`."""
+        plugin_manager = PluginManager()
+        plugin_manager._entry_points = {
+            "dummy": SimpleNamespace(name="dummy", load=lambda: object()),
+        }
+
+        with pytest.raises(ValueError, match="does not contain a plugin"):
+            plugin_manager.load_plugin("dummy")
+
+    async def test_load_plugin_propagates_failure(self):
+        """Unlike `register_plugins`, `load_plugin` raises on a broken entry point.
+
+        It is an explicit request for one named plugin, so it should fail
+        loudly rather than silently skip it.
+        """
+        def _raise():
+            raise RuntimeError("boom")
+
+        plugin_manager = PluginManager()
+        plugin_manager._entry_points = {
+            "dummy": SimpleNamespace(name="dummy", load=_raise),
+        }
+
+        with pytest.raises(RuntimeError, match="boom"):
+            plugin_manager.load_plugin("dummy")
 
     async def test_contract_versions_failure_incompatible(self):
         """Creating a plugin with an unmet contract raises ContractVersionError.
