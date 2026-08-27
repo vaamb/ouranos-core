@@ -79,7 +79,7 @@ class PluginManager:
         )
 
     def load_plugin(self, plugin_name: str) -> Plugin:
-        # Try to get the plugin from the shipped ones
+        # Try to get the plugin from the core ones
         plugin = self._core_plugins.get(plugin_name)
         if plugin is not None:
             return plugin
@@ -155,7 +155,7 @@ class PluginManager:
     def register_plugins_routes(
             self,
             router: APIRouter | FastAPI,
-            json_response: JSONResponse = JSONResponse,
+            json_response: type[JSONResponse] = JSONResponse,
     ) -> None:
         if not self._plugins:
             raise RuntimeError("Plugins should be registered first.")
@@ -167,7 +167,7 @@ class PluginManager:
             self,
             plugin: Plugin,
             router: APIRouter | FastAPI,
-            json_response: JSONResponse = JSONResponse
+            json_response: type[JSONResponse] = JSONResponse
     ) -> None:
         self.logger.debug(f"Registering {plugin.name} routes")
         plugin_routes = APIRouter(prefix=f"/{plugin.name}")
