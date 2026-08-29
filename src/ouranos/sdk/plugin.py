@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 import asyncio
 from collections import namedtuple
 from logging import getLogger, Logger
 import multiprocessing
 from multiprocessing.context import SpawnContext, SpawnProcess
 import typing as t
-from typing import ClassVar, Type, TypeVar
+from typing import Any, ClassVar, TypeVar
 
 import click
 from click import Command, Group
@@ -32,20 +33,132 @@ spawn: SpawnContext = multiprocessing.get_context("spawn")
 Route = namedtuple("Route", ("path", "endpoint"))
 
 
-def _run_in_subprocess(
-        functionality_cls: Type[Functionality],
-        config: ConfigDict,
-        kwargs: dict,
-) -> None:
-    """Run a functionality in a subprocess.
+class PluginExecutor(ABC):
+    def __init__(
+            self,
+            functionality: type[F],
+            workers: int,
+            config: ConfigDict,
+            logger: Logger,
+            **kwargs,
+    ) -> None:
+        self.functionality: type[F] = functionality
+        self.config: ConfigDict = config
+        self.workers: int = workers
+        self.logger: Logger = logger
+        self.kwargs: dict[str, Any] = kwargs
 
-    Module-level so that spawned processes only pickle the functionality
-    class and its kwargs, not the whole `Plugin` (which holds unpicklable
-    attributes such as the closure-based click command).
-    """
-    if not ConfigHelper.config_is_set():
-        ConfigHelper.set_config_and_configure_logging(config)
-    functionality_cls(**kwargs).run(reraise=True)
+    @abstractmethod
+    async def start(self) -> None: ...
+
+    @abstractmethod
+    async def stop(self) -> None: ...
+
+    @classmethod
+    def initialize(
+            cls,
+            functionality: type[F],
+            workers: int,
+            config: ConfigDict,
+            logger: Logger,
+            **kwargs,
+    ) -> PluginExecutor:
+        if workers == 0:
+            return _InProcessExecutor(functionality, 0, config, logger, **kwargs)
+        else:
+            return _SubprocessExecutor(functionality, workers, config, logger, **kwargs)
+
+
+class _InProcessExecutor(PluginExecutor):
+    def __init__(
+            self, functionality: type[F], workers: int, config: ConfigDict,
+            logger: Logger, **kwargs) -> None:
+        super().__init__(functionality, workers, config, logger, **kwargs)
+        self._instance: F | None = None
+
+    @property
+    def instance(self) -> Functionality:
+        """Get the functionality instance (raises if not started)."""
+        if self._instance is None:
+            raise RuntimeError("Executor is not started")
+        return self._instance
+
+    async def start(self) -> None:
+        self._instance = self.functionality(config=self.config, **self.kwargs)
+        await self.instance.complete_startup()
+
+    async def stop(self) -> None:
+        await self.instance.complete_shutdown()
+        self._instance = None
+
+
+class _SubprocessExecutor(PluginExecutor):
+    def __init__(
+            self, functionality: type[F], workers: int, config: ConfigDict,
+            logger: Logger, **kwargs) -> None:
+        super().__init__(functionality, workers, config, logger, **kwargs)
+        self._subprocesses: list[SpawnProcess] | None = None
+
+    @property
+    def subprocesses(self) -> list[SpawnProcess]:
+        """Get the subprocesses list (raises if not started)."""
+        if self._subprocesses is None:
+            raise RuntimeError("Executor is not started")
+        return self._subprocesses
+
+    @staticmethod
+    def _run_in_subprocess(
+            functionality_cls: type[Functionality],
+            config: ConfigDict,
+            kwargs: dict,
+    ) -> None:
+        """Run a functionality in a subprocess.
+
+        Static method so that spawned processes only pickle the functionality
+        class and its kwargs, not the whole `Executor` (self), which holds
+        unpicklable attributes such as the other subprocesses.
+        """
+        if not ConfigHelper.config_is_set():
+            ConfigHelper.set_config_and_configure_logging(config)
+        functionality_cls(config=config, **kwargs).run(reraise=True)
+
+    async def start(self) -> None:
+        self._subprocesses = []
+        try:
+            for worker in range(self.workers):
+                process_name = f"{self.functionality.__name__}-{worker}"
+                process = spawn.Process(
+                    target=self._run_in_subprocess,
+                    args=(self.functionality, self.config, self.kwargs),
+                    daemon=True,
+                    name=process_name,
+                )
+                process.start()
+                self.subprocesses.append(process)
+        except Exception:
+            # Clean up any already-started subprocesses on failure
+            for process in self.subprocesses:
+                if process.is_alive():
+                    process.terminate()
+                    await asyncio.to_thread(process.join, 1.0)
+                    if process.is_alive():
+                        process.kill()
+                        await asyncio.to_thread(process.join)
+            self._subprocesses = None
+            raise
+
+    async def stop(self) -> None:
+        # Cleanup subprocesses
+        for process in self.subprocesses:
+            if process.is_alive():
+                process.terminate()
+                await asyncio.to_thread(process.join, 5.0)
+                if process.is_alive():
+                    self.logger.warning(
+                        f"Process {process.name} did not terminate cleanly")
+                    process.kill()
+                    await asyncio.to_thread(process.join)
+        self._subprocesses = None
 
 
 class Extension:
@@ -67,7 +180,7 @@ class Extension:
         :param description: Extension description.
         """
         self.name: str = name
-        self.logger: Logger = getLogger(f"ouranos.{self.name}-plugin")
+        self.logger: Logger = getLogger(f"ouranos.{self.name}-extension")
         # Check contract versions
         self._check_contract_versions(contract_versions)
         self._routes: list[Route] = routes or []
@@ -125,7 +238,7 @@ class Plugin(Extension):
 
     def __init__(
             self,
-            functionality: Type[F],
+            functionality: type[F],
             name: str | None = None,
             *,
             contract_versions: dict[str, int],
@@ -149,9 +262,9 @@ class Plugin(Extension):
         super().__init__(
             name, contract_versions=contract_versions, routes=routes,
             description=description)
-        self._functionality: Type[F] = functionality
-        self._instance: F | None = None
-        self._subprocesses: list[SpawnProcess] = []
+        self.logger: Logger = getLogger(f"ouranos.{self.name}-plugin")
+        self._functionality: type[F] = functionality
+        self._executor: PluginExecutor | None = None
         self._status: bool = False
         self._error_logged: bool = False
         self._command: Command | None = command
@@ -170,21 +283,15 @@ class Plugin(Extension):
         return self._status
 
     @property
-    def functionality(self) -> Type[F]:
+    def functionality(self) -> type[F]:
         """Get the managed functionality class."""
         return self._functionality
 
     @property
-    def instance(self) -> F:
-        """Get the functionality instance (raises if not started)."""
-        if self._instance is None:
+    def executor(self) -> PluginExecutor:
+        if self._executor is None:
             raise RuntimeError(f"Plugin {self.name} is not started")
-        return self._instance
-
-    @property
-    def subprocesses(self) -> list[SpawnProcess]:
-        """Get the list of subprocesses (if any)."""
-        return self._subprocesses
+        return self._executor
 
     @property
     def kwargs(self) -> dict:
@@ -214,7 +321,6 @@ class Plugin(Extension):
             ConfigHelper.set_config_and_configure_logging(
                 config_profile, config_override)
         self.config = current_app.config
-        self._kwargs["config"] = self.config
 
     def compute_number_of_workers(self) -> int:
         """Calculate the number of worker processes needed.
@@ -224,8 +330,8 @@ class Plugin(Extension):
         if self.config is None:
             raise RuntimeError("Config not set. Call setup_config() first")
 
-        workers = self._functionality.workers
-        func_workers = self.config.get(f"{self.name.upper().replace('-', '_')}_WORKERS")
+        workers = self.functionality.workers
+        func_workers: str | None = self.config.get(f"{self.name.upper().replace('-', '_')}_WORKERS")
         if func_workers is not None:
             workers = int(func_workers)
 
@@ -234,10 +340,6 @@ class Plugin(Extension):
             workers = min(workers, int(global_limit))
 
         return max(0, workers)
-
-    def has_subprocesses(self) -> bool:
-        """Check if any subprocesses are running."""
-        return bool(self._subprocesses)
 
     async def check_requirements(self) -> None:
         """Check if the requirements to start the plugin are met"""
@@ -257,34 +359,9 @@ class Plugin(Extension):
         await self.check_requirements()
 
         workers = self.compute_number_of_workers()
-        self._instance = self._functionality(**self._kwargs)
-
-        if workers > 0:
-            try:
-                for worker in range(workers):
-                    process_name = f"{self.functionality.__name__}-{worker}"
-                    process = spawn.Process(
-                        target=_run_in_subprocess,
-                        args=(self._functionality, self.config, self._kwargs),
-                        daemon=True,
-                        name=process_name,
-                    )
-                    process.start()
-                    self._subprocesses.append(process)
-            except Exception:
-                # Clean up any already-started subprocesses on failure
-                for process in self._subprocesses:
-                    if process.is_alive():
-                        process.terminate()
-                        await asyncio.to_thread(process.join, 1.0)
-                        if process.is_alive():
-                            process.kill()
-                            await asyncio.to_thread(process.join)
-                self._subprocesses.clear()
-                raise
-        else:
-            assert not self._subprocesses
-            await self._instance.complete_startup()
+        self._executor = PluginExecutor.initialize(
+            self.functionality, workers, self.config, self.logger, **self.kwargs)
+        await self.executor.start()
 
         self._status = True
         self.logger.info(f"Started {self.name} with {workers} workers")
@@ -300,20 +377,7 @@ class Plugin(Extension):
         self.logger.info(f"Stopping {self.name}")
 
         try:
-            if self.has_subprocesses():
-                # Cleanup subprocesses
-                for process in self._subprocesses:
-                    if process.is_alive():
-                        process.terminate()
-                        await asyncio.to_thread(process.join, 5.0)
-                        if process.is_alive():
-                            self.logger.warning(
-                                f"Process {process.name} did not terminate cleanly")
-                            process.kill()
-                            await asyncio.to_thread(process.join)
-                self._subprocesses.clear()
-            else:
-                await self._instance.complete_shutdown()
+            await self.executor.stop()
         finally:
             # Mark as stopped even on failure: the resources have been cleared
             self._status = False
@@ -373,7 +437,7 @@ class Plugin(Extension):
         """Check if the plugin has a CLI command."""
         return self._command is not None
 
-    def create_run_command(self, cmd_cls: Type[C] | None = None) -> C:
+    def create_run_command(self, cmd_cls: type[C] | None = None) -> C:
         @click.command(self.name, cls=cmd_cls, help=self._description)
         @click.option(
             "--config-profile", "-c",
