@@ -75,18 +75,22 @@ chmod +x "${SANDBOX}/bin/"*
 
 cd "${SANDBOX}"   # install.sh installs into ${PWD}/ouranos
 
-# $HOME below expands (outer shell) to your real home, so uv on ~/.local/bin is
-# found; adjust if uv lives elsewhere. The uv cache is pointed back at the real
-# one on purpose: it is content-addressed and shared, and a sandboxed HOME would
-# otherwise re-download every wheel (~400 MB) for each new sandbox.
+# $HOME below expands (outer shell) to your real home. The uv cache is pointed
+# back at the real one on purpose: it is content-addressed and shared, and a
+# sandboxed HOME would otherwise re-download every wheel (~400 MB) for each new
+# sandbox.
 # USER must be passed explicitly: gen_service.sh references ${USER} under set -u,
 # and it is not always exported (cron, containers, `env -i` shells).
+# uv is resolved from the outer PATH rather than assumed on ~/.local/bin: a
+# `curl | sh` dev install lands there, but GitHub's setup-uv drops it in the
+# hostedtoolcache and only prepends that to $GITHUB_PATH, which `env -i` wipes.
+UV_BIN_DIR="$(dirname "$(command -v uv 2>/dev/null || echo "${HOME}/.local/bin/uv")")"
 SANDBOX_ENV=(
     HOME="${SANDBOX}/home"
     USER="${USER:-$(id -un)}"
     TERM="${TERM:-xterm}"
     UV_CACHE_DIR="${UV_CACHE_DIR:-${XDG_CACHE_HOME:-${HOME}/.cache}/uv}"
-    PATH="${SANDBOX}/bin:${HOME}/.local/bin:/usr/local/bin:/usr/bin:/bin"
+    PATH="${SANDBOX}/bin:${UV_BIN_DIR}:${HOME}/.local/bin:/usr/local/bin:/usr/bin:/bin"
 )
 
 # `git clone` only ever sees committed state, which makes iterating on a script
