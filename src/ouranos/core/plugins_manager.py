@@ -7,7 +7,7 @@ from fastapi import APIRouter, FastAPI
 from fastapi.responses import JSONResponse
 
 from ouranos import current_app
-from ouranos.sdk import Plugin
+from ouranos.sdk import Extension, Plugin
 
 
 class PluginManager:
@@ -25,7 +25,7 @@ class PluginManager:
         self.logger: Logger = getLogger("ouranos.plugin_manager")
         self.omitted: set = self._get_omitted()
         self._entry_points: dict[str, EntryPoint] | None = None
-        self._plugins: dict[str, Plugin] | None = None
+        self._plugins: dict[str, Extension] | None = None
 
     @property
     def entry_points(self) -> dict[str, EntryPoint]:
@@ -40,7 +40,7 @@ class PluginManager:
         return self._entry_points
 
     @property
-    def plugins(self) -> dict[str, Plugin]:
+    def plugins(self) -> dict[str, Extension]:
         if self._plugins is None:
             raise ValueError("Plugins should be registered first.")
         assert self._plugins is not None
@@ -65,9 +65,9 @@ class PluginManager:
             omitted.add(self.test_plugin_name)
         return omitted
 
-    def _load_plugin_from_entry_point(self, entry_point: EntryPoint) -> Plugin:
+    def _load_from_entry_point(self, entry_point: EntryPoint) -> Extension:
         pkg = entry_point.load()
-        if isinstance(pkg, Plugin):
+        if isinstance(pkg, Extension):
             if entry_point.name != pkg.name:
                 raise ValueError(
                     f"Entry point and plugin names don't match for plugin "
@@ -89,7 +89,10 @@ class PluginManager:
         entry_point = self.entry_points.get(plugin_name)
         if entry_point is None:
             raise ValueError(f"Plugin '{plugin_name}' not found")
-        return self._load_plugin_from_entry_point(entry_point)
+        plugin = self._load_from_entry_point(entry_point)
+        if isinstance(plugin, Plugin):
+            return plugin
+        raise ValueError(f"'{plugin_name}' is an Extension, not a Plugin")
 
     def _is_plugin_needed(self, plugin_name: str, omit_excluded: bool = True) -> bool:
         plugin_name_formatted = plugin_name.replace("-", "_")
@@ -110,7 +113,7 @@ class PluginManager:
         if self._plugins is not None:
             raise RuntimeError("Plugins have already been registered.")
 
-        plugins: dict[str, Plugin] = {}
+        plugins: dict[str, Extension] = {}
 
         for plugin_name, plugin in self._core_plugins.items():
             if self._is_plugin_needed(plugin_name, omit_excluded):
@@ -121,35 +124,37 @@ class PluginManager:
                 continue
 
             try:
-                plugins[plugin_name] = self._load_plugin_from_entry_point(entry_point)
+                plugins[plugin_name] = self._load_from_entry_point(entry_point)
             except Exception as e:
                 self.logger.error(
                     f"Failed to register plugin '{plugin_name}': {e}")
 
         self._plugins = plugins
 
-    def get_plugin(self, plugin_name: str) -> Plugin | None:
+    def get_plugin(self, plugin_name: str) -> Extension | None:
         return self.plugins.get(plugin_name)
 
     async def start_plugins(self) -> None:
-        for plugin_name in self.plugins:
-            await self.start_plugin(plugin_name)
+        for plugin_name, plugin in self.plugins.items():
+            if isinstance(plugin, Plugin):
+                await self.start_plugin(plugin_name)
 
     async def start_plugin(self, plugin_name: str) -> None:
         plugin = self.get_plugin(plugin_name)
-        if plugin is None:
-            raise ValueError(f"Plugin {plugin_name} not found")
+        if not isinstance(plugin, Plugin):
+            raise ValueError(f"'{plugin_name}' is an Extension, not a Plugin")
         plugin.setup_config(current_app.config)
         await plugin.startup()
 
     async def stop_plugins(self) -> None:
-        for plugin_name in self.plugins:
-            await self.stop_plugin(plugin_name)
+        for plugin_name, plugin in self.plugins.items():
+            if isinstance(plugin, Plugin):
+                await self.stop_plugin(plugin_name)
 
     async def stop_plugin(self, plugin_name: str) -> None:
         plugin = self.get_plugin(plugin_name)
-        if plugin is None:
-            raise ValueError(f"Plugin {plugin_name} not found")
+        if not isinstance(plugin, Plugin):
+            raise ValueError(f"'{plugin_name}' is an Extension, not a Plugin")
         await plugin.shutdown()
 
     def register_plugins_routes(

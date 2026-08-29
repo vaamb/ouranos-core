@@ -48,12 +48,84 @@ def _run_in_subprocess(
     functionality_cls(**kwargs).run(reraise=True)
 
 
-class Plugin:
+class Extension:
+    def __init__(
+            self,
+            name: str,
+            *,
+            contract_versions: dict[str, int],
+            routes: list[Route] | None = None,
+            description: str | None = None,
+    ) -> None:
+        """Create an API extension.
+
+        Extensions add new routes to the API.
+
+        :param name: Extension name.
+        :param contract_versions: A dict with the contracts version needed.
+        :param routes: FastAPI routes to register.
+        :param description: Extension description.
+        """
+        self.name: str = name
+        self.logger: Logger = getLogger(f"ouranos.{self.name}-plugin")
+        # Check contract versions
+        self._check_contract_versions(contract_versions)
+        self._routes: list[Route] = routes or []
+        self._description: str | None = description
+
+    def __repr__(self) -> str:
+        return f"<Extension({self.name})>"
+
+    def __lt__(self, other) -> bool:
+        if not isinstance(other, Extension):
+            return NotImplemented
+        return self.name < other.name
+
+    @property
+    def routes(self) -> list[Route]:
+        return self._routes
+
+    def _check_contract_versions(self, contracts: dict[str, int]) -> None:
+        """Check that the contract versions required by the plugin are compatible
+        with Ouranos-core"""
+        error_msgs: list[str] = []
+        ouranos_contracts = {
+            "gaia": consts.GAIA_CONTRACT,
+            "rest": consts.REST_CONTRACT,
+            "socketio": consts.SOCKETIO_CONTRACT,
+        }
+        for contract_name, value in contracts.items():
+            ouranos_version = ouranos_contracts.get(contract_name.lower(), None)
+            if ouranos_version is None:
+                error_msgs.append(f"Contract '{contract_name}' not defined in Ouranos.")
+            else:
+                assert isinstance(ouranos_version, int)
+                if ouranos_version > value:
+                    error_msgs.append(
+                        f"Plugin requires contract v.{value}, Ouranos provides "
+                        f"v.{ouranos_version}. You might need to update the plugin."
+                    )
+                elif ouranos_version < value:
+                    error_msgs.append(
+                        f"Plugin requires contract v.{value}, Ouranos provides "
+                        f"v.{ouranos_version}. You might need to update Ouranos-core."
+                    )
+        if error_msgs:
+            raise ContractVersionError(" ".join(error_msgs))
+
+    def has_route(self) -> bool:
+        return len(self._routes) > 0
+
+    def add_route(self, route: Route) -> None:
+        self._routes.append(route)
+
+
+class Plugin(Extension):
     _runner: ClassVar[Runner] = runner
 
     def __init__(
             self,
-            functionality: Type[F] | None = None,
+            functionality: Type[F],
             name: str | None = None,
             *,
             contract_versions: dict[str, int],
@@ -68,35 +140,26 @@ class Plugin:
 
         :param functionality: The functionality class to manage.
         :param name: Plugin name (defaults to functionality name).
-        :param contract_versions: A dict with the contracts version needed
+        :param contract_versions: A dict with the contracts version needed.
         :param command: Click command for CLI interface.
         :param routes: FastAPI routes to register.
         :param description: Plugin description for CLI help.
         """
-        if functionality is None and name is None:
-            raise ValueError("Either 'functionality' or 'name' must be provided")
-        self.name: str = name or format_functionality_name(functionality).replace("_", "-")
-        self.logger: Logger = getLogger(f"ouranos.{self.name}-plugin")
-        # Check contract versions
-        self._check_contract_versions(contract_versions)
+        name: str = name or format_functionality_name(functionality).replace("_", "-")
+        super().__init__(
+            name, contract_versions=contract_versions, routes=routes,
+            description=description)
         self._functionality: Type[F] = functionality
         self._instance: F | None = None
         self._subprocesses: list[SpawnProcess] = []
         self._status: bool = False
         self._error_logged: bool = False
         self._command: Command | None = command
-        self._routes: list[Route] = routes or []
-        self._description: str | None = description
         self.config: ConfigDict | None = None
         self._kwargs: dict = {}
 
     def __repr__(self) -> str:
         return f"<Plugin({self.name}, status={self._status})>"
-
-    def __lt__(self, other) -> bool:
-        if not isinstance(other, Plugin):
-            return NotImplemented
-        return self.name < other.name
 
     def _fmt_exc(self, e: BaseException) -> str:
         return f"Error msg: `{e.__class__.__name__}: {e}`"
@@ -137,34 +200,6 @@ class Plugin:
         """Merge additional kwargs into the existing initialization kwargs."""
         self._kwargs.update(value)
 
-    def _check_contract_versions(self, contracts: dict[str, int]) -> None:
-        """Check that the contract versions required by the plugin are compatible
-        with Ouranos-core"""
-        error_msgs: list[str] = []
-        ouranos_contracts = {
-            "gaia": consts.GAIA_CONTRACT,
-            "rest": consts.REST_CONTRACT,
-            "socketio": consts.SOCKETIO_CONTRACT,
-        }
-        for contract_name, value in contracts.items():
-            ouranos_version = ouranos_contracts.get(contract_name.lower(), None)
-            if ouranos_version is None:
-                error_msgs.append(f"Contract '{contract_name}' not defined in Ouranos.")
-            else:
-                assert isinstance(ouranos_version, int)
-                if ouranos_version > value:
-                    error_msgs.append(
-                        f"Plugin requires contract v.{value}, Ouranos provides "
-                        f"v.{ouranos_version}. You might need to update the plugin."
-                    )
-                elif ouranos_version < value:
-                    error_msgs.append(
-                        f"Plugin requires contract v.{value}, Ouranos provides "
-                        f"v.{ouranos_version}. You might need to update Ouranos-core."
-                    )
-        if error_msgs:
-            raise ContractVersionError(" ".join(error_msgs))
-
     def setup_config(
             self,
             config_profile: profile_type,
@@ -192,11 +227,11 @@ class Plugin:
         workers = self._functionality.workers
         func_workers = self.config.get(f"{self.name.upper().replace('-', '_')}_WORKERS")
         if func_workers is not None:
-            workers = parse_str_value(func_workers)
+            workers = int(func_workers)
 
         global_limit = self.config.get("GLOBAL_WORKERS_LIMIT")
         if global_limit is not None:
-            workers = min(workers, parse_str_value(global_limit))
+            workers = min(workers, int(global_limit))
 
         return max(0, workers)
 
@@ -381,14 +416,3 @@ class Plugin:
         if self._command is None:
             self._command = self.create_run_command()
         return self._command
-
-    # Routes
-    def has_route(self) -> bool:
-        return len(self._routes) > 0
-
-    def add_route(self, route: Route) -> None:
-        self._routes.append(route)
-
-    @property
-    def routes(self) -> list[Route]:
-        return self._routes
