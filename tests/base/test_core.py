@@ -13,7 +13,8 @@ from ouranos import current_app
 from ouranos.core.config import consts, ConfigDict, ConfigHelper
 from ouranos.core.exceptions import ContractVersionError
 from ouranos.core.plugins_manager import PluginManager
-from ouranos.sdk.plugin import Extension, Functionality, Plugin, Route
+from ouranos.sdk.plugin import (
+    _InProcessExecutor, _SubprocessExecutor, Extension, Functionality, Plugin, Route)
 from ouranos.sdk.tests.plugin import DummyFunctionality
 
 
@@ -112,7 +113,10 @@ class TestPlugin:
     def _poll_value(manager_dict, expected, timeout: float = 10.0):
         end: float = monotonic() + timeout
 
-        while manager_dict["value"] != expected:
+        # Use `get` as manager_dict is set up once the subprocess is running for
+        # `_SubprocessExecutor`, which might not set "value" in time for the
+        # first poll cycle
+        while manager_dict.get("value") != expected:
             if monotonic() > end:
                 raise TimeoutError
             sleep(0.1)
@@ -130,8 +134,7 @@ class TestPlugin:
         dummy_plugin.update_kwargs({"manager_dict": manager_dict})
 
         await dummy_plugin.startup()
-        assert dummy_plugin.instance
-        assert not dummy_plugin.has_subprocesses()
+        assert isinstance(dummy_plugin.executor, _InProcessExecutor)
 
         assert manager_dict["value"] == 42
 
@@ -167,8 +170,8 @@ class TestPlugin:
             dummy_plugin.update_kwargs({"manager_dict": manager_dict})
 
             await dummy_plugin.startup()
-            assert dummy_plugin.has_subprocesses()
-            assert len(dummy_plugin._subprocesses) == 1
+            assert isinstance(dummy_plugin.executor, _SubprocessExecutor)
+            assert len(dummy_plugin.executor.subprocesses) == 1
 
             self._poll_value(manager_dict, 42, timeout=10.0)
 
@@ -202,8 +205,8 @@ class TestPlugin:
             dummy_plugin.update_kwargs({"manager_dict": manager_dict})
 
             await dummy_plugin.startup()
-            assert dummy_plugin.has_subprocesses()
-            assert len(dummy_plugin._subprocesses) == 2
+            assert isinstance(dummy_plugin.executor, _SubprocessExecutor)
+            assert len(dummy_plugin.executor.subprocesses) == 2
 
             self._poll_value(manager_dict, 42, timeout=10.0)
 
@@ -319,7 +322,7 @@ class TestPlugin:
 
         # Test functionality gets the config
         await plugin.startup()
-        assert plugin.instance.config.get("CUSTOM_CONFIG") == "test_value"
+        assert plugin.executor.instance.config.get("CUSTOM_CONFIG") == "test_value"
         await plugin.shutdown()
 
         ConfigHelper._config = config
