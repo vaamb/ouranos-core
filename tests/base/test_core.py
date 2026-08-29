@@ -383,10 +383,7 @@ class TestPlugin:
         # Its routes reach the API router
         main_router = APIRouter()
         plugin_manager.register_plugins_routes(main_router)
-        assert any(
-            getattr(route, "endpoint", None) is _ping
-            for route in main_router.routes
-        )
+        assert any(route.path == "/ping" for route in main_router.routes)
 
     async def test_start_plugins_skips_routes_only_extension(
             self,
