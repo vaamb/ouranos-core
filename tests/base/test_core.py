@@ -7,12 +7,13 @@ import click
 from click.testing import CliRunner
 import pytest
 from fastapi import APIRouter
+from fastapi.responses import JSONResponse
 
 from ouranos import current_app
 from ouranos.core.config import consts, ConfigDict, ConfigHelper
 from ouranos.core.exceptions import ContractVersionError
 from ouranos.core.plugins_manager import PluginManager
-from ouranos.sdk.plugin import Functionality, Plugin
+from ouranos.sdk.plugin import Extension, Functionality, Plugin, Route
 from ouranos.sdk.tests.plugin import DummyFunctionality
 
 
@@ -339,6 +340,60 @@ class TestPlugin:
         # Test getting non-existent plugin
         assert plugin_manager.get_plugin("non-existent") is None
 
+        await plugin_manager.stop_plugins()
+
+    async def test_manager_registers_routes_only_extension(self):
+        """A routes-only `Extension` is registered and its routes are mounted.
+
+        `Extension` is the base of `Plugin`: it carries contract versions and
+        routes but no functionality. An entry point resolving to a bare
+        `Extension` must still be registered and have its routes reach the API
+        router, exactly like a `Plugin` that ships routes.
+        """
+        async def _ping(request):
+            return JSONResponse({"pong": True})
+
+        extension = Extension(
+            name="dummy",
+            contract_versions={},
+            routes=[Route("/ping", _ping)],
+        )
+
+        plugin_manager = PluginManager()
+        plugin_manager._entry_points = {
+            "dummy": SimpleNamespace(name="dummy", load=lambda: extension),
+        }
+        plugin_manager.register_plugins()
+
+        # Registered and retrievable even though it is not a `Plugin`
+        assert plugin_manager.plugins["dummy"] is extension
+        assert plugin_manager.get_plugin("dummy") is extension
+
+        # Its routes reach the API router
+        main_router = APIRouter()
+        plugin_manager.register_plugins_routes(main_router)
+        assert any(
+            getattr(route, "endpoint", None) is _ping
+            for route in main_router.routes
+        )
+
+    async def test_start_plugins_skips_routes_only_extension(self):
+        """`start_plugins()` / `stop_plugins()` step over a routes-only `Extension`.
+
+        An `Extension` has no functionality to start, so the lifecycle sweep
+        must skip it rather than raise on the missing functionality (which
+        would abort the startup of every plugin registered after it).
+        """
+        extension = Extension(name="dummy", contract_versions={})
+
+        plugin_manager = PluginManager()
+        plugin_manager._entry_points = {
+            "dummy": SimpleNamespace(name="dummy", load=lambda: extension),
+        }
+        plugin_manager.register_plugins()
+        assert plugin_manager.plugins["dummy"] is extension
+
+        await plugin_manager.start_plugins()
         await plugin_manager.stop_plugins()
 
     async def test_register_plugins_skip_failing_entry_point(
