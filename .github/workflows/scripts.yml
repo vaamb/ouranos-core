@@ -1,0 +1,57 @@
+name: Scripts
+
+on:
+  push:
+    branches: [ "master" ]
+    paths:
+      - 'scripts/**'
+      - '.github/workflows/scripts.yml'
+  pull_request:
+    branches: [ "master" ]
+    paths:
+      - 'scripts/**'
+      - '.github/workflows/scripts.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  install-and-update:
+    name: Sandbox install + update
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # sandbox.sh mirrors the repo; give it history + tags
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y dos2unix rsync
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.13
+
+      - name: Install into a sandbox, then update it
+        working-directory: scripts
+        run: |
+          set -euo pipefail
+          export OURANOS_SANDBOX="$(mktemp -d /tmp/ouranos_sandbox_XXXX)"
+
+          # 1. Fresh install from the current working tree
+          ./utils/sandbox.sh install.sh
+          test -x "${OURANOS_SANDBOX}/ouranos/.venv/bin/python"  # should have been set by the installation script
+
+          # 2. Simulate a new release so the safe update path has work to do
+          git -C "${OURANOS_SANDBOX}/repo-mirror" tag 99.0.0
+
+          # 3. Update the sandbox install and assert it moved onto the release
+          ./utils/sandbox.sh update_ouranos.sh
+          git -C "${OURANOS_SANDBOX}/ouranos/lib/ouranos-core" \
+              describe --tags --exact-match
