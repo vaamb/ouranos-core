@@ -17,6 +17,16 @@ from ouranos.sdk.plugin import Extension, Functionality, Plugin, Route
 from ouranos.sdk.tests.plugin import DummyFunctionality
 
 
+@pytest.fixture
+def plugin_manager():
+    pm = PluginManager()
+
+    yield pm
+
+    pm._entry_points = {}
+    pm._plugins = {}
+
+
 class TestCurrentApp:
     def test_current_app(self, config: ConfigDict):
         """Test the current_app object properties and immutability.
@@ -314,7 +324,7 @@ class TestPlugin:
 
         ConfigHelper._config = config
 
-    async def test_plugin_manager(self, dummy_plugin: Plugin):
+    async def test_plugin_manager(self, dummy_plugin: Plugin, plugin_manager: PluginManager):
         """Test the PluginManager functionality.
 
         Verifies:
@@ -323,7 +333,6 @@ class TestPlugin:
         - Plugin retrieval works as expected
         - Error conditions are properly handled
         """
-        plugin_manager = PluginManager()
         plugin_manager.register_plugins()
 
         assert plugin_manager.plugins["dummy"].name == dummy_plugin.name
@@ -342,7 +351,10 @@ class TestPlugin:
 
         await plugin_manager.stop_plugins()
 
-    async def test_manager_registers_routes_only_extension(self):
+    async def test_manager_registers_routes_only_extension(
+            self,
+            plugin_manager: PluginManager,
+    ):
         """A routes-only `Extension` is registered and its routes are mounted.
 
         `Extension` is the base of `Plugin`: it carries contract versions and
@@ -359,7 +371,6 @@ class TestPlugin:
             routes=[Route("/ping", _ping)],
         )
 
-        plugin_manager = PluginManager()
         plugin_manager._entry_points = {
             "dummy": SimpleNamespace(name="dummy", load=lambda: extension),
         }
@@ -377,7 +388,10 @@ class TestPlugin:
             for route in main_router.routes
         )
 
-    async def test_start_plugins_skips_routes_only_extension(self):
+    async def test_start_plugins_skips_routes_only_extension(
+            self,
+            plugin_manager: PluginManager,
+    ):
         """`start_plugins()` / `stop_plugins()` step over a routes-only `Extension`.
 
         An `Extension` has no functionality to start, so the lifecycle sweep
@@ -386,7 +400,6 @@ class TestPlugin:
         """
         extension = Extension(name="dummy", contract_versions={})
 
-        plugin_manager = PluginManager()
         plugin_manager._entry_points = {
             "dummy": SimpleNamespace(name="dummy", load=lambda: extension),
         }
@@ -399,6 +412,7 @@ class TestPlugin:
     async def test_register_plugins_skip_failing_entry_point(
             self,
             dummy_plugin: Plugin,
+            plugin_manager: PluginManager,
             caplog: pytest.LogCaptureFixture,
     ):
         """A plugin that fails to load is logged and skipped, not raised.
@@ -410,7 +424,6 @@ class TestPlugin:
         def _raise():
             raise RuntimeError("boom")
 
-        plugin_manager = PluginManager()
         plugin_manager._entry_points = {
             "dummy": SimpleNamespace(name="dummy", load=_raise),
         }
@@ -421,7 +434,11 @@ class TestPlugin:
         assert "dummy" not in plugin_manager.plugins
         assert "Failed to register plugin 'dummy'" in caplog.text
 
-    async def test_load_plugin_failure_name_mismatch(self, dummy_plugin: Plugin):
+    async def test_load_plugin_failure_name_mismatch(
+            self,
+            dummy_plugin: Plugin,
+            plugin_manager: PluginManager,
+    ):
         """`load_plugin` raises if the entry point and plugin names differ.
 
         Entry points are keyed by the name declared in `pyproject.toml`, but
@@ -429,7 +446,6 @@ class TestPlugin:
         the plugin would be registered under one name and behave (routes,
         logs, `plugin.name` lookups) under another.
         """
-        plugin_manager = PluginManager()
         plugin_manager._entry_points = {
             "not-dummy": SimpleNamespace(name="not-dummy", load=lambda: dummy_plugin),
         }
@@ -437,9 +453,8 @@ class TestPlugin:
         with pytest.raises(ValueError, match="don't match"):
             plugin_manager.load_plugin("not-dummy")
 
-    async def test_load_plugin_failure_point_wrong_type(self):
+    async def test_load_plugin_failure_point_wrong_type(self, plugin_manager: PluginManager):
         """`load_plugin` raises if the entry point doesn't resolve to a `Plugin`."""
-        plugin_manager = PluginManager()
         plugin_manager._entry_points = {
             "dummy": SimpleNamespace(name="dummy", load=lambda: object()),
         }
@@ -447,7 +462,7 @@ class TestPlugin:
         with pytest.raises(ValueError, match="does not contain a plugin"):
             plugin_manager.load_plugin("dummy")
 
-    async def test_load_plugin_propagates_failure(self):
+    async def test_load_plugin_propagates_failure(self, plugin_manager: PluginManager):
         """Unlike `register_plugins`, `load_plugin` raises on a broken entry point.
 
         It is an explicit request for one named plugin, so it should fail
@@ -456,7 +471,6 @@ class TestPlugin:
         def _raise():
             raise RuntimeError("boom")
 
-        plugin_manager = PluginManager()
         plugin_manager._entry_points = {
             "dummy": SimpleNamespace(name="dummy", load=_raise),
         }
