@@ -213,6 +213,15 @@ install_service() {
     fi
 }
 
+# Generate the example nginx reverse-proxy config
+generate_nginx_config() {
+    local nginx_conf_output="${OURANOS_DIR}/scripts/ouranos.conf"
+    local template="${OURANOS_DIR}/lib/ouranos-core/deploy/nginx/ouranos.conf"
+
+    "${OURANOS_DIR}/scripts/utils/gen_nginx.sh" "${OURANOS_DIR}" "${nginx_conf_output}" "${template}" ||
+        log WARN "Failed to generate nginx reverse-proxy config"
+}
+
 # Cleanup function to run on exit
 cleanup() {
     local exit_code=$?
@@ -267,6 +276,10 @@ main() {
     install_service
     log SUCCESS "Systemd service set up successfully"
 
+    log INFO "Generating nginx reverse-proxy config..."
+    generate_nginx_config
+    log SUCCESS "nginx config generated at ${OURANOS_DIR}/scripts/ouranos.conf"
+
     # Display completion message
 
     echo -e "\n${GREEN}✔ Installation completed successfully!${NC}"
@@ -284,6 +297,8 @@ main() {
     echo -e "\n${YELLOW}To run as a system service:${NC}"
     echo -e "  sudo systemctl start ouranos.service"
     echo -e "  sudo systemctl enable ouranos.service  # Start on boot"
+    echo -e "\n${YELLOW}To expose the frontend and API behind a single port (optional):${NC}"
+    echo -e "  Point nginx at ${YELLOW}${OURANOS_DIR}/scripts/ouranos.conf${NC} and reload it"
     echo -e "\n${YELLOW}For troubleshooting, check the log file:${NC} ${LOG_FILE}"
 }
 
