@@ -97,6 +97,11 @@ By default, Ouranos runs the web server, aggregator, and all installed plugins
 in a single process. Individual components can be run separately by passing the
 appropriate flags — see `ouranos --help` for details.
 
+To expose both the frontend and the API behind a single port (for
+tunneling), an example nginx reverse-proxy config is available under
+`deploy/nginx/ouranos.conf`. It is adapted to the current installation path by 
+`scripts/utils/gen_nginx.sh` when running `install.sh`/`update.sh`. The rendered
+config is located at `<OURANOS_DIR>/scripts/ouranos.conf`.
 ---
 
 Configuration

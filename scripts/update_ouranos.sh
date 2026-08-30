@@ -295,6 +295,15 @@ update_service() {
     fi
 }
 
+# Regenerate the example nginx reverse-proxy config
+generate_nginx_config() {
+    local nginx_conf_output="${OURANOS_DIR}/scripts/ouranos.conf"
+    local template="${OURANOS_DIR}/lib/ouranos-core/deploy/nginx/ouranos.conf"
+
+    "${OURANOS_DIR}/scripts/utils/gen_nginx.sh" "${OURANOS_DIR}" "${nginx_conf_output}" "${template}" ||
+        log WARN "Failed to generate nginx reverse-proxy config"
+}
+
 # Cleanup function to run on exit
 cleanup() {
     local exit_code=$?
@@ -370,6 +379,14 @@ main () {
         log SUCCESS "Systemd service updated successfully"
     else
         log INFO "Dry run: skipping systemd service update"
+    fi
+
+    if [[ "${DRY_RUN}" == false ]]; then
+        log INFO "Regenerating nginx reverse-proxy config..."
+        generate_nginx_config
+        log SUCCESS "nginx config regenerated at ${OURANOS_DIR}/scripts/ouranos.conf"
+    else
+        log INFO "Dry run: skipping nginx config regeneration"
     fi
 
     # Display completion message
