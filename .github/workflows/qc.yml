@@ -40,7 +40,7 @@ jobs:
         enable-cache: true
 
     - name: Install dependencies
-      run: uv sync --all-extras
+      run: uv sync --group qc
 
     - name: Type check with ty
       run: uv run ty check src/ouranos/core/database
