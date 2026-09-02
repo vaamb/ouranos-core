@@ -48,6 +48,14 @@ dependencies = [
 [project.entry-points."ouranos.plugins"]
 dummy = "ouranos.sdk.tests.plugin:dummy_plugin"
 
+[project.optional-dependencies]
+mariadb = [
+    "asyncmy~=0.2",
+]
+
+postgresql = [
+    "psycopg[binary]~=3.2",
+]
 [dependency-groups]
 qc = [
     "ruff~=0.15.0",
