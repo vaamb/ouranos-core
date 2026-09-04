@@ -40,6 +40,7 @@ class DispatcherOptions:
             DispatcherType.memory: {},
             DispatcherType.amqp: {
                 "queue_options": {
+                    "durable": True,
                     "arguments": {
                         # Remove queue after 1 day without consumer
                         "x-expires": 24 * 60 * 60 * 1000,
@@ -55,6 +56,7 @@ class DispatcherOptions:
             DispatcherType.memory: {},
             DispatcherType.amqp: {
                 "queue_options": {
+                    "durable": True,
                     "arguments": {
                         # Remove queue after 15 min without consumer
                         "x-expires": 15 * 60 * 1000,
@@ -70,6 +72,7 @@ class DispatcherOptions:
             DispatcherType.memory: {},
             DispatcherType.amqp: {
                 "queue_options": {
+                    "durable": True,
                     "arguments": {
                         # Remove queue after 1 day without consumer
                         "x-expires": 24 * 60 * 60 * 1000,
@@ -85,6 +88,7 @@ class DispatcherOptions:
             DispatcherType.memory: {},
             DispatcherType.amqp: {
                 "queue_options": {
+                    "durable": True,
                     "arguments": {
                         # Remove queue after 1 day without consumer
                         "x-expires": 24 * 60 * 60 * 1000,
