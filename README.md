@@ -113,13 +113,13 @@ cloned next to the core, in `<OURANOS_DIR>/lib/`, and declared in the master
 `pyproject.toml`. That file is generated once, at installation, and then belongs
 to the installation: the update script never overwrites it.
 
-A plugin installation script clones the plugin, then declares it:
+A plugin installation script must at least clone the plugin, then declare it:
 
 ```bash
-git clone https://github.com/vaamb/ouranos-weather.git "${OURANOS_DIR}/lib/ouranos-weather"
+git clone https://github.com/vaamb/ouranos-frontend.git "${OURANOS_DIR}/lib/ouranos-frontend"
 
-. "${OURANOS_DIR}/scripts/utils/pyproject_helpers.sh"
-add_dependency ouranos-weather
+source "${OURANOS_DIR}/scripts/utils/pyproject_helpers.sh"
+add_dependency ouranos-frontend
 
 cd "${OURANOS_DIR}" && uv sync
 ```
