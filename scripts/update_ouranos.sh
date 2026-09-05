@@ -228,6 +228,7 @@ update_packages() {
 
     cd "$OURANOS_DIR"
 
+    # Add the anchors to the master pyproject when upgrading from a version without them
     if ! grep -q "# Add extra dependencies above this line" pyproject.toml; then
         log INFO "Migrating the master pyproject.toml to the anchored format..."
 
@@ -247,9 +248,9 @@ update_packages() {
         source "${OURANOS_DIR}/lib/ouranos-core/scripts/utils/pyproject_helpers.sh"
 
         if [[ -n "${core_extras}" ]]; then
-            log INFO "Keeping the '${core_extras}' database driver"
+            log INFO "Keeping ouranos-core's optional dependencies ('${core_extras}')"
             add_dependency "ouranos-core" "${core_extras}" ||
-                die "Failed to declare the '${core_extras}' database driver"
+                die "Failed to keep '${core_extras}' optional dependencies"
         fi
 
         # Plugins are recoverable: they are the workspace members found in `lib/`
