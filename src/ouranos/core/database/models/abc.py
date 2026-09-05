@@ -8,10 +8,10 @@ from uuid import UUID
 from warnings import warn
 
 from sqlalchemy import (
-    and_, Column, delete, Insert, inspect, Select, select, Table, UnaryExpression,
-    UniqueConstraint, update)
+    and_, Column, ColumnCollection,  delete, Insert, Select, select, Table,
+    UnaryExpression, UniqueConstraint, update)
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import class_mapper, Mapped, mapped_column
 
 from gaia_validators import missing
 
@@ -121,7 +121,7 @@ class CRUDMixin:
 
         # If we did not find a unique constraint, try to get it from the columns
         # "unique" args
-        columns: list[Column] = inspect(cls).columns
+        columns: ColumnCollection = class_mapper(cls).columns
         unique = [column.name for column in columns if column.unique]
         if not unique:
             unique = [column.name for column in columns if column.primary_key]
@@ -180,7 +180,8 @@ class CRUDMixin:
                     from sqlalchemy.dialects.mysql import Insert
 
                 lookup_keys = cls._get_lookup_keys()
-                columns_name = [column.name for column in inspect(cls).columns]
+                columns: ColumnCollection = class_mapper(cls).columns
+                columns_name = [column.name for column in columns]
 
                 def impl(stmt: Insert, action: str) -> Insert:
                     if action == "nothing":
@@ -216,7 +217,8 @@ class CRUDMixin:
                         from sqlalchemy.dialects.sqlite import Insert
 
                 lookup_keys = cls._get_lookup_keys()
-                columns_name = [column.name for column in inspect(cls).columns]
+                columns: ColumnCollection = class_mapper(cls).columns
+                columns_name = [column.name for column in columns]
 
                 def impl(stmt: Insert, action: str) -> Insert:
                     if action == "nothing":

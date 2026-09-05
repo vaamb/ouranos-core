@@ -38,11 +38,11 @@ dependencies = [
     "typing-extensions~=4.14",
     "SQLAlchemy~=2.0",
     "uvicorn[standard]~=0.34",
-
     # From git
     "event-dispatcher @ git+https://github.com/vaamb/event-dispatcher.git@0.8.0",
     "gaia-validators @ git+https://github.com/vaamb/gaia-validators.git@0.11.1",
     "sqlalchemy-wrapper @ git+https://github.com/vaamb/sqlalchemy-wrapper.git@0.5.0",
+    "ty==0.0.78",
 ]
 
 [project.entry-points."ouranos.plugins"]
@@ -60,7 +60,7 @@ postgresql = [
 [dependency-groups]
 qc = [
     "ruff~=0.15.0",
-    "ty==0.0.30",
+    "ty==0.0.78",
 ]
 
 test = [
