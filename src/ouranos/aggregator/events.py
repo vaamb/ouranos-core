@@ -4,8 +4,9 @@ from datetime import datetime, timezone
 from functools import wraps
 import logging
 import sys
+from types import FunctionType
 import typing as t
-from typing import Callable, cast, Type, TypeAlias, TypedDict, TypeVar
+from typing import Any, Awaitable, Callable, cast, Type, TypeAlias, TypedDict, TypeVar
 from uuid import UUID
 
 from anyio import Path as ioPath
@@ -44,6 +45,11 @@ if t.TYPE_CHECKING:
 PT = TypeVar("PT", dict, list[dict])
 
 data_type: TypeAlias = dict | list | str | tuple | None | gv.Empty
+
+
+class EcosystemStatus(TypedDict):
+    uid: str
+    status: bool
 
 
 class EcosystemUpdateData(TypedDict):
@@ -86,9 +92,11 @@ class ServiceUpdateDict(TypedDict):
     status: bool
 
 
-def registration_required(func: Callable):
+def registration_required(func: Callable[..., Awaitable[Any]]):
     """Decorator which makes sure the engine is registered and injects
     engine_uid"""
+
+    assert isinstance(func, FunctionType)
 
     @wraps(func)
     async def wrapper(self: GaiaEvents, sid: UUID, data: data_type = gv.empty):
@@ -106,7 +114,9 @@ def registration_required(func: Callable):
 def validate_payload(model_cls: Type[gv.BaseModel] | Type[RootModel]):
     """Decorator which validate and parse data payload before calling the event
     and the remaining decorators"""
-    def decorator(func: Callable):
+    def decorator(func: Callable[..., Awaitable[Any]]):
+        assert isinstance(func, FunctionType)
+
         @wraps(func)
         async def wrapper(self: GaiaEvents, sid: str, data: PT, *args):
             try:
@@ -124,11 +134,15 @@ def validate_payload(model_cls: Type[gv.BaseModel] | Type[RootModel]):
     return decorator
 
 
-def dispatch_to_application(func: Callable):
+def dispatch_to_application(func: Callable[..., Awaitable[Any]]):
     """Decorator which dispatch the data to the clients namespace"""
+
+    assert isinstance(func, FunctionType)
+
     @wraps(func)
     async def wrapper(self: GaiaEvents, sid: str, data: data_type, *args):
         event: str = func.__name__[3:]
+        assert not isinstance(data, gv.Empty)
         await self.internal_dispatcher.emit(
             event, data=data, namespace="application-internal", ttl=15)
         return await func(self, sid, data, *args)
@@ -277,7 +291,7 @@ class GaiaEvents(AsyncEventHandler):
             contract_version=own_contract,
             status=gv.Result.success if success else gv.Result.failure,
         ).model_dump()
-        await self.emit("registration_ack", data=ack, ttl=15, to=sid)
+        await self.emit("registration_ack", data=ack, ttl=15, to=sid)  # ty: ignore[invalid-argument-type]
 
         if success:
             camera_token = Tokenizer.dumps({"sub": TOKEN_SUBS.CAMERA_UPLOAD.value})
@@ -331,13 +345,14 @@ class GaiaEvents(AsyncEventHandler):
             if engine:
                 await Engine.update(session, uid=engine_uid, values={"last_seen": now})
             for ecosystem in data["ecosystems"]:
+                uid: str = ecosystem["uid"]
                 update_info.append({
-                    "uid": ecosystem["uid"],
+                    "uid": uid,
                     "status": ecosystem["status"],
                     "last_seen": now,
                 })
                 ecosystems_seen.append(
-                    await self.get_ecosystem_name(session, ecosystem["uid"]))
+                    await self.get_ecosystem_name(session, uid=uid) or uid)
             await Ecosystem.update_multiple(session, values=update_info)
         self.logger.debug(
             f"Updated last seen info for ecosystem(s) "
@@ -379,12 +394,12 @@ class GaiaEvents(AsyncEventHandler):
         async with self.session(sid) as session:
             session["init_data"].discard("base_info")
         ecosystems_in_config: list[str] = []
-        ecosystems_status: list[dict[str, str]] = []
+        ecosystems_status: list[EcosystemStatus] = []
         ecosystems_to_log: list[str] = []
         async with db.scoped_session() as session:
             for payload in data:
                 ecosystem = payload["data"]
-                ecosystem_uid = ecosystem.pop("uid")  # noqa
+                ecosystem_uid = ecosystem.pop("uid")  # ty: ignore[invalid-argument-type]
                 ecosystems_in_config.append(ecosystem_uid)
                 ecosystems_status.append({"uid": payload["uid"], "status": ecosystem["status"]})
                 ecosystems_to_log.append(ecosystem["name"])
@@ -401,7 +416,7 @@ class GaiaEvents(AsyncEventHandler):
                 # Add the possible actuator types if missing
                 actuator_types = {i for i in gv.HardwareType.actuator}
                 actuator_states = await ActuatorState.get_multiple(
-                    session, ecosystem_uid=ecosystem_uid, type=Within(actuator_types))
+                    session, ecosystem_uid=ecosystem_uid, type=Within(list(actuator_types)))
                 actuator_types_present = {actuator_state.type for actuator_state in actuator_states}
                 actuator_types_missing = actuator_types - actuator_types_present
                 if actuator_types_missing:
@@ -451,9 +466,9 @@ class GaiaEvents(AsyncEventHandler):
             for payload in data:
                 uid: str = payload["uid"]
                 ecosystems_to_log.append(
-                    await self.get_ecosystem_name(session, uid=uid))
+                    await self.get_ecosystem_name(session, uid=uid) or uid)
                 chaos = payload["data"]
-                time_window = chaos.pop("time_window")
+                time_window = chaos.pop("time_window")  # ty: ignore[invalid-argument-type]
                 await Chaos.update_or_create(
                     session,
                     ecosystem_uid=uid,
@@ -487,10 +502,10 @@ class GaiaEvents(AsyncEventHandler):
             for payload in data:
                 uid: str = payload["uid"]
                 ecosystems_to_log.append(
-                    await self.get_ecosystem_name(session, uid=uid))
+                    await self.get_ecosystem_name(session, uid=uid) or uid)
                 nycthemeral_cycle = payload["data"]
                 # TODO: handle target
-                target = nycthemeral_cycle.pop("target")  # noqa
+                target = nycthemeral_cycle.pop("target")  # ty: ignore[invalid-argument-type]
                 await NycthemeralCycle.update_or_create(
                     session, ecosystem_uid=uid, values=nycthemeral_cycle)
 
@@ -529,8 +544,8 @@ class GaiaEvents(AsyncEventHandler):
 
     async def _sync_environment(
             self,
-            data: list[gv.ClimateConfigPayloadDict | gv.WeatherConfigPayloadDict],
-            db_model: type[EnvironmentParameter | WeatherEvent],
+            data: list[gv.ClimateConfigPayloadDict] | list[gv.WeatherConfigPayloadDict],
+            db_model: type[EnvironmentParameter] | type[WeatherEvent],
             parameter_name: str,
     ) -> None:
         ecosystems_to_log: list[str] = []
@@ -538,11 +553,12 @@ class GaiaEvents(AsyncEventHandler):
             for payload in data:
                 uid: str = payload["uid"]
                 ecosystems_to_log.append(
-                    await self.get_ecosystem_name(session, uid=uid))
+                    await self.get_ecosystem_name(session, uid=uid) or uid)
                 in_config: list[str] = []
                 for config in payload["data"]:
+                    config: gv.ClimateConfigDict | gv.WeatherConfigDict
                     in_config.append(config["parameter"])
-                    parameter = config.pop("parameter")
+                    parameter = config.pop("parameter")  # ty: ignore[no-matching-overload]
                     await db_model.update_or_create(
                         session, ecosystem_uid=uid, parameter=parameter,
                         values=config)
@@ -577,12 +593,12 @@ class GaiaEvents(AsyncEventHandler):
                 hardware_in_config = []
                 uid = payload["uid"]
                 ecosystems_to_log.append(
-                    await self.get_ecosystem_name(session, uid=uid))
+                    await self.get_ecosystem_name(session, uid=uid) or uid)
                 for hardware in payload["data"]:
-                    hardware_uid = hardware.pop("uid")  # noqa
+                    hardware_uid = hardware.pop("uid")  # ty: ignore[invalid-argument-type]
                     hardware_in_config.append(hardware_uid)
-                    hardware["ecosystem_uid"] = uid  # noqa
-                    hardware["in_config"] = True  # noqa
+                    hardware["ecosystem_uid"] = uid  # ty: ignore[invalid-key]
+                    hardware["in_config"] = True  # ty: ignore[invalid-key]
                     # TODO: register multiplexer ?
                     del hardware["multiplexer_model"]  # noqa
                     if hardware["type"] == gv.HardwareType.camera:
@@ -621,12 +637,12 @@ class GaiaEvents(AsyncEventHandler):
                 plants_in_config = []
                 uid = payload["uid"]
                 ecosystems_to_log.append(
-                    await self.get_ecosystem_name(session, uid=uid))
+                    await self.get_ecosystem_name(session, uid=uid) or uid)
                 for plant in payload["data"]:
-                    plant_uid = plant.pop("uid")  # noqa
+                    plant_uid = plant.pop("uid")  # ty: ignore[invalid-argument-type]
                     plants_in_config.append(plant_uid)
-                    plant["ecosystem_uid"] = uid  # noqa
-                    plant["in_config"] = True  # noqa
+                    plant["ecosystem_uid"] = uid  # ty: ignore[invalid-key]
+                    plant["in_config"] = True  # ty: ignore[invalid-key]
                     await Plant.update_or_create(
                         session, uid=plant_uid, values=plant)
 
@@ -670,7 +686,7 @@ class GaiaEvents(AsyncEventHandler):
                 management_value: int = 0
                 for management in gv.ManagementFlags:
                     try:
-                        if ecosystem_management[management.name]:
+                        if ecosystem_management[management.name]:  # ty: ignore[invalid-key]
                             management_value |= management.value
                     except KeyError:
                         # Not implemented in gaia yet
@@ -680,7 +696,7 @@ class GaiaEvents(AsyncEventHandler):
                     "management": management_value
                 }
                 ecosystems_to_log.append(
-                    await self.get_ecosystem_name(session, uid=uid))
+                    await self.get_ecosystem_name(session, uid=uid) or uid)
 
             if ecosystems_to_update:
                 for ecosystem_uid, update_value in ecosystems_to_update.items():
@@ -764,9 +780,10 @@ class GaiaEvents(AsyncEventHandler):
             # Filter data that needs to be logged into db
             for record in recent_sensors_record:
                 if record.timestamp.minute % logging_period == 0:
+                    uid: str = record.ecosystem_uid
                     # Get the sensor data to log
                     records_to_create.append(cast(SensorDataRecordDict, {
-                        "ecosystem_uid": record.ecosystem_uid,
+                        "ecosystem_uid": uid,
                         "sensor_uid": record.sensor_uid,
                         "measure": record.measure,
                         "value": record.value,
@@ -783,8 +800,9 @@ class GaiaEvents(AsyncEventHandler):
                         "last_log": record.timestamp,
                     }
                     # Get the ecosystem name
+
                     ecosystems_to_log.add(
-                        await self.get_ecosystem_name(session, uid=record.ecosystem_uid))
+                        await self.get_ecosystem_name(session, uid=uid) or uid)
 
             alarms = self.alarms_data  # Use the lock a single time
             alarms_to_log: list[SensorAlarmDict] = [
@@ -811,7 +829,7 @@ class GaiaEvents(AsyncEventHandler):
                 session, values=[*hardware_to_update.values()])
             # Log new alarms or lengthen old ones
             for alarm in alarms_to_log:
-                await SensorAlarm.create_or_lengthen(session, alarm)
+                await SensorAlarm.create_or_lengthen(session, alarm)  # ty: ignore[invalid-argument-type]  # TypedDict vs dict
         self.logger.info(
             f"Logged sensors data from ecosystem(s) "
             f"{humanize_list([*ecosystems_to_log])}")
@@ -830,7 +848,7 @@ class GaiaEvents(AsyncEventHandler):
             except Exception as e:
                 await self.emit(
                     "buffered_data_ack",
-                    data=gv.RequestResult(
+                    data=gv.RequestResult(  # ty: ignore[invalid-argument-type]  # TypedDict vs dict
                         uuid=exchange_uuid,
                         status=gv.Result.failure,
                         message=str(e)
@@ -842,7 +860,7 @@ class GaiaEvents(AsyncEventHandler):
             else:
                 await self.emit(
                     "buffered_data_ack",
-                    data=gv.RequestResult(
+                    data=gv.RequestResult(  # ty: ignore[invalid-argument-type]  # TypedDict vs dict
                         uuid=exchange_uuid,
                         status=gv.Result.success,
                     ).model_dump(),
@@ -910,7 +928,7 @@ class GaiaEvents(AsyncEventHandler):
                 ecosystem_uid = payload["uid"]
                 records = payload["data"]
                 logged.append(
-                    await self.get_ecosystem_name(session, uid=payload["uid"]))
+                    await self.get_ecosystem_name(session, uid=ecosystem_uid) or ecosystem_uid)
                 for record in records:
                     record: gv.ActuatorStateRecord
                     type_ = record[0].name
@@ -1008,6 +1026,7 @@ class GaiaEvents(AsyncEventHandler):
         for ecosystem in data:
             ecosystem_data = ecosystem["data"]
             timestamp = ecosystem_data["timestamp"]
+            assert isinstance(timestamp, datetime)
             for raw_record in ecosystem_data["records"]:
                 # Get record data
                 record = gv.SensorRecord(*raw_record)
@@ -1039,9 +1058,9 @@ class GaiaEvents(AsyncEventHandler):
                 session, values=[*hardware_to_update.values()])
             # Get ecosystems name
             for ecosystem in data:
-                ecosystem_name = await self.get_ecosystem_name(
-                    session, uid=ecosystem["uid"])
-                logged.append(ecosystem_name)
+                logged.append(
+                    await self.get_ecosystem_name(
+                        session, uid=ecosystem["uid"]) or ecosystem["uid"])
 
         self.logger.debug(
             f"Logged health data from ecosystem(s): {humanize_list(logged)}")
@@ -1080,7 +1099,7 @@ class GaiaEvents(AsyncEventHandler):
         async with db.scoped_session() as session:
             for payload in data:
                 ecosystems_to_log.append(
-                    await self.get_ecosystem_name(session, uid=payload["uid"]))
+                    await self.get_ecosystem_name(session, uid=payload["uid"]) or payload["uid"])
                 ecosystem = payload["data"]
                 light_info = {
                     "morning_start": ecosystem["morning_start"],
@@ -1138,7 +1157,7 @@ class GaiaEvents(AsyncEventHandler):
                 return
             engine_sid = ecosystem.engine.sid
         await self.emit(
-            "turn_actuator", data=data, namespace="gaia", to=engine_sid,
+            "turn_actuator", data=data, namespace="gaia", to=engine_sid,  # ty: ignore[invalid-argument-type]  # TypedDict vs dict
             ttl=30)
 
     async def turn_light(
@@ -1168,20 +1187,23 @@ class GaiaEvents(AsyncEventHandler):
         )
         async with db.scoped_session() as session:
             engine = await Engine.get(session, uid=engine_uid)
+            if engine is None:
+                raise ValueError("Unknown engine uid.")
             await CrudRequest.create(
                 session,
-                uuid=UUID(data["uuid"]),
+                uuid=UUID(data["uuid"]) if isinstance(data["uuid"], str) else data["uuid"],
                 values={
                     "engine_uid": engine_uid,
                     "ecosystem_uid": data["routing"]["ecosystem_uid"],
                     "action": data["action"],
                     "target": data["target"],
-                    "payload": json.dumps(data["data"])
+                    "payload": json.dumps(data["kwargs"])
                 }
             )
-            engine_sid = engine.sid
+            engine_sid: UUID = engine.sid
         await self.emit(
-            "crud", data=data, namespace="/gaia", to=engine_sid, ttl=30)
+            "crud", data=data, namespace="/gaia", to=engine_sid,   # ty: ignore[invalid-argument-type]  # TypedDict vs dict
+            ttl=30)
 
     # Response to crud event, actual path: Gaia -> Aggregator -> Api
     async def on_crud_result(
