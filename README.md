@@ -151,7 +151,7 @@ Clone the repository and install dependencies with test extras:
 ```bash
 git clone https://github.com/vaamb/ouranos-core.git
 cd ouranos-core
-uv sync --extra test
+uv sync --group test
 ```
 
 Run the test suite:
@@ -163,7 +163,8 @@ uv run pytest tests/ -v
 Lint:
 
 ```bash
-uvx ruff check .
+uv sync --group qc
+uv run ruff check .
 ```
 
 ---
