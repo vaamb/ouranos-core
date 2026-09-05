@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-import tomllib
 import typing as t
 from unittest import TestCase
 
@@ -52,23 +51,28 @@ class TestInstallScript(TestCase):
 
 
     def test_python_version(self):
-        # Sync the version between ouranos-core and install.sh
-        with open(self.root_dir / "pyproject.toml", "rb") as f:
-            data = tomllib.load(f)
-        core_version = data["project"]["requires-python"]
+        import re
+
+        # Get the core pyproject version
+        core_pyproject_path = self.root_dir / "pyproject.toml"
+        core_version = _get_var_value("requires-python",core_pyproject_path)
         assert core_version[:2] == ">="
         core_version = core_version[2:]
 
-        install_version = _get_var_value("MIN_PYTHON_VERSION", self.install_script_path)
-
-        assert install_version == core_version
-
-        # Sync the version between ouranos-core and gen_pyproject.sh
+        # Get the master pyproject version
         ouranos_version = _get_var_value("requires-python", self.master_pyproject_path)
         assert ouranos_version[:2] == ">="
         ouranos_version = ouranos_version[2:]
 
+        # Ensure both versions are identical
         assert ouranos_version == core_version
+
+        # Get the installed version
+        pattern = re.compile(r"(?<=(uv python install )).*$", re.MULTILINE)
+        installed_version = _get_pattern(self.install_script_path, pattern)
+
+        # Ensure the installed version is higher than the minimum version
+        assert installed_version >= core_version
 
     def test_logging_sync(self):
         import re
