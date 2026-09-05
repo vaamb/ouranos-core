@@ -184,7 +184,7 @@ setup_uv_and_sync() {
     # Set up virtual environment
     uv python install 3.13
     uv venv --python 3.13
-    uv sync --all-packages ||
+    uv sync ||
         die "Failed to create Python virtual environment and sync it"
 
     source "${OURANOS_DIR}/.venv/bin/activate" ||
