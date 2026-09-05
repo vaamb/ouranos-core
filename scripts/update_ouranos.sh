@@ -230,22 +230,40 @@ update_packages() {
 
     if ! grep -q "# Add extra dependencies above this line" pyproject.toml; then
         log INFO "Migrating the master pyproject.toml to the anchored format..."
-        log WARN "Some additional dependencies might be uninstalled. Simply add them back to the master pyproject.toml file"
+
+        # Extras are not recorded anywhere on disk: look the database driver up
+        # in the environment before the exact `uv sync` below prunes it
+        local core_extras=""
+        # Use `compgen -G` rather than `ls` for the globbing behavior and the easy-to-use return code
+        if compgen -G "${OURANOS_DIR}/.venv/lib/python*/site-packages/psycopg-*.dist-info" > /dev/null; then
+            core_extras="postgresql"
+        elif compgen -G "${OURANOS_DIR}/.venv/lib/python*/site-packages/asyncmy-*.dist-info" > /dev/null; then
+            core_extras="mariadb"
+        fi
+
         "${OURANOS_DIR}/lib/ouranos-core/scripts/utils/gen_pyproject.sh" "${OURANOS_DIR}" ||
             die "Failed to update pyproject.toml"
 
-        add_dependency() {  # $1 = package name
-            grep -qF "\"$1\"" pyproject.toml && return 0
-            sed -i "/# Add extra dependencies above this line/i\\    \"$1\"," pyproject.toml
-            sed -i "/# Add extra sources above this line/i\\$1 = { workspace = true }" pyproject.toml
-        }
+        source "${OURANOS_DIR}/lib/ouranos-core/scripts/utils/pyproject_helpers.sh"
 
+        if [[ -n "${core_extras}" ]]; then
+            log INFO "Keeping the '${core_extras}' database driver"
+            add_dependency "ouranos-core" "${core_extras}" ||
+                die "Failed to declare the '${core_extras}' database driver"
+        fi
+
+        # Plugins are recoverable: they are the workspace members found in `lib/`
         for pkg_path in "${OURANOS_DIR}/lib"/ouranos-*; do
             package_name=$(basename "${pkg_path}")
             if [[ "${package_name}" != "ouranos-core" ]]; then
-                add_dependency "${package_name}"
+                log INFO "Keeping the ${package_name} plugin"
+                add_dependency "${package_name}" ||
+                    die "Failed to declare ${package_name}"
             fi
         done
+
+        log WARN "Only the plugins found in 'lib/' and the database driver in use could be recovered."
+        log WARN "Any other manually installed package will be uninstalled. Add it back to ${OURANOS_DIR}/pyproject.toml and run the update again to restore it."
     fi
 
     grep -q "# Add extra dependencies above this line" pyproject.toml ||
