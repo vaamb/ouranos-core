@@ -226,11 +226,6 @@ update_packages() {
         return 0
     fi
 
-    # Update pyproject.toml
-    "${OURANOS_DIR}/lib/ouranos-core/scripts/utils/gen_pyproject.sh" "${OURANOS_DIR}" ||
-        die "Failed to update pyproject.toml"
-
-    # Update uv lock and packages
     cd "$OURANOS_DIR"
     uv lock --upgrade ||
         die "Failed to update uv lock"
