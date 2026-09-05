@@ -228,17 +228,23 @@ update_packages() {
 
     cd "$OURANOS_DIR"
 
-    # Update the master pyproject version number
-    local ouranos_version
-    ouranos_version=$(python -c "import sys; import ouranos; sys.stdout.write(ouranos.__version__); sys.stdout.flush(); sys.exit(0)")
-    sed -i 's/^version = .*/version = "'"${ouranos_version}"'"/' pyproject.toml
-
     # Update uv lock and packages
     uv lock --upgrade ||
         die "Failed to update uv lock"
     # use --inexact to keep packages not defined in pyproject.toml such as the DB drivers
     uv sync ||
         die "Failed to update Python virtual environment"
+
+    # Update the master pyproject version number
+    source ".venv/bin/activate" ||
+        die "Failed to activate Python virtual environment"
+
+    local ouranos_version
+    ouranos_version=$(python -c "import sys; import ouranos; sys.stdout.write(ouranos.__version__); sys.stdout.flush(); sys.exit(0)")
+    sed -i 's/^version = .*/version = "'"${ouranos_version}"'"/' pyproject.toml
+
+    deactivate
+
 
     # Run update scripts for the packages having one
     run_update_script "${OURANOS_DIR}/lib/ouranos-core"
