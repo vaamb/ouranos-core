@@ -543,11 +543,11 @@ class User(Base, UserMixin):
             return role
         # Try to get the role name
         try:
-            role_name = safe_enum_from_name(RoleName, role_name)
+            role_name = safe_enum_from_name(RoleName, role_name)  # ty: ignore[invalid-argument-type]
         except (TypeError, ValueError):
-            role_name = None
-        # Get required role
-        if role_name is not None:
+            # No valid role name, will fall through to the default one
+            pass
+        else:
             role = await Role.get(session, role_name)
             if role is not None:
                 return role
@@ -1834,7 +1834,6 @@ class WikiPicture(Base, WikiTagged, CRUDMixin, WikiObject):
             cls,
             session: AsyncSession,
             /,
-            values: dict | None = None,  # author_id, content
             **lookup_keys: lookup_keys_type,  # article_id, name
     ) -> None:
         topic_name: str = lookup_keys.pop("topic_name")  #ty: ignore[invalid-assignment]

@@ -985,7 +985,7 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
             raise ValueError(
                 "Provide 'uid' either as a parameter or as a key in the "
                 "updated info")
-        measures: list[gv.Measure | gv.MeasureDict] | None = values.pop("measures", None)
+        measures: list[gv.Measure] | list[gv.MeasureDict] | None = values.pop("measures", None)
         groups: list[str] | None = values.pop("groups", None)
         values.pop("plants", [])
         await super().update(session, uid=uid, values=values)
@@ -1310,7 +1310,7 @@ class Plant(Base, CachedCRUDMixin, InConfigMixin):
         hardware = values.pop("hardware", [])
         await super().update(session, uid=uid, values=values)
         if hardware:
-            await cls.attach_hardware(session, uid, hardware)  # ty: ignore[invalid-argument-type]
+            await cls.attach_hardware(session, uid, hardware)
             # Clear cache as hardware have been added
             hash_key = create_hashable_key(uid=uid, **lookup_keys)
             cls._cache.pop(hash_key, None)
