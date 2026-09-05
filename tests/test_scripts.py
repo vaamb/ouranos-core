@@ -51,8 +51,6 @@ class TestInstallScript(TestCase):
 
 
     def test_python_version(self):
-        import re
-
         # Get the core pyproject version
         core_pyproject_path = self.root_dir / "pyproject.toml"
         core_version = _get_var_value("requires-python",core_pyproject_path)
@@ -68,8 +66,7 @@ class TestInstallScript(TestCase):
         assert ouranos_version == core_version
 
         # Get the installed version
-        pattern = re.compile(r"(?<=(uv python install ))(\d+\.\d+)", re.MULTILINE)
-        installed_version = _get_pattern(self.install_script_path, pattern)
+        installed_version = _get_var_value("PYTHON_VERSION", self.install_script_path)
 
         # Ensure the installed version is higher than the minimum version
         installed_version_tpl = tuple(int(x) for x in installed_version.split("."))

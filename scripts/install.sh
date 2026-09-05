@@ -61,6 +61,7 @@ if [[ -n "${OURANOS_DIR:-}" ]]; then
 fi
 
 # Version requirements
+PYTHON_VERSION="3.13"
 readonly OURANOS_VERSION="0.11.0"
 # Overridable so the installation can be tested, or run from a fork or a local
 # mirror, without reaching for GitHub
@@ -178,9 +179,9 @@ setup_uv_and_sync() {
 
     # Set up virtual environment
     log INFO "Setting up Python virtual environment"
-    uv python install 3.13  ||
-        die "Failed to install python 3.13 from uv"
-    uv venv --python 3.13  ||
+    uv python install ${PYTHON_VERSION}  ||
+        die "Failed to install python ${PYTHON_VERSION} from uv"
+    uv venv --python ${PYTHON_VERSION}  ||
         die "Failed to create Python virtual environment"
     uv sync ||
         die "Failed to sync Python virtual environment"
