@@ -61,7 +61,6 @@ if [[ -n "${OURANOS_DIR:-}" ]]; then
 fi
 
 # Version requirements
-readonly MIN_PYTHON_VERSION="3.11"
 readonly OURANOS_VERSION="0.11.0"
 # Overridable so the installation can be tested, or run from a fork or a local
 # mirror, without reaching for GitHub
@@ -124,10 +123,6 @@ check_requirements() {
     if [[ ${#missing_deps[@]} -gt 0 ]]; then
         die "Missing required packages: ${missing_deps[*]}"
     fi
-
-    # Check Python version
-    python3 -c "import sys; exit(0) if sys.version_info >= (${MIN_PYTHON_VERSION//./,}) else exit(1)" ||
-        die "Python ${MIN_PYTHON_VERSION} or higher is required"
 }
 
 create_directories() {
