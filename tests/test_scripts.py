@@ -68,11 +68,13 @@ class TestInstallScript(TestCase):
         assert ouranos_version == core_version
 
         # Get the installed version
-        pattern = re.compile(r"(?<=(uv python install )).*$", re.MULTILINE)
+        pattern = re.compile(r"(?<=(uv python install ))(\d+\.\d+)", re.MULTILINE)
         installed_version = _get_pattern(self.install_script_path, pattern)
 
         # Ensure the installed version is higher than the minimum version
-        assert installed_version >= core_version
+        installed_version_tpl = tuple(int(x) for x in installed_version.split("."))
+        core_version_tpl = tuple(int(x) for x in core_version.split("."))
+        assert installed_version_tpl >= core_version_tpl
 
     def test_logging_sync(self):
         import re
