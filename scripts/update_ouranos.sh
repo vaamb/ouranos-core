@@ -228,6 +228,26 @@ update_packages() {
 
     cd "$OURANOS_DIR"
 
+    if ! grep -q "# Add extra dependencies above this line" pyproject.toml; then
+        log INFO "Migrating the master pyproject.toml to the anchored format..."
+        log INFO "Some additional dependencies might be uninstalled. Simply add them back to the master pyproject.toml file"
+        "${OURANOS_DIR}/lib/ouranos-core/scripts/utils/gen_pyproject.sh" "${OURANOS_DIR}" ||
+            die "Failed to update pyproject.toml"
+
+        add_dependency() {  # $1 = package name
+            grep -qF "\"$1\"" pyproject.toml && return 0
+            sed -i "/#Additional dependencies above/i\\    \"$1\"," pyproject.toml
+            sed -i "/#Additional sources above/i\\$1 = { workspace = true }" pyproject.toml
+        }
+
+        for pkg_path in "${OURANOS_DIR}/lib"/ouranos-*; do
+            package_name=$(basename "${pkg_path}")
+            if [[ "${package_name}" != "ouranos-core" ]]; then
+                add_dependency "${package_name}"
+            fi
+        done
+    fi
+
     # Update uv lock and packages
     uv lock --upgrade ||
         die "Failed to update uv lock"
