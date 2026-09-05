@@ -179,9 +179,9 @@ setup_uv_and_sync() {
 
     # Set up virtual environment
     log INFO "Setting up Python virtual environment"
-    uv python install ${PYTHON_VERSION}  ||
+    uv python install ${PYTHON_VERSION} ||
         die "Failed to install python ${PYTHON_VERSION} from uv"
-    uv venv --python ${PYTHON_VERSION}  ||
+    uv venv --python ${PYTHON_VERSION} ||
         die "Failed to create Python virtual environment"
     uv sync ||
         die "Failed to sync Python virtual environment"
