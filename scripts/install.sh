@@ -177,10 +177,13 @@ setup_uv_and_sync() {
         die "Failed to generate Ouranos pyproject.toml"
 
     # Set up virtual environment
-    uv python install 3.13
-    uv venv --python 3.13
+    log INFO "Setting up Python virtual environment"
+    uv python install 3.13  ||
+        die "Failed to install python 3.13 from uv"
+    uv venv --python 3.13  ||
+        die "Failed to create Python virtual environment"
     uv sync ||
-        die "Failed to create Python virtual environment and sync it"
+        die "Failed to sync Python virtual environment"
 
     source "${OURANOS_DIR}/.venv/bin/activate" ||
         die "Failed to activate Python virtual environment"
