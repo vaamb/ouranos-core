@@ -226,16 +226,59 @@ update_packages() {
         return 0
     fi
 
-    # Update pyproject.toml
-    "${OURANOS_DIR}/lib/ouranos-core/scripts/utils/gen_pyproject.sh" "${OURANOS_DIR}" ||
-        die "Failed to update pyproject.toml"
+    cd "$OURANOS_DIR"
+
+    # Add the anchors to the master pyproject when upgrading from a version without them
+    if ! grep -q "# Add extra dependencies above this line" pyproject.toml; then
+        log INFO "Migrating the master pyproject.toml to the anchored format..."
+
+        # Extras are not recorded anywhere on disk: look the database driver up
+        # in the environment before the exact `uv sync` below prunes it
+        local core_extras=""
+        # Use `compgen -G` rather than `ls` for the globbing behavior and the easy-to-use return code
+        if compgen -G "${OURANOS_DIR}/.venv/lib/python*/site-packages/psycopg-*.dist-info" > /dev/null; then
+            core_extras="postgresql"
+        elif compgen -G "${OURANOS_DIR}/.venv/lib/python*/site-packages/asyncmy-*.dist-info" > /dev/null; then
+            core_extras="mariadb"
+        fi
+
+        "${OURANOS_DIR}/lib/ouranos-core/scripts/utils/gen_pyproject.sh" "${OURANOS_DIR}" ||
+            die "Failed to update pyproject.toml"
+
+        source "${OURANOS_DIR}/lib/ouranos-core/scripts/utils/pyproject_helpers.sh"
+
+        if [[ -n "${core_extras}" ]]; then
+            log INFO "Keeping ouranos-core's optional dependencies ('${core_extras}')"
+            add_dependency "ouranos-core" "${core_extras}" ||
+                die "Failed to keep '${core_extras}' optional dependencies"
+        fi
+
+        # Plugins are recoverable: they are the workspace members found in `lib/`
+        for pkg_path in "${OURANOS_DIR}/lib"/ouranos-*; do
+            package_name=$(basename "${pkg_path}")
+            if [[ "${package_name}" != "ouranos-core" ]]; then
+                log INFO "Keeping the ${package_name} plugin"
+                add_dependency "${package_name}" ||
+                    die "Failed to declare ${package_name}"
+            fi
+        done
+
+        log WARN "Only the plugins found in 'lib/' and the database driver in use could be recovered."
+        log WARN "Any other manually installed package will be uninstalled. Add it back to ${OURANOS_DIR}/pyproject.toml and run the update again to restore it."
+    fi
+
+    grep -q "# Add extra dependencies above this line" pyproject.toml ||
+        die "Anchor missing from pyproject.toml"
+
+    # Update the master pyproject version number
+    local ouranos_version
+    ouranos_version=$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' lib/ouranos-core/src/ouranos/__init__.py)
+    sed -i 's/^version = .*/version = "'"${ouranos_version}"'"/' pyproject.toml
 
     # Update uv lock and packages
-    cd "$OURANOS_DIR"
     uv lock --upgrade ||
         die "Failed to update uv lock"
-    # use --inexact to keep packages not defined in pyproject.toml such as the DB drivers
-    uv sync --all-packages --inexact ||
+    uv sync ||
         die "Failed to update Python virtual environment"
 
     # Run update scripts for the packages having one

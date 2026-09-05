@@ -17,10 +17,14 @@ name = "ouranos"
 version = "0.11.0"
 description = "An app to manage Gaia instances"
 requires-python = ">=3.11"
-dependencies = ["ouranos-core"]
+dependencies = [
+    "ouranos-core",
+    # Add extra dependencies above this line
+]
 
 [tool.uv.sources]
 ouranos-core = { workspace = true }
+# Add extra sources above this line
 
 [tool.uv.workspace]
 members = ["lib/ouranos-*"]

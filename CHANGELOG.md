@@ -13,6 +13,9 @@
 - "refresh_session" route re-issuing the session cookie with a new "iat", re-opening the
   freshness window that guards the sensitive routes; it requires the current user's
   credentials, as bumping "iat" is a re-authentication rather than a refresh (#415)
+- `scripts/utils/pyproject_helpers.sh`, meant to be sourced by the plugins installation
+  scripts: `add_dependency <name> [extras] [source]` declares a package in the master
+  `pyproject.toml` (#429)
 
 ### Changed
 - **Breaking**: the route formerly known as "refresh_session", which pushes back the session
@@ -26,6 +29,16 @@
   which also hosts `SessionInfo` (#415)
 - `set_session_cookie()` and `delete_session_cookie()` centralise the "secure" and "httponly"
   cookie flags (#415)
+- The master `pyproject.toml` now declares every package installed alongside the core, and the
+  installation and update scripts sync it exactly (`uv sync`, without `--all-packages
+  --inexact`): commenting a dependency out is enough to disable a plugin, and recreating the
+  virtual environment reinstalls exactly what is declared (#429)
+- The master `pyproject.toml` is no longer regenerated on update, as it now belongs to the
+  installation; an installation predating this change is migrated on its next update, keeping
+  the plugins found in `lib/` and the database driver in use, while any other manually
+  installed package has to be declared again (#429)
+- The installation script installs Python 3.13 through `uv` rather than requiring a recent
+  enough system interpreter (#429)
 
 ### Fixed
 - `User.confirm()` bypassed `User.update()`, leaving a stale entry in the `User` cache, so a
@@ -48,6 +61,9 @@
   `~/.profile` and systemd untouched (#407)
 - Tests covering the `user_session` module, session revocation, session extension and
   session refreshing (#415)
+- Readme: how a plugin declares itself in the master `pyproject.toml` and how to disable one;
+  the development instructions now use `--group` following the move to `dependency-groups`
+  (#429)
 
 ---
 

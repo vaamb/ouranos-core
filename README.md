@@ -102,6 +102,44 @@ tunneling), an example nginx reverse-proxy config is available under
 `deploy/nginx/ouranos.conf`. It is adapted to the current installation path by 
 `scripts/utils/gen_nginx.sh` when running `install.sh`/`update.sh`. The rendered
 config is located at `<OURANOS_DIR>/scripts/ouranos.conf`.
+
+---
+
+Plugins
+-------
+
+Plugins are Python packages exposing an `ouranos.plugins` entry point. They are
+cloned next to the core, in `<OURANOS_DIR>/lib/`, and declared in the master
+`pyproject.toml`. That file is generated once, at installation, and then belongs
+to the installation: the update script never overwrites it.
+
+A plugin installation script must at least clone the plugin, then declare it:
+
+```bash
+git clone https://github.com/vaamb/ouranos-frontend.git "${OURANOS_DIR}/lib/ouranos-frontend"
+
+source "${OURANOS_DIR}/scripts/utils/pyproject_helpers.sh"
+add_dependency ouranos-frontend
+
+cd "${OURANOS_DIR}" && uv sync
+```
+
+`add_dependency <name> [extras] [source]` adds the package to `dependencies` and
+its `[tool.uv.sources]` entry, both above their anchor comment. It is idempotent
+and returns 1 with a message on stderr if the pyproject cannot be edited:
+
+```bash
+add_dependency ouranos-frontend                      # a plugin cloned in `lib/`
+add_dependency ouranos-core postgresql               # add an extra to a package
+add_dependency ouranos-frontend "" '{ git = "https://github.com/vaamb/ouranos-frontend.git", tag = "0.2.0" }'
+add_dependency humanize "" none                      # straight from PyPI, no source entry
+```
+
+To disable a plugin, comment out its line in `dependencies` and run `uv sync`
+again; uncomment it to bring it back. The clone stays in `lib/` and therefore
+stays part of the `uv` workspace, so a plugin whose *dependencies* cannot be
+resolved has to be moved out of `lib/` rather than just commented out.
+
 ---
 
 Configuration
@@ -151,7 +189,7 @@ Clone the repository and install dependencies with test extras:
 ```bash
 git clone https://github.com/vaamb/ouranos-core.git
 cd ouranos-core
-uv sync --extra test
+uv sync --group test
 ```
 
 Run the test suite:
@@ -163,7 +201,8 @@ uv run pytest tests/ -v
 Lint:
 
 ```bash
-uvx ruff check .
+uv sync --group qc
+uv run ruff check .
 ```
 
 ---
