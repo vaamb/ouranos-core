@@ -227,6 +227,13 @@ update_packages() {
     fi
 
     cd "$OURANOS_DIR"
+
+    # Update the master pyproject version number
+    local ouranos_version
+    ouranos_version=$(python -c "import sys; import ouranos; sys.stdout.write(ouranos.__version__); sys.stdout.flush(); sys.exit(0)")
+    sed -i 's/^version = .*/version = "'"${ouranos_version}"'"/' pyproject.toml
+
+    # Update uv lock and packages
     uv lock --upgrade ||
         die "Failed to update uv lock"
     # use --inexact to keep packages not defined in pyproject.toml such as the DB drivers
