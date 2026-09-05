@@ -251,7 +251,6 @@ update_packages() {
     # Update uv lock and packages
     uv lock --upgrade ||
         die "Failed to update uv lock"
-    # use --inexact to keep packages not defined in pyproject.toml such as the DB drivers
     uv sync ||
         die "Failed to update Python virtual environment"
 
