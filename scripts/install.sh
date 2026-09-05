@@ -181,7 +181,9 @@ setup_uv_and_sync() {
     "${OURANOS_DIR}/scripts/utils/gen_pyproject.sh" "${OURANOS_DIR}" ||
         die "Failed to generate Ouranos pyproject.toml"
 
-    # Sync virtual environment
+    # Set up virtual environment
+    uv python install 3.13
+    uv venv --python 3.13
     uv sync --all-packages ||
         die "Failed to create Python virtual environment and sync it"
 
