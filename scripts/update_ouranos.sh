@@ -251,22 +251,16 @@ update_packages() {
     grep -q "# Add extra dependencies above this line" pyproject.toml ||
         die "Anchor missing from pyproject.toml"
 
+    # Update the master pyproject version number
+    local ouranos_version
+    ouranos_version=$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' lib/ouranos-core/src/ouranos/__init__.py)
+    sed -i 's/^version = .*/version = "'"${ouranos_version}"'"/' pyproject.toml
+
     # Update uv lock and packages
     uv lock --upgrade ||
         die "Failed to update uv lock"
     uv sync ||
         die "Failed to update Python virtual environment"
-
-    # Update the master pyproject version number
-    source ".venv/bin/activate" ||
-        die "Failed to activate Python virtual environment"
-
-    local ouranos_version
-    ouranos_version=$(python3 -c "import sys; import ouranos; sys.stdout.write(ouranos.__version__); sys.stdout.flush(); sys.exit(0)")
-    sed -i 's/^version = .*/version = "'"${ouranos_version}"'"/' pyproject.toml
-
-    deactivate
-
 
     # Run update scripts for the packages having one
     run_update_script "${OURANOS_DIR}/lib/ouranos-core"
