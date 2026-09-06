@@ -505,7 +505,7 @@ class GaiaEvents(AsyncEventHandler):
                     await self.get_ecosystem_name(session, uid=uid) or uid)
                 nycthemeral_cycle = payload["data"]
                 # TODO: handle target
-                target = nycthemeral_cycle.pop("target")  # ty: ignore[invalid-argument-type]
+                nycthemeral_cycle.pop("target")  # ty: ignore[invalid-argument-type]
                 await NycthemeralCycle.update_or_create(
                     session, ecosystem_uid=uid, values=nycthemeral_cycle)
 
