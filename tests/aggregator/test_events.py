@@ -1082,7 +1082,7 @@ class TestEcosystemBackground(HardwareAware):
         test_data = {"key": "value"}
 
         # Create test payload
-        crud_payload = {
+        crud_payload: gv.CrudPayloadDict = gv.CrudPayload(**{
             "uuid": test_uuid,
             "routing": {
                 "engine_uid": g_data.engine_uid,
@@ -1090,8 +1090,8 @@ class TestEcosystemBackground(HardwareAware):
             },
             "action": test_action,
             "target": test_target,
-            "data": test_data
-        }
+            "kwargs": test_data
+        }).model_dump()
 
         # Call the method
         await events_handler.crud(g_data.engine_sid, crud_payload)
