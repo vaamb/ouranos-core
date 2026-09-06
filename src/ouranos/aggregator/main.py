@@ -1,15 +1,18 @@
 from __future__ import annotations
 
-from dispatcher import AsyncAMQPDispatcher, AsyncRedisDispatcher
+import typing as t
 
 from ouranos.aggregator.archiver import Archiver
 from ouranos.aggregator.events import GaiaEvents
 from ouranos.aggregator.file_server import FileServer
 from ouranos.aggregator.sky_watcher import SkyWatcher
-from ouranos.core.config import ConfigDict, consts
+from ouranos.core.config import ConfigDict
 from ouranos.core.dispatchers import DispatcherFactory
 from ouranos.core.globals import scheduler
 from ouranos.sdk import Functionality, Plugin
+
+if t.TYPE_CHECKING:
+    from dispatcher import AsyncDispatcher
 
 
 class Aggregator(Functionality):
@@ -45,7 +48,7 @@ class Aggregator(Functionality):
         self.file_server = FileServer()
 
     @property
-    def gaia_dispatcher(self) -> AsyncAMQPDispatcher | AsyncRedisDispatcher:
+    def gaia_dispatcher(self) -> AsyncDispatcher :
         if self._gaia_dispatcher is None:
             raise RuntimeError("'broker' is defined at startup")
         return self._gaia_dispatcher
@@ -53,12 +56,12 @@ class Aggregator(Functionality):
     @gaia_dispatcher.setter
     def gaia_dispatcher(
             self,
-            broker: AsyncAMQPDispatcher | AsyncRedisDispatcher | None
+            broker: AsyncDispatcher | None
     ) -> None:
         self._gaia_dispatcher = broker
 
     @property
-    def internal_dispatcher(self) -> AsyncAMQPDispatcher | AsyncRedisDispatcher:
+    def internal_dispatcher(self) -> AsyncDispatcher:
         if self._internal_dispatcher is None:
             raise RuntimeError("'broker' is defined at startup")
         return self._internal_dispatcher
@@ -66,12 +69,12 @@ class Aggregator(Functionality):
     @internal_dispatcher.setter
     def internal_dispatcher(
             self,
-            broker: AsyncAMQPDispatcher | AsyncRedisDispatcher | None
+            broker: AsyncDispatcher | None
     ) -> None:
         self._internal_dispatcher = broker
 
     @property
-    def stream_dispatcher(self) -> AsyncAMQPDispatcher | AsyncRedisDispatcher:
+    def stream_dispatcher(self) -> AsyncDispatcher:
         if self._stream_dispatcher is None:
             raise RuntimeError("'stream_broker' is defined at startup")
         return self._stream_dispatcher
@@ -79,7 +82,7 @@ class Aggregator(Functionality):
     @stream_dispatcher.setter
     def stream_dispatcher(
             self,
-            broker: AsyncAMQPDispatcher | AsyncRedisDispatcher | None
+            broker: AsyncDispatcher | None
     ) -> None:
         self._stream_dispatcher = broker
 

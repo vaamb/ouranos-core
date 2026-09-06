@@ -83,7 +83,7 @@ class Archiver:
             self,
             data_name: str,
             RecentModel: type[ArchivableMixin | Base],
-            ArchiveModel: type[Base],
+            ArchiveModel: type[ArchivableMixin | Base],
     ) -> None:
         self.logger.debug(f"Archiving {data_name} data")
         limit = RecentModel.get_time_limit()

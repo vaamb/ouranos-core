@@ -1007,6 +1007,7 @@ class TestEcosystemBackground(HardwareAware):
         async with db.scoped_session() as session:
             input_data = gv.LightData(**g_data.light_data)
             light = await NycthemeralCycle.get(session, ecosystem_uid=g_data.ecosystem_uid)
+            assert light is not None
             assert light.morning_start == input_data.morning_start
             assert light.morning_end == input_data.morning_end
             assert light.evening_start == input_data.evening_start
@@ -1082,7 +1083,7 @@ class TestEcosystemBackground(HardwareAware):
         test_data = {"key": "value"}
 
         # Create test payload
-        crud_payload = {
+        crud_payload: gv.CrudPayloadDict = gv.CrudPayload(**{
             "uuid": test_uuid,
             "routing": {
                 "engine_uid": g_data.engine_uid,
@@ -1090,8 +1091,8 @@ class TestEcosystemBackground(HardwareAware):
             },
             "action": test_action,
             "target": test_target,
-            "data": test_data
-        }
+            "kwargs": test_data
+        }).model_dump()
 
         # Call the method
         await events_handler.crud(g_data.engine_sid, crud_payload)
