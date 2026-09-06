@@ -87,7 +87,7 @@ class Functionality(ABC):
     async def init_the_db(self) -> None:
         """Initialize the database."""
         self.logger.info("Initializing the database")
-        db.init(self.config)
+        db.init(self.config)  # ty: ignore[invalid-argument-type]  # TypedDict vs dict
         await create_db_tables()
         if not self.config["TESTING"]:  # Revisions aren't used in tests (yet ?)
             await check_db_revision()

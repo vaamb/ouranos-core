@@ -84,7 +84,8 @@ class _InProcessExecutor(PluginExecutor):
         return self._instance
 
     async def start(self) -> None:
-        self._instance = self.functionality(config=self.config, **self.kwargs)
+        # ty issue with TypeVar
+        self._instance = self.functionality(config=self.config, **self.kwargs)  # ty: ignore[invalid-assignment]
         await self.instance.complete_startup()
 
     async def stop(self) -> None:
@@ -268,7 +269,7 @@ class Plugin(Extension):
         self._status: bool = False
         self._error_logged: bool = False
         self._command: Command | None = command
-        self.config: ConfigDict | None = None
+        self._config: ConfigDict | None = None
         self._kwargs: dict = {}
 
     def __repr__(self) -> str:
@@ -285,7 +286,8 @@ class Plugin(Extension):
     @property
     def functionality(self) -> type[F]:
         """Get the managed functionality class."""
-        return self._functionality
+        # ty issue with TypeVar
+        return self._functionality  #ty: ignore[invalid-return-type]
 
     @property
     def executor(self) -> PluginExecutor:
@@ -307,6 +309,12 @@ class Plugin(Extension):
         """Merge additional kwargs into the existing initialization kwargs."""
         self._kwargs.update(value)
 
+    @property
+    def config(self) -> ConfigDict:
+        if self._config is None:
+            raise ValueError("Config not set. Call setup_config() first")
+        return self._config
+
     def setup_config(
             self,
             config_profile: profile_type,
@@ -320,7 +328,7 @@ class Plugin(Extension):
         if not ConfigHelper.config_is_set():
             ConfigHelper.set_config_and_configure_logging(
                 config_profile, config_override)
-        self.config = current_app.config
+        self._config = current_app.config
 
     def compute_number_of_workers(self) -> int:
         """Calculate the number of worker processes needed.
@@ -352,7 +360,7 @@ class Plugin(Extension):
         """
         if self._status:
             raise RuntimeError(f"{self.name} already started")
-        if self.config is None:
+        if self._config is None:
             raise RuntimeError("Config not set. Call setup_config() first")
 
         self.logger.info(f"Starting {self.name}")
@@ -458,21 +466,20 @@ class Plugin(Extension):
                 config_override: list[str],
         ) -> None:
             """Run the plugin as a standalone service."""
-            config_override_str = config_override
-            config_override = {}
-            for overridden in config_override_str:
+            config_override_dict: dict[str, Any] = {}
+            for overridden in config_override:
                 if "=" not in overridden:
                     raise click.BadParameter(
                         f"Invalid format '{overridden}'. Expected key=value",
                         param_hint="'--config-override'",
                     )
                 key, value = overridden.split("=", 1)
-                config_override[key] = parse_str_value(value)
+                config_override_dict[key] = parse_str_value(value)
 
-            self.setup_config(config_profile, config_override)
+            self.setup_config(config_profile, config_override_dict)
             self.run_as_standalone()
 
-        return command
+        return command  # ty: ignore[invalid-return-type]
 
     @property
     def command(self) -> Command:
