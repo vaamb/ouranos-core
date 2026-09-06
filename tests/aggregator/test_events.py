@@ -1007,6 +1007,7 @@ class TestEcosystemBackground(HardwareAware):
         async with db.scoped_session() as session:
             input_data = gv.LightData(**g_data.light_data)
             light = await NycthemeralCycle.get(session, ecosystem_uid=g_data.ecosystem_uid)
+            assert light is not None
             assert light.morning_start == input_data.morning_start
             assert light.morning_end == input_data.morning_end
             assert light.evening_start == input_data.evening_start
