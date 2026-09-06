@@ -159,6 +159,18 @@ class SkyWatcher:
         self._started: bool = False
 
     @property
+    def coordinates(self) -> gv.Coordinates:
+        if self._coordinates is None:
+            raise ValueError("Coordinates not set in the config")
+        return self._coordinates
+
+    @property
+    def API_KEY(self) -> str:
+        if self._API_key is None:
+            raise ValueError("API_KEY not set in the config")
+        return self._API_key
+
+    @property
     def started(self) -> bool:
         return self._started
 
@@ -200,7 +212,7 @@ class SkyWatcher:
                 get_weather_data_imp = get_weather_test_data
             else:
                 get_weather_data_imp = get_weather_data
-            weather_data = await get_weather_data_imp(self._coordinates, self._API_key)
+            weather_data = await get_weather_data_imp(self.coordinates, self.API_KEY)
         except ConnectionError:
             self.logger.error(
                 "Ouranos is not connected to the internet, could not update "
@@ -236,7 +248,7 @@ class SkyWatcher:
         today = date.today()
         days = [today + timedelta(days=i) for i in range(0, 7)]
         sun_times = [
-            get_sun_times(self._coordinates, day).model_dump()
+            get_sun_times(self.coordinates, day).model_dump()
             for day in days
         ]
         await self._aio_cache.set("sun_times", sun_times)
