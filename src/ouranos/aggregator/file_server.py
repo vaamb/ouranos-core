@@ -113,6 +113,8 @@ class FileServer:
     def _check_token(request: Request) -> None:
         token = request.headers.get("token")
         try:
+            if not token:
+                raise TokenError
             claims = Tokenizer.loads(token)
             if not claims.get("sub") == TOKEN_SUBS.CAMERA_UPLOAD.value:
                 raise TokenError
