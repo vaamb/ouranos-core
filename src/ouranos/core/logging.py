@@ -152,6 +152,11 @@ def configure_logging(config: BaseConfigDict, log_dir: Path) -> None:
                 "format": "%(asctime)s %(levelname)s %(name)-30.30s: %(message)s",
                 "datefmt": "%Y-%m-%d %H:%M:%S"
             },
+            "uvicorn_access": {
+                "()": "uvicorn.logging.AccessFormatter",
+                "fmt": '%(asctime)s - %(levelprefix)s %(client_addr)s - "%(request_line)s" %(status_code)s',
+                "datefmt": "%Y-%m-%d %H:%M:%S",
+            },
         },
         "handlers": {
             "stream_handler": {
@@ -169,7 +174,7 @@ def configure_logging(config: BaseConfigDict, log_dir: Path) -> None:
             },
             "uvicorn_file_handler": {
                 "level": "INFO",
-                "formatter": "base_format",
+                "formatter": "uvicorn_access",
                 "class": "logging.handlers.RotatingFileHandler",
                 "filename": str(log_dir / "uvicorn.log"),
                 "mode": "a",
@@ -192,9 +197,16 @@ def configure_logging(config: BaseConfigDict, log_dir: Path) -> None:
                 "handlers": [],
                 "level": "WARNING",
             },
+            # Log everything except "uvicorn.access" into the Ouranos log
             "uvicorn": {
                 "handlers": [],
                 "level": "INFO",
+            },
+            # Uvicorn access logs have their own format and go to their own log file
+            "uvicorn.access": {
+                "handlers": [],
+                "level": "INFO",
+                "propagate": False,
             },
         },
     }
@@ -215,7 +227,7 @@ def configure_logging(config: BaseConfigDict, log_dir: Path) -> None:
 
     if config["LOG_TO_FILE"]:
         for logger_name, logger in logging_config["loggers"].items():
-            if logger_name == "uvicorn":
+            if logger_name == "uvicorn.access":
                 logger["handlers"].append("uvicorn_file_handler")
             else:
                 logger["handlers"].append("ouranos_file_handler")
