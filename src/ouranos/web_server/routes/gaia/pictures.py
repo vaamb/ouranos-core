@@ -30,7 +30,7 @@ async def get_multiple_camera_picture_info(
     ] = None,
     time_window: Annotated[
         TimeWindow,
-        Depends(get_time_window(rounding=10, grace_time=60, default_window_length=1)),
+        Depends(get_time_window(rounding=1, grace_time=60, default_window_length=1)),
     ],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
@@ -51,7 +51,7 @@ async def get_camera_picture_info_for_ecosystem(
         ] = None,
         time_window: Annotated[
             TimeWindow,
-            Depends(get_time_window(rounding=10, grace_time=60, default_window_length=1)),
+            Depends(get_time_window(rounding=1, grace_time=60, default_window_length=1)),
         ],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
