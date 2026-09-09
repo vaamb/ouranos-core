@@ -244,5 +244,5 @@ def validate_uid(uid: str, length: int = 16) -> None:
         raise ValueError("Wrong uid format.")
 
 
-def format_error(e: Exception) -> str:
+def format_error(e: BaseException) -> str:
     return f"Error msg: `{e.__class__.__name__}: {e}`."
