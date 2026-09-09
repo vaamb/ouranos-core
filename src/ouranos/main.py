@@ -13,7 +13,7 @@ from ouranos.core.config import ConfigDict, ConfigHelper
 from ouranos.core.database.init import check_db_revision, create_db_tables
 from ouranos.core.globals import db
 from ouranos.core.plugins_manager import PluginManager
-from ouranos.core.utils import parse_str_value
+from ouranos.core.utils import format_error, parse_str_value
 from ouranos.sdk import Functionality
 
 
@@ -124,7 +124,8 @@ class Ouranos(Functionality):
             await self.shutdown()
             await self.post_shutdown()
         except asyncio.CancelledError as e:
-            self.logger.error(f"Error while shutting down [{pid}]. {self._fmt_exc(e)}")
+            self.logger.error(
+                f"Error while shutting down [{pid}]. {format_error(e)}", exc_info=e)
         else:
             self._status = False
             self.logger.info(f"Ouranos has been stopped [{pid}]")

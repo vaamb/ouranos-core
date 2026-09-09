@@ -14,7 +14,7 @@ from ouranos.core.config.consts import REGISTRATION_TOKEN_VALIDITY, TOKEN_SUBS
 from ouranos.core.database.models.app import (
     RoleName, User, UserMixin, UserTokenInfoDict)
 from ouranos.core.exceptions import ExpiredTokenError, InvalidTokenError
-from ouranos.core.utils import Tokenizer
+from ouranos.core.utils import format_error, Tokenizer
 from ouranos.web_server.auth import (
     Authenticator, basic_auth, delete_session_cookie, extend_session_cookie,
     get_authenticator, get_current_user, get_session_info, is_admin, is_fresh,
@@ -229,8 +229,7 @@ async def register_new_user(
                 logger: Logger = getLogger("ouranos.web_server.auth")
                 logger.error(
                     f"Error while sending confirmation email."
-                    f"Error msg: `{e.__class__.__name__}: {e}`"
-                )
+                    f"{format_error(e)}", exc_info=e)
         return {
             "msg": "You are registered.",
             "user": user,

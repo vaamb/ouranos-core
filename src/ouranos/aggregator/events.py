@@ -30,7 +30,7 @@ from ouranos.core.database.models.gaia import (
     Place, Plant, SensorAlarm, SensorDataRecord, SensorDataCache, WeatherEvent)
 from ouranos.core.database.models.utils import Within
 from ouranos.core.exceptions import NotRegisteredError
-from ouranos.core.utils import humanize_list, Tokenizer, validate_uid
+from ouranos.core.utils import format_error, humanize_list, Tokenizer, validate_uid
 
 if sys.version_info < (3, 13):
     from typing_extensions import deprecated
@@ -126,8 +126,7 @@ def validate_payload(model_cls: Type[gv.BaseModel] | Type[RootModel]):
                 msg_list = [f"{error['loc'][0] if error['loc'] else 'root'}: {error['msg']}" for error in e.errors()]
                 self.logger.error(
                     f"Encountered an error while validating '{event}' data. Error "
-                    f"msg: {', '.join(msg_list)}"
-                )
+                    f"msg: {', '.join(msg_list)}",  exc_info=e)
                 raise
             return await func(self, sid, validated_data, *args)
         return wrapper
@@ -222,10 +221,6 @@ class GaiaEvents(AsyncEventHandler):
     @alarms_data.setter
     def alarms_data(self, value: list[SensorAlarmDict]) -> None:
         self._alarms_data = value
-
-    @staticmethod
-    def _format_error(e: Exception) -> str:
-        return f"Error msg: `{e.__class__.__name__}: {e}`"
 
     # ---------------------------------------------------------------------------
     #   Events Gaia <-> Aggregator
@@ -906,7 +901,7 @@ class GaiaEvents(AsyncEventHandler):
         except Exception as e:
             self.logger.error(
                 f"Encountered an error when trying to handle buffered sensors data. "
-                f"{self._format_error(e)}")
+                f"{format_error(e)}", exc_info=e)
 
     @registration_required
     @validate_payload(RootModel[list[gv.ActuatorsDataPayload]])
@@ -1005,7 +1000,7 @@ class GaiaEvents(AsyncEventHandler):
         except Exception as e:
             self.logger.error(
                 f"Encountered an error when trying to handle buffered actuators data. "
-                f"{self._format_error(e)}")
+                f"{format_error(e)}", exc_info=e)
 
     @registration_required
     @validate_payload(RootModel[list[gv.HealthDataPayload]])
@@ -1080,7 +1075,7 @@ class GaiaEvents(AsyncEventHandler):
         except Exception as e:
             self.logger.error(
                 f"Encountered an error when trying to handle buffered health data. "
-                f"{self._format_error(e)}")
+                f"{format_error(e)}", exc_info=e)
 
     @registration_required
     @validate_payload(RootModel[list[gv.LightDataPayload]])

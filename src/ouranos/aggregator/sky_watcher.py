@@ -216,7 +216,7 @@ class SkyWatcher:
         except ConnectionError:
             self.logger.error(
                 "Ouranos is not connected to the internet, could not update "
-                "weather data")
+                "weather data", exc_info=True)
             await self.clear_old_weather_data()
             return
         else:

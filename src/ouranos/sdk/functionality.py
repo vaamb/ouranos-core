@@ -11,6 +11,7 @@ from ouranos import db, scheduler, setup_loop
 from ouranos.core.config import ConfigDict
 from ouranos.core.database.init import (
     check_db_revision, create_db_tables, insert_default_data)
+from ouranos.core.utils import format_error
 from ouranos.sdk.runner import Runner, runner
 
 
@@ -79,10 +80,6 @@ class Functionality(ABC):
     @property
     def common_resources_state(self) -> _CommonResourcesState:
         return Functionality._common_resources_state
-
-    def _fmt_exc(self, e: BaseException) -> str:
-        """Format exception for logging."""
-        return f"Error msg: `{e.__class__.__name__}: {e}`"
 
     async def init_the_db(self) -> None:
         """Initialize the database."""
@@ -170,7 +167,8 @@ class Functionality(ABC):
             # Deliberately swallowed: shutdown is signal-driven, so a
             # cancellation here only means the loop is closing. Swallowing it
             # lets the cleanup in the `finally` block run to completion.
-            self.logger.error(f"Error while shutting down [{pid}]. {self._fmt_exc(e)}")
+            self.logger.error(
+                f"Error while shutting down [{pid}]. {format_error(e)}", exc_info=e)
         finally:
             await self._clear_common()
             self._status = False
@@ -200,7 +198,8 @@ class Functionality(ABC):
         try:
             await self.complete_startup()
         except Exception as e:
-            self.logger.critical(f"Error while starting [{pid}]. {self._fmt_exc(e)}")
+            self.logger.critical(
+                f"Error while starting [{pid}]. {format_error(e)}", exc_info=e)
             self.logger.info(f"Will stop [{pid}]")
             self._error_logged = True
             raise
@@ -212,7 +211,9 @@ class Functionality(ABC):
                 try:
                     await self.complete_shutdown()
                 except Exception as e:
-                    self.logger.critical(f"Error while shutting down [{pid}]. {self._fmt_exc(e)}")
+                    self.logger.critical(
+                        f"Error while shutting down [{pid}]. {format_error(e)}",
+                        exc_info=e)
                     self._error_logged = True
                     raise
 

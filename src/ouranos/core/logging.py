@@ -9,6 +9,7 @@ from pathlib import Path
 import sqlite3
 import sys
 import time
+import traceback
 from typing import Literal
 
 import click
@@ -26,7 +27,8 @@ class SQLiteHandler(Handler):
         file_name TEXT,
         line_no INT,
         func_name TEXT,
-        message TEXT
+        message TEXT,
+        traceback TEXT
     )"""
 
     _log_query = """\
@@ -38,7 +40,8 @@ class SQLiteHandler(Handler):
         file_name,
         line_no,
         func_name,
-        message
+        message,
+        traceback
    )
    VALUES (
         :timestamp,
@@ -48,7 +51,8 @@ class SQLiteHandler(Handler):
         :filename,
         :line_no,
         :func_name,
-        :message
+        :message,
+        :traceback
    );
     """
 
@@ -84,6 +88,12 @@ class SQLiteHandler(Handler):
         self.execute_query(query)
 
     def log_record(self, record: LogRecord) -> None:
+        # Format the traceback ourselves rather than relying on `record.exc_text`:
+        #  that attribute is only populated as a side effect of a `Formatter`
+        #  having run on the record, which never happens on this handler's path.
+        tb = None
+        if record.exc_info:
+            tb = "".join(traceback.format_exception(*record.exc_info))
         params = {
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(record.created)),
             "level_name": record.levelname,
@@ -93,6 +103,7 @@ class SQLiteHandler(Handler):
             "line_no": record.lineno,
             "func_name": record.funcName,
             "message": record.getMessage(),
+            "traceback": tb,
         }
         query = self._log_query % {"table_name": self.table_name}
         self.execute_query(query, params)
