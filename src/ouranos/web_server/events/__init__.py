@@ -21,12 +21,11 @@ from ouranos.web_server.user_session import get_user_from_session_info, SessionI
 ADMIN_ROOM = "administrator"
 CAMERA_STREAM_ROOM = "camera_stream"
 
-logger: Logger = getLogger("aggregator.socketio")
-
 
 class ClientEvents(AsyncNamespace):
     def __init__(self, namespace=None):
         super().__init__(namespace=namespace)
+        self.logger: Logger = getLogger("ouranos.web_server.socketio")
         self._server: AsyncServer | None = None
         self._ouranos_dispatcher: AsyncDispatcher | None = None
 
@@ -73,6 +72,9 @@ class ClientEvents(AsyncNamespace):
             )
 
     async def on_connect(self, sid, environ, auth: dict | None = None):
+        address = environ.get("REMOTE_ADDR")
+        port = environ.get("REMOTE_PORT")
+        self.logger.info(f'{address}:{port} - "WebSocket /socket.io from sid: {sid}"')
         self._check_client_contract(auth)
         cookie = SimpleCookie(environ.get("HTTP_COOKIE", ""))
         session_cookie = cookie.get(LOGIN_NAME.COOKIE.value)
@@ -99,13 +101,14 @@ class ClientEvents(AsyncNamespace):
         await self.emit("pong", namespace="/", room=sid)
 
     async def on_login(self, sid, token: str):
-        logger.debug(f"Received deprecated 'on_login' event from sid '{sid}'")
+        self.logger.debug(f'sid: {sid} - "SocketIO login (deprecated)"')
 
     async def on_logout(self, sid, token: str):
+        self.logger.debug(f'sid: {sid} - "SocketIO logout (deprecated)"')
         await self.server.leave_room(sid, ADMIN_ROOM)
-        logger.debug(f"Received deprecated 'on_logout' event from sid '{sid}'")
 
     async def on_user_heartbeat(self, sid, token: str | None = None):
+        self.logger.debug(f'sid: {sid} - "SocketIO user_heartbeat"')
         sio_session = await self.get_session(sid)
         session_info = sio_session.get("session_info", None)
         if session_info is None:
@@ -126,6 +129,7 @@ class ClientEvents(AsyncNamespace):
         )
 
     async def on_join_room(self, sid, room_name: str) -> None:
+        self.logger.debug(f'sid: {sid} - "SocketIO join_room" {room_name}')
         if room_name == ADMIN_ROOM:
             await self.emit(
                 "join_room_ack",
@@ -146,6 +150,7 @@ class ClientEvents(AsyncNamespace):
         )
 
     async def on_leave_room(self, sid, room_name: str) -> None:
+        self.logger.debug(f'sid: {sid} - "SocketIO leave_room" {room_name}')
         if room_name == ADMIN_ROOM:
             await self.emit(
                 "leave_room_ack",
@@ -170,6 +175,7 @@ class ClientEvents(AsyncNamespace):
     # ---------------------------------------------------------------------------
     @permission_required(Permission.OPERATE)
     async def on_turn_light(self, sid, data):
+        self.logger.debug(f'sid: {sid} - "SocketIO turn_light"')
         ecosystem_uid = data["ecosystem"]
         async with db.scoped_session() as session:
             ecosystem = await Ecosystem.get(session, uid=ecosystem_uid)
@@ -178,9 +184,8 @@ class ClientEvents(AsyncNamespace):
         ecosystem_sid = ecosystem.engine.sid
         mode = data.get("mode", "automatic")
         countdown = data.get("countdown", False)
-        logger.debug(
-            f"Dispatching 'turn_light' signal to ecosystem {ecosystem_uid}"
-        )
+        self.ouranos_dispatcher.logger.debug(
+            f"Dispatching 'turn_light' signal to ecosystem {ecosystem_uid}")
         await self.ouranos_dispatcher.emit(
             event="turn_light",
             data={"ecosystem": ecosystem_uid, "mode": mode, "countdown": countdown},
@@ -190,6 +195,7 @@ class ClientEvents(AsyncNamespace):
 
     @permission_required(Permission.OPERATE)
     async def on_manage_ecosystem(self, sid, data):
+        self.logger.debug(f'sid: {sid} - "SocketIO manage_ecosystem"')
         ecosystem_uid = data["ecosystem"]
         async with db.scoped_session() as session:
             ecosystem = await Ecosystem.get(session, uid=ecosystem_uid)
@@ -198,14 +204,15 @@ class ClientEvents(AsyncNamespace):
         ecosystem_sid = ecosystem.engine.sid
         management = data["management"]
         status = data["status"]
-        logger.debug(
+        self.ouranos_dispatcher.logger.debug(
             f"Dispatching change management '{management}' to status "
-            f"'{status}' in ecosystem {ecosystem_uid}"
-        )
+            f"'{status}' to ecosystem {ecosystem_uid}")
         await self.ouranos_dispatcher.emit(
             event="change_management",
             data={
-                "ecosystem": ecosystem_uid, "management": management, "status": status
+                "ecosystem": ecosystem_uid,
+                "management": management,
+                "status": status,
             },
             namespace="aggregator-internal",
             room=ecosystem_sid
@@ -221,68 +228,68 @@ class DispatcherEvents(AsyncEventHandler):
     #   Events Aggregator -> Web workers -> Web clients
     # ---------------------------------------------------------------------------
     async def on_weather_current(self, sid, data):
-        logger.debug("Dispatching 'weather_current' to clients")
+        self.dispatcher.logger.debug("Dispatching 'weather_current' to clients")
         await self.sio_manager.emit("weather_current", data=data, namespace="/")
 
     async def on_weather_hourly(self, sid, data):
-        logger.debug("Dispatching 'weather_hourly' to clients")
+        self.dispatcher.logger.debug("Dispatching 'weather_hourly' to clients")
         await self.sio_manager.emit("weather_hourly", data=data, namespace="/")
 
     async def on_weather_daily(self, sid, data):
-        logger.debug("Dispatching 'weather_daily' to clients")
+        self.dispatcher.logger.debug("Dispatching 'weather_daily' to clients")
         await self.sio_manager.emit("weather_daily", data=data, namespace="/")
 
     async def on_sun_times(self, sid, data):
-        logger.debug("Dispatching 'sun_times' to clients")
+        self.dispatcher.logger.debug("Dispatching 'sun_times' to clients")
         await self.sio_manager.emit("sun_times", data=data, namespace="/")
 
     async def on_ecosystems_heartbeat(self, sid, data):
-        logger.debug("Dispatching 'ecosystem_heartbeat' to clients")
+        self.dispatcher.logger.debug("Dispatching 'ecosystem_heartbeat' to clients")
         await self.sio_manager.emit("ecosystems_heartbeat", data=data, namespace="/")
 
     async def on_base_info(self, sid, data):
-        logger.debug("Dispatching 'base_info' to clients")
+        self.dispatcher.logger.debug("Dispatching 'base_info' to clients")
         await self.sio_manager.emit("base_info", data=data, namespace="/")
 
     async def on_hardware(self, sid, data):
-        logger.debug("Dispatching 'hardware' to clients")
+        self.dispatcher.logger.debug("Dispatching 'hardware' to clients")
         await self.sio_manager.emit("hardware", data=data, namespace="/")
 
     async def on_environmental_parameters(self, sid, data):
-        logger.debug("Dispatching 'environmental_parameters' to clients")
+        self.dispatcher.logger.debug("Dispatching 'environmental_parameters' to clients")
         await self.sio_manager.emit("environmental_parameters", data=data, namespace="/")
 
     async def on_chaos_parameters(self, sid, data):
-        logger.debug("Dispatching 'chaos_parameters' to clients")
+        self.dispatcher.logger.debug("Dispatching 'chaos_parameters' to clients")
         await self.sio_manager.emit("chaos_parameters", data=data, namespace="/")
 
     async def on_nycthemeral_info(self, sid, data):
-        logger.debug("Dispatching 'nycthemeral_info' to clients")
+        self.dispatcher.logger.debug("Dispatching 'nycthemeral_info' to clients")
         await self.sio_manager.emit("nycthemeral_info", data=data, namespace="/")
 
     async def on_ecosystem_status(self, sid, data):
-        logger.debug("Dispatching 'ecosystem_status' to clients")
+        self.dispatcher.logger.debug("Dispatching 'ecosystem_status' to clients")
         await self.sio_manager.emit("ecosystem_status", data=data, namespace="/")
 
     async def on_current_sensors_data(self, sid, data):
-        logger.debug("Dispatching 'current_sensors_data' to clients")
+        self.dispatcher.logger.debug("Dispatching 'current_sensors_data' to clients")
         await self.sio_manager.emit("current_sensors_data", data=data, namespace="/")
 
     async def on_historic_sensors_data_update(self, sid, data):
-        logger.debug("Dispatching 'historic_sensors_data_update' to clients")
+        self.dispatcher.logger.debug("Dispatching 'historic_sensors_data_update' to clients")
         await self.sio_manager.emit(
             "historic_sensors_data_update", data=data, namespace="/")
 
     async def on_light_data(self, sid, data):
-        logger.debug("Dispatching 'light_data' to clients")
+        self.dispatcher.logger.debug("Dispatching 'light_data' to clients")
         await self.sio_manager.emit("light_data", data=data, namespace="/")
 
     async def on_actuators_data(self, sid, data):
-        logger.debug("Dispatching 'actuator_data' to clients")
+        self.dispatcher.logger.debug("Dispatching 'actuator_data' to clients")
         await self.sio_manager.emit("actuators_data", data=data, namespace="/")
 
     async def on_management(self, sid, data: list[gv.ManagementConfigPayloadDict]):
-        logger.debug("Dispatching 'management' to clients")
+        self.dispatcher.logger.debug("Dispatching 'management' to clients")
 
         rv = []
         async with db.scoped_session() as session:
@@ -307,14 +314,14 @@ class DispatcherEvents(AsyncEventHandler):
         await self.sio_manager.emit("management", data=rv, namespace="/")
 
     async def on_health_data(self, sid, data):
-        logger.debug("Dispatching 'health_data' to clients")
+        self.dispatcher.logger.debug("Dispatching 'health_data' to clients")
         await self.sio_manager.emit("health_data", data=data, namespace="/")
 
     # ---------------------------------------------------------------------------
     #   Events Stream aggregator -> Web workers -> Web clients
     # ---------------------------------------------------------------------------
     async def on_picture_arrays(self, sid, data: dict) -> None:
-        logger.debug("Dispatching picture updated to clients")
+        self.dispatcher.logger.debug("Dispatching picture updated to clients")
         await self.sio_manager.emit(
             "pictures_update", data=data, namespace="/", room=CAMERA_STREAM_ROOM)
 
@@ -322,6 +329,6 @@ class DispatcherEvents(AsyncEventHandler):
     #   Events Base web server ->  Web workers -> Admin web clients
     # ---------------------------------------------------------------------------
     async def on_current_server_data(self, sid, data):
-        logger.debug("Dispatching 'current_server_data' to clients")
+        self.dispatcher.logger.debug("Dispatching 'current_server_data' to clients")
         await self.sio_manager.emit(
             "current_server_data", data=data, namespace="/", room=ADMIN_ROOM)

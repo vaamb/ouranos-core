@@ -117,10 +117,11 @@ class ColourFormatter(Formatter):
             self,
             fmt: str | None = None,
             datefmt: str | None = None,
-            style: Literal["%", "{", "$"] = "%"
+            style: Literal["%", "{", "$"] = "%",
+            use_colours: bool | None = None,
     ) -> None:
         super().__init__(fmt=fmt, datefmt=datefmt, style=style)
-        self.use_colours = sys.stdout.isatty()
+        self.use_colours = sys.stdout.isatty() if use_colours is None else use_colours
 
     def color_level_name(self, lvl_name: str, lvl_nbr: int) -> str:
         def default(lvl_name: str) -> str:
@@ -147,37 +148,37 @@ def configure_logging(config: BaseConfigDict, log_dir: Path) -> None:
         "version": 1,
         "disable_existing_loggers": True,
         "formatters": {
-            "base_format": {
+            "base": {
                 "()": "ouranos.core.logging.ColourFormatter",
                 "format": "%(asctime)s %(levelname)s %(name)-30.30s: %(message)s",
                 "datefmt": "%Y-%m-%d %H:%M:%S"
             },
-            "uvicorn_access": {
-                "()": "uvicorn.logging.AccessFormatter",
-                "fmt": '%(asctime)s - %(levelprefix)s %(client_addr)s - "%(request_line)s" %(status_code)s',
+            "access": {
+                "()": "ouranos.core.logging.ColourFormatter",
+                "fmt": '%(asctime)s - %(levelname)s %(message)s',
                 "datefmt": "%Y-%m-%d %H:%M:%S",
-                "use_colors": False,
+                "use_colours": False,
             },
         },
         "handlers": {
             "stream_handler": {
                 "level": "INFO",
-                "formatter": "base_format",
+                "formatter": "base",
                 "class": "logging.StreamHandler",
             },
             "ouranos_file_handler": {
                 "level": "INFO",
-                "formatter": "base_format",
+                "formatter": "base",
                 "class": "logging.handlers.TimedRotatingFileHandler",
                 "filename": str(log_dir / "ouranos.log"),
                 "when": "W0",
                 "backupCount": 4,
             },
-            "uvicorn_file_handler": {
+            "access_file_handler": {
                 "level": "INFO",
-                "formatter": "uvicorn_access",
+                "formatter": "access",
                 "class": "logging.handlers.RotatingFileHandler",
-                "filename": str(log_dir / "uvicorn.log"),
+                "filename": str(log_dir / "access.log"),
                 "mode": "a",
                 "maxBytes": 512 * 1024,
                 "backupCount": 4,
@@ -193,6 +194,12 @@ def configure_logging(config: BaseConfigDict, log_dir: Path) -> None:
             "ouranos": {
                 "handlers": [],
                 "level": "INFO"
+            },
+            # Plays a role similar to uvicorn.access but for SocketIO events
+            "ouranos.web_server.socketio": {
+                "handlers": [],
+                "level": "INFO",
+                "propagate": False,
             },
             "dispatcher": {
                 "handlers": [],
@@ -215,7 +222,7 @@ def configure_logging(config: BaseConfigDict, log_dir: Path) -> None:
     # Patch formatters, handlers and loggers if debugging
     if config["DEBUG"]:
         debug_fmt = "%(asctime)s %(levelname)s [%(filename)-20.20s:%(lineno)3d] %(name)-30.30s: %(message)s"
-        logging_config["formatters"]["base_format"]["format"] = debug_fmt
+        logging_config["formatters"]["base"]["format"] = debug_fmt
         for handler in logging_config["handlers"].values():
             handler["level"] = "DEBUG"
         for logger in logging_config["loggers"].values():
@@ -228,8 +235,8 @@ def configure_logging(config: BaseConfigDict, log_dir: Path) -> None:
 
     if config["LOG_TO_FILE"]:
         for logger_name, logger in logging_config["loggers"].items():
-            if logger_name == "uvicorn.access":
-                logger["handlers"].append("uvicorn_file_handler")
+            if logger_name in ("ouranos.web_server.socketio", "uvicorn.access"):
+                logger["handlers"].append("access_file_handler")
             else:
                 logger["handlers"].append("ouranos_file_handler")
 
