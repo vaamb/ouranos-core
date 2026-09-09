@@ -148,12 +148,12 @@ def configure_logging(config: BaseConfigDict, log_dir: Path) -> None:
         "version": 1,
         "disable_existing_loggers": True,
         "formatters": {
-            "base_format": {
+            "base": {
                 "()": "ouranos.core.logging.ColourFormatter",
                 "format": "%(asctime)s %(levelname)s %(name)-30.30s: %(message)s",
                 "datefmt": "%Y-%m-%d %H:%M:%S"
             },
-            "uvicorn_access": {
+            "access": {
                 "()": "ouranos.core.logging.ColourFormatter",
                 "fmt": '%(asctime)s - %(levelname)s %(message)s',
                 "datefmt": "%Y-%m-%d %H:%M:%S",
@@ -163,22 +163,22 @@ def configure_logging(config: BaseConfigDict, log_dir: Path) -> None:
         "handlers": {
             "stream_handler": {
                 "level": "INFO",
-                "formatter": "base_format",
+                "formatter": "base",
                 "class": "logging.StreamHandler",
             },
             "ouranos_file_handler": {
                 "level": "INFO",
-                "formatter": "base_format",
+                "formatter": "base",
                 "class": "logging.handlers.TimedRotatingFileHandler",
                 "filename": str(log_dir / "ouranos.log"),
                 "when": "W0",
                 "backupCount": 4,
             },
-            "uvicorn_file_handler": {
+            "access_file_handler": {
                 "level": "INFO",
-                "formatter": "uvicorn_access",
+                "formatter": "access",
                 "class": "logging.handlers.RotatingFileHandler",
-                "filename": str(log_dir / "uvicorn.log"),
+                "filename": str(log_dir / "access.log"),
                 "mode": "a",
                 "maxBytes": 512 * 1024,
                 "backupCount": 4,
@@ -222,7 +222,7 @@ def configure_logging(config: BaseConfigDict, log_dir: Path) -> None:
     # Patch formatters, handlers and loggers if debugging
     if config["DEBUG"]:
         debug_fmt = "%(asctime)s %(levelname)s [%(filename)-20.20s:%(lineno)3d] %(name)-30.30s: %(message)s"
-        logging_config["formatters"]["base_format"]["format"] = debug_fmt
+        logging_config["formatters"]["base"]["format"] = debug_fmt
         for handler in logging_config["handlers"].values():
             handler["level"] = "DEBUG"
         for logger in logging_config["loggers"].values():
@@ -236,7 +236,7 @@ def configure_logging(config: BaseConfigDict, log_dir: Path) -> None:
     if config["LOG_TO_FILE"]:
         for logger_name, logger in logging_config["loggers"].items():
             if logger_name in ("ouranos.web_server.socketio", "uvicorn.access"):
-                logger["handlers"].append("uvicorn_file_handler")
+                logger["handlers"].append("access_file_handler")
             else:
                 logger["handlers"].append("ouranos_file_handler")
 
