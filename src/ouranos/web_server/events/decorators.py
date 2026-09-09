@@ -16,6 +16,8 @@ def permission_required(permission: Permission):
                 user = await get_user_from_session_info(db_session, session_info)
             if user.can(permission):
                 return await func(self, sid, data)
+            event: str = func.__name__[3:]
+            self.logger.debug(f'sid: {sid} - "SocketIO {event}" not authorized')
             raise NotAuthorized()
         return wrapped
     return decorator

@@ -21,12 +21,11 @@ from ouranos.web_server.user_session import get_user_from_session_info, SessionI
 ADMIN_ROOM = "administrator"
 CAMERA_STREAM_ROOM = "camera_stream"
 
-logger: Logger = getLogger("aggregator.socketio")
-
 
 class ClientEvents(AsyncNamespace):
     def __init__(self, namespace=None):
         super().__init__(namespace=namespace)
+        self.logger: Logger = getLogger("ouranos.web_server.socketio")
         self._server: AsyncServer | None = None
         self._ouranos_dispatcher: AsyncDispatcher | None = None
 
@@ -73,6 +72,9 @@ class ClientEvents(AsyncNamespace):
             )
 
     async def on_connect(self, sid, environ, auth: dict | None = None):
+        address = environ.get("REMOTE_ADDR")
+        port = environ.get("REMOTE_PORT")
+        self.logger.info(f'{address}:{port} - "WebSocket /socket.io from sid: {sid}"')
         self._check_client_contract(auth)
         cookie = SimpleCookie(environ.get("HTTP_COOKIE", ""))
         session_cookie = cookie.get(LOGIN_NAME.COOKIE.value)
@@ -99,13 +101,14 @@ class ClientEvents(AsyncNamespace):
         await self.emit("pong", namespace="/", room=sid)
 
     async def on_login(self, sid, token: str):
-        logger.debug(f"Received deprecated 'on_login' event from sid '{sid}'")
+        self.logger.debug(f'sid: {sid} - "SocketIO login (deprecated)"')
 
     async def on_logout(self, sid, token: str):
+        self.logger.debug(f'sid: {sid} - "SocketIO logout (deprecated)"')
         await self.server.leave_room(sid, ADMIN_ROOM)
-        logger.debug(f"Received deprecated 'on_logout' event from sid '{sid}'")
 
     async def on_user_heartbeat(self, sid, token: str | None = None):
+        self.logger.debug(f'sid: {sid} - "SocketIO user_heartbeat"')
         sio_session = await self.get_session(sid)
         session_info = sio_session.get("session_info", None)
         if session_info is None:
@@ -126,6 +129,7 @@ class ClientEvents(AsyncNamespace):
         )
 
     async def on_join_room(self, sid, room_name: str) -> None:
+        self.logger.debug(f'sid: {sid} - "SocketIO join_room" {room_name}')
         if room_name == ADMIN_ROOM:
             await self.emit(
                 "join_room_ack",
@@ -146,6 +150,7 @@ class ClientEvents(AsyncNamespace):
         )
 
     async def on_leave_room(self, sid, room_name: str) -> None:
+        self.logger.debug(f'sid: {sid} - "SocketIO leave_room" {room_name}')
         if room_name == ADMIN_ROOM:
             await self.emit(
                 "leave_room_ack",
@@ -170,6 +175,7 @@ class ClientEvents(AsyncNamespace):
     # ---------------------------------------------------------------------------
     @permission_required(Permission.OPERATE)
     async def on_turn_light(self, sid, data):
+        self.logger.debug(f'sid: {sid} - "SocketIO turn_light"')
         ecosystem_uid = data["ecosystem"]
         async with db.scoped_session() as session:
             ecosystem = await Ecosystem.get(session, uid=ecosystem_uid)
@@ -178,9 +184,8 @@ class ClientEvents(AsyncNamespace):
         ecosystem_sid = ecosystem.engine.sid
         mode = data.get("mode", "automatic")
         countdown = data.get("countdown", False)
-        logger.debug(
-            f"Dispatching 'turn_light' signal to ecosystem {ecosystem_uid}"
-        )
+        self.ouranos_dispatcher.logger.debug(
+            f"Dispatching 'turn_light' signal to ecosystem {ecosystem_uid}")
         await self.ouranos_dispatcher.emit(
             event="turn_light",
             data={"ecosystem": ecosystem_uid, "mode": mode, "countdown": countdown},
@@ -190,6 +195,7 @@ class ClientEvents(AsyncNamespace):
 
     @permission_required(Permission.OPERATE)
     async def on_manage_ecosystem(self, sid, data):
+        self.logger.debug(f'sid: {sid} - "SocketIO manage_ecosystem"')
         ecosystem_uid = data["ecosystem"]
         async with db.scoped_session() as session:
             ecosystem = await Ecosystem.get(session, uid=ecosystem_uid)
@@ -198,14 +204,15 @@ class ClientEvents(AsyncNamespace):
         ecosystem_sid = ecosystem.engine.sid
         management = data["management"]
         status = data["status"]
-        logger.debug(
+        self.ouranos_dispatcher.logger.debug(
             f"Dispatching change management '{management}' to status "
-            f"'{status}' in ecosystem {ecosystem_uid}"
-        )
+            f"'{status}' to ecosystem {ecosystem_uid}")
         await self.ouranos_dispatcher.emit(
             event="change_management",
             data={
-                "ecosystem": ecosystem_uid, "management": management, "status": status
+                "ecosystem": ecosystem_uid,
+                "management": management,
+                "status": status,
             },
             namespace="aggregator-internal",
             room=ecosystem_sid
