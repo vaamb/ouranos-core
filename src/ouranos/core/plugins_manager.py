@@ -127,7 +127,7 @@ class PluginManager:
                 plugins[plugin_name] = self._load_from_entry_point(entry_point)
             except Exception as e:
                 self.logger.error(
-                    f"Failed to register plugin '{plugin_name}': {e}")
+                    f"Failed to register plugin '{plugin_name}': {e}", exc_info=e)
 
         self._plugins = plugins
 

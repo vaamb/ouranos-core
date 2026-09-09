@@ -242,3 +242,7 @@ def validate_uid(uid: str, length: int = 16) -> None:
     regex = r"^[a-zA-Z][0-9a-zA-Z]{" + str(length-1) + "}$"
     if re.match(regex, uid) is None:
         raise ValueError("Wrong uid format.")
+
+
+def format_error(e: BaseException) -> str:
+    return f"Error msg: `{e.__class__.__name__}: {e}`."

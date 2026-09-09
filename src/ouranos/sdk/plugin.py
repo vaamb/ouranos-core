@@ -15,7 +15,7 @@ from click import Command, Group
 from ouranos import current_app, setup_loop
 from ouranos.core.config import ConfigDict, ConfigHelper, consts
 from ouranos.core.exceptions import ContractVersionError
-from ouranos.core.utils import parse_str_value
+from ouranos.core.utils import format_error, parse_str_value
 from ouranos.sdk import Functionality
 from ouranos.sdk.functionality import format_functionality_name
 from ouranos.sdk.runner import Runner, runner
@@ -426,7 +426,7 @@ class Plugin(Extension):
         try:
             await self.startup()
         except Exception as e:
-            self.logger.error(f"Error starting. {self._fmt_exc(e)}")
+            self.logger.error(f"Error starting. {format_error(e)}", exc_info=e)
             self._error_logged = True
             raise
         else:
@@ -436,7 +436,8 @@ class Plugin(Extension):
                 try:
                     await self.shutdown()
                 except Exception as e:
-                    self.logger.error(f"Error while shutting down. {self._fmt_exc(e)}")
+                    self.logger.error(
+                        f"Error while shutting down. {format_error(e)}", exc_info=e)
                     self._error_logged = True
                     raise
 
