@@ -3,7 +3,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 import typing as t
-from typing import Any, Callable, Literal, NamedTuple, Self, Sequence, TypeAlias
+from typing import (
+    Any, Callable, Collection, Literal, NamedTuple, Self, Sequence, TypeAlias)
 from uuid import UUID
 from warnings import warn
 
@@ -89,7 +90,7 @@ class CRUDMixin:
     _lookup_keys: list[str] | None = None
     _validated_lookup_keys: list[str] | None = None
 
-    _on_conflict_do: Callable[[Insert, str], Insert] | None = None
+    _on_conflict_do: Callable[[Insert, str, Collection[str]], Insert] | None = None
 
     if t.TYPE_CHECKING:
         __tablename__: str
@@ -171,7 +172,7 @@ class CRUDMixin:
             raise ValueError("You should provide all the lookup keys")
 
     @classmethod
-    def _get_on_conflict_do(cls) -> Callable[[Insert, str], Insert]:
+    def _get_on_conflict_do(cls) -> Callable[[Insert, str, Collection[str]], Insert]:
         if cls._on_conflict_do is None:
             dialect = cls._get_dialect()
 
@@ -180,10 +181,8 @@ class CRUDMixin:
                     from sqlalchemy.dialects.mysql import Insert
 
                 lookup_keys = cls._get_lookup_keys()
-                columns: ColumnCollection = class_mapper(cls).columns
-                columns_name = [column.name for column in columns]
 
-                def impl(stmt: Insert, action: str) -> Insert:
+                def impl(stmt: Insert, action: str, columns: Collection[str]) -> Insert:
                     if action == "nothing":
                         # Assign the lookup column to itself rather than to the
                         # value from `stmt.inserted`: `ON DUPLICATE KEY UPDATE`
@@ -195,14 +194,16 @@ class CRUDMixin:
                             {lookup_keys[0]: stmt.table.c[lookup_keys[0]]},
                         )
                     elif action == "update":
+                        # Only update the columns supplied to the `create{_multiple}`
+                        # method. Columns not supplied, but with a default
+                        # (`default=func.current_timestamp()` for example)
+                        # would otherwise get its default recomputed for the
+                        # rejected insert, which would act like a `onupdate`
                         stmt = stmt.on_duplicate_key_update(  # ty: ignore[unresolved-attribute]
                             {
                                 column_name: getattr(stmt.inserted, column_name)  # ty: ignore[unresolved-attribute]
-                                for column_name in columns_name
-                                if (
-                                    column_name not in lookup_keys
-                                    and hasattr(stmt.inserted, column_name)  # ty: ignore[unresolved-attribute]
-                                )
+                                for column_name in columns
+                                if column_name not in lookup_keys
                             }
                         )
                     else:
@@ -217,20 +218,23 @@ class CRUDMixin:
                         from sqlalchemy.dialects.sqlite import Insert
 
                 lookup_keys = cls._get_lookup_keys()
-                columns: ColumnCollection = class_mapper(cls).columns
-                columns_name = [column.name for column in columns]
 
-                def impl(stmt: Insert, action: str) -> Insert:
+                def impl(stmt: Insert, action: str, columns: Collection[str]) -> Insert:
                     if action == "nothing":
                         stmt = stmt.on_conflict_do_nothing(  # ty: ignore[unresolved-attribute]
                             index_elements=lookup_keys,
                         )
                     elif action == "update":
+                        # Only update the columns supplied to the `create{_multiple}`
+                        # method. Columns not supplied, but with a default
+                        # (`default=func.current_timestamp()` for example)
+                        # would otherwise get its default recomputed for the
+                        # rejected insert, which would act like a `onupdate`
                         stmt = stmt.on_conflict_do_update(  # ty: ignore[unresolved-attribute]
                             index_elements=lookup_keys,
                             set_={
                                 column: getattr(stmt.excluded, column)  # ty: ignore[unresolved-attribute]
-                                for column in columns_name
+                                for column in columns
                                 if column not in lookup_keys
                             },
                         )
@@ -243,7 +247,7 @@ class CRUDMixin:
                     f"Dialect '{dialect}' is not yet supported. Feel free to "
                     f"add it.", stacklevel=2)
 
-                def impl(stmt: Insert, action: str) -> Insert:
+                def impl(stmt: Insert, action: str, columns: Collection[str]) -> Insert:
                     if action not in ["nothing", "update"]:
                         raise ValueError
                     return stmt
@@ -267,7 +271,7 @@ class CRUDMixin:
         stmt = insert(cls).values(**lookup_keys, **values)
         if _on_conflict_do:
             on_conflict_do_method = cls._get_on_conflict_do()
-            stmt = on_conflict_do_method(stmt, _on_conflict_do)
+            stmt = on_conflict_do_method(stmt, _on_conflict_do, values.keys())
         await session.execute(stmt)
 
     @classmethod
@@ -282,7 +286,10 @@ class CRUDMixin:
         stmt = insert(cls).values(values)
         if _on_conflict_do:
             on_conflict_do_method = cls._get_on_conflict_do()
-            stmt = on_conflict_do_method(stmt, _on_conflict_do)
+            first = values if isinstance(values, dict) else values[0]
+            if not isinstance(first, dict):
+                first = first._asdict()
+            stmt = on_conflict_do_method(stmt, _on_conflict_do, first.keys())
         await session.execute(stmt)
 
     @classmethod
