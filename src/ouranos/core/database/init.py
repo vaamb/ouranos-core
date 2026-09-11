@@ -28,6 +28,8 @@ async def create_db_tables() -> None:
     from ouranos.core.database.models import archives  # noqa
     from ouranos.core.database.models import gaia  # noqa
     from ouranos.core.database.models import system  # noqa
+    if current_app.config["LOG_TO_DB"]:
+        from ouranos.core.database.models import logging  # noqa
 
     await db.create_all()
 
