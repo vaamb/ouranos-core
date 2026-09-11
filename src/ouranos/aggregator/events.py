@@ -267,6 +267,7 @@ class GaiaEvents(AsyncEventHandler):
             now = datetime.now(timezone.utc)
             engine_info = {
                 "sid": sid,
+                "connection_date": now,
                 "last_seen": now,
                 "address": f"{remote_addr}",
             }
@@ -398,13 +399,15 @@ class GaiaEvents(AsyncEventHandler):
                 ecosystems_in_config.append(ecosystem_uid)
                 ecosystems_status.append({"uid": payload["uid"], "status": ecosystem["status"]})
                 ecosystems_to_log.append(ecosystem["name"])
+                now = datetime.now(timezone.utc)
                 await Ecosystem.update_or_create(
                     session,
                     uid=ecosystem_uid,
                     values={
                         **ecosystem,
                         "in_config": True,
-                        "last_seen": datetime.now(timezone.utc)
+                        "connection_date": now,
+                        "last_seen": now,
                     }
                 )
 
