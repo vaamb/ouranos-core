@@ -126,7 +126,7 @@ async def create_ecosystem(
             f"successfully sent to engine '{ecosystem_dict['engine_uid']}'"
         )
     except Exception as e:
-        HTTPException(
+        raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"Failed to send ecosystem creation order to engine for "
@@ -175,7 +175,7 @@ async def update_ecosystem(
             f"successfully sent to engine '{ecosystem.engine_uid}'"
         )
     except Exception as e:
-        HTTPException(
+        raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"Failed to send ecosystem creation order to engine for "
@@ -201,7 +201,7 @@ async def delete_ecosystem(
             f"successfully sent to engine '{ecosystem.engine_uid}'"
         )
     except Exception as e:
-        HTTPException(
+        raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"Failed to send delete order order ecosystem with uid "
@@ -271,7 +271,7 @@ async def update_ecosystem_management(
             f"successfully sent to engine '{ecosystem.engine_uid}'",
         )
     except Exception as e:
-        HTTPException(
+        raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"Failed to send ecosystem' management update order to engine "
@@ -350,7 +350,7 @@ async def update_ecosystem_lighting(
             f"successfully sent to engine '{ecosystem.engine_uid}'"
         )
     except Exception as e:
-        HTTPException(
+        raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"Failed to send ecosystem' lighting update order to engine "
@@ -433,7 +433,7 @@ async def create_ecosystem_environment_parameter(
             f"successfully sent to engine '{ecosystem.engine_uid}'"
         )
     except Exception as e:
-        HTTPException(
+        raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"Failed to send environment parameter creation order to engine "
@@ -488,7 +488,7 @@ async def update_ecosystem_environment_parameter(
             f"successfully sent to engine '{ecosystem.engine_uid}'"
         )
     except Exception as e:
-        HTTPException(
+        raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"Failed to send environment parameter update order to engine "
@@ -519,7 +519,7 @@ async def delete_ecosystem_environment_parameter(
             f"successfully sent to engine '{ecosystem.engine_uid}'"
         )
     except Exception as e:
-        HTTPException(
+        raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"Failed to send environment parameter update order to engine "
@@ -601,7 +601,7 @@ async def create_ecosystem_weather_event(
             f"successfully sent to engine '{ecosystem.engine_uid}'"
         )
     except Exception as e:
-        HTTPException(
+        raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"Failed to send weather event creation order to engine "
@@ -656,7 +656,7 @@ async def update_ecosystem_weather_event(
             f"successfully sent to engine '{ecosystem.engine_uid}'"
         )
     except Exception as e:
-        HTTPException(
+        raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"Failed to send environment parameter update order to engine "
@@ -687,7 +687,7 @@ async def delete_ecosystem_weather_event(
             f"successfully sent to engine '{ecosystem.engine_uid}'"
         )
     except Exception as e:
-        HTTPException(
+        raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"Failed to send weather parameter update order to engine "
