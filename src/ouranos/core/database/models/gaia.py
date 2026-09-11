@@ -70,6 +70,7 @@ class Engine(Base, CachedCRUDMixin):
     uid: Mapped[str] = mapped_column(sa.String(length=32), primary_key=True)
     sid: Mapped[UUID] = mapped_column()
     registration_date: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
+    connection_date: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
     address: Mapped[Optional[str]] = mapped_column(sa.String(length=16))
     last_seen: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())  # , onupdate=func.current_timestamp())
 
@@ -172,6 +173,7 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
     name: Mapped[str] = mapped_column(sa.String(length=32), default="_registering")
     status: Mapped[bool] = mapped_column(default=False)
     registration_date: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
+    connection_date: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
     last_seen: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())  # , onupdate=func.current_timestamp())
     management: Mapped[int] = mapped_column(default=0)
 
