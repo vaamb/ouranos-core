@@ -16,6 +16,9 @@
 - `scripts/utils/pyproject_helpers.sh`, meant to be sourced by the plugins installation
   scripts: `add_dependency <name> [extras] [source]` declares a package in the master
   `pyproject.toml` (#429)
+- `LogRecord` model (`log_records` table, "system" bind, indexed on timestamp + level) with
+  `get_multiple()` to filter stored log entries by time window and level range, with
+  pagination (#442)
 
 ### Changed
 - **Breaking**: the route formerly known as "refresh_session", which pushes back the session
@@ -39,6 +42,10 @@
   installed package has to be declared again (#429)
 - The installation script installs Python 3.13 through `uv` rather than requiring a recent
   enough system interpreter (#429)
+- DB logging (`LOG_TO_DB`) now goes through SQLAlchemy instead of the dedicated `SQLiteHandler` 
+  now replaced by `DBHandler`, which writes to the `log_records` table and keeps the full 
+  traceback of logged exceptions; writes are scheduled onto the app's own event loop rather
+  than a dedicated logging thread (#442)
 
 ### Fixed
 - `User.confirm()` bypassed `User.update()`, leaving a stale entry in the `User` cache, so a
