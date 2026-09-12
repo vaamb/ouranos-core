@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import datetime as dt
 from enum import IntEnum
 import traceback
@@ -43,7 +45,7 @@ class LogRecord(Base):
     line_no: Mapped[int] = mapped_column(sa.Integer, nullable=False)
     func_name: Mapped[str] = mapped_column(sa.String(length=128), nullable=False)
     message: Mapped[str] = mapped_column(sa.Text(), nullable=False)
-    traceback: Mapped[str] = mapped_column(sa.Text())
+    traceback: Mapped[str | None] = mapped_column(sa.Text(), nullable=True)
 
     @classmethod
     async def create(cls, session: AsyncSession, record: logging.LogRecord) -> None:
