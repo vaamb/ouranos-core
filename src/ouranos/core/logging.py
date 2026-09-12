@@ -1,15 +1,14 @@
 from __future__ import annotations
 
-from concurrent.futures import Future, ThreadPoolExecutor
+import asyncio
+from asyncio import AbstractEventLoop
+from concurrent.futures import Future
 from copy import copy
 import logging
 from logging import Formatter, Handler, LogRecord
 import logging.config
 from pathlib import Path
-import sqlite3
 import sys
-import time
-import traceback
 from typing import Literal
 
 import click
@@ -17,102 +16,47 @@ import click
 from ouranos.core.config.base import BaseConfigDict
 
 
-class SQLiteHandler(Handler):
-    _create_query = """\
-    CREATE TABLE IF NOT EXISTS %(table_name)s(
-        timestamp TEXT,
-        level_name TEXT,
-        level INT,
-        logger_name TEXT,
-        file_name TEXT,
-        line_no INT,
-        func_name TEXT,
-        message TEXT,
-        traceback TEXT
-    )"""
-
-    _log_query = """\
-    INSERT INTO %(table_name)s(
-        timestamp,
-        level_name,
-        level,
-        logger_name,
-        file_name,
-        line_no,
-        func_name,
-        message,
-        traceback
-   )
-   VALUES (
-        :timestamp,
-        :level_name,
-        :level_no,
-        :name,
-        :filename,
-        :line_no,
-        :func_name,
-        :message,
-        :traceback
-   );
-    """
-
-    def __init__(self, db_path: Path, table_name: str) -> None:
+class DBHandler(Handler):
+    def __init__(self) -> None:
         super().__init__()
-        parent_dir = Path(db_path).parent
-        if not parent_dir.exists():
-            parent_dir.mkdir(parents=True)
-        self.db_path = db_path
-        self.table_name = table_name
+        self._loop: AbstractEventLoop | None = None
         self._table_created: bool = False
-        self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='db_logging')
-        # Don't check thread ID as the connection is opened in the main thread
-        #  but ever only used in the 'db_logging' thread
-        self._db_connection = sqlite3.connect(self.db_path, check_same_thread=False)
 
-    def _execute_query(self, query: str, params: dict) -> None:
-        self._db_connection.execute(query, params)
-        self._db_connection.commit()
+    async def _create_table(self) -> None:
+        if self._table_created:
+            return
 
-    def execute_query(self, query: str, params: dict | None = None) -> None:
-        params = params or {}
-        future: Future = self._executor.submit(self._execute_query, query, params)
-        future.add_done_callback(self._log_query_error)
+        from ouranos import db
+        from ouranos.core.database.models.logging import LogRecord as LogRecordModel  # noqa
 
-    def _log_query_error(self, future: Future) -> None:
+        await db.create_all()
+        self._table_created = True
+
+    async def _log_record(self, record: LogRecord) -> None:
+        from ouranos import db
+        from ouranos.core.database.models.logging import LogRecord as LogRecordModel
+
+        if not self._table_created:
+            await self._create_table()
+
+        async with db.scoped_session() as session:
+            await LogRecordModel.create(session, record)
+
+    def _log_record_error(self, future: Future) -> None:
         exception = future.exception()
         if exception is not None:
             print(f"Failed to log record to the db: {exception}", file=sys.stderr)
 
-    def create_table(self) -> None:
-        query = self._create_query % {"table_name": self.table_name}
-        self.execute_query(query)
-
-    def log_record(self, record: LogRecord) -> None:
-        # Format the traceback ourselves rather than relying on `record.exc_text`:
-        #  that attribute is only populated as a side effect of a `Formatter`
-        #  having run on the record, which never happens on this handler's path.
-        tb = None
-        if record.exc_info:
-            tb = "".join(traceback.format_exception(*record.exc_info))
-        params = {
-            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(record.created)),
-            "level_name": record.levelname,
-            "level_no": record.levelno,
-            "name": record.name,
-            "filename": record.filename,
-            "line_no": record.lineno,
-            "func_name": record.funcName,
-            "message": record.getMessage(),
-            "traceback": tb,
-        }
-        query = self._log_query % {"table_name": self.table_name}
-        self.execute_query(query, params)
-
     def emit(self, record: LogRecord) -> None:
-        if not self._table_created:
-            self.create_table()
-            self._table_created = True
-        self.log_record(record)
+        if self._loop is None:
+            try:
+                self._loop = asyncio.get_running_loop()
+            except RuntimeError:
+                print(f"Failed to log record msg: {record.getMessage()}", file=sys.stderr)
+                return
+        assert self._loop is not None
+        future = asyncio.run_coroutine_threadsafe(self._log_record(record), self._loop)
+        future.add_done_callback(self._log_record_error)
 
 
 class ColourFormatter(Formatter):
@@ -196,7 +140,7 @@ def configure_logging(config: BaseConfigDict, log_dir: Path) -> None:
             },
             "db_handler": {
                 "level": "INFO",
-                "class": "ouranos.core.logging.SQLiteHandler",
+                "class": "ouranos.core.logging.DBHandler",
                 "db_path": str(log_dir / "log.sqlite"),
                 "table_name": "logs",
             },
