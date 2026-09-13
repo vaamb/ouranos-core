@@ -56,7 +56,7 @@ class TestHandler:
         # Test initial state
         assert isinstance(events_handler._internal_dispatcher, AsyncDispatcher)
         assert isinstance(events_handler._stream_dispatcher, AsyncDispatcher)
-        assert events_handler._alarms_data == []
+        assert events_handler._sensor_alarms == set()
 
         # Test camera directory initialization
         expected_camera_dir = Path(current_app.static_dir) / "camera_stream"
@@ -864,7 +864,8 @@ class TestEcosystemBackground(HardwareAware):
             assert sensor_data.value == g_data.sensor_record.value
             assert sensor_data.timestamp == g_data.sensors_data["timestamp"]
 
-        alarm_data = events_handler.alarms_data[0]
+        alarm_data = events_handler.sensor_alarms.pop()
+        alarm_data = alarm_data._asdict()
         assert alarm_data["sensor_uid"] == g_data.alarm_record.sensor_uid
         assert alarm_data["measure"] == g_data.alarm_record.measure
         assert alarm_data["position"] == g_data.alarm_record.position
@@ -902,7 +903,7 @@ class TestEcosystemBackground(HardwareAware):
         async with db.scoped_session() as session:
             await SensorDataCache.clear(session)
 
-    async def test_log_sensors_data(
+    async def test_log_sensors_data_and_alarms(
             self,
             mock_dispatcher: MockAsyncDispatcher,
             events_handler: GaiaEvents,
@@ -919,7 +920,7 @@ class TestEcosystemBackground(HardwareAware):
         # Cache new data (rely on `test_on_sensors_data`)
         # Clear sensor data cache, then populate it without calling the sensors data event, then continue
         await events_handler.on_sensors_data(g_data.engine_sid, [g_data.sensors_data_payload])
-        await events_handler.log_sensors_data()
+        await events_handler.log_sensors_data_and_alarms()
 
         async with db.scoped_session() as session:
             input_data = g_data.sensor_record
