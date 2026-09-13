@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from functools import wraps
 import logging
 import sys
 from types import FunctionType
 import typing as t
-from typing import Any, Awaitable, Callable, cast, Type, TypeAlias, TypedDict, TypeVar
+from typing import (
+    Any, Awaitable, Callable, cast, NamedTuple, Type, TypeAlias, TypedDict, TypeVar)
 from uuid import UUID
 
 from anyio import Path as ioPath
@@ -69,7 +70,8 @@ class HardwareUpdateData(TypedDict):
     last_log: datetime
 
 
-class SensorAlarmDict(TypedDict):
+class SensorAlarmTpl(NamedTuple):
+    ecosystem_uid: str
     sensor_uid: str
     measure: str
     position: gv.Position
@@ -159,7 +161,7 @@ class GaiaEvents(AsyncEventHandler):
         self.aggregator: Aggregator = aggregator
         self._internal_dispatcher: AsyncDispatcher | None = None
         self._stream_dispatcher: AsyncDispatcher | None = None
-        self._alarms_data: list[SensorAlarmDict] = []
+        self._sensor_alarms: set[SensorAlarmTpl] = set()
         self.camera_dir: ioPath = ioPath(current_app.static_dir) / "camera_stream"
 
     # ---------------------------------------------------------------------------
@@ -215,12 +217,15 @@ class GaiaEvents(AsyncEventHandler):
         self.stream_dispatcher.on("picture_arrays", self.picture_arrays)
 
     @property
-    def alarms_data(self) -> list[SensorAlarmDict]:
-        return self._alarms_data
+    def sensor_alarms(self) -> set[SensorAlarmTpl]:
+        return self._sensor_alarms
 
-    @alarms_data.setter
-    def alarms_data(self, value: list[SensorAlarmDict]) -> None:
-        self._alarms_data = value
+    @sensor_alarms.setter
+    def sensor_alarms(self, value: set[SensorAlarmTpl]) -> None:
+        self._sensor_alarms = value
+
+    def update_sensor_alarms(self, value: set[SensorAlarmTpl]) -> None:
+        self._sensor_alarms.update(value)
 
     # ---------------------------------------------------------------------------
     #   Events Gaia <-> Aggregator
@@ -714,10 +719,11 @@ class GaiaEvents(AsyncEventHandler):
         self.logger.debug(
             f"Received 'sensors_data' from engine: {engine_uid}")
         sensors_data: list[SensorDataRecordDict] = []
-        alarms_data: list[SensorAlarmDict] = []
+        alarms_data: set[SensorAlarmTpl] = set()
         for ecosystem in data:
             ecosystem_data = ecosystem["data"]
             timestamp = ecosystem_data["timestamp"]
+            assert isinstance(timestamp, datetime)
             for raw_record in ecosystem_data["records"]:
                 record = gv.SensorRecord(*raw_record)
                 record_timestamp = record.timestamp if record.timestamp else timestamp
@@ -730,15 +736,19 @@ class GaiaEvents(AsyncEventHandler):
                 }))
             for raw_alarm in ecosystem_data["alarms"]:
                 alarm = gv.SensorAlarm(*raw_alarm)
-                alarms_data.append(cast(SensorAlarmDict, {
-                    "ecosystem_uid": ecosystem["uid"],
-                    "sensor_uid": alarm.sensor_uid,
-                    "measure": alarm.measure,
-                    "position": alarm.position,
-                    "delta": alarm.delta,
-                    "level": alarm.level,
-                    "timestamp": timestamp,
-                }))
+                alarms_data.add(SensorAlarmTpl(
+                    ecosystem_uid=ecosystem["uid"],
+                    sensor_uid=alarm.sensor_uid,
+                    measure=alarm.measure,
+                    position=alarm.position,
+                    delta=alarm.delta,
+                    level=alarm.level,
+                    timestamp=timestamp,
+                ))
+
+        # Update alarms
+        self.update_sensor_alarms(alarms_data)
+
         if not sensors_data:
             return
 
@@ -759,8 +769,6 @@ class GaiaEvents(AsyncEventHandler):
                 self.logger.debug(
                     f"Updated `sensors_data` cache with data from sensors "
                     f"{humanize_list(hardware_uids)}")
-        # Memorise alarms
-        self.alarms_data = alarms_data
 
     async def log_sensors_data(self) -> None:
         logging_period = current_app.config["SENSOR_LOGGING_PERIOD"]
@@ -802,12 +810,6 @@ class GaiaEvents(AsyncEventHandler):
                     ecosystems_to_log.add(
                         await self.get_ecosystem_name(session, uid=uid) or uid)
 
-            alarms = self.alarms_data  # Use the lock a single time
-            alarms_to_log: list[SensorAlarmDict] = [
-                alarm for alarm in alarms
-                if alarm["timestamp"].minute % logging_period == 0
-            ]
-
         if not records_to_create:
             return
         # Dispatch the data that will become historic data
@@ -825,12 +827,22 @@ class GaiaEvents(AsyncEventHandler):
             # Update the last_log column for hardware
             await Hardware.update_multiple(
                 session, values=[*hardware_to_update.values()])
-            # Log new alarms or lengthen old ones
-            for alarm in alarms_to_log:
-                await SensorAlarm.create_or_lengthen(session, alarm)  # ty: ignore[invalid-argument-type]  # TypedDict vs dict
         self.logger.info(
             f"Logged sensors data from ecosystem(s) "
             f"{humanize_list([*ecosystems_to_log])}")
+
+    async def log_sensor_alarms(self) -> None:
+        # Get the alarms and reset
+        alarms, self._sensor_alarms = self._sensor_alarms, set()
+
+        async with db.scoped_session() as session:
+            # Need to sort the alarms so the "timestamp_max" is properly set
+            for alarm in sorted(alarms, key=lambda a: a.timestamp):
+                await SensorAlarm.create_or_lengthen(session, alarm._asdict())
+
+    async def log_sensors_data_and_alarms(self) -> None:
+        await self.log_sensors_data()
+        await self.log_sensor_alarms()
 
     async def _handle_buffered_records(
             self,

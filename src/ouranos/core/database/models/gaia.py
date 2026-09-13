@@ -1501,14 +1501,19 @@ class SensorAlarm(Base):
             cls,
             session: AsyncSession,
             values: dict,
-    ) -> Self:
+    ) -> None:
         values = {**values}  # Don't mutate original values
         timestamp = values.pop("timestamp")
-        alarm = cls(
-            **values, timestamp_from=timestamp, timestamp_to=timestamp,
-            timestamp_max=timestamp)
-        session.add(alarm)
-        return alarm
+        stmt = (
+            insert(cls)
+            .values(
+                **values,
+                timestamp_from=timestamp,
+                timestamp_to=timestamp,
+                timestamp_max=timestamp,
+            )
+        )
+        await session.execute(stmt)
 
     @classmethod
     async def get(
@@ -1527,6 +1532,7 @@ class SensorAlarm(Base):
                 & (cls.timestamp_to > datetime_limit)
             )
             .order_by(cls.timestamp_to.desc())
+            .limit(1)
         )
         result = await session.execute(stmt)
         return result.scalars().first()
@@ -1578,17 +1584,38 @@ class SensorAlarm(Base):
             session: AsyncSession,
             values: dict,
     ) -> None:
-        alarm = await cls.get_recent(
-            session, sensor_uid=values["sensor_uid"], measure=values["measure"])
-        if alarm is None:
-            alarm = await cls.create(session, values=values)
-        else:
-            # Update delta and level if it changes
-            if values["delta"] > alarm.delta:
-                alarm.delta = values["delta"]
-                alarm.level = values["level"]
-                alarm.timestamp_max = values["timestamp"]
-        alarm.timestamp_to = values["timestamp"]
+        stmt = (
+            select(cls.id, cls.delta, cls.timestamp_to)
+            .where(
+                (cls.sensor_uid == values["sensor_uid"])
+                & (cls.measure == values["measure"])
+                & (cls.timestamp_to > datetime.now(tz=timezone.utc) - timedelta(minutes=35))
+            )
+            .order_by(cls.timestamp_to.desc())
+            .limit(1)
+        )
+        result = await session.execute(stmt)
+        row = result.first()
+        # Create the alarm if it doesn't exist
+        if row is None:
+            await cls.create(session, values=values)
+            return
+        # Only extend the alarm if the timestamp is newer than the logged one.
+        # Might happen when receiving alarms out of order
+        if values["timestamp"] < row.timestamp_to:
+            return
+        updated_values = {"timestamp_to": values["timestamp"]}
+        # Update delta and level if it changes
+        if values["delta"] > row.delta:
+            updated_values["delta"] = values["delta"]
+            updated_values["level"] = values["level"]
+            updated_values["timestamp_max"] = values["timestamp"]
+        stmt = (
+            update(cls)
+            .where(cls.id == row.id)
+            .values(updated_values)
+        )
+        await session.execute(stmt)
 
     @classmethod
     async def mark_as_seen(

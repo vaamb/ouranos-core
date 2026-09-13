@@ -131,8 +131,8 @@ class Aggregator(Functionality):
         await self.event_handler.internal_dispatcher.start(retry=True, block=False)
         await self.event_handler.stream_dispatcher.start(retry=True, block=False)
         scheduler.add_job(
-            self.event_handler.log_sensors_data,
-            id="log_sensors_data", trigger="cron", minute="*",
+            self.event_handler.log_sensors_data_and_alarms,
+            id="log_sensors_data_and_alarms", trigger="cron", minute="*",
             misfire_grace_time=10
         )
 

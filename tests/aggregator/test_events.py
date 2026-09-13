@@ -56,7 +56,7 @@ class TestHandler:
         # Test initial state
         assert isinstance(events_handler._internal_dispatcher, AsyncDispatcher)
         assert isinstance(events_handler._stream_dispatcher, AsyncDispatcher)
-        assert events_handler._alarms_data == []
+        assert events_handler._sensor_alarms == set()
 
         # Test camera directory initialization
         expected_camera_dir = Path(current_app.static_dir) / "camera_stream"
@@ -864,7 +864,8 @@ class TestEcosystemBackground(HardwareAware):
             assert sensor_data.value == g_data.sensor_record.value
             assert sensor_data.timestamp == g_data.sensors_data["timestamp"]
 
-        alarm_data = events_handler.alarms_data[0]
+        alarm_data = events_handler.sensor_alarms.pop()
+        alarm_data = alarm_data._asdict()
         assert alarm_data["sensor_uid"] == g_data.alarm_record.sensor_uid
         assert alarm_data["measure"] == g_data.alarm_record.measure
         assert alarm_data["position"] == g_data.alarm_record.position
@@ -902,7 +903,7 @@ class TestEcosystemBackground(HardwareAware):
         async with db.scoped_session() as session:
             await SensorDataCache.clear(session)
 
-    async def test_log_sensors_data(
+    async def test_log_sensors_data_and_alarms(
             self,
             mock_dispatcher: MockAsyncDispatcher,
             events_handler: GaiaEvents,
@@ -919,7 +920,7 @@ class TestEcosystemBackground(HardwareAware):
         # Cache new data (rely on `test_on_sensors_data`)
         # Clear sensor data cache, then populate it without calling the sensors data event, then continue
         await events_handler.on_sensors_data(g_data.engine_sid, [g_data.sensors_data_payload])
-        await events_handler.log_sensors_data()
+        await events_handler.log_sensors_data_and_alarms()
 
         async with db.scoped_session() as session:
             input_data = g_data.sensor_record
@@ -955,6 +956,116 @@ class TestEcosystemBackground(HardwareAware):
         async with db.scoped_session() as session:
             await SensorDataCache.clear(session)
             await session.execute(delete(SensorDataRecord))
+            await session.execute(delete(SensorAlarm))
+
+    async def test_log_sensor_alarms_lengthen(
+            self,
+            mock_dispatcher: MockAsyncDispatcher,
+            events_handler: GaiaEvents,
+            db: AsyncSQLAlchemyWrapper,
+    ):
+        """Test that an ongoing alarm is lengthened rather than duplicated.
+
+        Verifies that, for the same sensor and measure, successive alarms:
+        - Extend `timestamp_to` of the existing row instead of creating a new one
+        - Raise `delta`, `level` and `timestamp_max` only when the delta worsens
+        - Are ignored when they are older than the last logged timestamp
+        - Are all kept when several engines report before the alarms are logged
+        """
+        t1 = g_data.timestamp_now
+        t2 = t1 + timedelta(minutes=1)
+        t3 = t1 + timedelta(minutes=2)
+
+        def alarm_payload(
+                timestamp: datetime,
+                delta: float,
+                level: gv.WarningLevel,
+                sensor_uid: str = g_data.hardware_uid,
+        ) -> dict:
+            alarm = g_data.alarm_record._replace(
+                sensor_uid=sensor_uid, delta=delta, level=level)
+            return g_data.wrap_ecosystem_data_payload({
+                "timestamp": timestamp,
+                "records": [],
+                "average": [],
+                "alarms": [alarm],
+            })
+
+        async def get_alarms() -> list[SensorAlarm]:
+            async with db.scoped_session() as session:
+                return [*await SensorAlarm.get_multiple(
+                    session, sensor_uid=g_data.hardware_uid,
+                    measure=g_data.measure_name)]
+
+        # A first alarm creates the row
+        await events_handler.on_sensors_data(
+            g_data.engine_sid, [alarm_payload(t1, 20.0, gv.WarningLevel.high)])
+        await events_handler.log_sensor_alarms()
+        assert events_handler.sensor_alarms == set()
+
+        alarms = await get_alarms()
+        assert len(alarms) == 1
+        assert alarms[0].timestamp_from == t1
+        assert alarms[0].timestamp_to == t1
+        assert alarms[0].timestamp_max == t1
+        assert alarms[0].delta == 20.0
+        assert alarms[0].level == gv.WarningLevel.high
+
+        # A worse alarm one minute later lengthens the row and raises its peak
+        await events_handler.on_sensors_data(
+            g_data.engine_sid, [alarm_payload(t2, 30.0, gv.WarningLevel.critical)])
+        await events_handler.log_sensor_alarms()
+
+        alarms = await get_alarms()
+        assert len(alarms) == 1
+        assert alarms[0].timestamp_from == t1
+        assert alarms[0].timestamp_to == t2
+        assert alarms[0].timestamp_max == t2
+        assert alarms[0].delta == 30.0
+        assert alarms[0].level == gv.WarningLevel.critical
+
+        # A milder alarm lengthens the row but keeps its peak
+        await events_handler.on_sensors_data(
+            g_data.engine_sid, [alarm_payload(t3, 10.0, gv.WarningLevel.moderate)])
+        await events_handler.log_sensor_alarms()
+
+        alarms = await get_alarms()
+        assert len(alarms) == 1
+        assert alarms[0].timestamp_from == t1
+        assert alarms[0].timestamp_to == t3
+        assert alarms[0].timestamp_max == t2
+        assert alarms[0].delta == 30.0
+        assert alarms[0].level == gv.WarningLevel.critical
+
+        # An alarm received out of order is ignored, even if worse
+        await events_handler.on_sensors_data(
+            g_data.engine_sid,
+            [alarm_payload(t1 + timedelta(seconds=30), 50.0, gv.WarningLevel.critical)])
+        await events_handler.log_sensor_alarms()
+
+        alarms = await get_alarms()
+        assert len(alarms) == 1
+        assert alarms[0].timestamp_to == t3
+        assert alarms[0].timestamp_max == t2
+        assert alarms[0].delta == 30.0
+
+        # Alarms from several `sensors_data` events accumulate until logged
+        # (used to be overridden by the last event received)
+        await events_handler.on_sensors_data(
+            g_data.engine_sid,
+            [alarm_payload(t3, 10.0, gv.WarningLevel.moderate)])
+        await events_handler.on_sensors_data(
+            g_data.engine_sid,
+            [alarm_payload(t3, 15.0, gv.WarningLevel.high, sensor_uid=g_data.camera_uid)])
+        assert len(events_handler.sensor_alarms) == 2
+        await events_handler.log_sensor_alarms()
+
+        async with db.scoped_session() as session:
+            alarms = await SensorAlarm.get_multiple(session, measure=g_data.measure_name)
+            assert {alarm.sensor_uid for alarm in alarms} == \
+                {g_data.hardware_uid, g_data.camera_uid}
+
+            await session.execute(delete(SensorAlarm))
 
     async def test_on_health_data(
             self,
