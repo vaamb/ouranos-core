@@ -151,15 +151,6 @@ def configure_logging(config: BaseConfigDict, log_dir: Path) -> None:
         },
     }
 
-    # Patch formatters, handlers and loggers if debugging
-    if config["DEBUG"]:
-        debug_fmt = "%(asctime)s %(levelname)s [%(filename)-20.20s:%(lineno)3d] %(name)-30.30s: %(message)s"
-        logging_config["formatters"]["base"]["format"] = debug_fmt
-        for handler in logging_config["handlers"].values():
-            handler["level"] = "DEBUG"
-        for logger in logging_config["loggers"].values():
-            logger["level"] = "DEBUG"
-
     # Patch handlers depending on the config requirements
     if config["LOG_TO_STDOUT"]:
         # Add the handlers
@@ -218,5 +209,14 @@ def configure_logging(config: BaseConfigDict, log_dir: Path) -> None:
                 logger["handlers"].append("access_db_handler")
             else:
                 logger["handlers"].append("base_db_handler")
+
+    # Patch formatters, handlers and loggers if debugging
+    if config["DEBUG"]:
+        debug_fmt = "%(asctime)s %(levelname)s [%(filename)-20.20s:%(lineno)3d] %(name)-30.30s: %(message)s"
+        logging_config["formatters"]["base"]["format"] = debug_fmt
+        for handler in logging_config["handlers"].values():
+            handler["level"] = "DEBUG"
+        for logger in logging_config["loggers"].values():
+            logger["level"] = "DEBUG"
 
     logging.config.dictConfig(logging_config)
