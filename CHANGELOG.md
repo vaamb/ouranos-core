@@ -48,8 +48,18 @@
   "uvicorn.access" — go to `AccessLog`, everything else to `BaseLog`), and keeps the full
   traceback of logged exceptions; writes are scheduled onto the app's own event loop rather
   than a dedicated logging thread (#442)
+- Sensor alarms are now logged every minute by their own scheduled step, run right after the
+  sensors data one, rather than every `SENSOR_LOGGING_PERIOD` alongside it: since
+  `SensorAlarm.create_or_lengthen()` extends a single row instead of inserting a new one, the
+  finer period costs nothing and keeps "timestamp_to" current (#443)
+- `SensorAlarm.create_or_lengthen()` reads and writes through Core statements, so an alarm
+  created earlier in the same batch is seen by the next one without relying on autoflush, and
+  ignores alarms older than the row's "timestamp_to" (out-of-order delivery) (#443)
 
 ### Fixed
+- Sensor alarms were overridden by the last `sensors_data` event received before they were
+  logged, so with several engines only the last one's alarms ever reached the DB; they now
+  accumulate in a set until logged (#443)
 - `User.confirm()` bypassed `User.update()`, leaving a stale entry in the `User` cache, so a
   freshly confirmed user kept being seen as unconfirmed; its "active" check was also restored,
   and the `RuntimeError` it raises is now caught by the "confirm_account" route, which answers
