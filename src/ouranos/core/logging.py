@@ -121,36 +121,7 @@ def configure_logging(config: BaseConfigDict, log_dir: Path) -> None:
                 "use_colours": False,
             },
         },
-        "handlers": {
-            "stream_handler": {
-                "level": "INFO",
-                "formatter": "base",
-                "class": "logging.StreamHandler",
-            },
-            "ouranos_file_handler": {
-                "level": "INFO",
-                "formatter": "base",
-                "class": "logging.handlers.TimedRotatingFileHandler",
-                "filename": str(log_dir / "ouranos.log"),
-                "when": "W0",
-                "backupCount": 4,
-            },
-            "access_file_handler": {
-                "level": "INFO",
-                "formatter": "access",
-                "class": "logging.handlers.RotatingFileHandler",
-                "filename": str(log_dir / "access.log"),
-                "mode": "a",
-                "maxBytes": 512 * 1024,
-                "backupCount": 4,
-            },
-            "db_handler": {
-                "level": "INFO",
-                "class": "ouranos.core.logging.DBHandler",
-                "db_path": str(log_dir / "log.sqlite"),
-                "table_name": "logs",
-            },
-        },
+        "handlers": {},
         "loggers": {
             "ouranos": {
                 "handlers": [],
@@ -191,18 +162,61 @@ def configure_logging(config: BaseConfigDict, log_dir: Path) -> None:
 
     # Patch handlers depending on the config requirements
     if config["LOG_TO_STDOUT"]:
+        # Add the handlers
+        logging_config["handlers"]["stream_handler"] = {
+            "level": "INFO",
+            "formatter": "base",
+            "class": "logging.StreamHandler",
+        }
+        # And wire them up
         for logger in logging_config["loggers"].values():
             logger["handlers"].append("stream_handler")
 
     if config["LOG_TO_FILE"]:
+        # Add the handlers
+        logging_config["handlers"]["access_file_handler"] = {
+            "level": "INFO",
+            "formatter": "access",
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": str(log_dir / "access.log"),
+            "mode": "a",
+            "maxBytes": 512 * 1024,
+            "backupCount": 4,
+        }
+        logging_config["handlers"]["base_file_handler"] = {
+            "level": "INFO",
+            "formatter": "base",
+            "class": "logging.handlers.TimedRotatingFileHandler",
+            "filename": str(log_dir / "ouranos.log"),
+            "when": "W0",
+            "backupCount": 4,
+        }
+        # And wire them up
         for logger_name, logger in logging_config["loggers"].items():
             if logger_name in ("ouranos.web_server.socketio", "uvicorn.access"):
                 logger["handlers"].append("access_file_handler")
             else:
-                logger["handlers"].append("ouranos_file_handler")
+                logger["handlers"].append("base_file_handler")
 
     if config["LOG_TO_DB"]:
-        for logger in logging_config["loggers"].values():
-            logger["handlers"].append("db_handler")
+        # Add the handlers
+        from ouranos.core.database.models.logging import AccessLog, BaseLog
+
+        logging_config["handlers"]["access_db_handler"] = {
+            "level": "INFO",
+            "class": "ouranos.core.logging.DBHandler",
+            "table_model": AccessLog,
+        }
+        logging_config["handlers"]["base_db_handler"] = {
+            "level": "INFO",
+            "class": "ouranos.core.logging.DBHandler",
+            "table_model": BaseLog,
+        }
+        # And wire them up
+        for logger_name, logger in logging_config["loggers"].items():
+            if logger_name in ("ouranos.web_server.socketio", "uvicorn.access"):
+                logger["handlers"].append("access_db_handler")
+            else:
+                logger["handlers"].append("base_db_handler")
 
     logging.config.dictConfig(logging_config)
