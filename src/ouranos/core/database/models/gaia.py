@@ -1580,14 +1580,19 @@ class SensorAlarm(Base):
     ) -> None:
         alarm = await cls.get_recent(
             session, sensor_uid=values["sensor_uid"], measure=values["measure"])
+        # Create the alarm if it doesn't exist
         if alarm is None:
-            alarm = await cls.create(session, values=values)
-        else:
-            # Update delta and level if it changes
-            if values["delta"] > alarm.delta:
-                alarm.delta = values["delta"]
-                alarm.level = values["level"]
-                alarm.timestamp_max = values["timestamp"]
+            await cls.create(session, values=values)
+            return
+        # Only extend the alarm if the timestamp is newer than the logged one.
+        # Might happen when receiving alarms out of order
+        if values["timestamp"] < alarm.timestamp_to:
+            return
+        # Update delta and level if it changes
+        if values["delta"] > alarm.delta:
+            alarm.delta = values["delta"]
+            alarm.level = values["level"]
+            alarm.timestamp_max = values["timestamp"]
         alarm.timestamp_to = values["timestamp"]
 
     @classmethod
