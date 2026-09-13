@@ -9,7 +9,7 @@ from typing import Self, Sequence
 import sqlalchemy as sa
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import declared_attr, Mapped, mapped_column
 
 from ouranos.core.database.models.abc import Base
 from ouranos.core.database.models.types import SQLIntEnum, UtcDateTime
@@ -30,12 +30,16 @@ class LogLevel(IntEnum):
     FATAL = CRITICAL
 
 
-class LogRecord(Base):
-    __tablename__ = "log_records"
+class BaseLogRecord(Base):
+    __abstract__ = True
+
     __bind_key__ = "system"
-    __table_args__ = (
-        sa.Index("idx_log_records_timestamp_level", "timestamp", "level"),
-    )
+
+    @declared_attr.directive
+    def __table_args__(cls):
+        return (
+            sa.Index(f"idx_{cls.__tablename__}_timestamp_level", "timestamp", "level"),
+        )
 
     id: Mapped[int] = mapped_column(sa.Integer, primary_key=True)
     timestamp: Mapped[dt.datetime] = mapped_column(UtcDateTime, nullable=False)
@@ -89,3 +93,11 @@ class LogRecord(Base):
         stmt = paginate(stmt, page, per_page)
         result = await session.execute(stmt)
         return result.scalars().all()
+
+
+class BaseLog(BaseLogRecord):
+    __tablename__ = "base_logs"
+
+
+class AccessLog(BaseLogRecord):
+    __tablename__ = "access_logs"

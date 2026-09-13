@@ -9,16 +9,23 @@ from logging import Formatter, Handler, LogRecord
 import logging.config
 from pathlib import Path
 import sys
+import typing as t
 from typing import Literal
 
 import click
 
 from ouranos.core.config.base import BaseConfigDict
 
+if t.TYPE_CHECKING:
+    from ouranos.core.database.models.logging import BaseLogRecord
+
 
 class DBHandler(Handler):
-    def __init__(self) -> None:
+    def __init__(self, table_model: type[BaseLogRecord]) -> None:
         super().__init__()
+        if table_model is None:
+            raise ValueError("table_model cannot be None")
+        self._table_model = table_model
         self._loop: AbstractEventLoop | None = None
         self._table_created: bool = False
 
@@ -27,20 +34,19 @@ class DBHandler(Handler):
             return
 
         from ouranos import db
-        from ouranos.core.database.models.logging import LogRecord as LogRecordModel  # noqa
 
+        # The model has already been registered when loading the table model
         await db.create_all()
         self._table_created = True
 
     async def _log_record(self, record: LogRecord) -> None:
         from ouranos import db
-        from ouranos.core.database.models.logging import LogRecord as LogRecordModel
 
         if not self._table_created:
             await self._create_table()
 
         async with db.scoped_session() as session:
-            await LogRecordModel.create(session, record)
+            await self._table_model.create(session, record)
 
     def _log_record_error(self, future: Future) -> None:
         exception = future.exception()
