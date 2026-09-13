@@ -723,6 +723,7 @@ class GaiaEvents(AsyncEventHandler):
         for ecosystem in data:
             ecosystem_data = ecosystem["data"]
             timestamp = ecosystem_data["timestamp"]
+            assert isinstance(timestamp, datetime)
             for raw_record in ecosystem_data["records"]:
                 record = gv.SensorRecord(*raw_record)
                 record_timestamp = record.timestamp if record.timestamp else timestamp
