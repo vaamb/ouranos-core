@@ -15,19 +15,22 @@ async def create_db_tables() -> None:
     uri_str = uri if not isinstance(uri, Path) else uri.name
     if "sqlite" in uri_str:
         create_db_dir = True
-    for uri in current_app.config["SQLALCHEMY_BINDS"].values():
-        uri_str = uri if not isinstance(uri, Path) else uri.name
-        if "sqlite" in uri_str:
-            create_db_dir = True
-            break
+    else:
+        for uri in current_app.config["SQLALCHEMY_BINDS"].values():
+            uri_str = uri if not isinstance(uri, Path) else uri.name
+            if "sqlite" in uri_str:
+                create_db_dir = True
+                break
     if create_db_dir:
-        get_db_dir()
+        get_db_dir()  # Will create the dir as a side effect
 
     # Import the models so they are registered
     from ouranos.core.database.models import app  # noqa
     from ouranos.core.database.models import archives  # noqa
     from ouranos.core.database.models import gaia  # noqa
     from ouranos.core.database.models import system  # noqa
+    if current_app.config["LOG_TO_DB"]:
+        from ouranos.core.database.models import logging  # noqa
 
     await db.create_all()
 

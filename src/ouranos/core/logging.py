@@ -1,118 +1,68 @@
 from __future__ import annotations
 
-from concurrent.futures import Future, ThreadPoolExecutor
+import asyncio
+from asyncio import AbstractEventLoop
+from concurrent.futures import Future
 from copy import copy
 import logging
 from logging import Formatter, Handler, LogRecord
 import logging.config
 from pathlib import Path
-import sqlite3
 import sys
-import time
-import traceback
+import typing as t
 from typing import Literal
 
 import click
 
 from ouranos.core.config.base import BaseConfigDict
 
+if t.TYPE_CHECKING:
+    from ouranos.core.database.models.logging import BaseLogRecord
 
-class SQLiteHandler(Handler):
-    _create_query = """\
-    CREATE TABLE IF NOT EXISTS %(table_name)s(
-        timestamp TEXT,
-        level_name TEXT,
-        level INT,
-        logger_name TEXT,
-        file_name TEXT,
-        line_no INT,
-        func_name TEXT,
-        message TEXT,
-        traceback TEXT
-    )"""
 
-    _log_query = """\
-    INSERT INTO %(table_name)s(
-        timestamp,
-        level_name,
-        level,
-        logger_name,
-        file_name,
-        line_no,
-        func_name,
-        message,
-        traceback
-   )
-   VALUES (
-        :timestamp,
-        :level_name,
-        :level_no,
-        :name,
-        :filename,
-        :line_no,
-        :func_name,
-        :message,
-        :traceback
-   );
-    """
-
-    def __init__(self, db_path: Path, table_name: str) -> None:
+class DBHandler(Handler):
+    def __init__(self, table_model: type[BaseLogRecord]) -> None:
         super().__init__()
-        parent_dir = Path(db_path).parent
-        if not parent_dir.exists():
-            parent_dir.mkdir(parents=True)
-        self.db_path = db_path
-        self.table_name = table_name
+        if table_model is None:
+            raise ValueError("table_model cannot be None")
+        self._table_model = table_model
+        self._loop: AbstractEventLoop | None = None
         self._table_created: bool = False
-        self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='db_logging')
-        # Don't check thread ID as the connection is opened in the main thread
-        #  but ever only used in the 'db_logging' thread
-        self._db_connection = sqlite3.connect(self.db_path, check_same_thread=False)
 
-    def _execute_query(self, query: str, params: dict) -> None:
-        self._db_connection.execute(query, params)
-        self._db_connection.commit()
+    async def _create_table(self) -> None:
+        if self._table_created:
+            return
 
-    def execute_query(self, query: str, params: dict | None = None) -> None:
-        params = params or {}
-        future: Future = self._executor.submit(self._execute_query, query, params)
-        future.add_done_callback(self._log_query_error)
+        from ouranos import db
 
-    def _log_query_error(self, future: Future) -> None:
+        # The model has already been registered when loading the table model
+        await db.create_all()
+        self._table_created = True
+
+    async def _log_record(self, record: LogRecord) -> None:
+        from ouranos import db
+
+        if not self._table_created:
+            await self._create_table()
+
+        async with db.scoped_session() as session:
+            await self._table_model.create(session, record)
+
+    def _log_record_error(self, future: Future) -> None:
         exception = future.exception()
         if exception is not None:
             print(f"Failed to log record to the db: {exception}", file=sys.stderr)
 
-    def create_table(self) -> None:
-        query = self._create_query % {"table_name": self.table_name}
-        self.execute_query(query)
-
-    def log_record(self, record: LogRecord) -> None:
-        # Format the traceback ourselves rather than relying on `record.exc_text`:
-        #  that attribute is only populated as a side effect of a `Formatter`
-        #  having run on the record, which never happens on this handler's path.
-        tb = None
-        if record.exc_info:
-            tb = "".join(traceback.format_exception(*record.exc_info))
-        params = {
-            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(record.created)),
-            "level_name": record.levelname,
-            "level_no": record.levelno,
-            "name": record.name,
-            "filename": record.filename,
-            "line_no": record.lineno,
-            "func_name": record.funcName,
-            "message": record.getMessage(),
-            "traceback": tb,
-        }
-        query = self._log_query % {"table_name": self.table_name}
-        self.execute_query(query, params)
-
     def emit(self, record: LogRecord) -> None:
-        if not self._table_created:
-            self.create_table()
-            self._table_created = True
-        self.log_record(record)
+        if self._loop is None:
+            try:
+                self._loop = asyncio.get_running_loop()
+            except RuntimeError:
+                print(f"Failed to log record msg: {record.getMessage()}", file=sys.stderr)
+                return
+        assert self._loop is not None
+        future = asyncio.run_coroutine_threadsafe(self._log_record(record), self._loop)
+        future.add_done_callback(self._log_record_error)
 
 
 class ColourFormatter(Formatter):
@@ -171,36 +121,7 @@ def configure_logging(config: BaseConfigDict, log_dir: Path) -> None:
                 "use_colours": False,
             },
         },
-        "handlers": {
-            "stream_handler": {
-                "level": "INFO",
-                "formatter": "base",
-                "class": "logging.StreamHandler",
-            },
-            "ouranos_file_handler": {
-                "level": "INFO",
-                "formatter": "base",
-                "class": "logging.handlers.TimedRotatingFileHandler",
-                "filename": str(log_dir / "ouranos.log"),
-                "when": "W0",
-                "backupCount": 4,
-            },
-            "access_file_handler": {
-                "level": "INFO",
-                "formatter": "access",
-                "class": "logging.handlers.RotatingFileHandler",
-                "filename": str(log_dir / "access.log"),
-                "mode": "a",
-                "maxBytes": 512 * 1024,
-                "backupCount": 4,
-            },
-            "db_handler": {
-                "level": "INFO",
-                "class": "ouranos.core.logging.SQLiteHandler",
-                "db_path": str(log_dir / "log.sqlite"),
-                "table_name": "logs",
-            },
-        },
+        "handlers": {},
         "loggers": {
             "ouranos": {
                 "handlers": [],
@@ -230,6 +151,65 @@ def configure_logging(config: BaseConfigDict, log_dir: Path) -> None:
         },
     }
 
+    # Patch handlers depending on the config requirements
+    if config["LOG_TO_STDOUT"]:
+        # Add the handlers
+        logging_config["handlers"]["stream_handler"] = {
+            "level": "INFO",
+            "formatter": "base",
+            "class": "logging.StreamHandler",
+        }
+        # And wire them up
+        for logger in logging_config["loggers"].values():
+            logger["handlers"].append("stream_handler")
+
+    if config["LOG_TO_FILE"]:
+        # Add the handlers
+        logging_config["handlers"]["access_file_handler"] = {
+            "level": "INFO",
+            "formatter": "access",
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": str(log_dir / "access.log"),
+            "mode": "a",
+            "maxBytes": 512 * 1024,
+            "backupCount": 4,
+        }
+        logging_config["handlers"]["base_file_handler"] = {
+            "level": "INFO",
+            "formatter": "base",
+            "class": "logging.handlers.TimedRotatingFileHandler",
+            "filename": str(log_dir / "ouranos.log"),
+            "when": "W0",
+            "backupCount": 4,
+        }
+        # And wire them up
+        for logger_name, logger in logging_config["loggers"].items():
+            if logger_name in ("ouranos.web_server.socketio", "uvicorn.access"):
+                logger["handlers"].append("access_file_handler")
+            else:
+                logger["handlers"].append("base_file_handler")
+
+    if config["LOG_TO_DB"]:
+        # Add the handlers
+        from ouranos.core.database.models.logging import AccessLog, BaseLog
+
+        logging_config["handlers"]["access_db_handler"] = {
+            "level": "INFO",
+            "class": "ouranos.core.logging.DBHandler",
+            "table_model": AccessLog,
+        }
+        logging_config["handlers"]["base_db_handler"] = {
+            "level": "INFO",
+            "class": "ouranos.core.logging.DBHandler",
+            "table_model": BaseLog,
+        }
+        # And wire them up
+        for logger_name, logger in logging_config["loggers"].items():
+            if logger_name in ("ouranos.web_server.socketio", "uvicorn.access"):
+                logger["handlers"].append("access_db_handler")
+            else:
+                logger["handlers"].append("base_db_handler")
+
     # Patch formatters, handlers and loggers if debugging
     if config["DEBUG"]:
         debug_fmt = "%(asctime)s %(levelname)s [%(filename)-20.20s:%(lineno)3d] %(name)-30.30s: %(message)s"
@@ -238,21 +218,5 @@ def configure_logging(config: BaseConfigDict, log_dir: Path) -> None:
             handler["level"] = "DEBUG"
         for logger in logging_config["loggers"].values():
             logger["level"] = "DEBUG"
-
-    # Patch handlers depending on the config requirements
-    if config["LOG_TO_STDOUT"]:
-        for logger in logging_config["loggers"].values():
-            logger["handlers"].append("stream_handler")
-
-    if config["LOG_TO_FILE"]:
-        for logger_name, logger in logging_config["loggers"].items():
-            if logger_name in ("ouranos.web_server.socketio", "uvicorn.access"):
-                logger["handlers"].append("access_file_handler")
-            else:
-                logger["handlers"].append("ouranos_file_handler")
-
-    if config["LOG_TO_DB"]:
-        for logger in logging_config["loggers"].values():
-            logger["handlers"].append("db_handler")
 
     logging.config.dictConfig(logging_config)
