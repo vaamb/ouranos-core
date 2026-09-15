@@ -12,6 +12,7 @@ from sqlalchemy import (
     and_, Column, ColumnCollection,  delete, Insert, Select, select, Table,
     UnaryExpression, UniqueConstraint, update)
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.schema import ColumnDefault
 from sqlalchemy.orm import class_mapper, Mapped, mapped_column
 
 from gaia_validators import missing
@@ -172,6 +173,59 @@ class CRUDMixin:
             raise ValueError("You should provide all the lookup keys")
 
     @classmethod
+    def _get_onupdate_columns(cls) -> list[tuple[str, ColumnDefault]]:
+        # Columns with an explicit `onupdate=`, whose value must be recomputed
+        # on every conflict
+        columns: ColumnCollection = class_mapper(cls).columns
+        return [
+            (column.name, column.onupdate)
+            for column in columns
+            if isinstance(column.onupdate, ColumnDefault)
+        ]
+
+    @classmethod
+    def _get_on_conflict_update_values(
+            cls,
+            source: Any,
+            columns: Collection[str],
+            lookup_keys: Collection[str],
+            onupdate_columns: Collection[tuple[str, ColumnDefault]],
+    ) -> dict[str, Any]:
+        """Build the "set" mapping used by an "on conflict do update" clause.
+
+        :param source: the dialect-specific proxy to the rejected row
+            (`stmt.excluded` on PostgreSQL/SQLite, `stmt.inserted` on MySQL).
+        :param columns: the columns supplied to `create{_multiple}`.
+        :param lookup_keys: the columns identifying the conflicting row,
+            never updated.
+        :param onupdate_columns: `(name, onupdate)` pairs of the columns with an
+            explicit `onupdate=` default.
+        """
+        # Only update the columns supplied to the `create{_multiple}` method if
+        # they are not "lookup" columns.
+        to_update: dict[str, Any] = {
+            column: getattr(source, column)
+            for column in columns
+            if column not in lookup_keys
+        }
+        # Columns with an explicit `onupdate=` are refreshed on conflict even
+        # when they were not part of the supplied `values` (e.g.
+        # `SensorDataCache.logged`, which needs to be reset to `False` whenever
+        # new data for the same lookup keys comes in). As with SQLAlchemy's own
+        # `onupdate`, a value explicitly supplied in `values` takes precedence.
+        # Callable defaults are evaluated here, for each statement, rather
+        # than once when the closure is built, so that time-based defaults
+        # (`onupdate=datetime.now` for example) are not frozen.
+        for column, onupdate in onupdate_columns:
+            if column in to_update or column in lookup_keys:
+                continue
+            if onupdate.is_callable:
+                to_update[column] = onupdate.arg(None)
+            else:
+                to_update[column] = onupdate.arg
+        return to_update
+
+    @classmethod
     def _get_on_conflict_do(cls) -> Callable[[Insert, str, Collection[str]], Insert]:
         if cls._on_conflict_do is None:
             dialect = cls._get_dialect()
@@ -181,34 +235,29 @@ class CRUDMixin:
                     from sqlalchemy.dialects.mysql import Insert
 
                 lookup_keys = cls._get_lookup_keys()
+                onupdate_columns = cls._get_onupdate_columns()
 
                 def impl(stmt: Insert, action: str, columns: Collection[str]) -> Insert:
-                    if action == "nothing":
-                        # Assign the lookup column to itself rather than to the
-                        # value from `stmt.inserted`: `ON DUPLICATE KEY UPDATE`
-                        # fires on a conflict with *any* unique index, and if
-                        # the conflicting index is not the lookup key,
-                        # `stmt.inserted` would overwrite the existing row's
-                        # lookup key with the new value
-                        stmt = stmt.on_duplicate_key_update(  # ty: ignore[unresolved-attribute]
-                            {lookup_keys[0]: stmt.table.c[lookup_keys[0]]},
+                    if action not in ("nothing", "update"):
+                        raise ValueError(
+                            f"Unknown on conflict action '{action}', should be "
+                            f"'nothing' or 'update'"
                         )
-                    elif action == "update":
-                        # Only update the columns supplied to the `create{_multiple}`
-                        # method. Columns not supplied, but with a default
-                        # (`default=func.current_timestamp()` for example)
-                        # would otherwise get its default recomputed for the
-                        # rejected insert, which would act like a `onupdate`
-                        stmt = stmt.on_duplicate_key_update(  # ty: ignore[unresolved-attribute]
-                            {
-                                column_name: getattr(stmt.inserted, column_name)  # ty: ignore[unresolved-attribute]
-                                for column_name in columns
-                                if column_name not in lookup_keys
-                            }
-                        )
-                    else:
-                        raise ValueError
-                    return stmt
+                    to_update: dict[str, Any] = {}
+                    if action == "update":
+                        to_update = cls._get_on_conflict_update_values(
+                            stmt.inserted, columns, lookup_keys, onupdate_columns)  # ty: ignore[unresolved-attribute]
+                    if not to_update:
+                        # Either "nothing" was requested, or there is no column
+                        # to update (SQLAlchemy refuses an empty update
+                        # mapping). Assign the lookup column to itself rather
+                        # than to the value from `stmt.inserted`:
+                        # `ON DUPLICATE KEY UPDATE` fires on a conflict with
+                        # *any* unique index, and if the conflicting index is
+                        # not the lookup key, `stmt.inserted` would overwrite
+                        # the existing row's lookup key with the new value
+                        to_update = {lookup_keys[0]: stmt.table.c[lookup_keys[0]]}
+                    return stmt.on_duplicate_key_update(to_update)  # ty: ignore[unresolved-attribute]
 
             elif dialect in {"postgresql", "sqlite"}:
                 if t.TYPE_CHECKING:
@@ -218,29 +267,28 @@ class CRUDMixin:
                         from sqlalchemy.dialects.sqlite import Insert
 
                 lookup_keys = cls._get_lookup_keys()
+                onupdate_columns = cls._get_onupdate_columns()
 
                 def impl(stmt: Insert, action: str, columns: Collection[str]) -> Insert:
-                    if action == "nothing":
-                        stmt = stmt.on_conflict_do_nothing(  # ty: ignore[unresolved-attribute]
+                    if action not in ("nothing", "update"):
+                        raise ValueError(
+                            f"Unknown on conflict action '{action}', should be "
+                            f"'nothing' or 'update'"
+                        )
+                    to_update: dict[str, Any] = {}
+                    if action == "update":
+                        to_update = cls._get_on_conflict_update_values(
+                            stmt.excluded, columns, lookup_keys, onupdate_columns)  # ty: ignore[unresolved-attribute]
+                    if not to_update:
+                        # Either "nothing" was requested, or there is no column
+                        # to update (SQLAlchemy refuses an empty update mapping)
+                        return stmt.on_conflict_do_nothing(  # ty: ignore[unresolved-attribute]
                             index_elements=lookup_keys,
                         )
-                    elif action == "update":
-                        # Only update the columns supplied to the `create{_multiple}`
-                        # method. Columns not supplied, but with a default
-                        # (`default=func.current_timestamp()` for example)
-                        # would otherwise get its default recomputed for the
-                        # rejected insert, which would act like a `onupdate`
-                        stmt = stmt.on_conflict_do_update(  # ty: ignore[unresolved-attribute]
-                            index_elements=lookup_keys,
-                            set_={
-                                column: getattr(stmt.excluded, column)  # ty: ignore[unresolved-attribute]
-                                for column in columns
-                                if column not in lookup_keys
-                            },
-                        )
-                    else:
-                        raise ValueError
-                    return stmt
+                    return stmt.on_conflict_do_update(  # ty: ignore[unresolved-attribute]
+                        index_elements=lookup_keys,
+                        set_=to_update,
+                    )
 
             else:
                 warn(
@@ -248,8 +296,11 @@ class CRUDMixin:
                     f"add it.", stacklevel=2)
 
                 def impl(stmt: Insert, action: str, columns: Collection[str]) -> Insert:
-                    if action not in ["nothing", "update"]:
-                        raise ValueError
+                    if action not in ("nothing", "update"):
+                        raise ValueError(
+                            f"Unknown on conflict action '{action}', should be "
+                            f"'nothing' or 'update'"
+                        )
                     return stmt
 
             cls._on_conflict_do = impl  # ty: ignore[invalid-assignment]
