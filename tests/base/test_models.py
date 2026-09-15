@@ -13,6 +13,7 @@ from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
 from ouranos.core.database.models.abc import Base, CRUDMixin
 from ouranos.core.database.models.caching import CachedCRUDMixin, create_hashable_key
+from ouranos.core.database.models.gaia import SensorDataCache
 from ouranos.core.database.models.types import UtcDateTime
 
 
@@ -48,6 +49,36 @@ class ModelMultiKeys(Base, CRUDMixin):
 
 class ModelCached(ModelSingleKey, CachedCRUDMixin):
     _cache = TTLCache(maxsize=2, ttl=60)
+
+
+class ModelNullable(Base, CRUDMixin):
+    __tablename__ = "test_nullable"
+    _lookup_keys = ["name"]
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(unique=True)
+    hobby: Mapped[Optional[str]] = mapped_column(default=None)
+
+
+_onupdate_calls: list[int] = []
+
+
+def _counting_onupdate() -> int:
+    # Callable `onupdate` whose return value changes on each evaluation, to
+    # check it is recomputed for every statement rather than frozen
+    _onupdate_calls.append(len(_onupdate_calls))
+    return len(_onupdate_calls)
+
+
+class ModelOnUpdate(Base, CRUDMixin):
+    __tablename__ = "test_onupdate"
+    _lookup_keys = ["name"]
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(unique=True)
+    age: Mapped[int] = mapped_column()
+    logged: Mapped[bool] = mapped_column(default=False, onupdate=lambda: False)
+    counter: Mapped[int] = mapped_column(default=0, onupdate=_counting_onupdate)
 
 
 @pytest.mark.asyncio
@@ -231,6 +262,129 @@ class TestCRUDMixinSingleKey:
             model = await ModelSingleKey.get(session, name="Jane")
             assert model.name == "Jane"
             assert model.hobby == "coding"
+
+    async def test_on_conflict_update_without_values(self, db: AsyncSQLAlchemyWrapper):
+        # An "update" with nothing to update must not fail (SQLAlchemy refuses
+        # an empty update mapping) and must behave like a "nothing"
+        async with db.scoped_session() as session:
+            await ModelNullable.create(
+                session, name="Jim", values={"hobby": "reading"})
+
+        async with db.scoped_session() as session:
+            await ModelNullable.update_or_create(session, name="Jim")
+
+            model = await ModelNullable.get(session, name="Jim")
+            assert model.hobby == "reading"
+
+        # It must still insert a missing row
+        async with db.scoped_session() as session:
+            await ModelNullable.update_or_create(session, name="Joe")
+
+            model = await ModelNullable.get(session, name="Joe")
+            assert model is not None
+            assert model.hobby is None
+
+
+@pytest.mark.asyncio
+class TestCRUDMixinOnUpdate:
+    async def test_onupdate_refreshed_on_conflict(self, db: AsyncSQLAlchemyWrapper):
+        async with db.scoped_session() as session:
+            await ModelOnUpdate.create(session, name="John", values={"age": 30})
+            await ModelOnUpdate.update(session, name="John", values={"logged": True})
+
+            model = await ModelOnUpdate.get(session, name="John")
+            assert model.logged is True
+
+        # A new insert for the same lookup key resets `logged` even though it
+        # was not part of the supplied values
+        async with db.scoped_session() as session:
+            await ModelOnUpdate.update_or_create(
+                session, name="John", values={"age": 31})
+
+            model = await ModelOnUpdate.get(session, name="John")
+            assert model.age == 31
+            assert model.logged is False
+
+    async def test_explicit_value_wins_over_onupdate(self, db: AsyncSQLAlchemyWrapper):
+        async with db.scoped_session() as session:
+            await ModelOnUpdate.create(session, name="Jane", values={"age": 30})
+
+        # A value explicitly supplied must not be overridden by the `onupdate`
+        async with db.scoped_session() as session:
+            await ModelOnUpdate.update_or_create(
+                session, name="Jane", values={"age": 31, "logged": True})
+
+            model = await ModelOnUpdate.get(session, name="Jane")
+            assert model.age == 31
+            assert model.logged is True
+
+        async with db.scoped_session() as session:
+            await ModelOnUpdate.create_multiple(
+                session,
+                values=[{"name": "Jane", "age": 32, "logged": True}],
+                _on_conflict_do="update",
+            )
+
+            model = await ModelOnUpdate.get(session, name="Jane")
+            assert model.age == 32
+            assert model.logged is True
+
+    async def test_callable_onupdate_evaluated_per_statement(
+            self, db: AsyncSQLAlchemyWrapper):
+        async with db.scoped_session() as session:
+            await ModelOnUpdate.create(session, name="Jack", values={"age": 30})
+
+        counters = []
+        for _ in range(2):
+            async with db.scoped_session() as session:
+                await ModelOnUpdate.update_or_create(
+                    session, name="Jack", values={"age": 31})
+
+                model = await ModelOnUpdate.get(session, name="Jack")
+                counters.append(model.counter)
+
+        # The callable must be evaluated again for each conflicting statement,
+        # not frozen at the value computed when the "on conflict" closure
+        # was first built
+        assert counters[0] != counters[1]
+
+
+@pytest.mark.asyncio
+class TestSensorDataCacheOnUpdate:
+    async def test_logged_resets_on_new_data(self, db: AsyncSQLAlchemyWrapper):
+        values = {
+            "ecosystem_uid": "ecosystem_uid",
+            "sensor_uid": "sensor_uid",
+            "measure": "measure",
+            "value": 1.0,
+            "timestamp": datetime.now(timezone.utc),
+        }
+        async with db.scoped_session() as session:
+            await SensorDataCache.insert_data(session, values)
+            await session.commit()
+
+        async with db.scoped_session() as session:
+            recent = await SensorDataCache.get_recent(session, logged=False)
+            assert len(recent) == 1
+            await SensorDataCache.update_multiple(
+                session, values=[{"id": recent[0].id, "logged": True}])
+            await session.commit()
+
+        async with db.scoped_session() as session:
+            recent = await SensorDataCache.get_recent(session, logged=False)
+            assert len(recent) == 0
+
+        # New reading comes in for the same sensor/measure: `logged` must reset
+        async with db.scoped_session() as session:
+            await SensorDataCache.insert_data(session, {**values, "value": 2.0})
+            await session.commit()
+
+        async with db.scoped_session() as session:
+            recent = await SensorDataCache.get_recent(session, logged=False)
+            assert len(recent) == 1, (
+                "`logged` was not reset to `False` when new data was cached "
+                "again for the same sensor/measure"
+            )
 
 
 @pytest.mark.asyncio
