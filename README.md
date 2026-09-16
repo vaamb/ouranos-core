@@ -1,6 +1,13 @@
 Ouranos
 =======
 
+[![Test](https://github.com/vaamb/ouranos-core/actions/workflows/test.yml/badge.svg)](https://github.com/vaamb/ouranos-core/actions/workflows/test.yml)
+[![Quality control](https://github.com/vaamb/ouranos-core/actions/workflows/qc.yml/badge.svg)](https://github.com/vaamb/ouranos-core/actions/workflows/qc.yml)
+[![Scripts](https://github.com/vaamb/ouranos-core/actions/workflows/scripts.yml/badge.svg)](https://github.com/vaamb/ouranos-core/actions/workflows/scripts.yml)
+[![Latest tag](https://img.shields.io/github/v/tag/vaamb/ouranos-core?label=version)](https://github.com/vaamb/ouranos-core/tags)
+![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)
+[![License: LGPL v3](https://img.shields.io/badge/license-LGPL%20v3-green)](LICENSE)
+
 Ouranos is the companion server for [Gaia](https://github.com/vaamb/gaia),
 the plant environment automation client. It aggregates sensor data from one or
 more Gaia instances, archives it, exposes a REST + WebSocket API, and serves
