@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import AsyncGenerator, Optional
 
 from fastapi import HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,7 +9,7 @@ from ouranos.core.database.models.utils import TimeWindow
 from ouranos.core.utils import create_time_window
 
 
-async def get_session() -> AsyncSession:
+async def get_session() -> AsyncGenerator[AsyncSession, None]:
     async with db.scoped_session() as session:
         yield session
 

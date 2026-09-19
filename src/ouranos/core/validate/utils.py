@@ -16,7 +16,9 @@ def sqlalchemy_to_pydantic(
         base: Type[BaseModel] | None = None,
         prior_fields: dict[str, tuple[Any, Any]] | None = None,
         extra_fields: dict[str, tuple[Any, Any]] | None = None
-) -> Type[BaseModel]:
+) -> Any:
+    # The dynamically created pydantic model cannot be given a precise static
+    # type, hence the `Any` return type instead of `Type[BaseModel]`
     exclude: list = exclude or []
     fields: dict[str, tuple[Any, Any]] = {}
     if prior_fields:

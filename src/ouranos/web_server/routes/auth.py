@@ -221,6 +221,8 @@ async def register_new_user(
         )
     else:
         user = await User.get_by(session, username=payload_dict["username"])
+        # `user` should not be `None` as it was created just before
+        assert user is not None
         token = authenticator.login(user, False)
         if send_email:
             try:
@@ -328,10 +330,11 @@ async def create_registration_token(
         "email": email,
     }
     token = await User.create_invitation_token(
-        session, user_info=user_info, expiration_delay=expires_in)
+        session, user_info=user_info, expiration_delay=expires_in)  # ty: ignore[invalid-argument-type]  # TypedDict vs dict
     if send_email:
         try:
-            await User.send_invitation_email(session, user_info=user_info, token=token)
+            await User.send_invitation_email(
+                session, user_info=user_info, token=token)  # ty: ignore[invalid-argument-type]  # TypedDict vs dict
             return "Invitation sent"
         except NotImplementedError as e:
             raise HTTPException(

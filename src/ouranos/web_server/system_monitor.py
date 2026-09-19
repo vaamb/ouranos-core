@@ -49,7 +49,7 @@ class SystemMonitor:
         self._task = task
 
     async def loop(self) -> None:
-        update_period = current_app.config.get("SYSTEM_UPDATE_PERIOD")
+        update_period = current_app.config.get("SYSTEM_UPDATE_PERIOD") or 5
         logging_period = current_app.config.get("SYSTEM_LOGGING_PERIOD")
         logged = False
 

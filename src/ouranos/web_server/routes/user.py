@@ -32,9 +32,12 @@ def check_current_user_is_allowed(current_user: UserMixin, username: str) -> Non
 
 
 def check_current_user_is_higher(current_user: UserMixin, user: UserMixin) -> None:
+    current_role_permissions = (
+        current_user.role.permissions if current_user.role is not None else -1)
+    target_role_permissions = user.role.permissions if user.role is not None else -1
     if (
             current_user.username != user.username
-            and current_user.role.permissions <= user.role.permissions
+            and current_role_permissions <= target_role_permissions
     ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -62,14 +65,14 @@ async def get_user_or_abort(
 async def get_users(
         *,
         registration_start_time: Annotated[
-            str,
+            str | None,
             Query(description=(
                 "ISO (8601) formatted datetime from which the research will be "
                 "done"
             )),
         ] = None,
         registration_end_time:Annotated[
-            str,
+            str | None,
             Query(description=(
                 "ISO (8601) formatted datetime up to which the research will be "
                 "done"

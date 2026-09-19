@@ -51,7 +51,7 @@ async def get_ecosystems_sensors_skeleton(
         *,
         ecosystems_id: Annotated[list[str] | None, Query(description=eids_desc)] = None,
         level: Annotated[
-            list[gv.HardwareLevel],
+            list[gv.HardwareLevel] | None,
             Query(description=h_level_desc)
         ] = None,
         in_config: Annotated[bool | None, Query(description=in_config_desc)] = None,
@@ -77,7 +77,7 @@ async def get_ecosystem_sensors_skeleton(
         *,
         ecosystem_uid: Annotated[str, Path(description=euid_desc)],
         level: Annotated[
-            list[gv.HardwareLevel],
+            list[gv.HardwareLevel] | None,
             Query(description=h_level_desc),
         ] = None,
         time_window: Annotated[
