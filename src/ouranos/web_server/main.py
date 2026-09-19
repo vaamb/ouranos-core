@@ -114,8 +114,7 @@ class WebServer(Functionality):
             from uvicorn.supervisors import Multiprocess
 
             sock = self.server.config.bind_socket()
-            multi = Multiprocess(
-                self.server.config, target=self.server.run, sockets=[sock])
+            multi = Multiprocess(self.server.config, sockets=[sock])
 
             async def start() -> None:
                 multi.run()

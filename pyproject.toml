@@ -38,7 +38,7 @@ dependencies = [
     "typing-extensions~=4.14",
     "SQLAlchemy~=2.0",
     "uvloop~=0.22",
-    "uvicorn[standard]~=0.34",
+    "uvicorn[standard]~=0.51.0",
     # From git
     "event-dispatcher @ git+https://github.com/vaamb/event-dispatcher.git@0.9.0",
     "gaia-validators @ git+https://github.com/vaamb/gaia-validators.git@0.11.3",
