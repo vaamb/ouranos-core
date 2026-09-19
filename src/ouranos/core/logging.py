@@ -10,7 +10,7 @@ import logging.config
 from pathlib import Path
 import sys
 import typing as t
-from typing import Literal
+from typing import Any, Literal
 
 import click
 
@@ -105,7 +105,7 @@ class ColourFormatter(Formatter):
 
 
 def configure_logging(config: BaseConfigDict, log_dir: Path) -> None:
-    logging_config = {
+    logging_config: dict[str, Any] = {
         "version": 1,
         "disable_existing_loggers": True,
         "formatters": {
@@ -161,7 +161,7 @@ def configure_logging(config: BaseConfigDict, log_dir: Path) -> None:
         }
         # And wire them up
         for logger in logging_config["loggers"].values():
-            logger["handlers"].append("stream_handler")
+            logger["handlers"].append("stream_handler")  # ty: ignore[unresolved-attribute]
 
     if config["LOG_TO_FILE"]:
         # Add the handlers
@@ -185,9 +185,9 @@ def configure_logging(config: BaseConfigDict, log_dir: Path) -> None:
         # And wire them up
         for logger_name, logger in logging_config["loggers"].items():
             if logger_name in ("ouranos.web_server.socketio", "uvicorn.access"):
-                logger["handlers"].append("access_file_handler")
+                logger["handlers"].append("access_file_handler")  # ty: ignore[unresolved-attribute]
             else:
-                logger["handlers"].append("base_file_handler")
+                logger["handlers"].append("base_file_handler")  # ty: ignore[unresolved-attribute]
 
     if config["LOG_TO_DB"]:
         # Add the handlers
@@ -206,9 +206,9 @@ def configure_logging(config: BaseConfigDict, log_dir: Path) -> None:
         # And wire them up
         for logger_name, logger in logging_config["loggers"].items():
             if logger_name in ("ouranos.web_server.socketio", "uvicorn.access"):
-                logger["handlers"].append("access_db_handler")
+                logger["handlers"].append("access_db_handler")  # ty: ignore[unresolved-attribute]
             else:
-                logger["handlers"].append("base_db_handler")
+                logger["handlers"].append("base_db_handler")  # ty: ignore[unresolved-attribute]
 
     # Patch formatters, handlers and loggers if debugging
     if config["DEBUG"]:

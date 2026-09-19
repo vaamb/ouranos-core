@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from email.message import EmailMessage
 from email.utils import make_msgid
-from typing import ClassVar, Iterator, Self
+from typing import AsyncIterator, ClassVar, Self
 
 import aiosmtplib
 
@@ -80,7 +80,7 @@ class Email:
 
     @classmethod
     @asynccontextmanager
-    async def record_messages(cls) -> Iterator[list[Self]]:
+    async def record_messages(cls) -> AsyncIterator[list[Self]]:
         cls._outbox = []
 
         yield cls._outbox

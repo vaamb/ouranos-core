@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 import enum
-from typing import cast, Literal, TypedDict
+from typing import Any, cast, Literal, TypedDict
 
 
 from dispatcher import (
@@ -28,76 +29,82 @@ DispatcherName = Literal[
 
 class DispatcherConfig(TypedDict):
     uri_cfg_lookup: str
-    DispatcherType.memory: dict
-    DispatcherType.amqp: dict
-    DispatcherType.redis: dict
+    broker_options: dict[DispatcherType, dict]
 
 
 class DispatcherOptions:
-    __options: dict[DispatcherName | str, DispatcherConfig] = {
+    __options: dict[str, DispatcherConfig] = {
         "aggregator": {
             "uri_cfg_lookup": "GAIA_COMMUNICATION_URL",
-            DispatcherType.memory: {},
-            DispatcherType.amqp: {
-                "queue_options": {
-                    "durable": True,
-                    "arguments": {
-                        # Remove queue after 1 day without consumer
-                        "x-expires": 24 * 60 * 60 * 1000,
-                        # Keep messages for 12 hours then remove them
-                        "x-message-ttl": 12 * 12 * 60 * 1000,
+            "broker_options": {
+                DispatcherType.memory: {},
+                DispatcherType.amqp: {
+                    "queue_options": {
+                        "durable": True,
+                        "arguments": {
+                            # Remove queue after 1 day without consumer
+                            "x-expires": 24 * 60 * 60 * 1000,
+                            # Keep messages for 12 hours then remove them
+                            "x-message-ttl": 12 * 12 * 60 * 1000,
+                        },
                     },
                 },
+                DispatcherType.redis: {},
             },
-            DispatcherType.redis: {},
         },
         "aggregator-stream": {
             "uri_cfg_lookup": "GAIA_COMMUNICATION_URL",
-            DispatcherType.memory: {},
-            DispatcherType.amqp: {
-                "queue_options": {
-                    "durable": True,
-                    "arguments": {
-                        # Remove queue after 15 min without consumer
-                        "x-expires": 15 * 60 * 1000,
-                        # Keep messages only 15 sec then remove them
-                        "x-message-ttl": 15 * 1000,
+            "broker_options": {
+                DispatcherType.memory: {},
+                DispatcherType.amqp: {
+                    "queue_options": {
+                        "durable": True,
+                        "arguments": {
+                            # Remove queue after 15 min without consumer
+                            "x-expires": 15 * 60 * 1000,
+                            # Keep messages only 15 sec then remove them
+                            "x-message-ttl": 15 * 1000,
+                        },
                     },
                 },
+                DispatcherType.redis: {},
             },
-            DispatcherType.redis: {},
         },
         "aggregator-internal": {
             "uri_cfg_lookup": "DISPATCHER_URL",
-            DispatcherType.memory: {},
-            DispatcherType.amqp: {
-                "queue_options": {
-                    "durable": True,
-                    "arguments": {
-                        # Remove queue after 1 day without consumer
-                        "x-expires": 24 * 60 * 60 * 1000,
-                        # Keep messages only 1 minute then remove them
-                        "x-message-ttl": 1 * 60 * 1000,
+            "broker_options": {
+                DispatcherType.memory: {},
+                DispatcherType.amqp: {
+                    "queue_options": {
+                        "durable": True,
+                        "arguments": {
+                            # Remove queue after 1 day without consumer
+                            "x-expires": 24 * 60 * 60 * 1000,
+                            # Keep messages only 1 minute then remove them
+                            "x-message-ttl": 1 * 60 * 1000,
+                        },
                     },
                 },
+                DispatcherType.redis: {},
             },
-            DispatcherType.redis: {},
         },
         "application-internal": {
             "uri_cfg_lookup": "DISPATCHER_URL",
-            DispatcherType.memory: {},
-            DispatcherType.amqp: {
-                "queue_options": {
-                    "durable": True,
-                    "arguments": {
-                        # Remove queue after 1 day without consumer
-                        "x-expires": 24 * 60 * 60 * 1000,
-                        # Keep messages only 1 minute then remove them
-                        "x-message-ttl": 1 * 60 * 1000,
+            "broker_options": {
+                DispatcherType.memory: {},
+                DispatcherType.amqp: {
+                    "queue_options": {
+                        "durable": True,
+                        "arguments": {
+                            # Remove queue after 1 day without consumer
+                            "x-expires": 24 * 60 * 60 * 1000,
+                            # Keep messages only 1 minute then remove them
+                            "x-message-ttl": 1 * 60 * 1000,
+                        },
                     },
                 },
+                DispatcherType.redis: {},
             },
-            DispatcherType.redis: {},
         },
     }
 
@@ -107,7 +114,7 @@ class DispatcherOptions:
             dispatcher_name: DispatcherName,
             dispatcher_type: DispatcherType,
     ) -> dict:
-        return cls.__options[dispatcher_name][dispatcher_type]
+        return cls.__options[dispatcher_name]["broker_options"][dispatcher_type]
 
     @classmethod
     def set_option(
@@ -117,8 +124,8 @@ class DispatcherOptions:
             option: dict,
     ) -> None:
         if dispatcher_name not in cls.__options:
-            cls.__options[dispatcher_name] = {}
-        cls.__options[dispatcher_name][dispatcher_type] = option
+            cls.__options[dispatcher_name] = {"uri_cfg_lookup": "", "broker_options": {}}
+        cls.__options[dispatcher_name]["broker_options"][dispatcher_type] = option
 
     @classmethod
     def get_options(
@@ -133,8 +140,6 @@ class DispatcherOptions:
             dispatcher_name: DispatcherName,
             options: DispatcherConfig,
     ) -> None:
-        if dispatcher_name not in cls.__options:
-            cls.__options[dispatcher_name] = {}
         cls.__options[dispatcher_name] = options
 
     @classmethod
@@ -144,7 +149,8 @@ class DispatcherOptions:
     @classmethod
     def set_uri_lookup(cls, dispatcher_name: DispatcherName, uri_lookup: str) -> None:
         if dispatcher_name not in cls.__options:
-            cls.__options[dispatcher_name] = {}
+            cls.__options[dispatcher_name] = {"uri_cfg_lookup": uri_lookup, "broker_options": {}}
+            return
         cls.__options[dispatcher_name]["uri_cfg_lookup"] = uri_lookup
 
 
@@ -157,16 +163,15 @@ class DispatcherFactory:
             name: str,
             broker_uri: str | None = None,
             broker_options: dict | None = None,
-            config: dict | None = None,
+            config: Mapping[str, Any] | None = None,
     ) -> AsyncDispatcher:
         try:
             return cls.__dispatchers[name]
         except KeyError:
             if config is None:
                 from ouranos import current_app
-                config = current_app.config
+                config = cast("Mapping[str, Any]", current_app.config)
             if broker_uri is None:
-                name = cast(DispatcherName, name)
                 uri_cfg_lookup = DispatcherOptions.get_uri_lookup(name)
                 broker_uri = config[uri_cfg_lookup]
 

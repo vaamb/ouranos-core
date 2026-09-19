@@ -22,13 +22,13 @@ class Stringable(Protocol):
     def __str__(self) -> str: ...
 
 
-def _serializer(self, o: Any) -> dict | str:
+def _serializer(o: Any) -> dict | str:
     if isinstance(o, Row):
         return o.tuple()  # return a tuple
     #    return {**o._mapping}  # return a dict
     if hasattr(o, "__html__"):
         return str(o.__html__())
-    return _json.JSONEncoder.default(self, o)
+    return _json.JSONEncoder().default(o)
 
 
 class json:
@@ -94,10 +94,10 @@ def round_datetime(
 ) -> datetime:
     """ Round `dt` to the nearest `rounding_base` minutes to ease result caching
     """
-    grace_time = timedelta(seconds=grace_time)
+    grace_timedelta = timedelta(seconds=grace_time)
     rounded_minute = dt.minute // rounding_base * rounding_base
     return (
-        dt.replace(minute=rounded_minute, second=0, microsecond=0) + grace_time
+        dt.replace(minute=rounded_minute, second=0, microsecond=0) + grace_timedelta
     )
 
 
@@ -177,11 +177,17 @@ class Tokenizer:
 
 
 def stripped_warning(msg):
-    def custom_format_warning(_msg, *args, **kwargs):
-        return str(_msg) + '\n'
+    def custom_format_warning(
+            message: Warning | str,
+            category: type[Warning],
+            filename: str,
+            lineno: int,
+            line: str | None = None,
+    ) -> str:
+        return str(message) + '\n'
 
     format_warning = warnings.formatwarning
-    warnings.formatwarning = custom_format_warning
+    warnings.formatwarning = custom_format_warning  # ty: ignore[invalid-assignment]
     warnings.warn(msg)
     warnings.formatwarning = format_warning
 
@@ -201,7 +207,7 @@ def check_secret_key(config: dict) -> str | None:
 
 
 def slugify(s: Stringable) -> str:
-    return _slugify(s, separator="_", lowercase=True)
+    return _slugify(str(s), separator="_", lowercase=True)
 
 
 def check_filename(full_filename: str, extensions: set[str]) -> None:
