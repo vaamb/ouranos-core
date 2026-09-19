@@ -41,12 +41,12 @@ class _SchedulerWrapper(AsyncIOScheduler):
 
 class _CurrentApp(_DynamicVar):
     def __init__(self):
-        self.config: ConfigDict = get_config
-        self.base_dir: Path = get_base_dir
-        self.cache_dir: Path = get_cache_dir
-        self.log_dir: Path = get_log_dir
-        self.static_dir: Path = get_static_dir
-        self.wiki_dir: Path = get_wiki_dir
+        self.config: ConfigDict = get_config  # ty: ignore[invalid-assignment]
+        self.base_dir: Path = get_base_dir  # ty: ignore[invalid-assignment]
+        self.cache_dir: Path = get_cache_dir  # ty: ignore[invalid-assignment]
+        self.log_dir: Path = get_log_dir  # ty: ignore[invalid-assignment]
+        self.static_dir: Path = get_static_dir  # ty: ignore[invalid-assignment]
+        self.wiki_dir: Path = get_wiki_dir  # ty: ignore[invalid-assignment]
 
 
 current_app = _CurrentApp()

@@ -6,17 +6,19 @@ from pydantic import BaseModel, create_model
 from sqlalchemy import Column, inspect
 from sqlalchemy.orm import Mapper
 from sqlalchemy.sql.functions import GenericFunction
+from sqlalchemy.sql.schema import ColumnDefault
+from sqlalchemy.types import TypeDecorator
 
 
 def sqlalchemy_to_pydantic(
         db_model,
         exclude: list | None = None,
         base: Type[BaseModel] | None = None,
-        prior_fields: dict[str, tuple[Type, Any]] | None = None,
-        extra_fields: dict[str, tuple[Type, Any]] | None = None
+        prior_fields: dict[str, tuple[Any, Any]] | None = None,
+        extra_fields: dict[str, tuple[Any, Any]] | None = None
 ) -> Type[BaseModel]:
     exclude: list = exclude or []
-    fields: dict[str, tuple[Type, Any]] = {}
+    fields: dict[str, tuple[Any, Any]] = {}
     if prior_fields:
         fields.update(prior_fields)
     mapper: Mapper = inspect(db_model)
@@ -26,18 +28,21 @@ def sqlalchemy_to_pydantic(
         if name in exclude:
             continue
         # Get python type
+        python_type: Any
         try:
             python_type = column.type.python_type
         except Exception:
             # Column type is a custom type implementing a base sqlalchemy type
-            python_type = column.type.impl.python_type
+            column_type = column.type
+            assert isinstance(column_type, TypeDecorator)
+            python_type = column_type.impl.python_type
         if column.nullable:
-            python_type = Optional[python_type]
+            python_type = Optional[python_type]  # ty: ignore[invalid-type-form]
         # Get default value
-        default = None
+        default: Any = None
         if column.default is None and not column.nullable:
             default = ...
-        elif column.default is not None:
+        elif isinstance(column.default, ColumnDefault):
             if isinstance(column.default.arg, GenericFunction):
                 default = ...
             else:
@@ -45,4 +50,6 @@ def sqlalchemy_to_pydantic(
         fields[name] = (python_type, default)
     if extra_fields:
         fields.update(extra_fields)
-    return create_model(db_model.__name__, __base__=base, **fields)
+    if base is not None:
+        return create_model(db_model.__name__, __base__=base, **fields)  # ty: ignore[no-matching-overload]
+    return create_model(db_model.__name__, **fields)  # ty: ignore[no-matching-overload]

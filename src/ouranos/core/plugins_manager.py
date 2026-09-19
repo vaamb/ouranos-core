@@ -170,7 +170,7 @@ class PluginManager:
 
     def register_routes(
             self,
-            plugin: Plugin,
+            plugin: Extension,
             router: APIRouter | FastAPI,
             json_response: type[JSONResponse] = JSONResponse
     ) -> None:
