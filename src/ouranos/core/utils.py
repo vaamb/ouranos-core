@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 from datetime import datetime, timedelta, timezone
 import json as _json
 import re
@@ -39,14 +38,6 @@ class json:
     @staticmethod
     def loads(obj) -> t.Any:
         return orjson.loads(obj)
-
-
-def setup_loop():
-    try:
-        import uvloop
-        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-    except ImportError:
-        pass
 
 
 def create_time_window(

@@ -7,7 +7,9 @@ import os
 import re
 from typing import ClassVar, Type
 
-from ouranos import db, scheduler, setup_loop
+import uvloop
+
+from ouranos import db, scheduler
 from ouranos.core.config import ConfigDict
 from ouranos.core.database.init import (
     check_db_revision, create_db_tables, insert_default_data)
@@ -187,9 +189,8 @@ class Functionality(ABC):
 
     def run(self, reraise: bool = False) -> None:
         """Run the functionality until completion or interruption."""
-        setup_loop()
         try:
-            asyncio.run(self._run())
+            uvloop.run(self._run())
         except Exception:
             if not self._error_logged:
                 # The error should not have happened and is not logged, raise it anyway
