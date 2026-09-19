@@ -434,7 +434,7 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
             self,
             session: AsyncSession,
             /,
-            hardware_type: gv.HardwareType | None = None,
+            hardware_type: gv.HardwareType | list[gv.HardwareType] | None = None,
             in_config: bool | None = None,
     ) -> Sequence[Hardware]:
         return await Hardware.get_multiple(

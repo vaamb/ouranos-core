@@ -118,7 +118,7 @@ async def create_ecosystem(
                 action=gv.CrudAction.create,
                 target="ecosystem",
                 kwargs=ecosystem_dict,
-            ).model_dump(),
+            ).model_dump(),  # ty: ignore[invalid-argument-type]  # TypedDict vs dict
             namespace="aggregator-internal",
         )
         return (
@@ -747,15 +747,15 @@ async def get_ecosystem_actuator_records(
         ],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    actuator_type = safe_enum_from_name(gv.HardwareType, actuator_type.name)
+    actuator_type_enum = safe_enum_from_name(gv.HardwareType, actuator_type.name)
     ecosystem = await ecosystem_or_abort(session, ecosystem_uid)
     response = {
         "uid": ecosystem.uid,
         "name": ecosystem.name,
-        "actuator_type": actuator_type,
+        "actuator_type": actuator_type_enum,
         "span": (time_window.start, time_window.end),
         "values": await ecosystem.get_timed_values(
-            session, actuator_type, time_window),
+            session, actuator_type_enum, time_window),
         # order is added by the serializer
     }
     return response
@@ -777,14 +777,14 @@ async def turn_actuator(
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     ecosystem = await ecosystem_or_abort(session, ecosystem_uid)
-    actuator_type = safe_enum_from_name(gv.HardwareType, actuator_type.name)
+    actuator_type_enum = safe_enum_from_name(gv.HardwareType, actuator_type.name)
     instruction_dict = payload.model_dump()
     mode: gv.ActuatorModePayload = instruction_dict["mode"]
     countdown = instruction_dict["countdown"]
     try:
         dispatcher: AsyncDispatcher = DispatcherFactory.get("application-internal")
         await ecosystem.turn_actuator(
-            dispatcher, actuator_type, mode, countdown)
+            dispatcher, actuator_type_enum, mode, countdown)
         if countdown:
             humanized_countdown = humanize.time.precisedelta(
                 timedelta(seconds=countdown), minimum_unit="seconds",

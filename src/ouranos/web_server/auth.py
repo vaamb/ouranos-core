@@ -23,7 +23,7 @@ class HTTPCredentials(BaseModel):
 
 
 class HTTPCookieBearer(HTTPBearer):
-    async def __call__(self, request: Request) -> HTTPCredentials:
+    async def __call__(self, request: Request) -> HTTPCredentials:  # ty: ignore[invalid-method-override]
         session_cookie = request.cookies.get(LOGIN_NAME.COOKIE.value)
         if session_cookie is not None:
             return HTTPCredentials(credentials=session_cookie)

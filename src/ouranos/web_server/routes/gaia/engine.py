@@ -38,7 +38,7 @@ async def get_engines(
         ] = None,
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    engines = await Engine.get_multiple_by_id(session, engines_id=engines_id)
+    engines = await Engine.get_multiple_by_id(session, engines_id=engines_id)  # ty: ignore[invalid-argument-type]
     return engines
 
 

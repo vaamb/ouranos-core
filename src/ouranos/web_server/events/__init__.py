@@ -297,15 +297,15 @@ class DispatcherEvents(AsyncEventHandler):
                 payload_data = payload["data"]
                 uid: str = payload["uid"]
                 # Add extra functionalities required
-                payload_data["switches"] = payload_data["climate"] or payload_data["light"]
+                payload_data["switches"] = payload_data["climate"] or payload_data["light"]  # ty: ignore[invalid-key]
                 payload_data["ecosystem_data"] = \
-                    await Ecosystem.check_if_recent_sensor_data(
-                    session, uid=uid, level=gv.HardwareLevel.ecosystem),
+                    await Ecosystem.check_if_recent_sensor_data(  # ty: ignore[invalid-key]
+                        session, uid=uid, level=gv.HardwareLevel.ecosystem),
                 payload_data["environment_data"] = \
-                    await Ecosystem.check_if_recent_sensor_data(
+                    await Ecosystem.check_if_recent_sensor_data(  # ty: ignore[invalid-key]
                         session, uid=uid, level=gv.HardwareLevel.environment)
                 payload_data["plants_data"] = \
-                    await Ecosystem.check_if_recent_sensor_data(
+                    await Ecosystem.check_if_recent_sensor_data(  # ty: ignore[invalid-key]
                         session, uid=uid, level=gv.HardwareLevel.plants)
                 rv.append({
                     "uid": uid,

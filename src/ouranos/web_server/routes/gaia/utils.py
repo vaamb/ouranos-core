@@ -51,6 +51,6 @@ async def emit_crud_event(
             action=action,
             target=target,
             kwargs=data,
-        ).model_dump(),
+        ).model_dump(),  # ty: ignore[invalid-argument-type]  # TypedDict vs dict
         namespace="aggregator-internal",
     )

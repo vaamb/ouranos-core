@@ -262,7 +262,7 @@ async def get_topic_articles(
         limit = 50
     await topic_or_abort(session, slug=topic_slug)
     articles = await WikiArticle.get_multiple(
-        session, topic_slug=topic_slug, tags_name=tags, limit=limit)
+        session, topic_slug=topic_slug, tags_name=tags, limit=limit)  # ty: ignore[invalid-argument-type]
     return articles
 
 
@@ -312,7 +312,7 @@ async def upload_topic_template(
         file: UploadFile,
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    if not file.filename.endswith(".md"):
+    if not file.filename or not file.filename.endswith(".md"):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="File should be a valid '.md' file"
@@ -370,9 +370,9 @@ async def create_article(
 async def upload_article(
         *,
         topic_slug: Annotated[str, Path(description="The name of the topic")],
-        name: Annotated[str, Form()] = None,
-        description: Annotated[str, Form()] = None,
-        tags: Annotated[list[str], Form()] = None,
+        name: Annotated[str | None, Form()] = None,
+        description: Annotated[str | None, Form()] = None,
+        tags: Annotated[list[str] | None, Form()] = None,
         file: UploadFile,
         current_user: Annotated[UserMixin, Depends(get_current_user)],
         session: Annotated[AsyncSession, Depends(get_session)],
@@ -384,9 +384,10 @@ async def upload_article(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"{e}"
         )
+    assert file.filename is not None
     topic = await topic_or_abort(session, slug=topic_slug)
     try:
-        if file.size > MAX_TEXT_FILE_SIZE:
+        if (file.size or 0) > MAX_TEXT_FILE_SIZE:
             raise HTTPException(
                 status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
                 detail="Picture file too large"
@@ -488,8 +489,8 @@ async def update_article_upload(
         *,
         topic_slug: Annotated[str, Path(description="The name of the topic")],
         article_slug: Annotated[str, Path(description="The name of the article")],
-        description: Annotated[str, Form()] = None,
-        tags: Annotated[list[str], Form()] = None,
+        description: Annotated[str | None, Form()] = None,
+        tags: Annotated[list[str] | None, Form()] = None,
         file: UploadFile,
         current_user: Annotated[UserMixin, Depends(get_current_user)],
         session: Annotated[AsyncSession, Depends(get_session)],
@@ -503,7 +504,7 @@ async def update_article_upload(
         )
     article = await article_or_abort(session, topic_slug=topic_slug, slug=article_slug)
     try:
-        if file.size > MAX_TEXT_FILE_SIZE:
+        if (file.size or 0) > MAX_TEXT_FILE_SIZE:
             raise HTTPException(
                 status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
                 detail="Picture file too large"
@@ -596,8 +597,8 @@ async def upload_picture(
         topic_slug: Annotated[str, Path(description="The name of the topic")],
         article_slug: Annotated[str, Path(description="The name of the article")],
         name: Annotated[str, Form()],
-        description: Annotated[str, Form()] = None,
-        tags: Annotated[list[str], Form()] = None,
+        description: Annotated[str | None, Form()] = None,
+        tags: Annotated[list[str] | None, Form()] = None,
         file: UploadFile,
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
@@ -608,9 +609,10 @@ async def upload_picture(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"{e}"
         )
+    assert file.filename is not None
     article = await article_or_abort(session, topic_slug=topic_slug, slug=article_slug)
     try:
-        if file.size > MAX_PICTURE_FILE_SIZE:
+        if (file.size or 0) > MAX_PICTURE_FILE_SIZE:
             raise HTTPException(
                 status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
                 detail="Picture file too large"
@@ -710,5 +712,5 @@ async def get_articles(
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     articles = await WikiArticle.get_multiple(
-        session, topic_name=topic, name=name, tags_name=tags, limit=limit)
+        session, topic_name=topic, name=name, tags_name=tags, limit=limit)  # ty: ignore[invalid-argument-type]
     return articles

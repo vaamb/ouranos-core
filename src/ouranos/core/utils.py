@@ -12,6 +12,7 @@ import orjson
 from sqlalchemy import Row
 from slugify import slugify as _slugify
 
+from ouranos.core.config.base import BaseConfigDict
 from ouranos.core.exceptions import (
     ExpiredTokenError, InvalidTokenError, TokenError)
 from ouranos.core.database.models.utils import TimeWindow
@@ -183,7 +184,7 @@ def stripped_warning(msg):
     warnings.formatwarning = format_warning
 
 
-def check_secret_key(config: dict) -> str | None:
+def check_secret_key(config: BaseConfigDict) -> str | None:
     if any((config["DEVELOPMENT"], config["TESTING"])):
         return (
             "You are currently running Ouranos in development and/or testing mode"
@@ -201,7 +202,9 @@ def slugify(s: Stringable) -> str:
     return _slugify(str(s), separator="_", lowercase=True)
 
 
-def check_filename(full_filename: str, extensions: set[str]) -> None:
+def check_filename(full_filename: str | None, extensions: set[str]) -> None:
+    if full_filename is None:
+        raise ValueError("The full filename with extension should be provided")
     split = full_filename.split(".")
     if len(split) != 2:
         if len(split) < 2:

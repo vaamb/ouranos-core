@@ -45,7 +45,7 @@ async def get_events(
                               "start_time."),
         ] = None,
         visibility: Annotated[
-            str | None,
+            str,
             Query(description="Events' visibility level"),
         ] = CalendarEventVisibility.public.name,
         page: Annotated[int, Query()] = 1,
@@ -59,17 +59,17 @@ async def get_events(
     end_time: datetime | None = http_datetime(end_time)
     if end_time is None:
         end_time = start_time + timedelta(days=30)
-    visibility = safe_enum_from_name(CalendarEventVisibility, visibility)
+    visibility_enum = safe_enum_from_name(CalendarEventVisibility, visibility)
     if current_user.can(Permission.ADMIN):
         # Admins can see all events
         response = await CalendarEvent.get_multiple(
             session, start_time=start_time, end_time=end_time, page=page,
-            per_page=per_page, visibility=visibility)
+            per_page=per_page, visibility=visibility_enum)
     else:
         # Regular users can only see their own events at most
         response = await CalendarEvent.get_multiple_with_visibility(
             session, start_time=start_time, end_time=end_time, page=page,
-            per_page=per_page, visibility=visibility, user_id=current_user.id)
+            per_page=per_page, visibility=visibility_enum, user_id=current_user.id)
     return response
 
 

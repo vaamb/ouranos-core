@@ -15,6 +15,7 @@ from socketio.asgi import ASGIApp
 
 from ouranos import current_app
 from ouranos.core.caches import CacheFactory
+from ouranos.core.config import ConfigDict
 from ouranos.core.dispatchers import DispatcherFactory
 from ouranos.core.plugins_manager import PluginManager
 from ouranos.core.utils import check_secret_key, json
@@ -30,7 +31,7 @@ class JSONResponse(BaseResponse):
         return json.dumps(content)
 
 
-def create_sio_manager(config: dict | None = None):
+def create_sio_manager(config: ConfigDict | None = None):
     config = config or current_app.config
     if not config:
         raise RuntimeError(
@@ -62,7 +63,7 @@ def create_sio_manager(config: dict | None = None):
         )
 
 
-def create_app(config: dict | None = None) -> FastAPI:
+def create_app(config: ConfigDict | None = None) -> FastAPI:
     config = config or current_app.config
     if not config:
         raise RuntimeError(
@@ -108,8 +109,9 @@ def create_app(config: dict | None = None) -> FastAPI:
             "http://localhost:3000", "ws://localhost:3000",
         ]
 
-    if config.get("ALLOWED_ORIGINS"):
-        origins = config["ALLOWED_ORIGINS"].split(",")
+    allowed_origins_config = config.get("ALLOWED_ORIGINS")
+    if allowed_origins_config:
+        origins = allowed_origins_config.split(",")
         allowed_origins += origins
 
     frontend_address = config.get("FRONTEND_ADDRESS")

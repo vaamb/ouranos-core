@@ -18,7 +18,7 @@ T = TypeVar("T", bound=Enum)
 
 def safe_enum_or_none_from_name(
         enum: Type[T],
-        name: str | Enum | None
+        name: str | T | None
 ) -> T | None:
     if name is not None:
         return safe_enum_from_name(enum, name)
@@ -118,7 +118,8 @@ class HardwareInfo(gv.AnonymousHardwareConfig, _HardwareInfo):
     plants: list[PlantSummary]
 
     @field_validator("groups", mode="before")
-    def parse_groups(cls, value: list[HardwareGroup]):
+    @classmethod
+    def parse_groups(cls, value: list[HardwareGroup]):  # ty: ignore[invalid-method-override]
         if isinstance(value, list):
             return {group.name for group in value}
         return value

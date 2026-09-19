@@ -163,4 +163,4 @@ web_server_plugin = Plugin(
 )
 
 # The web server directly manages its workers via uvicorn
-web_server_plugin.compute_number_of_workers = lambda: 0
+web_server_plugin.compute_number_of_workers = lambda: 0  # ty: ignore[invalid-assignment]
