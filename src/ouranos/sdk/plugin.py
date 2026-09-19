@@ -401,7 +401,7 @@ class Plugin(Extension):
         self._kwargs["microservice"] = True
 
         try:
-            asyncio.run(self._run_as_standalone(), loop_factory=uvloop.new_event_loop)
+            uvloop.run(self._run_as_standalone())
         except Exception:
             if not self._error_logged:
                 # The error should not have happened and is not logged, raise it anyway

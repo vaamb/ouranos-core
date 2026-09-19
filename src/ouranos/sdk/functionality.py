@@ -190,7 +190,7 @@ class Functionality(ABC):
     def run(self, reraise: bool = False) -> None:
         """Run the functionality until completion or interruption."""
         try:
-            asyncio.run(self._run(), loop_factory=uvloop.new_event_loop)
+            uvloop.run(self._run())
         except Exception:
             if not self._error_logged:
                 # The error should not have happened and is not logged, raise it anyway
