@@ -11,8 +11,9 @@ from typing import Any, ClassVar, TypeVar
 
 import click
 from click import Command, Group
+import uvloop
 
-from ouranos import current_app, setup_loop
+from ouranos import current_app
 from ouranos.core.config import ConfigDict, ConfigHelper, consts
 from ouranos.core.exceptions import ContractVersionError
 from ouranos.core.utils import format_error, parse_str_value
@@ -397,11 +398,10 @@ class Plugin(Extension):
         from setproctitle import setproctitle
         setproctitle(f"ouranos-{self.name}")
 
-        setup_loop()
         self._kwargs["microservice"] = True
 
         try:
-            asyncio.run(self._run_as_standalone())
+            asyncio.run(self._run_as_standalone(), loop_factory=uvloop.new_event_loop)
         except Exception:
             if not self._error_logged:
                 # The error should not have happened and is not logged, raise it anyway
