@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 from logging import getLogger, Logger
 import os
+from typing import Any
 import warnings
 
 import click
@@ -14,7 +15,7 @@ from ouranos.core.database.init import check_db_revision, create_db_tables
 from ouranos.core.globals import db
 from ouranos.core.plugins_manager import PluginManager
 from ouranos.core.utils import format_error, parse_str_value
-from ouranos.sdk import Functionality
+from ouranos.sdk import Functionality, Plugin
 
 
 @click.command(
@@ -48,15 +49,14 @@ def main(
     Launch all the functionalities linked to Ouranos as a single monolithic
     process
     """
-    config_override_str = config_override
-    config_override = {}
-    for overridden in config_override_str:
+    config_override_dict: dict[str, Any] = {}
+    for overridden in config_override:
         key, value = overridden.split("=")
-        config_override[key] = parse_str_value(value)
+        config_override_dict[key] = parse_str_value(value)
 
     if ctx.invoked_subcommand is None:
         config = ConfigHelper.set_config_and_configure_logging(
-            config_profile, config_override)
+            config_profile, config_override_dict)
         ouranos = Ouranos(config)
         ouranos.run()
 
@@ -84,6 +84,8 @@ class Ouranos(Functionality):
 
     async def startup(self) -> None:
         for plugin in self.plugin_manager.plugins.values():
+            if not isinstance(plugin, Plugin):
+                continue
             plugin.setup_config(self.config)
             plugin.update_kwargs({
                 "root": False,
@@ -93,6 +95,8 @@ class Ouranos(Functionality):
 
     async def shutdown(self) -> None:
         for plugin in self.plugin_manager.plugins.values():
+            if not isinstance(plugin, Plugin):
+                continue
             await plugin.shutdown()
 
     async def complete_startup(self) -> None:
@@ -137,7 +141,7 @@ async def _fill_db(check_revision: bool = True):
             warnings.simplefilter("ignore")
             ConfigHelper.set_config_and_configure_logging(None)
     config = ConfigHelper.get_config()
-    db.init(config)
+    db.init(config)  # ty: ignore[invalid-argument-type]  # TypedDict vs dict
     if check_revision:
         await check_db_revision()
     await create_db_tables()
