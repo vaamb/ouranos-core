@@ -43,4 +43,4 @@ jobs:
       run: uv sync --group qc
 
     - name: Type check with ty
-      run: uv run ty check src/ouranos/aggregator src/ouranos/core src/ouranos/sdk src/ouranos/web_server
+      run: uv run ty check src/ouranos

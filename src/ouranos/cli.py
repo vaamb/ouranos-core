@@ -7,6 +7,7 @@ from click import Command, Context, Group
 
 from ouranos.core.config import ConfigHelper
 from ouranos.core.plugins_manager import PluginManager
+from ouranos.sdk import Plugin
 
 
 class RootCommand(Group):
@@ -36,7 +37,9 @@ class RootCommand(Group):
         if not pm.plugins:
             pm.register_plugins(omit_excluded=False)  # Allow to launch an omitted plugin
         if cmd_name in pm.plugins:
-            return pm.plugins[cmd_name].command
+            plugin = pm.plugins[cmd_name]
+            if isinstance(plugin, Plugin):
+                return plugin.command
 
         # If the command is not found, return None
         return None
