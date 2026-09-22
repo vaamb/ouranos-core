@@ -241,10 +241,18 @@ async def register_new_user(
 
 @router.post("/confirm_account")
 async def confirm_account(
+        *,
         token: Annotated[
             str,
             Query(description="The confirmation token received"),
         ],
+        send_email: Annotated[
+            bool,
+            Query(
+                description="Whether to send a confirmation email to the user. "
+                            "Default to False."
+            ),
+        ] = False,
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     check_token(token, TOKEN_SUBS.CONFIRMATION.value)
@@ -256,6 +264,12 @@ async def confirm_account(
             detail=str(e)
         )
     else:
+        if send_email:
+            payload = Tokenizer.loads(token)
+            user = await User.get(session, payload["user_id"])
+            # `user` should not be `None` as it was confirmed just before
+            assert user is not None
+            await user.send_confirmation_ack_email()
         return "Your account has been confirmed."
 
 

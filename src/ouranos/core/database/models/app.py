@@ -427,6 +427,19 @@ class User(Base, UserMixin):
             username=self.username,
         )
 
+    async def send_confirmation_ack_email(self) -> None:
+        # Actual logic
+        url = current_app.config["FRONTEND_URL"]
+        if not url:
+            raise NotImplementedError("Frontend URL is not configured")
+        await send_gaia_templated_email(
+            "confirm_ack",
+            subject="Your Gaia account is active",
+            recipients=[self.email],
+            frontend_address=url,
+            username=self.username,
+        )
+
     async def send_reset_password_email(
         self,
         token: str | None = None,
