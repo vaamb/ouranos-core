@@ -28,7 +28,7 @@ class HTMLFilter(HTMLParser):
         self.links = []
 
     def add_space_if_needed(self):
-        if self.text and self.text[-1] != " ":
+        if self.text and self.text[-1] not in " \n":
             self.text += " "
 
     def handle_starttag(self, tag, attrs):
@@ -42,11 +42,7 @@ class HTMLFilter(HTMLParser):
                     self.text += f"[picture of {attr[1]}] "
         elif tag == "a":
             self.add_space_if_needed()
-            for attr in attrs:
-                if attr[0] == "href":
-                    self.links.append(attr[1])
-                else:
-                    self.links.append(None)
+            self.links.append(dict(attrs).get("href"))
 
     def handle_endtag(self, tag):
         if tag == "a":
@@ -61,7 +57,8 @@ class HTMLFilter(HTMLParser):
             self.text += "\n"
 
     def handle_data(self, data):
-        data = data.strip()
+        # Collapse the source's line wrapping and indentation
+        data = " ".join(data.split())
         self.text += data
 
 

@@ -1,29 +1,30 @@
 {% extends "base.html" %}
+{% import "macros.html" as ui %}
+
+{% block kicker %}Invitation{% endblock %}
+{% block title %}You have been invited to Ouranos{% endblock %}
 
 {% block content %}
-  <p>
-    {% if firstname %}
-    Hej {{ firstname }}!
-    {% else %}
-    Hej!
-    {% endif %}
+  <p style="margin: 0 0 12px;">Hej{% if firstname %} {{ firstname }}{% endif %}!</p>
+
+  <p style="margin: 0 0 12px;">
+    You have been invited to use OGaia, the Greenhouse Automation Intuitive App.
+    To create your account, follow this link:
   </p>
 
-  <p>You have been invited you to use Gaia, the Greenhouse Automation Intuitive App.</p>
+  {{ ui.button("Create my account", frontend_address ~ "/auth/register?token=" ~ token) }}
 
-  <p>Visit <a href="{{frontend_address}}/auth/register?token={{token}}">this page</a> to register.</p>
-
-  <p>
-    Alternatively, you can copy this link into your favorite web browser:
-    <a href="{{frontend_address}}/auth/invitation">{{frontend_address}}/auth/invitation</a>
+  <p style="margin: 0 0 12px;">
+    If the link does not open, go to
+    <a href="{{ frontend_address }}/auth/register" style="color: #16202e;">{{ frontend_address }}/auth/register</a>
     and use this registration token:
   </p>
 
-  <p style="overflow-wrap: break-word; word-break:break-all; word-wrap: break-word; overflow: hidden">
-    {{token}}
-  </p>
+  {{ ui.token("Registration token", token) }}
 
-  <p>Do not wait, this link is only valid for {{ expiration_delay }}!</p>
+  <p style="margin: 0;">Hope to see you soon!</p>
+{% endblock %}
 
-  <p>Hope to see you soon!</p>
+{% block footer %}
+  {{ ui.validity(expiration_delay, "After that, ask an administrator for a new invitation.") }}
 {% endblock %}

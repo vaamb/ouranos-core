@@ -2,58 +2,96 @@
 <html lang="en">
   <head>
     <meta http-equiv="Content-Type" content="text/html charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
     <title>{{ email_subject if email_subject is not none else 'Email from Gaia' }}</title>
+    {#
+      The sheet is the frontend's `AuthSheet`: the same material as every other
+      surface, The palette tokens are inlined as hex as some email clients don't
+      resolve css sheet.
+
+      Colours used from the light theme (names in comments when used):
+        --bg #e9eef3 ; --surface #ffffff ; --surface-2 #f3f6f9 ; --border #d7dfe8 ;
+        --border-strong #c4cedb ; --text #16202e ; --text-dim-solid #556375 ;
+        --text-faint #8b96a5 ; --good-green #1c8350 ; --critical-red #cf3b3b
+
+      Webfonts only load in the clients that honour a stylesheet link; everywhere
+      else the stacks fall back to Garamond/Georgia and a system sans, same as
+      the site.
+    #}
+    <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@600&family=Open+Sans&family=Raleway:wght@400;700;800&display=swap" rel="stylesheet" />
     <style>
-      @media screen {
-        @font-face {
-          font-family: "Raleway";
-          font-style: normal;
-          font-weight: 400;
-          src: local("Raleway Regular"), local("Raleway-Regular"), url(https://fonts.gstatic.com/s/raleway/v19/1Ptxg8zYS_SKggPN4iEgvnHyvveLxVvaorCGPrEHJA.woff2) format('woff2');
-        }
-      }
-
       body {
-        font-family: "Raleway", Verdana, sans-serif;
-        color: #2a333c;
-      }
-
-      table {
-        display: table;
-        width: 650px;
-        margin: 0 auto;
+        margin: 0;
         padding: 0;
+        background: #e9eef3; /* --bg */
+        -webkit-text-size-adjust: 100%;
+      }
+      table {
         border-collapse: collapse;
       }
-
-      td {
-        padding: 15px 25px;
+      a {
+        color: #16202e; /* --text */
+      }
+      .body p {
+        margin: 0 0 12px;
+      }
+      .body p:last-child {
+        margin-bottom: 0;
       }
     </style>
   </head>
 
   <body>
-    <table>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background: #e9eef3;">
       <tr>
-        <td style="background-color: #2b4055; color: #eef2f6; height: 75px">
-          <p style="font-size: 24px">
-            {% if logo_address %}
-            <img src="{{ logo_address }}" data-replace="G" style="height: 30px; margin-right: -5px; margin-bottom: -4px"/>
-            aia
-            {% else %}
-            Gaia
-            {% endif %}
-          </p>
-        </td>
-      </tr>
-      <tr>
-        <td style="min-height: 75px;">
-          {% block content %}{% endblock %}
-        </td>
-      </tr>
-      <tr>
-        <td style="background-color: #2b4055; color: #eef2f6; height: 75px">
-          <p style="font-size: 12px">Grown with love, Python and Svelte</p>
+        <td align="center" style="padding: 40px 14px 44px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width: 100%; max-width: 480px;">
+            <tr>
+              <td align="center" style="padding: 0 0 18px;">
+                <p style="margin: 0; font-family: 'EB Garamond', Garamond, Georgia, serif; font-size: 27px; font-weight: 600; letter-spacing: 0.02em; line-height: 1.2; color: #16202e;">
+                  <a href="{{ frontend_address }}" style="color: #16202e; text-decoration: none;">Ouranos</a>
+                  <span style="font-family: Raleway, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #8b96a5; padding-left: 6px;">Gaia&nbsp;control</span>
+                </p>
+              </td>
+            </tr>
+
+            {# The sheet. The rail is `--border-strong` unless the mail carries
+               something semantic, in which case the child sets `intent`. #}
+            <tr>
+              <td style="background: #ffffff; border: 1px solid #d7dfe8; border-left: 3px solid {{ intent if intent else '#c4cedb' }}; border-radius: 4px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+
+                  <tr>
+                    <td style="padding: 15px 16px 13px; border-bottom: 1px solid #d7dfe8;">
+                      <p style="margin: 0; font-family: Raleway, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: {{ intent if intent else '#8b96a5' }};">
+                        {% block kicker %}{% endblock %}
+                      </p>
+                      <h1 style="margin: 4px 0 0; font-family: 'EB Garamond', Garamond, Georgia, serif; font-size: 22px; font-weight: 600; line-height: 1.15; color: #16202e;">
+                        {% block title %}{% endblock %}
+                      </h1>
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td class="body" style="padding: 16px; font-family: Raleway, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 15px; line-height: 1.5; color: #16202e;">
+                      {% block content %}{% endblock %}
+                    </td>
+                  </tr>
+
+                  {% block footer %}{% endblock %}
+
+                </table>
+              </td>
+            </tr>
+
+            <tr>
+              <td align="center" style="padding: 18px 0 0; font-family: Raleway, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 12px; line-height: 1.6; color: #8b96a5;">
+                <p style="margin: 0;">Grown with love, Python and Svelte</p>
+              </td>
+            </tr>
+
+          </table>
         </td>
       </tr>
     </table>
