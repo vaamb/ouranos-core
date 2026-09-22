@@ -30,6 +30,16 @@ class TestBaseMail:
         assert "<p>Just an email test</p>" not in text
         assert "Just an email test" in text
 
+    async def test_body_text_links(self):
+        # A link keeps its URL whatever other attributes it carries, and the
+        # source's line wrapping does not leak into the text
+        html = (
+            "<body><p>Go to\n"
+            "    <a href='https://example.org' style='color: red'>the site</a>\n"
+            "    now.</p></body>"
+        )
+        assert get_body_text(html) == "Go to the site [https://example.org] now."
+
     async def test_email(self):
         subject = "A test"
         html_template = await render_template(
@@ -115,6 +125,24 @@ class TestUserMail(UsersAware):
                 assert msg._payload[1]._headers[0] == ("Content-Type", 'text/html; charset="utf-8"')
                 assert f"Hej {user.username}" in msg._payload[1]._payload
                 assert "In order to confirm your email address" in msg._payload[1]._payload
+
+    async def test_confirm_sends_ack_email(self, db: AsyncSQLAlchemyWrapper):
+        async with db.scoped_session() as session:
+            usr = await User.get(session, user_id=user.id)
+            token = await usr.create_confirmation_token()
+            async with Email.record_messages() as outbox:
+                await User.confirm(session, token)
+
+                msg = outbox.pop()
+
+                assert isinstance(msg, EmailMessage)
+                assert msg._headers[1] == ("To", user.email)
+                assert msg._headers[2] == ("Subject", "Your Gaia account is active")
+
+                assert len(msg._payload) == 2
+                assert msg._payload[1]._headers[0] == ("Content-Type", 'text/html; charset="utf-8"')
+                assert f"Hej {user.username}" in msg._payload[1]._payload
+                assert "Thank you for activating your Gaia account" in msg._payload[1]._payload
 
     async def test_reset_password_email(self, db: AsyncSQLAlchemyWrapper):
         async with db.scoped_session() as session:

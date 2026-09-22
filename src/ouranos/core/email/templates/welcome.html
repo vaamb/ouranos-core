@@ -1,24 +1,28 @@
 {% extends "base.html" %}
+{% import "macros.html" as ui %}
+
+{% block kicker %}Account confirmation{% endblock %}
+{% block title %}Confirm your account{% endblock %}
 
 {% block content %}
-  <p>Hej {{ username }}!</p>
+  <p style="margin: 0 0 12px;">Hej {{ username }}!</p>
 
-  <p>You recently registered to Gaia.</p>
-
-  <p>
-    In order to confirm your email address and activate your account,
-    visit <a href="{{frontend_address}}/auth/confirm?token={{token}}">this page</a>.
+  <p style="margin: 0 0 12px;">
+    You recently registered to Ouranos. In order to confirm your email address
+    and activate your account, follow this link:
   </p>
 
-  <p>
-    Alternatively, you can copy this link into your favorite web browser:
-    <a href="{{frontend_address}}/auth/confirm">{{frontend_address}}/auth/confirm</a>
-    and use this confirmation token:
+  {{ ui.button("Confirm my account", frontend_address ~ "/auth/confirm?token=" ~ token) }}
+
+  <p style="margin: 0 0 12px;">
+    If the link does not open, go to
+    <a href="{{ frontend_address }}/auth/confirm" style="color: #16202e;">{{ frontend_address }}/auth/confirm</a>
+    and paste this confirmation token:
   </p>
 
-  <p style="overflow-wrap: break-word; word-break:break-all; word-wrap: break-word; overflow: hidden">
-    {{token}}
-  </p>
+  {{ ui.token("Confirmation token", token) }}
+{% endblock %}
 
-  <p>Do not wait, this link is only valid for {{ expiration_delay }}!</p>
+{% block footer %}
+  {{ ui.validity(expiration_delay, "After that, request a new one from your profile page, or ask an administrator.") }}
 {% endblock %}

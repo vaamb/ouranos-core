@@ -1,13 +1,18 @@
 {% extends "base.html" %}
+{# The one mail that reports an accepted state, so it carries the rail. #}
+{% set intent = "#1c8350" %} {# --good-green #}
+
+{% block kicker %}Account activated{% endblock %}
+{% block title %}Welcome aboard{% endblock %}
 
 {% block content %}
-  <p>Hej {{ username }}!</p>
+  <p style="margin: 0 0 12px;">Hej {{ username }}!</p>
 
-  <p>
-    Thank you for activating your Gaia account.
+  <p style="margin: 0 0 12px;">
+    Thank you for activating your Gaia account. You can now
+    <a href="{{ frontend_address }}/auth/login" style="color: #16202e;">log in</a> and have a look at
+    the greenhouse.
   </p>
 
-  <p>
-    See you soon!
-  </p>
+  <p style="margin: 0;">See you soon!</p>
 {% endblock %}

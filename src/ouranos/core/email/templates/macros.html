@@ -1,0 +1,38 @@
+{#
+  The devices shared by the token mails. Colours are the light palette inlined
+  in `base.html`.
+#}
+
+{% macro button(label, href) -%}
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin: 16px 0;">
+  <tr>
+    <td style="background: #16202e; border-radius: 4px;">
+      <a href="{{ href }}" style="display: inline-block; padding: 9px 14px; font-family: Raleway, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 700; line-height: 1.3; color: #ffffff; text-decoration: none;">{{ label }}</a>
+    </td>
+  </tr>
+</table>
+{%- endmacro %}
+
+{# A kicker over a value, on `--surface-2` behind a hairline, same as in `DataSheet`
+   row. The value is data, so it is set in Open Sans (the site's data face) and
+   allowed to break anywhere: a JWT has no natural break points. #}
+{% macro token(label, value) -%}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin: 12px 0;">
+  <tr>
+    <td style="padding: 10px 12px; background: #f3f6f9; border: 1px solid #d7dfe8; border-radius: 4px;">
+      <p style="margin: 0 0 4px; font-family: Raleway, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 0.13em; text-transform: uppercase; color: #556375;">{{ label }}</p>
+      <p style="margin: 0; font-family: 'Open Sans', 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 12px; line-height: 1.5; color: #16202e; overflow-wrap: anywhere; word-break: break-all;">{{ value }}</p>
+    </td>
+  </tr>
+</table>
+{%- endmacro %}
+
+{# The sheet's footer bar: `--surface-2` behind a hairline, stating how long
+   the token lives and what to do once it has expired. #}
+{% macro validity(expiration_delay, afterwards) -%}
+<tr>
+  <td style="padding: 11px 16px; background: #f3f6f9; border-top: 1px solid #d7dfe8; font-family: Raleway, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 12.5px; line-height: 1.5; color: #556375;">
+    <p style="margin: 0;">This link and its token are valid for {{ expiration_delay }}. {{ afterwards }}</p>
+  </td>
+</tr>
+{%- endmacro %}
