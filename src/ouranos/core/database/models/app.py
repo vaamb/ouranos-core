@@ -432,6 +432,8 @@ class User(Base, UserMixin):
         url = current_app.config["FRONTEND_URL"]
         if not url:
             raise NotImplementedError("Frontend URL is not configured")
+        if self.confirmed_at is None:
+            raise ValueError("User is not confirmed")
         await send_gaia_templated_email(
             "confirm_ack",
             subject="Your Gaia account is active",
