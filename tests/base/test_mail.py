@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from email.message import EmailMessage
 
 import pytest
@@ -128,10 +128,16 @@ class TestUserMail(UsersAware):
 
     async def test_confirm_sends_ack_email(self, db: AsyncSQLAlchemyWrapper):
         async with db.scoped_session() as session:
+            await User.update(
+                session,
+                user_id=user.id,
+                values={
+                    "confirmed_at": datetime.now(tz=timezone.utc),
+                },
+            )
             usr = await User.get(session, user_id=user.id)
-            token = await usr.create_confirmation_token()
             async with Email.record_messages() as outbox:
-                await User.confirm(session, token)
+                await usr.send_confirmation_ack_email()
 
                 msg = outbox.pop()
 
