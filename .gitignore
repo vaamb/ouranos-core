@@ -1,10 +1,22 @@
 # Python and other packages caches
 __pycache__/
 .pytest_cache/
+.ruff_cache/
 .coverage
+.coverage.*
+htmlcov/
+
+# Build
+*.egg-info/
+build/
+dist/
 
 # IDE
 .idea/
+
+# AI
+.claude/
+.serena/
 
 # Venv
 .venv/
@@ -16,8 +28,9 @@ logs/
 DBs/
 
 # Personal config and DB files
-config.py
+/config.py
 *.db
 
 # Transient dev files
-*private*
+*.dev.*
+*.private.*
