@@ -3,6 +3,7 @@ from cachetools import LRUCache, TTLCache
 
 # App
 cache_users = LRUCache(maxsize=32)
+cache_services = TTLCache(maxsize=16, ttl=60)
 
 
 # Gaia

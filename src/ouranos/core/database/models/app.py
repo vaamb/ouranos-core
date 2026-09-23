@@ -26,9 +26,10 @@ from gaia_validators import missing, safe_enum_from_name
 
 from ouranos import current_app
 from ouranos.core.config import consts
+from ouranos.core.database.models import caches
 from ouranos.core.database.models.abc import (
     Base, CRUDMixin, lookup_keys_type, on_conflict_opt, query_keys_type, ToDictMixin)
-from ouranos.core.database.models import caches
+from ouranos.core.database.models.caching import CachedCRUDMixin
 from ouranos.core.database.models.types import PathType, SQLIntEnum, UtcDateTime
 from ouranos.core.database.models.utils import paginate
 from ouranos.core.email import send_gaia_templated_email
@@ -825,10 +826,11 @@ services_definition: dict[ServiceName, tuple[ServiceLevel, bool]] = {
 }
 
 
-class Service(Base, CRUDMixin):
+class Service(Base, CachedCRUDMixin):
     __tablename__ = "services"
     __bind_key__ = "app"
     _lookup_keys = ["name"]
+    _cache = caches.cache_services
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[ServiceName] = mapped_column(sa.String(length=16), unique=True)
