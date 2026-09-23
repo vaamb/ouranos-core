@@ -35,7 +35,10 @@ def downgrade_ecosystems() -> None:
 def upgrade_app() -> None:
     with op.batch_alter_table("services", recreate="always") as batch_op:
         batch_op.add_column(
-            sa.Column("in_config", sa.Boolean(), nullable=False, default=False),
+            sa.Column(
+                "in_config", sa.Boolean(), nullable=False,
+                default=False, server_default=sa.sql.false(),
+            ),
             insert_after="level",
         )
 
