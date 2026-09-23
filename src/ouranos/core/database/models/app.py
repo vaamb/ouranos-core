@@ -891,7 +891,7 @@ class Service(Base, CachedCRUDMixin):
             **lookup_keys: lookup_keys_type,
     ) -> None:
         service_name: ServiceName = safe_enum_from_name(ServiceName, lookup_keys["name"])
-        cls._check_requirements(service_name, values["status"])
+        cls._check_requirements(service_name, values.get("status", False))
         await super().update(session, values=values, **lookup_keys)
 
     @classmethod
@@ -907,7 +907,7 @@ class Service(Base, CachedCRUDMixin):
                 value = value._asdict()
             name = value["name"]
             service_name: ServiceName = safe_enum_from_name(ServiceName, name)
-            cls._check_requirements(service_name, value["status"])
+            cls._check_requirements(service_name, value.get("status", False))
         await super().update_multiple(session, values=values)
 
 
