@@ -910,7 +910,7 @@ class Service(Base, CachedCRUDMixin):
             values: dict,
             **lookup_keys: lookup_keys_type,
     ) -> None:
-        service_name: ServiceName = safe_enum_from_name(ServiceName, lookup_keys["name"])
+        service_name: ServiceName = safe_enum_from_name(ServiceName, lookup_keys["name"])  #ty: ignore[invalid-argument-type]
         cls._check_requirements(service_name, values.get("status", False))
         await super().update(session, values=values, **lookup_keys)
 
