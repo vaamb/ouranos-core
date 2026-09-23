@@ -368,6 +368,11 @@ class User(Base, UserMixin):
             token: str | None = None,
             expiration_delay: int = consts.REGISTRATION_TOKEN_VALIDITY,
     ) -> None:
+        # Check for service
+        email_service = await Service.get(session, name=ServiceName.email)
+        assert email_service is not None
+        if not email_service.status:
+            raise RuntimeError("The email service is not enabled")
         # Check we have the required data
         user_info = user_info or {}
         email = email or user_info.get("email")
@@ -384,9 +389,9 @@ class User(Base, UserMixin):
             if user is not None:
                 raise ValueError("The username is already taken by another user")
         user_info["email"] = email  # Be consistent
-        url = current_app.config["FRONTEND_URL"]
+        url = current_app.config.get("FRONTEND_URL", None)
         if not url:
-            raise NotImplementedError("Frontend URL is not configured")
+            raise RuntimeError("Frontend URL is not configured")
         # Actual logic
         token = token or await cls.create_invitation_token(
             session, user_info=user_info, expiration_delay=expiration_delay)
@@ -403,16 +408,22 @@ class User(Base, UserMixin):
         )
 
     async def send_confirmation_email(
-        self,
-        token: str | None = None,
-        expiration_delay: int = consts.REGISTRATION_TOKEN_VALIDITY,
+            self,
+            session: AsyncSession,
+            token: str | None = None,
+            expiration_delay: int = consts.REGISTRATION_TOKEN_VALIDITY,
     ) -> None:
+        # Check for service
+        email_service = await Service.get(session, name=ServiceName.email)
+        assert email_service is not None
+        if not email_service.status:
+            raise RuntimeError("The email service is not enabled")
         # Check we have the required data
         if self.confirmed_at is not None:
             raise ValueError("User is already confirmed")
-        url = current_app.config["FRONTEND_URL"]
+        url = current_app.config.get("FRONTEND_URL", None)
         if not url:
-            raise NotImplementedError("Frontend URL is not configured")
+            raise RuntimeError("Frontend URL is not configured")
         # Actual logic
         token = token or await self.create_confirmation_token(
             expiration_delay=expiration_delay)
@@ -444,16 +455,22 @@ class User(Base, UserMixin):
         )
 
     async def send_reset_password_email(
-        self,
-        token: str | None = None,
-        expiration_delay: int = consts.PASSWORD_RESET_TOKEN_VALIDITY,
+            self,
+            session: AsyncSession,
+            token: str | None = None,
+            expiration_delay: int = consts.PASSWORD_RESET_TOKEN_VALIDITY,
     ) -> None:
+        # Check for service
+        email_service = await Service.get(session, name=ServiceName.email)
+        assert email_service is not None
+        if not email_service.status:
+            raise RuntimeError("The email service is not enabled")
         # Check we have the required data
         if self.confirmed_at is None:
             raise ValueError("User is not confirmed")
-        url = current_app.config["FRONTEND_URL"]
+        url = current_app.config.get("FRONTEND_URL", None)
         if not url:
-            raise NotImplementedError("Frontend URL is not configured")
+            raise RuntimeError("Frontend URL is not configured")
         # Actual logic
         token = token or await self.create_password_reset_token(
             expiration_delay=expiration_delay)
