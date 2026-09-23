@@ -42,7 +42,7 @@ async def insert_default_data() -> None:
         await app.CommunicationChannel.insert_channels(session)
         await app.Role.insert_roles(session)
         await app.Service.insert_services(session)
-        await app.Service.update_email_service_status(session)
+        await app.Service.update_config_service_status(session)
         await app.User.insert_gaia(session)
 
 
