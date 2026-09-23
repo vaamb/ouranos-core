@@ -29,7 +29,7 @@ from ouranos.core.config import consts
 from ouranos.core.database.models import caches
 from ouranos.core.database.models.abc import (
     Base, CRUDMixin, lookup_keys_type, on_conflict_opt, query_keys_type, ToDictMixin)
-from ouranos.core.database.models.caching import CachedCRUDMixin
+from ouranos.core.database.models.caching import CachedCRUDMixin, create_hashable_key
 from ouranos.core.database.models.types import PathType, SQLIntEnum, UtcDateTime
 from ouranos.core.database.models.utils import paginate
 from ouranos.core.email import send_gaia_templated_email
@@ -832,11 +832,6 @@ class Service(Base, CachedCRUDMixin):
     _lookup_keys = ["name"]
     _cache = caches.cache_services
 
-    _need_cfg: list[str] = [
-        name for name, spec in services_definition.items()
-        if spec[1] is True
-    ]
-
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[ServiceName] = mapped_column(sa.String(length=16), unique=True)
     level: Mapped[ServiceLevel] = mapped_column()
@@ -863,12 +858,31 @@ class Service(Base, CachedCRUDMixin):
     @classmethod
     async def update_email_service_status(cls, session: AsyncSession) -> None:
         # Check that we have all the required environment variables
-        status = all((
+        requirements = cls._check_email_config_requirements()
+        email_service = await cls.get(session, name=ServiceName.email)
+        assert email_service is not None
+        status = requirements and email_service.status  # If
+        await cls.update(session, name=ServiceName.email, values={"status": status})
+
+    @classmethod
+    def _check_requirements(cls, service_name: ServiceName) -> None:
+        requirements: bool
+        if service_name == ServiceName.email:
+            requirements = cls._check_email_config_requirements()
+        else:
+            requirements = True
+        if not requirements:
+            raise ValueError(
+                f"Service `{service_name}` is not configured in the config file."
+            )
+
+    @classmethod
+    def _check_email_config_requirements(cls) -> bool:
+        return all((
             current_app.config["FRONTEND_URL"],
             current_app.config["MAIL_USERNAME"],
             current_app.config["MAIL_PASSWORD"],
         ))
-        await cls.update(session, name=ServiceName.email, values={"status": status})
 
     @classmethod
     async def update(
@@ -879,11 +893,7 @@ class Service(Base, CachedCRUDMixin):
             **lookup_keys: lookup_keys_type,
     ) -> None:
         service_name: ServiceName = safe_enum_from_name(ServiceName, lookup_keys["name"])
-        if service_name in cls._need_cfg:
-            raise ValueError(
-                f"Service `{service_name}` status can only be changed by "
-                f"modifying the config file and restarting the app."
-            )
+        cls._check_requirements(service_name)
         await super().update(session, values=values, **lookup_keys)
 
     @classmethod
@@ -899,11 +909,7 @@ class Service(Base, CachedCRUDMixin):
                 value = value._asdict()
             name = value["name"]
             service_name: ServiceName = safe_enum_from_name(ServiceName, name)
-            if service_name in cls._need_cfg:
-                raise ValueError(
-                    f"Service `{service_name}` status can only be changed by "
-                    f"modifying the config file and restarting the app."
-                )
+            cls._check_requirements(service_name)
         await super().update_multiple(session, values=values)
 
 
