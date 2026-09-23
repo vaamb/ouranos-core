@@ -848,12 +848,6 @@ class Service(Base, CachedCRUDMixin):
                     name=name,
                     values={"level": spec[0], "in_config": spec[1]},
                 )
-            else:
-                await cls.update(
-                    session,
-                    name=name,
-                    values={"level": spec[0], "in_config": spec[1]},
-                )
 
     @classmethod
     async def update_email_service_status(cls, session: AsyncSession) -> None:
