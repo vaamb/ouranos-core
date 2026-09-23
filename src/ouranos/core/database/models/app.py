@@ -859,7 +859,10 @@ class Service(Base, CachedCRUDMixin):
         await cls.update(session, name=ServiceName.email, values={"status": status})
 
     @classmethod
-    def _check_requirements(cls, service_name: ServiceName) -> None:
+    def _check_requirements(cls, service_name: ServiceName, new_status: bool) -> None:
+        if not new_status:
+            # No need to check requirements to disable a service
+            return
         requirements: bool
         if service_name == ServiceName.email:
             requirements = cls._check_email_config_requirements()
@@ -887,7 +890,7 @@ class Service(Base, CachedCRUDMixin):
             **lookup_keys: lookup_keys_type,
     ) -> None:
         service_name: ServiceName = safe_enum_from_name(ServiceName, lookup_keys["name"])
-        cls._check_requirements(service_name)
+        cls._check_requirements(service_name, values["status"])
         await super().update(session, values=values, **lookup_keys)
 
     @classmethod
@@ -903,7 +906,7 @@ class Service(Base, CachedCRUDMixin):
                 value = value._asdict()
             name = value["name"]
             service_name: ServiceName = safe_enum_from_name(ServiceName, name)
-            cls._check_requirements(service_name)
+            cls._check_requirements(service_name, value["status"])
         await super().update_multiple(session, values=values)
 
 
