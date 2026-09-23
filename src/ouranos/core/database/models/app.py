@@ -816,12 +816,12 @@ class ServiceName(StrEnum):
     email = "email"
 
 
-services_definition: dict[ServiceName, ServiceLevel] = {
-    ServiceName.weather: ServiceLevel.app,
-    ServiceName.calendar: ServiceLevel.app,
-    ServiceName.wiki: ServiceLevel.app,
-    ServiceName.suntimes: ServiceLevel.ecosystem,
-    ServiceName.email: ServiceLevel.app,
+services_definition: dict[ServiceName, tuple[ServiceLevel, bool]] = {
+    ServiceName.weather: (ServiceLevel.app, False),
+    ServiceName.calendar: (ServiceLevel.app, False),
+    ServiceName.wiki: (ServiceLevel.app, False),
+    ServiceName.suntimes: (ServiceLevel.ecosystem, False),
+    ServiceName.email: (ServiceLevel.app, True),
 }
 
 
@@ -833,14 +833,25 @@ class Service(Base, CRUDMixin):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[ServiceName] = mapped_column(sa.String(length=16), unique=True)
     level: Mapped[ServiceLevel] = mapped_column()
+    in_config: Mapped[bool] = mapped_column(default=False)
     status: Mapped[bool] = mapped_column(default=False)
 
     @classmethod
     async def insert_services(cls, session: AsyncSession) -> None:
-        for name, level in services_definition.items():
+        for name, spec in services_definition.items():
             service = await cls.get(session, name=name)
             if service is None:
-                await cls.create(session, name=name, values={"level": level})
+                await cls.create(
+                    session,
+                    name=name,
+                    values={"level": spec[0], "in_config": spec[1]},
+                )
+            else:
+                await cls.update(
+                    session,
+                    name=name,
+                    values={"level": spec[0], "in_config": spec[1]},
+                )
 
     @classmethod
     async def update_email_service_status(cls, session: AsyncSession) -> None:
