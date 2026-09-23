@@ -26,7 +26,7 @@ def downgrade(engine_name: str) -> None:
 
 
 def upgrade_ecosystems() -> None:
-    with op.batch_alter_table("engines") as batch_op:
+    with op.batch_alter_table("engines", recreate="always") as batch_op:
         batch_op.add_column(
             sa.Column(
                 "connection_date", sa.DateTime(), nullable=False,
@@ -35,7 +35,7 @@ def upgrade_ecosystems() -> None:
             insert_after="registration_date",
         )
 
-    with op.batch_alter_table("ecosystems") as batch_op:
+    with op.batch_alter_table("ecosystems", recreate="always") as batch_op:
         batch_op.add_column(
             sa.Column(
                 "connection_date", sa.DateTime(), nullable=False,
