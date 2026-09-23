@@ -58,7 +58,7 @@ async def update_service(
         response.status_code = status.HTTP_400_BAD_REQUEST
         return (
             f"Could not update service '{service_name.name}' to status "
-            f"'{service_status}'. Error: {e}."
+            f"'{service_status}'. Error: {e}"
         )
     if service_name == ServiceName.weather:
         dispatcher: AsyncDispatcher = DispatcherFactory.get("application-internal")
