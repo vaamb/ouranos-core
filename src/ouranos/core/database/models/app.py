@@ -832,10 +832,10 @@ class Service(Base, CachedCRUDMixin):
     _lookup_keys = ["name"]
     _cache = caches.cache_services
 
-    _need_cfg = (
+    _need_cfg: list[str] = [
         name for name, spec in services_definition.items()
         if spec[1] is True
-    )
+    ]
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[ServiceName] = mapped_column(sa.String(length=16), unique=True)
