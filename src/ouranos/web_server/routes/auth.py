@@ -226,7 +226,7 @@ async def register_new_user(
         token = authenticator.login(user, False)
         if send_email:
             try:
-                await user.send_confirmation_email()
+                await user.send_confirmation_email(session)
             except NotImplementedError as e:
                 logger: Logger = getLogger("ouranos.web_server.auth")
                 logger.error(

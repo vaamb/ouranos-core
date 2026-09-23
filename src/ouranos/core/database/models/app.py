@@ -26,9 +26,10 @@ from gaia_validators import missing, safe_enum_from_name
 
 from ouranos import current_app
 from ouranos.core.config import consts
+from ouranos.core.database.models import caches
 from ouranos.core.database.models.abc import (
     Base, CRUDMixin, lookup_keys_type, on_conflict_opt, query_keys_type, ToDictMixin)
-from ouranos.core.database.models import caches
+from ouranos.core.database.models.caching import CachedCRUDMixin, create_hashable_key
 from ouranos.core.database.models.types import PathType, SQLIntEnum, UtcDateTime
 from ouranos.core.database.models.utils import paginate
 from ouranos.core.email import send_gaia_templated_email
@@ -367,6 +368,11 @@ class User(Base, UserMixin):
             token: str | None = None,
             expiration_delay: int = consts.REGISTRATION_TOKEN_VALIDITY,
     ) -> None:
+        # Check for service
+        email_service = await Service.get(session, name=ServiceName.email)
+        assert email_service is not None
+        if not email_service.status:
+            raise RuntimeError("The email service is not enabled")
         # Check we have the required data
         user_info = user_info or {}
         email = email or user_info.get("email")
@@ -383,9 +389,9 @@ class User(Base, UserMixin):
             if user is not None:
                 raise ValueError("The username is already taken by another user")
         user_info["email"] = email  # Be consistent
-        url = current_app.config["FRONTEND_URL"]
+        url = current_app.config.get("FRONTEND_URL", None)
         if not url:
-            raise NotImplementedError("Frontend URL is not configured")
+            raise RuntimeError("Frontend URL is not configured")
         # Actual logic
         token = token or await cls.create_invitation_token(
             session, user_info=user_info, expiration_delay=expiration_delay)
@@ -402,16 +408,22 @@ class User(Base, UserMixin):
         )
 
     async def send_confirmation_email(
-        self,
-        token: str | None = None,
-        expiration_delay: int = consts.REGISTRATION_TOKEN_VALIDITY,
+            self,
+            session: AsyncSession,
+            token: str | None = None,
+            expiration_delay: int = consts.REGISTRATION_TOKEN_VALIDITY,
     ) -> None:
+        # Check for service
+        email_service = await Service.get(session, name=ServiceName.email)
+        assert email_service is not None
+        if not email_service.status:
+            raise RuntimeError("The email service is not enabled")
         # Check we have the required data
         if self.confirmed_at is not None:
             raise ValueError("User is already confirmed")
-        url = current_app.config["FRONTEND_URL"]
+        url = current_app.config.get("FRONTEND_URL", None)
         if not url:
-            raise NotImplementedError("Frontend URL is not configured")
+            raise RuntimeError("Frontend URL is not configured")
         # Actual logic
         token = token or await self.create_confirmation_token(
             expiration_delay=expiration_delay)
@@ -443,16 +455,22 @@ class User(Base, UserMixin):
         )
 
     async def send_reset_password_email(
-        self,
-        token: str | None = None,
-        expiration_delay: int = consts.PASSWORD_RESET_TOKEN_VALIDITY,
+            self,
+            session: AsyncSession,
+            token: str | None = None,
+            expiration_delay: int = consts.PASSWORD_RESET_TOKEN_VALIDITY,
     ) -> None:
+        # Check for service
+        email_service = await Service.get(session, name=ServiceName.email)
+        assert email_service is not None
+        if not email_service.status:
+            raise RuntimeError("The email service is not enabled")
         # Check we have the required data
         if self.confirmed_at is None:
             raise ValueError("User is not confirmed")
-        url = current_app.config["FRONTEND_URL"]
+        url = current_app.config.get("FRONTEND_URL", None)
         if not url:
-            raise NotImplementedError("Frontend URL is not configured")
+            raise RuntimeError("Frontend URL is not configured")
         # Actual logic
         token = token or await self.create_password_reset_token(
             expiration_delay=expiration_delay)
@@ -816,41 +834,101 @@ class ServiceName(StrEnum):
     email = "email"
 
 
-services_definition: dict[ServiceName, ServiceLevel] = {
-    ServiceName.weather: ServiceLevel.app,
-    ServiceName.calendar: ServiceLevel.app,
-    ServiceName.wiki: ServiceLevel.app,
-    ServiceName.suntimes: ServiceLevel.ecosystem,
-    ServiceName.email: ServiceLevel.app,
+services_definition: dict[ServiceName, tuple[ServiceLevel, bool]] = {
+    ServiceName.weather: (ServiceLevel.app, False),
+    ServiceName.calendar: (ServiceLevel.app, False),
+    ServiceName.wiki: (ServiceLevel.app, False),
+    ServiceName.suntimes: (ServiceLevel.ecosystem, False),
+    ServiceName.email: (ServiceLevel.app, True),
 }
 
 
-class Service(Base, CRUDMixin):
+class Service(Base, CachedCRUDMixin):
     __tablename__ = "services"
     __bind_key__ = "app"
     _lookup_keys = ["name"]
+    _cache = caches.cache_services
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[ServiceName] = mapped_column(sa.String(length=16), unique=True)
     level: Mapped[ServiceLevel] = mapped_column()
+    in_config: Mapped[bool] = mapped_column(default=False)
     status: Mapped[bool] = mapped_column(default=False)
 
     @classmethod
     async def insert_services(cls, session: AsyncSession) -> None:
-        for name, level in services_definition.items():
+        for name, spec in services_definition.items():
             service = await cls.get(session, name=name)
             if service is None:
-                await cls.create(session, name=name, values={"level": level})
+                await cls.create(
+                    session,
+                    name=name,
+                    values={"level": spec[0], "in_config": spec[1]},
+                )
+            # Update "in_config" if needed
+            elif service.in_config != spec[1]:
+                await cls.update(session, name=name, values={"in_config": spec[1]})
 
     @classmethod
     async def update_email_service_status(cls, session: AsyncSession) -> None:
         # Check that we have all the required environment variables
-        status = all((
+        requirements = cls._check_email_config_requirements()
+        email_service = await cls.get(session, name=ServiceName.email)
+        assert email_service is not None
+        # If the requirements are not met, don't set the status to True
+        status = requirements and email_service.status
+        await cls.update(session, name=ServiceName.email, values={"status": status})
+
+    @classmethod
+    def _check_requirements(cls, service_name: ServiceName, new_status: bool) -> None:
+        if not new_status:
+            # No need to check requirements to disable a service
+            return
+        requirements: bool
+        if service_name == ServiceName.email:
+            requirements = cls._check_email_config_requirements()
+        else:
+            requirements = True
+        if not requirements:
+            raise ValueError(
+                f"Service `{service_name}` is not configured in the config file."
+            )
+
+    @classmethod
+    def _check_email_config_requirements(cls) -> bool:
+        return all((
             current_app.config["FRONTEND_URL"],
             current_app.config["MAIL_USERNAME"],
             current_app.config["MAIL_PASSWORD"],
         ))
-        await cls.update(session, name=ServiceName.email, values={"status": status})
+
+    @classmethod
+    async def update(
+            cls,
+            session: AsyncSession,
+            /,
+            values: dict,
+            **lookup_keys: lookup_keys_type,
+    ) -> None:
+        service_name: ServiceName = safe_enum_from_name(ServiceName, lookup_keys["name"])  #ty: ignore[invalid-argument-type]
+        cls._check_requirements(service_name, values.get("status", False))
+        await super().update(session, values=values, **lookup_keys)
+
+    @classmethod
+    async def update_multiple(
+            cls,
+            session: AsyncSession,
+            /,
+            values: list[dict],
+    ) -> None:
+        for value in values:
+            if not isinstance(value, dict):
+                # A NamedTuple was passed
+                value = value._asdict()
+            name = value["name"]
+            service_name: ServiceName = safe_enum_from_name(ServiceName, name)
+            cls._check_requirements(service_name, value.get("status", False))
+        await super().update_multiple(session, values=values)
 
 
 channels_definition = [

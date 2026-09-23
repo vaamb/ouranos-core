@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, Path, Query, status
+from fastapi import APIRouter, Body, Depends, Path, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from dispatcher import AsyncDispatcher
@@ -38,6 +38,7 @@ async def get_services(
             tags=["app/services"],
             dependencies=[Depends(is_admin)])
 async def update_service(
+        response: Response,
         *,
         service_name: Annotated[
             ServiceName,
@@ -50,8 +51,15 @@ async def update_service(
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
     service_status = payload.model_dump()["status"]
-    await Service.update(
-        session, name=service_name, values={"status": service_status})
+    try:
+        await Service.update(
+            session, name=service_name, values={"status": service_status})
+    except ValueError as e:
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return (
+            f"Could not update service '{service_name.name}' to status "
+            f"'{service_status}'. Error: {e}"
+        )
     if service_name == ServiceName.weather:
         dispatcher: AsyncDispatcher = DispatcherFactory.get("application-internal")
         await dispatcher.emit(

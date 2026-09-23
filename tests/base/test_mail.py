@@ -8,7 +8,7 @@ from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 from ouranos.core.database.models.app import User
 from ouranos.core.email import Email, get_body_text, render_template
 
-from tests.class_fixtures import UsersAware
+from tests.class_fixtures import ServicesEnabled, UsersAware
 from tests.data.auth import user
 
 
@@ -77,7 +77,7 @@ class TestBaseMail:
 
 
 @pytest.mark.asyncio
-class TestUserMail(UsersAware):
+class TestUserMail(ServicesEnabled, UsersAware):
     async def test_invitation_email_taken(self, db: AsyncSQLAlchemyWrapper):
         email_address = f"{user.username}@fakemail.com"
         async with db.scoped_session() as session:
@@ -112,6 +112,7 @@ class TestUserMail(UsersAware):
     async def test_confirm_email(self, db: AsyncSQLAlchemyWrapper):
         async with db.scoped_session() as session:
             usr = await User.get(session, user_id=user.id)
+            assert usr is not None
             async with Email.record_messages() as outbox:
                 await usr.send_confirmation_email(session)
 
@@ -155,6 +156,7 @@ class TestUserMail(UsersAware):
             await User.update(
                 session, user_id=user.id, values={"confirmed_at": datetime.now()})
             usr = await User.get(session, user_id=user.id)
+            assert usr is not None
             async with Email.record_messages() as outbox:
                 await usr.send_reset_password_email(session)
 
