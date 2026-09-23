@@ -398,7 +398,10 @@ class CachedCRUDMixin(CRUDMixin):
             /,
             **lookup_keys: list[query_keys_type] | query_keys_type | None,
     ) -> Self | None:
-        return await super().get(session, **lookup_keys)  # ty: ignore[invalid-argument-type]
+        result = await super().get(session, **lookup_keys)  # ty: ignore[invalid-argument-type]
+        if result is not None:
+            session.expunge(result)
+        return result
 
     @classmethod
     async def get(
