@@ -832,6 +832,11 @@ class Service(Base, CachedCRUDMixin):
     _lookup_keys = ["name"]
     _cache = caches.cache_services
 
+    _need_cfg = (
+        name for name, spec in services_definition.items()
+        if spec[1] is True
+    )
+
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[ServiceName] = mapped_column(sa.String(length=16), unique=True)
     level: Mapped[ServiceLevel] = mapped_column()
@@ -864,6 +869,42 @@ class Service(Base, CachedCRUDMixin):
             current_app.config["MAIL_PASSWORD"],
         ))
         await cls.update(session, name=ServiceName.email, values={"status": status})
+
+    @classmethod
+    async def update(
+            cls,
+            session: AsyncSession,
+            /,
+            values: dict,
+            **lookup_keys: lookup_keys_type,
+    ) -> None:
+        service_name: ServiceName = safe_enum_from_name(ServiceName, lookup_keys["name"])
+        if service_name in cls._need_cfg:
+            raise ValueError(
+                f"Service `{service_name}` status can only be changed by "
+                f"modifying the config file and restarting the app."
+            )
+        await super().update(session, values=values, **lookup_keys)
+
+    @classmethod
+    async def update_multiple(
+            cls,
+            session: AsyncSession,
+            /,
+            values: list[dict],
+    ) -> None:
+        for value in values:
+            if not isinstance(value, dict):
+                # A NamedTuple was passed
+                value = value._asdict()
+            name = value["name"]
+            service_name: ServiceName = safe_enum_from_name(ServiceName, name)
+            if service_name in cls._need_cfg:
+                raise ValueError(
+                    f"Service `{service_name}` status can only be changed by "
+                    f"modifying the config file and restarting the app."
+                )
+        await super().update_multiple(session, values=values)
 
 
 channels_definition = [
