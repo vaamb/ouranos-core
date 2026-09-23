@@ -855,7 +855,8 @@ class Service(Base, CachedCRUDMixin):
         requirements = cls._check_email_config_requirements()
         email_service = await cls.get(session, name=ServiceName.email)
         assert email_service is not None
-        status = requirements and email_service.status  # If
+        # If the requirements are not met, don't set the status to True
+        status = requirements and email_service.status
         await cls.update(session, name=ServiceName.email, values={"status": status})
 
     @classmethod
