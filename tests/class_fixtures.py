@@ -168,10 +168,12 @@ class UsersAware:
 
 
 class ServicesEnabled:
+    _services: list[ServiceName] = []
+
     @pytest_asyncio.fixture(scope="class", autouse=True)
     async def enable_services(self, db: AsyncSQLAlchemyWrapper):
         async with db.scoped_session() as session:
-            for service_name in ServiceName:
+            for service_name in self._services:
                 await Service.update(session, name=service_name, values={"status": True})
 
 

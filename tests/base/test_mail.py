@@ -5,7 +5,7 @@ import pytest
 
 from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
-from ouranos.core.database.models.app import User
+from ouranos.core.database.models.app import ServiceName, User
 from ouranos.core.email import Email, get_body_text, render_template
 
 from tests.class_fixtures import ServicesEnabled, UsersAware
@@ -78,6 +78,8 @@ class TestBaseMail:
 
 @pytest.mark.asyncio
 class TestUserMail(ServicesEnabled, UsersAware):
+    _services = [ServiceName.email]
+
     async def test_invitation_email_taken(self, db: AsyncSQLAlchemyWrapper):
         email_address = f"{user.username}@fakemail.com"
         async with db.scoped_session() as session:
