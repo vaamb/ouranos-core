@@ -873,7 +873,7 @@ class Service(Base, CachedCRUDMixin):
 
     @classmethod
     async def update_config_service_status(cls, session: AsyncSession) -> None:
-        async def update_status(service_name: ServiceName,requirements: bool) -> None:
+        async def update_status(service_name: ServiceName, requirements: bool) -> None:
             service = await cls.get(session, name=service_name)
             assert service is not None
             # If the requirements are not met, don't set the status to True

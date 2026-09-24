@@ -39,7 +39,6 @@ async def get_base_logs(
         per_page: Annotated[int, Query(le=100)] = 50,
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    # todo: Enum safe_enum_from_name
     level_min_enum = \
         LogLevel[level_min.upper()] if isinstance(level_min, str) else LogLevel(level_min)
     level_max_enum = \
