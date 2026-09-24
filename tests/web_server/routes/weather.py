@@ -9,6 +9,7 @@ from gaia_validators.utils import get_sun_times
 from ouranos import json
 from ouranos.aggregator.sky_watcher import get_weather_test_data
 from ouranos.core.caches import CacheFactory
+from ouranos.core.database.models.app import ServiceName
 
 from tests.class_fixtures import ServicesEnabled
 
@@ -17,6 +18,8 @@ coordinates = gv.Coordinates(latitude=42, longitude=0)
 
 
 class TestWeatherEmpty(ServicesEnabled):
+    _services = [ServiceName.weather]
+
     """The `sky_watcher` cache is empty, so every route returns a 204."""
     def test_get_sun_times(self, client: TestClient):
         response = client.get("/api/app/services/weather/sun_times")
@@ -40,6 +43,8 @@ class TestWeatherEmpty(ServicesEnabled):
 
 
 class TestWeatherFilled(ServicesEnabled):
+    _services = [ServiceName.weather]
+
     """The `sky_watcher` cache is populated, so the routes return their data."""
     @pytest_asyncio.fixture(scope="class", autouse=True)
     async def add_weather_data(self):

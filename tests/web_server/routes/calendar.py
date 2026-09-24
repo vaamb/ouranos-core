@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
 from ouranos import json
-from ouranos.core.database.models.app import CalendarEvent
+from ouranos.core.database.models.app import CalendarEvent, ServiceName
 
 from tests.data.app import calendar_event_public, calendar_event_users
 from tests.class_fixtures import EventsAware, ServicesEnabled, UsersAware
@@ -25,6 +25,8 @@ creation_payload = {
 
 
 class TestCalendar(EventsAware, ServicesEnabled, UsersAware):
+    _services = [ServiceName.calendar]
+
     def test_get_public(self, client: TestClient):
         response = client.get("/api/app/services/calendar")
         assert response.status_code == 200
@@ -68,6 +70,8 @@ class TestCalendar(EventsAware, ServicesEnabled, UsersAware):
 
 @pytest.mark.asyncio
 class TestEventCreation(EventsAware, ServicesEnabled, UsersAware):
+    _services = [ServiceName.calendar]
+
     def test_create_failure_anon(self, client: TestClient):
         response = client.post(
             "/api/app/services/calendar/u",
@@ -93,6 +97,8 @@ class TestEventCreation(EventsAware, ServicesEnabled, UsersAware):
 
 @pytest.mark.asyncio
 class TestEventUpdate(EventsAware, ServicesEnabled, UsersAware):
+    _services = [ServiceName.calendar]
+
     def test_update_failure_anon(self, client: TestClient):
         response = client.put("/api/app/services/calendar/u/1")
         assert response.status_code == 403
@@ -130,6 +136,8 @@ class TestEventUpdate(EventsAware, ServicesEnabled, UsersAware):
 
 @pytest.mark.asyncio
 class TestEventDeletion(EventsAware, ServicesEnabled, UsersAware):
+    _services = [ServiceName.calendar]
+
     def test_delete_failure_anon(self, client: TestClient):
         response = client.delete("/api/app/services/calendar/u/1")
         assert response.status_code == 403

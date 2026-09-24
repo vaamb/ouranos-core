@@ -5,7 +5,7 @@ from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
 from ouranos import json
 from ouranos.core.database.models.app import (
-    WikiArticle, WikiArticleModification, WikiPicture, WikiTag, WikiTopic)
+    ServiceName, WikiArticle, WikiArticleModification, WikiPicture, WikiTag, WikiTopic)
 from ouranos.core.utils import slugify
 
 from tests.data.app import (
@@ -16,6 +16,8 @@ from tests.class_fixtures import ServicesEnabled, UsersAware, WikiAware
 
 @pytest.mark.asyncio
 class TestWikiTopics(ServicesEnabled, UsersAware, WikiAware):
+    _services = [ServiceName.wiki]
+
     async def test_get_multiple(self, client: TestClient, db: AsyncSQLAlchemyWrapper):
         response = client.get("/api/app/services/wiki/topics")
         assert response.status_code == 200
@@ -148,6 +150,8 @@ class TestWikiTopics(ServicesEnabled, UsersAware, WikiAware):
 
 @pytest.mark.asyncio
 class TestWikiTags(ServicesEnabled, UsersAware, WikiAware):
+    _services = [ServiceName.wiki]
+
     async def test_get_multiple_empty(self, client: TestClient):
         response = client.get("/api/app/services/wiki/tags")
         assert response.status_code == 200
@@ -225,6 +229,8 @@ class TestWikiTags(ServicesEnabled, UsersAware, WikiAware):
 
 @pytest.mark.asyncio
 class TestWikiArticles(ServicesEnabled, UsersAware, WikiAware):
+    _services = [ServiceName.wiki]
+
     async def test_get_multiple(self, client: TestClient):
         response = client.get("/api/app/services/wiki/articles")
         assert response.status_code == 200
@@ -364,6 +370,8 @@ class TestWikiArticles(ServicesEnabled, UsersAware, WikiAware):
 
 @pytest.mark.asyncio
 class TestWikiPictures(ServicesEnabled, UsersAware, WikiAware):
+    _services = [ServiceName.wiki]
+
     async def test_create_failure_anon(self, client: TestClient):
         response = client.post(
             f"/api/app/services/wiki/topics/u/{slugify(wiki_topic_name)}/"
@@ -483,6 +491,8 @@ class TestWikiPictures(ServicesEnabled, UsersAware, WikiAware):
 
 @pytest.mark.asyncio
 class TestWikiNotFound(ServicesEnabled, UsersAware, WikiAware):
+    _services = [ServiceName.wiki]
+
     async def test_get_failure_not_found(self, client: TestClient):
         wrong = "so wrong it doesn't match"
 
