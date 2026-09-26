@@ -16,7 +16,7 @@ from ouranos.core.database.models.types import UtcDateTime
 from ouranos.core.database.models.utils import TimeWindow
 
 
-timed_value = Row[tuple[datetime, float, Optional[float], float, float, float]]
+timed_value = Row[datetime, float, Optional[float], float, float, float]
 
 
 # ---------------------------------------------------------------------------

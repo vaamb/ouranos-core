@@ -526,7 +526,7 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
             session: AsyncSession,
             actuator_type: gv.HardwareType,
             time_window: TimeWindow,
-    ) -> Sequence[Row[tuple[datetime, bool, gv.ActuatorMode, bool, float | None]]]:
+    ) -> Sequence[Row[datetime, bool, gv.ActuatorMode, bool, float | None]]:
         return await ActuatorRecord.get_timed_values(
             session, ecosystem_uid=self.uid, actuator_type=actuator_type,
             time_window=time_window)
@@ -1408,7 +1408,7 @@ class SensorDataCache(BaseSensorData, CacheMixin):
             session: AsyncSession,
             sensor_uid: str,
             measure: str,
-    ) -> Sequence[Row[tuple[datetime, float]]]:
+    ) -> Sequence[Row[datetime, float]]:
         await cls.remove_expired(session)
         sub_stmt = (
             select(cls.id, sa_max(cls.timestamp))
@@ -1459,7 +1459,7 @@ class SensorDataRecord(BaseSensorDataRecord, ArchivableMixin):
             sensor_uid: str,
             measure_name: str,
             time_window: TimeWindow
-    ) -> Sequence[Row[tuple[datetime, float]]]:
+    ) -> Sequence[Row[datetime, float]]:
         stmt = (
             select(cls.timestamp, cls.value)
             .where(cls.measure == measure_name)
@@ -1665,7 +1665,7 @@ class BaseActuatorRecord(Base, CRUDMixin):
             ecosystem_uid: str,
             actuator_type: gv.HardwareType,
             time_window: TimeWindow,
-    ) -> Sequence[Row[tuple[datetime, bool, gv.ActuatorMode, bool, float | None]]]:
+    ) -> Sequence[Row[datetime, bool, gv.ActuatorMode, bool, float | None]]:
         stmt = (
             select(cls.timestamp, cls.active, cls.mode, cls.status, cls.level)
             .where(cls.ecosystem_uid == ecosystem_uid)
