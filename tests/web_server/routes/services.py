@@ -11,13 +11,13 @@ from tests.utils import MockAsyncDispatcher
 
 
 # All the services are seeded by `insert_services` (with `status=False`), and
-# the email service is enabled by `update_email_service_status` as the test
-# config provides the required mail variables.
+# the email and logging services requirements are checked by `update_config_service_status`.
 app_services = {
     ServiceName.weather.value,
     ServiceName.calendar.value,
     ServiceName.wiki.value,
     ServiceName.email.value,
+    ServiceName.logging.value,
 }
 ecosystem_services = {ServiceName.suntimes.value}
 

@@ -832,6 +832,7 @@ class ServiceName(StrEnum):
     calendar = "calendar"
     wiki = "wiki"
     email = "email"
+    logging = "logging"
 
 
 services_definition: dict[ServiceName, tuple[ServiceLevel, bool]] = {
@@ -840,6 +841,7 @@ services_definition: dict[ServiceName, tuple[ServiceLevel, bool]] = {
     ServiceName.wiki: (ServiceLevel.app, False),
     ServiceName.suntimes: (ServiceLevel.ecosystem, False),
     ServiceName.email: (ServiceLevel.app, True),
+    ServiceName.logging: (ServiceLevel.app, True),
 }
 
 
@@ -870,14 +872,16 @@ class Service(Base, CachedCRUDMixin):
                 await cls.update(session, name=name, values={"in_config": spec[1]})
 
     @classmethod
-    async def update_email_service_status(cls, session: AsyncSession) -> None:
-        # Check that we have all the required environment variables
-        requirements = cls._check_email_config_requirements()
-        email_service = await cls.get(session, name=ServiceName.email)
-        assert email_service is not None
-        # If the requirements are not met, don't set the status to True
-        status = requirements and email_service.status
-        await cls.update(session, name=ServiceName.email, values={"status": status})
+    async def update_config_service_status(cls, session: AsyncSession) -> None:
+        async def update_status(service_name: ServiceName, requirements: bool) -> None:
+            service = await cls.get(session, name=service_name)
+            assert service is not None
+            # If the requirements are not met, don't set the status to True
+            status = requirements and service.status
+            await cls.update(session, name=service_name, values={"status": status})
+
+        await update_status(ServiceName.email, cls._check_email_config_requirements())
+        await update_status(ServiceName.logging, cls._check_logging_config_requirements())
 
     @classmethod
     def _check_requirements(cls, service_name: ServiceName, new_status: bool) -> None:
@@ -887,6 +891,8 @@ class Service(Base, CachedCRUDMixin):
         requirements: bool
         if service_name == ServiceName.email:
             requirements = cls._check_email_config_requirements()
+        elif service_name == ServiceName.logging:
+            requirements = cls._check_logging_config_requirements()
         else:
             requirements = True
         if not requirements:
@@ -901,6 +907,10 @@ class Service(Base, CachedCRUDMixin):
             current_app.config["MAIL_USERNAME"],
             current_app.config["MAIL_PASSWORD"],
         ))
+
+    @classmethod
+    def _check_logging_config_requirements(cls) -> bool:
+        return current_app.config["LOG_TO_DB"]
 
     @classmethod
     async def update(

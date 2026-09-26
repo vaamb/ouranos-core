@@ -27,23 +27,9 @@ class DBHandler(Handler):
             raise ValueError("table_model cannot be None")
         self._table_model = table_model
         self._loop: AbstractEventLoop | None = None
-        self._table_created: bool = False
-
-    async def _create_table(self) -> None:
-        if self._table_created:
-            return
-
-        from ouranos import db
-
-        # The model has already been registered when loading the table model
-        await db.create_all()
-        self._table_created = True
 
     async def _log_record(self, record: LogRecord) -> None:
         from ouranos import db
-
-        if not self._table_created:
-            await self._create_table()
 
         async with db.scoped_session() as session:
             await self._table_model.create(session, record)

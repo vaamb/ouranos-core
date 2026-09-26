@@ -29,8 +29,7 @@ async def create_db_tables() -> None:
     from ouranos.core.database.models import archives  # noqa
     from ouranos.core.database.models import gaia  # noqa
     from ouranos.core.database.models import system  # noqa
-    if current_app.config["LOG_TO_DB"]:
-        from ouranos.core.database.models import logging  # noqa
+    from ouranos.core.database.models import logging  # noqa
 
     await db.create_all()
 
@@ -42,7 +41,7 @@ async def insert_default_data() -> None:
         await app.CommunicationChannel.insert_channels(session)
         await app.Role.insert_roles(session)
         await app.Service.insert_services(session)
-        await app.Service.update_email_service_status(session)
+        await app.Service.update_config_service_status(session)
         await app.User.insert_gaia(session)
 
 
