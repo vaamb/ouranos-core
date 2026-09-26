@@ -30,7 +30,7 @@ router = APIRouter(
 # Create a `StrEnum` to store `LogLevel` names both in lower and upper case
 LogLevelName = StrEnum(
     "LogLevelName",
-    [
+    [  # ty: ignore[invalid-argument-type]
         *[(i.name, i.name) for i in LogLevel],
         *[(i.name.lower(), i.name.lower()) for i in LogLevel],
     ]
@@ -44,8 +44,8 @@ async def get_base_logs(
             TimeWindow,
             Depends(get_time_window(rounding=1, grace_time=60, max_window_length=31)),
         ],
-        level_min: LogLevelName = LogLevel.INFO.name.lower(),
-        level_max: LogLevelName = LogLevel.CRITICAL.name.lower(),
+        level_min: LogLevelName = LogLevel.INFO.name.lower(),  # ty: ignore[invalid-parameter-default]
+        level_max: LogLevelName = LogLevel.CRITICAL.name.lower(),  # ty: ignore[invalid-parameter-default]
         page: Annotated[int, Query()] = 1,
         per_page: Annotated[int, Query(le=100)] = 50,
         session: Annotated[AsyncSession, Depends(get_session)],
@@ -64,8 +64,8 @@ async def get_access_logs(
             TimeWindow,
             Depends(get_time_window(rounding=1, grace_time=60, max_window_length=31)),
         ],
-        level_min: LogLevelName = LogLevel.INFO.name.lower(),
-        level_max: LogLevelName = LogLevel.CRITICAL.name.lower(),
+        level_min: LogLevelName = LogLevel.INFO.name.lower(),  # ty: ignore[invalid-parameter-default]
+        level_max: LogLevelName = LogLevel.CRITICAL.name.lower(),  # ty: ignore[invalid-parameter-default]
         page: Annotated[int, Query()] = 1,
         per_page: Annotated[int, Query(le=100)] = 50,
         session: Annotated[AsyncSession, Depends(get_session)],
