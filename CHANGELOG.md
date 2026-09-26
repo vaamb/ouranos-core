@@ -19,6 +19,10 @@
 - `BaseLog`/`AccessLog` models ("system" bind, each indexed on timestamp + level) with
   `get_multiple()` to filter stored log entries by time window and level range, with
   pagination (#442)
+- "logging" app service, which can only be enabled when `LOG_TO_DB` is set, with its
+  operator-only "/logging/base" and "/logging/access" routes to read the stored logs,
+  filtered by time window and level range (level names, case-insensitive), with
+  pagination (#460)
 
 ### Changed
 - **Breaking**: the route formerly known as "refresh_session", which pushes back the session
@@ -59,6 +63,8 @@
   over a single sheet (kicker, Garamond title, hairlines, a footer bar stating the token's
   validity), a button naming the act, and the token in a labelled block; the invitation's
   manual link now points to "/auth/register", where the frontend's token gate lives (#454)
+- The `base_logs`/`access_logs` tables are now always created, whatever `LOG_TO_DB`, and
+  no longer lazily by `DBHandler` (#460)
 
 ### Fixed
 - Sensor alarms were overridden by the last `sensors_data` event received before they were
