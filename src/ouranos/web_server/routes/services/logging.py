@@ -1,3 +1,4 @@
+from enum import StrEnum
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
@@ -26,6 +27,16 @@ router = APIRouter(
 )
 
 
+# Create a `StrEnum` to store `LogLevel` names both in lower and upper case
+LogLevelName = StrEnum(
+    "LogLevelName",
+    [
+        *[(i.name, i.name) for i in LogLevel],
+        *[(i.name.lower(), i.name.lower()) for i in LogLevel],
+    ]
+)
+
+
 @router.get("/base", response_model=list[LogRecordInfo])
 async def get_base_logs(
         *,
@@ -33,16 +44,14 @@ async def get_base_logs(
             TimeWindow,
             Depends(get_time_window(rounding=1, grace_time=60, max_window_length=31)),
         ],
-        level_min: LogLevel | str = LogLevel.INFO,
-        level_max: LogLevel | str = LogLevel.CRITICAL,
+        level_min: LogLevelName = LogLevel.INFO.name.lower(),
+        level_max: LogLevelName = LogLevel.CRITICAL.name.lower(),
         page: Annotated[int, Query()] = 1,
         per_page: Annotated[int, Query(le=100)] = 50,
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    level_min_enum = \
-        LogLevel[level_min.upper()] if isinstance(level_min, str) else LogLevel(level_min)
-    level_max_enum = \
-        LogLevel[level_max.upper()] if isinstance(level_max, str) else LogLevel(level_max)
+    level_min_enum = LogLevel[level_min.upper()]
+    level_max_enum = LogLevel[level_max.upper()]
     return await BaseLog.get_multiple(
         session, time_window=time_window, level_min=level_min_enum,
         level_max=level_max_enum, page=page, per_page=per_page)
@@ -55,16 +64,14 @@ async def get_access_logs(
             TimeWindow,
             Depends(get_time_window(rounding=1, grace_time=60, max_window_length=31)),
         ],
-        level_min: LogLevel | str = LogLevel.INFO,
-        level_max: LogLevel | str = LogLevel.CRITICAL,
+        level_min: LogLevelName = LogLevel.INFO.name.lower(),
+        level_max: LogLevelName = LogLevel.CRITICAL.name.lower(),
         page: Annotated[int, Query()] = 1,
         per_page: Annotated[int, Query(le=100)] = 50,
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    level_min_enum = \
-        LogLevel[level_min.upper()] if isinstance(level_min, str) else LogLevel(level_min)
-    level_max_enum = \
-        LogLevel[level_max.upper()] if isinstance(level_max, str) else LogLevel(level_max)
+    level_min_enum = LogLevel[level_min.upper()]
+    level_max_enum = LogLevel[level_max.upper()]
     return await AccessLog.get_multiple(
         session, time_window=time_window, level_min=level_min_enum,
         level_max=level_max_enum, page=page, per_page=per_page)
