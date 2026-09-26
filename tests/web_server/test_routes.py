@@ -13,6 +13,7 @@ from .routes.engine import (
     TestEngineCrudRequests, TestEngines, TestEngineUnique)
 from .routes.hardware import (
     TestHardwareEcosystem, TestHardwareGlobal, TestHardwareUnique)
+from .routes.logging import TestLogging, TestLoggingDisabled
 from .routes.protected import (
     TestAdminProtection, TestAuthenticatedProtection, TestBearerTokenProtection,
     TestInactiveUserProtection, TestOperatorProtection)
