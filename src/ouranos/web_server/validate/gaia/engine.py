@@ -1,3 +1,5 @@
+from pydantic import Field
+
 from ouranos.core.database.models.gaia import CrudRequest, Engine
 from ouranos.core.validate.base import BaseModel
 from ouranos.core.validate.utils import sqlalchemy_to_pydantic
@@ -13,7 +15,7 @@ EngineInfo = sqlalchemy_to_pydantic(
     base=BaseModel,
     extra_fields={
         "connected": (bool, ...),
-        "ecosystems": (list[EcosystemSummary], ...)
+        "ecosystems": (list[EcosystemSummary], Field(validation_alias="ecosystems_in_config"))
     }
 )
 
