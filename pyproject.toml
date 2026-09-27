@@ -4,7 +4,7 @@ description = "The core app to manage Gaia instances"
 authors = [
     {name = "Valentin Ambroise"}
 ]
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 readme = "README.md"
 license = {file = "LICENSE"}
 dynamic = ["version"]
@@ -24,7 +24,7 @@ dependencies = [
     "fastapi~=0.136.0",
     "humanize~=4.12",
     "Jinja2~=3.1",
-    "numpy~=2.1",
+    "numpy~=2.5",
     "opencv-python~=4.10",
     "orjson~=3.8",
     "psutil~=7.1",
