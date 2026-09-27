@@ -93,7 +93,7 @@ class ColourFormatter(Formatter):
 def configure_logging(config: BaseConfigDict, log_dir: Path) -> None:
     logging_config: dict[str, Any] = {
         "version": 1,
-        "disable_existing_loggers": True,
+        "disable_existing_loggers": False,
         "formatters": {
             "base": {
                 "()": "ouranos.core.logging.ColourFormatter",
@@ -109,9 +109,14 @@ def configure_logging(config: BaseConfigDict, log_dir: Path) -> None:
         },
         "handlers": {},
         "loggers": {
+            "root": {
+                "handlers": [],
+                "level": "WARNING",
+            },
             "ouranos": {
                 "handlers": [],
-                "level": "INFO"
+                "level": "INFO",
+                "propagate": False,
             },
             # Plays a role similar to uvicorn.access but for SocketIO events
             "ouranos.web_server.socketio": {
@@ -119,14 +124,11 @@ def configure_logging(config: BaseConfigDict, log_dir: Path) -> None:
                 "level": "INFO",
                 "propagate": False,
             },
-            "dispatcher": {
-                "handlers": [],
-                "level": "WARNING",
-            },
             # Log everything except "uvicorn.access" into the Ouranos log
             "uvicorn": {
                 "handlers": [],
                 "level": "INFO",
+                "propagate": False,
             },
             # Uvicorn access logs have their own format and go to their own log file
             "uvicorn.access": {
@@ -202,7 +204,12 @@ def configure_logging(config: BaseConfigDict, log_dir: Path) -> None:
         logging_config["formatters"]["base"]["format"] = debug_fmt
         for handler in logging_config["handlers"].values():
             handler["level"] = "DEBUG"
-        for logger in logging_config["loggers"].values():
+        for logger_name, logger in logging_config["loggers"].items():
+            if logger_name == "root":
+                # `aiosqlite` logs every write to a DB in debug mode, which would
+                # create a self-feeding loop.
+                # `socketio` and `engineio` logs are just flooding at debug level
+                continue
             logger["level"] = "DEBUG"
 
     logging.config.dictConfig(logging_config)
