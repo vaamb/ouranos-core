@@ -505,6 +505,8 @@ class TestCachedCRUDMixin:
                 await ModelCached.get(session, name="Eve")
                 assert mock_get.call_count == 0
 
+            await ModelCached.delete(session, name="Eve")
+
     async def test_create_on_conflict_update_invalidates_cache(
             self,
             db: AsyncSQLAlchemyWrapper,
