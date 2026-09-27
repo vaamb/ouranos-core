@@ -54,7 +54,7 @@ def create_sio_manager(config: ConfigDict | None = None):
         uri = sio_manager_url.removeprefix("amqp://")
         if not uri:
             uri = "guest:guest@localhost:5672//"
-        url = f"redis://{uri}"
+        url = f"amqp://{uri}"
         return AsyncAioPikaManager(url)
     else:
         raise RuntimeError(
