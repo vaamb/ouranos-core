@@ -383,14 +383,14 @@ class CachedCRUDMixin(CRUDMixin):
             values: list[dict] | list[NamedTuple],
             _on_conflict_do: on_conflict_opt = None,
     ) -> None:
-        rv = await super().create_multiple(
+        await super().create_multiple(
             session, values=values, _on_conflict_do=_on_conflict_do)
-        lookup_keys = cls._get_lookup_keys()
-        for value in values:
-            if not isinstance(value, dict):
-                value = value._asdict()
-            cls.clear_cache(**{key: value[key] for key in lookup_keys})
-        return rv
+        if _on_conflict_do == "update":
+            lookup_keys = cls._get_lookup_keys()
+            for value in values:
+                if not isinstance(value, dict):
+                    value = value._asdict()
+                cls.clear_cache(**{key: value[key] for key in lookup_keys})
 
     @classmethod
     @cached_method(key_hasher=hash_get)
