@@ -68,11 +68,14 @@ class Functionality(ABC):
 
         if microservice is not None:
             self._is_microservice = microservice
-        if self._is_microservice and "memory://" in self.config["DISPATCHER_URL"]:
+        if (
+                (self._is_microservice or self.workers > 0)
+                and "memory://" in self.config["DISPATCHER_URL"]
+        ):
             self.logger.warning(
-                "Using Ouranos as microservices and the memory-based dispatcher. "
-                "This could lead to errors as some data won't "
-                "be transferred between the different microservices.")
+                "Using Ouranos as microservices and/or with worker(s), and the "
+                "memory-based dispatcher. This could lead to errors as some data "
+                "won't be transferred between the different processes.")
 
     @property
     def started(self) -> bool:
