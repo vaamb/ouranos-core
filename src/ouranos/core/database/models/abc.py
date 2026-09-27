@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 import typing as t
 from typing import (
-    Any, Callable, Collection, Literal, NamedTuple, Self, Sequence, TypeAlias)
+    Any, Callable, Collection, Literal, Self, Sequence, TypeAlias)
 from uuid import UUID
 from warnings import warn
 
@@ -330,7 +330,7 @@ class CRUDMixin:
             cls,
             session: AsyncSession,
             /,
-            values: list[dict] | list[NamedTuple],
+            values: list[dict],
             _on_conflict_do: on_conflict_opt = None,
     ) -> None:
         insert = cls._get_insert()
@@ -338,8 +338,6 @@ class CRUDMixin:
         if _on_conflict_do:
             on_conflict_do_method = cls._get_on_conflict_do()
             first = values if isinstance(values, dict) else values[0]
-            if not isinstance(first, dict):
-                first = first._asdict()
             stmt = on_conflict_do_method(stmt, _on_conflict_do, first.keys())
         await session.execute(stmt)
 

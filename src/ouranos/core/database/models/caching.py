@@ -3,7 +3,7 @@ from __future__ import annotations
 import functools
 import inspect
 from typing import (
-    Any, Callable, Hashable, MutableMapping, NamedTuple, Protocol, Self, Type,
+    Any, Callable, Hashable, MutableMapping, Protocol, Self, Type,
     TypeVar)
 
 from cachetools import keys
@@ -380,7 +380,7 @@ class CachedCRUDMixin(CRUDMixin):
             cls,
             session: AsyncSession,
             /,
-            values: list[dict] | list[NamedTuple],
+            values: list[dict],
             _on_conflict_do: on_conflict_opt = None,
     ) -> None:
         await super().create_multiple(
@@ -388,8 +388,6 @@ class CachedCRUDMixin(CRUDMixin):
         if _on_conflict_do == "update":
             lookup_keys = cls._get_lookup_keys()
             for value in values:
-                if not isinstance(value, dict):
-                    value = value._asdict()
                 cls.clear_cache(**{key: value[key] for key in lookup_keys})
 
     @classmethod
