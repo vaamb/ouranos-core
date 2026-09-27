@@ -48,8 +48,8 @@
   enough system interpreter (#429)
 - DB logging (`LOG_TO_DB`) now goes through SQLAlchemy instead of a bespoke `log.sqlite`
   file: `SQLiteHandler` is replaced by `DBHandler`, bound to one of two tables depending on
-  the logger it's attached to ("access"-flavoured loggers — "ouranos.web_server.socketio",
-  "uvicorn.access" — go to `AccessLog`, everything else to `BaseLog`), and keeps the full
+  the logger it's attached to ("access"-flavoured loggers, "ouranos.web_server.socketio",
+  "uvicorn.access", go to `AccessLog`, everything else to `BaseLog`), and keeps the full
   traceback of logged exceptions; writes are scheduled onto the app's own event loop rather
   than a dedicated logging thread (#442)
 - Sensor alarms are now logged every minute by their own scheduled step, run right after the
@@ -80,6 +80,10 @@
 - Email plain-text alternative: a link carrying any attribute besides "href" lost its URL and
   left a stale entry on the link stack; the source's line wrapping also leaked into the text
   (#454)
+- Third-party libraries' logs were silenced, as their loggers mostly exist before the logging
+  configuration is applied; their warnings and errors now reach the same outputs as Ouranos'
+  own logs, while debug mode still only lowers the level of Ouranos' and Uvicorn's loggers
+  (#465)
 
 ### Security
 - Resetting a password or deleting a user now revokes every session token issued beforehand;
