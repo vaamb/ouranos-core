@@ -480,7 +480,7 @@ class TestCRUDMixinMultiKeys:
 
 @pytest.mark.asyncio
 class TestCachedCRUDMixin:
-    async def test_cache(self, db: AsyncSQLAlchemyWrapper):
+    async def test_cache_exists(self, db: AsyncSQLAlchemyWrapper):
         async with db.scoped_session() as session:
             # Create a new record
             await ModelCached.create(
@@ -492,31 +492,70 @@ class TestCachedCRUDMixin:
 
             # Retrieve the record
             obj = await ModelCached.get(session, name="Eve")
-            assert obj is not None
             assert obj.name == "Eve"
 
             # Verify it has been cached
             assert len(ModelCached._cache) == 1
-            assert create_hashable_key(name="Eve") in ModelCached._cache
+            key = create_hashable_key(name="Eve")
+            assert key in ModelCached._cache
+            assert ModelCached._cache[key] == obj
 
-            # Verify no request is made
+            # Verify "get" method isn't called when the object is cached
             with patch.object(CRUDMixin, "get") as mock_get:
-                obj = await ModelCached.get(session, name="Eve")
-                assert obj is not None
-                assert obj.name == "Eve"
+                await ModelCached.get(session, name="Eve")
                 assert mock_get.call_count == 0
 
+    async def test_create_on_conflict_update_invalidates_cache(
+            self,
+            db: AsyncSQLAlchemyWrapper,
+    ):
+        async with db.scoped_session() as session:
+            await ModelCached.create(session, name="Alice", values={"age": 30})
+            await ModelCached.get(session, name="Alice")
+            key = create_hashable_key(name="Alice")
+            assert key in ModelCached._cache
+
+            await ModelCached.create(
+                session, name="Alice", values={"age": 31}, _on_conflict_do="update")
+
+            assert key not in ModelCached._cache
+
+            obj = await ModelCached.get(session, name="Alice")
+            assert obj.name == "Alice"
+            assert obj.age == 31
+
+            await ModelCached.delete(session, name="Alice")
+
+    async def test_update_invalidates_cache(self, db: AsyncSQLAlchemyWrapper):
+        async with db.scoped_session() as session:
+            await ModelCached.create(session, name="Eve", values={"age": 40})
+            await ModelCached.get(session, name="Eve")
+            key = create_hashable_key(name="Eve")
+            assert key in ModelCached._cache
+
             # Verify that update resets the cache
-            await ModelCached.update(
-                session,
-                name="Eve",
-                values={"age": 31},
-            )
-            assert len(ModelCached._cache) == 0
+            await ModelCached.update(session, name="Eve", values={"age": 31})
+            assert key not in ModelCached._cache
 
             # Recache the record
-            await ModelCached.get(session, name="Eve")
+            obj = await ModelCached.get(session, name="Eve")
+            assert key in ModelCached._cache
+            assert obj.age == 31
 
-            # Verify that delete resets the cache
             await ModelCached.delete(session, name="Eve")
-            assert len(ModelCached._cache) == 0
+
+    async def test_delete_invalidates_cache(self, db: AsyncSQLAlchemyWrapper):
+        async with db.scoped_session() as session:
+            await ModelCached.create(session, name="Eve", values={"age": 40})
+            await ModelCached.get(session, name="Eve")
+            key = create_hashable_key(name="Eve")
+            assert key in ModelCached._cache
+
+            # Verify that update resets the cache
+            await ModelCached.delete(session, name="Eve")
+            assert key not in ModelCached._cache
+
+            obj = await ModelCached.get(session, name="Eve")
+            assert obj is None
+            # Empty results are cached
+            assert key in ModelCached._cache
