@@ -86,6 +86,10 @@ class Engine(Base, CachedCRUDMixin):
         time_limit = datetime.now(timezone.utc) - timedelta(seconds=ECOSYSTEM_TIMEOUT)
         return self.last_seen >= time_limit
 
+    @property
+    def ecosystems_in_config(self) -> list[Ecosystem]:
+        return [ecosystem for ecosystem in self.ecosystems if ecosystem.in_config]
+
     @classmethod
     async def get_by_id(
             cls,
