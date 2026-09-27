@@ -370,8 +370,10 @@ class CachedCRUDMixin(CRUDMixin):
             **lookup_keys: lookup_keys_type,
     ) -> None:
         """Create a new record and invalidate the corresponding cache entry."""
-        return await super().create(
+        await super().create(
             session, values=values, _on_conflict_do=_on_conflict_do, **lookup_keys)
+        if _on_conflict_do == "update":
+            cls.clear_cache(**{key: value for key, value in lookup_keys.items()})
 
     @classmethod
     async def create_multiple(
