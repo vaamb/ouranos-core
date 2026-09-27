@@ -3,7 +3,7 @@ from __future__ import annotations
 import functools
 import inspect
 from typing import (
-    Any, Callable, Hashable, MutableMapping, NamedTuple, Protocol, Self, Type,
+    Any, Callable, Hashable, MutableMapping, Protocol, Self, Type,
     TypeVar)
 
 from cachetools import keys
@@ -370,7 +370,7 @@ class CachedCRUDMixin(CRUDMixin):
             **lookup_keys: lookup_keys_type,
     ) -> None:
         """Create a new record and invalidate the corresponding cache entry."""
-        return await super().create(
+        await super().create(
             session, values=values, _on_conflict_do=_on_conflict_do, **lookup_keys)
 
     @classmethod
@@ -378,17 +378,16 @@ class CachedCRUDMixin(CRUDMixin):
             cls,
             session: AsyncSession,
             /,
-            values: list[dict] | list[NamedTuple],
+            values: list[dict],
             _on_conflict_do: on_conflict_opt = None,
     ) -> None:
-        rv = await super().create_multiple(
+        await super().create_multiple(
             session, values=values, _on_conflict_do=_on_conflict_do)
+        # `get()` caches empty returns so `create_multiple()` needs to invalidate cache
+        # entry potentially holding a `None`
         lookup_keys = cls._get_lookup_keys()
         for value in values:
-            if not isinstance(value, dict):
-                value = value._asdict()
             cls.clear_cache(**{key: value[key] for key in lookup_keys})
-        return rv
 
     @classmethod
     @cached_method(key_hasher=hash_get)

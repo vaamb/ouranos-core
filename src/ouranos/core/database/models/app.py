@@ -1286,7 +1286,7 @@ class WikiTag(Base, CRUDMixin, AsyncAttrs):
             session, values=values, _on_conflict_do=_on_conflict_do,**lookup_keys)
 
     @classmethod
-    async def create_multiple(  # ty: ignore[invalid-method-override]
+    async def create_multiple(
             cls,
             session: AsyncSession,
             /,
