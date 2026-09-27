@@ -320,3 +320,47 @@ def test_configure_logging_debug_mode_sets_handler_levels(tmp_path):
     logger = logging.getLogger("ouranos")
     assert logger.level == logging.DEBUG
     assert all(h.level == logging.DEBUG for h in logger.handlers)
+
+
+def test_configure_logging_lets_third_party_warnings_through(tmp_path, capsys):
+    """Third-party loggers are handled by `root`, at WARNING level. Most of
+    them are created at import time, i.e. before `configure_logging` runs,
+    and `dictConfig` disables such loggers unless told otherwise.
+    """
+    third_party = logging.getLogger("some_library")  # Created before the config
+    config = {
+        "DEBUG": False,
+        "LOG_TO_STDOUT": True,
+        "LOG_TO_FILE": False,
+        "LOG_TO_DB": False,
+    }
+    configure_logging(config, tmp_path)
+
+    assert not third_party.disabled
+    third_party.info("third-party info")
+    third_party.warning("third-party warning")
+    logging.getLogger("ouranos.test").info("ouranos info")
+
+    logged = capsys.readouterr().err
+    assert "third-party info" not in logged
+    assert "third-party warning" in logged
+    # `ouranos` has its own handlers and doesn't propagate to `root`: logged once
+    assert logged.count("ouranos info") == 1
+
+
+def test_configure_logging_debug_mode_keeps_root_at_warning(tmp_path):
+    """Debug mode only concerns Ouranos' own loggers (and uvicorn's): lowering
+    `root` would let `aiosqlite` log every DB operation, which, with
+    `LOG_TO_DB`, feeds `DBHandler` with records that trigger new DB writes.
+    """
+    config = {
+        "DEBUG": True,
+        "LOG_TO_STDOUT": True,
+        "LOG_TO_FILE": False,
+        "LOG_TO_DB": False,
+    }
+    configure_logging(config, tmp_path)
+
+    assert logging.getLogger().level == logging.WARNING
+    assert not logging.getLogger("aiosqlite").isEnabledFor(logging.DEBUG)
+    assert logging.getLogger("ouranos").level == logging.DEBUG
