@@ -49,7 +49,8 @@ def client(file_server: FileServer) -> TestClient:
 
 
 def camera_token() -> str:
-    return Tokenizer.dumps({"sub": TOKEN_SUBS.CAMERA_UPLOAD.value})
+    return Tokenizer.create_token(
+        subject=TOKEN_SUBS.CAMERA_UPLOAD.value, expiration_delay=None)
 
 
 def make_image(
@@ -234,7 +235,7 @@ class TestUploadCameraImage(HardwareAware):
 
     async def test_upload_camera_image_invalid_token(self, client: TestClient):
         """Test that a token with the wrong subject is rejected."""
-        wrong_token = Tokenizer.dumps({"sub": "wrong_subject"})
+        wrong_token = Tokenizer.create_token(subject="wrong_subject")
         image = make_image()
         response = client.post(
             "/upload_camera_image",

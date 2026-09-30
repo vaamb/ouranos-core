@@ -141,9 +141,7 @@ class Tokenizer:
                 "using Ouranos in a production environment."
             )
         try:
-            payload = jwt.decode(token, secret_key,
-                                 algorithms=[Tokenizer.algorithm])
-            return payload
+            return jwt.decode(token, secret_key, algorithms=[Tokenizer.algorithm])
         except jwt.ExpiredSignatureError:
             raise ExpiredTokenError
         except jwt.InvalidTokenError:
@@ -154,13 +152,13 @@ class Tokenizer:
     @staticmethod
     def create_token(
             subject: str,
-            expiration_delay: int = 60 * 60 * 24,
+            expiration_delay: int | None = 60 * 60 * 24,
             other_claims: dict | None = None,
     ) -> str:
-        payload = {
-            "sub": subject,
-            "exp": datetime.now(timezone.utc) + timedelta(seconds=expiration_delay),
-        }
+        payload: dict[str, Any] = {"sub": subject}
+        if expiration_delay is not None:
+            exp = datetime.now(timezone.utc) + timedelta(seconds=expiration_delay)
+            payload["exp"] = exp
         other_claims = other_claims or {}
         for key, value in other_claims.items():
             if value is not None:
