@@ -431,6 +431,7 @@ class GaiaEvents(AsyncEventHandler):
                                 "type": actuator_type,
                             } for actuator_type in actuator_types_missing
                         ],
+                        _on_conflict_do="update",
                     )
 
             # Remove ecosystems not in `ecosystems.cfg` anymore
@@ -821,7 +822,8 @@ class GaiaEvents(AsyncEventHandler):
 
         async with db.scoped_session() as session:
             # Log historic data in the DB
-            await SensorDataRecord.create_multiple(session, values=records_to_create)
+            await SensorDataRecord.create_multiple(
+                session, values=records_to_create, _on_conflict_do="nothing")
             # Mark the cached data as logged
             await SensorDataCache.update_multiple(session, values=logged_cached_data)
             # Update the last_log column for hardware
@@ -854,7 +856,7 @@ class GaiaEvents(AsyncEventHandler):
         async with db.scoped_session() as session:
             try:
                 await record_model.create_multiple(
-                    session, records, _on_conflict_do="nothing")
+                    session, values=records, _on_conflict_do="nothing")
             except Exception as e:
                 await self.emit(
                     "buffered_data_ack",
@@ -969,7 +971,8 @@ class GaiaEvents(AsyncEventHandler):
                             **common_data,
                         }))
             if records_to_log:
-                await ActuatorRecord.create_multiple(session, records_to_log)
+                await ActuatorRecord.create_multiple(
+                    session, values=records_to_log, _on_conflict_do="nothing")
             if data_to_dispatch:
                 await self.internal_dispatcher.emit(
                     "actuators_data", data=data_to_dispatch,
@@ -1062,7 +1065,7 @@ class GaiaEvents(AsyncEventHandler):
         async with db.scoped_session() as session:
             # Log the health data in the DB
             await SensorDataRecord.create_multiple(
-                session, health_data, _on_conflict_do="nothing")
+                session, values=health_data, _on_conflict_do="nothing")
             # Update the last_log column for hardware
             await Hardware.update_multiple(
                 session, values=[*hardware_to_update.values()])
