@@ -90,6 +90,10 @@
   until now a leaked session cookie stayed usable for its full 31-day lifetime (#415)
 - `is_fresh()` now raises instead of returning a boolean: as a `Depends()` route dependency its
   return value is discarded, so it would have gated nothing (#415)
+- Session tokens now carry a "session" subject, and tokens without it or missing a required
+  field are rejected; until now a password reset or confirmation token was accepted as a
+  session cookie that was always fresh and could not be revoked. Existing sessions are
+  invalidated, so every user has to log in again once (#470)
 
 ### Development
 - Sandbox script (`scripts/utils/sandbox.sh`) to run the install and update

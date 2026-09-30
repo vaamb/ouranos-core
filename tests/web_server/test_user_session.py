@@ -4,8 +4,10 @@ import pytest
 
 from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
-from ouranos.core.config.consts import SESSION_FRESHNESS
+from ouranos.core.config.consts import SESSION_FRESHNESS, TOKEN_SUBS
 from ouranos.core.database.models.app import User
+from ouranos.core.exceptions import TokenError
+from ouranos.core.utils import Tokenizer
 from ouranos.web_server.user_session import (
     get_user_from_session_info, SessionInfo)
 
@@ -41,6 +43,41 @@ class TestSessionFreshness:
         issued_at = utc_now() - timedelta(seconds=SESSION_FRESHNESS + 60)
 
         assert not SessionInfo(user_id=user.id, iat=issued_at).is_fresh
+
+
+class TestSessionToken:
+    """Only a token minted by `SessionInfo.to_token()` can be used as a session.
+
+    Every token is signed with the same key, and reset and confirmation tokens
+    also carry a "user_id". Without the "session" subject check, a leaked reset
+    link would log its holder in, and as it has no "iat" it would be always
+    fresh and never older than `User.sessions_valid_from`.
+    """
+
+    def test_session_token_round_trips(self):
+        session_info = SessionInfo(user_id=user.id)
+
+        assert SessionInfo.from_token(session_info.to_token()) == session_info
+
+    @pytest.mark.parametrize(
+        "subject", [TOKEN_SUBS.RESET_PASSWORD, TOKEN_SUBS.CONFIRMATION])
+    def test_other_token_is_rejected(self, subject: TOKEN_SUBS):
+        # Same claims as `User.create_password_reset_token()` and
+        # `User.create_confirmation_token()`
+        token = Tokenizer.create_token(
+            subject=subject.value, other_claims={"user_id": user.id})
+
+        with pytest.raises(TokenError):
+            SessionInfo.from_token(token)
+
+    @pytest.mark.parametrize("missing", ["sub", "id", "user_id", "iat", "exp"])
+    def test_token_missing_a_claim_is_rejected(self, missing: str):
+        payload = SessionInfo(user_id=user.id).to_dict()
+        payload["sub"] = TOKEN_SUBS.SESSION.value
+        del payload[missing]
+
+        with pytest.raises(TokenError):
+            SessionInfo.from_token(Tokenizer.dumps(payload))
 
 
 @pytest.mark.asyncio

@@ -35,6 +35,7 @@ class TOKEN_SUBS(StrEnum):
     CONFIRMATION = "confirmation"
     RESET_PASSWORD = "reset_password"
     CAMERA_UPLOAD = "camera_upload"
+    SESSION = "session"
 
 
 class LOGIN_NAME(StrEnum):

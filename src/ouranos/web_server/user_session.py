@@ -7,7 +7,8 @@ from typing import Self
 from pydantic import BaseModel, ValidationError, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ouranos.core.config.consts import SESSION_FRESHNESS, SESSION_TOKEN_VALIDITY
+from ouranos.core.config.consts import (
+    SESSION_FRESHNESS, SESSION_TOKEN_VALIDITY, TOKEN_SUBS)
 from ouranos.core.database.models.app import anonymous_user, User, UserMixin
 from ouranos.core.exceptions import TokenError
 from ouranos.core.utils import Tokenizer, utc_now_second
@@ -52,7 +53,9 @@ class SessionInfo(BaseModel):
         }
 
     def to_token(self) -> str:
-        return Tokenizer.dumps(self.to_dict())
+        payload = self.to_dict()
+        payload["sub"] = TOKEN_SUBS.SESSION
+        return Tokenizer.dumps(payload)
 
     @classmethod
     def from_token(
@@ -60,8 +63,17 @@ class SessionInfo(BaseModel):
             token: str,
     ) -> Self:
         try:
-            return cls(**Tokenizer.loads(token))
-        except ValidationError:
+            payload = Tokenizer.loads(token)
+            # Check the token subject
+            sub = payload.pop("sub")
+            if sub != TOKEN_SUBS.SESSION:
+                raise TokenError
+            # Make sure all the fields required were provided
+            for field in ("id", "user_id", "iat", "exp"):
+                if payload.get(field) is None:
+                    raise TokenError
+            return cls(**payload)
+        except (KeyError, ValidationError):
             raise TokenError
 
 
