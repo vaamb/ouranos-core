@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import (
     APIRouter, Body, Depends, HTTPException, Path, Query, status)
 
-from ouranos.core.config.consts import REGISTRATION_TOKEN_VALIDITY
+from ouranos.core.config import consts
 from ouranos.core.database.models.app import Permission, User, UserMixin
 from ouranos.web_server.auth import get_current_user, is_admin
 from ouranos.web_server.dependencies import get_session
@@ -155,7 +155,7 @@ async def create_confirmation_token(
 
     try:
         token = await user.create_confirmation_token(
-            expiration_delay=REGISTRATION_TOKEN_VALIDITY)
+            expiration_delay=consts.REGISTRATION_TOKEN_VALIDITY)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -163,7 +163,7 @@ async def create_confirmation_token(
         )
     if send_email:
         try:
-            await user.send_confirmation_email(session, token, REGISTRATION_TOKEN_VALIDITY)
+            await user.send_confirmation_email(session, token, consts.REGISTRATION_TOKEN_VALIDITY)
         except NotImplementedError as e:
             raise HTTPException(
                 status_code=status.HTTP_501_NOT_IMPLEMENTED,
@@ -193,7 +193,7 @@ async def create_password_reset_token(
 
     try:
         token = await user.create_password_reset_token(
-            expiration_delay=REGISTRATION_TOKEN_VALIDITY)
+            expiration_delay=consts.PASSWORD_RESET_TOKEN_VALIDITY)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -201,7 +201,8 @@ async def create_password_reset_token(
         )
     if send_email:
         try:
-            await user.send_reset_password_email(session, token, REGISTRATION_TOKEN_VALIDITY)
+            await user.send_reset_password_email(
+                session, token, consts.PASSWORD_RESET_TOKEN_VALIDITY)
         except NotImplementedError as e:
             raise HTTPException(
                 status_code=status.HTTP_501_NOT_IMPLEMENTED,
