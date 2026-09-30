@@ -49,7 +49,8 @@ def client(file_server: FileServer) -> TestClient:
 
 
 def camera_token() -> str:
-    return Tokenizer.create_token(subject=TOKEN_SUBS.CAMERA_UPLOAD.value)
+    return Tokenizer.create_token(
+        subject=TOKEN_SUBS.CAMERA_UPLOAD.value, expiration_delay=None)
 
 
 def make_image(

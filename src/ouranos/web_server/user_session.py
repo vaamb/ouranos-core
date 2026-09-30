@@ -56,8 +56,7 @@ class SessionInfo(BaseModel):
         payload = self.to_dict()
         # Use `Tokenizer.create_token()` whose "exp" field will be overwritten
         return Tokenizer.create_token(
-            subject=TOKEN_SUBS.SESSION.value, expiration_delay=SESSION_TOKEN_VALIDITY,
-            other_claims=payload)
+            subject=TOKEN_SUBS.SESSION.value, expiration_delay=None, other_claims=payload)
 
     @classmethod
     def from_token(
