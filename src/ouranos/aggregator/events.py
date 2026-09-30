@@ -295,7 +295,8 @@ class GaiaEvents(AsyncEventHandler):
         await self.emit("registration_ack", data=ack, ttl=15, to=sid)  # ty: ignore[invalid-argument-type]
 
         if success:
-            camera_token = Tokenizer.dumps({"sub": TOKEN_SUBS.CAMERA_UPLOAD.value})
+            camera_token = Tokenizer.create_token(
+                subject=TOKEN_SUBS.CAMERA_UPLOAD.value, expiration_delay=None)
             await self.emit("camera_token", data=camera_token, to=sid)
 
     @registration_required
