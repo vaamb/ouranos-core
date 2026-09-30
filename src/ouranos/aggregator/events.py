@@ -313,7 +313,7 @@ class GaiaEvents(AsyncEventHandler):
         else:
             self.logger.warning(
                 f"Missing initialization data from engine {engine_uid}: {missing}.")
-            await self.emit("initialization_ack", data=[*missing])
+            await self.emit("initialization_ack", data=[*missing], to=sid)
 
     @registration_required
     @validate_payload(gv.EnginePingPayload)
