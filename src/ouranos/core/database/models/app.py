@@ -702,9 +702,9 @@ class User(Base, UserMixin):
         )
         stmt = paginate(stmt, page, per_page)
         if registration_start_time is not None:
-            stmt = stmt.where(cls.registration_datetime >= registration_start_time)
+            stmt = stmt.where(cls.created_at >= registration_start_time)
         if registration_end_time is not None:
-            stmt = stmt.where(cls.registration_datetime <= registration_end_time)
+            stmt = stmt.where(cls.created_at <= registration_end_time)
         if confirmed:
             stmt = stmt.where(cls.confirmed_at != None)
         if active:
