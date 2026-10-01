@@ -12,7 +12,7 @@ Ouranos is the companion server for [Gaia](https://github.com/vaamb/gaia),
 the plant environment automation client. It aggregates sensor data from one or
 more Gaia instances, archives it, exposes a REST + WebSocket API, and serves
 as the backend for the [web UI](https://github.com/vaamb/ouranos-frontend) and
-[Telegram bot](https://gitlab.com/eupla/ouranos-chatbot).
+[Telegram bot](https://github.com/vaamb/ouranos-chatbot).
 
 Part of the [gaia-ouranos](https://github.com/vaamb/gaia-ouranos) ecosystem.
 
