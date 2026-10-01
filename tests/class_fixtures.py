@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest_asyncio
 
@@ -142,11 +142,13 @@ class SystemAware:
             uid = system.pop("uid")
             await System.create(session, uid=uid, values=system)
 
+            now = datetime.now(timezone.utc)
+
             adapted_system_record = system_data_dict.copy()
+            adapted_system_record["timestamp"] = now
             await SystemDataCache.insert_data(session, adapted_system_record)
 
-            adapted_system_record["timestamp"] = (
-                    system_data_dict["timestamp"] - timedelta(hours=1))
+            adapted_system_record["timestamp"] = now - timedelta(hours=1)
             await SystemDataRecord.create_multiple(session, adapted_system_record)
 
 
