@@ -141,13 +141,29 @@ class ClientEvents(AsyncNamespace):
                 room=sid
             )
             return
-        await self.server.enter_room(sid, room_name)
-        await self.emit(
-            "join_room_ack",
-            data={"result": gv.Result.success,},
-            namespace="/",
-            room=sid
-        )
+        try:
+            await self.server.enter_room(sid, room_name)
+        except Exception as e:
+            await self.emit(
+                "join_room_ack",
+                data={
+                    "result": gv.Result.failure,
+                    "room": room_name,
+                    "reason": f"{e.__class__.__name__}: {e}"
+                },
+                namespace="/",
+                room=sid
+            )
+        else:
+            await self.emit(
+                "join_room_ack",
+                data={
+                    "result": gv.Result.success,
+                    "room": room_name,
+                },
+                namespace="/",
+                room=sid
+            )
 
     async def on_leave_room(self, sid, room_name: str) -> None:
         self.logger.debug(f'sid: {sid} - "SocketIO leave_room" {room_name}')
@@ -162,13 +178,29 @@ class ClientEvents(AsyncNamespace):
                 room=sid
             )
             return
-        await self.server.leave_room(sid, room_name)
-        await self.emit(
-            "leave_room_ack",
-            data={"result": gv.Result.success,},
-            namespace="/",
-            room=sid
-        )
+        try:
+            await self.server.leave_room(sid, room_name)
+        except Exception as e:
+            await self.emit(
+                "leave_room_ack",
+                data={
+                    "result": gv.Result.failure,
+                    "room": room_name,
+                    "reason": f"{e.__class__.__name__}: {e}"
+                },
+                namespace="/",
+                room=sid
+            )
+        else:
+            await self.emit(
+                "leave_room_ack",
+                data={
+                    "result": gv.Result.success,
+                    "room": room_name,
+                },
+                namespace="/",
+                room=sid
+            )
 
     # ---------------------------------------------------------------------------
     #   Events Web clients ->  Web server -> Aggregator
