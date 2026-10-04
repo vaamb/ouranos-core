@@ -8,7 +8,6 @@ from typing import Any
 from brotli_asgi import BrotliMiddleware
 from fastapi import APIRouter, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse as BaseResponse
 from fastapi.staticfiles import StaticFiles
 from socketio import AsyncManager, AsyncServer
 from socketio.asgi import ASGIApp
@@ -20,15 +19,6 @@ from ouranos.core.dispatchers import DispatcherFactory
 from ouranos.core.plugins_manager import PluginManager
 from ouranos.core.utils import check_secret_key, json
 from ouranos.web_server.docs import description, tags_metadata
-
-
-class JSONResponse(BaseResponse):
-    # Customize based on fastapi.responses.ORJSONResponse
-
-    media_type = "application/json"
-
-    def render(self, content: Any) -> bytes:
-        return json.dumps(content)
 
 
 def create_sio_manager(config: ConfigDict | None = None):
@@ -93,7 +83,6 @@ def create_app(config: ConfigDict | None = None) -> FastAPI:
         openapi_url="/api/openapi.json",
         docs_url="/api/docs",
         redoc_url="/api/redoc",
-        default_response_class=JSONResponse,
         lifespan=lifespan,
     )
 
@@ -152,38 +141,31 @@ def create_app(config: ConfigDict | None = None) -> FastAPI:
     # Load routes onto prefixed router
     logger.debug("Loading app-related routes")
     from ouranos.web_server.routes.app import router as app_router
-    app_router.default_response_class = JSONResponse
     prefix.include_router(app_router)
 
     logger.debug("Loading auth-related routes")
     from ouranos.web_server.routes.auth import router as auth_router
-    auth_router.default_response_class = JSONResponse
     prefix.include_router(auth_router)
 
     logger.debug("Loading user-related routes")
     from ouranos.web_server.routes.user import router as user_router
-    user_router.default_response_class = JSONResponse
     prefix.include_router(user_router)
 
     logger.debug("Loading gaia-related routes")
     from ouranos.web_server.routes.gaia import router as gaia_router
-    gaia_router.default_response_class = JSONResponse
     prefix.include_router(gaia_router)
 
     logger.debug("Loading system-related routes")
     from ouranos.web_server.routes.system import router as system_router
-    system_router.default_response_class = JSONResponse
     prefix.include_router(system_router)
 
     logger.debug("Loading services-related routes")
     from ouranos.web_server.routes.services import router as services_router
-    services_router.default_response_class = JSONResponse
     prefix.include_router(services_router)
 
     if current_app.config["TESTING"]:
         logger.debug("Loading tests-related routes")
         from ouranos.web_server.routes.tests import router as tests_router
-        tests_router.default_response_class = JSONResponse
         prefix.include_router(tests_router)
 
     # Load add-on routes onto api router with "/addons"
@@ -191,7 +173,7 @@ def create_app(config: ConfigDict | None = None) -> FastAPI:
     addon_routes = APIRouter(prefix="/addons")
     pm = PluginManager()
     pm.register_plugins()
-    pm.register_plugins_routes(addon_routes, JSONResponse)
+    pm.register_plugins_routes(addon_routes)
     prefix.include_router(addon_routes)
 
     # Load prefixed routes
