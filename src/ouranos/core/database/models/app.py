@@ -971,7 +971,6 @@ class CommunicationChannel(Base):
             if channel_in_db is None:
                 c = cls(name=channel)
                 session.add(c)
-        await session.commit()
 
 
 # TODO: make it an `ArchivableMixin` in a later pass
@@ -1348,7 +1347,6 @@ class WikiTagged:
                 .values(topic_id=self.id, tag_id=tag.id)
             )
             await session.execute(stmt)
-        await session.commit()
 
 
 class WikiObject:

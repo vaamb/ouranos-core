@@ -14,7 +14,6 @@ from anyio import Path as ioPath
 from anyio.to_thread import run_sync
 from pydantic import RootModel, ValidationError
 from sqlalchemy import delete, select, update
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from dispatcher import AsyncDispatcher, AsyncEventHandler
@@ -382,7 +381,6 @@ class GaiaEvents(AsyncEventHandler):
                         "longitude": place["coordinates"][1],
                     }
                 )
-            await session.commit()
 
     @registration_required
     @validate_payload(RootModel[list[gv.BaseInfoConfigPayload]])
@@ -763,14 +761,9 @@ class GaiaEvents(AsyncEventHandler):
         async with db.scoped_session() as session:
             await SensorDataCache.insert_data(session, sensors_data)
             hardware_uids = [*{s["sensor_uid"] for s in sensors_data}]
-            try:
-                await session.commit()
-            except IntegrityError:  # Received same data twice if connection issue for ex.
-                pass
-            else:
-                self.logger.debug(
-                    f"Updated `sensors_data` cache with data from sensors "
-                    f"{humanize_list(hardware_uids)}")
+            self.logger.debug(
+                f"Updated `sensors_data` cache with data from sensors "
+                f"{humanize_list(hardware_uids)}")
 
     async def log_sensors_data(self) -> None:
         logging_period = current_app.config["SENSOR_LOGGING_PERIOD"]
