@@ -2,9 +2,7 @@ from __future__ import annotations
 
 import functools
 import inspect
-from typing import (
-    Any, Callable, Hashable, MutableMapping, Protocol, Self, Type,
-    TypeVar)
+from typing import Any, Callable, Hashable, MutableMapping, Protocol, Self, Type
 
 from cachetools import keys
 from sqlalchemy import UnaryExpression
@@ -14,7 +12,7 @@ from ouranos.core.database.models.abc import (
     Base, CRUDMixin, lookup_keys_type, on_conflict_opt, query_keys_type)
 
 
-_KT = TypeVar("_KT")
+_KT = tuple[Hashable, ...]
 
 
 class _Lock(Protocol):
