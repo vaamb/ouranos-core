@@ -178,5 +178,5 @@ class PluginManager:
         plugin_routes = APIRouter(prefix=f"/{plugin.name}")
         plugin_routes.default_response_class = json_response
         for route in plugin.routes:
-            plugin_routes.add_route(route.path, route.endpoint)
+            plugin_routes.add_api_route(route.path, route.endpoint)
         router.include_router(plugin_routes)
