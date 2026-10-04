@@ -386,7 +386,8 @@ class TestPlugin:
         # Its routes reach the API router
         main_router = APIRouter()
         plugin_manager.register_plugins_routes(main_router)
-        assert any(route.path == "/ping" for route in main_router.routes)
+        # The plugin name is automatically added as a prefix
+        assert any(route.path == "/dummy/ping" for route in main_router.routes)
 
     async def test_start_plugins_skips_routes_only_extension(
             self,
