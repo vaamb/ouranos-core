@@ -549,6 +549,9 @@ class ArchivableMixin(CRUDMixin):
     _archive_column: str
     _archive_table: str
 
+    if t.TYPE_CHECKING:
+        id: Mapped[int]
+
     @classmethod
     def get_archive_table(cls) -> str:
         return cls._archive_table

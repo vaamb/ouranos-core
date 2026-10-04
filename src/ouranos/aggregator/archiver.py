@@ -66,12 +66,8 @@ class Archiver:
             session,
             Model: type[ArchivableMixin],
             time_limit,
-            offset: int,
-            per_page: int = 250,
     ) -> list[dict]:
-        stmt = Model._generate_get_query(
-            offset=offset, limit=per_page,
-            order_by=Model.get_archive_column().asc())
+        stmt = Model._generate_get_query(order_by=Model.get_archive_column().asc())
         stmt = stmt.where(Model.get_archive_column() < time_limit)
         result = await session.execute(stmt)
         return [
@@ -87,30 +83,24 @@ class Archiver:
     ) -> None:
         self.logger.debug(f"Archiving {data_name} data")
         limit = RecentModel.get_time_limit()
-        if limit is None:
-            self.logger.warning(f"No limit_key set for {data_name} ArchiveLink")
-            return
 
         now_utc = datetime.now(timezone.utc)
         time_limit = now_utc - timedelta(days=limit)
 
         async with (db.scoped_session() as session):
             async with session.begin():
-                per_page = 250
-                offset = 0
-                to_archive = await self._get_archives(
-                    session, RecentModel, time_limit, offset, per_page)
+                to_archive = await self._get_archives(session, RecentModel, time_limit)
                 while to_archive:
                     await ArchiveModel.create_multiple(
                         session, values=to_archive, _on_conflict_do="update")
-                    offset += per_page
-                    to_archive = await self._get_archives(
-                        session, RecentModel, time_limit, offset, per_page)
-                stmt = (
-                    delete(RecentModel)
-                    .where(RecentModel.get_archive_column() < time_limit)
-                )
-                await session.execute(stmt)
+                    archived = [row["id"] for row in to_archive]
+                    stmt = (
+                        delete(RecentModel)
+                        .where(RecentModel.id.in_(archived))
+                    )
+                    await session.execute(stmt)
+                    # The previous rows have been deleted, get the data now at the top
+                    to_archive = await self._get_archives(session, RecentModel, time_limit)
 
     async def archive_old_data(self) -> None:
         self.logger.info("Archiving old data")
