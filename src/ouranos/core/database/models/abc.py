@@ -759,6 +759,6 @@ class ArchivableMixin:
         return cls.__table__.c[cls._archive_column]
 
     @classmethod
-    def get_time_limit(cls) -> int:
+    def get_time_limit(cls) -> int | None:
         """Return data TTL before its archiving in days"""
         raise NotImplementedError

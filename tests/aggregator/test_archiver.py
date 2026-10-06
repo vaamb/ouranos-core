@@ -29,7 +29,7 @@ class _FakeArchivable(ArchivableMixin):
     _archive_column = "timestamp"
 
     @classmethod
-    def get_time_limit(cls) -> int:
+    def get_time_limit(cls) -> int | None:
         return 30
 
 
