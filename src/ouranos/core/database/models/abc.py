@@ -740,7 +740,7 @@ class CacheMixin(UpsertCRUDMixin):
         await session.execute(stmt)
 
 
-class ArchivableMixin(UpsertCRUDMixin):
+class ArchivableMixin:
     _archive_column: str
     _archive_table: str
 

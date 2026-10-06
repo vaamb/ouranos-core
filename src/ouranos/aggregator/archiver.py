@@ -1,8 +1,10 @@
 from datetime import datetime, timedelta, timezone
 from inspect import isclass
 from logging import getLogger, Logger
+from typing import ClassVar
 
-from sqlalchemy import delete
+from sqlalchemy import delete, insert, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos import db, scheduler
 from ouranos.core.database.models import app, archives, gaia
@@ -10,6 +12,8 @@ from ouranos.core.database.models.abc import ArchivableMixin, Base
 
 
 class Archiver:
+    _batch_size: ClassVar[int] = 100
+
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.logger: Logger = getLogger("ouranos.aggregator")
@@ -61,14 +65,19 @@ class Archiver:
             }
         return mapping
 
-    @staticmethod
-    async def _get_archives(
-            session,
-            Model: type[ArchivableMixin],
+    @classmethod
+    async def _get_rows_to_archive(
+            cls,
+            session: AsyncSession,
+            RecentModel: type[ArchivableMixin | Base],
             time_limit,
     ) -> list[dict]:
-        stmt = Model._generate_get_query(order_by=Model.get_archive_column().asc())
-        stmt = stmt.where(Model.get_archive_column() < time_limit)
+        stmt = (
+            select(RecentModel)
+            .where(RecentModel.get_archive_column() < time_limit)
+            .order_by(RecentModel.get_archive_column().asc())
+            .limit(cls._batch_size)
+        )
         result = await session.execute(stmt)
         return [
             row.to_dict()
@@ -78,29 +87,37 @@ class Archiver:
     async def _archive(
             self,
             data_name: str,
-            RecentModel: type[ArchivableMixin | Base],
-            ArchiveModel: type[ArchivableMixin | Base],
+            to_archive_model: type[ArchivableMixin | Base],
+            archive_model: type[ArchivableMixin | Base],
     ) -> None:
         self.logger.debug(f"Archiving {data_name} data")
-        limit = RecentModel.get_time_limit()
+        limit = to_archive_model.get_time_limit()
 
         now_utc = datetime.now(timezone.utc)
         time_limit = now_utc - timedelta(days=limit)
 
-        async with (db.scoped_session() as session):
-            async with session.begin():
-                to_archive = await self._get_archives(session, RecentModel, time_limit)
-                while to_archive:
-                    await ArchiveModel.create_multiple(
-                        session, values=to_archive, _on_conflict_do="update")
-                    archived = [row["id"] for row in to_archive]
-                    stmt = (
-                        delete(RecentModel)
-                        .where(RecentModel.id.in_(archived))
-                    )
-                    await session.execute(stmt)
-                    # The previous rows have been deleted, get the data now at the top
-                    to_archive = await self._get_archives(session, RecentModel, time_limit)
+        async with db.scoped_session() as session:
+            to_archive = await self._get_rows_to_archive(
+                session, to_archive_model, time_limit)
+            while to_archive:
+                # Add old data in the archive table
+                stmt = (
+                    insert(archive_model)
+                    .values(to_archive)
+                )
+                await session.execute(stmt)
+                # Remove archived data from the current data table
+                archived: list[int] = [row["id"] for row in to_archive]
+                stmt = (
+                    delete(to_archive_model)
+                    .where(to_archive_model.id.in_(archived))
+                )
+                await session.execute(stmt)
+                # Commit so each batch is self-contained
+                await session.commit()
+                # The previous rows have been deleted, get the data now at the top
+                to_archive = await self._get_rows_to_archive(
+                    session, to_archive_model, time_limit)
 
     async def archive_old_data(self) -> None:
         self.logger.info("Archiving old data")
