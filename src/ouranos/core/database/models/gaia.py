@@ -1678,16 +1678,15 @@ class ActuatorRecord(BaseActuatorRecord, CRUDMixin, ArchivableMixin):
 # ---------------------------------------------------------------------------
 #   Gaia warnings
 # ---------------------------------------------------------------------------
-# TODO: make it an `ArchivableMixin` in a later pass
-class GaiaWarning(Base):
-    __tablename__ = "warnings"
+class BaseGaiaWarning(Base, CRUDMixin):
+    __abstract__ = True
 
     id: Mapped[int] = mapped_column(primary_key=True)
     level: Mapped[gv.WarningLevel] = mapped_column(SQLIntEnum(gv.WarningLevel), default=gv.WarningLevel.low)
     title: Mapped[str] = mapped_column(sa.String(length=256))
     description: Mapped[str] = mapped_column(sa.String(length=2048))
     created_on: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
-    created_by: Mapped[str] = mapped_column(sa.ForeignKey("ecosystems.uid"))
+    created_by: Mapped[str] = mapped_column(sa.String(length=8), sa.ForeignKey("ecosystems.uid"), index=True)
     seen_on: Mapped[Optional[datetime]] = mapped_column(UtcDateTime)
     seen_by: Mapped[Optional[int]] = mapped_column()
     solved_on: Mapped[Optional[datetime]] = mapped_column(UtcDateTime)
@@ -1700,65 +1699,6 @@ class GaiaWarning(Base):
     @property
     def solved(self) -> bool:
         return self.solved_on is not None
-
-    @classmethod
-    async def create(
-            cls,
-            session: AsyncSession,
-            /,
-            ecosystem_uid: str,
-            values: dict,
-    ) -> None:
-        values["created_by"] = ecosystem_uid
-        stmt = insert(cls).values(values)
-        await session.execute(stmt)
-
-    @classmethod
-    @cached(caches.cache_warnings, key_hasher=hash_get)
-    async def get_multiple(
-            cls,
-            session: AsyncSession,
-            /,
-            show_solved: bool = False,
-            ecosystems: str | list[str] | None = None,
-            limit: int = 10,
-    ) -> Sequence[Self]:
-        stmt = (
-            select(cls)
-            .order_by(cls.created_on.desc())
-            .limit(limit)
-        )
-        if ecosystems:
-            if isinstance(ecosystems, str):
-                ecosystems = ecosystems.split(",")
-            stmt = stmt.where(cls.created_by.in_(ecosystems))
-        if not show_solved:
-            stmt = stmt.where(cls.solved_on == None)
-        result = await session.execute(stmt)
-        return result.scalars().all()
-
-    @classmethod
-    async def update(
-            cls,
-            session: AsyncSession,
-            /,
-            warning_id: int,
-            ecosystem_uid: str,
-            values: dict,
-    ) -> None:
-        values = {**values}  # Don't mutate original values
-        values.pop("seen_on", None)
-        values.pop("solved_on", None)
-        stmt = (
-            update(cls)
-            .where(
-                (cls.id == warning_id)
-                & (cls.created_by == ecosystem_uid)
-            )
-            .values(**values)
-        )
-        await session.execute(stmt)
-        caches.cache_warnings.clear()
 
     @classmethod
     async def mark_as_seen(
@@ -1804,6 +1744,40 @@ class GaiaWarning(Base):
         await session.execute(stmt)
         await cls.mark_as_seen(session, warning_id=warning_id, user_id=user_id)
         caches.cache_warnings.clear()
+
+
+class GaiaWarning(BaseGaiaWarning, ArchivableMixin):
+    __tablename__ = "warnings"
+    _archive_table = "warnings_archive"
+    _archive_column = "solved_on"
+
+    @classmethod
+    def get_time_limit(cls) -> int:
+        return current_app.config["WARNING_ARCHIVING_PERIOD"]
+
+    @classmethod
+    @cached(caches.cache_warnings, key_hasher=hash_get)
+    async def get_multiple(
+            cls,
+            session: AsyncSession,
+            /,
+            show_solved: bool = False,
+            ecosystems: str | list[str] | None = None,
+            limit: int = 10,
+    ) -> Sequence[Self]:
+        stmt = (
+            select(cls)
+            .order_by(cls.created_on.desc())
+            .limit(limit)
+        )
+        if ecosystems:
+            if isinstance(ecosystems, str):
+                ecosystems = ecosystems.split(",")
+            stmt = stmt.where(cls.created_by.in_(ecosystems))
+        if not show_solved:
+            stmt = stmt.where(cls.solved_on == None)
+        result = await session.execute(stmt)
+        return result.scalars().all()
 
 
 # ---------------------------------------------------------------------------

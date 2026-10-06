@@ -130,8 +130,7 @@ class GaiaWarningsAware(EcosystemAware):
     @pytest_asyncio.fixture(scope="class", autouse=True)
     async def add_gaia_warnings(self, db: AsyncSQLAlchemyWrapper, add_ecosystem):
         async with db.scoped_session() as session:
-            await GaiaWarning.create(
-                session, ecosystem_uid=g_data.ecosystem_uid, values=g_data.gaia_warning)
+            await GaiaWarning.create(session, values=g_data.gaia_warning)
 
 
 class SystemAware:
