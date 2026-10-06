@@ -745,6 +745,7 @@ class ArchivableMixin:
     _archive_table: str
 
     if t.TYPE_CHECKING:
+        __table__: Table
         id: Mapped[int]
 
     @classmethod
