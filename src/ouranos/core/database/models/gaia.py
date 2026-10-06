@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from abc import abstractmethod
 from datetime import datetime, time, timedelta, timezone
 from typing import Any, Literal, Optional, Sequence, Self
 from uuid import UUID
@@ -21,8 +20,8 @@ import gaia_validators as gv
 from ouranos import current_app
 from ouranos.core.config.consts import ECOSYSTEM_TIMEOUT
 from ouranos.core.database.models.abc import (
-    ArchivableMixin, Base, CacheMixin, UpsertCRUDMixin, on_conflict_opt, lookup_keys_type,
-    query_keys_type)
+    ArchivableMixin, Base, CacheMixin, CRUDMixin, on_conflict_opt, lookup_keys_type,
+    query_keys_type, UpsertCRUDMixin)
 from ouranos.core.database.models import caches
 from ouranos.core.database.models.caching import (
     CachedCRUDMixin, cached, create_hashable_key, hash_get, hash_model_instance)
@@ -1441,7 +1440,7 @@ class BaseSensorDataRecord(BaseSensorData, UpsertCRUDMixin):
     )
 
 
-class SensorDataRecord(BaseSensorDataRecord, ArchivableMixin):
+class SensorDataRecord(BaseSensorDataRecord, CRUDMixin, ArchivableMixin):
     __tablename__ = "sensor_records"
     _archive_table = "sensor_records_archive"
     _archive_column = "timestamp"
@@ -1684,7 +1683,7 @@ class BaseActuatorRecord(Base, UpsertCRUDMixin):
         return result.all()
 
 
-class ActuatorRecord(BaseActuatorRecord, ArchivableMixin):
+class ActuatorRecord(BaseActuatorRecord, CRUDMixin, ArchivableMixin):
     __tablename__ = "actuator_records"
     _archive_table = "actuator_records_archive"
     _archive_column = "timestamp"

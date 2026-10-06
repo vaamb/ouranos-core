@@ -740,11 +740,12 @@ class CacheMixin(UpsertCRUDMixin):
         await session.execute(stmt)
 
 
-class ArchivableMixin(UpsertCRUDMixin):
+class ArchivableMixin:
     _archive_column: str
     _archive_table: str
 
     if t.TYPE_CHECKING:
+        __table__: Table
         id: Mapped[int]
 
     @classmethod
