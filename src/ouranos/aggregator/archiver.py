@@ -70,15 +70,18 @@ class Archiver:
     async def _get_rows_to_archive(
             cls,
             session: AsyncSession,
-            RecentModel: type[ArchivableMixin | Base],
+            recent_model: type[ArchivableMixin | Base],
             time_limit,
     ) -> list[dict]:
         stmt = (
-            select(RecentModel)
-            .where(RecentModel.get_archive_column() < time_limit)
-            .order_by(RecentModel.get_archive_column().asc())
+            select(recent_model)
+            .where(recent_model.get_archive_column() < time_limit)
+            .order_by(recent_model.get_archive_column().asc())
             .limit(cls._batch_size)
         )
+        # Don't archive unsolved rows
+        if hasattr(recent_model, "solved_on"):
+            stmt = stmt.where(recent_model.solved_on != None)  # ty: ignore[invalid-argument-type]
         result = await session.execute(stmt)
         return [
             row.to_dict()
