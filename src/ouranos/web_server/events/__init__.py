@@ -22,6 +22,9 @@ ADMIN_ROOM = "administrator"
 CAMERA_STREAM_ROOM = "camera_stream"
 
 
+class NotAllowedError(Exception): ...
+
+
 class ClientEvents(AsyncNamespace):
     def __init__(self, namespace=None):
         super().__init__(namespace=namespace)
@@ -130,18 +133,9 @@ class ClientEvents(AsyncNamespace):
 
     async def on_join_room(self, sid, room_name: str) -> None:
         self.logger.debug(f'sid: {sid} - "SocketIO join_room" {room_name}')
-        if room_name == ADMIN_ROOM:
-            await self.emit(
-                "join_room_ack",
-                data={
-                    "result": gv.Result.failure,
-                    "reason": "Admin room can only be entered while connecting."
-                },
-                namespace="/",
-                room=sid
-            )
-            return
         try:
+            if room_name == ADMIN_ROOM:
+                raise NotAllowedError("Admin room can only be entered while connecting.")
             await self.server.enter_room(sid, room_name)
         except Exception as e:
             await self.emit(
@@ -152,7 +146,7 @@ class ClientEvents(AsyncNamespace):
                     "reason": f"{e.__class__.__name__}: {e}"
                 },
                 namespace="/",
-                room=sid
+                to=sid
             )
         else:
             await self.emit(
@@ -162,23 +156,14 @@ class ClientEvents(AsyncNamespace):
                     "room": room_name,
                 },
                 namespace="/",
-                room=sid
+                to=sid
             )
 
     async def on_leave_room(self, sid, room_name: str) -> None:
         self.logger.debug(f'sid: {sid} - "SocketIO leave_room" {room_name}')
-        if room_name == ADMIN_ROOM:
-            await self.emit(
-                "leave_room_ack",
-                data={
-                    "result": gv.Result.failure,
-                    "reason": "Admin room is only left after disconnection."
-                },
-                namespace="/",
-                room=sid
-            )
-            return
         try:
+            if room_name == ADMIN_ROOM:
+                raise NotAllowedError("Admin room is only left after disconnection.")
             await self.server.leave_room(sid, room_name)
         except Exception as e:
             await self.emit(
@@ -189,7 +174,7 @@ class ClientEvents(AsyncNamespace):
                     "reason": f"{e.__class__.__name__}: {e}"
                 },
                 namespace="/",
-                room=sid
+                to=sid
             )
         else:
             await self.emit(
@@ -199,7 +184,7 @@ class ClientEvents(AsyncNamespace):
                     "room": room_name,
                 },
                 namespace="/",
-                room=sid
+                to=sid
             )
 
     # ---------------------------------------------------------------------------
