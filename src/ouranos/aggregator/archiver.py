@@ -95,7 +95,10 @@ class Archiver:
             archive_model: type[ArchivableMixin | Base],
     ) -> None:
         self.logger.debug(f"Archiving {data_name} data")
-        limit = to_archive_model.get_time_limit()
+        limit: int | None = to_archive_model.get_time_limit()
+        if limit is None:
+            self.logger.debug(f"Archiving is not enabled for {data_name}")
+            return
 
         now_utc = datetime.now(timezone.utc)
         time_limit = now_utc - timedelta(days=limit)

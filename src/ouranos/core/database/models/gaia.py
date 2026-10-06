@@ -1434,8 +1434,8 @@ class SensorDataRecord(BaseSensorDataRecord, CRUDMixin, ArchivableMixin):
     sensor: Mapped[Hardware] = relationship(back_populates="sensor_records")
 
     @classmethod
-    def get_time_limit(cls) -> int:
-        return current_app.config["SENSOR_ARCHIVING_PERIOD"] or 180
+    def get_time_limit(cls) -> int | None:
+        return current_app.config["SENSOR_ARCHIVING_PERIOD"]
 
     @classmethod
     @cached(caches.cache_sensors_value, key_hasher=hash_get)
@@ -1671,8 +1671,8 @@ class ActuatorRecord(BaseActuatorRecord, CRUDMixin, ArchivableMixin):
     ecosystem: Mapped[Ecosystem] = relationship(back_populates="actuator_records")
 
     @classmethod
-    def get_time_limit(cls) -> int:
-        return current_app.config["ACTUATOR_ARCHIVING_PERIOD"] or 180
+    def get_time_limit(cls) -> int | None:
+        return current_app.config["ACTUATOR_ARCHIVING_PERIOD"]
 
 
 # ---------------------------------------------------------------------------
@@ -1752,8 +1752,8 @@ class GaiaWarning(BaseGaiaWarning, ArchivableMixin):
     _archive_column = "solved_on"
 
     @classmethod
-    def get_time_limit(cls) -> int:
-        return current_app.config["WARNING_ARCHIVING_PERIOD"] or 180
+    def get_time_limit(cls) -> int | None:
+        return current_app.config["WARNING_ARCHIVING_PERIOD"]
 
     @classmethod
     @cached(caches.cache_warnings, key_hasher=hash_get)
