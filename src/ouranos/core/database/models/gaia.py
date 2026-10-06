@@ -1366,6 +1366,7 @@ class BaseSensorData(Base):
     __abstract__ = True
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    
     timestamp: Mapped[datetime] = mapped_column(UtcDateTime)
     value: Mapped[float] = mapped_column(sa.Float(precision=2))
 
@@ -1648,18 +1649,13 @@ class BaseActuatorRecord(Base, UpsertCRUDMixin):
     __abstract__ = True
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    ecosystem_uid: Mapped[str] = mapped_column(sa.String(length=8), sa.ForeignKey("ecosystems.uid"), index=True)
     type: Mapped[gv.HardwareType] = mapped_column()
     timestamp: Mapped[datetime] = mapped_column(UtcDateTime)
     active: Mapped[bool] = mapped_column(default=False)
     mode: Mapped[gv.ActuatorMode] = mapped_column(default=gv.ActuatorMode.automatic)
     status: Mapped[bool] = mapped_column(default=False)
     level: Mapped[Optional[float]] = mapped_column(sa.Float(precision=2), default=None)
-
-    @declared_attr
-    def ecosystem_uid(cls) -> Mapped[str]:
-        return mapped_column(
-            sa.String(length=8), sa.ForeignKey("ecosystems.uid"), index=True
-        )
 
     @classmethod
     async def get_timed_values(

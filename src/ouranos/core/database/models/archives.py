@@ -13,7 +13,6 @@ class ActuatorRecordArchive(BaseActuatorRecord):
     __bind_key__ = "archive"
 
     ecosystem_uid: Mapped[str] = mapped_column(sa.String(length=8), index=True)
-    actuator_uid: Mapped[str] = mapped_column(sa.String(length=16), index=True)
 
 
 class SensorDataRecordArchive(BaseSensorDataRecord):
