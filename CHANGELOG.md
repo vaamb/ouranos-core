@@ -65,6 +65,11 @@
   manual link now points to "/auth/register", where the frontend's token gate lives (#454)
 - The `base_logs`/`access_logs` tables are now always created, whatever `LOG_TO_DB`, and
   no longer lazily by `DBHandler` (#460)
+- `CRUDMixin` split into three layers: `CRUDMixin` keeps the plain CRUD methods, without
+  lookup keys nor single-row `update()`/`delete()` but with a new `delete_multiple()` by
+  primary key; `UniqueCRUDMixin` adds the lookup keys and the single-row methods they
+  guard; `UpsertCRUDMixin` adds the "on conflict" machinery, `get_or_create()` and
+  `update_or_create()`. The existing models now use `UpsertCRUDMixin` (#484)
 
 ### Fixed
 - Sensor alarms were overridden by the last `sensors_data` event received before they were
