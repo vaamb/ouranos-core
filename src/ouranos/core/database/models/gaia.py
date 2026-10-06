@@ -1753,7 +1753,7 @@ class GaiaWarning(BaseGaiaWarning, ArchivableMixin):
 
     @classmethod
     def get_time_limit(cls) -> int:
-        return current_app.config["WARNING_ARCHIVING_PERIOD"]
+        return current_app.config["WARNING_ARCHIVING_PERIOD"] or 180
 
     @classmethod
     @cached(caches.cache_warnings, key_hasher=hash_get)
