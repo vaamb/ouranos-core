@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql.functions import func
 
-from ouranos.core.database.models.abc import Base, CacheMixin, CRUDMixin
+from ouranos.core.database.models.abc import Base, CacheMixin, UpsertCRUDMixin
 from ouranos.core.database.models import caches
 from ouranos.core.database.models.caching import cached, CachedCRUDMixin, hash_get
 from ouranos.core.database.models.types import UtcDateTime
@@ -65,7 +65,7 @@ class BaseSystemData(Base):
     DISK_used: Mapped[float] = mapped_column(sa.Float(precision=2))
 
 
-class SystemDataRecord(BaseSystemData, CRUDMixin):
+class SystemDataRecord(BaseSystemData, UpsertCRUDMixin):
     __tablename__ = "system_records"
     __bind_key__ = "system"
 

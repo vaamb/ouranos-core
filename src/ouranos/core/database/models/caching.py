@@ -9,7 +9,7 @@ from sqlalchemy import UnaryExpression
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ouranos.core.database.models.abc import (
-    Base, CRUDMixin, lookup_keys_type, on_conflict_opt, query_keys_type)
+    Base, UpsertCRUDMixin, lookup_keys_type, on_conflict_opt, query_keys_type)
 
 
 _KT = tuple[Hashable, ...]
@@ -334,8 +334,8 @@ def hash_delete(
     return create_hashable_key(**lookup_keys)
 
 
-class CachedCRUDMixin(CRUDMixin):
-    """A `CRUDMixin` extension that adds transparent caching to read
+class CachedCRUDMixin(UpsertCRUDMixin):
+    """An `UpsertCRUDMixin` extension that adds transparent caching to read
     operations and automatic cache invalidation to write operations.
 
     Subclasses must define a `_cache` class attribute (a MutableMapping).

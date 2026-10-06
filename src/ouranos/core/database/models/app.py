@@ -28,7 +28,7 @@ from ouranos import current_app
 from ouranos.core.config import consts
 from ouranos.core.database.models import caches
 from ouranos.core.database.models.abc import (
-    Base, CRUDMixin, lookup_keys_type, on_conflict_opt, query_keys_type, ToDictMixin)
+    Base, UpsertCRUDMixin, lookup_keys_type, on_conflict_opt, query_keys_type, ToDictMixin)
 from ouranos.core.database.models.caching import CachedCRUDMixin, create_hashable_key
 from ouranos.core.database.models.types import PathType, SQLIntEnum, UtcDateTime
 from ouranos.core.database.models.utils import paginate
@@ -1252,7 +1252,7 @@ AssociationWikiTagPicture = Table(
 )
 
 
-class WikiTag(Base, CRUDMixin, AsyncAttrs):
+class WikiTag(Base, UpsertCRUDMixin, AsyncAttrs):
     __tablename__ = "wiki_tags"
     __bind_key__ = "app"
     _lookup_keys = ["name"]
@@ -1363,7 +1363,7 @@ class WikiObject:
         return abs_path.relative_to(cls.root_dir())
 
 
-class WikiTopic(Base, WikiTagged, CRUDMixin, WikiObject):
+class WikiTopic(Base, WikiTagged, UpsertCRUDMixin, WikiObject):
     __tablename__ = "wiki_topics"
     __bind_key__ = "app"
     _lookup_keys = ["name"]
@@ -1457,7 +1457,7 @@ class WikiTopic(Base, WikiTagged, CRUDMixin, WikiObject):
             return content
 
 
-class WikiArticle(Base, WikiTagged, CRUDMixin, WikiObject):
+class WikiArticle(Base, WikiTagged, UpsertCRUDMixin, WikiObject):
     __tablename__ = "wiki_articles"
     __bind_key__ = "app"
     __table_args__ = (
@@ -1698,7 +1698,7 @@ class WikiArticle(Base, WikiTagged, CRUDMixin, WikiObject):
         )
 
 
-class WikiArticleModification(Base, CRUDMixin):
+class WikiArticleModification(Base, UpsertCRUDMixin):
     __tablename__ = "wiki_articles_modifications"
     __bind_key__ = "app"
     __table_args__ = (
@@ -1773,7 +1773,7 @@ class WikiArticleModification(Base, CRUDMixin):
             order_by=WikiArticleModification.version.desc())
 
 
-class WikiPicture(Base, WikiTagged, CRUDMixin, WikiObject):
+class WikiPicture(Base, WikiTagged, UpsertCRUDMixin, WikiObject):
     __tablename__ = "wiki_pictures"
     __bind_key__ = "app"
     __table_args__ = (

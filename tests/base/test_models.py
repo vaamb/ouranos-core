@@ -15,14 +15,15 @@ from sqlalchemy.sql import desc, func
 
 from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
-from ouranos.core.database.models.abc import Base, CRUDMixin
+from ouranos.core.database.models.abc import (
+    Base, CRUDMixin, UniqueCRUDMixin, UpsertCRUDMixin)
 from ouranos.core.database.models.caching import CachedCRUDMixin, create_hashable_key
 from ouranos.core.database.models.gaia import SensorDataCache
 from ouranos.core.database.models.types import UtcDateTime
 from ouranos.core.database.models.utils import HigherThan
 
 
-class ModelSingleKey(Base, CRUDMixin):
+class ModelSingleKey(Base, UpsertCRUDMixin):
     __tablename__ = "tests"
     _lookup_keys = ["name"]
 
@@ -33,7 +34,7 @@ class ModelSingleKey(Base, CRUDMixin):
     created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
 
 
-class ModelMultiKeys(Base, CRUDMixin):
+class ModelMultiKeys(Base, UpsertCRUDMixin):
     __tablename__ = "test_multi_lookup"
     _lookup_keys = ["firstname", "lastname"]
 
@@ -56,7 +57,7 @@ class ModelCached(ModelSingleKey, CachedCRUDMixin):
     _cache = TTLCache(maxsize=2, ttl=60)
 
 
-class ModelNullable(Base, CRUDMixin):
+class ModelNullable(Base, UpsertCRUDMixin):
     __tablename__ = "test_nullable"
     _lookup_keys = ["name"]
 
@@ -75,7 +76,7 @@ def _counting_onupdate() -> int:
     return len(_onupdate_calls)
 
 
-class ModelOnUpdate(Base, CRUDMixin):
+class ModelOnUpdate(Base, UpsertCRUDMixin):
     __tablename__ = "test_onupdate"
     _lookup_keys = ["name"]
 
@@ -90,7 +91,7 @@ class ModelOnUpdate(Base, CRUDMixin):
     status: Mapped[str] = mapped_column(default="new", onupdate="refreshed")
 
 
-class ModelPkOnlyLookup(Base, CRUDMixin):
+class ModelPkOnlyLookup(Base, UpsertCRUDMixin):
     """No explicit `_lookup_keys` and no `unique=True` column: exercises the
     fallback of `_get_lookup_keys()` to `_get_unique_columns()`'s
     primary-key branch."""
@@ -100,7 +101,7 @@ class ModelPkOnlyLookup(Base, CRUDMixin):
     label: Mapped[str] = mapped_column()
 
 
-class ModelBadLookupKey(Base, CRUDMixin):
+class ModelBadLookupKey(Base, UpsertCRUDMixin):
     __tablename__ = "test_bad_lookup_key"
     _lookup_keys = ["not_a_column"]
 
@@ -108,7 +109,7 @@ class ModelBadLookupKey(Base, CRUDMixin):
     name: Mapped[str] = mapped_column(unique=True)
 
 
-class ModelNonUniqueLookupKey(Base, CRUDMixin):
+class ModelNonUniqueLookupKey(Base, UpsertCRUDMixin):
     __tablename__ = "test_non_unique_lookup_key"
     _lookup_keys = ["age"]
 
@@ -117,7 +118,7 @@ class ModelNonUniqueLookupKey(Base, CRUDMixin):
     age: Mapped[int] = mapped_column()
 
 
-class ModelDoubleUniqueConstraint(Base, CRUDMixin):
+class ModelDoubleUniqueConstraint(Base, UpsertCRUDMixin):
     __tablename__ = "test_double_unique_constraint"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -132,7 +133,7 @@ class ModelDoubleUniqueConstraint(Base, CRUDMixin):
     )
 
 
-class FakeNoUniqueModel(CRUDMixin):
+class FakeNoUniqueModel(UniqueCRUDMixin):
     """Not a mapped SQLAlchemy class: only used to exercise the defensive
     "no unique constraint and no primary key" branch of
     `_get_unique_columns()`, which cannot occur on a real mapped model since
@@ -140,7 +141,7 @@ class FakeNoUniqueModel(CRUDMixin):
     __tablename__ = "fake_no_unique"
 
 
-class ModelDialectSwitch(Base, CRUDMixin):
+class ModelDialectSwitch(Base, UpsertCRUDMixin):
     """Dedicated model for mocking `_get_dialect()`. Never touched by a real
     DB query, so mutating its dialect-derived caches cannot affect other
     tests."""
@@ -150,6 +151,21 @@ class ModelDialectSwitch(Base, CRUDMixin):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(unique=True)
     age: Mapped[int] = mapped_column()
+
+
+class ModelPlain(Base, CRUDMixin):
+    """No lookup keys: rows are only identified by their autoincrement `id`."""
+    __tablename__ = "test_plain"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    label: Mapped[str] = mapped_column()
+
+
+class ModelCompositePk(Base, CRUDMixin):
+    __tablename__ = "test_composite_pk"
+
+    owner: Mapped[str] = mapped_column(primary_key=True)
+    position: Mapped[int] = mapped_column(primary_key=True)
 
 
 @pytest.mark.asyncio
@@ -454,6 +470,63 @@ class TestGetOrCreate:
             obj = await ModelSingleKey.get_or_create(
                 session, name="Existing", values={"age": 99})
             assert obj.age == 10
+
+
+@pytest.mark.asyncio
+class TestCRUDMixinPlain:
+    async def test_create_without_lookup_keys(self, db: AsyncSQLAlchemyWrapper):
+        async with db.scoped_session() as session:
+            await ModelPlain.create(session, values={"label": "twin"})
+            await ModelPlain.create(session, values={"label": "twin"})
+
+            rows = await ModelPlain.get_multiple(session, label="twin")
+            assert len(rows) == 2
+
+    def test_no_single_row_update_or_delete(self):
+        # Without lookup keys, nothing would guarantee a single row is targeted
+        assert not hasattr(ModelPlain, "update")
+        assert not hasattr(ModelPlain, "delete")
+
+    async def test_delete_multiple(self, db: AsyncSQLAlchemyWrapper):
+        async with db.scoped_session() as session:
+            await ModelPlain.create_multiple(
+                session, values=[{"label": f"del_{i}"} for i in range(3)])
+            rows = await ModelPlain.get_multiple(
+                session, label=["del_0", "del_1", "del_2"], order_by="label")
+
+            await ModelPlain.delete_multiple(
+                session, values=[{"id": row.id} for row in rows[:2]])
+
+            remaining = await ModelPlain.get_multiple(
+                session, label=["del_0", "del_1", "del_2"])
+            assert [row.label for row in remaining] == ["del_2"]
+
+    async def test_delete_multiple_empty_is_noop(self, db: AsyncSQLAlchemyWrapper):
+        async with db.scoped_session() as session:
+            await ModelPlain.create(session, values={"label": "kept"})
+
+            await ModelPlain.delete_multiple(session, values=[])
+
+            assert len(await ModelPlain.get_multiple(session, label="kept")) == 1
+
+    async def test_delete_multiple_composite_primary_key(
+            self, db: AsyncSQLAlchemyWrapper):
+        async with db.scoped_session() as session:
+            await ModelCompositePk.create_multiple(session, values=[
+                {"owner": "a", "position": 1},
+                {"owner": "a", "position": 2},
+                {"owner": "b", "position": 1},
+            ])
+
+            # ("a", 2) and ("b", 1) are deleted, but not ("a", 1) even though
+            # each of its column values is part of a deleted primary key
+            await ModelCompositePk.delete_multiple(session, values=[
+                {"owner": "a", "position": 2},
+                {"owner": "b", "position": 1},
+            ])
+
+            remaining = await ModelCompositePk.get_multiple(session)
+            assert [(row.owner, row.position) for row in remaining] == [("a", 1)]
 
 
 @pytest.mark.asyncio
