@@ -44,6 +44,7 @@ class Archiver:
             if (
                 isclass(Model)
                 and issubclass(Model, Base)
+                and hasattr(Model, "__table__")
             )
         }
         recent_models = {

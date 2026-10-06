@@ -266,6 +266,7 @@ gaia_warning = {
     "title": "Not a problem",
     "description": "Super low level warning",
     "created_on": timestamp_now,
+    "created_by": ecosystem_uid,
 }
 
 
