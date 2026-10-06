@@ -143,9 +143,9 @@ class SystemAware:
             await System.create(session, uid=uid, values=system)
 
             now = datetime.now(timezone.utc)
+            system_data_dict["timestamp"] = now
 
             adapted_system_record = system_data_dict.copy()
-            adapted_system_record["timestamp"] = now
             await SystemDataCache.insert_data(session, adapted_system_record)
 
             adapted_system_record["timestamp"] = now - timedelta(hours=1)
