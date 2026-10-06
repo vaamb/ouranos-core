@@ -8,7 +8,6 @@ import sqlalchemy as sa
 from sqlalchemy import (
     delete, insert, Select, select, Row, UniqueConstraint, update, UnaryExpression)
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.schema import Table
 from sqlalchemy.sql import func
@@ -1366,26 +1365,11 @@ class BaseSensorData(Base):
     __abstract__ = True
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    ecosystem_uid: Mapped[str] = mapped_column(sa.String(length=8), sa.ForeignKey("ecosystems.uid"), index=True)
+    sensor_uid: Mapped[str] = mapped_column(sa.String(length=16), sa.ForeignKey("hardware.uid"), index=True)
     timestamp: Mapped[datetime] = mapped_column(UtcDateTime)
+    measure: Mapped[str] = mapped_column(sa.String(length=32), sa.ForeignKey("measures.name"), index=True)
     value: Mapped[float] = mapped_column(sa.Float(precision=2))
-
-    @declared_attr
-    def measure(cls) -> Mapped[str]:
-        return mapped_column(
-            sa.String(length=32), sa.ForeignKey("measures.name"), index=True
-        )
-
-    @declared_attr
-    def ecosystem_uid(cls) -> Mapped[str]:
-        return mapped_column(
-            sa.String(length=8), sa.ForeignKey("ecosystems.uid"), index=True
-        )
-
-    @declared_attr
-    def sensor_uid(cls) -> Mapped[str]:
-        return mapped_column(
-            sa.String(length=16), sa.ForeignKey("hardware.uid"), index=True
-        )
 
 
 class SensorDataCache(BaseSensorData, CacheMixin):
@@ -1648,18 +1632,13 @@ class BaseActuatorRecord(Base, UpsertCRUDMixin):
     __abstract__ = True
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    ecosystem_uid: Mapped[str] = mapped_column(sa.String(length=8), sa.ForeignKey("ecosystems.uid"), index=True)
     type: Mapped[gv.HardwareType] = mapped_column()
     timestamp: Mapped[datetime] = mapped_column(UtcDateTime)
     active: Mapped[bool] = mapped_column(default=False)
     mode: Mapped[gv.ActuatorMode] = mapped_column(default=gv.ActuatorMode.automatic)
     status: Mapped[bool] = mapped_column(default=False)
     level: Mapped[Optional[float]] = mapped_column(sa.Float(precision=2), default=None)
-
-    @declared_attr
-    def ecosystem_uid(cls) -> Mapped[str]:
-        return mapped_column(
-            sa.String(length=8), sa.ForeignKey("ecosystems.uid"), index=True
-        )
 
     @classmethod
     async def get_timed_values(
