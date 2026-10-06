@@ -275,6 +275,10 @@ update_packages() {
     ouranos_version=$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' lib/ouranos-core/src/ouranos/__init__.py)
     sed -i 's/^version = .*/version = "'"${ouranos_version}"'"/' pyproject.toml
 
+    local python_version
+    python_version=$(sed -n 's/^requires-python = "\(.*\)"$/\1/p' lib/ouranos-core/scripts/utils/gen_pyproject.sh)
+    sed -i 's/^requires-python = .*/requires-python = "'"${python_version}"'"/' pyproject.toml
+
     # Update uv lock and packages
     uv lock --upgrade ||
         die "Failed to update uv lock"

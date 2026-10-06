@@ -49,7 +49,6 @@ class TestInstallScript(TestCase):
 
         assert master_version == __version__
 
-
     def test_python_version(self):
         # Get the core pyproject version
         core_pyproject_path = self.root_dir / "pyproject.toml"
