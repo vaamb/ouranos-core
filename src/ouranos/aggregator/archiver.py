@@ -80,7 +80,7 @@ class Archiver:
         )
         # Don't archive unsolved rows
         if hasattr(recent_model, "solved_on"):
-            stmt = stmt.where(recent_model.solved_on != None)
+            stmt = stmt.where(recent_model.solved_on != None)  # ty: ignore[invalid-argument-type]
         result = await session.execute(stmt)
         return [
             row.to_dict()
