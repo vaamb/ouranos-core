@@ -10,7 +10,7 @@ from warnings import warn
 
 from sqlalchemy import (
     and_, Column, ColumnCollection,  delete, Insert, Select, select, Table,
-    UnaryExpression, UniqueConstraint, update)
+    tuple_, UnaryExpression, UniqueConstraint, update)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.schema import ColumnDefault
 from sqlalchemy.orm import class_mapper, Mapped, mapped_column
@@ -29,6 +29,11 @@ on_conflict_opt: TypeAlias = Literal["update", "nothing"] | None
 
 class ToDictMixin:
     def to_dict(self, exclude: list | None = None) -> dict:
+        """Return the instance's loaded attributes as a dict.
+
+        :param exclude: the names of the attributes to leave out. Private
+                        attributes (starting with "_") are always left out.
+        """
         # /!\\ does not work with lazy loaded attributes as they won't be in `vars(self)`.
         # However, async SQLAlchemy does not use lazy loading
         exclude: list = exclude or []
@@ -85,14 +90,10 @@ class CRUDMixin:
         result = await session.execute(select(...))
         return result.scalars().all()
 
-    It also adds two upsert methods, `get_or_create()` and `update_or_create()`,
-    which SQLAlchemy does not provide natively.
+    It does not provide single-row `update()` and `delete()` as, without
+    lookup keys, nothing guarantees they target a single row. Use
+    `UniqueCRUDMixin` for that.
     """
-    _lookup_keys: list[str] | None = None
-    _validated_lookup_keys: list[str] | None = None
-
-    _on_conflict_do: Callable[[Insert, str, Collection[str]], Insert] | None = None
-
     if t.TYPE_CHECKING:
         __tablename__: str
         __table__: Table
@@ -100,6 +101,177 @@ class CRUDMixin:
 
         _get_dialect: Callable[[], str]
         _get_insert: Callable[[], Callable[[Any], Insert]]
+
+    @classmethod
+    async def create(
+            cls,
+            session: AsyncSession,
+            /,
+            values: dict,
+    ) -> None:
+        """Insert a single row.
+
+        :param session: an AsyncSession instance
+        :param values: a dict with table column names as keys and the row
+                       values as values
+        """
+        insert = cls._get_insert()
+        stmt = insert(cls).values(**values)
+        await session.execute(stmt)
+
+    @classmethod
+    async def create_multiple(
+            cls,
+            session: AsyncSession,
+            /,
+            values: list[dict],
+    ) -> None:
+        """Insert multiple rows in a single statement.
+
+        :param session: an AsyncSession instance
+        :param values: a list of dicts, each one containing the values of a
+                       row to insert
+        """
+        insert = cls._get_insert()
+        stmt = insert(cls).values(values)
+        await session.execute(stmt)
+
+    @classmethod
+    def _generate_get_query(
+            cls,
+            offset: int | None = None,
+            limit: int | None = None,
+            order_by: str | UnaryExpression | None = None,
+            **lookup_keys: list[query_keys_type] | query_keys_type | None,
+    ) -> Select:
+        stmt = select(cls)
+        for key, value in lookup_keys.items():
+            if value is None:
+                continue
+            elif isinstance(value, StmtModifier):
+                stmt = value.modify_stmt(stmt, getattr(cls, key))
+            elif isinstance(value, list):
+                stmt = stmt.where(cls.__table__.c[key].in_(value))
+            else:
+                stmt = stmt.where(cls.__table__.c[key] == value)
+        if offset is not None:
+            stmt = stmt.offset(offset)
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        if order_by is not None:
+            stmt = stmt.order_by(order_by)
+        return stmt
+
+    @classmethod
+    async def get(
+            cls,
+            session: AsyncSession,
+            /,
+            offset: int | None = None,
+            limit: int | None = None,
+            order_by: str | UnaryExpression | None = None,
+            **lookup_keys: list[query_keys_type] | query_keys_type | None,
+    ) -> Self | None:
+        """Get a single row, identified by its primary key.
+
+        :param session: an AsyncSession instance
+        :param offset: the offset from which to start looking
+        :param limit: the maximum number of rows to query
+        :param order_by: how to order the results
+        :param lookup_keys: a dict with table column names as keys and values
+                            depending on the related column data type
+        """
+        stmt = cls._generate_get_query(offset, limit, order_by, **lookup_keys)
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    @classmethod
+    async def get_multiple(
+            cls,
+            session: AsyncSession,
+            /,
+            offset: int | None = None,
+            limit: int | None = None,
+            order_by: str | UnaryExpression | None = None,
+            **lookup_keys: list[query_keys_type] | query_keys_type | None,
+    ) -> Sequence[Self]:
+        """Get multiple rows, identified by their primary key.
+
+        :param session: an AsyncSession instance
+        :param offset: the offset from which to start looking
+        :param limit: the maximum number of rows to query
+        :param order_by: how to order the results
+        :param lookup_keys: a dict with table column names as keys and values
+                            depending on the related column data type
+        """
+        stmt = cls._generate_get_query(offset, limit, order_by, **lookup_keys)
+        result = await session.execute(stmt)
+        return result.scalars().all()
+
+    @classmethod
+    async def update_multiple(
+            cls,
+            session: AsyncSession,
+            /,
+            values: list[dict],
+    ) -> None:
+        """Update multiple rows, identified by their primary key.
+
+        :param session: an AsyncSession instance
+        :param values: a list of dicts, each containing the primary key
+                       column(s) of a row to update along with the new values
+        """
+        await session.execute(
+            update(cls),
+            values
+        )
+
+    @classmethod
+    async def delete_multiple(
+            cls,
+            session: AsyncSession,
+            /,
+            values: list[dict],
+    ) -> None:
+        """Delete the rows whose primary key is in `values`.
+
+        :param values: a list of dicts, each containing the primary key
+                       column(s) of a row to delete. Other keys are ignored.
+        """
+        if not values:
+            return
+        primary_key = class_mapper(cls).primary_key
+        if len(primary_key) == 1:
+            column = primary_key[0]
+            stmt = (
+                delete(cls)
+                .where(column.in_([value[column.name] for value in values]))
+            )
+        else:
+            stmt = (
+                delete(cls)
+                .where(
+                    tuple_(*primary_key).in_([
+                        tuple(value[column.name] for column in primary_key)
+                        for value in values
+                    ])
+                )
+            )
+        await session.execute(stmt)
+
+
+class UniqueCRUDMixin(CRUDMixin):
+    """
+    A `CRUDMixin` extension for tables whose rows are identified by lookup
+    keys, which must be covered by a unique constraint.
+
+    The lookup keys are either explicitly given by `_lookup_keys` or inferred
+    from the table's unique constraint, unique columns or primary key. They
+    are required by `create()`, `update()` and `delete()`, so the latter two
+    always target a single row.
+    """
+    _lookup_keys: list[str] | None = None
+    _validated_lookup_keys: list[str] | None = None
 
     @classmethod
     def _get_unique_columns(cls) -> list[str]:
@@ -171,6 +343,102 @@ class CRUDMixin:
         valid_lookup_keys = cls._get_lookup_keys()
         if not all(lookup_key in lookup_keys for lookup_key in valid_lookup_keys):
             raise ValueError("You should provide all the lookup keys")
+
+    @classmethod
+    async def create(
+            cls,
+            session: AsyncSession,
+            /,
+            values: dict | None = None,
+            **lookup_keys: lookup_keys_type,
+    ) -> None:
+        """Insert a single row.
+
+        :param session: an AsyncSession instance
+        :param values: a dict with the non-lookup column names as keys and
+                       the row values as values
+        :param lookup_keys: all the lookup keys of the row, with table column
+                            names as keys and row values as values
+        """
+        cls._check_lookup_keys(*lookup_keys.keys())
+        await super().create(session, values={**lookup_keys, **(values or {})})
+
+    @classmethod
+    async def update(
+            cls,
+            session: AsyncSession,
+            /,
+            values: dict,
+            **lookup_keys: lookup_keys_type,
+    ) -> None:
+        """Update the row identified by the lookup keys.
+
+        :param session: an AsyncSession instance
+        :param values: a dict with table column names as keys and the new
+                       values as values. Entries whose value is `missing` are
+                       ignored.
+        :param lookup_keys: all the lookup keys of the row, with table column
+                            names as keys and row values as values
+        """
+        values = {
+            key: value
+            for key, value in values.items()
+            # The values received can be generated by `pydantic` and `fastapi`
+            # and sometimes, a `missing` sentinel is used rather than removing
+            # the entry all together
+            if value is not missing
+        }
+        if not values:
+            return
+        cls._check_lookup_keys(*lookup_keys.keys())
+        stmt = (
+            update(cls)
+            .where(
+                and_(
+                    cls.__table__.c[key] == value  # ty: ignore[invalid-argument-type]
+                    for key, value in lookup_keys.items()
+                )
+            )
+            .values(values)
+        )
+        await session.execute(stmt)
+
+    @classmethod
+    async def delete(
+            cls,
+            session: AsyncSession,
+            /,
+            **lookup_keys: lookup_keys_type,
+    ) -> None:
+        """Delete the row identified by the lookup keys.
+
+        :param session: an AsyncSession instance
+        :param lookup_keys: all the lookup keys of the row, with table column
+                            names as keys and row values as values
+        """
+        cls._check_lookup_keys(*lookup_keys.keys())
+        stmt = (
+            delete(cls)
+            .where(
+                and_(
+                    cls.__table__.c[key] == value  # ty: ignore[invalid-argument-type]
+                    for key, value in lookup_keys.items()
+                )
+            )
+        )
+        await session.execute(stmt)
+
+
+class UpsertCRUDMixin(UniqueCRUDMixin):
+    """
+    A `UniqueCRUDMixin` extension that adds dialect-aware upserts, using the
+    lookup keys as the conflict target.
+
+    `create()` and `create_multiple()` accept an `_on_conflict_do` argument,
+    and two upsert methods, `get_or_create()` and `update_or_create()`, which
+    SQLAlchemy does not provide natively, are added.
+    """
+    _on_conflict_do: Callable[[Insert, str, Collection[str]], Insert] | None = None
 
     @classmethod
     def _get_onupdate_columns(cls) -> list[tuple[str, ColumnDefault]]:
@@ -308,7 +576,9 @@ class CRUDMixin:
         return cls._on_conflict_do
 
     @classmethod
-    async def create(
+    # Valid ignore: `UniqueCRUDMixin.create()`'s `**lookup_keys` would also accept
+    # an `_on_conflict_do` key, but lookup keys are columns and never private
+    async def create(  # ty: ignore[invalid-method-override]
             cls,
             session: AsyncSession,
             /,
@@ -316,6 +586,17 @@ class CRUDMixin:
             _on_conflict_do: on_conflict_opt = None,
             **lookup_keys: lookup_keys_type,
     ) -> None:
+        """Insert a single row, optionally handling a lookup keys conflict.
+
+        :param session: an AsyncSession instance
+        :param values: a dict with the non-lookup column names as keys and
+                       the row values as values
+        :param _on_conflict_do: what to do if a row with the same lookup keys
+                                already exists: "update" it with `values`,
+                                do "nothing", or raise if `None`
+        :param lookup_keys: all the lookup keys of the row, with table column
+                            names as keys and row values as values
+        """
         cls._check_lookup_keys(*lookup_keys.keys())
         values = values or {}
         insert = cls._get_insert()
@@ -333,144 +614,24 @@ class CRUDMixin:
             values: list[dict],
             _on_conflict_do: on_conflict_opt = None,
     ) -> None:
+        """Insert multiple rows in a single statement, optionally handling
+        lookup keys conflicts.
+
+        :param session: an AsyncSession instance
+        :param values: a list of dicts, each one containing the values of a
+                       row to insert. All the dicts should have the same keys
+                       as the columns to update on conflict are inferred from
+                       the first one.
+        :param _on_conflict_do: what to do if a row with the same lookup keys
+                                already exists: "update" it, do "nothing", or
+                                raise if `None`
+        """
         insert = cls._get_insert()
         stmt = insert(cls).values(values)
         if _on_conflict_do:
             on_conflict_do_method = cls._get_on_conflict_do()
             first = values if isinstance(values, dict) else values[0]
             stmt = on_conflict_do_method(stmt, _on_conflict_do, first.keys())
-        await session.execute(stmt)
-
-    @classmethod
-    def _generate_get_query(
-            cls,
-            offset: int | None = None,
-            limit: int | None = None,
-            order_by: str | UnaryExpression | None = None,
-            **lookup_keys: list[query_keys_type] | query_keys_type | None,
-    ) -> Select:
-        stmt = select(cls)
-        for key, value in lookup_keys.items():
-            if value is None:
-                continue
-            elif isinstance(value, StmtModifier):
-                stmt = value.modify_stmt(stmt, getattr(cls, key))
-            elif isinstance(value, list):
-                stmt = stmt.where(cls.__table__.c[key].in_(value))
-            else:
-                stmt = stmt.where(cls.__table__.c[key] == value)
-        if offset is not None:
-            stmt = stmt.offset(offset)
-        if limit is not None:
-            stmt = stmt.limit(limit)
-        if order_by is not None:
-            stmt = stmt.order_by(order_by)
-        return stmt
-
-    @classmethod
-    async def get(
-            cls,
-            session: AsyncSession,
-            /,
-            offset: int | None = None,
-            limit: int | None = None,
-            order_by: str | UnaryExpression | None = None,
-            **lookup_keys: list[query_keys_type] | query_keys_type | None,
-    ) -> Self | None:
-        """
-        :param offset: the offset from which to start looking
-        :param limit: the maximum number of rows to query
-        :param order_by: how to order the results
-        :param session: an AsyncSession instance
-        :param lookup_keys: a dict with table column names as keys and values
-                            depending on the related column data type
-        """
-        stmt = cls._generate_get_query(offset, limit, order_by, **lookup_keys)
-        result = await session.execute(stmt)
-        return result.scalar_one_or_none()
-
-    @classmethod
-    async def get_multiple(
-            cls,
-            session: AsyncSession,
-            /,
-            offset: int | None = None,
-            limit: int | None = None,
-            order_by: str | UnaryExpression | None = None,
-            **lookup_keys: list[query_keys_type] | query_keys_type | None,
-    ) -> Sequence[Self]:
-        """
-        :param session: an AsyncSession instance
-        :param offset: the offset from which to start looking
-        :param limit: the maximum number of rows to query
-        :param order_by: how to order the results
-        :param lookup_keys: a dict with table column names as keys and values
-                            depending on the related column data type
-        """
-        stmt = cls._generate_get_query(offset, limit, order_by, **lookup_keys)
-        result = await session.execute(stmt)
-        return result.scalars().all()
-
-    @classmethod
-    async def update(
-            cls,
-            session: AsyncSession,
-            /,
-            values: dict,
-            **lookup_keys: lookup_keys_type,
-    ) -> None:
-        values = {
-            key: value
-            for key, value in values.items()
-            # The values received can be generated by `pydantic` and `fastapi`
-            # and sometimes, a `missing` sentinel is used rather than removing
-            # the entry all together
-            if value is not missing
-        }
-        if not values:
-            return
-        cls._check_lookup_keys(*lookup_keys.keys())
-        stmt = (
-            update(cls)
-            .where(
-                and_(
-                    cls.__table__.c[key] == value  # ty: ignore[invalid-argument-type]
-                    for key, value in lookup_keys.items()
-                )
-            )
-            .values(values)
-        )
-        await session.execute(stmt)
-
-    @classmethod
-    async def update_multiple(
-            cls,
-            session: AsyncSession,
-            /,
-            values: list[dict],
-    ) -> None:
-        await session.execute(
-            update(cls),
-            values
-        )
-
-    @classmethod
-    async def delete(
-            cls,
-            session: AsyncSession,
-            /,
-            **lookup_keys: lookup_keys_type,
-    ) -> None:
-        cls._check_lookup_keys(*lookup_keys.keys())
-        stmt = (
-            delete(cls)
-            .where(
-                and_(
-                    cls.__table__.c[key] == value  # ty: ignore[invalid-argument-type]
-                    for key, value in lookup_keys.items()
-                )
-            )
-        )
         await session.execute(stmt)
 
     @classmethod
@@ -481,6 +642,15 @@ class CRUDMixin:
             values: dict | None = None,
             **lookup_keys: lookup_keys_type,
     ) -> None:
+        """Insert a row, or update it if a row with the same lookup keys
+        already exists.
+
+        :param session: an AsyncSession instance
+        :param values: a dict with the non-lookup column names as keys and
+                       the row values as values
+        :param lookup_keys: all the lookup keys of the row, with table column
+                            names as keys and row values as values
+        """
         await cls.create(session, values=values, _on_conflict_do="update", **lookup_keys)
 
     @classmethod
@@ -491,6 +661,15 @@ class CRUDMixin:
             values: dict | None = None,
             **lookup_keys: lookup_keys_type,
     ) -> Self:
+        """Return the row identified by the lookup keys, inserting it first
+        if it does not exist. An existing row is left untouched.
+
+        :param session: an AsyncSession instance
+        :param values: a dict with the non-lookup column names as keys and
+                       the values to use if the row is created
+        :param lookup_keys: all the lookup keys of the row, with table column
+                            names as keys and row values as values
+        """
         await cls.create(session, values=values, _on_conflict_do="nothing", **lookup_keys)
         result = await cls.get(session, **lookup_keys)  # ty: ignore[invalid-argument-type]
         # `result` should not be `None` as it was created just before
@@ -498,7 +677,7 @@ class CRUDMixin:
         return result
 
 
-class CacheMixin(CRUDMixin):
+class CacheMixin(UpsertCRUDMixin):
     _remove_expired_threshold: int = 10
     _remove_expired_tick: int = 0
 
@@ -515,6 +694,14 @@ class CacheMixin(CRUDMixin):
             session: AsyncSession,
             values: dict | list[dict]
     ) -> None:
+        """Upsert data into the cache.
+
+        Expired rows are removed every `_remove_expired_threshold` calls.
+
+        :param session: an AsyncSession instance
+        :param values: a dict or a list of dicts, each one containing the
+                       values of a row to insert or update
+        """
         cls._remove_expired_tick += 1
         if cls._remove_expired_tick >= cls._remove_expired_threshold:
             await cls.remove_expired(session)
@@ -527,6 +714,12 @@ class CacheMixin(CRUDMixin):
             session: AsyncSession,
             **lookup_keys: list[lookup_keys_type] | lookup_keys_type | None,
     ) -> Sequence[Self]:
+        """Return the rows that have not expired yet.
+
+        :param session: an AsyncSession instance
+        :param lookup_keys: a dict with table column names as keys and values
+                            depending on the related column data type
+        """
         stmt = cls._generate_get_query(**lookup_keys)  # ty: ignore[invalid-argument-type]
         time_limit = datetime.now(timezone.utc) - timedelta(seconds=cls.get_ttl())
         stmt = stmt.where(cls.timestamp > time_limit)
@@ -535,17 +728,19 @@ class CacheMixin(CRUDMixin):
 
     @classmethod
     async def remove_expired(cls, session: AsyncSession) -> None:
+        """Delete the rows older than the TTL."""
         time_limit = datetime.now(timezone.utc) - timedelta(seconds=cls.get_ttl())
         stmt = delete(cls).where(cls.timestamp < time_limit)
         await session.execute(stmt)
 
     @classmethod
     async def clear(cls, session: AsyncSession) -> None:
+        """Delete all the rows."""
         stmt = delete(cls)
         await session.execute(stmt)
 
 
-class ArchivableMixin(CRUDMixin):
+class ArchivableMixin(UpsertCRUDMixin):
     _archive_column: str
     _archive_table: str
 
@@ -554,10 +749,12 @@ class ArchivableMixin(CRUDMixin):
 
     @classmethod
     def get_archive_table(cls) -> str:
+        """Return the name of the table the data is archived to"""
         return cls._archive_table
 
     @classmethod
     def get_archive_column(cls) -> Column:
+        """Return the column used to decide whether a row should be archived"""
         return cls.__table__.c[cls._archive_column]
 
     @classmethod

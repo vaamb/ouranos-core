@@ -21,7 +21,7 @@ import gaia_validators as gv
 from ouranos import current_app
 from ouranos.core.config.consts import ECOSYSTEM_TIMEOUT
 from ouranos.core.database.models.abc import (
-    ArchivableMixin, Base, CacheMixin, CRUDMixin, on_conflict_opt, lookup_keys_type,
+    ArchivableMixin, Base, CacheMixin, UpsertCRUDMixin, on_conflict_opt, lookup_keys_type,
     query_keys_type)
 from ouranos.core.database.models import caches
 from ouranos.core.database.models.caching import (
@@ -563,7 +563,7 @@ class Ecosystem(Base, CachedCRUDMixin, InConfigMixin):
             countdown=countdown)
 
 
-class ActuatorState(Base, CRUDMixin):
+class ActuatorState(Base, UpsertCRUDMixin):
     __tablename__ = "actuator_states"
     __table_args__ = (
         UniqueConstraint(
@@ -585,7 +585,7 @@ class ActuatorState(Base, CRUDMixin):
         )
 
 
-class Place(Base, CRUDMixin):
+class Place(Base, UpsertCRUDMixin):
     _lookup_keys = ["engine_uid", "name"]
     __tablename__ = "places"
     __table_args__ = (
@@ -611,7 +611,7 @@ class Place(Base, CRUDMixin):
         )
 
 
-class NycthemeralCycle(Base, CRUDMixin):
+class NycthemeralCycle(Base, UpsertCRUDMixin):
     __tablename__ = "nycthemeral_cycles"
 
     ecosystem_uid: Mapped[str] = mapped_column(sa.ForeignKey("ecosystems.uid"), primary_key=True)
@@ -636,7 +636,7 @@ class NycthemeralCycle(Base, CRUDMixin):
         )
 
 
-class Chaos(Base, CRUDMixin):
+class Chaos(Base, UpsertCRUDMixin):
     __tablename__ = "chaos"
 
     ecosystem_uid: Mapped[str] = mapped_column(sa.ForeignKey("ecosystems.uid"), primary_key=True)
@@ -655,7 +655,7 @@ class Chaos(Base, CRUDMixin):
             f"duration={self.duration}, intensity={self.intensity})>"
         )
 
-class EnvironmentParameter(Base, CRUDMixin):
+class EnvironmentParameter(Base, UpsertCRUDMixin):
     __tablename__ = "environment_parameters"
     __table_args__ = (
         UniqueConstraint(
@@ -773,7 +773,7 @@ class EnvironmentParameter(Base, CRUDMixin):
             session, ecosystem_uid=ecosystem_uid, parameter=parameter, values=values)
 
 
-class WeatherEvent(Base, CRUDMixin):
+class WeatherEvent(Base, UpsertCRUDMixin):
     __tablename__ = "weather_events"
     __table_args__ = (
         UniqueConstraint(
@@ -1283,7 +1283,7 @@ class Plant(Base, CachedCRUDMixin, InConfigMixin):
             await session.execute(stmt)
 
     @classmethod
-    async def create(
+    async def create(  # ty: ignore[invalid-method-override]  # see `UpsertCRUDMixin.create()`
             cls,
             session: AsyncSession,
             /,
@@ -1430,7 +1430,7 @@ class SensorDataCache(BaseSensorData, CacheMixin):
         return result.all()
 
 
-class BaseSensorDataRecord(BaseSensorData, CRUDMixin):
+class BaseSensorDataRecord(BaseSensorData, UpsertCRUDMixin):
     __abstract__ = True
     _lookup_keys = ["timestamp", "ecosystem_uid", "sensor_uid", "measure"]
     __table_args__ = (
@@ -1645,7 +1645,7 @@ class SensorAlarm(Base):
 # ---------------------------------------------------------------------------
 #   Actuators data
 # ---------------------------------------------------------------------------
-class BaseActuatorRecord(Base, CRUDMixin):
+class BaseActuatorRecord(Base, UpsertCRUDMixin):
     __abstract__ = True
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -1831,7 +1831,7 @@ class GaiaWarning(Base):
 # ---------------------------------------------------------------------------
 #   CRUD requests
 # ---------------------------------------------------------------------------
-class CrudRequest(Base, CRUDMixin):
+class CrudRequest(Base, UpsertCRUDMixin):
     __tablename__ = "crud_requests"
 
     uuid: Mapped[UUID] = mapped_column(primary_key=True)
@@ -1868,7 +1868,7 @@ class CrudRequest(Base, CRUDMixin):
 # ---------------------------------------------------------------------------
 #   Ecosystem camera pictures
 # ---------------------------------------------------------------------------
-class CameraPicture(Base, CRUDMixin):
+class CameraPicture(Base, UpsertCRUDMixin):
     __tablename__ = "camera_pictures_info"
     __table_args__ = (
         UniqueConstraint(
