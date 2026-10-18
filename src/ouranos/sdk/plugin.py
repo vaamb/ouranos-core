@@ -274,14 +274,13 @@ class Plugin(Extension):
         self.logger: Logger = getLogger(f"ouranos.{self.name}-plugin")
         self._functionality: type[F] = functionality
         self._executor: PluginExecutor | None = None
-        self._status: bool = False
         self._error_logged: bool = False
         self._command: Command | None = command
         self._config: ConfigDict | None = None
         self._kwargs: dict = {}
 
     def __repr__(self) -> str:
-        return f"<Plugin({self.name}, status={self._status})>"
+        return f"<Plugin({self.name}, status={self.is_started})>"
 
     def _fmt_exc(self, e: BaseException) -> str:
         return f"Error msg: `{e.__class__.__name__}: {e}`"
@@ -289,7 +288,7 @@ class Plugin(Extension):
     @property
     def is_started(self) -> bool:
         """Check if the plugin is currently running."""
-        return self._status
+        return self._executor is not None
 
     @property
     def functionality(self) -> type[F]:
@@ -366,7 +365,7 @@ class Plugin(Extension):
 
         :raises RuntimeError: If already started or config not set.
         """
-        if self._status:
+        if self.is_started:
             raise RuntimeError(f"{self.name} already started")
         if self._config is None:
             raise RuntimeError("Config not set. Call setup_config() first")
@@ -375,11 +374,12 @@ class Plugin(Extension):
         await self.check_requirements()
 
         workers = self.compute_number_of_workers()
-        self._executor = PluginExecutor.initialize(
+        executor = PluginExecutor.initialize(
             self.functionality, workers, self.config, self.logger, **self.kwargs)
-        await self.executor.start()
+        await executor.start()
 
-        self._status = True
+        # Only expose the executor once it has started
+        self._executor = executor
         self.logger.info(f"Started {self.name} with {workers} workers")
 
     async def shutdown(self) -> None:
@@ -387,7 +387,7 @@ class Plugin(Extension):
 
         :raises RuntimeError: If not running.
         """
-        if not self._status:
+        if not self.is_started:
             raise RuntimeError(f"{self.name} is not running")
 
         self.logger.info(f"Stopping {self.name}")
@@ -396,7 +396,7 @@ class Plugin(Extension):
             await self.executor.stop()
         finally:
             # Mark as stopped even on failure: the resources have been cleared
-            self._status = False
+            self._executor = None
 
         self.logger.info(f"Stopped {self.name}")
 
