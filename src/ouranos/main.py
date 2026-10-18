@@ -100,7 +100,7 @@ class Ouranos(Functionality):
             await plugin.shutdown()
 
     async def complete_startup(self) -> None:
-        if self._status:
+        if self.started:
             raise RuntimeError("Ouranos has already started")
 
         import setproctitle
@@ -111,15 +111,21 @@ class Ouranos(Functionality):
         self.logger.info(f"Starting Ouranos [{pid}]")
 
         await self._init_common()
-        await self.initialize()
-        await self.startup()
 
-        self.logger.info(f"Ouranos has been started [{pid}]")
+        try:
+            await self.initialize()
+            await self.startup()
+        except Exception:
+            await self._clear_common()
+            raise
+
         self._status = True
+        self.logger.info(f"Ouranos has been started [{pid}]")
 
     async def complete_shutdown(self) -> None:
-        if not self._status:
+        if not self.started:
             raise RuntimeError("Ouranos is not running")
+
         # Stop the functionality
         pid = os.getpid()
         self.logger.info(f"Stopping Ouranos [{pid}]")
@@ -128,11 +134,14 @@ class Ouranos(Functionality):
             await self.shutdown()
             await self.post_shutdown()
         except asyncio.CancelledError as e:
+            # Deliberately swallowed, see `Functionality.complete_shutdown()`
             self.logger.error(
                 f"Error while shutting down [{pid}]. {format_error(e)}", exc_info=e)
-        else:
+        finally:
+            await self._clear_common()
             self._status = False
-            self.logger.info(f"Ouranos has been stopped [{pid}]")
+
+        self.logger.info(f"Ouranos has been stopped [{pid}]")
 
 
 async def _fill_db(check_revision: bool = True):
