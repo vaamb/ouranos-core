@@ -145,6 +145,9 @@ class TestPlugin:
         await dummy_plugin.shutdown()
 
         assert manager_dict["value"] is None
+        assert not dummy_plugin.is_started
+        with pytest.raises(RuntimeError):
+            dummy_plugin.executor
 
         # Test double shutdown
         with pytest.raises(RuntimeError):
@@ -152,6 +155,37 @@ class TestPlugin:
 
         # Cleanup
         dummy_plugin.kwargs = {}
+
+    async def test_plugin_startup_failure(self, config: ConfigDict):
+        """Test that a failed startup leaves the plugin stopped and restartable."""
+        class FailingFunctionality(DummyFunctionality):
+            fail: bool = True
+
+            async def startup(self):
+                if self.fail:
+                    raise ValueError("Startup failed")
+                await super().startup()
+
+        plugin = Plugin(FailingFunctionality, name="failing", contract_versions={})
+        plugin.setup_config(config)
+        manager_dict = {}
+        plugin.update_kwargs({"manager_dict": manager_dict})
+
+        with pytest.raises(ValueError):
+            await plugin.startup()
+
+        assert not plugin.is_started
+        with pytest.raises(RuntimeError):
+            plugin.executor
+        with pytest.raises(RuntimeError):
+            await plugin.shutdown()
+
+        # The plugin can be started once the failure is gone
+        FailingFunctionality.fail = False
+        await plugin.startup()
+        assert manager_dict["value"] == 42
+        await plugin.shutdown()
+        assert not plugin.is_started
 
     async def test_plugin_worker(self, config: ConfigDict, dummy_plugin: Plugin):
         """Test plugin operation with worker processes.
