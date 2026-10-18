@@ -2,6 +2,7 @@ import pytest
 
 from ouranos.aggregator.main import Aggregator
 from ouranos.core.config import ConfigDict
+from ouranos.core.globals import scheduler
 
 
 @pytest.mark.asyncio
@@ -61,3 +62,28 @@ class TestAggregator:
         # Test double shutdown
         with pytest.raises(RuntimeError):
             await aggregator.complete_shutdown()
+
+    async def test_shutdown_failing_component(
+            self,
+            config: ConfigDict,
+            monkeypatch: pytest.MonkeyPatch,
+    ):
+        """A component failing to stop must not prevent the others from stopping."""
+        aggregator = Aggregator(config)
+        await aggregator.complete_startup()
+        dispatchers = (
+            aggregator.gaia_dispatcher,
+            aggregator.internal_dispatcher,
+            aggregator.stream_dispatcher,
+        )
+
+        async def failing_stop() -> None:
+            raise RuntimeError("Archiver failed to stop")
+
+        monkeypatch.setattr(aggregator.archiver, "stop", failing_stop)
+
+        await aggregator.complete_shutdown()
+        assert not aggregator.started
+        # The dispatchers, stopped after the archiver, are stopped nonetheless
+        assert not any(dispatcher.running for dispatcher in dispatchers)
+        assert scheduler.get_job("log_sensors_data_and_alarms") is None

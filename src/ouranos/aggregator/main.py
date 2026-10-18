@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import typing as t
+from typing import Protocol
 
 from ouranos.aggregator.archiver import Archiver
 from ouranos.aggregator.events import GaiaEvents
@@ -9,10 +10,15 @@ from ouranos.aggregator.sky_watcher import SkyWatcher
 from ouranos.core.config import ConfigDict
 from ouranos.core.dispatchers import DispatcherFactory
 from ouranos.core.globals import scheduler
+from ouranos.core.utils import format_error
 from ouranos.sdk import Functionality, Plugin
 
 if t.TYPE_CHECKING:
     from dispatcher import AsyncDispatcher
+
+
+class CanStop(Protocol):
+    async def stop(self) -> None: ...
 
 
 class Aggregator(Functionality):
@@ -142,20 +148,31 @@ class Aggregator(Functionality):
         await self.sky_watcher.start()
         await self.file_server.start()
 
-    async def shutdown(self) -> None:
+    async def _stop_component(self, name: str, component: CanStop) -> None:
         try:
-            if self.file_server.started:
-                await self.file_server.stop()
-            if self.sky_watcher.started:
-                await self.sky_watcher.stop()
-            await self.archiver.stop()
-            await self.gaia_dispatcher.stop()
-            await self.internal_dispatcher.stop()
-            await self.stream_dispatcher.stop()
-        except AttributeError:  # Not dispatcher_based
-            pass  # Handled by uvicorn or by Api
-        except RuntimeError:
-            pass  # Aggregator was not started
+            await component.stop()
+        except Exception as e:
+            self.logger.error(
+                f"Error while stopping the {name}. {format_error(e)}", exc_info=e)
+
+    async def shutdown(self) -> None:
+        # Stop each component one by one, so that if one fails, it doesn't leave
+        # the following ones running
+        if scheduler.get_job("log_sensors_data_and_alarms"):
+            scheduler.remove_job("log_sensors_data_and_alarms")
+        if self.file_server.started:
+            await self._stop_component("file server", self.file_server)
+        if self.sky_watcher.started:
+            await self._stop_component("sky watcher", self.sky_watcher)
+        await self._stop_component("archiver", self.archiver)
+        dispatchers = {
+            "Gaia dispatcher": self._gaia_dispatcher,
+            "internal dispatcher": self._internal_dispatcher,
+            "stream dispatcher": self._stream_dispatcher,
+        }
+        for name, dispatcher in dispatchers.items():
+            if dispatcher is not None and dispatcher.running:
+                await self._stop_component(name, dispatcher)
 
     async def post_shutdown(self) -> None:
         self._gaia_dispatcher = None
