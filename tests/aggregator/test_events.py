@@ -1171,7 +1171,7 @@ class TestEcosystemBackground(HardwareAware):
         # because the validator's `group` default_factory dereferences the
         # missing "actuator" key while building the model.
         wrong_payload = {}
-        with pytest.raises(KeyError):
+        with pytest.raises(ValidationError):
             await events_handler.turn_actuator(g_data.engine_sid, wrong_payload)
 
     async def test_crud(
