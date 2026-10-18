@@ -87,11 +87,18 @@ class _InProcessExecutor(PluginExecutor):
     async def start(self) -> None:
         # ty issue with TypeVar
         self._instance = self.functionality(config=self.config, **self.kwargs)  # ty: ignore[invalid-assignment]
-        await self.instance.complete_startup()
+        try:
+            await self.instance.complete_startup()
+        except Exception:
+            # `complete_startup()` already cleared the functionality resources
+            self._instance = None
+            raise
 
     async def stop(self) -> None:
-        await self.instance.complete_shutdown()
-        self._instance = None
+        try:
+            await self.instance.complete_shutdown()
+        finally:
+            self._instance = None
 
 
 class _SubprocessExecutor(PluginExecutor):
