@@ -18,8 +18,17 @@ class ImmutableDict(dict[str, Any]):
     def __setitem__(self, key: str, value: Any) -> None:
         raise AttributeError
 
+    def __delitem__(self, key: str) -> None:
+        raise AttributeError
+
     def __reduce__(self):
         return ImmutableDict, (dict(self),)
+
+    def update(self, other: dict[str, Any]) -> None:  # ty: ignore[invalid-method-override]
+        raise AttributeError
+
+    def pop(self, key: object, default: Any = None) -> Any:
+        raise AttributeError
 
 
 # Used to be `TypeVar("ConfigDict", BaseConfigDict, ImmutableDict)` but it doesn't work.
