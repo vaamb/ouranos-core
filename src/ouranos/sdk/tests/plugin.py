@@ -11,7 +11,7 @@ class DummyFunctionality(Functionality):
         self.dict["value"] = 42
 
     async def shutdown(self):
-        self.dict["value"] = None
+        self.dict["value"] = 21
 
 
 dummy_plugin = Plugin(
