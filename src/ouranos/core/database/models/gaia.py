@@ -972,7 +972,7 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
         if groups is not None:
             await cls.attach_groups(session, lookup_keys["uid"], set(groups))  # ty: ignore[invalid-argument-type]
         if measures is not None or groups is not None:
-            # Clear cache as measures and/or plants have been added
+            # Clear cache as measures and/or groups have been added
             hash_key = create_hashable_key(**lookup_keys)
             cls._cache.pop(hash_key, None)
 
@@ -998,7 +998,7 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
         if groups is not None:
             await cls.attach_groups(session, uid, set(groups))
         if measures is not None or groups is not None:
-            # Clear cache as measures and/or plants have been added
+            # Clear cache as measures and/or groups have been added
             hash_key = create_hashable_key(uid=uid, **lookup_keys)
             cls._cache.pop(hash_key, None)
 
@@ -1263,6 +1263,9 @@ class Plant(Base, CachedCRUDMixin, InConfigMixin):
                     "hardware_uid": hardware.uid,
                     "plant_uid": plant_uid
                 })
+                # Clear the cache of the hardware added
+                hardware_hash_key = create_hashable_key(uid=hardware.uid)
+                Hardware._cache.pop(hardware_hash_key, None)
         # Link the new hardware
         if hardware_to_add:
             stmt = (
@@ -1279,6 +1282,10 @@ class Plant(Base, CachedCRUDMixin, InConfigMixin):
                 .where(AssociationHardwarePlant.c.hardware_uid.in_(hardware_still_attached))
             )
             await session.execute(stmt)
+            # Clear the cache of the hardware removed
+            for hardware_uid in hardware_still_attached:
+                hardware_hash_key = create_hashable_key(uid=hardware_uid)
+                Hardware._cache.pop(hardware_hash_key, None)
 
     @classmethod
     async def create(  # ty: ignore[invalid-method-override]  # see `UpsertCRUDMixin.create()`
