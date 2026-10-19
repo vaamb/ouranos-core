@@ -34,7 +34,7 @@ class RootCommand(Group):
 
         # If the command is a plugin command, return it
         pm: PluginManager = PluginManager()
-        if not pm.plugins:
+        if not pm.plugins_are_registered:
             pm.register_plugins(omit_excluded=False)  # Allow to launch an omitted plugin
         if cmd_name in pm.plugins:
             plugin = pm.plugins[cmd_name]
