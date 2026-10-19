@@ -15,7 +15,7 @@ from ouranos.core.database.init import check_db_revision, create_db_tables
 from ouranos.core.globals import db
 from ouranos.core.plugins_manager import PluginManager
 from ouranos.core.utils import format_error, parse_str_value
-from ouranos.sdk import Functionality, Plugin
+from ouranos.sdk import Functionality
 
 
 @click.command(
@@ -83,21 +83,10 @@ class Ouranos(Functionality):
         self.plugin_manager.register_plugins()
 
     async def startup(self) -> None:
-        for plugin in self.plugin_manager.plugins.values():
-            if not isinstance(plugin, Plugin):
-                continue
-            plugin.setup_config(self.config)
-            plugin.update_kwargs({
-                "root": False,
-                "microservice": False,
-            })
-            await plugin.startup()
+        await self.plugin_manager.start_plugins(root=False, microservice=False)
 
     async def shutdown(self) -> None:
-        for plugin in self.plugin_manager.plugins.values():
-            if not isinstance(plugin, Plugin):
-                continue
-            await plugin.shutdown()
+        await self.plugin_manager.stop_plugins()
 
     async def complete_startup(self) -> None:
         if self.started:
