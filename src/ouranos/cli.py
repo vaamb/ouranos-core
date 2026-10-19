@@ -47,6 +47,7 @@ class RootCommand(Group):
     def list_commands(self, ctx: Context) -> list[str]:
         self._set_config(ctx)
         pm: PluginManager = PluginManager()
-        pm.register_plugins(omit_excluded=False)  # List all plugins installed
+        if not pm.plugins_are_registered:
+            pm.register_plugins(omit_excluded=False)  # List all plugins installed
         # Plugins are already sorted by the PluginManager
         return [*pm.plugins.keys(), *sorted(self.commands)]

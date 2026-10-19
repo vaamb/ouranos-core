@@ -172,7 +172,8 @@ def create_app(config: ConfigDict | None = None) -> FastAPI:
     logger.debug("Loading add-on routes")
     addon_routes = APIRouter(prefix="/addons")
     pm = PluginManager()
-    pm.register_plugins()
+    if not pm.plugins_are_registered:
+        pm.register_plugins()
     pm.register_plugins_routes(addon_routes)
     prefix.include_router(addon_routes)
 

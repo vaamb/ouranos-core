@@ -1,3 +1,4 @@
+from contextlib import suppress
 import logging
 from multiprocessing import Manager
 from pathlib import Path
@@ -13,6 +14,7 @@ from ouranos import current_app
 from ouranos.core.config import consts, ConfigDict, ConfigHelper
 from ouranos.core.exceptions import ContractVersionError
 from ouranos.core.plugins_manager import PluginManager
+from ouranos.core.utils import SingletonMeta
 from ouranos.sdk.plugin import (
     _InProcessExecutor, _SubprocessExecutor, Extension, Functionality, Plugin, Route)
 from ouranos.sdk.tests.plugin import DummyFunctionality
@@ -20,12 +22,14 @@ from ouranos.sdk.tests.plugin import DummyFunctionality
 
 @pytest.fixture
 def plugin_manager():
+    # Start from a fresh instance, an earlier one may still be alive
+    with suppress(KeyError):
+        SingletonMeta.detach_instance("PluginManager")
     pm = PluginManager()
 
     yield pm
 
-    pm._entry_points = {}
-    pm._plugins = {}
+    SingletonMeta.detach_instance("PluginManager")
 
 
 class TestCurrentApp:

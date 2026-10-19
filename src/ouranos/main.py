@@ -80,7 +80,8 @@ class Ouranos(Functionality):
         self.plugin_manager = PluginManager()
         # Register all the plugins at the beginning as it allows to load all the
         #  models needed
-        self.plugin_manager.register_plugins()
+        if not self.plugin_manager.plugins_are_registered:
+            self.plugin_manager.register_plugins()
 
     async def startup(self) -> None:
         await self.plugin_manager.start_plugins(root=False, microservice=False)
