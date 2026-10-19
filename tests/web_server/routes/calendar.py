@@ -6,9 +6,10 @@ import pytest
 from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
 from ouranos import json
-from ouranos.core.database.models.app import CalendarEvent, ServiceName
+from ouranos.core.database.models.app import CalendarEvent, ServiceName, anonymous_user
 
-from tests.data.app import calendar_event_public, calendar_event_users
+from tests.data.app import (
+    calendar_event_private, calendar_event_public, calendar_event_users)
 from tests.class_fixtures import EventsAware, ServicesEnabled, UsersAware
 
 
@@ -53,6 +54,34 @@ class TestCalendar(EventsAware, ServicesEnabled, UsersAware):
         assert data[1]["title"] == calendar_event_users["title"]
         assert data[1]["description"] == calendar_event_users["description"]
 
+    def test_get_filter_visibility_private(self, client_user: TestClient):
+        # The user created the private event, so they can see it
+        response = client_user.get(
+            "/api/app/services/calendar",
+            params={"visibility": "private"},
+        )
+        assert response.status_code == 200
+
+        data = json.loads(response.text)
+        titles = {event["title"] for event in data}
+        assert calendar_event_private["title"] in titles
+
+    def test_get_filter_visibility_private_different_user(
+            self,
+            client_operator: TestClient,
+    ):
+        # Another user's private events are hidden, even to an operator
+        response = client_operator.get(
+            "/api/app/services/calendar",
+            params={"visibility": "private"},
+        )
+        assert response.status_code == 200
+
+        data = json.loads(response.text)
+        titles = {event["title"] for event in data}
+        assert calendar_event_users["title"] in titles
+        assert calendar_event_private["title"] not in titles
+
     def test_get_filter_visibility_admin(self, client_admin: TestClient):
         # Admins go through the unrestricted `get_multiple` branch and can see
         # every event regardless of visibility
@@ -66,6 +95,7 @@ class TestCalendar(EventsAware, ServicesEnabled, UsersAware):
         titles = {event["title"] for event in data}
         assert calendar_event_public["title"] in titles
         assert calendar_event_users["title"] in titles
+        assert calendar_event_private["title"] in titles
 
 
 @pytest.mark.asyncio
@@ -91,7 +121,8 @@ class TestEventCreation(EventsAware, ServicesEnabled, UsersAware):
         assert response.status_code == 202
 
         async with db.scoped_session() as session:
-            events = await CalendarEvent.get_multiple_with_visibility(session)
+            events = await CalendarEvent.get_multiple_with_visibility(
+                session, user=anonymous_user)
         assert any(event.title == title for event in events)
 
 
@@ -133,6 +164,48 @@ class TestEventUpdate(EventsAware, ServicesEnabled, UsersAware):
             event = await CalendarEvent.get(session, event_id=1)
         assert event.description == description
 
+    def test_update_private_failure_not_found(self, client_operator: TestClient):
+        # Another user's private event is hidden rather than forbidden, so its
+        #  existence doesn't leak
+        response = client_operator.put(
+            "/api/app/services/calendar/u/3",
+            json={"description": "Change the description"},
+        )
+        assert response.status_code == 404
+
+    async def test_update_private_success(
+            self,
+            client_user: TestClient,
+            db: AsyncSQLAlchemyWrapper,
+    ):
+        description = "Change the private description"
+        response = client_user.put(
+            "/api/app/services/calendar/u/3",
+            json={"description": description},
+        )
+        assert response.status_code == 202
+
+        async with db.scoped_session() as session:
+            event = await CalendarEvent.get(session, event_id=3)
+        assert event.description == description
+
+    async def test_update_private_admin_success(
+            self,
+            client_admin: TestClient,
+            db: AsyncSQLAlchemyWrapper,
+    ):
+        # Admins can update the private events of other users
+        description = "Change the private description as an admin"
+        response = client_admin.put(
+            "/api/app/services/calendar/u/3",
+            json={"description": description},
+        )
+        assert response.status_code == 202
+
+        async with db.scoped_session() as session:
+            event = await CalendarEvent.get(session, event_id=3)
+        assert event.description == description
+
 
 @pytest.mark.asyncio
 class TestEventDeletion(EventsAware, ServicesEnabled, UsersAware):
@@ -161,4 +234,20 @@ class TestEventDeletion(EventsAware, ServicesEnabled, UsersAware):
         # The event is inactivated rather than removed
         async with db.scoped_session() as session:
             event = await CalendarEvent.get(session, event_id=1)
+        assert event.active is False
+
+    def test_delete_private_failure_not_found(self, client_operator: TestClient):
+        response = client_operator.delete("/api/app/services/calendar/u/3")
+        assert response.status_code == 404
+
+    async def test_delete_private_success(
+            self,
+            client_user: TestClient,
+            db: AsyncSQLAlchemyWrapper,
+    ):
+        response = client_user.delete("/api/app/services/calendar/u/3")
+        assert response.status_code == 202
+
+        async with db.scoped_session() as session:
+            event = await CalendarEvent.get(session, event_id=3)
         assert event.active is False

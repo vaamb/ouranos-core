@@ -27,6 +27,16 @@ calendar_event_public = {
 }
 
 
+calendar_event_private = {
+    "level": gv.WarningLevel.low,
+    "visibility": CalendarEventVisibility.private,
+    "title": "A private event",
+    "description": "That not really important",
+    "start_time": timestamp_now + timedelta(days=3),
+    "end_time": timestamp_now + timedelta(days=5),
+}
+
+
 wiki_topic_name = "Topic"
 wiki_article_name = "Article"
 wiki_article_content = "Content"
