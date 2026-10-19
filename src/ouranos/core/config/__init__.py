@@ -24,10 +24,10 @@ class ImmutableDict(dict[str, Any]):
     def __reduce__(self):
         return ImmutableDict, (dict(self),)
 
-    def update(self, other: dict[str, Any]) -> None:
+    def update(self, other: dict[str, Any]) -> None:  # ty: ignore[invalid-method-override]
         raise AttributeError
 
-    def pop(self, key: str, default: Any = None) -> Any:
+    def pop(self, key: object, default: Any = None) -> Any:
         raise AttributeError
 
 
