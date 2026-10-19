@@ -180,7 +180,7 @@ class PathsHelper:
             try:
                 config = ConfigHelper.get_config()
                 path = Path(config[dir_name])  # ty: ignore[invalid-key]
-            except ValueError:
+            except (TypeError, ValueError):
                 raise ValueError(f"Config.{dir_name} is not a valid directory.")
             else:
                 if not path.exists():
