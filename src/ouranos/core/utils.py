@@ -31,6 +31,22 @@ def _serializer(o: Any) -> dict | str:
     return _json.JSONEncoder().default(o)
 
 
+class SingletonMeta(type):
+    _instances: dict[str, Any] = {}
+
+    def __call__(cls, *args, **kwargs):
+        try:
+            return cls._instances[cls.__name__]
+        except KeyError:
+            instance = super().__call__(*args, **kwargs)
+            cls._instances[cls.__name__] = instance
+            return instance
+
+    @classmethod
+    def detach_instance(cls, cls_name: str) -> None:
+        del cls._instances[cls_name]
+
+
 class json:
     @staticmethod
     def dumps(obj) -> bytes:

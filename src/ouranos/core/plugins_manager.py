@@ -7,20 +7,13 @@ from fastapi import APIRouter, FastAPI
 from fastapi.responses import JSONResponse
 
 from ouranos import current_app
-from ouranos.core.utils import format_error
+from ouranos.core.utils import format_error, SingletonMeta
 from ouranos.sdk import Extension, Plugin
 
 
-class PluginManager:
-    __instance = None
+class PluginManager(metaclass=SingletonMeta):
     entry_point = "ouranos.plugins"
     test_plugin_name = "dummy"
-
-    def __new__(cls):
-        if cls.__instance is None:
-            self = super().__new__(cls)
-            cls.__instance = self
-        return cls.__instance
 
     def __init__(self):
         self.logger: Logger = getLogger("ouranos.plugin_manager")
