@@ -1044,21 +1044,23 @@ class CalendarEvent(Base):
             cls,
             stmt: Select,
             visibility: CalendarEventVisibility,
-            user_id: int | None,
+            user: UserMixin = anonymous_user,
     ) -> Select:
-        if user_id is None:
+        if user.is_anonymous:
             visibility = CalendarEventVisibility.public
         # If `visibility` is less than private, should return all the events
         #  with a level lower or equal to `visibility`
         if visibility < CalendarEventVisibility.private:
             stmt = stmt.where(cls.visibility <= visibility)
-        # If visibility is private, should return all the events with a level
-        #  lower than private and the private events created by the user
         else:
-            stmt = stmt.where(
-                (cls.visibility <= CalendarEventVisibility.users)
-                | (cls.created_by == user_id)
-            )
+            # If visibility is private, should return all the events with a level
+            #  lower than private and the private events created by the user
+            if not user.can(Permission.ADMIN):
+                stmt = stmt.where(
+                    (cls.visibility <= CalendarEventVisibility.users)
+                    | (cls.created_by == user.id)
+                )
+            # Admin users should be able to see everything
         return stmt
 
     @classmethod
@@ -1132,12 +1134,12 @@ class CalendarEvent(Base):
             session: AsyncSession,
             *,
             event_id: int,
-            user_id: int | None = None,
+            user: UserMixin,
     ) -> Self | None:
         stmt = select(cls).where(cls.id == event_id)
-        visibility = CalendarEventVisibility.private if user_id \
+        visibility = CalendarEventVisibility.private if user.is_authenticated \
                      else CalendarEventVisibility.public
-        stmt = cls._filter_by_visibility(stmt, visibility, user_id)
+        stmt = cls._filter_by_visibility(stmt, visibility, user)
         result = await session.execute(stmt)
         return result.scalars().one_or_none()
 
@@ -1146,8 +1148,8 @@ class CalendarEvent(Base):
             cls,
             session: AsyncSession,
             *,
+            user: UserMixin,
             visibility: CalendarEventVisibility = CalendarEventVisibility.public,
-            user_id: int | None = None,
             start_time: datetime | None = None,
             end_time: datetime | None = None,
             page: int = 0,
@@ -1158,7 +1160,7 @@ class CalendarEvent(Base):
             .where(cls.active == True)
             .order_by(cls.start_time.asc())
         )
-        stmt = cls._filter_by_visibility(stmt, visibility, user_id)
+        stmt = cls._filter_by_visibility(stmt, visibility, user)
         stmt = paginate(stmt, page, per_page)
         stmt = cls._filter_by_datetime(stmt, start_time, end_time)
         result = await session.execute(stmt)

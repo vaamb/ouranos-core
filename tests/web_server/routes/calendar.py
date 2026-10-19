@@ -91,7 +91,8 @@ class TestEventCreation(EventsAware, ServicesEnabled, UsersAware):
         assert response.status_code == 202
 
         async with db.scoped_session() as session:
-            events = await CalendarEvent.get_multiple_with_visibility(session)
+            events = await CalendarEvent.get_multiple_with_visibility(
+                session, user=anonymous_user)
         assert any(event.title == title for event in events)
 
 

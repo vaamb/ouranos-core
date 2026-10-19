@@ -30,6 +30,20 @@ router = APIRouter(
 )
 
 
+async def calendar_event_or_abort(
+        session: AsyncSession,
+        event_id: int,
+        user: UserMixin,
+) -> CalendarEvent:
+    event = await CalendarEvent.get_with_visibility(
+        session, event_id=event_id, user=user)
+    if event is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    if event.created_by != user.id and not user.can(Permission.ADMIN):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+    return event
+
+
 @router.get("", response_model=list[EventInfo])
 async def get_events(
         *,
@@ -69,7 +83,7 @@ async def get_events(
         # Regular users can only see their own events at most
         response = await CalendarEvent.get_multiple_with_visibility(
             session, start_time=start_time, end_time=end_time, page=page,
-            per_page=per_page, visibility=visibility_enum, user_id=current_user.id)
+            per_page=per_page, visibility=visibility_enum, user=current_user)
     return response
 
 
@@ -110,11 +124,7 @@ async def update_event(
         current_user: Annotated[UserMixin, Depends(get_current_user)],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    event = await CalendarEvent.get_with_visibility(session, event_id=event_id)
-    if event is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-    if event.created_by != current_user.id and not current_user.can(Permission.ADMIN):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+    event = await calendar_event_or_abort(session, event_id=event_id, user=current_user)
     values = payload.model_dump(exclude_defaults=True)
     try:
         await CalendarEvent.update(session, event_id=event_id, values=values)
@@ -137,11 +147,7 @@ async def delete_event(
         current_user: Annotated[UserMixin, Depends(get_current_user)],
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    event = await CalendarEvent.get_with_visibility(session, event_id=event_id)
-    if event is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-    if event.created_by != current_user.id and not current_user.can(Permission.ADMIN):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+    event = await calendar_event_or_abort(session, event_id=event_id, user=current_user)
     try:
         await CalendarEvent.inactivate(session, event_id=event_id)
         return f"Event '{event.title}' deleted"
