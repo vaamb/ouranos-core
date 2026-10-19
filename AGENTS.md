@@ -110,7 +110,8 @@ Shared data types come from the companion package **`gaia_validators`**
 ### Error handling
 
 - Prefer degraded operation over crashing: a failing functionality or plugin
-  is logged and skipped.
+  is logged and skipped. Exception: `Ouranos` starts its plugins all or
+  none, since it is useless without the aggregator and the web server.
 - Use `assert` for internal contracts; raise only at public API boundaries.
 
 ### Type checking

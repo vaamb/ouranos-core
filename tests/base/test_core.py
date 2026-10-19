@@ -144,7 +144,7 @@ class TestPlugin:
 
         await dummy_plugin.shutdown()
 
-        assert manager_dict["value"] is None
+        assert manager_dict["value"] == 21
         assert not dummy_plugin.is_started
         with pytest.raises(RuntimeError):
             dummy_plugin.executor
@@ -215,7 +215,7 @@ class TestPlugin:
 
             await dummy_plugin.shutdown()
 
-            self._poll_value(manager_dict, None, timeout=10.0)
+            self._poll_value(manager_dict, 21, timeout=10.0)
 
             # Test double shutdown
             with pytest.raises(RuntimeError):
@@ -250,7 +250,7 @@ class TestPlugin:
 
             await dummy_plugin.shutdown()
 
-            self._poll_value(manager_dict, None, timeout=10.0)
+            self._poll_value(manager_dict, 21, timeout=10.0)
 
             # Test double shutdown
             with pytest.raises(RuntimeError):
@@ -443,6 +443,66 @@ class TestPlugin:
 
         await plugin_manager.start_plugins()
         await plugin_manager.stop_plugins()
+
+    async def test_start_plugins_failure_stops_started_plugins(
+            self,
+            config: ConfigDict,
+            plugin_manager: PluginManager,
+    ):
+        """`start_plugins()` starts every plugin or none of them.
+
+        When a plugin fails to start, the ones started before it are stopped
+        and the error is raised, so the caller knows the startup failed.
+        """
+        class FailingFunctionality(DummyFunctionality):
+            async def startup(self):
+                raise ValueError("Startup failed")
+
+        # A first working plugin
+        manager_dict_first = {}
+        first = Plugin(DummyFunctionality, name="first", contract_versions={})
+        first.update_kwargs({"manager_dict": manager_dict_first})
+        # The failing plugin
+        failing = Plugin(FailingFunctionality, name="failing", contract_versions={})
+        # An unreached working plugin
+        manager_dict_last = {}
+        last = Plugin(DummyFunctionality, name="last", contract_versions={})
+        last.update_kwargs({"manager_dict": manager_dict_last})
+        # Store everything
+        plugin_manager._plugins = {"first": first, "failing": failing, "last": last}
+
+        with pytest.raises(ValueError):
+            await plugin_manager.start_plugins()
+
+        assert not first.is_started
+        assert manager_dict_first["value"] == 21  # `first` was shut down
+        assert not failing.is_started
+        assert not last.is_started
+        assert not manager_dict_last  # Never reached
+
+    async def test_stop_plugins_continues_after_failure(
+            self,
+            config: ConfigDict,
+            plugin_manager: PluginManager,
+            caplog: pytest.LogCaptureFixture,
+    ):
+        """A plugin failing to stop doesn't leave the others running."""
+        class FailingFunctionality(DummyFunctionality):
+            async def shutdown(self):
+                raise ValueError("Shutdown failed")
+
+        failing = Plugin(FailingFunctionality, name="failing", contract_versions={})
+        other = Plugin(DummyFunctionality, name="other", contract_versions={})
+        # Plugins are stopped in reverse order: `failing` is stopped first
+        plugin_manager._plugins = {"other": other, "failing": failing}
+
+        await plugin_manager.start_plugins()
+        with caplog.at_level(logging.ERROR, logger="ouranos.plugin_manager"):
+            await plugin_manager.stop_plugins()
+
+        assert not failing.is_started
+        assert not other.is_started
+        assert "Failed to stop plugin 'failing'" in caplog.text
 
     async def test_register_plugins_skip_failing_entry_point(
             self,
