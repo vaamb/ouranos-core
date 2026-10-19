@@ -48,6 +48,10 @@ class PluginManager:
         return self._plugins
 
     @property
+    def plugins_are_registered(self) -> bool:
+        return self._plugins is not None
+
+    @property
     def _core_plugins(self) -> dict[str, Plugin]:
         from ouranos.aggregator.main import aggregator_plugin
         from ouranos.web_server.main import web_server_plugin
@@ -111,7 +115,7 @@ class PluginManager:
         return plugin_name_formatted not in self.omitted
 
     def register_plugins(self, omit_excluded: bool = True) -> None:
-        if self._plugins is not None:
+        if self.plugins_are_registered:
             raise RuntimeError("Plugins have already been registered.")
 
         plugins: dict[str, Extension] = {}
