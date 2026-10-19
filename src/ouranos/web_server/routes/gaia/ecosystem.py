@@ -770,6 +770,10 @@ async def turn_actuator(
             HardwareTypeName,
             Path(description="The actuator type to search for"),
         ],
+        #actuator_group: Annotated[
+        #    str,
+        #    Body(description="The actuator group targeted"),
+        #],
         payload: Annotated[
             EcosystemTurnActuatorPayload,
             Body(description="Instruction for the actuator"),

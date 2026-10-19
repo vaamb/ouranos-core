@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, time
-from typing import Optional
+from typing import Annotated, Optional
 
 from pydantic import ConfigDict, Field, field_serializer, field_validator
 
@@ -215,8 +215,8 @@ class WeatherEventCreationPayload(gv.WeatherConfig):
 
 class WeatherEventUpdatePayload(BaseModel):
     pattern: str | MissingValue = missing
-    duration: float | MissingValue = missing
-    level: float | MissingValue = missing
+    duration: Annotated[float, Field(gt=0.0)] | MissingValue = missing
+    level: Annotated[float, Field(ge=0.0, le=100.0)] | MissingValue = missing
     linked_actuator: str | None | MissingValue = missing
 
 
@@ -279,7 +279,8 @@ class EcosystemActuatorRecords(BaseModel):
 
 class EcosystemTurnActuatorPayload(BaseModel):
     mode: gv.ActuatorModePayload = gv.ActuatorModePayload.automatic
-    countdown: float = 0.0
+    level: float = Field(default=100.0, ge=0.0, le=100.0)
+    countdown: float = Field(default=0.0, ge=0.0)
 
     @field_validator("mode", mode="before")
     def parse_mode(cls, value):
