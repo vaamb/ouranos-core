@@ -741,6 +741,67 @@ class TestInitializationDataExchange(EcosystemAware):
         with pytest.raises(ValidationError):
             await events_handler.on_plants(g_data.engine_sid, [{}])
 
+    async def test_on_hardware_detach(
+            self,
+            events_handler: GaiaEvents,
+            db: AsyncSQLAlchemyWrapper,
+    ):
+        """Test that empty measures and groups detach the previous ones.
+
+        Verifies that:
+        - Updating hardware without measures or groups keeps them attached
+        - Receiving hardware with empty measures and groups detaches them all
+        """
+        hardware_data = {**g_data.hardware_data, "groups": ["thermometers"]}
+        await events_handler.on_hardware(
+            g_data.engine_sid, [g_data.wrap_ecosystem_data_payload([hardware_data])])
+
+        # Updating other values leaves the measures and groups untouched
+        async with db.scoped_session() as session:
+            await Hardware.update(session, uid=g_data.hardware_uid, values={"name": "Renamed"})
+        async with db.scoped_session() as session:
+            hardware = await Hardware.get(session, uid=g_data.hardware_uid)
+            assert [m.name for m in hardware.measures] == [g_data.measure_name]
+            assert [g.name for g in hardware.groups] == ["thermometers"]
+
+        # Empty lists detach everything previously attached
+        hardware_data = {**hardware_data, "measures": [], "groups": []}
+        await events_handler.on_hardware(
+            g_data.engine_sid, [g_data.wrap_ecosystem_data_payload([hardware_data])])
+        async with db.scoped_session() as session:
+            hardware = await Hardware.get(session, uid=g_data.hardware_uid)
+            assert hardware.measures == []
+            assert hardware.groups == []
+
+    async def test_on_plants_detach(
+            self,
+            events_handler: GaiaEvents,
+            db: AsyncSQLAlchemyWrapper,
+    ):
+        """Test that empty hardware detaches the previous ones.
+
+        Verifies that:
+        - Updating a plant without hardware keeps it attached
+        - Receiving a plant with empty hardware detaches it all
+        """
+        await events_handler.on_hardware(g_data.engine_sid, [g_data.hardware_payload])
+        await events_handler.on_plants(g_data.engine_sid, [g_data.plants_payload])
+
+        # Updating other values leaves the hardware untouched
+        async with db.scoped_session() as session:
+            await Plant.update(session, uid=g_data.plant_uid, values={"name": "Renamed"})
+        async with db.scoped_session() as session:
+            plant = await Plant.get(session, uid=g_data.plant_uid)
+            assert [h.uid for h in plant.hardware] == [g_data.hardware_uid]
+
+        # An empty list detaches everything previously attached
+        plant_data = {**g_data.plant_data, "hardware": []}
+        await events_handler.on_plants(
+            g_data.engine_sid, [g_data.wrap_ecosystem_data_payload([plant_data])])
+        async with db.scoped_session() as session:
+            plant = await Plant.get(session, uid=g_data.plant_uid)
+            assert plant.hardware == []
+
     async def test_on_actuators_data(
             self,
             mock_dispatcher: MockAsyncDispatcher,
