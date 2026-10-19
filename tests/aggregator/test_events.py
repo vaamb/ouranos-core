@@ -802,6 +802,40 @@ class TestInitializationDataExchange(EcosystemAware):
             plant = await Plant.get(session, uid=g_data.plant_uid)
             assert plant.hardware == []
 
+    async def test_on_plants_clears_hardware_cache(
+            self,
+            events_handler: GaiaEvents,
+            db: AsyncSQLAlchemyWrapper,
+    ):
+        """Test that attaching or detaching a plant clears the hardware's cache.
+
+        Verifies that:
+        - A cached hardware lists a plant attached after it was cached
+        - A cached hardware stops listing a plant detached after it was cached
+        """
+        await events_handler.on_hardware(g_data.engine_sid, [g_data.hardware_payload])
+        no_hardware_plant_data = {**g_data.plant_data, "hardware": []}
+        await events_handler.on_plants(
+            g_data.engine_sid, [g_data.wrap_ecosystem_data_payload([no_hardware_plant_data])])
+
+        # Cache the hardware while no plant is attached
+        async with db.scoped_session() as session:
+            hardware = await Hardware.get(session, uid=g_data.hardware_uid)
+            assert hardware.plants == []
+
+        # Attaching the plant clears the hardware's cache
+        await events_handler.on_plants(g_data.engine_sid, [g_data.plants_payload])
+        async with db.scoped_session() as session:
+            hardware = await Hardware.get(session, uid=g_data.hardware_uid)
+            assert [p.uid for p in hardware.plants] == [g_data.plant_uid]
+
+        # Detaching the plant clears the hardware's cache
+        await events_handler.on_plants(
+            g_data.engine_sid, [g_data.wrap_ecosystem_data_payload([no_hardware_plant_data])])
+        async with db.scoped_session() as session:
+            hardware = await Hardware.get(session, uid=g_data.hardware_uid)
+            assert hardware.plants == []
+
     async def test_on_actuators_data(
             self,
             mock_dispatcher: MockAsyncDispatcher,
