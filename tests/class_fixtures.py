@@ -186,6 +186,8 @@ class EventsAware:
                 session, creator_id=user.id, values=a_data.calendar_event_public)
             await CalendarEvent.create(
                 session, creator_id=user.id, values=a_data.calendar_event_users)
+            await CalendarEvent.create(
+                session, creator_id=user.id, values=a_data.calendar_event_private)
 
 
 class WikiAware:
