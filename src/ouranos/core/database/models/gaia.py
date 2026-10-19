@@ -870,7 +870,7 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
             .where(AssociationHardwareMeasure.c.hardware_uid == hardware_uid)
         )
         result = await session.execute(stmt)
-        measures_already_attached: set[int] = {row[0] for row in result.all()}
+        measures_still_attached: set[int] = {row[0] for row in result.all()}
         # Accumulator for measures to add
         measures_to_add: list[dict[str, str | int]] = []
         for m in measures:
@@ -883,8 +883,8 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
             if measure.unit != m["unit"]:
                 await Measure.update(session, name=m["name"], values={"unit": m["unit"]})
                 measure = await Measure.get(session, name=m["name"])
-            if measure.id in measures_already_attached:
-                measures_already_attached.remove(measure.id)
+            if measure.id in measures_still_attached:
+                measures_still_attached.remove(measure.id)
             else:
                 measures_to_add.append({
                     "hardware_uid": hardware_uid,
@@ -898,12 +898,12 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
             )
             await session.execute(stmt)
         # Unlink the measures not linked anymore
-        if measures_already_attached:
+        if measures_still_attached:
             stmt = (
                 delete(AssociationHardwareMeasure)
                 .where(AssociationHardwareMeasure.c.hardware_uid == hardware_uid)
                 # Must be kept separate or it won't compile properly
-                .where(AssociationHardwareMeasure.c.measure_id.in_(measures_already_attached))
+                .where(AssociationHardwareMeasure.c.measure_id.in_(measures_still_attached))
             )
             await session.execute(stmt)
 
@@ -920,15 +920,15 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
             .where(AssociationHardwareGroup.c.hardware_uid == hardware_uid)
         )
         result = await session.execute(stmt)
-        groups_already_attached: set[int] = {row[0] for row in result.all()}
+        groups_still_attached: set[int] = {row[0] for row in result.all()}
         # Accumulator for groups to add
         groups_to_add: list[dict[str, str | int]] = []
         for g in groups:
             if g == "__type__":
                 raise ValueError("__type__ is not a valid group name")
             group = await HardwareGroup.get_or_create(session, name=g)
-            if group.id in groups_already_attached:
-                groups_already_attached.remove(group.id)
+            if group.id in groups_still_attached:
+                groups_still_attached.remove(group.id)
             else:
                 groups_to_add.append({
                     "hardware_uid": hardware_uid,
@@ -942,12 +942,12 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
             )
             await session.execute(stmt)
         # Unlink the groups not linked anymore
-        if groups_already_attached:
+        if groups_still_attached:
             stmt = (
                 delete(AssociationHardwareGroup)
                 .where(AssociationHardwareGroup.c.hardware_uid == hardware_uid)
                 # Must be kept separate or it won't compile properly
-                .where(AssociationHardwareGroup.c.group_id.in_(groups_already_attached))
+                .where(AssociationHardwareGroup.c.group_id.in_(groups_still_attached))
             )
             await session.execute(stmt)
 
@@ -964,14 +964,14 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
             raise ValueError("values cannot be None")
         measures: list[gv.Measure] | list[gv.MeasureDict] | None = values.pop("measures", None)
         groups: list[str] | None = values.pop("groups", None)
-        values.pop("plants", [])
+        values.pop("plants", None)
         await super().create(
             session, values=values, _on_conflict_do=_on_conflict_do, **lookup_keys)
-        if measures:
+        if measures is not None:
             await cls.attach_measures(session, lookup_keys["uid"], measures)  # ty: ignore[invalid-argument-type]
-        if groups:
+        if groups is not None:
             await cls.attach_groups(session, lookup_keys["uid"], set(groups))  # ty: ignore[invalid-argument-type]
-        if measures or groups:
+        if measures is not None or groups is not None:
             # Clear cache as measures and/or plants have been added
             hash_key = create_hashable_key(**lookup_keys)
             cls._cache.pop(hash_key, None)
@@ -991,13 +991,13 @@ class Hardware(Base, CachedCRUDMixin, InConfigMixin):
                 "updated info")
         measures: list[gv.Measure] | list[gv.MeasureDict] | None = values.pop("measures", None)
         groups: list[str] | None = values.pop("groups", None)
-        values.pop("plants", [])
+        values.pop("plants", None)
         await super().update(session, uid=uid, values=values)
-        if measures:
+        if measures is not None:
             await cls.attach_measures(session, uid, measures)
-        if groups:
+        if groups is not None:
             await cls.attach_groups(session, uid, set(groups))
-        if measures or groups:
+        if measures is not None or groups is not None:
             # Clear cache as measures and/or plants have been added
             hash_key = create_hashable_key(uid=uid, **lookup_keys)
             cls._cache.pop(hash_key, None)
@@ -1249,15 +1249,15 @@ class Plant(Base, CachedCRUDMixin, InConfigMixin):
             .where(AssociationHardwarePlant.c.plant_uid == plant_uid)
         )
         result = await session.execute(stmt)
-        hardware_already_attached: set[str] = {row[0] for row in result.all()}
+        hardware_still_attached: set[str] = {row[0] for row in result.all()}
         # Accumulator for hardware to add
         hardware_to_add: list[dict[str, str]] = []
         for hardware_uid in hardware_uids:
             hardware: Hardware | None = await Hardware.get(session, uid=hardware_uid)
             if hardware is None:
                 raise RuntimeError("Hardware should be registered before plants")
-            if hardware.uid in hardware_already_attached:
-                hardware_already_attached.remove(hardware.uid)
+            if hardware.uid in hardware_still_attached:
+                hardware_still_attached.remove(hardware.uid)
             else:
                 hardware_to_add.append({
                     "hardware_uid": hardware.uid,
@@ -1271,12 +1271,12 @@ class Plant(Base, CachedCRUDMixin, InConfigMixin):
             )
             await session.execute(stmt)
         # Unlink the hardware not linked anymore
-        if hardware_already_attached:
+        if hardware_still_attached:
             stmt = (
                 delete(AssociationHardwarePlant)
                 .where(AssociationHardwarePlant.c.plant_uid == plant_uid)
                 # Must be kept separate or it won't compile properly
-                .where(AssociationHardwarePlant.c.hardware_uid.in_(hardware_already_attached))
+                .where(AssociationHardwarePlant.c.hardware_uid.in_(hardware_still_attached))
             )
             await session.execute(stmt)
 
@@ -1290,9 +1290,9 @@ class Plant(Base, CachedCRUDMixin, InConfigMixin):
             **lookup_keys: lookup_keys_type,
     ) -> None:
         values = values or {}
-        hardware = values.pop("hardware", [])
+        hardware = values.pop("hardware", None)
         await super().create(session, values=values, _on_conflict_do=_on_conflict_do, **lookup_keys)
-        if hardware:
+        if hardware is not None:
             await cls.attach_hardware(session, lookup_keys["uid"], hardware)  # ty: ignore[invalid-argument-type]
             # Clear cache as hardware have been added
             hash_key = create_hashable_key(**lookup_keys)
@@ -1311,9 +1311,9 @@ class Plant(Base, CachedCRUDMixin, InConfigMixin):
             raise ValueError(
                 "Provide 'uid' either as a parameter or as a key in the "
                 "updated info")
-        hardware = values.pop("hardware", [])
+        hardware = values.pop("hardware", None)
         await super().update(session, uid=uid, values=values)
-        if hardware:
+        if hardware is not None:
             await cls.attach_hardware(session, uid, hardware)
             # Clear cache as hardware have been added
             hash_key = create_hashable_key(uid=uid, **lookup_keys)
