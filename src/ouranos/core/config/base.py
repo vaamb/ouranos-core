@@ -32,7 +32,7 @@ class BaseConfig:
 
     @property
     def WIKI_DIR(self) -> str | Path:
-        return os.environ.get("OURANOS_STATIC_DIR") or os.path.join(self.STATIC_DIR, "wiki")
+        return os.environ.get("OURANOS_WIKI_DIR") or os.path.join(self.STATIC_DIR, "wiki")
 
     SECRET_KEY = os.environ.get("OURANOS_SECRET_KEY") or "secret_key"
 
