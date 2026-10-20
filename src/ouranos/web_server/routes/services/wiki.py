@@ -99,10 +99,10 @@ async def create_tag(
         return f"A new wiki tag '{payload.name}' was successfully created.",
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Failed to create the wiki tag '{payload.name}'. Error msg: "
-                f"`{e.__class__.__name__}: {e}`",
+                f"`{e.__class__.__name__}: {e}`"
             ),
         )
 
@@ -127,10 +127,10 @@ async def update_tag(
         return f"Wiki tag '{tag_slug}' was successfully updated."
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Failed to update wiki tag '{tag_slug}'. Error msg: "
-                f"`{e.__class__.__name__}: {e}`",
+                f"`{e.__class__.__name__}: {e}`"
             ),
         )
 
@@ -175,10 +175,10 @@ async def create_topic(
         return f"A new wiki topic '{payload.name}' was successfully created."
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Failed to create the wiki topic '{payload.name}'. Error msg: "
-                f"`{e.__class__.__name__}: {e}`",
+                f"`{e.__class__.__name__}: {e}`"
             ),
         )
 
@@ -215,10 +215,10 @@ async def update_topic(
         return f"Wiki topic '{topic_slug}' was successfully updated.",
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Failed to update wiki topic '{topic_slug}'. Error msg: "
-                f"`{e.__class__.__name__}: {e}`",
+                f"`{e.__class__.__name__}: {e}`"
             ),
         )
 
@@ -235,10 +235,10 @@ async def delete_topic(
         return f"Wiki topic '{topic_slug}' was successfully deleted.",
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Failed to delete wiki topic '{topic_slug}'. Error msg: "
-                f"`{e.__class__.__name__}: {e}`",
+                f"`{e.__class__.__name__}: {e}`"
             ),
         )
 
@@ -297,10 +297,10 @@ async def create_topic_template(
         return f"A new template for topic '{topic_slug}' was created"
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Failed to create a new wiki template. Error msg: "
-                f"`{e.__class__.__name__}: {e}`",
+                f"`{e.__class__.__name__}: {e}`"
             ),
         )
 
@@ -314,7 +314,7 @@ async def upload_topic_template(
 ):
     if not file.filename or not file.filename.endswith(".md"):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="File should be a valid '.md' file"
         )
     topic = await topic_or_abort(session, slug=topic_slug)
@@ -324,10 +324,10 @@ async def upload_topic_template(
         return f"A new template for topic '{topic_slug}' was created"
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Failed to create a new wiki template. Error msg: "
-                f"`{e.__class__.__name__}: {e}`",
+                f"`{e.__class__.__name__}: {e}`"
             ),
         )
 
@@ -357,10 +357,10 @@ async def create_article(
         return "A new wiki article was successfully created."
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Failed to create a new wiki article. Error msg: "
-                f"`{e.__class__.__name__}: {e}`",
+                f"`{e.__class__.__name__}: {e}`"
             ),
         )
 
@@ -381,17 +381,17 @@ async def upload_article(
         check_filename(file.filename, SUPPORTED_TEXT_EXTENSIONS)
     except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"{e}"
         )
     assert file.filename is not None
     topic = await topic_or_abort(session, slug=topic_slug)
+    if (file.size or 0) > MAX_TEXT_FILE_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="File too large"
+        )
     try:
-        if (file.size or 0) > MAX_TEXT_FILE_SIZE:
-            raise HTTPException(
-                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                detail="Picture file too large"
-            )
         content = await file.read()
         await WikiArticle.create(
             session,
@@ -407,10 +407,10 @@ async def upload_article(
         return "A new wiki article was successfully uploaded."
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Failed to upload a new wiki article. Error msg: "
-                f"`{e.__class__.__name__}: {e}`",
+                f"`{e.__class__.__name__}: {e}`"
             ),
         )
 
@@ -451,10 +451,10 @@ async def update_article(
         return f"Wiki article '{article_slug}' was successfully updated."
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Failed to update wiki article '{article_slug}'. Error msg: "
-                f"`{e.__class__.__name__}: {e}`",
+                f"`{e.__class__.__name__}: {e}`"
             ),
         )
 
@@ -475,10 +475,10 @@ async def delete_article(
         return f"Wiki article '{article_slug}' was successfully deleted."
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Failed to delete wiki article '{article_slug}'. Error msg: "
-                f"`{e.__class__.__name__}: {e}`",
+                f"`{e.__class__.__name__}: {e}`"
             ),
         )
 
@@ -499,16 +499,16 @@ async def update_article_upload(
         check_filename(file.filename, SUPPORTED_TEXT_EXTENSIONS)
     except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"{e}"
         )
     article = await article_or_abort(session, topic_slug=topic_slug, slug=article_slug)
+    if (file.size or 0) > MAX_TEXT_FILE_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="File too large"
+        )
     try:
-        if (file.size or 0) > MAX_TEXT_FILE_SIZE:
-            raise HTTPException(
-                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                detail="Picture file too large"
-            )
         content = await file.read()
         await WikiArticle.update(
             session,
@@ -524,10 +524,10 @@ async def update_article_upload(
         return "A new wiki article was successfully uploaded."
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Failed to upload a new wiki article. Error msg: "
-                f"`{e.__class__.__name__}: {e}`",
+                f"`{e.__class__.__name__}: {e}`"
             ),
         )
 
@@ -582,10 +582,10 @@ async def add_picture(
         return "A new wiki picture was successfully created."
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Failed to create a new wiki article picture. Error msg: "
-                f"`{e.__class__.__name__}: {e}`",
+                f"`{e.__class__.__name__}: {e}`"
             ),
         )
 
@@ -606,17 +606,17 @@ async def upload_picture(
         check_filename(file.filename, SUPPORTED_IMAGE_EXTENSIONS)
     except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"{e}"
         )
     assert file.filename is not None
     article = await article_or_abort(session, topic_slug=topic_slug, slug=article_slug)
+    if (file.size or 0) > MAX_PICTURE_FILE_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Picture too large"
+        )
     try:
-        if (file.size or 0) > MAX_PICTURE_FILE_SIZE:
-            raise HTTPException(
-                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                detail="Picture file too large"
-            )
         await WikiPicture.create(
             session,
             topic_name=article.topic_name,
@@ -632,10 +632,10 @@ async def upload_picture(
         return "A new wiki picture was successfully uploaded."
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Failed to create a new wiki article picture. Error msg: "
-                f"`{e.__class__.__name__}: {e}`",
+                f"`{e.__class__.__name__}: {e}`"
             ),
         )
 
@@ -681,10 +681,10 @@ async def delete_picture(
         return f"The wiki picture '{picture_slug}' was successfully deleted."
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Failed to delete the wiki picture '{picture_slug}'. Error msg: "
-                f"`{e.__class__.__name__}: {e}`",
+                f"`{e.__class__.__name__}: {e}`"
             ),
         )
 

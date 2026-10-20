@@ -42,7 +42,7 @@ def http_datetime(datetime_str: str | None) -> datetime | None:
         return datetime_obj
     except ValueError:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Dates should be entered in a valid ISO (8601) format.",
         )
 
@@ -75,6 +75,6 @@ class get_time_window:  # noqa: N801
                 window_length=window_length or self.default_window_length)
         except ValueError as e:
             raise HTTPException(
-                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=str(e)
             )
