@@ -11,8 +11,7 @@ from fastapi import (
 from ouranos.core.config import consts
 from ouranos.core.database.models.app import Permission, User, UserMixin
 from ouranos.web_server.auth import get_current_user, is_admin
-from ouranos.web_server.dependencies import get_session
-from ouranos.web_server.routes.utils import http_datetime
+from ouranos.web_server.dependencies import dt_query_text, get_session, http_datetime
 from ouranos.web_server.validate.user import UserDescription, UserUpdatePayload
 
 
@@ -66,17 +65,11 @@ async def get_users(
         *,
         registration_start_time: Annotated[
             str | None,
-            Query(description=(
-                "ISO (8601) formatted datetime from which the research will be "
-                "done"
-            )),
+            Query(description=dt_query_text(start=True)),
         ] = None,
         registration_end_time:Annotated[
             str | None,
-            Query(description=(
-                "ISO (8601) formatted datetime up to which the research will be "
-                "done"
-            )),
+            Query(description=dt_query_text(start=False)),
         ] = None,
         confirmed: Annotated[bool, Query()] = False,
         active: Annotated[bool, Query()] = False,
@@ -84,12 +77,12 @@ async def get_users(
         per_page: Annotated[int, Query(le=100)] = 25,
         session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    registration_start_time: datetime | None = http_datetime(registration_start_time)
-    registration_end_time: datetime | None = http_datetime(registration_end_time)
+    start_time_dt: datetime | None = http_datetime(registration_start_time)
+    end_time_dt: datetime | None = http_datetime(registration_end_time)
     per_page = min(per_page, 100)
     users = await User.get_multiple(
-        session, registration_start_time=registration_start_time,
-        registration_end_time=registration_end_time, confirmed=confirmed,
+        session, registration_start_time=start_time_dt,
+        registration_end_time=end_time_dt, confirmed=confirmed,
         active=active, per_page=per_page, page=page)
     return users
 

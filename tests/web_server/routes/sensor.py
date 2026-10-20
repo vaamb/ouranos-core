@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
 import pytest
@@ -157,6 +157,24 @@ class TestSensorData(SensorsAware):
         assert datetime.fromisoformat(historic_value[0]) == \
                (g_data.sensors_data["timestamp"] - timedelta(hours=1))
         assert historic_value[1] == g_data.sensor_record.value
+
+    def test_get_historic_naive_and_aware(self, client: TestClient):
+        # A naive query datetime is UTC, and can be mixed with an aware one
+        timestamp = g_data.sensors_data["timestamp"] - timedelta(hours=1)
+        start_time = (timestamp - timedelta(hours=1)).replace(tzinfo=None)
+        response = client.get(
+            f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}"
+            f"/sensor/u/{g_data.hardware_uid}/data/{g_data.sensor_record.measure}"
+            f"/historic",
+            params={
+                "start_time": start_time.isoformat(),
+                "end_time": datetime.now(timezone.utc).isoformat(),
+            },
+        )
+        assert response.status_code == 200
+
+        historic_value = json.loads(response.text)["values"][0]
+        assert datetime.fromisoformat(historic_value[0]) == timestamp
 
     def test_get_historic_failure_wrong_sensor(self, client: TestClient):
         response = client.get(

@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import AsyncGenerator, Optional
 
 from fastapi import HTTPException, Query, status
@@ -14,17 +15,36 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
         yield session
 
 
-start_time_query = Query(
-    default=None, description="ISO (8601) formatted datetime from which the "
-                              "research will be done")
+def dt_query_text(start: bool) -> str:
+    return (
+        f"ISO (8601) formatted datetime {'from' if start else 'up to'} which the "
+        f"research will be done. If no timezone is given, UTC is assumed."
+    )
+
+
+start_time_query = Query(default=None, description=dt_query_text(start=True))
 
 end_time_query = Query(
-    default=None, description="ISO (8601) formatted datetime up to which the "
-                              "research will be done. By default, it is now.")
+    default=None, description=f"{dt_query_text(start=False)} By default, it is now.")
 
 window_length_query = Query(
     default=7, description="The number of days to fetch if no start time is "
                            "provided.")
+
+
+def http_datetime(datetime_str: str | None) -> datetime | None:
+    if datetime_str is None:
+        return None
+    try:
+        datetime_obj = datetime.fromisoformat(datetime_str)
+        if datetime_obj.tzinfo is None:
+            datetime_obj = datetime_obj.replace(tzinfo=timezone.utc)
+        return datetime_obj
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Dates should be entered in a valid ISO (8601) format.",
+        )
 
 
 class get_time_window:  # noqa: N801
@@ -47,8 +67,10 @@ class get_time_window:  # noqa: N801
             window_length: Optional[int] | None = window_length_query,
     ) -> TimeWindow:
         try:
+            start_dt = http_datetime(start_time)
+            end_dt = http_datetime(end_time)
             return create_time_window(
-                start_time, end_time, rounding_base=self.rounding,
+                start_dt, end_dt, rounding_base=self.rounding,
                 grace_time=self.grace_time, max_window_length=self.max_window_length,
                 window_length=window_length or self.default_window_length)
         except ValueError as e:
