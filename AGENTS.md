@@ -78,6 +78,8 @@ Shared data types come from the companion package **`gaia_validators`**
   with `UnboundExecutionError`.
 - Recent-data models carrying an archive table use `ArchivableMixin`; archive
   models don't.
+- Create datetimes aware (`datetime.now(timezone.utc)`), and parse query
+  datetimes with `http_datetime()`, which reads an offset-less input as UTC.
 
 ### Caching
 

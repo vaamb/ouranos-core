@@ -51,18 +51,20 @@ def create_time_window(
 ) -> TimeWindow:
     def extract_dt(dt: str | datetime, limit_name: str) -> datetime:
         if isinstance(dt, str):
-            return datetime.fromisoformat(dt)
+            return datetime.fromisoformat(dt).astimezone(timezone.utc)
         elif isinstance(dt, datetime):
-            return dt
+            return dt.astimezone(timezone.utc)
         else:
             raise ValueError(f"'{limit_name}' is not a valid ISO (8601) time.")
+    # Get end time
     if end_time:
         end = extract_dt(end_time, "end_time")
     else:
         end = datetime.now(timezone.utc)
+    # Get or deduce start time
     if start_time:
         start = extract_dt(start_time, "start_time")
-        if max_window_length  and end - start > timedelta(days=max_window_length):
+        if max_window_length and end - start > timedelta(days=max_window_length):
             raise ValueError(f"Max time window length is {max_window_length} days.")
     else:
         if window_length is None:

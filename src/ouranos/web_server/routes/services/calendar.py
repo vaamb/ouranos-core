@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
 from fastapi import (
@@ -10,9 +10,8 @@ from gaia_validators import safe_enum_from_name
 from ouranos.core.database.models.app import (
     CalendarEvent, CalendarEventVisibility, Permission, ServiceName, UserMixin)
 from ouranos.web_server.auth import get_current_user, is_authenticated
-from ouranos.web_server.dependencies import get_session
+from ouranos.web_server.dependencies import dt_query_text, get_session, http_datetime
 from ouranos.web_server.routes.services.utils import service_enabled
-from ouranos.web_server.routes.utils import http_datetime
 from ouranos.web_server.validate.calendar import (
     EventCreationPayload, EventUpdatePayload, EventInfo)
 
@@ -49,14 +48,12 @@ async def get_events(
         *,
         start_time: Annotated[
             str | None,
-            Query(description="ISO (8601) formatted datetime from which the "
-                              "research will be done. Default to now."),
+            Query(description=f"{dt_query_text(start=True)} Default to now."),
         ] = None,
         end_time: Annotated[
             str | None,
-            Query(description="ISO (8601) formatted datetime up to which the "
-                              "research will be done. Default to one month from "
-                              "start_time."),
+            Query(description=f"{dt_query_text(start=False)} Default to one month "
+                              f"from start_time."),
         ] = None,
         visibility: Annotated[
             str,
@@ -69,7 +66,7 @@ async def get_events(
 ):
     start_time: datetime | None = http_datetime(start_time)
     if start_time is None:
-        start_time = datetime.now()
+        start_time = datetime.now(timezone.utc)
     end_time: datetime | None = http_datetime(end_time)
     if end_time is None:
         end_time = start_time + timedelta(days=30)
