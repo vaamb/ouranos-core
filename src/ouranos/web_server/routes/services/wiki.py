@@ -102,7 +102,7 @@ async def create_tag(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"Failed to create the wiki tag '{payload.name}'. Error msg: "
-                f"`{e.__class__.__name__}: {e}`",
+                f"`{e.__class__.__name__}: {e}`"
             ),
         )
 
@@ -130,7 +130,7 @@ async def update_tag(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"Failed to update wiki tag '{tag_slug}'. Error msg: "
-                f"`{e.__class__.__name__}: {e}`",
+                f"`{e.__class__.__name__}: {e}`"
             ),
         )
 
@@ -178,7 +178,7 @@ async def create_topic(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"Failed to create the wiki topic '{payload.name}'. Error msg: "
-                f"`{e.__class__.__name__}: {e}`",
+                f"`{e.__class__.__name__}: {e}`"
             ),
         )
 
@@ -218,7 +218,7 @@ async def update_topic(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"Failed to update wiki topic '{topic_slug}'. Error msg: "
-                f"`{e.__class__.__name__}: {e}`",
+                f"`{e.__class__.__name__}: {e}`"
             ),
         )
 
@@ -238,7 +238,7 @@ async def delete_topic(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"Failed to delete wiki topic '{topic_slug}'. Error msg: "
-                f"`{e.__class__.__name__}: {e}`",
+                f"`{e.__class__.__name__}: {e}`"
             ),
         )
 
@@ -300,7 +300,7 @@ async def create_topic_template(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"Failed to create a new wiki template. Error msg: "
-                f"`{e.__class__.__name__}: {e}`",
+                f"`{e.__class__.__name__}: {e}`"
             ),
         )
 
@@ -327,7 +327,7 @@ async def upload_topic_template(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"Failed to create a new wiki template. Error msg: "
-                f"`{e.__class__.__name__}: {e}`",
+                f"`{e.__class__.__name__}: {e}`"
             ),
         )
 
@@ -360,7 +360,7 @@ async def create_article(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"Failed to create a new wiki article. Error msg: "
-                f"`{e.__class__.__name__}: {e}`",
+                f"`{e.__class__.__name__}: {e}`"
             ),
         )
 
@@ -410,7 +410,7 @@ async def upload_article(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"Failed to upload a new wiki article. Error msg: "
-                f"`{e.__class__.__name__}: {e}`",
+                f"`{e.__class__.__name__}: {e}`"
             ),
         )
 
@@ -454,7 +454,7 @@ async def update_article(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"Failed to update wiki article '{article_slug}'. Error msg: "
-                f"`{e.__class__.__name__}: {e}`",
+                f"`{e.__class__.__name__}: {e}`"
             ),
         )
 
@@ -478,7 +478,7 @@ async def delete_article(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"Failed to delete wiki article '{article_slug}'. Error msg: "
-                f"`{e.__class__.__name__}: {e}`",
+                f"`{e.__class__.__name__}: {e}`"
             ),
         )
 
@@ -527,7 +527,7 @@ async def update_article_upload(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"Failed to upload a new wiki article. Error msg: "
-                f"`{e.__class__.__name__}: {e}`",
+                f"`{e.__class__.__name__}: {e}`"
             ),
         )
 
@@ -585,7 +585,7 @@ async def add_picture(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"Failed to create a new wiki article picture. Error msg: "
-                f"`{e.__class__.__name__}: {e}`",
+                f"`{e.__class__.__name__}: {e}`"
             ),
         )
 
@@ -635,7 +635,7 @@ async def upload_picture(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"Failed to create a new wiki article picture. Error msg: "
-                f"`{e.__class__.__name__}: {e}`",
+                f"`{e.__class__.__name__}: {e}`"
             ),
         )
 
@@ -684,7 +684,7 @@ async def delete_picture(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"Failed to delete the wiki picture '{picture_slug}'. Error msg: "
-                f"`{e.__class__.__name__}: {e}`",
+                f"`{e.__class__.__name__}: {e}`"
             ),
         )
 

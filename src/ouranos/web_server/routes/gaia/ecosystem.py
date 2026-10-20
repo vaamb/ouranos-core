@@ -179,7 +179,7 @@ async def update_ecosystem(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"Failed to send ecosystem creation order to engine for "
-                f"ecosystem '{ecosystem_uid}'. Error msg: `{e.__class__.__name__}: {e}`",
+                f"ecosystem '{ecosystem_uid}'. Error msg: `{e.__class__.__name__}: {e}`"
             ),
         )
 
@@ -205,7 +205,7 @@ async def delete_ecosystem(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"Failed to send delete order order ecosystem with uid "
-                f"'{ecosystem_uid}'. Error msg: `{e.__class__.__name__}: {e}`",
+                f"'{ecosystem_uid}'. Error msg: `{e.__class__.__name__}: {e}`"
             ),
         )
 
@@ -276,7 +276,7 @@ async def update_ecosystem_management(
             detail=(
                 f"Failed to send ecosystem' management update order to engine "
                 f"for ecosystem '{ecosystem_uid}'. Error msg: "
-                f"`{e.__class__.__name__}: {e}`",
+                f"`{e.__class__.__name__}: {e}`"
             ),
         )
 
@@ -355,7 +355,7 @@ async def update_ecosystem_lighting(
             detail=(
                 f"Failed to send ecosystem' lighting update order to engine "
                 f"for ecosystem '{ecosystem_uid}'. Error msg: `{e.__class__.__name__}: "
-                f"{e}`",
+                f"{e}`"
             ),
         )
 
@@ -438,7 +438,7 @@ async def create_ecosystem_environment_parameter(
             detail=(
                 f"Failed to send environment parameter creation order to engine "
                 f"for ecosystem '{ecosystem_uid}'. Error "
-                f"msg: `{e.__class__.__name__}: {e}`",
+                f"msg: `{e.__class__.__name__}: {e}`"
             ),
         )
 
@@ -492,7 +492,7 @@ async def update_ecosystem_environment_parameter(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"Failed to send environment parameter update order to engine "
-                f"for ecosystem '{ecosystem_uid}'. Error msg: `{e.__class__.__name__}: {e}`",
+                f"for ecosystem '{ecosystem_uid}'. Error msg: `{e.__class__.__name__}: {e}`"
             ),
         )
 
@@ -523,7 +523,7 @@ async def delete_ecosystem_environment_parameter(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"Failed to send environment parameter update order to engine "
-                f"for ecosystem '{ecosystem_uid}'. Error msg: `{e.__class__.__name__}: {e}`",
+                f"for ecosystem '{ecosystem_uid}'. Error msg: `{e.__class__.__name__}: {e}`"
             ),
         )
 
@@ -606,7 +606,7 @@ async def create_ecosystem_weather_event(
             detail=(
                 f"Failed to send weather event creation order to engine "
                 f"for ecosystem '{ecosystem_uid}'. Error "
-                f"msg: `{e.__class__.__name__}: {e}`",
+                f"msg: `{e.__class__.__name__}: {e}`"
             ),
         )
 
@@ -660,7 +660,7 @@ async def update_ecosystem_weather_event(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"Failed to send environment parameter update order to engine "
-                f"for ecosystem '{ecosystem_uid}'. Error msg: `{e.__class__.__name__}: {e}`",
+                f"for ecosystem '{ecosystem_uid}'. Error msg: `{e.__class__.__name__}: {e}`"
             ),
         )
 
@@ -691,7 +691,7 @@ async def delete_ecosystem_weather_event(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"Failed to send weather parameter update order to engine "
-                f"for ecosystem '{ecosystem_uid}'. Error msg: `{e.__class__.__name__}: {e}`",
+                f"for ecosystem '{ecosystem_uid}'. Error msg: `{e.__class__.__name__}: {e}`"
             ),
         )
 
@@ -806,6 +806,6 @@ async def turn_actuator(
             detail=(
                 f"Failed to request ecosystem ''{ecosystem_uid}' to turn its "
                 f"{actuator_type.name} actuator to mode '{mode}'. "
-                f"Error msg: `{e.__class__.__name__}: {e}`",
+                f"Error msg: `{e.__class__.__name__}: {e}`"
             ),
         )
