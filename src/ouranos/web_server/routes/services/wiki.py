@@ -386,12 +386,12 @@ async def upload_article(
         )
     assert file.filename is not None
     topic = await topic_or_abort(session, slug=topic_slug)
+    if (file.size or 0) > MAX_TEXT_FILE_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="File too large"
+        )
     try:
-        if (file.size or 0) > MAX_TEXT_FILE_SIZE:
-            raise HTTPException(
-                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                detail="Picture file too large"
-            )
         content = await file.read()
         await WikiArticle.create(
             session,
@@ -503,12 +503,12 @@ async def update_article_upload(
             detail=f"{e}"
         )
     article = await article_or_abort(session, topic_slug=topic_slug, slug=article_slug)
+    if (file.size or 0) > MAX_TEXT_FILE_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="File too large"
+        )
     try:
-        if (file.size or 0) > MAX_TEXT_FILE_SIZE:
-            raise HTTPException(
-                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                detail="Picture file too large"
-            )
         content = await file.read()
         await WikiArticle.update(
             session,
@@ -611,12 +611,12 @@ async def upload_picture(
         )
     assert file.filename is not None
     article = await article_or_abort(session, topic_slug=topic_slug, slug=article_slug)
+    if (file.size or 0) > MAX_TEXT_FILE_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Picture too large"
+        )
     try:
-        if (file.size or 0) > MAX_PICTURE_FILE_SIZE:
-            raise HTTPException(
-                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                detail="Picture file too large"
-            )
         await WikiPicture.create(
             session,
             topic_name=article.topic_name,
