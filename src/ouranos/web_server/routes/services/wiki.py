@@ -611,7 +611,7 @@ async def upload_picture(
         )
     assert file.filename is not None
     article = await article_or_abort(session, topic_slug=topic_slug, slug=article_slug)
-    if (file.size or 0) > MAX_TEXT_FILE_SIZE:
+    if (file.size or 0) > MAX_PICTURE_FILE_SIZE:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail="Picture too large"
