@@ -127,7 +127,7 @@ async def create_ecosystem(
         )
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Failed to send ecosystem creation order to engine for "
                 f"ecosystem '{ecosystem_dict['name']}'. Error msg: "
@@ -176,7 +176,7 @@ async def update_ecosystem(
         )
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Failed to send ecosystem creation order to engine for "
                 f"ecosystem '{ecosystem_uid}'. Error msg: `{e.__class__.__name__}: {e}`"
@@ -202,7 +202,7 @@ async def delete_ecosystem(
         )
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Failed to send delete order order ecosystem with uid "
                 f"'{ecosystem_uid}'. Error msg: `{e.__class__.__name__}: {e}`"
@@ -272,7 +272,7 @@ async def update_ecosystem_management(
         )
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Failed to send ecosystem' management update order to engine "
                 f"for ecosystem '{ecosystem_uid}'. Error msg: "
@@ -351,7 +351,7 @@ async def update_ecosystem_lighting(
         )
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Failed to send ecosystem' lighting update order to engine "
                 f"for ecosystem '{ecosystem_uid}'. Error msg: `{e.__class__.__name__}: "
@@ -434,7 +434,7 @@ async def create_ecosystem_environment_parameter(
         )
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Failed to send environment parameter creation order to engine "
                 f"for ecosystem '{ecosystem_uid}'. Error "
@@ -489,7 +489,7 @@ async def update_ecosystem_environment_parameter(
         )
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Failed to send environment parameter update order to engine "
                 f"for ecosystem '{ecosystem_uid}'. Error msg: `{e.__class__.__name__}: {e}`"
@@ -520,7 +520,7 @@ async def delete_ecosystem_environment_parameter(
         )
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Failed to send environment parameter update order to engine "
                 f"for ecosystem '{ecosystem_uid}'. Error msg: `{e.__class__.__name__}: {e}`"
@@ -602,7 +602,7 @@ async def create_ecosystem_weather_event(
         )
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Failed to send weather event creation order to engine "
                 f"for ecosystem '{ecosystem_uid}'. Error "
@@ -657,7 +657,7 @@ async def update_ecosystem_weather_event(
         )
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Failed to send environment parameter update order to engine "
                 f"for ecosystem '{ecosystem_uid}'. Error msg: `{e.__class__.__name__}: {e}`"
@@ -688,7 +688,7 @@ async def delete_ecosystem_weather_event(
         )
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Failed to send weather parameter update order to engine "
                 f"for ecosystem '{ecosystem_uid}'. Error msg: `{e.__class__.__name__}: {e}`"
@@ -802,7 +802,7 @@ async def turn_actuator(
         )
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Failed to request ecosystem ''{ecosystem_uid}' to turn its "
                 f"{actuator_type.name} actuator to mode '{mode}'. "

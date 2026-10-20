@@ -44,12 +44,12 @@ def check_token(invitation_token: str, token_sub: str) -> dict:
         return payload
     except ExpiredTokenError:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Expired token"
         )
     except InvalidTokenError:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Invalid token"
         )
 
@@ -324,7 +324,7 @@ async def create_registration_token(
     email = user_dict.pop("email", None)
     if send_email and email is None:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Email address is required to send an invitation",
         )
     role = user_dict.pop("role", None)
@@ -333,7 +333,7 @@ async def create_registration_token(
             role = safe_enum_from_name(RoleName, role)
         except (TypeError, ValueError):
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="Invalid role"
             )
     user_info: UserTokenInfoDict = {

@@ -128,7 +128,7 @@ async def create_hardware(
         )
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Failed to send hardware creation order to engine for "
                 f"hardware '{hardware_dict['name']}'. Error msg: "
@@ -173,7 +173,7 @@ async def update_hardware(
         )
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Failed to send hardware update order to engine "
                 f"for hardware '{ecosystem_uid}'. Error msg: `{e.__class__.__name__}: "
@@ -201,7 +201,7 @@ async def delete_hardware(
         )
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Failed to send delete order for hardware with uid '{hardware_uid}'. "
                 f"Error msg: `{e.__class__.__name__}: {e}`"

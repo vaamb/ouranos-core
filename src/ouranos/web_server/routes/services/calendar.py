@@ -101,7 +101,7 @@ async def create_event(
         return "A new event was successfully created"
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Failed to create a new event. Error msg: "
                 f"`{e.__class__.__name__}: {e}`"
@@ -128,7 +128,7 @@ async def update_event(
         return f"Updated event '{event.title}'"
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Failed to update the event. Error msg: "
                 f"`{e.__class__.__name__}: {e}`"
@@ -150,7 +150,7 @@ async def delete_event(
         return f"Event '{event.title}' deleted"
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Failed to delete the event. Error msg: "
                 f"`{e.__class__.__name__}: {e}`"
