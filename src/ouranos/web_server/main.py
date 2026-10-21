@@ -106,6 +106,7 @@ class WebServer(Functionality):
                 except TimeoutError:
                     self.logger.warning("Web server workers did not stop within 5s")
                 task = None
+                sock.close()
 
             self.app = _AppWrapper(start, stop)
 
