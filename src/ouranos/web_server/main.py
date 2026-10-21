@@ -112,11 +112,21 @@ class WebServer(Functionality):
             sock = self.server.config.bind_socket()
             multi = Multiprocess(self.server.config, sockets=[sock])
 
+            task: asyncio.Task | None = None
+
             async def start() -> None:
-                multi.run()
+                nonlocal task
+                task = asyncio.create_task(asyncio.to_thread(multi.run))
 
             async def stop() -> None:
+                nonlocal task
+                assert task is not None
                 multi.should_exit.set()
+                try:
+                    await asyncio.wait_for(asyncio.shield(task), timeout=5)
+                except TimeoutError:
+                    self.logger.warning("Web server workers did not stop within 5s")
+                task = None
 
             self.app = _AppWrapper(start, stop)
 
@@ -130,7 +140,6 @@ class WebServer(Functionality):
     async def shutdown(self):
         await self.system_monitor.stop()
         await self.app.stop()
-        await asyncio.sleep(1)  # Allow Multiprocess to exit
 
 
 web_server_plugin = Plugin(
