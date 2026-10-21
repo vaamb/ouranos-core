@@ -56,7 +56,7 @@ class Functionality(ABC):
         can be divided into core functionalities (the aggregator and the web
         api) and all the plugins.
 
-        :param config: The configuration to provide as a `BaseConfigDict`.
+        :param config: The configuration to provide as a `(Base)ConfigDict`.
         :param microservice: Whether the functionality is run as a microservice.
                              If set to false, some config checks will be done.
         """

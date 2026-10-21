@@ -56,11 +56,7 @@ class WebServer(Functionality):
         relies on `FastAPI` for the HTTP server and `python-socketio` to manage
         socketio events.
 
-        :param config_profile: The configuration profile to provide. Either a
-        `BaseConfig` or its subclass, a str corresponding to a profile name
-        accessible in a `config.py` file, or None to take the default profile.
-        :param config_override: A dictionary containing some overriding
-        parameters for the configuration.
+        :param config: The configuration to provide as a `(Base)ConfigDict`.
         :param kwargs: Other parameters to pass to the base class.
         """
         super().__init__(config, **kwargs)
@@ -85,8 +81,7 @@ class WebServer(Functionality):
         server_cfg = Config(
             "ouranos.web_server.factory:create_app", factory=True, loop="auto",
             host=self.config["API_HOST"], port=self.config["API_PORT"],
-            workers=workers,
-            log_config=None, server_header=False, date_header=False,
+            workers=workers, log_config=None, server_header=False, date_header=False,
         )
         self.server = ServerWithOuranosConfig(server_cfg, ouranos_config=self.config)
         self.app: _AppWrapper
