@@ -7,7 +7,7 @@ from logging import getLogger, Logger
 import multiprocessing
 from multiprocessing.context import SpawnContext, SpawnProcess
 import typing as t
-from typing import Any, ClassVar, TypeVar
+from typing import Any, Awaitable, ClassVar, TypeVar
 
 import click
 from click import Command, Group
@@ -87,18 +87,23 @@ class _InProcessExecutor(PluginExecutor):
     async def start(self) -> None:
         # ty issue with TypeVar
         self._instance = self.functionality(config=self.config, **self.kwargs)  # ty: ignore[invalid-assignment]
+        self.logger.debug("Starting in process executor...")
         try:
             await self.instance.complete_startup()
         except Exception:
             # `complete_startup()` already cleared the functionality resources
             self._instance = None
             raise
+        else:
+            self.logger.debug("In process executor started")
 
     async def stop(self) -> None:
+        self.logger.debug("Stopping in process executor...")
         try:
             await self.instance.complete_shutdown()
         finally:
             self._instance = None
+        self.logger.debug("In process executor stopped")
 
 
 class _SubprocessExecutor(PluginExecutor):
@@ -131,8 +136,28 @@ class _SubprocessExecutor(PluginExecutor):
             ConfigHelper.set_config_and_configure_logging(config)
         functionality_cls(config=config, **kwargs).run(reraise=True)
 
+    async def _stop_processes(self, timeout: float) -> None:
+        stop_tasks: list[Awaitable[None]] = []
+        kill_tasks: list[Awaitable[None]] = []
+        for process in self.subprocesses:
+            if process.is_alive():
+                self.logger.debug(f"Stopping process {process.name}")
+                process.terminate()
+                stop_task = asyncio.to_thread(process.join, timeout)
+                stop_tasks.append(stop_task)
+        await asyncio.gather(*stop_tasks)
+        for process in self.subprocesses:
+            if process.is_alive():
+                self.logger.warning(
+                    f"Process {process.name} did not terminate cleanly, killing it")
+                process.kill()
+                kill_task = asyncio.to_thread(process.join)
+                kill_tasks.append(kill_task)
+        await asyncio.gather(*kill_tasks)
+
     async def start(self) -> None:
         self._subprocesses = []
+        self.logger.debug("Starting subprocess executor...")
         try:
             for worker in range(self.workers):
                 process_name = f"{self.functionality.__name__}-{worker}"
@@ -144,30 +169,22 @@ class _SubprocessExecutor(PluginExecutor):
                 )
                 process.start()
                 self.subprocesses.append(process)
+                self.logger.debug(f"Started worker {process_name}")
         except Exception:
             # Clean up any already-started subprocesses on failure
-            for process in self.subprocesses:
-                if process.is_alive():
-                    process.terminate()
-                    await asyncio.to_thread(process.join, 1.0)
-                    if process.is_alive():
-                        process.kill()
-                        await asyncio.to_thread(process.join)
+            self.logger.warning("Failed to start subprocess executor, cleaning up")
+            await self._stop_processes(1.0)
             self._subprocesses = None
             raise
+        else:
+            self.logger.debug("Subprocess executor started")
 
     async def stop(self) -> None:
         # Cleanup subprocesses
-        for process in self.subprocesses:
-            if process.is_alive():
-                process.terminate()
-                await asyncio.to_thread(process.join, 5.0)
-                if process.is_alive():
-                    self.logger.warning(
-                        f"Process {process.name} did not terminate cleanly")
-                    process.kill()
-                    await asyncio.to_thread(process.join)
+        self.logger.debug("Stopping subprocess executor...")
+        await self._stop_processes(5.0)
         self._subprocesses = None
+        self.logger.debug("Subprocess executor stopped")
 
 
 class Extension:
@@ -370,10 +387,10 @@ class Plugin(Extension):
         if self._config is None:
             raise RuntimeError("Config not set. Call setup_config() first")
 
-        self.logger.info(f"Starting {self.name}")
         await self.check_requirements()
 
         workers = self.compute_number_of_workers()
+        self.logger.info(f"Starting {self.name} with {workers} workers")
         executor = PluginExecutor.initialize(
             self.functionality, workers, self.config, self.logger, **self.kwargs)
         await executor.start()

@@ -2,6 +2,7 @@ from contextlib import suppress
 import logging
 from multiprocessing import Manager
 from pathlib import Path
+import signal
 from time import monotonic, sleep
 from types import SimpleNamespace
 import click
@@ -16,8 +17,16 @@ from ouranos.core.exceptions import ContractVersionError
 from ouranos.core.plugins_manager import PluginManager
 from ouranos.core.utils import SingletonMeta
 from ouranos.sdk.plugin import (
-    _InProcessExecutor, _SubprocessExecutor, Extension, Functionality, Plugin, Route)
+    _InProcessExecutor, _SubprocessExecutor, Extension, Functionality, Plugin, Route,
+    spawn)
 from ouranos.sdk.tests.plugin import DummyFunctionality
+
+
+def _ignore_sigterm(ready) -> None:
+    # Module-level so that spawned processes can pickle it
+    signal.signal(signal.SIGTERM, signal.SIG_IGN)
+    ready.set()
+    sleep(30)
 
 
 @pytest.fixture
@@ -263,6 +272,27 @@ class TestPlugin:
         # Cleanup
         dummy_plugin._functionality.workers = 0
         dummy_plugin.kwargs = {}
+
+    async def test_subprocess_executor_kills_stuck_worker(
+            self, config: ConfigDict, caplog: pytest.LogCaptureFixture):
+        """Test that a worker ignoring SIGTERM is killed and reaped on stop."""
+        executor = _SubprocessExecutor(
+            DummyFunctionality, 1, config, logging.getLogger("test-executor"))
+        ready = spawn.Event()
+        process = spawn.Process(
+            target=_ignore_sigterm, args=(ready,), daemon=True, name="stucky")
+        process.start()
+        # Wait for the process to start
+        assert ready.wait(timeout=10.0)
+        executor._subprocesses = [process]
+
+        with caplog.at_level(logging.WARNING, logger="test-executor"):
+            await executor._stop_processes(0.1)
+
+        assert not process.is_alive()
+        # Joined, so not a zombie, and killed rather than terminated
+        assert process.exitcode == -signal.SIGKILL
+        assert "Process stucky did not terminate cleanly" in caplog.text
 
     async def test_plugin_with_routes(self, config: ConfigDict):
         """Test plugin route registration.
