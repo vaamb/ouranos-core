@@ -44,8 +44,8 @@ class TestWebServer:
         with pytest.raises(RuntimeError):
             await web_server.complete_shutdown()
 
-    def test_create_app(self):
-        app = create_app()
+    def test_create_app(self, config: ConfigDict):
+        app = create_app(config)
         assert isinstance(app, FastAPI)
 
     def test_create_sio_manager(self):

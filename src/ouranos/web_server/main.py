@@ -2,14 +2,15 @@
 from __future__ import annotations
 
 import asyncio
-import socket
+from functools import partial
 from typing import Awaitable, Callable
 
 from uvicorn import Config, Server
 
-from ouranos.core.config import ConfigDict, ConfigHelper
+from ouranos.core.config import ConfigDict
 from ouranos.core.database.init import print_registration_token
 from ouranos.sdk import Functionality, Plugin
+from ouranos.web_server.factory import create_app
 from ouranos.web_server.system_monitor import SystemMonitor
 
 
@@ -26,23 +27,6 @@ class _AppWrapper:
     async def stop(self) -> None:
         await self._stop_fct()
         self.started = False
-
-
-class ServerWithOuranosConfig(Server):
-    """An uvicorn server that sets the Ouranos config when starting to serve"""
-    def __init__(
-            self,
-            config: Config,
-            ouranos_config: ConfigDict,
-    ) -> None:
-        super().__init__(config)
-        self.ouranos_config = ouranos_config
-
-    async def serve(self, sockets: list[socket.socket] | None = None) -> None:
-        if not ConfigHelper.config_is_set():
-            ConfigHelper.set_config_and_configure_logging(self.ouranos_config)
-        with self.capture_signals():
-            await self._serve(sockets)
 
 
 class WebServer(Functionality):
@@ -79,11 +63,11 @@ class WebServer(Functionality):
 
         # Configure uvicorn server
         server_cfg = Config(
-            "ouranos.web_server.factory:create_app", factory=True, loop="auto",
+            partial(create_app, self.config), factory=True, loop="auto",
             host=self.config["API_HOST"], port=self.config["API_PORT"],
             workers=workers, log_config=None, server_header=False, date_header=False,
         )
-        self.server = ServerWithOuranosConfig(server_cfg, ouranos_config=self.config)
+        self.server = Server(server_cfg)
         self.app: _AppWrapper
 
         # Same process server
