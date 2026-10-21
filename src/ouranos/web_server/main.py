@@ -86,30 +86,26 @@ class WebServer(Functionality):
             "ouranos.web_server.factory:create_app", factory=True, loop="auto",
             host=self.config["API_HOST"], port=self.config["API_PORT"],
             workers=workers,
-            reload=self.config["WEB_SERVER_RELOAD"], reload_delay=0.5,
             log_config=None, server_header=False, date_header=False,
         )
         self.server = ServerWithOuranosConfig(server_cfg, ouranos_config=self.config)
         self.app: _AppWrapper
 
-        # Reloading server
-        if self.server.config.should_reload:
-            from uvicorn.supervisors import ChangeReload
+        # Same process server
+        if workers == 0:
+            async def start():
+                asyncio.ensure_future(self.server.serve())
+                while not self.server.started:
+                    await asyncio.sleep(0.1)
 
-            sock = self.server.config.bind_socket()
-            reload = ChangeReload(
-                self.server.config, target=self.server.run, sockets=[sock])
-
-            async def start() -> None:
-                reload.run()
-
-            async def stop() -> None:
-                reload.should_exit.set()
+            async def stop():
+                self.server.should_exit = True
+                await self.server._wait_tasks_to_complete()
 
             self.app = _AppWrapper(start, stop)
 
         # Multiprocess server
-        elif workers > 0:
+        else:
             # Works on linux, not on Windows
             from uvicorn.supervisors import Multiprocess
 
@@ -124,19 +120,6 @@ class WebServer(Functionality):
 
             self.app = _AppWrapper(start, stop)
 
-        # Single process server
-        else:
-            async def start():
-                asyncio.ensure_future(self.server.serve())
-                while not self.server.started:
-                    await asyncio.sleep(0.1)
-
-            async def stop():
-                self.server.should_exit = True
-                await self.server._wait_tasks_to_complete()
-
-            self.app = _AppWrapper(start, stop)
-
     async def initialize(self) -> None:
         await print_registration_token()
 
@@ -147,7 +130,7 @@ class WebServer(Functionality):
     async def shutdown(self):
         await self.system_monitor.stop()
         await self.app.stop()
-        await asyncio.sleep(1)  # Allow ChangeReload and Multiprocess to exit
+        await asyncio.sleep(1)  # Allow Multiprocess to exit
 
 
 web_server_plugin = Plugin(
