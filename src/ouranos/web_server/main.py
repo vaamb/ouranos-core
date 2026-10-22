@@ -96,6 +96,22 @@ class WebServer(Functionality):
             async def start() -> None:
                 nonlocal task
                 task = asyncio.create_task(asyncio.to_thread(multi.run))
+                host, port = sock.getsockname()[:2]
+                # Spawned workers import Ouranos before serving: wait for one to listen
+                for _ in range(100):
+                    if task.done():
+                        # `multi.run()` returned early (crash, or a worker STARTUP_FAILURE)
+                        await task
+                        raise RuntimeError("Web server workers stopped during startup")
+                    try:
+                        _, writer = await asyncio.open_connection(host, port)
+                    except OSError:
+                        await asyncio.sleep(0.1)
+                    else:
+                        writer.close()
+                        await writer.wait_closed()
+                        return
+                raise TimeoutError("No web server worker started within 10s")
 
             async def stop() -> None:
                 nonlocal task
