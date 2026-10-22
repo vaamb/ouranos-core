@@ -7,7 +7,7 @@ from fastapi import APIRouter, FastAPI
 from fastapi.responses import JSONResponse
 
 from ouranos import current_app
-from ouranos.core.utils import format_error, SingletonMeta
+from ouranos.core.utils import SingletonMeta
 from ouranos.sdk import Extension, Plugin
 
 
@@ -132,29 +132,6 @@ class PluginManager(metaclass=SingletonMeta):
     def get_plugin(self, plugin_name: str) -> Extension | None:
         return self.plugins.get(plugin_name)
 
-    async def start_plugins(self, **kwargs) -> None:
-        """Start every registered plugin, or none of them.
-
-        If a plugin fails to start, the ones already started are stopped and
-        the error is re-raised.
-
-        :param kwargs: Kwargs to pass to every plugin's functionality.
-        """
-        started: list[Plugin] = []
-        for plugin_name, plugin in self.plugins.items():
-            if not isinstance(plugin, Plugin):
-                continue
-            try:
-                await self.start_plugin(plugin_name, **kwargs)
-            except Exception as e:
-                self.logger.error(
-                    f"Failed to start plugin '{plugin_name}', stopping the plugins "
-                    f"already started. {format_error(e)}", exc_info=e)
-                for started_plugin in reversed(started):
-                    await self._try_stop_plugin(started_plugin)
-                raise
-            started.append(plugin)
-
     async def start_plugin(self, plugin_name: str, **kwargs) -> None:
         plugin = self.get_plugin(plugin_name)
         if not isinstance(plugin, Plugin):
@@ -163,29 +140,11 @@ class PluginManager(metaclass=SingletonMeta):
         plugin.update_kwargs(kwargs)
         await plugin.startup()
 
-    async def stop_plugins(self) -> None:
-        """Stop every running plugin, in the reverse order they were started.
-
-        A plugin failing to stop is logged and doesn't prevent the following
-        ones from being stopped.
-        """
-        for plugin in reversed([*self.plugins.values()]):
-            if isinstance(plugin, Plugin) and plugin.is_started:
-                await self._try_stop_plugin(plugin)
-
     async def stop_plugin(self, plugin_name: str) -> None:
         plugin = self.get_plugin(plugin_name)
         if not isinstance(plugin, Plugin):
             raise ValueError(f"'{plugin_name}' is an Extension, not a Plugin")
         await plugin.shutdown()
-
-    async def _try_stop_plugin(self, plugin: Plugin) -> None:
-        try:
-            await plugin.shutdown()
-        except Exception as e:
-            self.logger.error(
-                f"Failed to stop plugin '{plugin.name}'. {format_error(e)}",
-                exc_info=e)
 
     def register_plugins_routes(
             self,

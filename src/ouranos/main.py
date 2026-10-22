@@ -2,8 +2,7 @@
 from __future__ import annotations
 
 import asyncio
-from logging import getLogger, Logger
-import os
+from logging import getLogger
 from typing import Any
 import warnings
 
@@ -14,8 +13,8 @@ from ouranos.core.config import ConfigDict, ConfigHelper
 from ouranos.core.database.init import check_db_revision, create_db_tables
 from ouranos.core.globals import db
 from ouranos.core.plugins_manager import PluginManager
-from ouranos.core.utils import format_error, parse_str_value
-from ouranos.sdk import Functionality
+from ouranos.core.utils import parse_str_value
+from ouranos.sdk import Host, Plugin
 
 
 @click.command(
@@ -61,77 +60,32 @@ def main(
         ouranos.run()
 
 
-class Ouranos(Functionality):
-    _is_microservice = False
+class Ouranos(Host):
+    def __init__(self, config: ConfigDict) -> None:
+        """The master host.
 
-    def __init__(
-            self,
-            config: ConfigDict,
-            **kwargs,
-    ) -> None:
-        """The master functionality.
-        This functionality is able to launch all the other functionalities,
-        either core functionalities (the Webserver, the Aggregator) or plugins.
+        This host runs every registered plugin, core ones (the Aggregator, the
+        Webserver) included, in a single monolithic process (plus the
+        plugins' workers).
 
         :param config: The configuration to provide as a `BaseConfigDict`.
         """
-        super().__init__(config, **kwargs)
-        self.logger: Logger = getLogger("ouranos")
-        self.plugin_manager = PluginManager()
+        plugin_manager = PluginManager()
         # Register all the plugins at the beginning as it allows to load all the
         #  models needed
-        if not self.plugin_manager.plugins_are_registered:
-            self.plugin_manager.register_plugins()
+        if not plugin_manager.plugins_are_registered:
+            plugin_manager.register_plugins()
 
-    async def startup(self) -> None:
-        await self.plugin_manager.start_plugins(root=False, microservice=False)
+        plugins: list[Plugin] = []
+        for plugin in plugin_manager.plugins.values():
+            # Routes-only extensions have no functionality to run
+            if not isinstance(plugin, Plugin):
+                continue
+            plugin.setup_config(config)
+            plugin.update_kwargs({"root": False, "microservice": False})
+            plugins.append(plugin)
 
-    async def shutdown(self) -> None:
-        await self.plugin_manager.stop_plugins()
-
-    async def complete_startup(self) -> None:
-        if self.started:
-            raise RuntimeError("Ouranos has already started")
-
-        import setproctitle
-
-        setproctitle.setproctitle("ouranos")
-
-        pid = os.getpid()
-        self.logger.info(f"Starting Ouranos [{pid}]")
-
-        await self._init_common()
-
-        try:
-            await self.initialize()
-            await self.startup()
-        except Exception:
-            await self._clear_common()
-            raise
-
-        self._status = True
-        self.logger.info(f"Ouranos has been started [{pid}]")
-
-    async def complete_shutdown(self) -> None:
-        if not self.started:
-            raise RuntimeError("Ouranos is not running")
-
-        # Stop the functionality
-        pid = os.getpid()
-        self.logger.info(f"Stopping Ouranos [{pid}]")
-
-        try:
-            await self.shutdown()
-            await self.post_shutdown()
-        except asyncio.CancelledError as e:
-            # Deliberately swallowed, see `Functionality.complete_shutdown()`
-            self.logger.error(
-                f"Error while shutting down [{pid}]. {format_error(e)}", exc_info=e)
-        finally:
-            await self._clear_common()
-            self._status = False
-
-        self.logger.info(f"Ouranos has been stopped [{pid}]")
+        super().__init__("ouranos", config, plugins)
 
 
 async def _fill_db(check_revision: bool = True):
