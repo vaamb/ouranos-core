@@ -3,7 +3,6 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 import logging
 import time as ctime
-from typing import Any
 
 from brotli_asgi import BrotliMiddleware
 from fastapi import APIRouter, FastAPI, HTTPException, Request, status
@@ -14,10 +13,10 @@ from socketio.asgi import ASGIApp
 
 from ouranos import current_app
 from ouranos.core.caches import CacheFactory
-from ouranos.core.config import ConfigDict
+from ouranos.core.config import ConfigDict, ConfigHelper
 from ouranos.core.dispatchers import DispatcherFactory
 from ouranos.core.plugins_manager import PluginManager
-from ouranos.core.utils import check_secret_key, json
+from ouranos.core.utils import check_secret_key
 from ouranos.web_server.docs import description, tags_metadata
 
 
@@ -53,13 +52,9 @@ def create_sio_manager(config: ConfigDict | None = None):
         )
 
 
-def create_app(config: ConfigDict | None = None) -> FastAPI:
-    config = config or current_app.config
-    if not config:
-        raise RuntimeError(
-            "Either provide a config dict or set config globally with "
-            "g.set_app_config"
-        )
+def create_app(config: ConfigDict) -> FastAPI:
+    if not ConfigHelper.config_is_set():
+        ConfigHelper.set_config_and_configure_logging(config)
     logger = logging.getLogger("ouranos.web_server")
     secret = check_secret_key(config)
     if secret is not None:

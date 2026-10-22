@@ -60,7 +60,6 @@ class BaseConfig:
         or os.environ.get("OURANOS_API_WORKERS", 0)
     )
     API_WORKERS = os.environ.get("OURANOS_API_WORKERS", 0)
-    WEB_SERVER_RELOAD = False
     API_SECURE_COOKIES: bool = os.environ.get("OURANOS_API_SECURE_COOKIES", "").lower() == "true"
 
     # Aggregator server config (for pictures upload)
@@ -205,7 +204,6 @@ class BaseConfigDict(TypedDict):
     API_UID: str
     WEB_SERVER_WORKERS: int
     API_WORKERS: int
-    WEB_SERVER_RELOAD: bool
     API_SECURE_COOKIES: bool
 
     # Aggregator server config (for pictures upload)

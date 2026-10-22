@@ -2,14 +2,15 @@
 from __future__ import annotations
 
 import asyncio
-import socket
+from functools import partial
 from typing import Awaitable, Callable
 
 from uvicorn import Config, Server
 
-from ouranos.core.config import ConfigDict, ConfigHelper
+from ouranos.core.config import ConfigDict
 from ouranos.core.database.init import print_registration_token
 from ouranos.sdk import Functionality, Plugin
+from ouranos.web_server.factory import create_app
 from ouranos.web_server.system_monitor import SystemMonitor
 
 
@@ -28,23 +29,6 @@ class _AppWrapper:
         self.started = False
 
 
-class ServerWithOuranosConfig(Server):
-    """An uvicorn server that sets the Ouranos config when starting to serve"""
-    def __init__(
-            self,
-            config: Config,
-            ouranos_config: ConfigDict,
-    ) -> None:
-        super().__init__(config)
-        self.ouranos_config = ouranos_config
-
-    async def serve(self, sockets: list[socket.socket] | None = None) -> None:
-        if not ConfigHelper.config_is_set():
-            ConfigHelper.set_config_and_configure_logging(self.ouranos_config)
-        with self.capture_signals():
-            await self._serve(sockets)
-
-
 class WebServer(Functionality):
     def __init__(
             self,
@@ -56,11 +40,7 @@ class WebServer(Functionality):
         relies on `FastAPI` for the HTTP server and `python-socketio` to manage
         socketio events.
 
-        :param config_profile: The configuration profile to provide. Either a
-        `BaseConfig` or its subclass, a str corresponding to a profile name
-        accessible in a `config.py` file, or None to take the default profile.
-        :param config_override: A dictionary containing some overriding
-        parameters for the configuration.
+        :param config: The configuration to provide as a `(Base)ConfigDict`.
         :param kwargs: Other parameters to pass to the base class.
         """
         super().__init__(config, **kwargs)
@@ -83,49 +63,15 @@ class WebServer(Functionality):
 
         # Configure uvicorn server
         server_cfg = Config(
-            "ouranos.web_server.factory:create_app", factory=True, loop="auto",
+            partial(create_app, self.config), factory=True, loop="auto",
             host=self.config["API_HOST"], port=self.config["API_PORT"],
-            workers=workers,
-            reload=self.config["WEB_SERVER_RELOAD"], reload_delay=0.5,
-            log_config=None, server_header=False, date_header=False,
+            workers=workers, log_config=None, server_header=False, date_header=False,
         )
-        self.server = ServerWithOuranosConfig(server_cfg, ouranos_config=self.config)
+        self.server = Server(server_cfg)
         self.app: _AppWrapper
 
-        # Reloading server
-        if self.server.config.should_reload:
-            from uvicorn.supervisors import ChangeReload
-
-            sock = self.server.config.bind_socket()
-            reload = ChangeReload(
-                self.server.config, target=self.server.run, sockets=[sock])
-
-            async def start() -> None:
-                reload.run()
-
-            async def stop() -> None:
-                reload.should_exit.set()
-
-            self.app = _AppWrapper(start, stop)
-
-        # Multiprocess server
-        elif workers > 0:
-            # Works on linux, not on Windows
-            from uvicorn.supervisors import Multiprocess
-
-            sock = self.server.config.bind_socket()
-            multi = Multiprocess(self.server.config, sockets=[sock])
-
-            async def start() -> None:
-                multi.run()
-
-            async def stop() -> None:
-                multi.should_exit.set()
-
-            self.app = _AppWrapper(start, stop)
-
-        # Single process server
-        else:
+        # Same process server
+        if workers == 0:
             async def start():
                 asyncio.ensure_future(self.server.serve())
                 while not self.server.started:
@@ -134,6 +80,49 @@ class WebServer(Functionality):
             async def stop():
                 self.server.should_exit = True
                 await self.server._wait_tasks_to_complete()
+
+            self.app = _AppWrapper(start, stop)
+
+        # Multiprocess server
+        else:
+            # Works on linux, not on Windows
+            from uvicorn.supervisors import Multiprocess
+
+            sock = self.server.config.bind_socket()
+            multi = Multiprocess(self.server.config, sockets=[sock])
+
+            task: asyncio.Task | None = None
+
+            async def start() -> None:
+                nonlocal task
+                task = asyncio.create_task(asyncio.to_thread(multi.run))
+                host, port = sock.getsockname()[:2]
+                # Spawned workers import Ouranos before serving: wait for one to listen
+                for _ in range(100):
+                    if task.done():
+                        # `multi.run()` returned early (crash, or a worker STARTUP_FAILURE)
+                        await task
+                        raise RuntimeError("Web server workers stopped during startup")
+                    try:
+                        _, writer = await asyncio.open_connection(host, port)
+                    except OSError:
+                        await asyncio.sleep(0.1)
+                    else:
+                        writer.close()
+                        await writer.wait_closed()
+                        return
+                raise TimeoutError("No web server worker started within 10s")
+
+            async def stop() -> None:
+                nonlocal task
+                assert task is not None
+                multi.should_exit.set()
+                try:
+                    await asyncio.wait_for(asyncio.shield(task), timeout=5)
+                except TimeoutError:
+                    self.logger.warning("Web server workers did not stop within 5s")
+                task = None
+                sock.close()
 
             self.app = _AppWrapper(start, stop)
 
@@ -147,7 +136,6 @@ class WebServer(Functionality):
     async def shutdown(self):
         await self.system_monitor.stop()
         await self.app.stop()
-        await asyncio.sleep(1)  # Allow ChangeReload and Multiprocess to exit
 
 
 web_server_plugin = Plugin(
