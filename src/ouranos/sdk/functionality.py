@@ -9,36 +9,18 @@ from typing import ClassVar, Type
 
 import uvloop
 
-from ouranos import db, scheduler
 from ouranos.core.config import ConfigDict
-from ouranos.core.database.init import (
-    check_db_revision, create_db_tables, insert_default_data)
 from ouranos.core.utils import format_error
+from ouranos.sdk.resources import (
+    _CommonResourcesState, acquire_common_resources, get_common_resources_state,
+    release_common_resources)
 from ouranos.sdk.runner import Runner, runner
 
 
 _PATTERN = re.compile(r'(?<!^)(?=[A-Z])')
 
 
-class _CommonResourcesState:
-    def __init__(self):
-        self.used_by: int = 0
-
-    @property
-    def initialized(self) -> bool:
-        return self.used_by > 0
-
-    def register(self) -> None:
-        self.used_by += 1
-
-    def unregister(self) -> None:
-        if self.used_by <= 0:
-            raise RuntimeError("There are no more registered resources")
-        self.used_by -= 1
-
-
 class Functionality(ABC):
-    _common_resources_state: ClassVar[_CommonResourcesState] = _CommonResourcesState()
     _runner: ClassVar[Runner] = runner
 
     _is_microservice: bool = True
@@ -84,52 +66,15 @@ class Functionality(ABC):
 
     @property
     def common_resources_state(self) -> _CommonResourcesState:
-        return Functionality._common_resources_state
-
-    async def init_the_db(self) -> None:
-        """Initialize the database."""
-        self.logger.info("Initializing the database")
-
-        # Import the models so they're included on the session factory when calling
-        # `db.init()`
-        from ouranos.core.database.models import app  # noqa
-        from ouranos.core.database.models import archives  # noqa
-        from ouranos.core.database.models import gaia  # noqa
-        from ouranos.core.database.models import system  # noqa
-        if self.config["LOG_TO_DB"]:
-            from ouranos.core.database.models import logging  # noqa
-
-        db.init(self.config)  # ty: ignore[invalid-argument-type]  # TypedDict vs dict
-        await create_db_tables()
-        if not self.config["TESTING"]:  # Revisions aren't used in tests (yet ?)
-            await check_db_revision()
-        await insert_default_data()
-        self.logger.debug("Database initialized")
-
-    async def init_the_scheduler(self) -> None:
-        self.logger.info("Initializing the scheduler")
-        scheduler.start()
-        self.logger.debug("Scheduler initialized")
+        return get_common_resources_state()
 
     async def _init_common(self) -> None:
         """Initialize common resources."""
-        if not Functionality._common_resources_state.initialized:
-            await self.init_the_db()
-            await self.init_the_scheduler()
-
-        Functionality._common_resources_state.register()
+        await acquire_common_resources(self.config, self.logger)
 
     async def _clear_common(self) -> None:
         """Clear common resources."""
-        # Decref the common resources
-        Functionality._common_resources_state.unregister()
-        # If no functionality is using the common resources, clear them
-        if Functionality._common_resources_state.used_by == 0:
-            scheduler.remove_all_jobs()
-            scheduler.shutdown()
-
-            for engine in db.engines.values():
-                await engine.dispose()
+        await release_common_resources()
 
     async def initialize(self) -> None:
         """Hook for subclasses to initialize resources."""
