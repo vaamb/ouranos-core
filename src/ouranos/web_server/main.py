@@ -92,8 +92,12 @@ class WebServer(Functionality):
         # Same process server
         if workers == 0:
             async def start():
-                asyncio.ensure_future(self.server.serve())
+                serve_task = asyncio.create_task(self.server.serve())
                 while not self.server.started:
+                    if serve_task.done():
+                        # `serve()` returned early (e.g. `create_app` raised)
+                        await serve_task
+                        raise RuntimeError("Web server stopped during startup")
                     await asyncio.sleep(0.1)
 
             async def stop():
