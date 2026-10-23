@@ -7,19 +7,18 @@ from logging import getLogger, Logger
 import multiprocessing
 from multiprocessing.context import SpawnContext, SpawnProcess
 import typing as t
-from typing import Any, Awaitable, ClassVar, TypeVar
+from typing import Any, Awaitable, TypeVar
 
 import click
 from click import Command, Group
-import uvloop
 
 from ouranos import current_app
 from ouranos.core.config import ConfigDict, ConfigHelper, consts
 from ouranos.core.exceptions import ContractVersionError
-from ouranos.core.utils import format_error, parse_str_value
+from ouranos.core.utils import parse_str_value
 from ouranos.sdk import Functionality
 from ouranos.sdk.functionality import format_functionality_name
-from ouranos.sdk.runner import Runner, runner
+from ouranos.sdk.host import Host
 
 if t.TYPE_CHECKING:
     from ouranos.core.config import profile_type
@@ -260,8 +259,6 @@ class Extension:
 
 
 class Plugin(Extension):
-    _runner: ClassVar[Runner] = runner
-
     def __init__(
             self,
             functionality: type[F],
@@ -291,7 +288,6 @@ class Plugin(Extension):
         self.logger: Logger = getLogger(f"ouranos.{self.name}-plugin")
         self._functionality: type[F] = functionality
         self._executor: PluginExecutor | None = None
-        self._error_logged: bool = False
         self._command: Command | None = command
         self._config: ConfigDict | None = None
         self._kwargs: dict = {}
@@ -419,51 +415,9 @@ class Plugin(Extension):
 
     def run_as_standalone(self) -> None:
         """Run the functionality as a standalone process."""
-        from setproctitle import setproctitle
-        setproctitle(f"ouranos-{self.name}")
-
         self._kwargs["microservice"] = True
-
-        try:
-            uvloop.run(self._run_as_standalone())
-        except Exception:
-            if not self._error_logged:
-                # The error should not have happened and is not logged, raise it anyway
-                raise
-            if self.config["DEVELOPMENT"] or self.config["DEBUG"] or self.config["TESTING"]:
-                raise
-            raise SystemExit(1)
-
-    async def _run_as_standalone(self) -> None:
-        """Internal async method for standalone execution."""
-        self._runner.add_signal_handler()
-        # Don't show the traceback on error if not in debugging mode
-        if not self.config["DEBUG"]:
-            import sys
-
-            def exception_handler(exception_type, exception, _traceback):
-                print(f"{exception_type.__name__}: {exception}")
-
-            sys.excepthook = exception_handler
-
-        self._error_logged = False
-        try:
-            await self.startup()
-        except Exception as e:
-            self.logger.error(f"Error starting. {format_error(e)}", exc_info=e)
-            self._error_logged = True
-            raise
-        else:
-            await self._runner.run_until_stop()
-        finally:
-            if self.is_started:
-                try:
-                    await self.shutdown()
-                except Exception as e:
-                    self.logger.error(
-                        f"Error while shutting down. {format_error(e)}", exc_info=e)
-                    self._error_logged = True
-                    raise
+        host = Host(f"ouranos-{self.name}", self.config, [self])
+        host.run()
 
     # Command handling
     def has_command(self) -> bool:

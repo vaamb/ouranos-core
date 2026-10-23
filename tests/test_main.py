@@ -1,53 +1,69 @@
-import asyncio
+from contextlib import suppress
+from types import SimpleNamespace
 
 import pytest
 
 from ouranos.core.config import ConfigDict
+from ouranos.core.plugins_manager import PluginManager
+from ouranos.core.utils import SingletonMeta
 from ouranos.main import Ouranos
+from ouranos.sdk import Extension
+from ouranos.sdk.tests.plugin import dummy_plugin
 
 
-class MockOuranos(Ouranos):
-    """`Ouranos` without its plugins, failing on demand."""
+@pytest.fixture
+def plugin_manager():
+    # Start from a fresh instance, an earlier one may still be alive
+    with suppress(KeyError):
+        SingletonMeta.detach_instance("PluginManager")
+    pm = PluginManager()
 
-    def __init__(self, config: ConfigDict, *, fail_with: BaseException | None = None):
-        super().__init__(config)
-        self.fail_with = fail_with
+    yield pm
 
-    async def startup(self) -> None:
-        if self.fail_with is not None:
-            raise self.fail_with
-
-    async def shutdown(self) -> None:
-        if self.fail_with is not None:
-            raise self.fail_with
+    SingletonMeta.detach_instance("PluginManager")
 
 
 @pytest.mark.asyncio
 class TestOuranos:
-    async def test_lifecycle(self, config: ConfigDict):
-        ouranos = MockOuranos(config)
+    async def test_hosts_registered_plugins(
+            self,
+            config: ConfigDict,
+            plugin_manager: PluginManager,
+    ):
+        ouranos = Ouranos(config)
 
-        await ouranos.complete_startup()
+        assert plugin_manager.plugins_are_registered
+        # Only the dummy plugin is registered while testing
+        assert ouranos.plugins == [dummy_plugin]
+        assert dummy_plugin.kwargs["microservice"] is False
+
+        await ouranos.startup()
         assert ouranos.started
-        assert ouranos.common_resources_state.used_by == 1
+        assert dummy_plugin.is_started
 
-        await ouranos.complete_shutdown()
+        await ouranos.shutdown()
         assert not ouranos.started
-        assert ouranos.common_resources_state.used_by == 0
+        assert not dummy_plugin.is_started
 
-    async def test_startup_failure_releases_common_resources(self, config: ConfigDict):
-        ouranos = MockOuranos(config, fail_with=ValueError("plugin failed"))
+        # Cleanup
+        dummy_plugin.kwargs = {}
 
-        with pytest.raises(ValueError):
-            await ouranos.complete_startup()
-        assert not ouranos.started
-        assert ouranos.common_resources_state.used_by == 0
+    async def test_skips_routes_only_extension(
+            self,
+            config: ConfigDict,
+            plugin_manager: PluginManager,
+    ):
+        """A routes-only `Extension` has no functionality to run: `Ouranos`
+        must skip it rather than abort the startup of every other plugin."""
+        extension = Extension(name="dummy", contract_versions={})
+        plugin_manager._entry_points = {
+            "dummy": SimpleNamespace(name="dummy", load=lambda: extension),
+        }
+        plugin_manager.register_plugins()
+        assert plugin_manager.plugins["dummy"] is extension
 
-    async def test_cancelled_shutdown_still_stops(self, config: ConfigDict):
-        ouranos = MockOuranos(config)
-        await ouranos.complete_startup()
+        ouranos = Ouranos(config)
+        assert ouranos.plugins == []
 
-        ouranos.fail_with = asyncio.CancelledError()
-        await ouranos.complete_shutdown()
-        assert not ouranos.started
-        assert ouranos.common_resources_state.used_by == 0
+        await ouranos.startup()
+        await ouranos.shutdown()
