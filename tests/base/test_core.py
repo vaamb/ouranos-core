@@ -662,3 +662,100 @@ class TestHost:
         assert not other.is_started
         assert "Failed to stop plugin 'failing'" in caplog.text
         assert DummyFunctionality(config).common_resources_state.used_by == 0
+
+    async def test_keep_alive_restarts_dead_worker(
+            self,
+            config: ConfigDict,
+            dummy_plugin: Plugin,
+    ):
+        dummy_plugin.setup_config(config)
+        dummy_plugin._functionality.workers = 1
+        host = Host("test-host", config, [dummy_plugin])
+
+        await host.startup()
+        try:
+            executor = dummy_plugin.executor
+            assert isinstance(executor, _SubprocessExecutor)
+            dead = executor.subprocesses[0]
+            dead.kill()
+            dead.join(5.0)
+
+            await host.keep_alive()
+
+            revived = executor.subprocesses[0]
+            assert revived is not dead
+            assert revived.name == dead.name
+            assert revived.is_alive()
+        finally:
+            await host.shutdown()
+            # Cleanup
+            dummy_plugin._functionality.workers = 0
+
+    async def test_keep_alive_backs_off(
+            self,
+            config: ConfigDict,
+            dummy_plugin: Plugin,
+            monkeypatch: pytest.MonkeyPatch,
+    ):
+        """A worker that keeps dying is restarted immediately the first time,
+        then after a delay doubling at each restart."""
+        monkeypatch.setattr("ouranos.sdk.plugin._RESTART_BASE_DELAY", 0.5)
+        dummy_plugin.setup_config(config)
+        dummy_plugin._functionality.workers = 1
+        host = Host("test-host", config, [dummy_plugin])
+
+        await host.startup()
+        try:
+            executor = dummy_plugin.executor
+            assert isinstance(executor, _SubprocessExecutor)
+
+            # First death: restarted immediately
+            first = executor.subprocesses[0]
+            first.kill()
+            first.join(5.0)
+            await host.keep_alive()
+            second = executor.subprocesses[0]
+            assert second is not first
+
+            # Second death: the restart waits for the base delay
+            second.kill()
+            second.join(5.0)
+            await host.keep_alive()
+            assert executor.subprocesses[0] is second
+
+            sleep(0.6)
+            await host.keep_alive()
+            third = executor.subprocesses[0]
+            assert third is not second
+            assert third.is_alive()
+        finally:
+            await host.shutdown()
+            # Cleanup
+            dummy_plugin._functionality.workers = 0
+
+    async def test_keep_alive_continues_after_failure(
+            self,
+            config: ConfigDict,
+            caplog: pytest.LogCaptureFixture,
+    ):
+        """A plugin failing to restart its workers doesn't prevent the others
+        from being kept alive, nor stops the host."""
+        failing = Plugin(DummyFunctionality, name="failing", contract_versions={})
+        other = Plugin(DummyFunctionality, name="other", contract_versions={})
+        kept_alive: list[str] = []
+
+        async def raise_error():
+            raise ValueError("Keep alive failed")
+
+        async def record():
+            kept_alive.append("other")
+
+        failing.keep_alive = raise_error
+        other.keep_alive = record
+        host = Host("test-host", config, [failing, other])
+
+        with caplog.at_level(logging.ERROR, logger="test_host.host"):
+            await host.keep_alive()
+
+        assert kept_alive == ["other"]
+        assert "Failed to keep plugin 'failing' alive" in caplog.text
