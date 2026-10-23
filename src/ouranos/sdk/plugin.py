@@ -178,12 +178,13 @@ class _SubprocessExecutor(PluginExecutor):
         self._subprocesses = []
         self._restart_states = []
         self.logger.debug("Starting subprocess executor...")
+        now = time.monotonic()
         try:
             for worker in range(self.workers):
                 process_name = f"{self.functionality.__name__}-{worker}"
                 process = self._spawn(process_name)
                 self.subprocesses.append(process)
-                self._restart_states.append(_RestartState(started_at=time.monotonic()))
+                self._restart_states.append(_RestartState(started_at=now))
                 self.logger.debug(f"Started worker {process_name}")
         except Exception:
             # Clean up any already-started subprocesses on failure
@@ -199,6 +200,7 @@ class _SubprocessExecutor(PluginExecutor):
         self.logger.debug("Stopping subprocess executor...")
         await self._stop_processes(5.0)
         self._subprocesses = None
+        self._restart_states.clear()
         self.logger.debug("Subprocess executor stopped")
 
     def _spawn(self, process_name: str) -> SpawnProcess:
