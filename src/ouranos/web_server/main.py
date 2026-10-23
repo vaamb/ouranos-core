@@ -3,15 +3,31 @@ from __future__ import annotations
 
 import asyncio
 from functools import partial
+import logging
+import sys
 from typing import Awaitable, Callable
 
+from fastapi import FastAPI
 from uvicorn import Config, Server
+from uvicorn.config import STARTUP_FAILURE
 
 from ouranos.core.config import ConfigDict
 from ouranos.core.database.init import print_registration_token
 from ouranos.sdk import Functionality, Plugin
 from ouranos.web_server.factory import create_app
 from ouranos.web_server.system_monitor import SystemMonitor
+
+
+def _create_app_or_exit(config: ConfigDict) -> FastAPI:
+    # A wrapper function that set sys.exit(STARTUP_FAILURE) when `create_app`
+    # raises an exception. This makes Uvicorn's `Multiprocess` stop trying to
+    # respawn broken factories
+    try:
+        return create_app(config)
+    except Exception:
+        logger = logging.getLogger("ouranos.web_server")
+        logger.exception("Failed to create the web server app")
+        sys.exit(STARTUP_FAILURE)
 
 
 class _AppWrapper:
@@ -62,8 +78,11 @@ class WebServer(Functionality):
             )
 
         # Configure uvicorn server
+        # `_create_app_or_exit()` uses `sys.exit()`, allowing `Multiprocess` stop
+        # spawning broken factories
+        app_factory = _create_app_or_exit if workers > 0 else create_app
         server_cfg = Config(
-            partial(create_app, self.config), factory=True, loop="auto",
+            partial(app_factory, self.config), factory=True, loop="auto",
             host=self.config["API_HOST"], port=self.config["API_PORT"],
             workers=workers, log_config=None, server_header=False, date_header=False,
         )
@@ -73,8 +92,12 @@ class WebServer(Functionality):
         # Same process server
         if workers == 0:
             async def start():
-                asyncio.ensure_future(self.server.serve())
+                serve_task = asyncio.create_task(self.server.serve())
                 while not self.server.started:
+                    if serve_task.done():
+                        # `serve()` returned early (e.g. `create_app` raised)
+                        await serve_task
+                        raise RuntimeError("Web server stopped during startup")
                     await asyncio.sleep(0.1)
 
             async def stop():
@@ -96,12 +119,20 @@ class WebServer(Functionality):
             async def start() -> None:
                 nonlocal task
                 task = asyncio.create_task(asyncio.to_thread(multi.run))
+                try:
+                    await wait_for_a_worker(task)
+                except BaseException:
+                    # Don't leave `multi.run()` running, the process would hang at exit
+                    await stop()
+                    raise
+
+            async def wait_for_a_worker(task_: asyncio.Task) -> None:
                 host, port = sock.getsockname()[:2]
                 # Spawned workers import Ouranos before serving: wait for one to listen
                 for _ in range(100):
-                    if task.done():
+                    if task_.done():
                         # `multi.run()` returned early (crash, or a worker STARTUP_FAILURE)
-                        await task
+                        await task_
                         raise RuntimeError("Web server workers stopped during startup")
                     try:
                         _, writer = await asyncio.open_connection(host, port)
