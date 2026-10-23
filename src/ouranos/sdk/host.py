@@ -125,6 +125,23 @@ class Host:
                 f"Failed to stop plugin '{plugin.name}'. {format_error(e)}",
                 exc_info=e)
 
+    async def keep_alive(self) -> None:
+        """Restart the dead workers of every plugin.
+
+        A plugin failing to restart its workers is logged and doesn't prevent
+        the following ones from being kept alive.
+        """
+        # Workers also receive the stop signal, don't restart them while stopping
+        if self._runner.stopping:
+            return
+        for plugin in self.plugins:
+            try:
+                await plugin.keep_alive()
+            except Exception as e:
+                self.logger.error(
+                    f"Failed to keep plugin '{plugin.name}' alive. {format_error(e)}",
+                    exc_info=e)
+
     def run(self) -> None:
         """Run the host until a stop signal is received."""
         from setproctitle import setproctitle
@@ -161,7 +178,7 @@ class Host:
             self._error_logged = True
             raise
         else:
-            await self._runner.run_until_stop()
+            await self._runner.run_until_stop([self.keep_alive])
         finally:
             if self.started:
                 try:

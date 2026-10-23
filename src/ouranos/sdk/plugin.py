@@ -3,9 +3,11 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 import asyncio
 from collections import namedtuple
+from dataclasses import dataclass
 from logging import getLogger, Logger
 import multiprocessing
 from multiprocessing.context import SpawnContext, SpawnProcess
+import time
 import typing as t
 from typing import Any, Awaitable, TypeVar
 
@@ -31,6 +33,13 @@ multiprocessing.allow_connection_pickling()
 spawn: SpawnContext = multiprocessing.get_context("spawn")
 
 Route = namedtuple("Route", ("path", "endpoint"))
+
+# Back off between the restarts of a worker that keeps dying: the first restart
+#  is immediate, the next ones wait twice as long each time, up to the max delay
+_RESTART_BASE_DELAY = 1.0
+_RESTART_MAX_DELAY = 300.0
+# A worker alive for that long is considered healthy and its back off is reset
+_RESTART_RESET_AFTER = 600.0
 
 
 class PluginExecutor(ABC):
@@ -67,6 +76,9 @@ class PluginExecutor(ABC):
             return _InProcessExecutor(functionality, 0, config, logger, **kwargs)
         else:
             return _SubprocessExecutor(functionality, workers, config, logger, **kwargs)
+
+    async def keep_alive(self) -> None:
+        pass
 
 
 class _InProcessExecutor(PluginExecutor):
@@ -105,12 +117,20 @@ class _InProcessExecutor(PluginExecutor):
         self.logger.debug("In process executor stopped")
 
 
+@dataclass
+class _RestartState:
+    started_at: float
+    restarts: int = 0
+    restart_at: float | None = None
+
+
 class _SubprocessExecutor(PluginExecutor):
     def __init__(
             self, functionality: type[F], workers: int, config: ConfigDict,
             logger: Logger, **kwargs) -> None:
         super().__init__(functionality, workers, config, logger, **kwargs)
         self._subprocesses: list[SpawnProcess] | None = None
+        self._restart_states: list[_RestartState] = []
 
     @property
     def subprocesses(self) -> list[SpawnProcess]:
@@ -156,18 +176,14 @@ class _SubprocessExecutor(PluginExecutor):
 
     async def start(self) -> None:
         self._subprocesses = []
+        self._restart_states = []
         self.logger.debug("Starting subprocess executor...")
         try:
             for worker in range(self.workers):
                 process_name = f"{self.functionality.__name__}-{worker}"
-                process = spawn.Process(
-                    target=self._run_in_subprocess,
-                    args=(self.functionality, self.config, self.kwargs),
-                    daemon=True,
-                    name=process_name,
-                )
-                process.start()
+                process = self._spawn(process_name)
                 self.subprocesses.append(process)
+                self._restart_states.append(_RestartState(started_at=time.monotonic()))
                 self.logger.debug(f"Started worker {process_name}")
         except Exception:
             # Clean up any already-started subprocesses on failure
@@ -184,6 +200,50 @@ class _SubprocessExecutor(PluginExecutor):
         await self._stop_processes(5.0)
         self._subprocesses = None
         self.logger.debug("Subprocess executor stopped")
+
+    def _spawn(self, process_name: str) -> SpawnProcess:
+        process = spawn.Process(
+            target=self._run_in_subprocess,
+            args=(self.functionality, self.config, self.kwargs),
+            daemon=True,
+            name=process_name,
+        )
+        process.start()
+        return process
+
+    async def keep_alive(self) -> None:
+        now = time.monotonic()
+        for idx, process in enumerate(self.subprocesses):
+            state = self._restart_states[idx]
+            if process.is_alive():
+                if state.restarts and now - state.started_at > _RESTART_RESET_AFTER:
+                    state.restarts = 0
+                continue
+
+            if state.restart_at is None:
+                # Newly found dead: schedule its restart
+                delay = 0.0
+                if state.restarts:
+                    delay = min(
+                        _RESTART_BASE_DELAY * 2 ** (state.restarts - 1),
+                        _RESTART_MAX_DELAY,
+                    )
+                state.restart_at = now + delay
+                self.logger.warning(
+                    f"Subprocess worker {process.name} has died (exit code "
+                    f"{process.exitcode}), restarting it in {delay:.0f} s")
+            if now < state.restart_at:
+                continue
+
+            # Reap the dead process before replacing it
+            process.join()
+            process_name = process.name
+            process.close()
+
+            self.subprocesses[idx] = self._spawn(process_name)
+            state.started_at = now
+            state.restarts += 1
+            state.restart_at = None
 
 
 class Extension:
@@ -412,6 +472,11 @@ class Plugin(Extension):
             self._executor = None
 
         self.logger.info(f"Stopped {self.name}")
+
+    async def keep_alive(self) -> None:
+        """Restart the dead workers of the plugin, if it is running."""
+        if self.is_started:
+            await self.executor.keep_alive()
 
     def run_as_standalone(self) -> None:
         """Run the functionality as a standalone process."""

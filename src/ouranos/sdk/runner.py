@@ -5,6 +5,7 @@ from asyncio import Event
 import signal
 import threading
 from types import FrameType
+from typing import Awaitable, Callable
 
 
 SIGNALS = (
@@ -41,12 +42,26 @@ class Runner:
 
         self._handling_signal = True
 
-    async def run_until_stop(self) -> None:
+    async def run_until_stop(
+            self,
+            funcs: list[Callable[[], Awaitable[None]]] | None = None,
+    ) -> None:
+        funcs = funcs or []
         await asyncio.sleep(0.1)
         if not self._handling_signal:
             self.add_signal_handler()
-        await self._should_exit.wait()
+        while not self._should_exit.is_set():
+            for func in funcs:
+                await func()
+            try:
+                await asyncio.wait_for(self._should_exit.wait(), timeout=0.5)
+            except asyncio.TimeoutError:
+                pass
         await self.shutdown()
+
+    @property
+    def stopping(self) -> bool:
+        return self._should_exit.is_set()
 
     def stop(self) -> None:
         self._should_exit.set()
