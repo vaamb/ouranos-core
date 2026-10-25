@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from uvicorn import Config, Server
 from uvicorn.config import STARTUP_FAILURE
 
+from ouranos import db
 from ouranos.core.config import ConfigDict
 from ouranos.core.database.init import print_registration_token
 from ouranos.sdk import Functionality, Plugin
@@ -158,7 +159,8 @@ class WebServer(Functionality):
             self.app = _AppWrapper(start, stop)
 
     async def initialize(self) -> None:
-        await print_registration_token()
+        # DB has been initialized when `Functionality` called `acquire_common_resources()`
+        await print_registration_token(db)
 
     async def startup(self):
         await self.app.start()

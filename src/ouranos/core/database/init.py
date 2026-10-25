@@ -1,15 +1,16 @@
 from pathlib import Path
 
-from alembic.script import ScriptDirectory
 from sqlalchemy import text
 
-from ouranos import db, current_app
+from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
+
+from ouranos import current_app
 from ouranos.core.config import get_db_dir
 from ouranos.core.database.models.app import User
 from ouranos.core.utils import humanize_list
 
 
-async def create_db_tables() -> None:
+def check_db_dir():
     create_db_dir = False
     uri = current_app.config["SQLALCHEMY_DATABASE_URI"]
     uri_str = uri if not isinstance(uri, Path) else uri.name
@@ -24,17 +25,13 @@ async def create_db_tables() -> None:
     if create_db_dir:
         get_db_dir()  # Will create the dir as a side effect
 
-    # Import the models so they are registered
-    from ouranos.core.database.models import app  # noqa
-    from ouranos.core.database.models import archives  # noqa
-    from ouranos.core.database.models import gaia  # noqa
-    from ouranos.core.database.models import system  # noqa
-    from ouranos.core.database.models import logging  # noqa
 
+async def create_db_tables(db: AsyncSQLAlchemyWrapper) -> None:
+    check_db_dir()
     await db.create_all()
 
 
-async def insert_default_data() -> None:
+async def insert_default_data(db: AsyncSQLAlchemyWrapper) -> None:
     from ouranos.core.database.models import app
 
     async with db.scoped_session() as session:
@@ -45,7 +42,10 @@ async def insert_default_data() -> None:
         await app.User.insert_gaia(session)
 
 
-async def check_db_revision() -> None:
+async def check_db_revision(db: AsyncSQLAlchemyWrapper) -> None:
+    from alembic.script import ScriptDirectory
+
+    # `project_root` could be set to venv `OURANOS_DIR`
     project_root = Path(__file__).parents[4]
     migration_dir = project_root / "migrations"
     script = ScriptDirectory(migration_dir)
@@ -72,7 +72,7 @@ async def check_db_revision() -> None:
         )
 
 
-async def print_registration_token() -> None:
+async def print_registration_token(db: AsyncSQLAlchemyWrapper) -> None:
     async with db.scoped_session() as session:
         token = await User.create_invitation_token(session)
         print(f"registration token: {token}")

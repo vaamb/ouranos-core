@@ -1,9 +1,12 @@
+from logging import getLogger
+
 import pytest
 import pytest_asyncio
 
-from ouranos import Config, db as _db, setup_config
+from ouranos import Config, db as ouranos_db, setup_config
 from ouranos.core.config import ConfigDict
-from ouranos.core.database.init import create_db_tables, insert_default_data
+from ouranos.core.database.models import caches
+from ouranos.sdk.resources import init_the_db
 
 from .data.auth import admin
 
@@ -34,22 +37,19 @@ def config(tmp_path_factory):
     Config.OPEN_WEATHER_MAP_API_KEY = "key"
 
     config = setup_config(Config)
-    _db.init(config)
     yield config
 
 
 @pytest_asyncio.fixture(scope="class", autouse=True)
 async def db(config: ConfigDict):
-    from ouranos.core.database import models  # noqa
-    from ouranos.core.database.models import caches
-    await create_db_tables()
-    await insert_default_data()
+    logger = getLogger("ouranos")
+    await init_the_db(ouranos_db, config, logger)
 
-    yield _db
+    yield ouranos_db
 
-    await _db.drop_all()
+    await ouranos_db.drop_all()
 
-    for engine in _db.engines.values():
+    for engine in ouranos_db.engines.values():
         await engine.dispose()
 
     # Clear up the caches
