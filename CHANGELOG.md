@@ -2,7 +2,7 @@
 
 ---
 
-## Unreleased
+## 0.12.0 — 2026-10-25
 
 ### Added
 - Session revocation: a "sessions_valid_from" cutoff column on `User` (with its migration
