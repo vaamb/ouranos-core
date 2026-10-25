@@ -5,7 +5,7 @@ repository.
 
 ## Overview
 
-Ouranos-core is a Python 3.11+ async server that manages Gaia instances. It
+Ouranos-core is a Python 3.12+ async server that manages Gaia instances. It
 receives Gaia's data through a message broker, stores it with async
 SQLAlchemy, and serves it to the frontend over a FastAPI REST API and
 Socket.IO. Extra functionalities are added through plugins.

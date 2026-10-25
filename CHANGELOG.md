@@ -145,6 +145,7 @@
 - FastAPI's own `JSONResponse` replaces the custom one (#480)
 
 ### Removed
+- Python 3.11 support: `requires-python` is now ">=3.12" (#492, #519)
 - The reloading web server and its `WEB_SERVER_RELOAD` config parameter: it watched no core
   file and could not run (#510)
 
@@ -242,6 +243,7 @@
   isolated throwaway environment, leaving the real install, `~/.profile` and systemd
   untouched; it tests the working tree, uncommitted changes included (#407, #408)
 - CI workflow running the installation and update scripts in the sandbox (#424)
+- Python 3.14 added to the test matrix and 3.11 removed from it (#519)
 - `ty` type checking extended to every module, `ruff` and `ty` pinned (#406, #430, #432, #433,
   #449, #451, #453)
 - Testing dependencies moved from `optional-dependencies` to `dependency-groups` (#426)
