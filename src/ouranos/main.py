@@ -118,7 +118,7 @@ def fill_db(
 ) -> None:
     """Fill the database with the default tables."""
     from ouranos import db
-    from ouranos.sdk.resources import init_the_db
+    from ouranos.core.database.init import setup_db
 
     config_override_dict = parse_config_override(config_override)
 
@@ -129,7 +129,7 @@ def fill_db(
     config = ConfigHelper.set_config_and_configure_logging(
         config_profile, config_override_dict)
     logger = getLogger("ouranos")
-    asyncio.run(init_the_db(db, config, logger, check_revision))
+    asyncio.run(setup_db(db, config, logger, check_revision))
 
 
 if __name__ == "__main__":

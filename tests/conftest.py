@@ -5,8 +5,8 @@ import pytest_asyncio
 
 from ouranos import Config, db as ouranos_db, setup_config
 from ouranos.core.config import ConfigDict
+from ouranos.core.database.init import setup_db
 from ouranos.core.database.models import caches
-from ouranos.sdk.resources import init_the_db
 
 from .data.auth import admin
 
@@ -43,7 +43,7 @@ def config(tmp_path_factory):
 @pytest_asyncio.fixture(scope="class", autouse=True)
 async def db(config: ConfigDict):
     logger = getLogger("ouranos")
-    await init_the_db(ouranos_db, config, logger)
+    await setup_db(ouranos_db, config, logger)
 
     yield ouranos_db
 

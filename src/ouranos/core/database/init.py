@@ -1,3 +1,4 @@
+from logging import Logger
 from pathlib import Path
 
 from sqlalchemy import text
@@ -6,7 +7,7 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
 from ouranos import current_app
-from ouranos.core.config import get_db_dir
+from ouranos.core.config import ConfigDict, get_db_dir
 from ouranos.core.database.models.app import User
 from ouranos.core.utils import humanize_list
 
@@ -84,6 +85,34 @@ async def check_db_revision(db: AsyncSQLAlchemyWrapper) -> None:
             f"The database is not up to date for the following bind(s): "
             f"{humanize_list(not_up_to_date)}."
         )
+
+
+async def setup_db(
+        db: AsyncSQLAlchemyWrapper,
+        config: ConfigDict,
+        logger: Logger,
+        check_revision: bool = True,
+) -> None:
+    """Initialize the database."""
+    logger.info("Initializing the database")
+
+    # Import the models so they're included on the session factory when calling
+    # `db.init()`
+    from ouranos.core.database.models import app  # noqa
+    from ouranos.core.database.models import archives  # noqa
+    from ouranos.core.database.models import gaia  # noqa
+    from ouranos.core.database.models import system  # noqa
+    from ouranos.core.database.models import logging  # noqa
+
+    # Initialize the DB and create the bindings
+    db.init(config)  # ty: ignore[invalid-argument-type]  # TypedDict vs dict
+
+    if not config["TESTING"] and check_revision:  # Revisions aren't used in tests (yet ?)
+        await check_db_revision(db)
+
+    await create_db_tables(db)
+    await insert_default_data(db)
+    logger.debug("Database initialized")
 
 
 async def print_registration_token(db: AsyncSQLAlchemyWrapper) -> None:
