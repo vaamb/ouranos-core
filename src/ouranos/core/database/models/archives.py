@@ -10,7 +10,7 @@ from ouranos.core.database.models.gaia import (
 #   Models used for archiving, located in db_archive
 # ---------------------------------------------------------------------------
 class FlashMessageArchive(BaseFlashMessage):
-    __tablename__ = "flash_messages_archive"
+    __tablename__ = "flash_message_archive"
     __bind_key__ = "archive"
 
 

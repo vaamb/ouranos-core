@@ -985,7 +985,7 @@ class BaseFlashMessage(Base):
 
     @property
     def active(self) -> bool:
-        return self.inactivated_on is not None
+        return self.inactivated_on is None
 
     @classmethod
     async def get_lasts(
@@ -1024,6 +1024,10 @@ class FlashMessage(BaseFlashMessage, ArchivableMixin):
     __bind_key__ = "app"
     _archive_table = "flash_message_archive"
     _archive_column = "inactivated_on"
+
+    @classmethod
+    def get_time_limit(cls) -> int | None:
+        return current_app.config["WARNING_ARCHIVING_PERIOD"]
 
 
 class CalendarEventVisibility(IntEnum):
