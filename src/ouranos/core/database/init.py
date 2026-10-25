@@ -46,7 +46,6 @@ async def insert_default_data(db: AsyncSQLAlchemyWrapper) -> None:
 async def check_db_revision(db: AsyncSQLAlchemyWrapper) -> None:
     from alembic.script import ScriptDirectory
 
-    # `project_root` could be set to venv `OURANOS_DIR`
     project_root = Path(__file__).parents[4]
     migration_dir = project_root / "migrations"
     script = ScriptDirectory(migration_dir)
@@ -69,9 +68,9 @@ async def check_db_revision(db: AsyncSQLAlchemyWrapper) -> None:
         except DBAPIError:
             # Missing database file or `alembic_version` table
             not_initialized.append(bind or "ecosystem")
-            continue
-        if revision != head:
-            not_up_to_date.append(bind or "ecosystem")
+        else:
+            if revision != head:
+                not_up_to_date.append(bind or "ecosystem")
     if not_initialized:
         raise Exception(
             f"The database has no revision for the following bind(s): "
@@ -96,8 +95,9 @@ async def setup_db(
 
     Initialize the database with the config and create the binds mapping, create
     the database tables, and insert initial data. Check the database revision so
-    the deployed DB tables remain in sync with their SQLAlchemy model."""
-    logger.info("Initializing the database")
+    the deployed DB tables remain in sync with their SQLAlchemy model.
+    """
+    logger.info("Setting up the database")
 
     # Import the models so they're included on the session factory when calling
     # `db.init()`
@@ -115,7 +115,7 @@ async def setup_db(
 
     await create_db_tables(db, config)
     await insert_default_data(db)
-    logger.debug("Database initialized")
+    logger.debug("Database set up")
 
 
 async def teardown_db(db: AsyncSQLAlchemyWrapper) -> None:
