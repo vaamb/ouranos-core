@@ -92,7 +92,11 @@ async def setup_db(
         logger: Logger,
         check_revision: bool = True,
 ) -> None:
-    """Initialize the database."""
+    """Set up the database.
+
+    Initialize the database with the config and create the binds mapping, create
+    the database tables, and insert initial data. Check the database revision so
+    the deployed DB tables remain in sync with their SQLAlchemy model."""
     logger.info("Initializing the database")
 
     # Import the models so they're included on the session factory when calling
