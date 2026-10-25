@@ -62,7 +62,7 @@ fi
 
 # Version requirements
 PYTHON_VERSION="3.13"
-readonly OURANOS_VERSION="0.11.0"
+readonly OURANOS_VERSION="0.12.0"
 # Overridable so the installation can be tested, or run from a fork or a local
 # mirror, without reaching for GitHub
 readonly OURANOS_REPO="${OURANOS_REPO:-https://github.com/vaamb/ouranos-core.git}"
