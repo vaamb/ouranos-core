@@ -357,9 +357,6 @@ class Plugin(Extension):
     def __repr__(self) -> str:
         return f"<Plugin({self.name}, status={self.is_started})>"
 
-    def _fmt_exc(self, e: BaseException) -> str:
-        return f"Error msg: `{e.__class__.__name__}: {e}`"
-
     @property
     def is_started(self) -> bool:
         """Check if the plugin is currently running."""
@@ -417,9 +414,6 @@ class Plugin(Extension):
 
         :return: Number of worker processes to spawn.
         """
-        if self.config is None:
-            raise RuntimeError("Config not set. Call setup_config() first")
-
         workers = self.functionality.workers
         func_workers: str | None = self.config.get(f"{self.name.upper().replace('-', '_')}_WORKERS")
         if func_workers is not None:
