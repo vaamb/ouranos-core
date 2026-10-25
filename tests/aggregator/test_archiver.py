@@ -241,5 +241,6 @@ class TestArchive(SensorsAware):
 
         archiver = Archiver()
         assert set(archiver.mapping) == {
-            "sensor_records_archive", "actuator_records_archive", "warnings_archive"}
+            "sensor_records_archive", "actuator_records_archive", "warnings_archive",
+            "flash_message_archive"}
         await archiver.archive_old_data()

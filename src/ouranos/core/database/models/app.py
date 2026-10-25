@@ -28,7 +28,7 @@ from ouranos import current_app
 from ouranos.core.config import consts
 from ouranos.core.database.models import caches
 from ouranos.core.database.models.abc import (
-    Base, UpsertCRUDMixin, lookup_keys_type, on_conflict_opt, query_keys_type, ToDictMixin)
+    Base, UpsertCRUDMixin, lookup_keys_type, on_conflict_opt, query_keys_type, ToDictMixin, ArchivableMixin)
 from ouranos.core.database.models.caching import CachedCRUDMixin, create_hashable_key
 from ouranos.core.database.models.types import PathType, SQLIntEnum, UtcDateTime
 from ouranos.core.database.models.utils import paginate
@@ -973,17 +973,19 @@ class CommunicationChannel(Base):
                 session.add(c)
 
 
-# TODO: make it an `ArchivableMixin` in a later pass
-class FlashMessage(Base):
-    __tablename__ = "flash_message"
-    __bind_key__ = "app"
+class BaseFlashMessage(Base):
+    __abstract__ = True
 
     id: Mapped[int] = mapped_column(primary_key=True)
     level: Mapped[gv.WarningLevel] = mapped_column(SQLIntEnum(gv.WarningLevel), default=gv.WarningLevel.low)
     title: Mapped[str] = mapped_column(sa.String(length=256))
     description: Mapped[Optional[str]] = mapped_column(sa.String(length=2048))
     created_on: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
-    active: Mapped[bool] = mapped_column(default=True)
+    inactivated_on: Mapped[Optional[datetime]] = mapped_column(UtcDateTime)
+
+    @property
+    def active(self) -> bool:
+        return self.inactivated_on is None
 
     @classmethod
     async def get_lasts(
@@ -993,7 +995,7 @@ class FlashMessage(Base):
     ) -> Sequence[Self]:
         stmt = (
             select(cls)
-            .where(cls.active == True)
+            .where(cls.inactivated_on == None)
             .order_by(cls.created_on.desc(), cls.level)
             .limit(limit)
         )
@@ -1008,10 +1010,24 @@ class FlashMessage(Base):
     ) -> None:
         stmt = (
             update(cls)
-            .where(cls.id == message_id)
-            .values({"active": False})
+            .where(
+                (cls.id == message_id)
+                & (cls.inactivated_on == None)  # Make sure we don't inactivate twice
+            )
+            .values({"inactivated_on": datetime.now(timezone.utc)})
         )
         await session.execute(stmt)
+
+
+class FlashMessage(BaseFlashMessage, ArchivableMixin):
+    __tablename__ = "flash_message"
+    __bind_key__ = "app"
+    _archive_table = "flash_message_archive"
+    _archive_column = "inactivated_on"
+
+    @classmethod
+    def get_time_limit(cls) -> int | None:
+        return current_app.config["WARNING_ARCHIVING_PERIOD"]
 
 
 class CalendarEventVisibility(IntEnum):
