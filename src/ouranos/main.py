@@ -101,8 +101,11 @@ async def _fill_db(
     config_override_dict["LOG_TO_STDOUT"] = True
     config_override_dict["LOG_TO_FILE"] = False
     config_override_dict["LOG_TO_DB"] = False
-    config = ConfigHelper.set_config_and_configure_logging(
-        config_profile, config_override_dict)
+    if ConfigHelper.config_is_set():
+        config = ConfigHelper.get_config()
+    else:
+        config = ConfigHelper.set_config_and_configure_logging(
+            config_profile, config_override_dict)
     logger = getLogger("ouranos")
     await setup_db(db, config, logger, check_revision)
 

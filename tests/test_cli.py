@@ -1,4 +1,5 @@
 from click import Context
+from click.testing import CliRunner
 
 from ouranos.main import main
 from ouranos.sdk.tests.plugin import dummy_plugin
@@ -19,3 +20,10 @@ class TestRootCommand:
         ctx = Context(main)
 
         assert dummy_plugin.name in main.list_commands(ctx)
+
+
+class TestFillDBCommand:
+    def test_fill_db_command(self):
+        result = CliRunner().invoke(main, ["fill-db"])
+
+        assert result.exit_code == 0, result.output
