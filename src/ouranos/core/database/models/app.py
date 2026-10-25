@@ -28,7 +28,7 @@ from ouranos import current_app
 from ouranos.core.config import consts
 from ouranos.core.database.models import caches
 from ouranos.core.database.models.abc import (
-    Base, UpsertCRUDMixin, lookup_keys_type, on_conflict_opt, query_keys_type, ToDictMixin)
+    Base, UpsertCRUDMixin, lookup_keys_type, on_conflict_opt, query_keys_type, ToDictMixin, ArchivableMixin)
 from ouranos.core.database.models.caching import CachedCRUDMixin, create_hashable_key
 from ouranos.core.database.models.types import PathType, SQLIntEnum, UtcDateTime
 from ouranos.core.database.models.utils import paginate
@@ -973,10 +973,8 @@ class CommunicationChannel(Base):
                 session.add(c)
 
 
-# TODO: make it an `ArchivableMixin` in a later pass
-class FlashMessage(Base):
-    __tablename__ = "flash_message"
-    __bind_key__ = "app"
+class BaseFlashMessage(Base):
+    __abstract__ = True
 
     id: Mapped[int] = mapped_column(primary_key=True)
     level: Mapped[gv.WarningLevel] = mapped_column(SQLIntEnum(gv.WarningLevel), default=gv.WarningLevel.low)
@@ -1019,6 +1017,13 @@ class FlashMessage(Base):
             .values({"inactivated_on": datetime.now(timezone.utc)})
         )
         await session.execute(stmt)
+
+
+class FlashMessage(BaseFlashMessage, ArchivableMixin):
+    __tablename__ = "flash_message"
+    __bind_key__ = "app"
+    _archive_table = "flash_message_archive"
+    _archive_column = "inactivated_on"
 
 
 class CalendarEventVisibility(IntEnum):

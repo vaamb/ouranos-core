@@ -1,6 +1,7 @@
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column
 
+from ouranos.core.database.models.app import BaseFlashMessage
 from ouranos.core.database.models.gaia import (
     BaseActuatorRecord, BaseGaiaWarning, BaseSensorDataRecord)
 
@@ -8,6 +9,11 @@ from ouranos.core.database.models.gaia import (
 # ---------------------------------------------------------------------------
 #   Models used for archiving, located in db_archive
 # ---------------------------------------------------------------------------
+class FlashMessageArchive(BaseFlashMessage):
+    __tablename__ = "flash_messages_archive"
+    __bind_key__ = "archive"
+
+
 class ActuatorRecordArchive(BaseActuatorRecord):
     __tablename__ = "actuator_records_archive"
     __bind_key__ = "archive"
