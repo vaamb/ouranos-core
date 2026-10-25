@@ -115,6 +115,11 @@ async def setup_db(
     logger.debug("Database initialized")
 
 
+async def tear_up_db(db: AsyncSQLAlchemyWrapper) -> None:
+    for engine in db.engines.values():
+        await engine.dispose()
+
+
 async def print_registration_token(db: AsyncSQLAlchemyWrapper) -> None:
     async with db.scoped_session() as session:
         token = await User.create_invitation_token(session)
