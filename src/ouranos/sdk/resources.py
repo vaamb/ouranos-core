@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from logging import Logger
 
-from ouranos import db, scheduler
+from ouranos import db as ouranos_db, scheduler
 from ouranos.core.config import ConfigDict
-from ouranos.core.database.init import (
-    check_db_revision, create_db_tables, insert_default_data)
+from ouranos.core.database.init import setup_db, teardown_db
 
 
 class _CommonResourcesState:
@@ -32,27 +31,6 @@ def get_common_resources_state() -> _CommonResourcesState:
     return _common_resources_state
 
 
-async def _init_the_db(config: ConfigDict, logger: Logger) -> None:
-    """Initialize the database."""
-    logger.info("Initializing the database")
-
-    # Import the models so they're included on the session factory when calling
-    # `db.init()`
-    from ouranos.core.database.models import app  # noqa
-    from ouranos.core.database.models import archives  # noqa
-    from ouranos.core.database.models import gaia  # noqa
-    from ouranos.core.database.models import system  # noqa
-    if config["LOG_TO_DB"]:
-        from ouranos.core.database.models import logging  # noqa
-
-    db.init(config)  # ty: ignore[invalid-argument-type]  # TypedDict vs dict
-    await create_db_tables()
-    if not config["TESTING"]:  # Revisions aren't used in tests (yet ?)
-        await check_db_revision()
-    await insert_default_data()
-    logger.debug("Database initialized")
-
-
 async def _init_the_scheduler(logger: Logger) -> None:
     logger.info("Initializing the scheduler")
     scheduler.start()
@@ -63,7 +41,7 @@ async def acquire_common_resources(config: ConfigDict, logger: Logger) -> None:
     """Take a reference on the resources shared within the process (the
     database and the scheduler), initializing them on the first reference."""
     if not _common_resources_state.initialized:
-        await _init_the_db(config, logger)
+        await setup_db(ouranos_db, config, logger)
         await _init_the_scheduler(logger)
 
     _common_resources_state.register()
@@ -78,5 +56,4 @@ async def release_common_resources() -> None:
         scheduler.remove_all_jobs()
         scheduler.shutdown()
 
-        for engine in db.engines.values():
-            await engine.dispose()
+        await teardown_db(ouranos_db)

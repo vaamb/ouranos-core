@@ -250,6 +250,16 @@ def parse_str_value(value: str) -> int | float | bool | str:
     return value
 
 
+def parse_config_override(config_override: list[str]) -> dict[str, Any]:
+    config_override_dict: dict[str, Any] = {}
+    for overridden in config_override:
+        if "=" not in overridden:
+            raise ValueError(f"Invalid format '{overridden}'. Expected key=value")
+        key, value = overridden.split("=", maxsplit=1)
+        config_override_dict[key.strip()] = parse_str_value(value.strip())
+    return config_override_dict
+
+
 def utc_now_second() -> datetime:
     return datetime.now(tz=timezone.utc).replace(microsecond=0)
 

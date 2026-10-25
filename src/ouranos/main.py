@@ -3,17 +3,13 @@ from __future__ import annotations
 
 import asyncio
 from logging import getLogger
-from typing import Any
-import warnings
 
 import click
 
 from ouranos.cli import RootCommand
 from ouranos.core.config import ConfigDict, ConfigHelper
-from ouranos.core.database.init import check_db_revision, create_db_tables
-from ouranos.core.globals import db
 from ouranos.core.plugins_manager import PluginManager
-from ouranos.core.utils import parse_str_value
+from ouranos.core.utils import parse_config_override
 from ouranos.sdk import Host, Plugin
 
 
@@ -48,10 +44,13 @@ def main(
     Launch all the functionalities linked to Ouranos as a single monolithic
     process
     """
-    config_override_dict: dict[str, Any] = {}
-    for overridden in config_override:
-        key, value = overridden.split("=")
-        config_override_dict[key] = parse_str_value(value)
+    try:
+        config_override_dict = parse_config_override(config_override)
+    except ValueError as e:
+        raise click.BadParameter(
+            str(e),
+            param_hint="'--config-override'",
+        )
 
     if ctx.invoked_subcommand is None:
         config = ConfigHelper.set_config_and_configure_logging(
@@ -88,19 +87,42 @@ class Ouranos(Host):
         super().__init__("ouranos", config, plugins)
 
 
-async def _fill_db(check_revision: bool = True):
-    if not ConfigHelper.config_is_set():
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            ConfigHelper.set_config_and_configure_logging(None)
-    config = ConfigHelper.get_config()
-    db.init(config)  # ty: ignore[invalid-argument-type]  # TypedDict vs dict
-    if check_revision:
-        await check_db_revision()
-    await create_db_tables()
+async def _fill_db(
+        config_profile: str | None,
+        config_override: list[str],
+        check_revision: bool = True,
+) -> None:
+    from ouranos import db
+    from ouranos.core.database.init import setup_db
+
+    config_override_dict = parse_config_override(config_override)
+
+    # Make sure we only log on stdout
+    config_override_dict["LOG_TO_STDOUT"] = True
+    config_override_dict["LOG_TO_FILE"] = False
+    config_override_dict["LOG_TO_DB"] = False
+    config = ConfigHelper.set_config_and_configure_logging(
+        config_profile, config_override_dict)
+    logger = getLogger("ouranos")
+    await setup_db(db, config, logger, check_revision)
 
 
 @main.command()
+@click.option(
+    "--config-profile", "-c",
+    type=str,
+    default=None,
+    help="Configuration profile to use as defined in config.py.",
+    show_default=True,
+)
+@click.option(
+    "--config-override", "-co",
+    type=str,
+    multiple=True,
+    default=None,
+    help="Config parameters to override written as key=value.",
+    show_default=True,
+)
 @click.option(
     "--check-revision/--no-check-revision",
     type=bool,
@@ -109,9 +131,16 @@ async def _fill_db(check_revision: bool = True):
     show_default=True,
     is_flag=True,
 )
-def fill_db(check_revision: bool = True):
+def fill_db(
+        config_profile: str | None,
+        config_override: list[str],
+        check_revision: bool = True,
+) -> None:
     """Fill the database with the default tables."""
-    asyncio.run(_fill_db(check_revision=check_revision))
+    try:
+        asyncio.run(_fill_db(config_profile, config_override, check_revision))
+    except Exception as e:
+        raise click.BadParameter(str(e))
 
 
 if __name__ == "__main__":
