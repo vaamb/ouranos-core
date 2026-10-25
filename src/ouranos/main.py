@@ -48,10 +48,13 @@ def main(
     Launch all the functionalities linked to Ouranos as a single monolithic
     process
     """
-    config_override_dict: dict[str, Any] = {}
-    for overridden in config_override:
-        key, value = overridden.split("=")
-        config_override_dict[key] = parse_str_value(value)
+    try:
+        config_override_dict = parse_config_override(config_override)
+    except ValueError as e:
+        raise click.BadParameter(
+            str(e),
+            param_hint="'--config-override'",
+        )
 
     if ctx.invoked_subcommand is None:
         config = ConfigHelper.set_config_and_configure_logging(

@@ -17,7 +17,7 @@ from click import Command, Group
 from ouranos import current_app
 from ouranos.core.config import ConfigDict, ConfigHelper, consts
 from ouranos.core.exceptions import ContractVersionError
-from ouranos.core.utils import parse_str_value
+from ouranos.core.utils import parse_config_override
 from ouranos.sdk import Functionality
 from ouranos.sdk.functionality import format_functionality_name
 from ouranos.sdk.host import Host
@@ -512,15 +512,13 @@ class Plugin(Extension):
                 config_override: list[str],
         ) -> None:
             """Run the plugin as a standalone service."""
-            config_override_dict: dict[str, Any] = {}
-            for overridden in config_override:
-                if "=" not in overridden:
-                    raise click.BadParameter(
-                        f"Invalid format '{overridden}'. Expected key=value",
-                        param_hint="'--config-override'",
-                    )
-                key, value = overridden.split("=", 1)
-                config_override_dict[key] = parse_str_value(value)
+            try:
+                config_override_dict = parse_config_override(config_override)
+            except ValueError as e:
+                raise click.BadParameter(
+                    str(e),
+                    param_hint="'--config-override'",
+                )
 
             self.setup_config(config_profile, config_override_dict)
             self.run_as_standalone()
