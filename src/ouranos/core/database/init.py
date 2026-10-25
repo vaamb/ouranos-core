@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 
 from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
@@ -53,6 +54,7 @@ async def check_db_revision(db: AsyncSQLAlchemyWrapper) -> None:
     if head is None:
         raise Exception("No head revision found")
 
+    not_initialized: list[str] = []
     not_up_to_date: list[str] = []
     db_binds = db.get_binds_list()
     for bind in db_binds:
@@ -60,11 +62,23 @@ async def check_db_revision(db: AsyncSQLAlchemyWrapper) -> None:
         if bind == "transient":
             continue
         engine = db.get_engine_for_bind(bind)
-        async with engine.connect() as connection:
-            result = await connection.execute(text("SELECT * FROM alembic_version"))
-            revision = result.scalar_one_or_none()
+        try:
+            async with engine.connect() as connection:
+                result = await connection.execute(text("SELECT * FROM alembic_version"))
+                revision = result.scalar_one_or_none()
+        except DBAPIError:
+            # Missing database file or `alembic_version` table
+            not_initialized.append(bind or "ecosystem")
+            continue
         if revision != head:
             not_up_to_date.append(bind or "ecosystem")
+    if not_initialized:
+        raise Exception(
+            f"The database has no revision for the following bind(s): "
+            f"{humanize_list(not_initialized)}. If this is a new install, run "
+            f"`python -m ouranos fill-db --no-check-revision` then "
+            f"`alembic stamp head`."
+        )
     if not_up_to_date:
         raise Exception(
             f"The database is not up to date for the following bind(s): "
