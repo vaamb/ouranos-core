@@ -115,7 +115,7 @@ async def setup_db(
     logger.debug("Database initialized")
 
 
-async def tear_up_db(db: AsyncSQLAlchemyWrapper) -> None:
+async def teardown_db(db: AsyncSQLAlchemyWrapper) -> None:
     for engine in db.engines.values():
         await engine.dispose()
 

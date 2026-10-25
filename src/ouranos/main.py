@@ -87,6 +87,26 @@ class Ouranos(Host):
         super().__init__("ouranos", config, plugins)
 
 
+async def _fill_db(
+        config_profile: str | None,
+        config_override: list[str],
+        check_revision: bool = True,
+) -> None:
+    from ouranos import db
+    from ouranos.core.database.init import setup_db
+
+    config_override_dict = parse_config_override(config_override)
+
+    # Make sure we only log on stdout
+    config_override_dict["LOG_TO_STDOUT"] = True
+    config_override_dict["LOG_TO_FILE"] = False
+    config_override_dict["LOG_TO_DB"] = False
+    config = ConfigHelper.set_config_and_configure_logging(
+        config_profile, config_override_dict)
+    logger = getLogger("ouranos")
+    await setup_db(db, config, logger, check_revision)
+
+
 @main.command()
 @click.option(
     "--config-profile", "-c",
@@ -117,19 +137,10 @@ def fill_db(
         check_revision: bool = True,
 ) -> None:
     """Fill the database with the default tables."""
-    from ouranos import db
-    from ouranos.core.database.init import setup_db
-
-    config_override_dict = parse_config_override(config_override)
-
-    # Make sure we only log on stdout
-    config_override_dict["LOG_TO_STDOUT"] = True
-    config_override_dict["LOG_TO_FILE"] = False
-    config_override_dict["LOG_TO_DB"] = False
-    config = ConfigHelper.set_config_and_configure_logging(
-        config_profile, config_override_dict)
-    logger = getLogger("ouranos")
-    asyncio.run(setup_db(db, config, logger, check_revision))
+    try:
+        asyncio.run(_fill_db(config_profile, config_override, check_revision))
+    except Exception as e:
+        raise click.BadParameter(str(e))
 
 
 if __name__ == "__main__":

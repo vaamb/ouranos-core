@@ -4,7 +4,7 @@ from logging import Logger
 
 from ouranos import db as ouranos_db, scheduler
 from ouranos.core.config import ConfigDict
-from ouranos.core.database.init import setup_db, tear_up_db
+from ouranos.core.database.init import setup_db, teardown_db
 
 
 class _CommonResourcesState:
@@ -56,4 +56,4 @@ async def release_common_resources() -> None:
         scheduler.remove_all_jobs()
         scheduler.shutdown()
 
-        await tear_up_db(ouranos_db)
+        await teardown_db(ouranos_db)
