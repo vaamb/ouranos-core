@@ -13,9 +13,16 @@
 - "refresh_session" route re-issuing the session cookie with a new "iat", re-opening the
   freshness window that guards the sensitive routes; it requires the current user's
   credentials, as bumping "iat" is a re-authentication rather than a refresh (#415)
+- `API_SECURE_COOKIES` config parameter (`OURANOS_API_SECURE_COOKIES`) setting the session
+  cookie's "secure" flag (#414)
 - `scripts/utils/pyproject_helpers.sh`, meant to be sourced by the plugins installation
   scripts: `add_dependency <name> [extras] [source]` declares a package in the master
   `pyproject.toml` (#429)
+- nginx reverse-proxy template (`deploy/nginx/ouranos.conf`) exposing the frontend and the
+  API behind a single port; the installation and update scripts expand it into
+  `scripts/ouranos.conf` through `scripts/utils/gen_nginx.sh` (#425, #435)
+- `mariadb` and `postgresql` optional dependencies, installing the matching async database
+  driver (#427)
 - `BaseLog`/`AccessLog` models ("system" bind, each indexed on timestamp + level) with
   `get_multiple()` to filter stored log entries by time window and level range, with
   pagination (#442)
@@ -23,6 +30,20 @@
   operator-only "/logging/base" and "/logging/access" routes to read the stored logs,
   filtered by time window and level range (level names, case-insensitive), with
   pagination (#460)
+- "connection_date" column on `Engine` and `Ecosystem` (with its migration script), set each
+  time they connect (#441, #455)
+- "in_config" column on `Service` (with its migration script) flagging the services that
+  depend on the config file, currently only "email": enabling one whose config requirements
+  are not met is refused with a 400 (#458)
+- `GaiaWarning` and `FlashMessage` are archivable, into the new "warnings_archive" and
+  "flash_message_archive" tables, after `WARNING_ARCHIVING_PERIOD` days (#483, #515)
+- `Extension`, the base class of `Plugin` handling its routes, and
+  `PluginManager.load_plugin()` to load a single plugin without registering them all
+  (#421, #422)
+- `Host` (`ouranos.sdk`), the root of an Ouranos process: it prepares the shared resources,
+  starts its plugins (all or none), restarts their dead subprocess workers while running
+  (with an exponential back-off for a worker that keeps dying), and stops them on a stop
+  signal (#511, #512)
 
 ### Changed
 - **Breaking**: the route formerly known as "refresh_session", which pushes back the session
@@ -31,6 +52,8 @@
 - Users are now loaded from the whole session token rather than from its "user_id" field
   alone, on both the REST routes and the Socket.IO events; this is what makes the revocation
   cutoff enforceable (#415)
+- Session ids are random rather than a hash of the browser's user agent, so a session is no
+  longer rejected when the user agent changes (#414)
 - Session freshness reduced from 15 hours to 15 minutes (#415)
 - `LoginManager` removed, its behaviour folded into the new `web_server.user_session` module,
   which also hosts `SessionInfo` (#415)
@@ -46,42 +69,104 @@
   installed package has to be declared again (#429)
 - The installation script installs Python 3.13 through `uv` rather than requiring a recent
   enough system interpreter (#429)
+- The update script also updates the master `pyproject.toml`'s `requires-python` (#492)
+- `opencv-python-headless` replaces `opencv-python` (#492)
+- `uvloop` is now a required dependency, and processes run through `uvloop.run()` rather
+  than `setup_loop()`, which is removed (#450)
+- Log files: `ouranos.log` is rotated weekly and keeps 4 backups; "uvicorn.access" logs and
+  the Socket.IO events (new "ouranos.web_server.socketio" logger) go to their own
+  `access.log`, which replaces `uvicorn.log`, while the other Uvicorn logs go to
+  `ouranos.log` (#412, #436, #437)
+- Logged errors now carry their traceback (#438)
 - DB logging (`LOG_TO_DB`) now goes through SQLAlchemy instead of a bespoke `log.sqlite`
   file: `SQLiteHandler` is replaced by `DBHandler`, bound to one of two tables depending on
   the logger it's attached to ("access"-flavoured loggers, "ouranos.web_server.socketio",
   "uvicorn.access", go to `AccessLog`, everything else to `BaseLog`), and keeps the full
   traceback of logged exceptions; writes are scheduled onto the app's own event loop rather
-  than a dedicated logging thread (#442)
+  than a dedicated logging thread (#413, #442)
+- The `base_logs`/`access_logs` tables are now always created, whatever `LOG_TO_DB`, and
+  no longer lazily by `DBHandler` (#460)
 - Sensor alarms are now logged every minute by their own scheduled step, run right after the
   sensors data one, rather than every `SENSOR_LOGGING_PERIOD` alongside it: since
   `SensorAlarm.create_or_lengthen()` extends a single row instead of inserting a new one, the
-  finer period costs nothing and keeps "timestamp_to" current (#443)
+  finer period costs nothing and keeps "timestamp_to" current (#444)
 - `SensorAlarm.create_or_lengthen()` reads and writes through Core statements, so an alarm
   created earlier in the same batch is seen by the next one without relying on autoflush, and
-  ignores alarms older than the row's "timestamp_to" (out-of-order delivery) (#443)
+  ignores alarms older than the row's "timestamp_to" (out-of-order delivery) (#444)
+- The sensors skeleton orders measures as temperature, humidity, light, TVOC, dew point,
+  absolute moisture, then moisture (#410)
 - Email templates reworked to match the frontend's identity: the "Ouranos - Gaia control" brand
   over a single sheet (kicker, Garamond title, hairlines, a footer bar stating the token's
   validity), a button naming the act, and the token in a labelled block; the invitation's
   manual link now points to "/auth/register", where the frontend's token gate lives (#454)
-- The `base_logs`/`access_logs` tables are now always created, whatever `LOG_TO_DB`, and
-  no longer lazily by `DBHandler` (#460)
+- Emails are only sent when the "email" service is enabled; `Service` is now cached (#458)
 - `CRUDMixin` split into three layers: `CRUDMixin` keeps the plain CRUD methods, without
   lookup keys nor single-row `update()`/`delete()` but with a new `delete_multiple()` by
   primary key; `UniqueCRUDMixin` adds the lookup keys and the single-row methods they
   guard; `UpsertCRUDMixin` adds the "on conflict" machinery, `get_or_create()` and
   `update_or_create()`. The existing models now use `UpsertCRUDMixin` (#484)
+- Archiving: `ArchivableMixin` is a base mixin, combined with a CRUD mixin by each archivable
+  model; `Archiver` deletes the archived rows batch by batch rather than all at the end, and
+  never archives an unsolved warning (#481, #485, #489)
+- **Breaking**: archiving is disabled for a data type whose `SENSOR_ARCHIVING_PERIOD`,
+  `ACTUATOR_ARCHIVING_PERIOD` or `WARNING_ARCHIVING_PERIOD` is unset, rather than defaulting
+  to 180 days (#490)
+- `ActuatorRecordArchive` drops its "actuator_uid" column (with its migration script), which
+  `ActuatorRecord` never had (#486)
+- "join_room_ack" and "leave_room_ack" Socket.IO events now carry the "room", and a failure
+  with its "reason" when joining or leaving fails (#475, #491)
+- An engine's ecosystems are only returned if they are still in its config (#463)
+- The ecosystem "turn_actuator" route's payload gains a "level" (0 to 100, defaults to 100)
+  and requires a non-negative "countdown"; the weather event update payload requires a
+  positive "duration" and a "level" between 0 and 100 (#500)
+- Admins can see, edit and delete other users' private calendar events (#504)
+- The "/{...}/image_info" routes round their time window to the second rather than to 10 s,
+  which could hide pictures, as they are sent every minute and overwrite each other (#434)
+- A warning is logged when the web server runs with several workers, as the user cache, and
+  thus session revocation, is per worker (#420); the "memory-based dispatcher" warning is
+  also raised when a functionality uses workers (#467)
+- `ImmutableDict` also refuses `del`, `update()` and `pop()` (#498)
+- `PluginManager` no longer loads the entry points of omitted plugins, and lets a plugin's
+  loading error propagate (#421)
+- Plugin execution moved out of `Plugin` into a `PluginExecutor`, in process or in
+  subprocesses (#423); the subprocess one stops its workers concurrently rather than one
+  after the other, so stopping takes up to 5 s instead of 5 s per worker (#509)
+- `Ouranos` is now a `Host` running every registered plugin instead of a `Functionality`
+  managing them, and `Plugin.run_as_standalone()` runs its plugin on a `Host` too: a
+  standalone plugin now initializes the database in the parent process before spawning
+  its workers. `PluginManager.start_plugins()`/`stop_plugins()` are removed (their
+  all-or-none startup and reverse-order shutdown moved to `Host`), as are
+  `Functionality.init_the_db()`/`init_the_scheduler()`, replaced by
+  `acquire_common_resources()`/`release_common_resources()` (#511)
+- The app, the CLI and the tests set up the database through a single `setup_db()`, and the
+  `database.init` functions take the `db` explicitly; "fill-db" accepts `--config-profile`
+  and `--config-override`, and a database without revision now fails with the commands
+  to initialize it (#514)
+- FastAPI's own `JSONResponse` replaces the custom one (#480)
+
+### Removed
+- The reloading web server and its `WEB_SERVER_RELOAD` config parameter: it watched no core
+  file and could not run (#510)
 
 ### Fixed
 - Sensor alarms were overridden by the last `sensors_data` event received before they were
   logged, so with several engines only the last one's alarms ever reached the DB; they now
-  accumulate in a set until logged (#443)
+  accumulate in a set until logged (#444)
 - `User.confirm()` bypassed `User.update()`, leaving a stale entry in the `User` cache, so a
   freshly confirmed user kept being seen as unconfirmed; its "active" check was also restored,
   and the `RuntimeError` it raises is now caught by the "confirm_account" route, which answers
   400 instead of 500 (#415)
 - Nested `scoped_session()` in `ClientEvents.on_user_heartbeat()` (#415)
+- `session.commit()` called inside a `scoped_session()` by some `GaiaEvents` handlers and
+  model helpers (#482)
 - Mismatch between the "users" columns generated by SQLAlchemy and by the migration script:
   the timestamp columns lacked a `server_default` (#415)
+- The "connection_date" migration failed on SQLite, which needs the table recreated to insert
+  a column at a given position (#455)
+- `SessionInfo.is_fresh` inverted its check, so only stale sessions were fresh (#414)
+- "password_reset_token" route issued tokens valid for `REGISTRATION_TOKEN_VALIDITY` rather
+  than `PASSWORD_RESET_TOKEN_VALIDITY` (#469)
+- `User.get_multiple()` filtered the registration time on a non-existent column (#472)
 - Email plain-text alternative: a link carrying any attribute besides "href" lost its URL and
   left a stale entry on the link stack; the source's line wrapping also leaked into the text
   (#454)
@@ -89,6 +174,53 @@
   configuration is applied; their warnings and errors now reach the same outputs as Ouranos'
   own logs, while debug mode still only lowers the level of Ouranos' and Uvicorn's loggers
   (#465)
+- "On conflict do update" only updates the columns supplied, so a column default (e.g. a
+  creation timestamp) is no longer recomputed on every conflict, while the columns with an
+  `onupdate=` are refreshed (#439, #445)
+- `CachedCRUDMixin` cached instances stayed attached to the session that loaded them (#457)
+- Passing `[]` to the hardware's "measures"/"groups" or to the plant's "hardware" was
+  ignored instead of detaching every previously attached one (#501)
+- Attaching hardware to a plant left the hardware's cache stale (#503)
+- The ecosystems routes built their `HTTPException`s without raising them, answering a
+  success on failure (#440); the wiki upload routes turned their 413 into a 422, and a few
+  error `detail`s were tuples (#507)
+- `GaiaEvents` emitted "initialization_ack" to every engine rather than to the sender (#468),
+  and a "turn_actuator" order for an unknown ecosystem to every engine (#417)
+- AMQP queues are durable, as RabbitMQ 4.3 refuses non-durable, non-exclusive ones (#428)
+- `create_sio_manager()` built a "redis://" URL for an AMQP backend (#466)
+- Plugin routes were added with `add_route()` rather than `add_api_route()` (#479)
+- The CLI's plugin subcommands always crashed, as `get_command()` read the plugins before
+  they were registered (#502)
+- `PathsHelper` raised a `TypeError` instead of a `ValueError` for an unset directory (#499)
+- `WIKI_DIR` read `OURANOS_STATIC_DIR` rather than `OURANOS_WIKI_DIR` (#508)
+- A query datetime without timezone made the time-window routes answer 500; such datetimes
+  are now read as UTC (#506)
+- Updating or deleting a private calendar event answered 404 to its owner (#504)
+- `--config-override` crashed on a value containing "=" or on a missing "=" (#514)
+- The start script wrote `uv run`'s PID rather than Ouranos' to the PID file, and the start
+  and stop scripts missed an instance still starting up (#404)
+- `Plugin.executor` stayed reachable after `Plugin.shutdown()` or a failed `Plugin.startup()`,
+  and an in-process functionality failing to start was kept by its executor; the plugin's
+  running state is now derived from its executor (#495)
+- `Aggregator.shutdown()` stopped its components in a single `try`, so one failing to stop
+  left the following ones, including the dispatchers, running; each is now stopped on its own
+  and its failure logged. Its `log_sensors_data_and_alarms` job is now removed too (#496)
+- A plugin failing to start left the plugins started before it running until the process was
+  killed; Ouranos now starts its plugins all or none, stopping those already started before
+  raising, and releases the shared resources. Plugins are stopped in reverse order, and one
+  failing to stop no longer leaves the following ones running (#493, #497, #511)
+- Every `PluginManager()` call re-ran its `__init__` and wiped the registered plugins of the
+  shared instance; `PluginManager` now uses the new `core.utils.SingletonMeta`, and its callers
+  only register the plugins if it has not been done yet (#505)
+- The multi-worker web server never served since the `uvicorn` 0.51 bump: its workers
+  started without the config, so creating the app failed and they were respawned forever,
+  while its startup still succeeded. Its supervisor also blocked the event loop; it now runs
+  in a thread, its startup waits for a worker to listen, and its socket is closed when
+  stopped (#452, #510)
+- A multi-worker web server whose app failed to be created kept respawning its workers
+  forever, and its failed startup left uvicorn's supervisor running, so Ouranos hung at exit;
+  such a worker now exits with uvicorn's `STARTUP_FAILURE`, and a failed startup stops the
+  supervisor. A same-process web server failing to start no longer waits forever (#513)
 
 ### Security
 - Resetting a password or deleting a user now revokes every session token issued beforehand;
@@ -99,16 +231,34 @@
   field are rejected; until now a password reset or confirmation token was accepted as a
   session cookie that was always fresh and could not be revoked. Existing sessions are
   invalidated, so every user has to log in again once (#470)
+- Updating a service's status requires an admin (#409)
+- Ecosystem and camera uids of uploaded pictures are validated, so they can't write files
+  outside the camera directory (#418)
+- Logging in as an unknown user or one without password still verifies a dummy hash, so
+  response times don't reveal which accounts exist (#419)
 
 ### Development
-- Sandbox script (`scripts/utils/sandbox.sh`) to run the install and update
-  scripts in an isolated throwaway environment, leaving the real install,
-  `~/.profile` and systemd untouched (#407)
+- Sandbox script (`scripts/utils/sandbox.sh`) to run the install and update scripts in an
+  isolated throwaway environment, leaving the real install, `~/.profile` and systemd
+  untouched; it tests the working tree, uncommitted changes included (#407, #408)
+- CI workflow running the installation and update scripts in the sandbox (#424)
+- `ty` type checking extended to every module, `ruff` and `ty` pinned (#406, #430, #432, #433,
+  #449, #451, #453)
+- Testing dependencies moved from `optional-dependencies` to `dependency-groups` (#426)
 - Tests covering the `user_session` module, session revocation, session extension and
-  session refreshing (#415)
+  session refreshing (#415); `{Cached}CRUDMixin` coverage increased (#462); `ServicesEnabled`
+  class fixture made parametrizable (#459); `SystemAware` stamps its record when it runs
+  (#473)
+- `AGENTS.md` (#487)
 - Readme: how a plugin declares itself in the master `pyproject.toml` and how to disable one;
   the development instructions now use `--group` following the move to `dependency-groups`
-  (#429)
+  (#429); badges and the chatbot plugin's address (#447, #474)
+- Internal cleanups (#471, #516); `.gitignore` and copyright years updated (#405, #448,
+  #456)
+- `aio_pika` (8.3), `cachetools` (7.0), `cryptography` (50.0), `numpy` (2.5), `psutil` (7.1),
+  `pydantic` (2.14), `pytest` (9.1), `python_multipart` (0.0.31), `SQLAlchemy` (2.1) and
+  `uvicorn` (0.51) bumped, as were `event-dispatcher` and `gaia-validators` (#411, #416,
+  #431, #446, #452, #461, #464, #476, #477, #478, #488, #492, #494)
 
 ---
 
