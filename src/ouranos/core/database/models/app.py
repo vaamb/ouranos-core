@@ -983,7 +983,11 @@ class FlashMessage(Base):
     title: Mapped[str] = mapped_column(sa.String(length=256))
     description: Mapped[Optional[str]] = mapped_column(sa.String(length=2048))
     created_on: Mapped[datetime] = mapped_column(UtcDateTime, default=func.current_timestamp())
-    active: Mapped[bool] = mapped_column(default=True)
+    inactivated_on: Mapped[Optional[datetime]] = mapped_column(UtcDateTime)
+
+    @property
+    def active(self) -> bool:
+        return self.inactivated_on is not None
 
     @classmethod
     async def get_lasts(
@@ -993,7 +997,7 @@ class FlashMessage(Base):
     ) -> Sequence[Self]:
         stmt = (
             select(cls)
-            .where(cls.active == True)
+            .where(cls.inactivated_on == None)
             .order_by(cls.created_on.desc(), cls.level)
             .limit(limit)
         )
@@ -1008,8 +1012,11 @@ class FlashMessage(Base):
     ) -> None:
         stmt = (
             update(cls)
-            .where(cls.id == message_id)
-            .values({"active": False})
+            .where(
+                (cls.id == message_id)
+                & (cls.inactivated_on == None)  # Make sure we don't inactivate twice
+            )
+            .values({"inactivated_on": datetime.now(timezone.utc)})
         )
         await session.execute(stmt)
 
