@@ -5,7 +5,7 @@ Ouranos
 [![Quality control](https://github.com/vaamb/ouranos-core/actions/workflows/qc.yml/badge.svg)](https://github.com/vaamb/ouranos-core/actions/workflows/qc.yml)
 [![Scripts](https://github.com/vaamb/ouranos-core/actions/workflows/scripts.yml/badge.svg)](https://github.com/vaamb/ouranos-core/actions/workflows/scripts.yml)
 [![Latest tag](https://img.shields.io/github/v/tag/vaamb/ouranos-core?label=version)](https://github.com/vaamb/ouranos-core/tags)
-![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)
+![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)
 [![License: LGPL v3](https://img.shields.io/badge/license-LGPL%20v3-green)](LICENSE)
 
 Ouranos is the companion server for [Gaia](https://github.com/vaamb/gaia),
@@ -51,7 +51,7 @@ Features
 Requirements
 ------------
 
-- Python 3.11+
+- Python 3.12+
 - `uv` — used for dependency management and running the app
 - A message broker: RabbitMQ or Redis (optional — in-memory for single-instance)
 - systemd (optional — for running as a service)
@@ -217,7 +217,7 @@ uv run ruff check .
 Tech stack
 ----------
 
-- Python 3.11+ · FastAPI · Uvicorn · asyncio
+- Python 3.12+ · FastAPI · Uvicorn · asyncio
 - SQLAlchemy 2.0 (async) · Alembic · aiomysql (MariaDB/MySQL in production) · aiosqlite (tests)
 - python-socketio · aio-pika · APScheduler
 - PyJWT · argon2-cffi
@@ -226,7 +226,7 @@ Tech stack
   [gaia-validators](https://github.com/vaamb/gaia-validators) ·
   [sqlalchemy-wrapper](https://github.com/vaamb/sqlalchemy-wrapper)
 - uv · ruff · pytest · pytest-asyncio · coverage
-- GitHub Actions CI: lint + tests across Python 3.11 / 3.12 / 3.13
+- GitHub Actions CI: lint + tests across Python 3.12 / 3.13 / 3.14
 
 ---
 
