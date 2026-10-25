@@ -6,20 +6,19 @@ from sqlalchemy.exc import DBAPIError
 
 from sqlalchemy_wrapper import AsyncSQLAlchemyWrapper
 
-from ouranos import current_app
 from ouranos.core.config import ConfigDict, get_db_dir
 from ouranos.core.database.models.app import User
 from ouranos.core.utils import humanize_list
 
 
-def check_db_dir():
+def ensure_db_dir(config: ConfigDict):
     create_db_dir = False
-    uri = current_app.config["SQLALCHEMY_DATABASE_URI"]
+    uri = config["SQLALCHEMY_DATABASE_URI"]
     uri_str = uri if not isinstance(uri, Path) else uri.name
     if "sqlite" in uri_str:
         create_db_dir = True
     else:
-        for uri in current_app.config["SQLALCHEMY_BINDS"].values():
+        for uri in config["SQLALCHEMY_BINDS"].values():
             uri_str = uri if not isinstance(uri, Path) else uri.name
             if "sqlite" in uri_str:
                 create_db_dir = True
@@ -28,8 +27,8 @@ def check_db_dir():
         get_db_dir()  # Will create the dir as a side effect
 
 
-async def create_db_tables(db: AsyncSQLAlchemyWrapper) -> None:
-    check_db_dir()
+async def create_db_tables(db: AsyncSQLAlchemyWrapper, config: ConfigDict) -> None:
+    ensure_db_dir(config)
     await db.create_all()
 
 
@@ -110,7 +109,7 @@ async def setup_db(
     if not config["TESTING"] and check_revision:  # Revisions aren't used in tests (yet ?)
         await check_db_revision(db)
 
-    await create_db_tables(db)
+    await create_db_tables(db, config)
     await insert_default_data(db)
     logger.debug("Database initialized")
 
