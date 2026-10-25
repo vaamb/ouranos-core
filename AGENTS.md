@@ -165,6 +165,8 @@ Shared data types come from the companion package **`gaia_validators`**
 
 - **Do NOT** edit existing revisions in `migrations/versions/`. A schema change
   needs a new one, named `<rev>_<PR>_<slug>.py`, and human review.
+- Migrations only alter existing tables: never create a table in one,
+  `create_db_tables()` creates new tables at startup.
 - **Do NOT** modify `.github/workflows/`.
 - **Do NOT** run `scripts/install.sh`, `update_ouranos.sh`, `start.sh` or
   `stop.sh` against the real machine. Use `scripts/utils/sandbox.sh`.
