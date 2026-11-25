@@ -782,7 +782,7 @@ class WeatherEvent(Base, UpsertCRUDMixin):
 
     ecosystem_uid: Mapped[str] = mapped_column(
         sa.String(length=8), sa.ForeignKey("ecosystems.uid"), primary_key=True)
-    parameter: Mapped[str] = mapped_column(sa.String(length=24), primary_key=True)
+    parameter: Mapped[gv.WeatherParameter] = mapped_column(sa.String(length=24), primary_key=True)
     pattern: Mapped[str] = mapped_column(sa.String(length=24))
     duration: Mapped[float] = mapped_column(sa.Float(precision=2))
     level: Mapped[float] = mapped_column(sa.Float(precision=2))
