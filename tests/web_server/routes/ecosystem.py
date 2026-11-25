@@ -362,7 +362,7 @@ class TestEnvironmentParameterEcosystem(ClimateAware, UsersAware):
         assert dispatched["data"]["routing"]["ecosystem_uid"] == g_data.ecosystem_uid
         assert dispatched["data"]["action"] == gv.CrudAction.create
         assert dispatched["data"]["target"] == "environment_parameter"
-        assert dispatched["data"]["kwargs"]["parameter"] == gv.ClimateParameter[payload["parameter"]]
+        assert dispatched["data"]["kwargs"]["parameter"] == payload["parameter"]
         assert dispatched["data"]["kwargs"]["day"] == payload["day"]
 
 
@@ -436,7 +436,7 @@ class TestEnvironmentParameterUnique(ClimateAware, UsersAware):
         assert dispatched["data"]["routing"]["ecosystem_uid"] == g_data.ecosystem_uid
         assert dispatched["data"]["action"] == gv.CrudAction.update
         assert dispatched["data"]["target"] == "environment_parameter"
-        assert dispatched["data"]["kwargs"]["parameter"] == gv.ClimateParameter[parameter]
+        assert dispatched["data"]["kwargs"]["parameter"] == parameter
         assert dispatched["data"]["kwargs"]["day"] == payload["day"]
 
     def test_delete_failure_anon(self, client: TestClient):
@@ -517,7 +517,7 @@ class TestWeatherEventEcosystem(ClimateAware, UsersAware):
 
     def test_create_failure_wrong_ecosystem(self, client_operator: TestClient):
         payload = g_data.weather.copy()
-        payload["parameter"] = gv.WeatherParameter.rain
+        payload["parameter"] = "rain"
         response = client_operator.post(
             "/api/gaia/ecosystem/u/wrong_uid/weather_event/u",
             json=payload,
@@ -530,7 +530,7 @@ class TestWeatherEventEcosystem(ClimateAware, UsersAware):
             mock_dispatcher: MockAsyncDispatcher,
     ):
         payload = g_data.weather.copy()
-        payload["parameter"] = gv.WeatherParameter.rain
+        payload["parameter"] = "rain"
 
         response = client_operator.post(
             f"/api/gaia/ecosystem/u/{g_data.ecosystem_uid}/weather_event/u",
