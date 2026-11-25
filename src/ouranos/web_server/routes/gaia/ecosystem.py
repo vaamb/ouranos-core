@@ -424,7 +424,6 @@ async def create_ecosystem_environment_parameter(
     environment_parameter_dict = payload.model_dump()
     parameter = environment_parameter_dict["parameter"]
     try:
-        safe_enum_from_name(gv.ClimateParameter, parameter)
         await emit_crud_event(
             ecosystem, gv.CrudAction.create, "environment_parameter",
             environment_parameter_dict)
@@ -592,7 +591,6 @@ async def create_ecosystem_weather_event(
     weather_event_dict = payload.model_dump()
     parameter = weather_event_dict["parameter"]
     try:
-        safe_enum_from_name(gv.WeatherParameter, parameter)
         await emit_crud_event(
             ecosystem, gv.CrudAction.create, "weather_event",
             weather_event_dict)
