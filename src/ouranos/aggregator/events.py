@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from functools import wraps
 import logging
-import sys
 from types import FunctionType
 import typing as t
 from typing import (
@@ -31,11 +30,6 @@ from ouranos.core.database.models.gaia import (
 from ouranos.core.database.models.utils import Within
 from ouranos.core.exceptions import NotRegisteredError
 from ouranos.core.utils import format_error, humanize_list, Tokenizer, validate_uid
-
-if sys.version_info < (3, 13):
-    from typing_extensions import deprecated
-else:
-    from warnings import deprecated
 
 
 if t.TYPE_CHECKING:
@@ -1017,7 +1011,6 @@ class GaiaEvents(AsyncEventHandler):
     @registration_required
     @validate_payload(RootModel[list[gv.HealthDataPayload]])
     @dispatch_to_application
-    @deprecated("'health_data' event is deprecated")
     async def on_health_data(
             self,
             sid: UUID,  # noqa
@@ -1088,37 +1081,6 @@ class GaiaEvents(AsyncEventHandler):
             self.logger.error(
                 f"Encountered an error when trying to handle buffered health data. "
                 f"{format_error(e)}", exc_info=e)
-
-    @registration_required
-    @validate_payload(RootModel[list[gv.LightDataPayload]])
-    @dispatch_to_application
-    @deprecated("'light_data' event is deprecated")
-    async def on_light_data(
-            self,
-            sid: UUID,  # noqa
-            data: list[gv.LightDataPayloadDict],
-            engine_uid: str
-    ) -> None:
-        self.logger.debug(f"Received 'light_data' from {engine_uid}")
-        async with self.session(sid) as session:
-            session["init_data"].discard("light_data")
-        ecosystems_to_log: list[str] = []
-        async with db.scoped_session() as session:
-            for payload in data:
-                ecosystems_to_log.append(
-                    await self.get_ecosystem_name(session, uid=payload["uid"]) or payload["uid"])
-                ecosystem = payload["data"]
-                light_info = {
-                    "morning_start": ecosystem["morning_start"],
-                    "morning_end": ecosystem["morning_end"],
-                    "evening_start": ecosystem["evening_start"],
-                    "evening_end": ecosystem["evening_end"]
-                }
-                await NycthemeralCycle.update_or_create(
-                    session, ecosystem_uid=payload["uid"], values=light_info)
-        self.logger.debug(
-            f"Logged light data from ecosystem(s): {humanize_list(ecosystems_to_log)}"
-        )
 
     # ---------------------------------------------------------------------------
     #   Events Api -> Aggregator

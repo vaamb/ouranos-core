@@ -1194,35 +1194,6 @@ class TestEcosystemBackground(HardwareAware):
         with pytest.raises(ValidationError):
             await events_handler.on_health_data(g_data.engine_sid, [wrong_payload])
 
-    async def test_on_light_data(
-            self,
-            mock_dispatcher: MockAsyncDispatcher,
-            events_handler: GaiaEvents,
-            db: AsyncSQLAlchemyWrapper,
-    ):
-        """Test handling of lighting schedule data.
-
-        Verifies that:
-        - Lighting schedule is correctly stored in the database
-        - Morning and evening time windows are properly saved
-        - Data is associated with the correct ecosystem
-        - Invalid payloads raise appropriate exceptions
-        """
-        await events_handler.on_light_data(g_data.engine_sid, [g_data.light_data_payload])
-
-        async with db.scoped_session() as session:
-            input_data = gv.LightData(**g_data.light_data)
-            light = await NycthemeralCycle.get(session, ecosystem_uid=g_data.ecosystem_uid)
-            assert light is not None
-            assert light.morning_start == input_data.morning_start
-            assert light.morning_end == input_data.morning_end
-            assert light.evening_start == input_data.evening_start
-            assert light.evening_end == input_data.evening_end
-
-        wrong_payload = {}
-        with pytest.raises(ValidationError):
-            await events_handler.on_light_data(g_data.engine_sid, [wrong_payload])
-
     async def test_turn_light(
             self,
             mock_dispatcher: MockAsyncDispatcher,
