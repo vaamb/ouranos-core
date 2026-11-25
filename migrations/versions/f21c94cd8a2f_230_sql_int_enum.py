@@ -38,7 +38,7 @@ def upgrade_ecosystems() -> None:
                               type_=SQLIntEnum(gv.WarningLevel),
                               existing_nullable=False,
                               existing_default=gv.WarningLevel.low)
-    with op.batch_alter_table('warnings') as batch_op:
+    with op.batch_alter_table('sensor_alarms') as batch_op:
         batch_op.alter_column('level',
                               existing_type=sa.VARCHAR(length=8),
                               type_=SQLIntEnum(gv.WarningLevel),
